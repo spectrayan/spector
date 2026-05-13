@@ -1,0 +1,58 @@
+Spector-Search
+Copyright 2026 Spectrayan
+
+This product includes software developed by
+Spectrayan (https://www.spectrayan.com/).
+
+================================================================================
+ATTRIBUTION NOTICE
+================================================================================
+
+This software is the original work of the Spectrayan team. If you use
+Spector-Search in your own projects, deployments, or services, you MUST
+provide visible attribution to the Spectrayan team. This attribution must
+include:
+
+  1. The text "Powered by Spector-Search" or "Built with Spector-Search" in
+     your application's documentation, about page, or equivalent visible
+     location.
+
+  2. A link to the Spector-Search GitHub repository:
+     https://github.com/spectrayan/spector-search
+
+================================================================================
+TRADEMARK POLICY
+================================================================================
+
+"Spector-Search", "Spectrayan", the Spectrayan logo, and associated branding
+are trademarks of Spectrayan. This license does NOT grant you permission to:
+
+  - Use the names "Spector-Search" or "Spectrayan" as your product name
+  - Present this software as your own original creation
+  - Remove or obscure the Spectrayan attribution notices
+  - Use the Spectrayan logos or branding in your own marketing materials
+  - Offer this software as a commercial SaaS product under a different brand
+    without prior written agreement from Spectrayan
+
+You MAY use the names "Spector-Search" and "Spectrayan" solely to:
+
+  - Describe that your software is based on or derived from Spector-Search
+  - Give credit to the original authors as required by this NOTICE file
+  - Link back to the official repository
+
+For trademark licensing inquiries: legal@spectrayan.com
+
+================================================================================
+THIRD-PARTY NOTICES
+================================================================================
+
+This product includes software developed by the following open-source projects:
+
+  - Javalin (https://javalin.io) — Apache 2.0
+  - Jackson (https://github.com/FasterXML/jackson) — Apache 2.0
+  - SLF4J (https://www.slf4j.org/) — MIT
+  - Logback (https://logback.qos.ch/) — EPL 1.0 / LGPL 2.1
+  - JUnit 5 (https://junit.org/junit5/) — EPL 2.0
+  - AssertJ (https://assertj.github.io/doc/) — Apache 2.0
+  - JMH (https://openjdk.java.net/projects/code-tools/jmh/) — GPL 2.0 + CE
+  - OpenJDK Vector API (https://openjdk.java.net/jeps/338) — GPL 2.0 + CE
