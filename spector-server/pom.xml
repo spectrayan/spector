@@ -38,6 +38,13 @@
             <artifactId>logback-classic</artifactId>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- Test: Javalin test tools -->
+        <dependency>
+            <groupId>io.javalin</groupId>
+            <artifactId>javalin-testtools</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
