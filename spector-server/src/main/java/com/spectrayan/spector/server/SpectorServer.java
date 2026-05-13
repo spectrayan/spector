@@ -93,6 +93,19 @@ public class SpectorServer {
     // ─────────────── Route Registration ───────────────
 
     private void registerRoutes() {
+        // ── Error handlers ──
+        app.exception(IllegalArgumentException.class, (e, ctx) -> {
+            ctx.status(400).json(Map.of("error", e.getMessage()));
+        });
+        app.exception(IllegalStateException.class, (e, ctx) -> {
+            ctx.status(409).json(Map.of("error", e.getMessage()));
+        });
+        app.exception(Exception.class, (e, ctx) -> {
+            log.error("Unhandled exception", e);
+            ctx.status(500).json(Map.of("error", "Internal server error"));
+        });
+
+        // ── Routes ──
         // Health check
         app.get("/health", ctx -> ctx.json(Map.of("status", "ok")));
 
