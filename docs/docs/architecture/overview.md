@@ -45,8 +45,8 @@ graph LR
     end
 ```
 
-!!! note
-    **Index sub-modules:** `hnsw/` (graph-based ANN), `ivf/` (inverted file + posting lists), `pq/` (product quantizer, K-Means++, ADC), `bm25/` (keyword scoring + analyzers)
+> [!NOTE]
+> **Index sub-modules:** `hnsw/` (graph-based ANN), `ivf/` (inverted file + posting lists), `pq/` (product quantizer, K-Means++, ADC), `bm25/` (keyword scoring + analyzers)
 
 ---
 
@@ -82,8 +82,8 @@ graph TD
 | `engine → embed-api` | Embedding generation |
 | `gpu → core, storage` | GPU operates on vectors and storage |
 
-!!! important
-    No circular dependencies. Each module defines clear interfaces at its boundary. You can depend on any module independently.
+> [!IMPORTANT]
+> No circular dependencies. Each module defines clear interfaces at its boundary. You can depend on any module independently.
 
 ---
 
@@ -152,8 +152,8 @@ sequenceDiagram
 
 Spector Search is designed from the ground up for Java virtual threads:
 
-!!! tip
-    **No `synchronized` blocks** anywhere in the codebase. All coordination uses `ReentrantLock` to avoid virtual thread pinning.
+> [!TIP]
+> **No `synchronized` blocks** anywhere in the codebase. All coordination uses `ReentrantLock` to avoid virtual thread pinning.
 
 | Operation | Threading Strategy |
 |-----------|-------------------|

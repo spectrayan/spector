@@ -48,6 +48,7 @@ theme:
 
 plugins:
   - search
+  - callouts
 
 markdown_extensions:
   - pymdownx.highlight:

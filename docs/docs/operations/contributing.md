@@ -35,8 +35,8 @@ java --add-modules jdk.incubator.vector -cp spector-core/target/classes \
   com.spectrayan.spector.core.SimdCapability
 ```
 
-!!! tip
-    The full build takes ~2 minutes. Use `mvn test -pl spector-core` to test a single module during development.
+> [!TIP]
+> The full build takes ~2 minutes. Use `mvn test -pl spector-core` to test a single module during development.
 
 ---
 
