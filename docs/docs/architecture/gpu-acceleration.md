@@ -89,8 +89,8 @@ var config = SpectorConfig.DEFAULT
 | `gpuBatchWindow` | 10 ms | 1–100 ms | Batching window for query collection |
 | `gpuMaxBatchSize` | 1024 | 1–1024 | Max queries per kernel launch |
 
-!!! tip
-    Set `gpuMemoryBudget` to ~70% of available GPU memory to leave room for other processes.
+> [!TIP]
+> Set `gpuMemoryBudget` to ~70% of available GPU memory to leave room for other processes.
 
 ---
 
@@ -180,8 +180,8 @@ graph TD
     D -->|Success| F["✅ Return GPU results"]
 ```
 
-!!! note
-    **No code changes required.** The same method signature returns results regardless of whether GPU or CPU executed the computation. Fallback is automatic and transparent.
+> [!NOTE]
+> **No code changes required.** The same method signature returns results regardless of whether GPU or CPU executed the computation. Fallback is automatic and transparent.
 
 **Fallback triggers:**
 - GPU not detected at startup
@@ -212,8 +212,8 @@ graph TD
 | 512 | 25.6 ms | 2.1 ms | **12.2×** |
 | 1024 | 51.2 ms | 3.5 ms | **14.6×** |
 
-!!! important
-    Results at 384 dimensions, 100K document vectors, RTX 4090. GPU breakeven point is around batch size 16–32.
+> [!IMPORTANT]
+> Results at 384 dimensions, 100K document vectors, RTX 4090. GPU breakeven point is around batch size 16–32.
 
 ---
 

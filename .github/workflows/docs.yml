@@ -30,7 +30,7 @@ jobs:
 
       - name: Install MkDocs and dependencies
         run: |
-          pip install mkdocs-material pymdown-extensions
+          pip install mkdocs-material pymdown-extensions mkdocs-callouts
 
       - name: Build documentation
         run: mkdocs build
