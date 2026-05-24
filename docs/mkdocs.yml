@@ -108,6 +108,7 @@ nav:
       - Understanding Quantization: deep-dives/understanding-quantization.md
       - Quantization Comparison: deep-dives/quantization-comparison.md
       - TurboQuant: deep-dives/turbo-quant.md
+      - Real-Embedding Benchmarks: deep-dives/real-embedding-benchmarks.md
       - "Whitepaper: VASQ + SpectorIndex": deep-dives/vasq-spectorindex-whitepaper.md
   - Reference:
       - REST API: api-reference/rest-endpoints.md

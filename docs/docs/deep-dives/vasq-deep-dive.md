@@ -248,6 +248,7 @@ The quantization error is now distributed uniformly across all dimensions (becau
 
 ## 🔗 See Also
 
+- [Large-Scale Benchmarks](real-embedding-benchmarks.md) — Empirical sweeps for real embeddings and HNSW shard promotions.
 - [Understanding Quantization](understanding-quantization.md) — All quantization techniques compared
 - [SpectorIndex Architecture](spector-index-architecture.md) — How VASQ fits into the IVF-HNSW index
 - [VASQ Whitepaper](vasq-spectorindex-whitepaper.md) — Academic treatment with proofs and benchmarks

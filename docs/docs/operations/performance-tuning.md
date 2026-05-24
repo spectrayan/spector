@@ -228,6 +228,9 @@ SpectorIndex uses IVF partitioning with adaptive HNSW shards. The two key parame
 > [!TIP]
 > With real embeddings (not random vectors), SpectorIndex achieves **perfect recall at nProbe=4** because real embeddings form natural semantic clusters that K-Means captures effectively. Start with `nProbe=4` and only increase if your recall target isn't met.
 
+> [!NOTE]
+> For the complete, empirical sweeps across multiple partition configurations ($C \in \{32, 64, 128, 256\}$) and detailed HNSW shard promotion benchmarks, see the dedicated [Large-Scale Benchmarks deep dive](../deep-dives/real-embedding-benchmarks.md).
+
 **Ingestion throughput** (SpectorIndex vs standalone HNSW):
 
 | Dataset Size | SpectorIndex | Standalone HNSW | Speedup |
@@ -295,6 +298,8 @@ java \
 - [Core Concepts](../architecture/core-concepts.md) — How algorithms affect performance
 
 - [SpectorIndex Architecture](../deep-dives/spector-index-architecture.md) — IVF-HNSW-VASQ design and tuning
+
+- [Large-Scale Benchmarks](../deep-dives/real-embedding-benchmarks.md) — Empirical sweeps for real embeddings and shard promotions
 
 - [VASQ Quantization](../deep-dives/vasq-deep-dive.md) — How VASQ compression works
 
