@@ -68,7 +68,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.0</version>
                 <configuration>
-                    <mainClass>com.spectrayan.spector.bench.PerformanceTestRunner</mainClass>
+                    <mainClass>com.spectrayan.spector.bench.IndustryBenchmark</mainClass>
                     <arguments/>
                     <systemProperties>
                         <systemProperty>

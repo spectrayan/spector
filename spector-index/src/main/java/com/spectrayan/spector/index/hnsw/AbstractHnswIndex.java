@@ -1,14 +1,15 @@
 package com.spectrayan.spector.index;
 
-import com.spectrayan.spector.core.SimilarityFunction;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.core.SimilarityFunction;
 
 /**
  * Abstract base class for HNSW (Hierarchical Navigable Small World) indexes.
@@ -56,7 +57,9 @@ public abstract class AbstractHnswIndex implements VectorIndex {
     protected volatile int maxLevel = -1;
 
     // ── Concurrency ──
-    protected final ReentrantLock writeLock = new ReentrantLock();
+    protected final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+    protected final ReentrantReadWriteLock.WriteLock writeLock = rwLock.writeLock();
+    protected final ReentrantReadWriteLock.ReadLock readLock = rwLock.readLock();
 
     /**
      * Creates the HNSW graph structure.
@@ -202,26 +205,31 @@ public abstract class AbstractHnswIndex implements VectorIndex {
             return new ScoredResult[0];
         }
 
-        int ef = Math.max(k, params.efSearch());
-        int currentNode = entryPoint;
+        readLock.lock();
+        try {
+            int ef = Math.max(k, params.efSearch());
+            int currentNode = entryPoint;
 
-        // Phase 1: Greedy descent through upper layers
-        for (int lc = maxLevel; lc > 0; lc--) {
-            currentNode = greedyClosest(query, currentNode, lc);
+            // Phase 1: Greedy descent through upper layers
+            for (int lc = maxLevel; lc > 0; lc--) {
+                currentNode = greedyClosest(query, currentNode, lc);
+            }
+
+            // Phase 2: Search at layer 0 with ef candidates
+            NeighborQueue candidates = searchLayer(query, currentNode, ef, 0);
+
+            // Extract top-K results
+            boolean higherIsBetter = similarityFunction.higherIsBetter();
+            ScoredResult[] results = candidates.toSortedResults(ids, higherIsBetter);
+
+            // Trim to k
+            if (results.length > k) {
+                results = Arrays.copyOf(results, k);
+            }
+            return results;
+        } finally {
+            readLock.unlock();
         }
-
-        // Phase 2: Search at layer 0 with ef candidates
-        NeighborQueue candidates = searchLayer(query, currentNode, ef, 0);
-
-        // Extract top-K results
-        boolean higherIsBetter = similarityFunction.higherIsBetter();
-        ScoredResult[] results = candidates.toSortedResults(ids, higherIsBetter);
-
-        // Trim to k
-        if (results.length > k) {
-            results = Arrays.copyOf(results, k);
-        }
-        return results;
     }
 
     @Override
@@ -267,6 +275,9 @@ public abstract class AbstractHnswIndex implements VectorIndex {
     /**
      * Beam search at a specific layer — returns candidates as a max-heap
      * (worst score on top for bounded eviction).
+     *
+     * <p>Optimized: batches unvisited neighbor collection before computing
+     * distances, improving cache prefetch behavior for the vector store.</p>
      */
     protected NeighborQueue searchLayer(float[] query, int entryNode, int ef, int layer) {
         int currentNodeCount = nodeCount;
@@ -279,6 +290,9 @@ public abstract class AbstractHnswIndex implements VectorIndex {
         workQueue.add(entryNode, entryDist);
         visited.set(entryNode);
 
+        // Reusable buffer for unvisited neighbors (avoids allocation per iteration)
+        int[] unvisitedBuf = new int[params.maxLevel0Connections() * 2];
+
         while (!workQueue.isEmpty()) {
             float currentDist = workQueue.topScore();
             int current = workQueue.poll();
@@ -288,14 +302,26 @@ public abstract class AbstractHnswIndex implements VectorIndex {
             }
 
             int[] nbrs = getNeighbors(current, layer);
+
+            // Batch: collect unvisited neighbors first
+            int unvisitedCount = 0;
             for (int neighbor : nbrs) {
                 if (!visited.get(neighbor)) {
                     visited.set(neighbor);
-                    float dist = computeDistance(query, neighbor);
-                    if (candidates.size() < ef || isBetter(dist, candidates.topScore())) {
-                        candidates.add(neighbor, dist);
-                        workQueue.add(neighbor, dist);
+                    if (unvisitedCount >= unvisitedBuf.length) {
+                        unvisitedBuf = Arrays.copyOf(unvisitedBuf, unvisitedBuf.length * 2);
                     }
+                    unvisitedBuf[unvisitedCount++] = neighbor;
+                }
+            }
+
+            // Compute distances for all unvisited neighbors in a tight loop
+            for (int i = 0; i < unvisitedCount; i++) {
+                int neighbor = unvisitedBuf[i];
+                float dist = computeDistance(query, neighbor);
+                if (candidates.size() < ef || isBetter(dist, candidates.topScore())) {
+                    candidates.add(neighbor, dist);
+                    workQueue.add(neighbor, dist);
                 }
             }
         }
