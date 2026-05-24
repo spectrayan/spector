@@ -33,6 +33,7 @@ graph LR
 | **📝 Keyword Search** | BM25 scoring with term frequency saturation | Exact term matching |
 | **🧬 Hybrid Search** | Combines both via Reciprocal Rank Fusion | Best-of-both-worlds |
 | **🤖 RAG Pipeline** | Ingest → chunk → embed → retrieve → context assembly | LLM applications |
+| **🏛️ SpectorIndex** | IVF-HNSW-VASQ adaptive hybrid index | Scale + recall |
 
 ---
 
@@ -56,7 +57,7 @@ Unlike most vector databases that rely on C++, Rust, or Python bindings, Spector
 
 ### ⚡ Sub-Millisecond at Scale
 
-At 100K documents (128 dimensions, top-10, HNSW M=16, efSearch=64):
+**HNSW** at 100K documents (128 dimensions, top-10, M=16, efSearch=64):
 
 | Search Type | Average Latency | Throughput |
 |-------------|----------------|------------|
@@ -64,16 +65,16 @@ At 100K documents (128 dimensions, top-10, HNSW M=16, efSearch=64):
 | Keyword | **0.98 ms** | 1,019 QPS |
 | Hybrid | **1.01 ms** | 994 QPS |
 
-At 10K documents (same config):
+**SpectorIndex (IVF-HNSW-VASQ)** at 10K documents (4096-dim real Qwen3 embeddings):
 
-| Search Type | Average Latency | Throughput |
-|-------------|----------------|------------|
-| Vector | **0.05 ms** | 18,824 QPS |
-| Keyword | **0.19 ms** | 5,194 QPS |
-| Hybrid | **0.17 ms** | 5,828 QPS |
+| Config | Average Latency | Throughput | Recall@10 |
+|--------|----------------|------------|----------|
+| nCentroids=128, nProbe=4 | **0.46 ms** | **2,173 QPS** | **1.0000** |
+| nCentroids=64, nProbe=4 | **0.62 ms** | 1,601 QPS | **1.0000** |
+| nCentroids=128, nProbe=16 | **1.26 ms** | 792 QPS | **1.0000** |
 
 > [!NOTE]
-> Latency scales with dataset size and vector dimensions. 384-dim vectors take ~2.5× longer than 128-dim due to SIMD distance computation cost. All numbers measured on 24-core x86, AVX2, Java 25, ZGC with realistic clustered vectors.
+> SpectorIndex achieves **perfect recall while searching only 3.1% of the data** (nProbe=4 out of 128 centroids). Ingestion is 28–160× faster than standalone HNSW. Numbers measured on 24-core x86, AVX2, Java 25, ZGC with Qwen3-embedding real vectors.
 
 ### 🏠 Dual Deployment Modes
 
@@ -82,12 +83,15 @@ At 10K documents (same config):
 | **Embedded** | In-process library, zero network overhead | Microservices, desktop apps, edge |
 | **Server** | REST API with CORS, auth, and metrics | Teams, multi-language clients |
 
-### 🗜️ IVF-PQ Compression
+### 🗜️ Advanced Quantization (VASQ + IVF-PQ)
 
-Product quantization provides **32× memory compression** for billion-scale datasets while maintaining high recall.
+Spector offers two quantization paths:
+
+- **VASQ (Vectorized Affine Scalar Quantization):** Uses the Fast Walsh-Hadamard Transform to spread variance before INT8 quantization, achieving **4× compression with near-lossless recall** (~97–99.5%). Used inside SpectorIndex shards.
+- **IVF-PQ (Product Quantization):** Provides **32× memory compression** for billion-scale datasets.
 
 > [!IMPORTANT]
-> This means you can index **1 billion vectors** in the memory that would normally hold 31 million uncompressed vectors.
+> VASQ gives INT8 the precision of INT12–16 by rotating vectors before quantization. See the [VASQ Deep Dive](deep-dives/vasq-deep-dive.md) for the full theory.
 
 ---
 

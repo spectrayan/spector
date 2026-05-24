@@ -205,6 +205,39 @@ var config = SpectorConfig.DEFAULT
 | 16 | ~92% | 16× |
 | 32 | ~97% | 32× |
 
+### SpectorIndex (IVF-HNSW-VASQ): nCentroids vs nProbe
+
+SpectorIndex uses IVF partitioning with adaptive HNSW shards. The two key parameters are:
+
+- **`nCentroids`** — number of K-Means partitions (set at training time)
+- **`nProbe`** — number of partitions searched at query time (adjustable)
+
+**Rule of thumb:** `nCentroids ≈ √N` (square root of dataset size).
+
+**Real embedding results (Qwen3-embedding, 4096-dim, 10K vectors):**
+
+| nCentroids | nProbe | % Data Searched | Avg Latency | QPS | Recall@10 |
+|------------|--------|-----------------|-------------|-----|-----------|
+| **128** | **4** | **3.1%** | **0.46ms** | **2,173** | **1.0000** |
+| 128 | 8 | 6.3% | 0.73ms | 1,368 | 1.0000 |
+| 128 | 16 | 12.5% | 1.26ms | 792 | 1.0000 |
+| 64 | 4 | 6.3% | 0.62ms | 1,601 | 1.0000 |
+| 64 | 8 | 12.5% | 1.17ms | 856 | 1.0000 |
+| 32 | 4 | 12.5% | 1.17ms | 857 | 1.0000 |
+
+> [!TIP]
+> With real embeddings (not random vectors), SpectorIndex achieves **perfect recall at nProbe=4** because real embeddings form natural semantic clusters that K-Means captures effectively. Start with `nProbe=4` and only increase if your recall target isn't met.
+
+**Ingestion throughput** (SpectorIndex vs standalone HNSW):
+
+| Dataset Size | SpectorIndex | Standalone HNSW | Speedup |
+|-------------|-------------|-----------------|---------|
+| 10K | 130K docs/s | 4,677 docs/s | **28×** |
+| 50K | 140K docs/s | 2,483 docs/s | **56×** |
+| 100K | 150K docs/s | 1,535 docs/s | **98×** |
+| 500K | 246K docs/s | — | — |
+| 1M | 128K docs/s | — | — |
+
 ---
 
 ## 📐 Scaling Strategies
@@ -260,6 +293,10 @@ java \
 - [Configuration Guide](../configuration/parameters.md) — All parameters with ranges
 
 - [Core Concepts](../architecture/core-concepts.md) — How algorithms affect performance
+
+- [SpectorIndex Architecture](../deep-dives/spector-index-architecture.md) — IVF-HNSW-VASQ design and tuning
+
+- [VASQ Quantization](../deep-dives/vasq-deep-dive.md) — How VASQ compression works
 
 - [GPU Acceleration](../architecture/gpu-acceleration.md) — GPU-specific performance
 
