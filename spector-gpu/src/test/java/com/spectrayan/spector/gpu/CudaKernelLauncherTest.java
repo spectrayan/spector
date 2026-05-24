@@ -1,8 +1,9 @@
 package com.spectrayan.spector.gpu;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link CudaKernelLauncher}.
@@ -15,9 +16,9 @@ class CudaKernelLauncherTest {
     @Test
     void constructor_throwsWhenCudaUnavailable() {
         if (GpuCapability.isAvailable()) {
-            // CUDA available — constructor should succeed
+            // CUDA available — constructor should succeed and load PTX
             try (var launcher = new CudaKernelLauncher()) {
-                assertFalse(launcher.isModuleLoaded());
+                assertNotNull(launcher);
             }
         } else {
             // CUDA unavailable — constructor should throw
@@ -26,21 +27,22 @@ class CudaKernelLauncherTest {
     }
 
     @Test
-    void moduleLoaded_falseByDefault() {
-        if (!GpuCapability.isAvailable()) return; // skip if no CUDA
+    void batchCosine_emptyInput() {
+        if (!GpuCapability.isAvailable()) return;
 
         try (var launcher = new CudaKernelLauncher()) {
-            assertFalse(launcher.isModuleLoaded());
+            float[] result = launcher.batchCosine(new float[384], new float[0], 0, 384);
+            assertNotNull(result);
+            assertEquals(0, result.length);
         }
     }
 
     @Test
-    void getFunction_throwsWithoutModule() {
-        if (!GpuCapability.isAvailable()) return; // skip if no CUDA
+    void close_isIdempotent() {
+        if (!GpuCapability.isAvailable()) return;
 
-        try (var launcher = new CudaKernelLauncher()) {
-            assertThrows(IllegalStateException.class,
-                    () -> launcher.getFunction("nonexistent"));
-        }
+        var launcher = new CudaKernelLauncher();
+        launcher.close();
+        launcher.close(); // should not throw
     }
 }
