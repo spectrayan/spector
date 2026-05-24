@@ -2,7 +2,7 @@
 
 > **Ultra-fast, SIMD-accelerated semantic search engine built on Java Vector API + modern JVM technologies.**
 
-Welcome to the Spector Search wiki — your central hub for everything about the fastest pure-Java vector search engine on the planet. Whether you're building RAG pipelines, powering recommendation systems, or need sub-millisecond hybrid search with zero infrastructure, you're in the right place.
+Welcome to the Spector Search wiki — your central hub for everything about Spector Search, a high-performance pure-Java vector search engine. Whether you're building RAG pipelines, powering recommendation systems, or need sub-millisecond search with zero infrastructure, you're in the right place.
 
 ---
 
@@ -10,11 +10,11 @@ Welcome to the Spector Search wiki — your central hub for everything about the
 
 | Metric | Value |
 |--------|-------|
-| ⚡ Vector Search Latency | **0.05 ms** avg @ 100K docs |
-| 🔍 Keyword Search Latency | **0.60 ms** avg @ 100K docs |
-| 🧬 Hybrid Search Latency | **0.47 ms** avg @ 100K docs |
-| 🚀 Vector Throughput | **20K+ queries/sec** |
-| 🧵 Concurrent Hybrid | **18K+ ops/sec** @ 16 threads |
+| ⚡ Vector Search Latency | **0.07 ms** avg @ 100K docs |
+| 🔍 Keyword Search Latency | **0.61 ms** avg @ 100K docs |
+| 🧬 Hybrid Search Latency | **0.66 ms** avg @ 100K docs |
+| 🚀 Vector Throughput | **14,700+ queries/sec** |
+| 🧵 Concurrent Hybrid | **17,700+ ops/sec** @ 16 threads |
 | 🗜️ IVF-PQ Compression | **32× memory reduction** |
 | ✅ Test Suite | **316+ tests**, all passing |
 | 📦 Dependencies | **Zero** (JDK only) |
