@@ -272,6 +272,7 @@ When combining FWHT with IVF, the order matters:
 
 ## 🔗 See Also
 
+- [Large-Scale Benchmarks](real-embedding-benchmarks.md) — Empirical sweeps for real embeddings and HNSW shard promotions.
 - [VASQ Deep Dive](vasq-deep-dive.md) — How VASQ quantization works in detail
 - [HNSW Explained](hnsw-explained.md) — How the graph search algorithm works
 - [ANN Search Primer](ann-search-primer.md) — Overview of all ANN algorithm families

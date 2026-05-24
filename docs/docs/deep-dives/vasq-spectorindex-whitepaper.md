@@ -205,6 +205,9 @@ The 26% recall loss before the fix was caused by using cosine similarity (not tr
 
 ### 5.4 Real-Embedding Validation (Qwen3-embedding, 4096-dim)
 
+> [!NOTE]
+> For the comprehensive, empirical sweeps across multiple coarse partition configurations ($C \in \{32, 64, 128, 256\}$) and deep analyses of HNSW shard promotions, refer to the dedicated [Large-Scale Real-Embedding Benchmarks page](real-embedding-benchmarks.md).
+
 To validate the architecture with structured data, we embedded 10,000 diverse sentences (8 topic categories) using Qwen3-embedding (4096 dimensions) via local Ollama inference.
 
 **Result: recall@10 = 1.0000 across ALL configurations tested.**

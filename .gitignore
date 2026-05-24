@@ -39,6 +39,7 @@ logs/
 *.mmap
 *.vec
 *.dat
+embedding-cache/
 
 # ──────────── Documentation build ────────────
 docs/site/
