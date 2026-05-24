@@ -60,9 +60,9 @@ At 100K documents (128 dimensions, top-10):
 
 | Search Type | Average Latency | Throughput |
 |-------------|----------------|------------|
-| Vector | **0.05 ms** | 20,246 QPS |
-| Keyword | **0.60 ms** | 1,679 QPS |
-| Hybrid | **0.47 ms** | 2,143 QPS |
+| Vector | **0.07 ms** | 14,717 QPS |
+| Keyword | **0.61 ms** | 1,651 QPS |
+| Hybrid | **0.66 ms** | 1,519 QPS |
 
 ### 🏠 Dual Deployment Modes
 
@@ -86,13 +86,16 @@ Product quantization provides **32× memory compression** for billion-scale data
 
 | Engine | Language | Vector Avg | Vector P99 |
 |--------|----------|-----------|-----------|
-| **⚡ Spector Search** | **Java 25** | **0.05 ms** | **0.06 ms** |
+| **⚡ Spector Search** | **Java 25** | **0.07 ms** | **0.15 ms** |
 | hnswlib | C++ | 0.1–0.5 ms | ~1 ms |
 | FAISS | C++ | 0.2–0.8 ms | 1–2 ms |
 | Lucene 9+ | Java | 1–5 ms | 5–10 ms |
 | Elasticsearch 8+ | Java | 2–10 ms | 10–25 ms |
 | Qdrant | Rust | 2–5 ms | 10–25 ms |
 | Milvus | Go/C++ | 3–10 ms | 10–35 ms |
+
+> [!NOTE]
+> Spector's vector search latency is competitive with native C++ implementations (hnswlib, FAISS) for in-process workloads. Numbers for external systems are from published benchmarks and ann-benchmarks.com. Hardware and configuration differences apply — these are directional comparisons, not controlled A/B tests.
 
 ### Feature Comparison
 
