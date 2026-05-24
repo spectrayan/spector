@@ -1,7 +1,7 @@
 package com.spectrayan.spector.storage;
 
-import com.spectrayan.spector.core.QuantizationType;
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.quantization.QuantizationType;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

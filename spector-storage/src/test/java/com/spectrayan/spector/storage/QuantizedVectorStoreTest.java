@@ -7,11 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.core.CrumbPacker;
-import com.spectrayan.spector.core.NibblePacker;
-import com.spectrayan.spector.core.NonUniformQuantizer;
-import com.spectrayan.spector.core.QuantizationType;
-import com.spectrayan.spector.core.ScalarQuantizer;
+import com.spectrayan.spector.core.quantization.CrumbPacker;
+import com.spectrayan.spector.core.quantization.NibblePacker;
+import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
+import com.spectrayan.spector.core.quantization.QuantizationType;
+import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 
 /**
  * Tests for {@link QuantizedVectorStore} covering INT8 backward compatibility,

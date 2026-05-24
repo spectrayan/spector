@@ -1,4 +1,5 @@
-package com.spectrayan.spector.core;
+package com.spectrayan.spector.core.similarity;
+import com.spectrayan.spector.core.simd.SimdCapability;
 
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorMask;

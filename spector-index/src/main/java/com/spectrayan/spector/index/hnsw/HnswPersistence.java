@@ -3,7 +3,7 @@ package com.spectrayan.spector.index;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
  * Interface for HNSW index binary persistence.

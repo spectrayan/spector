@@ -1,5 +1,8 @@
 package com.spectrayan.spector.core;
 
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.VectorOps;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 

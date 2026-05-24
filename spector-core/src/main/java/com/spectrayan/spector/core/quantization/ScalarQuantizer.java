@@ -1,4 +1,4 @@
-package com.spectrayan.spector.core;
+package com.spectrayan.spector.core.quantization;
 
 import java.util.Arrays;
 

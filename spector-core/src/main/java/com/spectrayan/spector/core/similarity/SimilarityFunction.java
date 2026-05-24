@@ -1,4 +1,4 @@
-package com.spectrayan.spector.core;
+package com.spectrayan.spector.core.similarity;
 
 /**
  * Enumerates the supported distance/similarity functions.

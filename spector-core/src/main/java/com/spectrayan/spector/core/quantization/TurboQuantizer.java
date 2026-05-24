@@ -1,6 +1,8 @@
-package com.spectrayan.spector.core;
+package com.spectrayan.spector.core.quantization;
 
 import java.util.Arrays;
+
+import com.spectrayan.spector.core.simd.RandomRotation;
 
 /**
  * TurboQuant quantizer — random rotation + optimal scalar quantization.

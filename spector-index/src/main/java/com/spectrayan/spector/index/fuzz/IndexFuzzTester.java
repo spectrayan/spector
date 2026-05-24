@@ -18,7 +18,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.index.HnswParams;
 import com.spectrayan.spector.index.ivf.IvfFlatIndex;

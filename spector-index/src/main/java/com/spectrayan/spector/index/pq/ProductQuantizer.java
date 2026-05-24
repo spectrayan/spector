@@ -1,6 +1,6 @@
 package com.spectrayan.spector.index.pq;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import java.util.Arrays;
 import java.util.Random;

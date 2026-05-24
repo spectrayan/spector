@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.core.QuantizationType;
+import com.spectrayan.spector.core.quantization.QuantizationType;
 
 /**
  * Unit tests for SpectorConfig rescore/oversampling factor support.

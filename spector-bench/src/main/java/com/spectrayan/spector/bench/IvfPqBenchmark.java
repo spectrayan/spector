@@ -1,6 +1,6 @@
 package com.spectrayan.spector.bench;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.ivf.IvfPqIndex;
 import com.spectrayan.spector.index.pq.ProductQuantizer;

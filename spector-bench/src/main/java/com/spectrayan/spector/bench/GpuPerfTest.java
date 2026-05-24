@@ -2,7 +2,7 @@ package com.spectrayan.spector.bench;
 
 import java.util.Random;
 
-import com.spectrayan.spector.core.CosineSimilarity;
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.gpu.CudaKernelLauncher;
 import com.spectrayan.spector.gpu.GpuBatchSimilarity;
 import com.spectrayan.spector.gpu.GpuCapability;

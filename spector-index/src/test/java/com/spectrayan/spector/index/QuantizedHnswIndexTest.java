@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.core.NonUniformQuantizer;
-import com.spectrayan.spector.core.QuantizationType;
-import com.spectrayan.spector.core.ScalarQuantizer;
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
+import com.spectrayan.spector.core.quantization.QuantizationType;
+import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
  * Tests for {@link QuantizedHnswIndex} — quantized search with re-ranking.
@@ -28,7 +28,7 @@ class QuantizedHnswIndexTest {
         }
 
         // Pre-calibrate so quantized path is used
-        var sq = com.spectrayan.spector.core.ScalarQuantizer.calibrate(vectors, dims);
+        var sq = com.spectrayan.spector.core.quantization.ScalarQuantizer.calibrate(vectors, dims);
         var index = new QuantizedHnswIndex(dims, 100,
                 SimilarityFunction.COSINE, HnswParams.DEFAULT, sq);
 

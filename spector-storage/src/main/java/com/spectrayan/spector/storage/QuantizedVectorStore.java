@@ -11,12 +11,12 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.core.CrumbPacker;
-import com.spectrayan.spector.core.NibblePacker;
-import com.spectrayan.spector.core.NonUniformQuantizer;
-import com.spectrayan.spector.core.QuantizationType;
-import com.spectrayan.spector.core.ScalarQuantizer;
-import com.spectrayan.spector.core.TurboQuantizer;
+import com.spectrayan.spector.core.quantization.CrumbPacker;
+import com.spectrayan.spector.core.quantization.NibblePacker;
+import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
+import com.spectrayan.spector.core.quantization.QuantizationType;
+import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.quantization.TurboQuantizer;
 
 /**
  * Off-heap vector store that stores quantized vectors via Panama {@link MemorySegment}.

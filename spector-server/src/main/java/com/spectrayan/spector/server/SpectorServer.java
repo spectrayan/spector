@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.spectrayan.spector.core.SimdCapability;
+import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.engine.SpectorConfig;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.query.SearchQuery;

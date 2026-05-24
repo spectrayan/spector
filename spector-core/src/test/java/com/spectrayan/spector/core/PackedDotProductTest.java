@@ -1,5 +1,9 @@
 package com.spectrayan.spector.core;
 
+import com.spectrayan.spector.core.similarity.PackedDotProduct;
+import com.spectrayan.spector.core.quantization.NibblePacker;
+import com.spectrayan.spector.core.quantization.CrumbPacker;
+
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;

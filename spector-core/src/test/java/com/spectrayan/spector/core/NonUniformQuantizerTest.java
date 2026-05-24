@@ -1,5 +1,7 @@
 package com.spectrayan.spector.core;
 
+import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

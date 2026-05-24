@@ -1,5 +1,7 @@
 package com.spectrayan.spector.core;
 
+import com.spectrayan.spector.core.similarity.EuclideanDistance;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 

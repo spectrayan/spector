@@ -16,9 +16,9 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
-import com.spectrayan.spector.core.CosineSimilarity;
-import com.spectrayan.spector.core.DotProduct;
-import com.spectrayan.spector.core.EuclideanDistance;
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
+import com.spectrayan.spector.core.similarity.DotProduct;
+import com.spectrayan.spector.core.similarity.EuclideanDistance;
 
 /**
  * JMH benchmarks for SIMD similarity kernels.

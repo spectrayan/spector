@@ -1,6 +1,6 @@
 package com.spectrayan.spector.index;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
  * Interface for a vector similarity index.
