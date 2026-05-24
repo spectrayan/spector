@@ -1,35 +1,49 @@
 package com.spectrayan.spector.index;
 
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.util.Arrays;
 import java.util.BitSet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.core.quantization.CrumbPacker;
-import com.spectrayan.spector.core.quantization.NibblePacker;
 import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
-import com.spectrayan.spector.core.similarity.PackedDotProduct;
 import com.spectrayan.spector.core.quantization.QuantizationType;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.quantization.strategy.DistanceContext;
+import com.spectrayan.spector.core.quantization.strategy.QuantizationStrategy;
+import com.spectrayan.spector.core.quantization.strategy.QuantizationStrategyFactory;
+import com.spectrayan.spector.core.quantization.strategy.VasqStrategy;
+import com.spectrayan.spector.core.quantization.vasq.VasqCalibrator;
+import com.spectrayan.spector.core.quantization.vasq.VasqEncoder;
+import com.spectrayan.spector.core.quantization.vasq.VasqParams;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
- * HNSW vector index with scalar quantization (INT8, INT4, INT2) support.
+ * HNSW vector index with scalar quantization (INT8, INT4, INT2, VASQ) support.
  *
  * <p>Uses a two-phase search strategy for optimal speed/recall tradeoff:</p>
  * <ol>
  *   <li><b>Coarse search</b> — traverses the HNSW graph using quantized
- *       distances (INT8 linear, or INT4/INT2 packed dot product via SIMD)</li>
+ *       distances via the {@link QuantizationStrategy} SPI</li>
  *   <li><b>Re-ranking</b> — recomputes exact float32 distances for the top
  *       candidates to restore full-precision recall</li>
  * </ol>
  *
+ * <h3>Design — Strategy Pattern</h3>
+ * <p>All quantization-type-specific logic ({@code encode}, {@code decode}, {@code distance})
+ * is delegated to a single {@link QuantizationStrategy} instance created by
+ * {@link QuantizationStrategyFactory}. This eliminates the switch/if-else dispatch
+ * chains that previously existed in this class. Adding a new quantization type requires
+ * only a new strategy implementation — this class does not change.</p>
+ *
  * <h3>Quantization Types</h3>
  * <ul>
- *   <li><b>INT8</b> — one byte per dimension, linear min/max calibration (4× compression)</li>
- *   <li><b>INT4</b> — nibble-packed (2 values/byte), non-uniform quantile calibration (8× compression)</li>
- *   <li><b>INT2</b> — crumb-packed (4 values/byte), non-uniform quantile calibration (16× compression)</li>
+ *   <li><b>INT8</b> — one byte per dimension, auto-calibrated after first N vectors (4× compression)</li>
+ *   <li><b>INT4</b> — nibble-packed, calibrated from NonUniformQuantizer (8× compression)</li>
+ *   <li><b>INT2</b> — crumb-packed, calibrated from NonUniformQuantizer (16× compression)</li>
+ *   <li><b>VASQ</b> — FWHT-rotated INT8, off-heap Panama SIMD kernel, auto-calibrated</li>
  * </ul>
  *
  * <h3>Rescore Strategy</h3>
@@ -37,9 +51,15 @@ import com.spectrayan.spector.core.similarity.SimilarityFunction;
  * {@code oversamplingFactor × k} candidates using fast quantized distance,
  * then rescores them with exact float32 distances to return the true top-K.</p>
  *
+ * <h3>Calibration</h3>
+ * <p>For INT8 and VASQ: calibration is deferred. Vectors inserted before calibration
+ * are buffered and retroactively encoded after auto-calibration triggers at
+ * {@link #CALIBRATION_SAMPLE_SIZE} vectors. For INT4/INT2: the NonUniformQuantizer
+ * must be pre-calibrated and provided at construction time.</p>
+ *
  * @see AbstractHnswIndex
  * @see HnswIndex
- * @see PackedDotProduct
+ * @see QuantizationStrategy
  */
 public class QuantizedHnswIndex extends AbstractHnswIndex {
 
@@ -48,22 +68,45 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
     /** Number of vectors to buffer before auto-calibrating the quantizer. */
     private static final int CALIBRATION_SAMPLE_SIZE = 10_000;
 
-    // ── Vector storage ──
-    private final float[][] floatVectors;      // kept for re-ranking and construction
-    private final byte[][] quantizedVectors;   // quantized for fast graph traversal
+    // ── Vector storage (float32 kept for re-ranking and HNSW graph construction) ──
+    private final float[][] floatVectors;
 
-    // ── Quantizer state (INT8) ──
-    private volatile ScalarQuantizer quantizer;
+    // ── Unified off-heap storage (all quantization types) ──
+    /** Off-heap segment storing all quantized vectors. Null until the first calibration. */
+    private volatile MemorySegment storageSegment;
+    private Arena storageArena;
+
+    // ── Calibration state ──
+    private final QuantizationType quantizationType;
     private float[][] calibrationBuffer;
     private int calibrationCount;
 
-    // ── Quantizer state (INT4/INT2) ──
-    private final QuantizationType quantizationType;
-    private final NonUniformQuantizer nonUniformQuantizer;
-    private final float[] globalCentroids; // averaged centroids for PackedDotProduct
+    /**
+     * The active quantization strategy. Null before calibration completes (for auto-calibrate types).
+     * Set atomically after calibration by {@link #calibrate()} or {@link #calibrateVasq()}.
+     * For pre-calibrated types (INT4/INT2), set at construction.
+     */
+    private volatile QuantizationStrategy strategy;
+
+    /**
+     * Per-search distance context. Created locally inside {@link #searchLayerQuantized}
+     * and passed as a parameter — never stored as an instance field. This keeps
+     * concurrent reads on the same index safe (each search uses its own context).
+     */
+    // NOTE: currentQueryContext was previously a mutable instance field, which made
+    // concurrent searches on the same QuantizedHnswIndex unsafe despite AbstractHnswIndex's
+    // readLock. It has been moved to a method-local variable in searchLayerQuantized().
 
     // ── Rescore configuration ──
     private final int oversamplingFactor;
+
+    // ── Retained for backward-compat accessors ──
+    private volatile ScalarQuantizer quantizer;
+    private final NonUniformQuantizer nonUniformQuantizer;
+    private volatile VasqEncoder vasqEncoder;
+    private final long vasqSeed;
+
+    // ─────────────── Constructors ───────────────
 
     /**
      * Creates a quantized HNSW index with a pre-calibrated INT8 quantizer.
@@ -91,7 +134,58 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
     }
 
     /**
-     * Creates a quantized HNSW index supporting INT8, INT4, or INT2 quantization
+     * Creates a VASQ HNSW index with auto-calibration.
+     *
+     * <p>VASQ calibration happens automatically when the first {@link #CALIBRATION_SAMPLE_SIZE}
+     * vectors are inserted. All vectors (including those inserted before calibration) are
+     * retroactively encoded after calibration.</p>
+     *
+     * @param dimensions           vector dimensionality
+     * @param capacity             max vectors
+     * @param similarityFunction   distance metric
+     * @param params               HNSW parameters
+     * @param oversamplingFactor   rescore oversampling (1 = no rescore, 3 = recommended for VASQ)
+     */
+    public static QuantizedHnswIndex vasq(int dimensions, int capacity,
+                                           SimilarityFunction similarityFunction,
+                                           HnswParams params, int oversamplingFactor) {
+        return new QuantizedHnswIndex(dimensions, capacity, similarityFunction, params,
+                null, QuantizationType.VASQ, null, oversamplingFactor);
+    }
+
+    /**
+     * Creates a VASQ-quantized HNSW index with a <em>pre-calibrated</em> {@link VasqStrategy}.
+     *
+     * <p>Unlike {@link #vasq} (which auto-calibrates on the first
+     * {@link #CALIBRATION_SAMPLE_SIZE} inserted vectors), this variant accepts a
+     * {@link VasqStrategy} calibrated externally — typically on the full residual buffer
+     * of a {@link com.spectrayan.spector.index.spectrum.SpectorShard} at promotion time.
+     * This gives tighter quantization bounds because all residuals participate in
+     * calibration, not just the first 10K.</p>
+     *
+     * <p>The strategy is active from the very first {@link #add} call — no buffering
+     * phase occurs and the off-heap segment is allocated immediately.</p>
+     *
+     * @param dimensions           vector dimensionality
+     * @param capacity             max vectors
+     * @param similarityFunction   distance metric
+     * @param params               HNSW parameters
+     * @param preCalibrated        a fully built {@link VasqStrategy} (non-null)
+     * @param oversamplingFactor   rescore oversampling (1 = no rescore, 3 = recommended)
+     * @throws NullPointerException if {@code preCalibrated} is null
+     */
+    public static QuantizedHnswIndex vasqPreCalibrated(int dimensions, int capacity,
+                                                        SimilarityFunction similarityFunction,
+                                                        HnswParams params,
+                                                        VasqStrategy preCalibrated,
+                                                        int oversamplingFactor) {
+        if (preCalibrated == null) throw new NullPointerException("preCalibrated VasqStrategy must not be null");
+        return new QuantizedHnswIndex(dimensions, capacity, similarityFunction, params,
+                preCalibrated, oversamplingFactor);
+    }
+
+    /**
+     * Creates a quantized HNSW index supporting INT8, INT4, INT2, or VASQ quantization
      * with configurable rescore oversampling.
      *
      * @param dimensions           vector dimensionality
@@ -99,9 +193,9 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      * @param similarityFunction   distance metric
      * @param params               HNSW parameters
      * @param quantizer            pre-calibrated INT8 quantizer (null for auto-calibrate; ignored for INT4/INT2)
-     * @param quantizationType     quantization type (SCALAR_INT8, SCALAR_INT4, or SCALAR_INT2)
-     * @param nonUniformQuantizer  calibrated non-uniform quantizer (required for INT4/INT2, null for INT8)
-     * @param oversamplingFactor   rescore oversampling factor (1 = no rescore, >1 = oversample and rescore)
+     * @param quantizationType     quantization type
+     * @param nonUniformQuantizer  calibrated non-uniform quantizer (required for INT4/INT2, null for INT8/VASQ)
+     * @param oversamplingFactor   rescore oversampling factor (1 = no rescore, &gt;1 = oversample and rescore)
      */
     public QuantizedHnswIndex(int dimensions, int capacity,
                                SimilarityFunction similarityFunction,
@@ -115,37 +209,74 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
         this.quantizationType = quantizationType != null ? quantizationType : QuantizationType.SCALAR_INT8;
         this.nonUniformQuantizer = nonUniformQuantizer;
         this.oversamplingFactor = Math.max(1, oversamplingFactor);
-
         this.floatVectors = new float[capacity][];
-        this.quantizedVectors = new byte[capacity][];
+        this.vasqSeed = VasqParams.DEFAULT_SEED;
 
-        // INT4/INT2 path: pre-compute global centroids for PackedDotProduct
+        // For INT4/INT2: strategy is ready immediately (pre-calibrated quantizer required)
+        // For INT8: strategy is ready if quantizer is provided; otherwise null until auto-calibrate
+        // For VASQ: strategy is null until auto-calibrate
         if (this.quantizationType == QuantizationType.SCALAR_INT4
                 || this.quantizationType == QuantizationType.SCALAR_INT2) {
-            if (nonUniformQuantizer != null) {
-                this.globalCentroids = computeGlobalCentroids(nonUniformQuantizer);
-            } else {
-                // Deferred calibration: centroids will be computed when quantizer is set
-                this.globalCentroids = null;
+            if (nonUniformQuantizer == null) {
+                throw new IllegalArgumentException(
+                        "NonUniformQuantizer is required for " + quantizationType);
             }
+            this.strategy = QuantizationStrategyFactory.create(
+                    this.quantizationType, null, nonUniformQuantizer, null, null, similarityFunction);
             this.quantizer = null;
+            this.vasqEncoder = null;
             this.calibrationBuffer = null;
             this.calibrationCount = 0;
-        } else {
-            // INT8 path
-            this.globalCentroids = null;
+            // Allocate unified storage segment for packed INT4/INT2
+            allocateStorageSegment(capacity, strategy.bytesPerVector());
+        } else if (this.quantizationType == QuantizationType.SCALAR_INT8 && quantizer != null) {
+            // Pre-calibrated INT8 — strategy ready immediately
+            this.strategy = QuantizationStrategyFactory.create(
+                    this.quantizationType, quantizer, null, null, null, similarityFunction);
             this.quantizer = quantizer;
-            if (quantizer == null) {
-                this.calibrationBuffer = new float[Math.min(CALIBRATION_SAMPLE_SIZE, capacity)][];
-                this.calibrationCount = 0;
-            }
+            this.vasqEncoder = null;
+            this.calibrationBuffer = null;
+            this.calibrationCount = 0;
+            allocateStorageSegment(capacity, strategy.bytesPerVector());
+        } else {
+            // Auto-calibrate (INT8 or VASQ) — strategy and segment are null until calibration
+            this.strategy = null;
+            this.quantizer = null;
+            this.vasqEncoder = null;
+            this.calibrationBuffer = new float[Math.min(CALIBRATION_SAMPLE_SIZE, capacity)][];
+            this.calibrationCount = 0;
+            this.storageSegment = null;
+            this.storageArena = null;
         }
 
-        log.info("QuantizedHnswIndex created: dims={}, capacity={}, M={}, type={}, oversampling={}, quantizer={}",
+        log.info("QuantizedHnswIndex created: dims={}, capacity={}, M={}, type={}, oversampling={}, strategy={}",
                 dimensions, capacity, params.m(), this.quantizationType, this.oversamplingFactor,
-                this.quantizationType == QuantizationType.SCALAR_INT8
-                        ? (quantizer != null ? "pre-calibrated" : "auto-calibrate")
-                        : "non-uniform");
+                this.strategy != null ? "ready" : "pending-calibration");
+    }
+
+    /**
+     * Private constructor for pre-calibrated VASQ. The strategy is immediately active;
+     * no calibration buffer is allocated and no auto-calibration can trigger.
+     */
+    private QuantizedHnswIndex(int dimensions, int capacity,
+                                SimilarityFunction similarityFunction,
+                                HnswParams params,
+                                VasqStrategy preCalibrated,
+                                int oversamplingFactor) {
+        super(dimensions, capacity, similarityFunction, params);
+        this.quantizationType = QuantizationType.VASQ;
+        this.nonUniformQuantizer = null;
+        this.oversamplingFactor = Math.max(1, oversamplingFactor);
+        this.floatVectors = new float[capacity][];
+        this.vasqSeed = VasqParams.DEFAULT_SEED;
+        this.strategy = preCalibrated;
+        this.vasqEncoder = preCalibrated.encoder();
+        this.quantizer = null;
+        this.calibrationBuffer = null;
+        this.calibrationCount = 0;
+        allocateStorageSegment(capacity, preCalibrated.bytesPerVector());
+        log.info("QuantizedHnswIndex created with pre-calibrated VASQ: dims={}, capacity={}, M={}, bpv={}, oversampling={}",
+                dimensions, capacity, params.m(), preCalibrated.bytesPerVector(), this.oversamplingFactor);
     }
 
     // ─────────────── Template method implementations ───────────────
@@ -162,42 +293,68 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
 
     @Override
     protected void storeVector(int nodeIdx, float[] vector) {
-        floatVectors[nodeIdx] = Arrays.copyOf(vector, vector.length);
+        // Defensive copy: the caller (add()) may mutate the passed vector after this returns.
+        // SpectorShard's ThreadLocal residual scratch is overwritten on the next add(), so the copy
+        // is necessary for the normal hot path. addOwned() sets skipCopy to bypass this.
+        floatVectors[nodeIdx] = skipCopy.get()[0] ? vector : Arrays.copyOf(vector, vector.length);
 
-        switch (quantizationType) {
-            case SCALAR_INT8 -> storeVectorInt8(nodeIdx, vector);
-            case SCALAR_INT4 -> storeVectorInt4(nodeIdx, vector);
-            case SCALAR_INT2 -> storeVectorInt2(nodeIdx, vector);
-            default -> throw new IllegalStateException("Unsupported type: " + quantizationType);
+        if (strategy == null) {
+            // Pre-calibration buffer phase (INT8 auto or VASQ auto)
+            bufferForCalibration(vector, nodeIdx);
+        } else {
+            // Strategy is ready — encode directly into the off-heap segment
+            long offset = (long) nodeIdx * strategy.bytesPerVector();
+            strategy.encode(vector, storageSegment, offset);
         }
     }
 
-    private void storeVectorInt8(int nodeIdx, float[] vector) {
-        // Handle quantizer calibration
-        if (quantizer == null) {
-            if (calibrationCount < calibrationBuffer.length) {
-                calibrationBuffer[calibrationCount++] = vector;
-            }
-            if (calibrationCount >= calibrationBuffer.length
-                    || calibrationCount >= CALIBRATION_SAMPLE_SIZE) {
+    /**
+     * ThreadLocal flag used by {@link #addOwned} to tell {@link #storeVector} to skip the
+     * defensive {@code Arrays.copyOf}. A {@code boolean[1]} (not {@code Boolean}) is used so
+     * it can be mutated inside the lambda without a wrapper allocation.
+     */
+    private final ThreadLocal<boolean[]> skipCopy = ThreadLocal.withInitial(() -> new boolean[]{false});
+
+    /**
+     * Bulk-insert variant that transfers ownership of {@code vector} to this index,
+     * skipping the defensive {@link Arrays#copyOf} that {@link #add} performs.
+     *
+     * <p><b>Ownership contract</b>: the caller must NOT mutate or reuse {@code vector}
+     * after this call returns. {@link com.spectrayan.spector.index.spectrum.SpectorShard#promote}
+     * satisfies this contract — it extracts sub-arrays from its flat buffer and nulls the
+     * buffer immediately after the bulk insert completes.</p>
+     *
+     * <p>For a shard of 20 000 vectors at D=768, this avoids ~61 MB of copy work
+     * compared to the standard {@link #add} path.</p>
+     *
+     * @param id         external document ID
+     * @param storeIndex external store index
+     * @param vector     float32 vector — ownership is transferred to this index
+     */
+    public void addOwned(String id, int storeIndex, float[] vector) {
+        boolean[] flag = skipCopy.get();
+        flag[0] = true;
+        try {
+            add(id, storeIndex, vector);  // AbstractHnswIndex.add() — acquires writeLock, calls storeVector()
+        } finally {
+            flag[0] = false;
+        }
+    }
+
+    private void bufferForCalibration(float[] vector, int nodeIdx) {
+
+        if (calibrationCount < calibrationBuffer.length) {
+            calibrationBuffer[calibrationCount++] = vector;
+        }
+        if (calibrationCount >= calibrationBuffer.length
+                || calibrationCount >= CALIBRATION_SAMPLE_SIZE) {
+            // Trigger calibration for INT8 or VASQ
+            if (quantizationType == QuantizationType.VASQ) {
+                calibrateVasq();
+            } else {
                 calibrate();
             }
         }
-
-        // Quantize if calibrated
-        if (quantizer != null) {
-            quantizedVectors[nodeIdx] = quantizer.encode(vector);
-        }
-    }
-
-    private void storeVectorInt4(int nodeIdx, float[] vector) {
-        int[] levels = nonUniformQuantizer.encode(vector);
-        quantizedVectors[nodeIdx] = NibblePacker.pack(levels, dimensions);
-    }
-
-    private void storeVectorInt2(int nodeIdx, float[] vector) {
-        int[] levels = nonUniformQuantizer.encode(vector);
-        quantizedVectors[nodeIdx] = CrumbPacker.pack(levels, dimensions);
     }
 
     // ─────────────── Overridden search with quantized re-ranking ───────────────
@@ -214,41 +371,34 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
         int ef = Math.max(k, params.efSearch());
         int currentNode = entryPoint;
 
-        // Phase 1: Greedy descent through upper layers (uses float for precision)
+        // Phase 1: Greedy descent through upper layers (uses exact float for precision)
         for (int lc = maxLevel; lc > 0; lc--) {
             currentNode = greedyClosest(query, currentNode, lc);
         }
 
-        // Phase 2: Search at layer 0 using quantized distance
+        // Phase 2: Search at layer 0 using quantized distance (if strategy is ready)
         NeighborQueue candidates;
-        boolean hasQuantizer = (quantizationType == QuantizationType.SCALAR_INT8 && quantizer != null)
-                || quantizationType == QuantizationType.SCALAR_INT4
-                || quantizationType == QuantizationType.SCALAR_INT2;
-
-        if (hasQuantizer) {
-            // When oversampling > 1, retrieve more candidates for rescore
+        if (strategy != null) {
             int effectiveEf = oversamplingFactor > 1
                     ? Math.max(ef, oversamplingFactor * k)
                     : ef;
             candidates = searchLayerQuantized(query, currentNode, effectiveEf);
         } else {
-            // No quantizer yet — use exact float distances
+            // No strategy yet (pre-calibration phase) — use exact float distances
             candidates = searchLayer(query, currentNode, ef, 0);
-            return candidates.toSortedResults(ids, similarityFunction.higherIsBetter());
+            return mapToStoreIndices(candidates.toSortedResults(ids, similarityFunction.higherIsBetter()));
         }
 
         // Phase 3: Rescore — re-rank coarse candidates with exact float distances
-        // When oversamplingFactor == 1, skip rescoring and return quantized results directly
         if (oversamplingFactor <= 1) {
             ScoredResult[] sorted = candidates.toSortedResults(ids, similarityFunction.higherIsBetter());
             int resultCount = Math.min(k, sorted.length);
-            return resultCount == sorted.length ? sorted : Arrays.copyOf(sorted, resultCount);
+            ScoredResult[] trimmed = resultCount == sorted.length ? sorted : Arrays.copyOf(sorted, resultCount);
+            return mapToStoreIndices(trimmed);
         }
 
-        // Rescore: compute exact float32 distances for oversampled candidates
         int[] candidateIndices = candidates.indicesUnsorted();
         int reRankCount = candidateIndices.length;
-
         ScoredResult[] exactResults = new ScoredResult[reRankCount];
         for (int i = 0; i < reRankCount; i++) {
             int nodeIdx = candidateIndices[i];
@@ -263,18 +413,38 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
         }
 
         int resultCount = Math.min(k, exactResults.length);
-        return Arrays.copyOf(exactResults, resultCount);
+        ScoredResult[] rescored = Arrays.copyOf(exactResults, resultCount);
+        return mapToStoreIndices(rescored);
+    }
+
+    private ScoredResult[] mapToStoreIndices(ScoredResult[] results) {
+        if (results == null || results.length == 0) return results;
+        ScoredResult[] mapped = new ScoredResult[results.length];
+        for (int i = 0; i < results.length; i++) {
+            ScoredResult r = results[i];
+            mapped[i] = new ScoredResult(r.id(), storeIndices[r.index()], r.score());
+        }
+        return mapped;
     }
 
     // ─────────────── Quantized layer-0 search ───────────────
 
-    /** Layer-0 search using quantized distances for coarse filtering. */
+    /**
+     * Layer-0 search using quantized distances for coarse filtering.
+     *
+     * <p>Creates the {@link DistanceContext} locally (not as an instance field) so that
+     * concurrent searches on the same index are safe — each search thread has its own
+     * context, and the FWHT rotate scratch is already per-thread via ThreadLocal.</p>
+     */
     private NeighborQueue searchLayerQuantized(float[] query, int entryNode, int ef) {
+        // Context is local — zero shared mutable state between concurrent searches
+        DistanceContext ctx = strategy.prepareQueryContext(query);
+
         BitSet visited = new BitSet(nodeCount);
         NeighborQueue candidates = new NeighborQueue(ef + 1, ef, maxHeap());
         NeighborQueue workQueue = new NeighborQueue(ef + 1, minHeap());
 
-        float entryDist = computeQuantizedDistance(query, entryNode);
+        float entryDist = computeQuantizedDistance(entryNode, ctx);
         candidates.add(entryNode, entryDist);
         workQueue.add(entryNode, entryDist);
         visited.set(entryNode);
@@ -291,7 +461,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
             for (int neighbor : nbrs) {
                 if (!visited.get(neighbor)) {
                     visited.set(neighbor);
-                    float dist = computeQuantizedDistance(query, neighbor);
+                    float dist = computeQuantizedDistance(neighbor, ctx);
                     if (candidates.size() < ef || isBetter(dist, candidates.topScore())) {
                         candidates.add(neighbor, dist);
                         workQueue.add(neighbor, dist);
@@ -299,83 +469,50 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
                 }
             }
         }
+
         return candidates;
     }
 
-    // ─────────────── Quantized distance dispatch ───────────────
+    /**
+     * Computes quantized distance from a stored vector to the current search query.
+     *
+     * <p>Reads from the unified off-heap {@link #storageSegment} using the active
+     * {@link QuantizationStrategy} and the per-search {@link DistanceContext} passed
+     * directly as a parameter (not stored as an instance field, ensuring thread safety).</p>
+     *
+     * @param nodeIdx the index of the candidate node
+     * @param ctx     the per-search distance context created by {@link #searchLayerQuantized}
+     * @return approximate distance
+     */
+    private float computeQuantizedDistance(int nodeIdx, DistanceContext ctx) {
+        long offset = (long) nodeIdx * strategy.bytesPerVector();
+        return strategy.distance(storageSegment, offset, ctx);
+    }
+
+    // ─────────────── Calibration ───────────────
 
     /**
-     * Computes quantized distance between a query and a stored vector,
-     * dispatching to the appropriate kernel based on quantization type.
+     * Auto-calibrates the INT8 scalar quantizer from buffered vectors, builds the
+     * strategy, allocates the off-heap segment, and retroactively encodes all buffered
+     * vectors.
      */
-    private float computeQuantizedDistance(float[] query, int nodeIdx) {
-        return switch (quantizationType) {
-            case SCALAR_INT8 -> distanceQuantizedInt8(query, nodeIdx);
-            case SCALAR_INT4 -> distanceQuantizedInt4(query, nodeIdx);
-            case SCALAR_INT2 -> distanceQuantizedInt2(query, nodeIdx);
-            default -> similarityFunction.compute(query, floatVectors[nodeIdx]);
-        };
-    }
-
-    private float distanceQuantizedInt8(float[] query, int nodeIdx) {
-        float[] qMins = quantizer.mins();
-        float[] qScales = quantizer.scales();
-        return similarityFunction.computeQuantized(
-                query, quantizedVectors[nodeIdx], qMins, qScales, dimensions);
-    }
-
-    private float distanceQuantizedInt4(float[] query, int nodeIdx) {
-        byte[] packed = quantizedVectors[nodeIdx];
-        if (packed == null) {
-            return similarityFunction.compute(query, floatVectors[nodeIdx]);
-        }
-        // PackedDotProduct computes sum(query[i] * centroids[level[i]])
-        // For cosine/dot product similarity, higher is better (negate for distance)
-        float dotProduct = PackedDotProduct.computeInt4(query, packed, globalCentroids, dimensions);
-        return similarityFunction.higherIsBetter() ? dotProduct : -dotProduct;
-    }
-
-    private float distanceQuantizedInt2(float[] query, int nodeIdx) {
-        byte[] packed = quantizedVectors[nodeIdx];
-        if (packed == null) {
-            return similarityFunction.compute(query, floatVectors[nodeIdx]);
-        }
-        float dotProduct = PackedDotProduct.computeInt2(query, packed, globalCentroids, dimensions);
-        return similarityFunction.higherIsBetter() ? dotProduct : -dotProduct;
-    }
-
-    // ─────────────── Quantizer helpers ───────────────
-
-    /**
-     * Computes global centroids by averaging per-dimension centroids from the NonUniformQuantizer.
-     * This produces a single centroid lookup table for PackedDotProduct.
-     */
-    private static float[] computeGlobalCentroids(NonUniformQuantizer nuq) {
-        int levels = nuq.levels();
-        int dims = nuq.dimensions();
-        float[] global = new float[levels];
-
-        for (int level = 0; level < levels; level++) {
-            double sum = 0.0;
-            for (int dim = 0; dim < dims; dim++) {
-                float[] dimCentroids = nuq.centroids(dim);
-                sum += dimCentroids[level];
-            }
-            global[level] = (float) (sum / dims);
-        }
-        return global;
-    }
-
-    /** Auto-calibrates the INT8 quantizer from buffered vectors. */
-    private void calibrate() {
+    private synchronized void calibrate() {
+        if (strategy != null) return; // already calibrated (concurrent trigger)
         float[][] sample = Arrays.copyOf(calibrationBuffer, calibrationCount);
-        this.quantizer = ScalarQuantizer.calibrate(sample, dimensions);
-        log.info("QuantizedHnswIndex auto-calibrated from {} sample vectors", calibrationCount);
+        ScalarQuantizer sq = ScalarQuantizer.calibrate(sample, dimensions);
+        this.quantizer = sq;
 
-        // Quantize all existing vectors that were inserted before calibration
+        this.strategy = QuantizationStrategyFactory.create(
+                QuantizationType.SCALAR_INT8, sq, null, null, null, similarityFunction);
+        allocateStorageSegment(capacity, strategy.bytesPerVector());
+
+        log.info("QuantizedHnswIndex INT8 auto-calibrated from {} sample vectors", calibrationCount);
+
+        // Retroactively encode all buffered vectors
         for (int i = 0; i < nodeCount; i++) {
             if (floatVectors[i] != null) {
-                quantizedVectors[i] = quantizer.encode(floatVectors[i]);
+                long offset = (long) i * strategy.bytesPerVector();
+                strategy.encode(floatVectors[i], storageSegment, offset);
             }
         }
 
@@ -383,26 +520,69 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
         calibrationCount = 0;
     }
 
+    /**
+     * Auto-calibrates the VASQ encoder from buffered vectors, builds the strategy,
+     * allocates the off-heap segment, and retroactively encodes all buffered vectors.
+     *
+     * <p>Uses {@link VasqCalibrator#calibrate(float[][], int, int, long)} to avoid
+     * the previous {@code Arrays.copyOf} + {@code Arrays.asList} wrapper.
+     */
+    private synchronized void calibrateVasq() {
+        if (strategy != null) return; // already calibrated
+        VasqParams vParams = VasqCalibrator.calibrate(
+                calibrationBuffer, calibrationCount, dimensions, vasqSeed);
+        VasqEncoder enc = new VasqEncoder(vParams);
+        this.vasqEncoder = enc;
+
+        this.strategy = new VasqStrategy(enc, similarityFunction);
+        allocateStorageSegment(capacity, strategy.bytesPerVector());
+
+        log.info("QuantizedHnswIndex VASQ auto-calibrated: {} sample vectors, paddedDim={}, bpv={}",
+                calibrationCount, vParams.paddedDim(), strategy.bytesPerVector());
+
+        // Retroactively encode all vectors inserted before calibration
+        for (int i = 0; i < nodeCount; i++) {
+            if (floatVectors[i] != null) {
+                long offset = (long) i * strategy.bytesPerVector();
+                strategy.encode(floatVectors[i], storageSegment, offset);
+            }
+        }
+
+        calibrationBuffer = null;
+        calibrationCount = 0;
+    }
+
+    private void allocateStorageSegment(int capacity, int bpv) {
+        if (this.storageArena != null) {
+            this.storageArena.close(); // free previous (shouldn't happen, but defensive)
+        }
+        this.storageArena = Arena.ofShared();
+        this.storageSegment = storageArena.allocate((long) capacity * bpv, 8L);
+    }
+
     // ─────────────── Public accessors ───────────────
 
-    /** Returns the INT8 quantizer (may be null if not INT8 or not yet calibrated). */
-    public ScalarQuantizer quantizer() { return quantizer; }
-
-    /** Returns true if the quantizer has been calibrated (INT8) or non-uniform quantizer is set (INT4/INT2). */
-    public boolean isCalibrated() {
-        return switch (quantizationType) {
-            case SCALAR_INT8 -> quantizer != null;
-            case SCALAR_INT4, SCALAR_INT2 -> nonUniformQuantizer != null;
-            default -> false;
-        };
-    }
+    /** Returns the active {@link QuantizationStrategy}, or null if not yet calibrated. */
+    public QuantizationStrategy strategy() { return strategy; }
 
     /** Returns the quantization type used by this index. */
     public QuantizationType quantizationType() { return quantizationType; }
 
-    /** Returns the non-uniform quantizer (INT4/INT2), or null if INT8. */
+    /** Returns the INT8 quantizer (may be null if not INT8 or not yet calibrated). */
+    public ScalarQuantizer quantizer() { return quantizer; }
+
+    /** Returns the non-uniform quantizer (INT4/INT2), or null if INT8/VASQ. */
     public NonUniformQuantizer nonUniformQuantizer() { return nonUniformQuantizer; }
+
+    /** Returns the VASQ encoder, or null if not VASQ or not yet calibrated. */
+    public VasqEncoder vasqEncoder() { return vasqEncoder; }
 
     /** Returns the configured oversampling factor. */
     public int oversamplingFactor() { return oversamplingFactor; }
+
+    /**
+     * Returns true if the quantization strategy has been initialized (either pre-calibrated
+     * or auto-calibrated from buffered vectors).
+     */
+    public boolean isCalibrated() { return strategy != null; }
 }
