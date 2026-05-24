@@ -11,28 +11,39 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.core.quantization.CrumbPacker;
-import com.spectrayan.spector.core.quantization.NibblePacker;
 import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
 import com.spectrayan.spector.core.quantization.QuantizationType;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.quantization.TurboQuantizer;
+import com.spectrayan.spector.core.quantization.strategy.DistanceContext;
+import com.spectrayan.spector.core.quantization.strategy.QuantizationStrategy;
+import com.spectrayan.spector.core.quantization.strategy.QuantizationStrategyFactory;
+import com.spectrayan.spector.core.quantization.vasq.VasqEncoder;
+import com.spectrayan.spector.core.quantization.vasq.VasqParams;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
  * Off-heap vector store that stores quantized vectors via Panama {@link MemorySegment}.
  *
- * <p>Supports multiple quantization types:</p>
+ * <p>Supports multiple quantization types via the {@link QuantizationStrategy} SPI:</p>
  * <ul>
  *   <li><b>INT8</b> — one byte per dimension, using linear {@link ScalarQuantizer}</li>
- *   <li><b>INT4</b> — nibble-packed (2 values/byte), using {@link NonUniformQuantizer} + {@link NibblePacker}</li>
- *   <li><b>INT2</b> — crumb-packed (4 values/byte), using {@link NonUniformQuantizer} + {@link CrumbPacker}</li>
+ *   <li><b>INT4</b> — nibble-packed (2 values/byte), using {@link NonUniformQuantizer}</li>
+ *   <li><b>INT2</b> — crumb-packed (4 values/byte), using {@link NonUniformQuantizer}</li>
+ *   <li><b>VASQ</b> — FWHT-rotated affine INT8 with exact-norm header, using {@link VasqEncoder}</li>
  * </ul>
+ *
+ * <h3>Design</h3>
+ * <p>All quantization-specific logic is delegated to the {@link QuantizationStrategy} instance
+ * created by {@link QuantizationStrategyFactory}. Adding a new quantization type requires
+ * only a new strategy class — this class does not change (Open/Closed Principle).</p>
  *
  * <h3>Memory Layout (per vector)</h3>
  * <pre>
- *   INT8: [byte × dimensions]
- *   INT4: [byte × ceil(dimensions/2)]
- *   INT2: [byte × ceil(dimensions/4)]
+ *   INT8:      [byte × dimensions]
+ *   INT4:      [byte × ceil(dimensions/2)]
+ *   INT2:      [byte × ceil(dimensions/4)]
+ *   VASQ:      [float32 exactNormSq (4 bytes)] [INT8 × paddedDim]
  * </pre>
  *
  * <h3>Thread Safety</h3>
@@ -49,15 +60,24 @@ public class QuantizedVectorStore implements AutoCloseable {
     private final int capacity;
     private final QuantizationType quantizationType;
     private final int bytesPerVector;
-    private final ScalarQuantizer quantizer;            // used for INT8
-    private final NonUniformQuantizer nonUniformQuantizer; // used for INT4/INT2
-    private final TurboQuantizer turboQuantizer;        // used for TURBO_QUANT
+
+    /** Strategy encapsulating all quantization-type-specific encode/decode/distance logic. */
+    private final QuantizationStrategy strategy;
+
+    // Retained for backward-compat accessors and for VASQ zero-copy access from index layer
+    private final ScalarQuantizer quantizer;
+    private final NonUniformQuantizer nonUniformQuantizer;
+    private final TurboQuantizer turboQuantizer;
+    private final VasqEncoder vasqEncoder;
+
     private final Arena arena;
     private final MemorySegment segment;
     private final Map<String, Integer> idToIndex;
     private final AtomicInteger count;
     private final ReentrantLock writeLock = new ReentrantLock();
     private volatile boolean closed;
+
+    // ─────────────── Constructors ───────────────
 
     /**
      * Creates a quantized vector store for INT8 (backward-compatible constructor).
@@ -67,7 +87,8 @@ public class QuantizedVectorStore implements AutoCloseable {
      * @param quantizer  the scalar quantizer (must be calibrated)
      */
     public QuantizedVectorStore(int dimensions, int capacity, ScalarQuantizer quantizer) {
-        this(dimensions, capacity, QuantizationType.SCALAR_INT8, quantizer, null, null);
+        this(dimensions, capacity, QuantizationType.SCALAR_INT8, quantizer, null, null, null,
+                SimilarityFunction.COSINE);
     }
 
     /**
@@ -78,7 +99,22 @@ public class QuantizedVectorStore implements AutoCloseable {
      * @param turboQuantizer  the calibrated TurboQuantizer
      */
     public QuantizedVectorStore(int dimensions, int capacity, TurboQuantizer turboQuantizer) {
-        this(dimensions, capacity, QuantizationType.TURBO_QUANT, null, null, turboQuantizer);
+        this(dimensions, capacity, QuantizationType.TURBO_QUANT, null, null, turboQuantizer, null,
+                SimilarityFunction.COSINE);
+    }
+
+    /**
+     * Creates a VASQ-mode vector store.
+     *
+     * <p>Vectors are stored as: {@code [4b float32 exactNormSq][paddedDim × signed INT8]}.</p>
+     *
+     * @param dimensions  vector dimensionality
+     * @param capacity    max number of vectors
+     * @param vasqParams  calibrated VASQ parameters
+     */
+    public QuantizedVectorStore(int dimensions, int capacity, VasqParams vasqParams) {
+        this(dimensions, capacity, QuantizationType.VASQ, null, null, null,
+                new VasqEncoder(vasqParams), SimilarityFunction.COSINE);
     }
 
     /**
@@ -92,15 +128,16 @@ public class QuantizedVectorStore implements AutoCloseable {
      */
     public QuantizedVectorStore(int dimensions, int capacity, QuantizationType quantizationType,
                                  ScalarQuantizer quantizer, NonUniformQuantizer nonUniformQuantizer) {
-        this(dimensions, capacity, quantizationType, quantizer, nonUniformQuantizer, null);
+        this(dimensions, capacity, quantizationType, quantizer, nonUniformQuantizer, null, null,
+                SimilarityFunction.COSINE);
     }
 
     /**
-     * Creates a quantized vector store with a specified quantization type.
+     * Full constructor — creates a quantized vector store with any quantization type.
      *
      * <p>For INT8, a {@link ScalarQuantizer} is required. For INT4 and INT2, a
      * {@link NonUniformQuantizer} is required. For TURBO_QUANT, a {@link TurboQuantizer}
-     * is required.</p>
+     * is required. For VASQ, a {@link VasqEncoder} is required.</p>
      *
      * @param dimensions          vector dimensionality
      * @param capacity            max number of vectors
@@ -108,49 +145,21 @@ public class QuantizedVectorStore implements AutoCloseable {
      * @param quantizer           the scalar quantizer for INT8 (may be null if not INT8)
      * @param nonUniformQuantizer the non-uniform quantizer for INT4/INT2 (may be null if not INT4/INT2)
      * @param turboQuantizer      the TurboQuantizer (may be null if not TURBO_QUANT)
+     * @param vasqEncoder         the VASQ encoder (may be null if not VASQ)
+     * @param similarityFunction  the similarity function used for distance context preparation
      * @throws IllegalArgumentException if capacity is not positive, or if required quantizer is missing
      */
     public QuantizedVectorStore(int dimensions, int capacity, QuantizationType quantizationType,
                                  ScalarQuantizer quantizer, NonUniformQuantizer nonUniformQuantizer,
-                                 TurboQuantizer turboQuantizer) {
+                                 TurboQuantizer turboQuantizer, VasqEncoder vasqEncoder,
+                                 SimilarityFunction similarityFunction) {
         if (capacity <= 0) throw new IllegalArgumentException("capacity must be positive");
         if (quantizationType == null) throw new IllegalArgumentException("quantizationType must not be null");
 
-        switch (quantizationType) {
-            case SCALAR_INT8 -> {
-                if (quantizer == null) {
-                    throw new IllegalArgumentException("ScalarQuantizer is required for INT8");
-                }
-                if (quantizer.dimensions() != dimensions) {
-                    throw new IllegalArgumentException("Quantizer dims " + quantizer.dimensions()
-                            + " != store dims " + dimensions);
-                }
-            }
-            case SCALAR_INT4, SCALAR_INT2 -> {
-                if (nonUniformQuantizer == null) {
-                    throw new IllegalArgumentException("NonUniformQuantizer is required for " + quantizationType);
-                }
-                if (nonUniformQuantizer.dimensions() != dimensions) {
-                    throw new IllegalArgumentException("NonUniformQuantizer dims " + nonUniformQuantizer.dimensions()
-                            + " != store dims " + dimensions);
-                }
-                int expectedLevels = quantizationType.levels();
-                if (nonUniformQuantizer.levels() != expectedLevels) {
-                    throw new IllegalArgumentException("NonUniformQuantizer levels " + nonUniformQuantizer.levels()
-                            + " != expected levels " + expectedLevels + " for " + quantizationType);
-                }
-            }
-            case TURBO_QUANT -> {
-                if (turboQuantizer == null) {
-                    throw new IllegalArgumentException("TurboQuantizer is required for TURBO_QUANT");
-                }
-                if (turboQuantizer.dimensions() != dimensions) {
-                    throw new IllegalArgumentException("TurboQuantizer dims " + turboQuantizer.dimensions()
-                            + " != store dims " + dimensions);
-                }
-            }
-            default -> throw new IllegalArgumentException("Unsupported quantization type: " + quantizationType);
-        }
+        // Delegate validation + strategy creation to the Abstract Factory (with dimension checks)
+        this.strategy = QuantizationStrategyFactory.createWithDimCheck(
+                quantizationType, dimensions, quantizer, nonUniformQuantizer, turboQuantizer,
+                vasqEncoder, similarityFunction);
 
         this.dimensions = dimensions;
         this.capacity = capacity;
@@ -158,7 +167,9 @@ public class QuantizedVectorStore implements AutoCloseable {
         this.quantizer = quantizer;
         this.nonUniformQuantizer = nonUniformQuantizer;
         this.turboQuantizer = turboQuantizer;
-        this.bytesPerVector = quantizationType.bytesPerVector(dimensions);
+        this.vasqEncoder = vasqEncoder;
+
+        this.bytesPerVector = strategy.bytesPerVector();
         this.arena = Arena.ofShared();
 
         long totalBytes = (long) capacity * bytesPerVector;
@@ -167,16 +178,25 @@ public class QuantizedVectorStore implements AutoCloseable {
         this.count = new AtomicInteger(0);
         this.closed = false;
 
-        int compressionFactor = switch (quantizationType) {
-            case SCALAR_INT8 -> 4;
-            case SCALAR_INT4, TURBO_QUANT -> 8;
-            case SCALAR_INT2 -> 16;
-            default -> 1;
-        };
-
+        int compressionFactor = strategy.compressionFactor(dimensions);
         log.info("QuantizedVectorStore created: dims={}, capacity={}, type={}, bytesPerVector={}, totalBytes={} ({}× smaller than float32)",
                 dimensions, capacity, quantizationType, bytesPerVector, totalBytes, compressionFactor);
     }
+
+    /**
+     * Backward-compatible 7-arg constructor (no similarity function — defaults to COSINE).
+     *
+     * @deprecated Use the 8-arg constructor with explicit {@link SimilarityFunction}.
+     */
+    @Deprecated
+    public QuantizedVectorStore(int dimensions, int capacity, QuantizationType quantizationType,
+                                 ScalarQuantizer quantizer, NonUniformQuantizer nonUniformQuantizer,
+                                 TurboQuantizer turboQuantizer, VasqEncoder vasqEncoder) {
+        this(dimensions, capacity, quantizationType, quantizer, nonUniformQuantizer,
+                turboQuantizer, vasqEncoder, SimilarityFunction.COSINE);
+    }
+
+    // ─────────────── Write ───────────────
 
     /**
      * Stores a float vector, quantizing it internally.
@@ -214,6 +234,8 @@ public class QuantizedVectorStore implements AutoCloseable {
         }
     }
 
+    // ─────────────── Read ───────────────
+
     /**
      * Returns the quantized bytes for the given index.
      *
@@ -236,20 +258,10 @@ public class QuantizedVectorStore implements AutoCloseable {
      * @return dequantized float array
      */
     public float[] getFloat(int index) {
-        byte[] packed = getQuantized(index);
-        return switch (quantizationType) {
-            case SCALAR_INT8 -> quantizer.decode(packed);
-            case SCALAR_INT4 -> {
-                int[] levels = NibblePacker.unpack(packed, dimensions);
-                yield nonUniformQuantizer.decode(levels);
-            }
-            case SCALAR_INT2 -> {
-                int[] levels = CrumbPacker.unpack(packed, dimensions);
-                yield nonUniformQuantizer.decode(levels);
-            }
-            case TURBO_QUANT -> turboQuantizer.decodeFromBytes(packed);
-            default -> throw new IllegalStateException("Unsupported type: " + quantizationType);
-        };
+        ensureOpen();
+        validateIndex(index);
+        long offset = (long) index * bytesPerVector;
+        return strategy.decode(segment, offset, dimensions);
     }
 
     /**
@@ -265,6 +277,34 @@ public class QuantizedVectorStore implements AutoCloseable {
         long offset = (long) index * bytesPerVector;
         MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, offset, dst, dstOffset, bytesPerVector);
     }
+
+    /**
+     * Prepares a per-query {@link DistanceContext} for use with {@link #distance}.
+     *
+     * <p>Call this once per search; reuse the context for every candidate.</p>
+     *
+     * @param query float32 query vector
+     * @return a per-query distance context
+     */
+    public DistanceContext prepareQueryContext(float[] query) {
+        return strategy.prepareQueryContext(query);
+    }
+
+    /**
+     * Computes quantized distance from a stored vector to the pre-prepared query context.
+     *
+     * @param index internal vector index
+     * @param ctx   context from {@link #prepareQueryContext(float[])}
+     * @return approximate distance
+     */
+    public float distance(int index, DistanceContext ctx) {
+        ensureOpen();
+        validateIndex(index);
+        long offset = (long) index * bytesPerVector;
+        return strategy.distance(segment, offset, ctx);
+    }
+
+    // ─────────────── Accessors ───────────────
 
     /** Returns the index for a given ID, or -1. */
     public int indexOf(String id) {
@@ -287,6 +327,9 @@ public class QuantizedVectorStore implements AutoCloseable {
     /** Returns the number of bytes stored per vector. */
     public int bytesPerVector() { return bytesPerVector; }
 
+    /** Returns the active {@link QuantizationStrategy} (useful for testing and inspection). */
+    public QuantizationStrategy strategy() { return strategy; }
+
     /** Returns the scalar quantizer (INT8 path), or null if not INT8. */
     public ScalarQuantizer quantizer() { return quantizer; }
 
@@ -295,6 +338,20 @@ public class QuantizedVectorStore implements AutoCloseable {
 
     /** Returns the TurboQuantizer (TURBO_QUANT path), or null if not TurboQuant. */
     public TurboQuantizer turboQuantizer() { return turboQuantizer; }
+
+    /** Returns the VASQ encoder, or null if not VASQ mode. */
+    public VasqEncoder vasqEncoder() { return vasqEncoder; }
+
+    /**
+     * Returns the underlying off-heap {@link MemorySegment}.
+     *
+     * <p>Used by the HNSW index layer to pass the segment directly to
+     * {@link com.spectrayan.spector.core.quantization.vasq.VasqSimdKernel} without
+     * copying — zero extra allocations in the hot path.</p>
+     *
+     * @return the off-heap segment
+     */
+    public MemorySegment segment() { return segment; }
 
     /** Returns true if closed. */
     public boolean isClosed() { return closed; }
@@ -316,21 +373,8 @@ public class QuantizedVectorStore implements AutoCloseable {
     // ─────────────── Internals ───────────────
 
     private void writeQuantized(int index, float[] vector) {
-        byte[] packed = switch (quantizationType) {
-            case SCALAR_INT8 -> quantizer.encode(vector);
-            case SCALAR_INT4 -> {
-                int[] levels = nonUniformQuantizer.encode(vector);
-                yield NibblePacker.pack(levels, dimensions);
-            }
-            case SCALAR_INT2 -> {
-                int[] levels = nonUniformQuantizer.encode(vector);
-                yield CrumbPacker.pack(levels, dimensions);
-            }
-            case TURBO_QUANT -> turboQuantizer.encodeToBytes(vector);
-            default -> throw new IllegalStateException("Unsupported type: " + quantizationType);
-        };
         long offset = (long) index * bytesPerVector;
-        MemorySegment.copy(packed, 0, segment, ValueLayout.JAVA_BYTE, offset, bytesPerVector);
+        strategy.encode(vector, segment, offset);
     }
 
     private void ensureOpen() {

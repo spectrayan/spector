@@ -15,6 +15,7 @@ import com.spectrayan.spector.index.KeywordIndex;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.index.ivf.IvfPqIndex;
+import com.spectrayan.spector.index.spectrum.SpectorIndex;
 import com.spectrayan.spector.query.HybridSearchOrchestrator;
 import com.spectrayan.spector.query.SearchQuery;
 import com.spectrayan.spector.query.SearchResponse;
@@ -89,6 +90,12 @@ public class SpectorEngine implements AutoCloseable {
     private java.util.List<String> ivfTrainingContents;
     private volatile boolean ivfTrained;
 
+    // Spectrum training state — same pattern as IVF-PQ
+    private java.util.List<float[]> spectrumTrainingBuffer;
+    private java.util.List<String> spectrumTrainingIds;
+    private java.util.List<String> spectrumTrainingContents;
+    private volatile boolean spectrumTrained;
+
     // ─────────────── Construction ───────────────
 
     /**
@@ -159,6 +166,16 @@ public class SpectorEngine implements AutoCloseable {
                     minTrainingSamples);
         }
 
+        // ── Spectrum training buffer initialization ──
+        if (config.indexType() == IndexType.SPECTRUM) {
+            int minTrainingSamples = Math.max(config.effectiveSpectrumNCentroids() * 40, 256);
+            this.spectrumTrainingBuffer = new java.util.ArrayList<>(minTrainingSamples);
+            this.spectrumTrainingIds = new java.util.ArrayList<>(minTrainingSamples);
+            this.spectrumTrainingContents = new java.util.ArrayList<>(minTrainingSamples);
+            log.info("Spectrum index created (untrained). Will auto-train after {} vectors.",
+                    minTrainingSamples);
+        }
+
         // ── Wire orchestrator with optional re-ranker ──
         this.orchestrator = new HybridSearchOrchestrator(
                 keywordIndex, vectorIndex, reranker, documentStore);
@@ -201,6 +218,24 @@ public class SpectorEngine implements AutoCloseable {
             int minSamples = Math.max(config.effectiveNlist() * 40, 256);
             if (ivfTrainingBuffer.size() >= minSamples) {
                 trainAndFlushIvfPq();
+            } else {
+                // Still buffering — store document metadata for keyword search
+                documentStore.put(Document.of(id, content));
+                keywordIndex.index(id, content);
+                return;
+            }
+            return;
+        }
+
+        // Spectrum auto-training: buffer vectors until we have enough to train
+        if (config.indexType() == IndexType.SPECTRUM && !spectrumTrained) {
+            spectrumTrainingBuffer.add(vector.clone());
+            spectrumTrainingIds.add(id);
+            spectrumTrainingContents.add(content);
+
+            int minSamples = Math.max(config.effectiveSpectrumNCentroids() * 40, 256);
+            if (spectrumTrainingBuffer.size() >= minSamples) {
+                trainAndFlushSpectrum();
             } else {
                 // Still buffering — store document metadata for keyword search
                 documentStore.put(Document.of(id, content));
@@ -626,6 +661,36 @@ public class SpectorEngine implements AutoCloseable {
         log.info("IVF-PQ training complete. {} vectors indexed.", ivfPq.size());
     }
 
+    /**
+     * Trains the Spectrum index on buffered vectors and flushes all buffered documents.
+     */
+    private void trainAndFlushSpectrum() {
+        if (!(vectorIndex instanceof SpectorIndex spectrumIdx)) return;
+
+        float[][] trainingData = spectrumTrainingBuffer.toArray(float[][]::new);
+        log.info("Auto-training Spectrum with {} vectors...", trainingData.length);
+        spectrumIdx.train(trainingData);
+
+        // Flush all buffered vectors into the index
+        for (int i = 0; i < spectrumTrainingBuffer.size(); i++) {
+            float[] vec = spectrumTrainingBuffer.get(i);
+            String bufferedId = spectrumTrainingIds.get(i);
+            String content = spectrumTrainingContents.get(i);
+
+            int storeIndex = vectorStore.put(bufferedId, vec);
+            documentStore.put(Document.of(bufferedId, content));
+            vectorIndex.add(bufferedId, storeIndex, vec);
+            keywordIndex.index(bufferedId, content);
+        }
+
+        // Clear buffers
+        spectrumTrainingBuffer = null;
+        spectrumTrainingIds = null;
+        spectrumTrainingContents = null;
+        spectrumTrained = true;
+        log.info("Spectrum training complete. {} vectors indexed.", spectrumIdx.size());
+    }
+
     // ═════════════════════════════════════════════════════════════════
     //  Builder Pattern
     // ═════════════════════════════════════════════════════════════════
@@ -679,6 +744,28 @@ public class SpectorEngine implements AutoCloseable {
             return this;
         }
 
+        /**
+         * Enables VASQ (FWHT-rotated INT8) quantization with the default oversampling factor (3).
+         *
+         * <p>Equivalent to {@code quantization(QuantizationType.VASQ)} plus sensible
+         * oversampling defaults. VASQ auto-calibrates from the first batch of inserted
+         * vectors; no pre-calibration step is required.</p>
+         */
+        public Builder vasq() {
+            this.config = config.withVasq();
+            return this;
+        }
+
+        /**
+         * Enables VASQ quantization with an explicit oversampling factor.
+         *
+         * @param oversamplingFactor number of extra candidates to retrieve before rescoring (≥ 1)
+         */
+        public Builder vasq(int oversamplingFactor) {
+            this.config = config.withVasq(oversamplingFactor);
+            return this;
+        }
+
         /** Sets persistence mode and data directory. */
         public Builder persistence(PersistenceMode mode, Path directory) {
             this.config = config.withPersistence(mode, directory);
@@ -694,6 +781,18 @@ public class SpectorEngine implements AutoCloseable {
         /** Switches to IVF-PQ index with explicit parameters. */
         public Builder ivfPq(int nlist, int nprobe, int subspaces) {
             this.config = config.withIvfPq(nlist, nprobe, subspaces);
+            return this;
+        }
+
+        /** Switches to Spectrum index with auto parameters. */
+        public Builder spectrum() {
+            this.config = config.withSpectrum();
+            return this;
+        }
+
+        /** Switches to Spectrum index with explicit parameters. */
+        public Builder spectrum(int nCentroids, int nProbe, int shardThreshold) {
+            this.config = config.withSpectrum(nCentroids, nProbe, shardThreshold);
             return this;
         }
 
@@ -731,6 +830,11 @@ public class SpectorEngine implements AutoCloseable {
         public Builder config(SpectorConfig config) {
             this.config = config;
             return this;
+        }
+
+        /** Returns the current config being built (for inspection and testing). */
+        public SpectorConfig config() {
+            return this.config;
         }
 
         /**
