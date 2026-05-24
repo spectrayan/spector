@@ -349,17 +349,23 @@ All comparisons below use **100K documents, 128 dimensions, top-10 retrieval** a
 - [x] BM25 keyword search
 - [x] Hybrid search with RRF fusion
 - [x] Scalar quantization (INT8, INT4, INT2) with non-uniform calibration and configurable rescore
+- [x] TurboQuant quantization (rotation + optimal scalar, 8× compression)
 - [x] Disk-based HNSW persistence
 - [x] Embedding provider SPI (Ollama)
 - [x] IVF-PQ vector index (32× compression)
 - [x] LLM-powered re-ranking
-- [x] GPU acceleration (CUDA via Panama FFM)
+- [x] GPU infrastructure (CUDA context, memory management via Panama FFM)
 - [x] Distributed search (gRPC coordinator/shards)
-- [x] REST API with CORS, auth, metrics
+- [x] REST API with CORS, auth, metrics, SSE streaming
+- [x] Standalone ingestion pipeline (`spector-ingestion`)
+- [x] Standalone RAG pipeline (`spector-rag`)
 - [x] Document deletion
 - [x] Auto-embed + bulk ingest endpoints
 - [x] gRPC TLS support
+- [ ] GPU kernel dispatch (CUDA compute for batch similarity — requires CUDA Toolkit)
+- [ ] NPU acceleration (Intel/AMD NPU for INT8 batch operations via OpenVINO or DirectML)
 - [ ] WASM runtime for edge deployment
+- [ ] Structured concurrency (JEP 462) for fan-out search with cancellation propagation
 
 ## 🤝 Contributing
 

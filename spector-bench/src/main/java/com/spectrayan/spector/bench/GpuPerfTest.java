@@ -3,6 +3,7 @@ package com.spectrayan.spector.bench;
 import java.util.Random;
 
 import com.spectrayan.spector.core.CosineSimilarity;
+import com.spectrayan.spector.gpu.CudaKernelLauncher;
 import com.spectrayan.spector.gpu.GpuBatchSimilarity;
 import com.spectrayan.spector.gpu.GpuCapability;
 
@@ -15,7 +16,7 @@ public class GpuPerfTest {
     private static final int DIMENSIONS = 384;
     private static final int WARMUP = 20;
     private static final int MEASURE = 100;
-    private static final int[] BATCH_SIZES = {1, 8, 32, 128, 512, 1024, 4096};
+    private static final int[] BATCH_SIZES = {1, 8, 32, 128, 512, 1024, 4096, 10000, 50000, 100000};
 
     public static void main(String[] args) {
         System.out.println("GPU: " + GpuCapability.detect().report());
@@ -55,14 +56,22 @@ public class GpuPerfTest {
             }
             double cpuAvgMs = (cpuTotal / (double) MEASURE) / 1e6;
 
-            // Measure GPU
+            // Measure GPU (direct kernel launch, bypassing threshold)
             long gpuTotal = 0;
-            for (int i = 0; i < MEASURE; i++) {
-                long t0 = System.nanoTime();
-                gpu.batchCosineSimilarity(query, database, batchSize, DIMENSIONS);
-                gpuTotal += System.nanoTime() - t0;
+            CudaKernelLauncher directLauncher = null;
+            try { directLauncher = new CudaKernelLauncher(); } catch (Exception ignored) {}
+            if (directLauncher != null) {
+                for (int i = 0; i < WARMUP; i++) {
+                    directLauncher.batchCosine(query, database, batchSize, DIMENSIONS);
+                }
+                for (int i = 0; i < MEASURE; i++) {
+                    long t0 = System.nanoTime();
+                    directLauncher.batchCosine(query, database, batchSize, DIMENSIONS);
+                    gpuTotal += System.nanoTime() - t0;
+                }
+                directLauncher.close();
             }
-            double gpuAvgMs = (gpuTotal / (double) MEASURE) / 1e6;
+            double gpuAvgMs = directLauncher != null ? (gpuTotal / (double) MEASURE) / 1e6 : -1;
 
             double speedup = cpuAvgMs / gpuAvgMs;
             System.out.printf("%-10d %10.3f ms %10.3f ms %10.1f×%n",

@@ -144,11 +144,18 @@ public class CudaCosineKernel implements SimilarityKernel {
     // ─────────────────────────────────────────────────────────────────────────────
 
     private float[] computeGpu(float[] query, float[] database, int numVectors, int dimensions) {
-        // In a full implementation, this would load CUDA PTX and execute on GPU.
-        // For now, we use the CPU SIMD path as the GPU kernel launcher handles
-        // actual CUDA operations. The architecture supports swapping in real GPU
-        // execution when the PTX kernels are compiled and loaded.
-        return computeCpuSimd(query, database, numVectors, dimensions);
+        // Use the kernel launcher for actual GPU dispatch
+        try {
+            CudaKernelLauncher launcher = new CudaKernelLauncher();
+            try {
+                return launcher.batchCosine(query, database, numVectors, dimensions);
+            } finally {
+                launcher.close();
+            }
+        } catch (Exception e) {
+            log.debug("GPU kernel launch failed, using CPU SIMD: {}", e.getMessage());
+            return computeCpuSimd(query, database, numVectors, dimensions);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

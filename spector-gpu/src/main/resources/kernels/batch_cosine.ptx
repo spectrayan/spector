@@ -1,0 +1,87 @@
+.version 8.5
+.target sm_89
+.address_size 64
+
+.visible .entry batch_cosine(
+    .param .u64 param_query,
+    .param .u64 param_database,
+    .param .u64 param_results,
+    .param .u32 param_n,
+    .param .u32 param_dims
+)
+{
+    .reg .pred %p<2>;
+    .reg .f32 %f<8>;
+    .reg .b32 %r<8>;
+    .reg .b64 %rd<9>;
+
+    // tid = blockIdx.x * blockDim.x + threadIdx.x
+    mov.u32 %r0, %ctaid.x;
+    mov.u32 %r1, %ntid.x;
+    mov.u32 %r2, %tid.x;
+    mad.lo.s32 %r3, %r0, %r1, %r2;
+
+    // Load n, bounds check
+    ld.param.u32 %r4, [param_n];
+    setp.ge.u32 %p0, %r3, %r4;
+    @%p0 bra $L_end;
+
+    // Load pointers and dims
+    ld.param.u64 %rd0, [param_query];
+    ld.param.u64 %rd1, [param_database];
+    ld.param.u64 %rd2, [param_results];
+    ld.param.u32 %r5, [param_dims];
+
+    // db_ptr = database + tid * dims * 4
+    mul.lo.s32 %r6, %r3, %r5;
+    mul.wide.s32 %rd3, %r6, 4;
+    add.s64 %rd1, %rd1, %rd3;
+
+    // Init accumulators: dot=0, normQ=0, normD=0
+    mov.f32 %f0, 0f00000000;
+    mov.f32 %f1, 0f00000000;
+    mov.f32 %f2, 0f00000000;
+
+    // Loop: d = 0 .. dims-1
+    mov.u32 %r7, 0;
+$L_loop:
+    setp.ge.u32 %p1, %r7, %r5;
+    @%p1 bra $L_done;
+
+    // offset = d * 4
+    mul.wide.u32 %rd4, %r7, 4;
+
+    // Load query[d]
+    add.s64 %rd5, %rd0, %rd4;
+    ld.global.f32 %f3, [%rd5];
+
+    // Load database[tid*dims + d]
+    add.s64 %rd6, %rd1, %rd4;
+    ld.global.f32 %f4, [%rd6];
+
+    // dot += q*d, normQ += q*q, normD += d*d
+    fma.rn.f32 %f0, %f3, %f4, %f0;
+    fma.rn.f32 %f1, %f3, %f3, %f1;
+    fma.rn.f32 %f2, %f4, %f4, %f2;
+
+    add.u32 %r7, %r7, 1;
+    bra.uni $L_loop;
+
+$L_done:
+    // denom = sqrt(normQ * normD)
+    mul.f32 %f5, %f1, %f2;
+    sqrt.approx.f32 %f6, %f5;
+
+    // result = (denom > 0) ? dot/denom : 0
+    setp.gt.f32 %p1, %f6, 0f00000000;
+    mov.f32 %f7, 0f00000000;
+    @%p1 div.approx.f32 %f7, %f0, %f6;
+
+    // Store results[tid]
+    mul.wide.u32 %rd7, %r3, 4;
+    add.s64 %rd8, %rd2, %rd7;
+    st.global.f32 [%rd8], %f7;
+
+$L_end:
+    ret;
+}
