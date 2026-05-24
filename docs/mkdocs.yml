@@ -101,6 +101,7 @@ nav:
   - Deep Dives:
       - Understanding Quantization: deep-dives/understanding-quantization.md
       - Quantization Comparison: deep-dives/quantization-comparison.md
+      - TurboQuant: deep-dives/turbo-quant.md
   - Reference:
       - REST API: api-reference/rest-endpoints.md
       - Java SDK: sdk-usage/java-client.md

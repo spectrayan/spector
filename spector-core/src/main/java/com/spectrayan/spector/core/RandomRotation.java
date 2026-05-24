@@ -2,6 +2,9 @@ package com.spectrayan.spector.core;
 
 import java.util.Random;
 
+import jdk.incubator.vector.FloatVector;
+import jdk.incubator.vector.VectorSpecies;
+
 /**
  * Random orthogonal rotation for isotropizing vector distributions.
  *
@@ -9,10 +12,18 @@ import java.util.Random;
  * This spreads information across all coordinates, making per-coordinate scalar
  * quantization near-optimal — the key insight behind TurboQuant/PolarQuant.</p>
  *
- * <h3>Algorithm</h3>
- * <p>Generates a random orthogonal matrix via QR decomposition of a random
- * Gaussian matrix. The rotation is deterministic given a seed, so both encode
- * and decode use the same transform.</p>
+ * <h3>Performance</h3>
+ * <ul>
+ *   <li>Matrix stored as a flat 1D array for cache-line-friendly sequential access</li>
+ *   <li>Matrix-vector multiply uses Java Vector API (SIMD) for the inner dot product</li>
+ *   <li>Inverse rotation uses a pre-transposed copy to avoid cache-hostile column access</li>
+ *   <li>Generation (QR decomposition) is O(n³) but only runs once at calibration time</li>
+ * </ul>
+ *
+ * <h3>Why not virtual threads?</h3>
+ * <p>The rotation is a pure CPU-bound matrix-vector multiply. For typical embedding
+ * dimensions (384–1536), the work is too small to benefit from thread scheduling
+ * overhead. SIMD vectorization gives 4–8× speedup without any threading cost.</p>
  *
  * <h3>Properties</h3>
  * <ul>
@@ -31,12 +42,16 @@ import java.util.Random;
  */
 public final class RandomRotation {
 
-    private final int dimensions;
-    private final float[][] matrix;  // orthogonal matrix [dims][dims]
+    private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
-    private RandomRotation(int dimensions, float[][] matrix) {
+    private final int dimensions;
+    private final float[] matrix;           // row-major flat array [dims * dims]
+    private final float[] matrixTransposed; // column-major (transposed) for inverse rotation
+
+    private RandomRotation(int dimensions, float[] matrix, float[] matrixTransposed) {
         this.dimensions = dimensions;
         this.matrix = matrix;
+        this.matrixTransposed = matrixTransposed;
     }
 
     /**
@@ -52,12 +67,15 @@ public final class RandomRotation {
         }
 
         Random rng = new Random(seed);
-        float[][] q = qrOrthogonal(dimensions, rng);
-        return new RandomRotation(dimensions, q);
+        float[] flat = qrOrthogonalFlat(dimensions, rng);
+        float[] transposed = transpose(flat, dimensions);
+        return new RandomRotation(dimensions, flat, transposed);
     }
 
     /**
      * Rotates a vector: result = R × vector.
+     *
+     * <p>Uses SIMD-accelerated dot products for each row of the matrix.</p>
      *
      * @param vector input vector (length must equal dimensions)
      * @return rotated vector
@@ -68,13 +86,7 @@ public final class RandomRotation {
                     "Expected " + dimensions + " dims, got " + vector.length);
         }
         float[] result = new float[dimensions];
-        for (int i = 0; i < dimensions; i++) {
-            float sum = 0;
-            for (int j = 0; j < dimensions; j++) {
-                sum += matrix[i][j] * vector[j];
-            }
-            result[i] = sum;
-        }
+        matvecSimd(matrix, vector, result, dimensions);
         return result;
     }
 
@@ -85,19 +97,14 @@ public final class RandomRotation {
      * @param result output buffer (must have length >= dimensions)
      */
     public void rotate(float[] vector, float[] result) {
-        for (int i = 0; i < dimensions; i++) {
-            float sum = 0;
-            for (int j = 0; j < dimensions; j++) {
-                sum += matrix[i][j] * vector[j];
-            }
-            result[i] = sum;
-        }
+        matvecSimd(matrix, vector, result, dimensions);
     }
 
     /**
      * Inverse rotation: result = R^T × vector.
      *
-     * <p>Since R is orthogonal, R^{-1} = R^T.</p>
+     * <p>Since R is orthogonal, R^{-1} = R^T. Uses the pre-transposed matrix
+     * for cache-friendly row access during the multiply.</p>
      *
      * @param vector rotated vector
      * @return original (unrotated) vector
@@ -108,97 +115,183 @@ public final class RandomRotation {
                     "Expected " + dimensions + " dims, got " + vector.length);
         }
         float[] result = new float[dimensions];
-        for (int i = 0; i < dimensions; i++) {
-            float sum = 0;
-            for (int j = 0; j < dimensions; j++) {
-                sum += matrix[j][i] * vector[j]; // transpose: [j][i] instead of [i][j]
-            }
-            result[i] = sum;
-        }
+        matvecSimd(matrixTransposed, vector, result, dimensions);
         return result;
+    }
+
+    /**
+     * Inverse rotation into a destination buffer.
+     *
+     * @param vector rotated vector
+     * @param result output buffer
+     */
+    public void inverseRotate(float[] vector, float[] result) {
+        matvecSimd(matrixTransposed, vector, result, dimensions);
     }
 
     /** Returns the dimensionality. */
     public int dimensions() { return dimensions; }
 
-    /** Returns the rotation matrix (defensive copy). */
+    /** Returns the rotation matrix as a 2D array (defensive copy). */
     public float[][] matrix() {
-        float[][] copy = new float[dimensions][];
+        float[][] copy = new float[dimensions][dimensions];
         for (int i = 0; i < dimensions; i++) {
-            copy[i] = matrix[i].clone();
+            System.arraycopy(matrix, i * dimensions, copy[i], 0, dimensions);
         }
         return copy;
     }
 
-    /** Returns the seed is not stored; use the matrix directly. */
-    // No getSeed() — we store the full matrix for deserialization flexibility.
+    // ─────────────── SIMD Matrix-Vector Multiply ───────────────
 
-    // ─────────────── QR Decomposition (Gram-Schmidt) ───────────────
+    /**
+     * Computes result = M × v using SIMD lanes for the inner dot product.
+     *
+     * <p>For each row i of M, computes dot(M[i], v) using vectorized
+     * fused multiply-add operations. Falls back to scalar for the tail
+     * elements that don't fill a full SIMD lane.</p>
+     */
+    private static void matvecSimd(float[] mat, float[] vec, float[] result, int n) {
+        int laneCount = SPECIES.length();
+        int simdBound = SPECIES.loopBound(n);
+
+        for (int i = 0; i < n; i++) {
+            int rowOffset = i * n;
+            FloatVector acc = FloatVector.zero(SPECIES);
+
+            // SIMD loop: process laneCount elements per iteration
+            int j = 0;
+            for (; j < simdBound; j += laneCount) {
+                FloatVector mv = FloatVector.fromArray(SPECIES, mat, rowOffset + j);
+                FloatVector vv = FloatVector.fromArray(SPECIES, vec, j);
+                acc = mv.fma(vv, acc); // fused multiply-add: acc += mv * vv
+            }
+
+            // Reduce SIMD lanes to scalar
+            float sum = acc.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
+
+            // Scalar tail
+            for (; j < n; j++) {
+                sum += mat[rowOffset + j] * vec[j];
+            }
+
+            result[i] = sum;
+        }
+    }
+
+    // ─────────────── Matrix Utilities ───────────────
+
+    /**
+     * Transposes a flat row-major matrix.
+     */
+    private static float[] transpose(float[] mat, int n) {
+        float[] t = new float[n * n];
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                t[j * n + i] = mat[i * n + j];
+            }
+        }
+        return t;
+    }
+
+    // ─────────────── QR Decomposition (Modified Gram-Schmidt) ───────────────
 
     /**
      * Generates a random orthogonal matrix via QR decomposition of a Gaussian random matrix.
-     * Uses modified Gram-Schmidt for numerical stability.
+     * Returns a flat row-major array.
+     *
+     * <p>Uses modified Gram-Schmidt for numerical stability. This runs once during
+     * calibration so O(n³) is acceptable.</p>
      */
-    private static float[][] qrOrthogonal(int n, Random rng) {
-        // Generate random Gaussian matrix
-        float[][] a = new float[n][n];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                a[i][j] = (float) rng.nextGaussian();
+    private static float[] qrOrthogonalFlat(int n, Random rng) {
+        // Generate random Gaussian matrix as columns stored as rows (for cache locality)
+        float[][] cols = new float[n][n];
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < n; i++) {
+                cols[j][i] = (float) rng.nextGaussian();
             }
         }
 
-        // Modified Gram-Schmidt to orthonormalize columns
-        float[][] q = new float[n][n];
-
+        // Modified Gram-Schmidt: orthonormalize columns
         for (int j = 0; j < n; j++) {
-            // Copy column j of A into q[j]
-            for (int i = 0; i < n; i++) {
-                q[j][i] = a[i][j]; // q[j] = column j of A (stored as row for cache)
-            }
-
             // Subtract projections onto previous columns
             for (int k = 0; k < j; k++) {
-                float dot = dot(q[k], q[j], n);
-                for (int i = 0; i < n; i++) {
-                    q[j][i] -= dot * q[k][i];
-                }
+                float dot = simdDot(cols[k], cols[j], n);
+                simdSubScaled(cols[j], cols[k], dot, n);
             }
 
             // Normalize
-            float norm = norm(q[j], n);
+            float norm = (float) Math.sqrt(simdDot(cols[j], cols[j], n));
             if (norm < 1e-10f) {
-                // Degenerate — regenerate this column (extremely unlikely)
-                for (int i = 0; i < n; i++) {
-                    q[j][i] = (i == j) ? 1.0f : 0.0f;
-                }
+                // Degenerate — use identity column (extremely unlikely)
+                java.util.Arrays.fill(cols[j], 0.0f);
+                cols[j][j] = 1.0f;
             } else {
                 float invNorm = 1.0f / norm;
-                for (int i = 0; i < n; i++) {
-                    q[j][i] *= invNorm;
-                }
+                simdScale(cols[j], invNorm, n);
             }
         }
 
-        // Transpose so matrix[i][j] means row i, column j (for rotate = M * v)
-        float[][] result = new float[n][n];
+        // Pack into flat row-major matrix: result[i][j] = cols[j][i]
+        // (transpose from column-storage to row-major)
+        float[] result = new float[n * n];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-                result[i][j] = q[i][j];
+                result[i * n + j] = cols[j][i];
             }
         }
         return result;
     }
 
-    private static float dot(float[] a, float[] b, int n) {
-        float sum = 0;
-        for (int i = 0; i < n; i++) {
+    /** SIMD dot product of two arrays. */
+    private static float simdDot(float[] a, float[] b, int n) {
+        int laneCount = SPECIES.length();
+        int simdBound = SPECIES.loopBound(n);
+        FloatVector acc = FloatVector.zero(SPECIES);
+
+        int i = 0;
+        for (; i < simdBound; i += laneCount) {
+            FloatVector va = FloatVector.fromArray(SPECIES, a, i);
+            FloatVector vb = FloatVector.fromArray(SPECIES, b, i);
+            acc = va.fma(vb, acc);
+        }
+
+        float sum = acc.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
+        for (; i < n; i++) {
             sum += a[i] * b[i];
         }
         return sum;
     }
 
-    private static float norm(float[] v, int n) {
-        return (float) Math.sqrt(dot(v, v, n));
+    /** SIMD: a[i] -= scale * b[i] */
+    private static void simdSubScaled(float[] a, float[] b, float scale, int n) {
+        int laneCount = SPECIES.length();
+        int simdBound = SPECIES.loopBound(n);
+        FloatVector sv = FloatVector.broadcast(SPECIES, scale);
+
+        int i = 0;
+        for (; i < simdBound; i += laneCount) {
+            FloatVector va = FloatVector.fromArray(SPECIES, a, i);
+            FloatVector vb = FloatVector.fromArray(SPECIES, b, i);
+            va.sub(vb.mul(sv)).intoArray(a, i);
+        }
+        for (; i < n; i++) {
+            a[i] -= scale * b[i];
+        }
+    }
+
+    /** SIMD: a[i] *= scale */
+    private static void simdScale(float[] a, float scale, int n) {
+        int laneCount = SPECIES.length();
+        int simdBound = SPECIES.loopBound(n);
+        FloatVector sv = FloatVector.broadcast(SPECIES, scale);
+
+        int i = 0;
+        for (; i < simdBound; i += laneCount) {
+            FloatVector va = FloatVector.fromArray(SPECIES, a, i);
+            va.mul(sv).intoArray(a, i);
+        }
+        for (; i < n; i++) {
+            a[i] *= scale;
+        }
     }
 }
