@@ -1,0 +1,200 @@
+package com.spectrayan.spector.core.quantization.strategy;
+
+import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
+import com.spectrayan.spector.core.quantization.QuantizationType;
+import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.quantization.TurboQuantizer;
+import com.spectrayan.spector.core.quantization.vasq.VasqEncoder;
+import com.spectrayan.spector.core.quantization.vasq.VasqParams;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
+
+/**
+ * Abstract Factory for creating {@link QuantizationStrategy} instances.
+ *
+ * <p>Centralizes the "which strategy for which type" decision and validates
+ * that required quantizer objects are present. Callers (e.g., {@code QuantizedVectorStore}
+ * and {@code QuantizedHnswIndex}) call {@link #create} and hold a single
+ * {@link QuantizationStrategy} reference — no more per-type fields or switch chains.</p>
+ *
+ * <h3>Usage</h3>
+ * <pre>{@code
+ *   QuantizationStrategy strategy = QuantizationStrategyFactory.create(
+ *       QuantizationType.VASQ,
+ *       null, null, null,
+ *       vasqEncoder,
+ *       similarityFunction
+ *   );
+ *   strategy.encode(vector, segment, offset);
+ *   DistanceContext ctx = strategy.prepareQueryContext(query);
+ *   float dist = strategy.distance(segment, offset, ctx);
+ * }</pre>
+ *
+ * <h3>Open/Closed principle</h3>
+ * <p>To add a new quantization type: implement {@link QuantizationStrategy},
+ * add a case here. {@code QuantizedVectorStore} and {@code QuantizedHnswIndex}
+ * do not change.</p>
+ */
+public final class QuantizationStrategyFactory {
+
+    private QuantizationStrategyFactory() {}
+
+    /**
+     * Creates a {@link QuantizationStrategy} for the given quantization type,
+     * validating that all required sub-quantizers are present.
+     *
+     * @param type               the quantization type (must not be null or NONE)
+     * @param scalarQuantizer    required for SCALAR_INT8 (may be null for others)
+     * @param nonUniformQuantizer required for SCALAR_INT4 / SCALAR_INT2 (may be null for others)
+     * @param turboQuantizer     required for TURBO_QUANT (may be null for others)
+     * @param vasqEncoder        required for VASQ (may be null for others)
+     * @param similarityFunction the distance metric (must not be null)
+     * @return a fully initialized {@link QuantizationStrategy}
+     * @throws IllegalArgumentException if a required sub-quantizer is missing or dimensions mismatch
+     */
+    public static QuantizationStrategy create(
+            QuantizationType type,
+            ScalarQuantizer scalarQuantizer,
+            NonUniformQuantizer nonUniformQuantizer,
+            TurboQuantizer turboQuantizer,
+            VasqEncoder vasqEncoder,
+            SimilarityFunction similarityFunction) {
+
+        if (type == null) throw new IllegalArgumentException("QuantizationType must not be null");
+        if (similarityFunction == null) throw new IllegalArgumentException("SimilarityFunction must not be null");
+
+        return switch (type) {
+            case SCALAR_INT8 -> {
+                if (scalarQuantizer == null) {
+                    throw new IllegalArgumentException("ScalarQuantizer is required for SCALAR_INT8");
+                }
+                yield new Int8Strategy(scalarQuantizer, similarityFunction);
+            }
+            case SCALAR_INT4 -> {
+                if (nonUniformQuantizer == null) {
+                    throw new IllegalArgumentException("NonUniformQuantizer is required for SCALAR_INT4");
+                }
+                validateLevels(nonUniformQuantizer, type);
+                yield new Int4Strategy(nonUniformQuantizer, similarityFunction,
+                        computeGlobalCentroids(nonUniformQuantizer));
+            }
+            case SCALAR_INT2 -> {
+                if (nonUniformQuantizer == null) {
+                    throw new IllegalArgumentException("NonUniformQuantizer is required for SCALAR_INT2");
+                }
+                validateLevels(nonUniformQuantizer, type);
+                yield new Int2Strategy(nonUniformQuantizer, similarityFunction,
+                        computeGlobalCentroids(nonUniformQuantizer));
+            }
+            case TURBO_QUANT -> {
+                if (turboQuantizer == null) {
+                    throw new IllegalArgumentException("TurboQuantizer is required for TURBO_QUANT");
+                }
+                yield new TurboQuantStrategy(turboQuantizer, similarityFunction);
+            }
+            case VASQ -> {
+                if (vasqEncoder == null) {
+                    throw new IllegalArgumentException("VasqEncoder is required for VASQ");
+                }
+                yield new VasqStrategy(vasqEncoder, similarityFunction);
+            }
+            case NONE -> throw new IllegalArgumentException(
+                    "NONE is not a quantized type — use a plain float store instead");
+        };
+    }
+
+    /**
+     * Creates a {@link QuantizationStrategy} for the given quantization type,
+     * additionally validating that quantizer dimensions match the expected store dimension.
+     *
+     * <p>Use this overload when you want to enforce dimension consistency at the
+     * factory level rather than relying on the strategy to detect mismatches
+     * at encode time.</p>
+     *
+     * @param type               the quantization type
+     * @param dimensions         expected vector dimensionality
+     * @param scalarQuantizer    required for SCALAR_INT8
+     * @param nonUniformQuantizer required for SCALAR_INT4 / SCALAR_INT2
+     * @param turboQuantizer     required for TURBO_QUANT
+     * @param vasqEncoder        required for VASQ
+     * @param similarityFunction the distance metric
+     * @return a fully initialized {@link QuantizationStrategy}
+     * @throws IllegalArgumentException if required quantizer missing or dimension mismatch detected
+     */
+    public static QuantizationStrategy createWithDimCheck(
+            QuantizationType type,
+            int dimensions,
+            ScalarQuantizer scalarQuantizer,
+            NonUniformQuantizer nonUniformQuantizer,
+            TurboQuantizer turboQuantizer,
+            VasqEncoder vasqEncoder,
+            SimilarityFunction similarityFunction) {
+
+        // Dimension consistency checks (mirrors original QuantizedVectorStore validation)
+        if (type == QuantizationType.SCALAR_INT8 && scalarQuantizer != null
+                && scalarQuantizer.dimensions() != dimensions) {
+            throw new IllegalArgumentException(
+                    "ScalarQuantizer dims " + scalarQuantizer.dimensions() + " != store dims " + dimensions);
+        }
+        if ((type == QuantizationType.SCALAR_INT4 || type == QuantizationType.SCALAR_INT2)
+                && nonUniformQuantizer != null
+                && nonUniformQuantizer.dimensions() != dimensions) {
+            throw new IllegalArgumentException(
+                    "NonUniformQuantizer dims " + nonUniformQuantizer.dimensions() + " != store dims " + dimensions);
+        }
+        if (type == QuantizationType.TURBO_QUANT && turboQuantizer != null
+                && turboQuantizer.dimensions() != dimensions) {
+            throw new IllegalArgumentException(
+                    "TurboQuantizer dims " + turboQuantizer.dimensions() + " != store dims " + dimensions);
+        }
+        if (type == QuantizationType.VASQ && vasqEncoder != null
+                && vasqEncoder.params().originalDim() != dimensions) {
+            throw new IllegalArgumentException(
+                    "VasqEncoder originalDim " + vasqEncoder.params().originalDim() + " != store dims " + dimensions);
+        }
+
+        return create(type, scalarQuantizer, nonUniformQuantizer, turboQuantizer, vasqEncoder, similarityFunction);
+    }
+
+    /**
+     * Creates a VASQ strategy directly from {@link VasqParams} (convenience overload).
+     *
+     * @param params             calibrated VASQ parameters
+     * @param similarityFunction distance metric
+     * @return a fully initialized VASQ {@link QuantizationStrategy}
+     */
+    public static QuantizationStrategy createVasq(VasqParams params,
+                                                   SimilarityFunction similarityFunction) {
+        return new VasqStrategy(params, similarityFunction);
+    }
+
+    // ─────────────── Internals ───────────────
+
+    /**
+     * Computes global centroids for INT4/INT2 packed dot product lookup.
+     *
+     * <p>The global centroids are a single flat array of length {@code levels},
+     * where each entry is the average of that level's per-dimension centroid
+     * across all dimensions. Used by {@link com.spectrayan.spector.core.similarity.PackedDotProduct}.</p>
+     */
+    static float[] computeGlobalCentroids(NonUniformQuantizer nuq) {
+        int levels = nuq.levels();
+        int dims   = nuq.dimensions();
+        float[] global = new float[levels];
+        for (int level = 0; level < levels; level++) {
+            double sum = 0.0;
+            for (int dim = 0; dim < dims; dim++) {
+                sum += nuq.centroids(dim)[level];
+            }
+            global[level] = (float) (sum / dims);
+        }
+        return global;
+    }
+
+    private static void validateLevels(NonUniformQuantizer nuq, QuantizationType type) {
+        int expected = type.levels();
+        if (nuq.levels() != expected) {
+            throw new IllegalArgumentException(
+                    "NonUniformQuantizer has " + nuq.levels() + " levels but " + type + " requires " + expected);
+        }
+    }
+}

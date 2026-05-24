@@ -1,23 +1,28 @@
 package com.spectrayan.spector.core.similarity;
+
 import com.spectrayan.spector.core.simd.SimdCapability;
 
-import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+
 /**
  * SIMD-accelerated asymmetric dot product between a float32 query and a
- * quantized int8 document vector.
+ * quantized INT8 document vector stored in an off-heap {@link MemorySegment}.
  *
- * <p>The quantized document vector is dequantized on-the-fly during the
- * SIMD computation: {@code dequantized[i] = byte[i] * scale[i] + min[i]}.
- * The query vector remains in full float32 precision throughout.</p>
+ * <h3>Zero-Copy Design</h3>
+ * <p>The primary {@link #compute(float[], MemorySegment, long, float[], float[], int)}
+ * overload reads INT8 codes directly from the off-heap segment without any intermediate
+ * {@code byte[]} allocation. The query vector remains in full float32 precision.</p>
  *
- * <h3>Performance</h3>
- * <p>By operating on byte lanes, this kernel processes 4× more elements
- * per SIMD register compared to float-only computation. On AVX2 (256-bit),
- * each iteration handles 8 float lanes with pre-dequantized bytes.</p>
+ * <h3>GC-Free Hot Path</h3>
+ * <p>Previous implementation allocated {@code float[] dequantized = new float[laneCount]}
+ * inside the SIMD loop — O(D/laneCount) heap allocations per call. The new implementation
+ * allocates a single {@code float[laneCount]} scratch buffer <em>once per call</em> and
+ * reuses it across all SIMD iterations. Zero per-iteration allocations.</p>
  *
  * <h3>Mathematical Equivalence</h3>
  * <pre>
@@ -33,62 +38,71 @@ public final class QuantizedDotProduct {
     private QuantizedDotProduct() {}
 
     /**
-     * Computes the dot product between a float32 query and a quantized int8 vector.
+     * Computes the dot product between a float32 query and a quantized INT8 vector
+     * stored in an off-heap {@link MemorySegment}.
      *
-     * @param query     the query vector (float32)
-     * @param quantized the quantized document vector (unsigned int8)
-     * @param mins      per-dimension minimum values from calibration
-     * @param scales    per-dimension scale values from calibration
-     * @param length    number of dimensions
+     * <p>Zero-copy: reads directly from off-heap memory, no {@code byte[]} intermediate.</p>
+     *
+     * @param query   the float32 query vector
+     * @param segment off-heap segment containing the quantized document
+     * @param offset  byte offset of the first INT8 code within the segment
+     * @param mins    per-dimension minimum values from calibration
+     * @param scales  per-dimension scale values from calibration
+     * @param length  number of dimensions
      * @return approximate dot product
      */
-    public static float compute(float[] query, byte[] quantized,
+    public static float compute(float[] query, MemorySegment segment, long offset,
                                  float[] mins, float[] scales, int length) {
         int laneCount = SPECIES.length();
+        // Single scratch buffer — allocated once per call, reused across SIMD iterations
+        float[] scratch = new float[laneCount];
+
         FloatVector sumDot = FloatVector.zero(SPECIES);
 
-        int i = 0;
         int limit = SPECIES.loopBound(length);
-
-        // ── Main vectorized loop ──
-        for (; i < limit; i += laneCount) {
-            // Load query floats
+        for (int i = 0; i < limit; i += laneCount) {
             FloatVector vQuery = FloatVector.fromArray(SPECIES, query, i);
 
-            // Load quantized bytes and dequantize to float
-            // Manual widening: byte → unsigned int → float
-            float[] dequantized = new float[laneCount];
+            // Dequantize laneCount bytes from off-heap segment (no heap alloc per iteration)
             for (int j = 0; j < laneCount; j++) {
-                int unsigned = Byte.toUnsignedInt(quantized[i + j]);
-                dequantized[j] = unsigned * scales[i + j] + mins[i + j];
+                int unsigned = segment.get(ValueLayout.JAVA_BYTE, offset + i + j) & 0xFF;
+                scratch[j] = unsigned * scales[i + j] + mins[i + j];
             }
-            FloatVector vDoc = FloatVector.fromArray(SPECIES, dequantized, 0);
+            FloatVector vDoc = FloatVector.fromArray(SPECIES, scratch, 0);
 
-            // FMA: sum += query * dequantized_doc
+            // FMA: acc += query * dequantized_doc
             sumDot = vQuery.fma(vDoc, sumDot);
         }
 
-        // ── Scalar tail ──
+        // Scalar tail
         float tail = 0.0f;
-        for (; i < length; i++) {
-            int unsigned = Byte.toUnsignedInt(quantized[i]);
-            float dequantizedVal = unsigned * scales[i] + mins[i];
-            tail += query[i] * dequantizedVal;
+        for (int i = limit; i < length; i++) {
+            int unsigned = segment.get(ValueLayout.JAVA_BYTE, offset + i) & 0xFF;
+            tail += query[i] * (unsigned * scales[i] + mins[i]);
         }
 
         return sumDot.reduceLanes(VectorOperators.ADD) + tail;
     }
 
     /**
-     * Computes the dot product using a pre-built lookup for dequantization.
+     * Backward-compatible overload: computes dot product from a heap {@code byte[]} array.
      *
-     * <p>When the same quantizer is used for many queries, pre-computing
-     * the dequantized values avoids redundant scale/min multiplications.
-     * Callers should dequantize once and pass the float array.</p>
+     * <p>Delegates to the segment-based kernel via {@link MemorySegment#ofArray} — no data copy.</p>
      *
-     * @param query        the query vector (float32)
-     * @param dequantized  pre-dequantized document vector (float32)
-     * @param length       number of dimensions
+     * @deprecated Prefer the {@link MemorySegment} overload for zero-copy off-heap access.
+     */
+    @Deprecated
+    public static float compute(float[] query, byte[] quantized,
+                                 float[] mins, float[] scales, int length) {
+        return compute(query, MemorySegment.ofArray(quantized), 0L, mins, scales, length);
+    }
+
+    /**
+     * Computes dot product using a pre-dequantized float document vector.
+     *
+     * @param query       the float32 query vector
+     * @param dequantized pre-dequantized document vector (float32)
+     * @param length      number of dimensions
      * @return dot product
      */
     public static float computePreDequantized(float[] query, float[] dequantized, int length) {

@@ -1,5 +1,11 @@
 package com.spectrayan.spector.core.similarity;
 
+import com.spectrayan.spector.core.quantization.vasq.VasqQueryState;
+import com.spectrayan.spector.core.quantization.vasq.VasqSimdKernel;
+
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+
 /**
  * Enumerates the supported distance/similarity functions.
  *
@@ -7,9 +13,17 @@ package com.spectrayan.spector.core.similarity;
  * a uniform {@link #compute(float[], float[])} interface for use by indexes
  * and query engines.</p>
  *
- * <p>Also supports asymmetric quantized computation via
- * {@link #computeQuantized(float[], byte[], float[], float[], int)} for
- * float32 query × int8 document distance.</p>
+ * <h3>Zero-Copy Distance API</h3>
+ * <p>All quantized distance methods have primary overloads that accept a
+ * {@link MemorySegment} + offset, reading encoded vectors directly from off-heap
+ * memory without any intermediate {@code byte[]} allocation:</p>
+ * <ul>
+ *   <li>{@link #computeQuantizedFromSegment} — INT8 scalar quantization, zero-copy</li>
+ *   <li>{@link #computeVasq} — VASQ FWHT Panama kernel, zero-copy (always was)</li>
+ * </ul>
+ * <p>The legacy {@link #computeQuantized(float[], byte[], float[], float[], int)} overloads
+ * are deprecated and delegate to the segment-based kernels via
+ * {@link MemorySegment#ofArray} without data copying.</p>
  */
 public enum SimilarityFunction {
 
@@ -29,6 +43,13 @@ public enum SimilarityFunction {
         }
 
         @Override
+        public float computeQuantizedFromSegment(float[] query, MemorySegment segment, long offset,
+                                                  float[] mins, float[] scales, int length) {
+            return QuantizedCosineSimilarity.compute(query, segment, offset, mins, scales, length);
+        }
+
+        @Override
+        @Deprecated
         public float computeQuantized(float[] query, byte[] quantized,
                                        float[] mins, float[] scales, int length) {
             return QuantizedCosineSimilarity.compute(query, quantized, mins, scales, length);
@@ -56,6 +77,13 @@ public enum SimilarityFunction {
         }
 
         @Override
+        public float computeQuantizedFromSegment(float[] query, MemorySegment segment, long offset,
+                                                  float[] mins, float[] scales, int length) {
+            return QuantizedDotProduct.compute(query, segment, offset, mins, scales, length);
+        }
+
+        @Override
+        @Deprecated
         public float computeQuantized(float[] query, byte[] quantized,
                                        float[] mins, float[] scales, int length) {
             return QuantizedDotProduct.compute(query, quantized, mins, scales, length);
@@ -83,16 +111,25 @@ public enum SimilarityFunction {
         }
 
         @Override
-        public float computeQuantized(float[] query, byte[] quantized,
-                                       float[] mins, float[] scales, int length) {
-            // Dequantize and compute — no specialized Euclidean quantized kernel yet
+        public float computeQuantizedFromSegment(float[] query, MemorySegment segment, long offset,
+                                                  float[] mins, float[] scales, int length) {
+            // Dequantize on-the-fly from off-heap segment, compute L2 — no byte[] intermediate
             float sum = 0;
             for (int i = 0; i < length; i++) {
-                float d = Byte.toUnsignedInt(quantized[i]) * scales[i] + mins[i];
+                int unsigned = segment.get(ValueLayout.JAVA_BYTE, offset + i) & 0xFF;
+                float d = unsigned * scales[i] + mins[i];
                 float diff = query[i] - d;
                 sum += diff * diff;
             }
             return (float) Math.sqrt(sum);
+        }
+
+        @Override
+        @Deprecated
+        public float computeQuantized(float[] query, byte[] quantized,
+                                       float[] mins, float[] scales, int length) {
+            return computeQuantizedFromSegment(
+                    query, MemorySegment.ofArray(quantized), 0L, mins, scales, length);
         }
 
         @Override
@@ -102,7 +139,7 @@ public enum SimilarityFunction {
     };
 
     /**
-     * Computes the similarity/distance between two vectors.
+     * Computes the similarity/distance between two float32 vectors.
      *
      * @param a first vector
      * @param b second vector
@@ -123,8 +160,30 @@ public enum SimilarityFunction {
     public abstract float compute(float[] a, int aOff, float[] b, int bOff, int len);
 
     /**
-     * Computes asymmetric similarity/distance between a float32 query
-     * and a quantized int8 document vector.
+     * Computes asymmetric similarity/distance between a float32 query and a quantized INT8
+     * document vector stored in an off-heap {@link MemorySegment}.
+     *
+     * <p><b>Zero-copy hot path:</b> reads directly from the off-heap segment — no {@code byte[]}
+     * intermediate, no GC pressure. This is the primary API for INT8 HNSW graph traversal.</p>
+     *
+     * @param query   query vector in float32
+     * @param segment off-heap segment containing the encoded document database
+     * @param offset  byte offset of the target vector's first INT8 code within the segment
+     * @param mins    per-dimension minimum values from calibration
+     * @param scales  per-dimension scale values from calibration
+     * @param length  number of dimensions
+     * @return the similarity or distance score
+     */
+    public abstract float computeQuantizedFromSegment(float[] query, MemorySegment segment,
+                                                       long offset, float[] mins, float[] scales,
+                                                       int length);
+
+    /**
+     * Computes asymmetric similarity/distance between a float32 query and a quantized INT8
+     * document vector stored in a heap {@code byte[]} array.
+     *
+     * @deprecated Use {@link #computeQuantizedFromSegment} for zero-copy off-heap access.
+     *             This overload delegates via {@link MemorySegment#ofArray} without data copying.
      *
      * @param query     query vector in float32
      * @param quantized document vector in int8 (unsigned byte)
@@ -133,8 +192,39 @@ public enum SimilarityFunction {
      * @param length    number of dimensions
      * @return the similarity or distance score
      */
+    @Deprecated
     public abstract float computeQuantized(float[] query, byte[] quantized,
                                             float[] mins, float[] scales, int length);
+
+    /**
+     * Computes VASQ-quantized distance using a pre-prepared query context and an
+     * off-heap {@link MemorySegment} storing the encoded vector database.
+     *
+     * <p><b>Zero-copy:</b> reads directly from off-heap memory, zero JVM GC allocations.
+     * This is the primary hot path for VASQ HNSW graph traversal via the Panama SIMD kernel.</p>
+     *
+     * <ul>
+     *   <li>{@code EUCLIDEAN}: approximate squared L2 distance (lower = more similar)</li>
+     *   <li>{@code DOT_PRODUCT}: approximate inner product (higher = more similar)</li>
+     *   <li>{@code COSINE}: approximate inner product in rotated space (higher = more similar;
+     *       equals cosine similarity for unit-normalized vectors)</li>
+     * </ul>
+     *
+     * @param segment   off-heap memory segment containing the encoded vector database
+     * @param offset    byte offset of the target vector's 4-byte norm header
+     * @param paddedDim FWHT-padded dimension (power-of-two)
+     * @param qs        pre-prepared query state (from {@link com.spectrayan.spector.core.quantization.vasq.VasqQueryPrep})
+     * @return distance or similarity score appropriate for this function
+     */
+    public float computeVasq(MemorySegment segment, long offset,
+                              int paddedDim, VasqQueryState qs) {
+        return switch (this) {
+            case EUCLIDEAN   -> VasqSimdKernel.computeL2(segment, offset, paddedDim, qs);
+            case DOT_PRODUCT -> VasqSimdKernel.computeDot(segment, offset, paddedDim, qs);
+            // For cosine, inner product in FWHT-rotated space. Equals cosine for unit vectors.
+            case COSINE      -> VasqSimdKernel.computeDot(segment, offset, paddedDim, qs);
+        };
+    }
 
     /**
      * Whether higher scores indicate greater similarity.
@@ -143,4 +233,3 @@ public enum SimilarityFunction {
      */
     public abstract boolean higherIsBetter();
 }
-
