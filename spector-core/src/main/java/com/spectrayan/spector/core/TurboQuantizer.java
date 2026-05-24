@@ -244,7 +244,9 @@ public final class TurboQuantizer {
             rotated[d] = quantized[d] * scales[d] + mins[d];
         }
 
-        return rotation.inverseRotate(rotated);
+        float[] result = new float[dimensions];
+        rotation.inverseRotate(rotated, result);
+        return result;
     }
 
     // ─────────────── Distance Computation ───────────────
