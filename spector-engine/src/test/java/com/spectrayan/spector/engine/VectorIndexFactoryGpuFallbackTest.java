@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import com.spectrayan.spector.core.QuantizationType;
+import com.spectrayan.spector.core.quantization.QuantizationType;
 
 /**
  * Unit tests for GPU fallback logic in {@link VectorIndexFactory}.

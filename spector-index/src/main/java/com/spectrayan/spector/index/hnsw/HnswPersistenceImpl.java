@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
  * Implementation of HNSW binary persistence format.

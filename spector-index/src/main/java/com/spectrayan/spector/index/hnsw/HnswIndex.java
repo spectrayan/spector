@@ -1,6 +1,6 @@
 package com.spectrayan.spector.index;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

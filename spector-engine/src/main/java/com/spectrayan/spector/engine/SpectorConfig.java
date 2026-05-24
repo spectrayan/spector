@@ -2,8 +2,8 @@ package com.spectrayan.spector.engine;
 
 import java.nio.file.Path;
 
-import com.spectrayan.spector.core.QuantizationType;
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.quantization.QuantizationType;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.HnswParams;
 import com.spectrayan.spector.storage.PersistenceMode;
 

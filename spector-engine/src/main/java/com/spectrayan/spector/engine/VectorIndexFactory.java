@@ -3,7 +3,7 @@ package com.spectrayan.spector.engine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.core.QuantizationType;
+import com.spectrayan.spector.core.quantization.QuantizationType;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.index.QuantizedHnswIndex;
 import com.spectrayan.spector.index.VectorIndex;

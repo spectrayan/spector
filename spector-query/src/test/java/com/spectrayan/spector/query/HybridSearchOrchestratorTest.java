@@ -2,7 +2,7 @@ package com.spectrayan.spector.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.BM25Index;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.index.ScoredResult;

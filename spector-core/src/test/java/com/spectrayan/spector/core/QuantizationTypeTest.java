@@ -1,5 +1,7 @@
 package com.spectrayan.spector.core;
 
+import com.spectrayan.spector.core.quantization.QuantizationType;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

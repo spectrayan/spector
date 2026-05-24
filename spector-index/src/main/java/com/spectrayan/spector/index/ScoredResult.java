@@ -1,6 +1,6 @@
 package com.spectrayan.spector.index;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
  * A scored search result from a vector or keyword index.

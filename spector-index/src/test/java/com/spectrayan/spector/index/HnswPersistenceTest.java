@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 /**
  * Unit tests for {@link HnswPersistenceImpl}.

@@ -8,12 +8,12 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.core.CrumbPacker;
-import com.spectrayan.spector.core.NibblePacker;
-import com.spectrayan.spector.core.NonUniformQuantizer;
-import com.spectrayan.spector.core.PackedDotProduct;
-import com.spectrayan.spector.core.QuantizationType;
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.quantization.CrumbPacker;
+import com.spectrayan.spector.core.quantization.NibblePacker;
+import com.spectrayan.spector.core.quantization.NonUniformQuantizer;
+import com.spectrayan.spector.core.similarity.PackedDotProduct;
+import com.spectrayan.spector.core.quantization.QuantizationType;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.index.pq.ProductQuantizer;

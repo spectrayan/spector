@@ -1,4 +1,5 @@
-package com.spectrayan.spector.core;
+package com.spectrayan.spector.core.similarity;
+import com.spectrayan.spector.core.simd.SimdCapability;
 
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorMask;
@@ -6,59 +7,80 @@ import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 
 /**
- * SIMD-accelerated cosine similarity computation.
+ * SIMD-accelerated Euclidean (L2) distance computation.
  *
- * <p>Computes cosine similarity in a single pass over the data by accumulating
- * the dot product and both norms simultaneously, minimizing cache misses.
- * Uses {@link FloatVector} with masked tail handling for branchless execution.</p>
+ * <p>Computes both the squared distance and the full distance. For nearest-neighbor
+ * search, {@link #computeSquared} is preferred since it avoids the costly
+ * {@code sqrt} operation while preserving rank ordering.</p>
  *
  * <h3>Mathematical Definition</h3>
  * <pre>
- *   cosine(a, b) = dot(a, b) / (‖a‖ * ‖b‖)
+ *   L2²(a, b) = Σ (a[i] - b[i])²   for i ∈ [0, length)
+ *   L2(a, b)  = √L2²(a, b)
  * </pre>
- *
- * <p>Returns {@code 0.0f} if either vector has zero magnitude (degenerate case).</p>
  */
-public final class CosineSimilarity {
+public final class EuclideanDistance {
 
     private static final VectorSpecies<Float> SPECIES = SimdCapability.PREFERRED_SPECIES;
 
-    private CosineSimilarity() {
+    private EuclideanDistance() {
         // utility class
     }
 
     /**
-     * Computes cosine similarity between two float arrays.
+     * Computes the Euclidean distance between two float arrays.
      *
      * @param a first vector
      * @param b second vector
-     * @return cosine similarity in range [-1, 1], or 0 if degenerate
-     * @throws IllegalArgumentException if arrays have different lengths
+     * @return Euclidean distance (L2 norm of the difference)
      */
     public static float compute(float[] a, float[] b) {
-        return compute(a, 0, b, 0, a.length);
+        return (float) Math.sqrt(computeSquared(a, 0, b, 0, a.length));
     }
 
     /**
-     * Computes cosine similarity between two float array slices in a single pass.
-     *
-     * <p>Accumulates dot-product, norm-a², and norm-b² simultaneously to maximize
-     * data locality and minimize memory bandwidth pressure.</p>
+     * Computes the Euclidean distance between two float array slices.
      *
      * @param a       first vector array
      * @param aOffset offset into {@code a}
      * @param b       second vector array
      * @param bOffset offset into {@code b}
      * @param length  number of elements to process
-     * @return cosine similarity in range [-1, 1], or 0 if degenerate
+     * @return Euclidean distance
      */
     public static float compute(float[] a, int aOffset, float[] b, int bOffset, int length) {
+        return (float) Math.sqrt(computeSquared(a, aOffset, b, bOffset, length));
+    }
+
+    /**
+     * Computes the <em>squared</em> Euclidean distance between two float arrays.
+     *
+     * <p>Preferred for nearest-neighbor search since it avoids the square root
+     * while preserving the same rank ordering as the full distance.</p>
+     *
+     * @param a first vector
+     * @param b second vector
+     * @return squared Euclidean distance
+     */
+    public static float computeSquared(float[] a, float[] b) {
+        return computeSquared(a, 0, b, 0, a.length);
+    }
+
+    /**
+     * Computes the squared Euclidean distance between two float array slices.
+     *
+     * @param a       first vector array
+     * @param aOffset offset into {@code a}
+     * @param b       second vector array
+     * @param bOffset offset into {@code b}
+     * @param length  number of elements to process
+     * @return squared Euclidean distance
+     */
+    public static float computeSquared(float[] a, int aOffset, float[] b, int bOffset, int length) {
         validateInputs(a, aOffset, b, bOffset, length);
 
         int laneCount = SPECIES.length();
-        FloatVector sumDot = FloatVector.zero(SPECIES);
-        FloatVector sumNormA = FloatVector.zero(SPECIES);
-        FloatVector sumNormB = FloatVector.zero(SPECIES);
+        FloatVector sum = FloatVector.zero(SPECIES);
 
         // ── Main vectorized loop ──
         int i = 0;
@@ -66,10 +88,8 @@ public final class CosineSimilarity {
         for (; i < limit; i += laneCount) {
             FloatVector va = FloatVector.fromArray(SPECIES, a, aOffset + i);
             FloatVector vb = FloatVector.fromArray(SPECIES, b, bOffset + i);
-
-            sumDot   = va.fma(vb, sumDot);     // dot += a * b
-            sumNormA = va.fma(va, sumNormA);   // normA += a * a
-            sumNormB = vb.fma(vb, sumNormB);   // normB += b * b
+            FloatVector diff = va.sub(vb);
+            sum = diff.fma(diff, sum);  // sum += diff * diff
         }
 
         // ── Tail: masked operations ──
@@ -77,18 +97,11 @@ public final class CosineSimilarity {
             VectorMask<Float> mask = SPECIES.indexInRange(i, length);
             FloatVector va = FloatVector.fromArray(SPECIES, a, aOffset + i, mask);
             FloatVector vb = FloatVector.fromArray(SPECIES, b, bOffset + i, mask);
-
-            sumDot   = sumDot.add(va.mul(vb, mask));
-            sumNormA = sumNormA.add(va.mul(va, mask));
-            sumNormB = sumNormB.add(vb.mul(vb, mask));
+            FloatVector diff = va.sub(vb, mask);
+            sum = sum.add(diff.mul(diff, mask));
         }
 
-        float dot   = sumDot.reduceLanes(VectorOperators.ADD);
-        float normA = sumNormA.reduceLanes(VectorOperators.ADD);
-        float normB = sumNormB.reduceLanes(VectorOperators.ADD);
-
-        float denom = (float) Math.sqrt((double) normA * normB);
-        return denom == 0.0f ? 0.0f : dot / denom;
+        return sum.reduceLanes(VectorOperators.ADD);
     }
 
     private static void validateInputs(float[] a, int aOffset, float[] b, int bOffset, int length) {

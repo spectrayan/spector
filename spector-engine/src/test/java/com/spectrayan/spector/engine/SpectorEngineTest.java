@@ -3,7 +3,7 @@ package com.spectrayan.spector.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.query.SearchQuery;
 import com.spectrayan.spector.query.SearchResponse;
 

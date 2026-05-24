@@ -1,4 +1,4 @@
-package com.spectrayan.spector.core;
+package com.spectrayan.spector.core.quantization;
 
 /**
  * Packs and unpacks 4-bit (nibble) values into byte arrays for INT4 quantized storage.

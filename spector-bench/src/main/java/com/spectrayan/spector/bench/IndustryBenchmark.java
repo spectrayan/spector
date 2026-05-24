@@ -18,8 +18,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
-import com.spectrayan.spector.core.SimdCapability;
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.simd.SimdCapability;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.engine.SpectorConfig;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.index.HnswParams;

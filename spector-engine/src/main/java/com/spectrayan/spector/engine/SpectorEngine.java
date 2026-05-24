@@ -4,8 +4,8 @@ import com.spectrayan.spector.commons.ContentExtractor;
 import com.spectrayan.spector.commons.StreamingChunker;
 import com.spectrayan.spector.commons.TextChunker;
 import com.spectrayan.spector.commons.TokenChunker;
-import com.spectrayan.spector.core.SimilarityFunction;
-import com.spectrayan.spector.core.SimdCapability;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.gpu.GpuBatchSimilarity;
 import com.spectrayan.spector.index.BM25Index;
@@ -674,7 +674,7 @@ public class SpectorEngine implements AutoCloseable {
         }
 
         /** Sets quantization type (default: NONE). */
-        public Builder quantization(com.spectrayan.spector.core.QuantizationType qt) {
+        public Builder quantization(com.spectrayan.spector.core.quantization.QuantizationType qt) {
             this.config = config.withQuantization(qt);
             return this;
         }

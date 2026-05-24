@@ -1,4 +1,4 @@
-package com.spectrayan.spector.core;
+package com.spectrayan.spector.core.quantization;
 
 /**
  * Packs and unpacks 2-bit (crumb) values into byte arrays for INT2 quantized storage.

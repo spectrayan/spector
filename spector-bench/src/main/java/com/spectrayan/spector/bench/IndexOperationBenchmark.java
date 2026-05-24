@@ -1,6 +1,6 @@
 package com.spectrayan.spector.bench;
 
-import com.spectrayan.spector.core.SimilarityFunction;
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.engine.SpectorConfig;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.index.HnswParams;
