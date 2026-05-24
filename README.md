@@ -26,23 +26,23 @@
 
 ```
 spector-search/
-├── spector-core/         # SIMD kernels (DotProduct, Cosine, Euclidean, VectorOps)
-├── spector-commons/      # Text chunkers, tokenizer, content extractor
-├── spector-storage/      # Panama MemorySegment stores (InMemory + Mmap + Quantized)
-├── spector-index/        # HNSW + IVF-PQ vector indexes + BM25 keyword index
+├── [spector-core/](spector-core/)         # SIMD kernels (DotProduct, Cosine, Euclidean, VectorOps)
+├── [spector-commons/](spector-commons/)      # Text chunkers, tokenizer, content extractor
+├── [spector-storage/](spector-storage/)      # Panama MemorySegment stores (InMemory + Mmap + Quantized)
+├── [spector-index/](spector-index/)        # HNSW + IVF-PQ vector indexes + BM25 keyword index
 │   ├── hnsw/             # HNSW graph-based ANN index (standard + quantized INT8/INT4/INT2)
 │   ├── ivf/              # IVF inverted file index + quantized IVF-PQ
 │   ├── pq/               # Product quantizer (K-Means++, ADC)
 │   ├── text/             # BM25 keyword scoring + analyzers
 │   └── fuzz/             # Index fuzz testing framework
-├── spector-query/        # Hybrid orchestrator + RRF fusion + LLM re-ranking
-├── spector-embed-api/    # EmbeddingProvider SPI
-├── spector-embed-ollama/ # Ollama embedding provider implementation
-├── spector-gpu/          # GPU acceleration (Panama FFM + CUDA)
-├── spector-engine/       # Unified engine facade + lifecycle
-├── spector-server/       # REST API (Javalin + virtual threads)
-├── spector-cluster/      # Distributed gRPC search (coordinator + shards)
-└── spector-bench/        # JMH benchmarks
+├── [spector-query/](spector-query/)        # Hybrid orchestrator + RRF fusion + LLM re-ranking
+├── [spector-embed-api/](spector-embed-api/)    # EmbeddingProvider SPI
+├── [spector-embed-ollama/](spector-embed-ollama/) # Ollama embedding provider implementation
+├── [spector-gpu/](spector-gpu/)          # GPU acceleration (Panama FFM + CUDA)
+├── [spector-engine/](spector-engine/)       # Unified engine facade + lifecycle
+├── [spector-server/](spector-server/)       # REST API (Javalin + virtual threads)
+├── [spector-cluster/](spector-cluster/)      # Distributed gRPC search (coordinator + shards)
+└── [spector-bench/](spector-bench/)        # JMH benchmarks
 ```
 
 ### Module Dependency Graph
@@ -206,7 +206,7 @@ Sub-microsecond vector math at every dimension:
 | 384       | ~100 ns   | 100 ns    | ~100 ns         | 100 ns          |
 | 768       | ~100 ns   | 100 ns    | ~100 ns         | 100 ns          |
 
-> Measured on 24-core x86, AVX2 256-bit (8 lanes), Java 25, ZGC. Values at 384+ dimensions are at `System.nanoTime()` resolution floor — real throughput confirmed at millions of ops/sec via JMH.
+> Measured on 24-core Intel Core Ultra 9 285K x86, AVX2 256-bit (8 lanes), Java 25, ZGC. Values at 384+ dimensions are at `System.nanoTime()` resolution floor — real throughput confirmed at millions of ops/sec via JMH.
 
 ### Search Latency (128-dim, top-10)
 
@@ -243,6 +243,9 @@ Sub-microsecond vector math at every dimension:
 
 > Run the full benchmark suite: `mvn -pl spector-bench exec:java`
 > HTML report generated at `spector-bench/target/performance-report.html`
+>
+> [!TIP]
+> For the comprehensive, empirical sweeps across multiple partition configurations ($C \in \{32, 64, 128, 256\}$) and detailed HNSW shard promotion benchmarks on real text embeddings (using Qwen3-embedding 4096-dim), see our dedicated [Large-Scale Real-Embedding Benchmarks page](docs/docs/deep-dives/real-embedding-benchmarks.md).
 
 ---
 
