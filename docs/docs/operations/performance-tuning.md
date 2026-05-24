@@ -6,7 +6,7 @@
 
 ## 📊 Benchmark Summary
 
-> All benchmarks measured on a 24-core x86 machine (Windows 11, Intel Core Ultra 9 245K), AVX2 256-bit, Java 25, ZGC, using clustered vectors (realistic distribution). Numbers represent actual measured results — run `mvn -pl spector-bench exec:java` to reproduce on your hardware.
+> All benchmarks measured on a 24-core x86 machine (Windows 11, Intel Core Ultra 9 285K), AVX2 256-bit, Java 25, ZGC, using clustered vectors (realistic distribution). Numbers represent actual measured results — run `mvn -pl spector-bench exec:java` to reproduce on your hardware.
 
 > [!NOTE]
 > **Methodology:** Benchmarks use 200 measurement iterations with 50 warmup iterations per scenario. Vectors are generated with realistic cluster structure (50 clusters with Gaussian noise). Documents contain 200–1500 words with paragraph structure. Recall is measured against brute-force ground truth. Your results may vary ±20% depending on CPU model, OS scheduling, background load, and thermal throttling.
