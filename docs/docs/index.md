@@ -10,12 +10,12 @@ Welcome to the Spector Search wiki — your central hub for everything about Spe
 
 | Metric | Value |
 |--------|-------|
-| ⚡ Vector Search Latency | **0.07 ms** avg @ 100K docs |
-| 🔍 Keyword Search Latency | **0.61 ms** avg @ 100K docs |
-| 🧬 Hybrid Search Latency | **0.66 ms** avg @ 100K docs |
-| 🚀 Vector Throughput | **14,700+ queries/sec** |
-| 🧵 Concurrent Hybrid | **17,700+ ops/sec** @ 16 threads |
-| 🗜️ IVF-PQ Compression | **32× memory reduction** |
+| ⚡ Vector Search Latency | **0.05 ms** avg @ 10K docs (128-dim) |
+| 🔍 Keyword Search Latency | **0.98 ms** avg @ 100K docs |
+| 🧬 Hybrid Search Latency | **0.17 ms** avg @ 10K docs |
+| 🚀 Vector Throughput | **18,800 queries/sec** @ 10K |
+| 🧵 Concurrent Hybrid | **14,000+ ops/sec** @ 16 threads (384-dim) |
+| 🗜️ IVF-PQ + TurboQuant | **8–32× memory reduction** |
 | ✅ Test Suite | **316+ tests**, all passing |
 | 📦 Dependencies | **Zero** (JDK only) |
 
