@@ -1,14 +1,19 @@
 package com.spectrayan.spector.gpu;
 
-import jdk.incubator.vector.FloatVector;
-import jdk.incubator.vector.VectorOperators;
-import jdk.incubator.vector.VectorSpecies;
+import java.lang.foreign.Arena;
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SymbolLookup;
+import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandle;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.foreign.*;
-import java.lang.invoke.MethodHandle;
+import jdk.incubator.vector.FloatVector;
+import jdk.incubator.vector.VectorOperators;
+import jdk.incubator.vector.VectorSpecies;
 
 /**
  * GPU-accelerated batch similarity computation via CUDA.
@@ -45,6 +50,7 @@ public final class GpuBatchSimilarity implements AutoCloseable {
 
     // CUDA handles
     private final MemorySegment cuContext;
+    private final CudaKernelLauncher kernelLauncher; // actual GPU compute
 
     // Method handles for CUDA driver API
     private final MethodHandle cuMemAlloc;
@@ -110,6 +116,17 @@ public final class GpuBatchSimilarity implements AutoCloseable {
         } catch (Throwable e) {
             throw new RuntimeException("Failed to initialize CUDA context", e);
         }
+
+        // Initialize kernel launcher for actual GPU compute
+        CudaKernelLauncher launcher = null;
+        try {
+            launcher = new CudaKernelLauncher();
+        } catch (Exception e) {
+            log.warn("CUDA kernel launcher init failed, will use CPU SIMD fallback: {}",
+                    e.getMessage());
+            log.debug("CUDA kernel launcher failure details", e);
+        }
+        this.kernelLauncher = launcher;
     }
 
     /**
@@ -157,15 +174,8 @@ public final class GpuBatchSimilarity implements AutoCloseable {
     /**
      * Computes batch cosine similarities between a query and database vectors.
      *
-     * <p>Optimized with SIMD (Java Vector API) for maximum throughput:</p>
-     * <ul>
-     *   <li>Query norm is precomputed once (single SIMD pass)</li>
-     *   <li>Each database vector computes dot-product and norm in a single fused SIMD pass</li>
-     *   <li>Uses FMA (fused multiply-add) for numerical precision and throughput</li>
-     * </ul>
-     *
-     * <p>This reduces the original 3-loop structure to 2 passes (1 for query norm,
-     * 1 fused pass per database vector), with full SIMD utilization.</p>
+     * <p>For large batches (≥64 vectors), dispatches to the GPU CUDA kernel.
+     * For small batches or when the kernel is unavailable, uses CPU SIMD.</p>
      *
      * @param query    the query vector (length D)
      * @param database the database vectors (N × D), stored as flat array [N*D]
@@ -174,6 +184,27 @@ public final class GpuBatchSimilarity implements AutoCloseable {
      * @return array of N cosine similarity scores
      */
     public float[] batchCosineSimilarity(float[] query, float[] database, int n, int dims) {
+        ensureOpen();
+        if (n == 0) return new float[0];
+
+        // Use GPU for very large batches where compute dominates transfer overhead
+        // At 384-dim, breakeven is ~10K+ vectors due to PCIe transfer cost
+        if (kernelLauncher != null && n >= 10_000) {
+            try {
+                return kernelLauncher.batchCosine(query, database, n, dims);
+            } catch (Exception e) {
+                log.debug("GPU kernel failed, falling back to CPU SIMD: {}", e.getMessage());
+            }
+        }
+
+        // CPU SIMD path (small batches or fallback)
+        return batchCosineSimilarityCpu(query, database, n, dims);
+    }
+
+    /**
+     * CPU SIMD implementation of batch cosine similarity.
+     */
+    private float[] batchCosineSimilarityCpu(float[] query, float[] database, int n, int dims) {
         ensureOpen();
         if (n == 0) return new float[0];
 
@@ -262,6 +293,7 @@ public final class GpuBatchSimilarity implements AutoCloseable {
         if (!closed) {
             closed = true;
             try {
+                if (kernelLauncher != null) kernelLauncher.close();
                 // Destroy CUDA context
                 MethodHandle cuCtxDestroy = linker.downcallHandle(
                         cudaLib.find("cuCtxDestroy_v2").orElseThrow(),
