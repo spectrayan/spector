@@ -10,7 +10,7 @@ To evaluate the system under realistic production workloads, we benchmarked the 
 
 All tests were performed locally under standard, repeatable conditions to isolate CPU and JVM execution metrics:
 
-- **Hardware:** 24-Core AMD Ryzen Threadripper, AVX2 256-bit SIMD instruction extensions.
+- **Hardware:** 24-core Intel Core Ultra 9 245K, AVX2 256-bit SIMD instruction extensions.
 - **Runtime Environment:** Java 25 (OpenJDK 25.0.1), garbage collection managed via the ZGC (Z Garbage Collector), 12GB allocated heap (`-Xmx12g`).
 - **Core Optimization:** Panama Vector API (`jdk.incubator.vector`) enabled via JVM arguments to compile hardware-native SIMD instructions on the fly.
 - **Embedding Model:** `qwen3-embedding` (4,096 dimensions) via a local GPU-accelerated Ollama inference runner.
