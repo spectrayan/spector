@@ -8,6 +8,7 @@ import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.index.QuantizedHnswIndex;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.index.ivf.IvfPqIndex;
+import com.spectrayan.spector.index.spectrum.SpectorIndex;
 
 /**
  * Factory Method pattern for creating {@link VectorIndex} instances.
@@ -21,6 +22,7 @@ import com.spectrayan.spector.index.ivf.IvfPqIndex;
  * <ul>
  *   <li>{@link IndexType#HNSW} — Standard or quantized HNSW graph index</li>
  *   <li>{@link IndexType#IVF_PQ} — Inverted file with product quantization</li>
+ *   <li>{@link IndexType#SPECTRUM} — Adaptive IVF + VASQ-HNSW hybrid index</li>
  * </ul>
  */
 public class VectorIndexFactory {
@@ -42,6 +44,7 @@ public class VectorIndexFactory {
         return switch (effectiveConfig.indexType()) {
             case HNSW -> createHnsw(effectiveConfig);
             case IVF_PQ -> createIvfPq(effectiveConfig);
+            case SPECTRUM -> createSpectrum(effectiveConfig);
         };
     }
 
@@ -80,6 +83,17 @@ public class VectorIndexFactory {
      */
     private VectorIndex createHnsw(SpectorConfig config) {
         QuantizationType qt = config.quantization();
+
+        if (qt == QuantizationType.VASQ) {
+            int oversampling = config.effectiveOversamplingFactor();
+            log.info("Creating QuantizedHnswIndex (VASQ): dims={}, capacity={}, oversampling={}",
+                    config.dimensions(), config.capacity(), oversampling);
+            // VASQ uses auto-calibration: calibrates from the first N inserted vectors.
+            // No pre-built quantizer is required — the index handles everything internally.
+            return QuantizedHnswIndex.vasq(
+                    config.dimensions(), config.capacity(),
+                    config.similarityFunction(), config.hnswParams(), oversampling);
+        }
 
         if (qt == QuantizationType.SCALAR_INT8) {
             log.info("Creating QuantizedHnswIndex (SQ8): dims={}, capacity={}",
@@ -120,5 +134,33 @@ public class VectorIndexFactory {
                 config.effectiveNprobe(),
                 config.effectivePqSubspaces(),
                 config.similarityFunction());
+    }
+
+    /**
+     * Creates a Spectrum index (untrained — training happens during ingestion).
+     *
+     * <p>Spectrum is the adaptive IVF + VASQ-HNSW hybrid. It requires a training step
+     * with representative vectors before use (like IVF-PQ). The engine's ingestion
+     * pipeline should call {@link SpectorIndex#train(float[][])} before adding vectors.</p>
+     */
+    private VectorIndex createSpectrum(SpectorConfig config) {
+        int nCentroids = config.effectiveSpectrumNCentroids();
+        int nProbe = config.effectiveSpectrumNProbe();
+        int shardThreshold = config.effectiveSpectrumShardThreshold();
+        int oversampling = config.effectiveOversamplingFactor();
+
+        log.info("Creating SpectorIndex (Spectrum): dims={}, nCentroids={}, nProbe={}, "
+                        + "shardThreshold={}, oversampling={}",
+                config.dimensions(), nCentroids, nProbe, shardThreshold, oversampling);
+
+        return SpectorIndex.builder()
+                .dimensions(config.dimensions())
+                .nCentroids(nCentroids)
+                .nProbe(nProbe)
+                .shardThreshold(shardThreshold)
+                .oversamplingFactor(oversampling)
+                .similarityFunction(config.similarityFunction())
+                .hnswParams(config.hnswParams())
+                .build();
     }
 }
