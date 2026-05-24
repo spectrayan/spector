@@ -49,7 +49,36 @@ public enum QuantizationType {
      *
      * <p>Based on TurboQuant (Google Research, 2025).</p>
      */
-    TURBO_QUANT;
+    TURBO_QUANT,
+
+    /**
+     * VASQ — Vectorized Affine Scalar Quantization with FWHT rotation.
+     *
+     * <p>Combines Fast Walsh-Hadamard Transform (FWHT) rotation with random sign
+     * flips to isotropize the vector distribution, then applies per-dimension
+     * percentile-clipped affine quantization to signed INT8 [-127, 127].</p>
+     *
+     * <h3>Memory Layout (per vector)</h3>
+     * <pre>
+     *   [4 bytes: float32 exact L2 norm²] [paddedDim bytes: signed INT8 codes]
+     * </pre>
+     * where {@code paddedDim} is the next power-of-two ≥ dimensions.
+     *
+     * <h3>Key Properties</h3>
+     * <ul>
+     *   <li>Asymmetric distance computation — query stays in float32, corpus in INT8.</li>
+     *   <li>Exact-norm L2 header eliminates quantization error in L2 ranking.</li>
+     *   <li>FWHT rotation is O(D log D) with zero multiplications (vs O(D²) for dense rotation).</li>
+     *   <li>Panama SIMD kernel: {@code ByteVector.castShape → FMA → reduceLanes} for maximum throughput.</li>
+     *   <li>Zero-padding to power-of-2 guarantees no SIMD tail loop.</li>
+     * </ul>
+     *
+     * <p><strong>Note:</strong> {@link #bytesPerVector(int)} is not supported for VASQ
+     * because storage size depends on {@code paddedDim = nextPow2(dimensions)}, not
+     * {@code dimensions} alone. Use {@code VasqParams.bytesPerVector()} or
+     * {@code VasqEncoder.bytesPerVector()} instead.</p>
+     */
+    VASQ;
 
     /**
      * Returns the number of bits used to represent each vector dimension.
@@ -58,10 +87,12 @@ public enum QuantizationType {
      */
     public int bitsPerDimension() {
         return switch (this) {
-            case NONE -> 32;
+            case NONE        -> 32;
             case SCALAR_INT8 -> 8;
             case SCALAR_INT4, TURBO_QUANT -> 4;
             case SCALAR_INT2 -> 2;
+            // VASQ uses 8 bits per padded dimension; paddedDim ≥ dimensions
+            case VASQ        -> 8;
         };
     }
 
@@ -93,10 +124,15 @@ public enum QuantizationType {
      */
     public int bytesPerVector(int dimensions) {
         return switch (this) {
-            case NONE -> dimensions * 4;
+            case NONE        -> dimensions * 4;
             case SCALAR_INT8 -> dimensions;
             case SCALAR_INT4, TURBO_QUANT -> (dimensions + 1) / 2;
             case SCALAR_INT2 -> (dimensions + 3) / 4;
+            // VASQ storage size = 4 + nextPow2(dimensions), not a simple function of dimensions.
+            // Use VasqParams.bytesPerVector() or VasqEncoder.bytesPerVector() instead.
+            case VASQ -> throw new UnsupportedOperationException(
+                    "VASQ bytesPerVector depends on paddedDim=nextPow2(dimensions). "
+                  + "Use VasqEncoder.bytesPerVector() instead.");
         };
     }
 }
