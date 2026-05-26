@@ -49,8 +49,20 @@ public final class VasqCalibrator {
      */
     static final float CLIP_SIGMAS = 3.0f;
 
+    /**
+     * Tighter clipping for VASQ-4 (INT4, 15 levels).
+     * {@code 2.5} reduces outlier exposure when only 15 quantization levels are available.
+     */
+    static final float CLIP_SIGMAS_4BIT = 2.5f;
+
     /** Maximum sample vectors used for calibration. */
     static final int MAX_SAMPLE_SIZE = 10_000;
+
+    /** Maximum quantization level for INT8 [-127, 127]. */
+    private static final int MAX_LEVEL_INT8 = 127;
+
+    /** Maximum quantization level for INT4 [0, 14] offset-encoded (signed range [-7, 7]). */
+    private static final int MAX_LEVEL_INT4 = 7;
 
     /** Minimum allowed std dev to prevent division by zero on zero-variance dims. */
     private static final float MIN_STD = 1e-6f;
@@ -195,14 +207,147 @@ public final class VasqCalibrator {
         return calibrate(flatData, n, originalDim, VasqParams.DEFAULT_SEED);
     }
 
+    // ── VASQ-4 (INT4) calibration API ────────────────────────────────────────
+
+    /**
+     * Calibrates VASQ-4 (INT4) parameters from a list of sample vectors.
+     *
+     * <p>Produces {@link VasqParams} with {@link VasqParams#BIT_WIDTH_4}.
+     * Scales are computed for signed range [-7, 7] with tighter clipping
+     * ({@link #CLIP_SIGMAS_4BIT}) to maximize use of the 15 available levels.</p>
+     *
+     * @param sampleVectors representative sample
+     * @param originalDim   vector dimensionality
+     * @param seed          FWHT sign-flip seed
+     * @return calibrated {@link VasqParams} with bitWidth=4
+     */
+    public static VasqParams calibrate4bit(List<float[]> sampleVectors,
+                                            int originalDim, long seed) {
+        if (sampleVectors == null || sampleVectors.isEmpty()) {
+            throw new IllegalArgumentException("sampleVectors must not be empty");
+        }
+        List<float[]> sample = subsampleList(sampleVectors, MAX_SAMPLE_SIZE, seed);
+        int n = sample.size();
+        for (float[] v : sample) {
+            if (v.length != originalDim) {
+                throw new IllegalArgumentException(
+                        "Expected " + originalDim + " dims, got " + v.length);
+            }
+        }
+        VasqFwht fwht  = new VasqFwht(originalDim, seed);
+        int paddedDim  = fwht.paddedDim();
+
+        float[][] rotated = new float[n][paddedDim];
+        float[] tempVec   = new float[originalDim];
+        for (int i = 0; i < n; i++) {
+            System.arraycopy(sample.get(i), 0, tempVec, 0, originalDim);
+            fwht.rotate(tempVec, rotated[i]);
+        }
+        return computeParams(rotated, n, paddedDim, originalDim, fwht,
+                MAX_LEVEL_INT4, CLIP_SIGMAS_4BIT, VasqParams.BIT_WIDTH_4);
+    }
+
+    /** Convenience overload using {@link VasqParams#DEFAULT_SEED}. */
+    public static VasqParams calibrate4bit(List<float[]> sampleVectors, int originalDim) {
+        return calibrate4bit(sampleVectors, originalDim, VasqParams.DEFAULT_SEED);
+    }
+
+    /**
+     * Calibrates VASQ-4 (INT4) parameters from a {@code float[][]} array.
+     *
+     * @param samples     array of sample vectors (only indices [0, n) are used)
+     * @param n           number of valid vectors
+     * @param originalDim vector dimensionality
+     * @param seed        FWHT sign-flip seed
+     * @return calibrated {@link VasqParams} with bitWidth=4
+     */
+    public static VasqParams calibrate4bit(float[][] samples, int n,
+                                            int originalDim, long seed) {
+        if (samples == null || n <= 0) {
+            throw new IllegalArgumentException("samples must not be empty");
+        }
+        int useN    = Math.min(n, MAX_SAMPLE_SIZE);
+        int[] idxs  = subsampleIndices(n, useN, seed);
+
+        VasqFwht fwht  = new VasqFwht(originalDim, seed);
+        int paddedDim  = fwht.paddedDim();
+
+        float[][] rotated = new float[useN][paddedDim];
+        float[] tempVec   = new float[originalDim];
+        for (int i = 0; i < useN; i++) {
+            float[] src = samples[idxs[i]];
+            if (src.length != originalDim) {
+                throw new IllegalArgumentException(
+                        "Expected " + originalDim + " dims at index " + idxs[i] + ", got " + src.length);
+            }
+            System.arraycopy(src, 0, tempVec, 0, originalDim);
+            fwht.rotate(tempVec, rotated[i]);
+        }
+        return computeParams(rotated, useN, paddedDim, originalDim, fwht,
+                MAX_LEVEL_INT4, CLIP_SIGMAS_4BIT, VasqParams.BIT_WIDTH_4);
+    }
+
+    /** Convenience overload using {@link VasqParams#DEFAULT_SEED}. */
+    public static VasqParams calibrate4bit(float[][] samples, int n, int originalDim) {
+        return calibrate4bit(samples, n, originalDim, VasqParams.DEFAULT_SEED);
+    }
+
+    /**
+     * Calibrates VASQ-4 parameters from a flat contiguous float buffer.
+     *
+     * @see #calibrate(float[], int, int, long)
+     */
+    public static VasqParams calibrate4bit(float[] flatData, int n,
+                                            int originalDim, long seed) {
+        if (flatData == null || n <= 0 || originalDim <= 0) {
+            throw new IllegalArgumentException("flatData must not be empty");
+        }
+        int useN    = Math.min(n, MAX_SAMPLE_SIZE);
+        int[] idxs  = subsampleIndices(n, useN, seed);
+
+        VasqFwht fwht  = new VasqFwht(originalDim, seed);
+        int paddedDim  = fwht.paddedDim();
+
+        float[][] rotated = new float[useN][paddedDim];
+        float[] tempVec   = new float[originalDim];
+        for (int i = 0; i < useN; i++) {
+            int base = idxs[i] * originalDim;
+            System.arraycopy(flatData, base, tempVec, 0, originalDim);
+            fwht.rotate(tempVec, rotated[i]);
+        }
+        return computeParams(rotated, useN, paddedDim, originalDim, fwht,
+                MAX_LEVEL_INT4, CLIP_SIGMAS_4BIT, VasqParams.BIT_WIDTH_4);
+    }
+
+    /** Convenience overload using {@link VasqParams#DEFAULT_SEED}. */
+    public static VasqParams calibrate4bit(float[] flatData, int n, int originalDim) {
+        return calibrate4bit(flatData, n, originalDim, VasqParams.DEFAULT_SEED);
+    }
+
     // ── Core computation (shared by all overloads) ────────────────────────────
 
     /**
      * Computes per-dimension percentile-clipped mean + std from pre-rotated samples,
      * then derives VASQ scale parameters.
+     *
+     * <p>Delegates to the parameterized overload with INT8 defaults (maxLevel=127, clipSigmas=3.0).</p>
      */
     private static VasqParams computeParams(float[][] rotated, int n, int paddedDim,
                                              int originalDim, VasqFwht fwht) {
+        return computeParams(rotated, n, paddedDim, originalDim, fwht,
+                MAX_LEVEL_INT8, CLIP_SIGMAS, VasqParams.BIT_WIDTH_8);
+    }
+
+    /**
+     * Core scale computation parameterized by quantization range and clipping.
+     *
+     * @param maxLevel   maximum absolute quantization level (127 for INT8, 7 for INT4)
+     * @param clipSigmas number of standard deviations the range covers
+     * @param bitWidth   {@link VasqParams#BIT_WIDTH_8} or {@link VasqParams#BIT_WIDTH_4}
+     */
+    private static VasqParams computeParams(float[][] rotated, int n, int paddedDim,
+                                             int originalDim, VasqFwht fwht,
+                                             int maxLevel, float clipSigmas, int bitWidth) {
         float[] means     = new float[paddedDim];
         float[] scales    = new float[paddedDim];
         float[] invScales = new float[paddedDim];
@@ -226,8 +371,8 @@ public final class VasqCalibrator {
             }
             if (cnt == 0) {
                 means[j]     = 0f;
-                scales[j]    = 1f / 127f;
-                invScales[j] = 127f;
+                scales[j]    = 1f / maxLevel;
+                invScales[j] = (float) maxLevel;
                 continue;
             }
             means[j] = (float) (sum / cnt);
@@ -244,11 +389,11 @@ public final class VasqCalibrator {
             float std = (float) Math.sqrt(var / Math.max(1, cnt - 1));
             std = Math.max(std, MIN_STD);
 
-            scales[j]    = CLIP_SIGMAS * std / 127f;
-            invScales[j] = 127f / (CLIP_SIGMAS * std);
+            scales[j]    = clipSigmas * std / maxLevel;
+            invScales[j] = maxLevel / (clipSigmas * std);
         }
 
-        return new VasqParams(originalDim, paddedDim, means, scales, invScales, fwht);
+        return new VasqParams(originalDim, paddedDim, means, scales, invScales, fwht, bitWidth);
     }
 
     // ── Sampling helpers ──────────────────────────────────────────────────────
