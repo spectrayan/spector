@@ -404,7 +404,7 @@ All comparisons below use **100K documents, 128 dimensions, top-10 retrieval** a
 - [ ] GPU kernel dispatch (CUDA compute for batch similarity — requires CUDA Toolkit)
 - [ ] NPU acceleration (Intel/AMD NPU for INT8 batch operations via OpenVINO or DirectML)
 - [ ] WASM runtime for edge deployment
-- [ ] Structured concurrency (JEP 462) for fan-out search with cancellation propagation
+- [x] Structured concurrency (JEP 505) — `ConcurrentTasks` with dual-mode (structured/classic) + feature flag
 
 > See the [detailed Roadmap](docs/docs/roadmap.md) for in-depth descriptions, projected savings, and implementation plans.
 
