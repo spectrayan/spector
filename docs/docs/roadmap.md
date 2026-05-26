@@ -210,16 +210,28 @@ Compile the core SIMD kernels and HNSW index to WebAssembly for browser-based or
 
 ---
 
-### 🔬 Structured Concurrency (JEP 462) {#structured-concurrency}
+### ✅ Structured Concurrency (JEP 505) {#structured-concurrency}
 
-!!! note "Status: Waiting for JEP Finalization"
-    JEP 462 (Structured Concurrency) is still in preview as of Java 25.
+!!! success "Completed"
+    Implemented via `ConcurrentTasks` in `spector-commons`. Dual-mode: structured concurrency (default) with classic `ExecutorService` fallback via `-Dspector.concurrency.structured=false`.
 
-Replace manual virtual thread management in `HybridSearchOrchestrator` and `SpectorCoordinator` with structured concurrency scopes. Benefits:
+Migrated all 6 concurrency sites from unstructured `ExecutorService` + `Future` to the JEP 505 `StructuredTaskScope` API, centralized in `ConcurrentTasks`:
 
-- Automatic cancellation propagation (if keyword search completes first, cancel vector search early)
-- Cleaner error handling for fan-out/merge distributed queries
-- Observable task trees for debugging
+| Site | Module | Pattern | Benefit |
+|------|--------|---------|---------|
+| `HybridSearchOrchestrator` | spector-query | 2-way fan-out (keyword ∥ vector) | Auto-cancel sibling on failure |
+| `ClusterCoordinator` | spector-cluster | N-way shard fan-out | Auto-cancel all on shard failure |
+| `DistributedQueryCoordinator` | spector-cluster | N-way with timeout + partial results | Clean timeout via `awaitAll()` + `withTimeout()` |
+| `ParallelEmbeddingPipeline` | spector-embed-api | N-way batch embedding | Scope-per-call, no executor lifecycle |
+| `ParallelPqTrainer` | spector-index | M-way K-Means subspace training | All-or-nothing structured scope |
+| `BM25Index` | spector-index | Parallel term scoring | Auto-cancel with sequential fallback |
+
+**Key design decisions:**
+
+- Centralized in `ConcurrentTasks` (spector-commons) for single-point updates when JEP finalizes
+- Feature flag: `-Dspector.concurrency.structured=false` for fallback to classic virtual threads
+- `forkJoinAll()`: all-or-nothing with auto-cancel (uses `awaitAllSuccessfulOrThrow` Joiner)
+- `forkJoinPartial()`: deadline-based with `LabeledTask`/`PartialResult` records (uses `awaitAll` Joiner + `Configuration.withTimeout()`)
 
 ---
 
@@ -236,4 +248,4 @@ Replace manual virtual thread management in `HybridSearchOrchestrator` and `Spec
 | 7 | **GPU kernel dispatch** | N/A (compute) | N/A | Medium | 🔜 Infra ready |
 | 8 | **NPU acceleration** | N/A (compute) | N/A | High | 🔬 Exploratory |
 | 9 | **WASM edge runtime** | N/A (deployment) | N/A | High | 🔬 Exploratory |
-| 10 | **Structured concurrency** | N/A (runtime) | N/A | Low | ⏳ Waiting JEP |
+| 10 | **Structured concurrency** | N/A (runtime) | N/A | Low | ✅ Done |
