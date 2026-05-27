@@ -68,6 +68,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **spector-bench:** `PerformanceTestRunner` for comprehensive latency/throughput reporting
 - 316+ tests across all modules, all passing
 
+### Added — spector-mcp (Agent-Native MCP Server)
+- **spector-mcp:** Built-in Model Context Protocol (MCP) server for AI agent integration (Claude Desktop, Cursor, autonomous agents)
+- **spector-mcp:** 6 MCP tools: `semantic_search`, `hybrid_search`, `rag_query`, `ingest_document`, `delete_document`, `engine_status`
+- **spector-mcp:** `McpToolHandler` abstract base class with template method pattern (timing, error handling, arg parsing)
+- **spector-mcp:** `ToolSchemaBuilder` — type-safe fluent builder for JSON schemas (replaces error-prone `Map.of()` literals)
+- **spector-mcp:** `SpectorToolRegistry` — tool discovery and registration with Open/Closed Principle
+- **spector-mcp:** `SpectorResourceProvider` and `SpectorPromptProvider` — MCP resource/prompt definitions
+- **spector-mcp:** `ResultFormatter` — shared formatting utilities for search results, RAG context, engine status
+- **spector-mcp:** `SpectorMcpMain` CLI entry point with Ollama embedding provider auto-detection
+- **spector-mcp:** In-process MCP execution with zero network overhead (50–200µs per tool call)
+- **spector-mcp:** 15 unit tests covering tool registry, all tool handlers, schema builder, and argument validation
+
 ### Technical Decisions
 - Java 25 with `jdk.incubator.vector` for SIMD
 - `FloatVector.SPECIES_PREFERRED` for ISA-agnostic code
