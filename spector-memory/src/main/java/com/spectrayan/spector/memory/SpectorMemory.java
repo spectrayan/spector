@@ -1,0 +1,466 @@
+package com.spectrayan.spector.memory;
+
+import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
+import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.memory.amygdala.ValenceTracker;
+import com.spectrayan.spector.memory.cortex.CentroidRouter;
+import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.cortex.ProceduralMemoryStore;
+import com.spectrayan.spector.memory.cortex.SemanticMemoryStore;
+import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
+import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
+import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
+import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
+import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+import com.spectrayan.spector.memory.interference.SemanticDeduplicator;
+import com.spectrayan.spector.memory.metamemory.MemoryInsight;
+import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
+import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pipeline.IngestionPipeline;
+import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
+import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
+import com.spectrayan.spector.memory.prospective.Reminder;
+import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.sync.WalEvent;
+import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.foreign.MemorySegment;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * The Zero-GC Cognitive Backbone for Autonomous Agents.
+ *
+ * <h3>Design Pattern: Façade</h3>
+ * <p>{@code SpectorMemory} is a thin façade that composes 5 subsystems:</p>
+ * <ul>
+ *   <li>{@link IngestionPipeline} — 10-step ingest (embed → quantize → route → WAL)</li>
+ *   <li>{@link RecallPipeline} — 8-step recall (embed → score → filter → sort)</li>
+ *   <li>{@link TierRouter} — tier store registry (Working, Episodic, Semantic, Procedural)</li>
+ *   <li>{@link MemoryIndex} — ID → metadata index (locations, text, tags, sources)</li>
+ *   <li>{@link ReflectDaemon} — sleep consolidation (REM cycle, tombstone compaction)</li>
+ * </ul>
+ *
+ * <h3>Core API</h3>
+ * <ul>
+ *   <li>{@link #remember} — Ingest a memory (async, Virtual Thread)</li>
+ *   <li>{@link #recall} — Fused cognitive scoring across tiers</li>
+ *   <li>{@link #forget} — Tombstone a memory</li>
+ *   <li>{@link #reflect} — Trigger sleep consolidation</li>
+ *   <li>{@link #reinforce} — Outcome-driven valence update</li>
+ *   <li>{@link #suppress} — Session-level recall suppression</li>
+ *   <li>{@link #introspect} — Metamemory self-analysis</li>
+ *   <li>{@link #scheduleReminder} — Prospective memory</li>
+ *   <li>{@link #scratchpad} — Working memory shorthand</li>
+ * </ul>
+ *
+ * <h3>Example</h3>
+ * <pre>{@code
+ *   var memory = SpectorMemory.builder()
+ *       .dimensions(768)
+ *       .embeddingProvider(ollamaProvider)
+ *       .persistence(Path.of("/data/agent-memory"))
+ *       .build();
+ *
+ *   memory.remember("user-pref", "User prefers dark mode.",
+ *       MemoryType.SEMANTIC, MemorySource.USER_STATED, "ui", "preferences").join();
+ *
+ *   List<CognitiveResult> results = memory.recall("what theme?",
+ *       RecallOptions.builder().topK(5).synapticFilter("preferences").build());
+ * }</pre>
+ */
+public final class SpectorMemory implements AutoCloseable {
+
+    private static final Logger log = LoggerFactory.getLogger(SpectorMemory.class);
+
+    // ── Core Subsystems (Façade composition) ──
+    private final IngestionPipeline ingestionPipeline;
+    private final RecallPipeline recallPipeline;
+    private final TierRouter tierRouter;
+    private final MemoryIndex index;
+    private final ScalarQuantizer quantizer;
+
+    // ── Biological Subsystems ──
+    private final ValenceTracker valenceTracker;
+    private final ReflectDaemon reflectDaemon;
+    private final CoActivationTracker coActivationTracker;
+    private final SuppressionSet suppressionSet;
+    private final HabituationPenalty habituationPenalty;
+    private final ProspectiveScheduler prospectiveScheduler;
+    private final MemoryIntrospector introspector;
+    private final MemoryWal wal;
+
+    // ── Configuration ──
+    private final int dimensions;
+    private final CircadianPolicy circadianPolicy;
+    private final ExecutorService virtualExecutor;
+    private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
+
+    private SpectorMemory(Builder builder) {
+        this.dimensions = builder.dimensions;
+        EmbeddingProvider embeddingProvider = Objects.requireNonNull(builder.embeddingProvider,
+                "embeddingProvider is required");
+        this.circadianPolicy = builder.circadianPolicy;
+        this.virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
+
+        // ── Quantization calibration ──
+        if (builder.quantizer != null) {
+            this.quantizer = builder.quantizer;
+        } else {
+            float[] defaultMins = new float[dimensions];
+            float[] defaultMaxs = new float[dimensions];
+            java.util.Arrays.fill(defaultMins, -1.0f);
+            java.util.Arrays.fill(defaultMaxs, 1.0f);
+            this.quantizer = ScalarQuantizer.fromBounds(dimensions, defaultMins, defaultMaxs);
+        }
+
+        // ── Tier Stores → TierRouter ──
+        int quantizedVecBytes = dimensions;
+        WorkingMemoryStore workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity);
+        Path episodicPath;
+        if (builder.persistencePath != null) {
+            episodicPath = builder.persistencePath.resolve("episodic");
+        } else {
+            episodicPath = Path.of(System.getProperty("java.io.tmpdir"),
+                    "spector-memory-" + ProcessHandle.current().pid() + "-" + System.nanoTime(),
+                    "episodic");
+        }
+        EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
+                episodicPath, quantizedVecBytes, builder.episodicPartitionCapacity);
+        SemanticMemoryStore semanticStore = new SemanticMemoryStore(quantizedVecBytes, builder.semanticCapacity);
+        ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(quantizedVecBytes, builder.proceduralCapacity);
+        this.tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
+
+        // ── Memory Index ──
+        this.index = new MemoryIndex();
+
+        // ── Biological Subsystems ──
+        SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
+        FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
+        this.valenceTracker = new ValenceTracker(builder.valenceLearningRate);
+        this.coActivationTracker = new CoActivationTracker();
+        this.suppressionSet = new SuppressionSet();
+        this.habituationPenalty = new HabituationPenalty();
+        this.prospectiveScheduler = new ProspectiveScheduler();
+        this.introspector = new MemoryIntrospector(coActivationTracker);
+        this.wal = new MemoryWal();
+        this.reflectDaemon = new ReflectDaemon(
+                circadianPolicy,
+                builder.dimensions > 0 ? new CentroidRouter(builder.dimensions) : null,
+                builder.textGenerationProvider,
+                embeddingProvider);
+
+        // ── Pipelines ──
+        this.ingestionPipeline = new IngestionPipeline(
+                embeddingProvider, quantizer, surpriseDetector, flashbulbPolicy,
+                tierRouter, index, wal);
+
+        this.recallPipeline = new RecallPipeline(
+                embeddingProvider, tierRouter, index,
+                suppressionSet, habituationPenalty, prospectiveScheduler, wal,
+                quantizer.mins(), quantizer.scales());
+
+        // Register post-recall observers (Phase 6: Observer pattern)
+        recallPipeline.addListener(new LtpReconsolidationListener(index, tierRouter, wal));
+        recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
+
+        log.info("SpectorMemory initialized: dimensions={}, model={}, persistence={}, quantizer={}",
+                dimensions, embeddingProvider.modelName(),
+                builder.persistencePath != null ? builder.persistencePath : "in-memory",
+                builder.quantizer != null ? "user-provided" : "identity-default");
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // CORE API — remember / recall / forget / reflect
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Ingests a new memory asynchronously on a Virtual Thread.
+     */
+    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+                                              MemorySource source, String... tags) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                ingestionPipeline.ingest(id, text, type, tags, source);
+
+                // Circadian trigger: auto-reflect after volume threshold
+                if (type == MemoryType.EPISODIC) {
+                    int count = episodicIngestCount.incrementAndGet();
+                    if (count >= circadianPolicy.volumeTrigger()) {
+                        episodicIngestCount.set(0);
+                        CompletableFuture.runAsync(() -> {
+                            log.info("Circadian volume trigger: {} episodic memories → auto-reflect", count);
+                            reflect();
+                        }, virtualExecutor);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
+                throw new RuntimeException("Memory ingestion failed for id=" + id, e);
+            }
+        }, virtualExecutor);
+    }
+
+    /** Convenience overload with default source. */
+    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+                                              String... tags) {
+        return remember(id, text, type, MemorySource.OBSERVED, tags);
+    }
+
+    /**
+     * Performs fused cognitive scoring across all relevant memory tiers.
+     */
+    public List<CognitiveResult> recall(String queryText, RecallOptions options) {
+        return recallPipeline.recall(queryText, options);
+    }
+
+    /** Convenience overload with default options. */
+    public List<CognitiveResult> recall(String queryText) {
+        return recall(queryText, RecallOptions.DEFAULT);
+    }
+
+    /**
+     * Tombstones a memory by ID (logical deletion).
+     */
+    public void forget(String id) {
+        Objects.requireNonNull(id, "id is required");
+        MemoryLocation loc = index.locate(id);
+        if (loc == null) {
+            log.warn("Forget: memory '{}' not found in index", id);
+            return;
+        }
+
+        MemorySegment segment = tierRouter.segmentFor(loc.type());
+        if (segment != null) {
+            CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
+            layout.tombstone(segment, loc.offset());
+        }
+
+        wal.appendForget(id);
+        index.remove(id);
+        log.debug("Forget: '{}' tombstoned", id);
+    }
+
+    /**
+     * Triggers a synchronous reflection (sleep consolidation) cycle.
+     */
+    public ReflectReport reflect() {
+        log.info("Manual reflection triggered");
+        ReflectReport report = reflectDaemon.runCycle(
+                tierRouter.episodic(), tierRouter.semantic(),
+                offset -> index.findTextByOffset(MemoryType.EPISODIC, offset));
+        wal.append(WalEvent.EventType.REFLECT, "system", null);
+        return report;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // EXTENDED API — reinforce / suppress / introspect / Hebbian
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Reports an outcome (positive/negative) for a previously recalled memory.
+     */
+    public void reinforce(String memoryId, byte valence) {
+        Objects.requireNonNull(memoryId, "memoryId is required");
+        MemoryLocation loc = index.locate(memoryId);
+        if (loc == null) {
+            log.warn("Reinforce: memory '{}' not found", memoryId);
+            return;
+        }
+
+        MemorySegment segment = tierRouter.segmentFor(loc.type());
+        if (segment != null) {
+            CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
+            valenceTracker.reinforce(segment, loc.offset(), layout, valence);
+        }
+
+        wal.appendReinforce(memoryId, valence);
+        log.debug("Reinforce: '{}' with valence={}", memoryId, valence);
+    }
+
+    public void suppress(String memoryId, String reason) { suppressionSet.suppress(memoryId, reason); }
+    public void suppress(String memoryId) { suppressionSet.suppress(memoryId); }
+    public void unsuppress(String memoryId) { suppressionSet.unsuppress(memoryId); }
+
+    /**
+     * Introspects the agent's knowledge about a topic (metamemory).
+     */
+    public MemoryInsight introspect(String topic) {
+        List<CognitiveResult> results = recall(topic, RecallOptions.builder().topK(20).build());
+        return introspector.analyze(topic, results);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // PROSPECTIVE / SCRATCHPAD / STATS
+    // ══════════════════════════════════════════════════════════════
+
+    public Reminder scheduleReminder(String text, Instant triggerAt, String... tags) {
+        return prospectiveScheduler.schedule(text, triggerAt, tags);
+    }
+
+    public Reminder scheduleReminder(String text, Duration delay, String... tags) {
+        return prospectiveScheduler.scheduleAfter(text, delay, tags);
+    }
+
+    public CompletableFuture<Void> scratchpad(String text) {
+        return remember("scratchpad-" + System.nanoTime(), text, MemoryType.WORKING);
+    }
+
+    public int totalMemories() { return tierRouter.totalCount(); }
+    public int memoryCount(MemoryType type) { return tierRouter.countFor(type); }
+
+    /**
+     * Explicitly decays importance of old episodic memories.
+     */
+    public int decay(Duration olderThan, float factor) {
+        Objects.requireNonNull(olderThan, "olderThan is required");
+        if (factor < 0f || factor > 1f) throw new IllegalArgumentException("factor must be in [0, 1]");
+
+        long nowMs = System.currentTimeMillis();
+        long thresholdMs = nowMs - olderThan.toMillis();
+
+        var partitions = tierRouter.episodic().partitions();
+        if (partitions.isEmpty()) return 0;
+
+        // Parallel decay: each partition on its own Virtual Thread
+        try {
+            java.util.List<java.util.concurrent.Callable<Integer>> tasks = new java.util.ArrayList<>(partitions.size());
+            for (var partition : partitions) {
+                tasks.add(() -> {
+                    int count = 0;
+                    CognitiveRecordLayout layout = partition.layout();
+                    MemorySegment segment = partition.segment();
+                    for (int i = 0; i < partition.count(); i++) {
+                        long offset = partition.recordOffset(i);
+                        byte flags = layout.readFlags(segment, offset);
+                        if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+
+                        long ts = layout.readTimestamp(segment, offset);
+                        if (ts < thresholdMs) {
+                            float oldImp = layout.readImportance(segment, offset);
+                            layout.writeImportance(segment, offset, oldImp * factor);
+                            count++;
+                        }
+                    }
+                    return count;
+                });
+            }
+            java.util.List<Integer> results = ConcurrentTasks.forkJoinAll(tasks);
+            int affected = 0;
+            for (int c : results) affected += c;
+            log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
+            return affected;
+        } catch (ConcurrentExecutionException | InterruptedException e) {
+            log.warn("Parallel decay failed, falling back to sequential: {}", e.getMessage());
+            // Sequential fallback
+            int affected = 0;
+            for (var partition : partitions) {
+                CognitiveRecordLayout layout = partition.layout();
+                MemorySegment segment = partition.segment();
+                for (int i = 0; i < partition.count(); i++) {
+                    long offset = partition.recordOffset(i);
+                    byte flags = layout.readFlags(segment, offset);
+                    if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+                    long ts = layout.readTimestamp(segment, offset);
+                    if (ts < thresholdMs) {
+                        float oldImp = layout.readImportance(segment, offset);
+                        layout.writeImportance(segment, offset, oldImp * factor);
+                        affected++;
+                    }
+                }
+            }
+            log.info("Decay: {} memories older than {} multiplied by {}", affected, olderThan, factor);
+            return affected;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // SUBSYSTEM ACCESSORS
+    // ══════════════════════════════════════════════════════════════
+
+    public CoActivationTracker coActivation() { return coActivationTracker; }
+    public MemoryWal wal() { return wal; }
+    public ProspectiveScheduler prospective() { return prospectiveScheduler; }
+    public SuppressionSet suppression() { return suppressionSet; }
+    public HabituationPenalty habituation() { return habituationPenalty; }
+    public ScalarQuantizer quantizer() { return quantizer; }
+    public IngestionPipeline ingestion() { return ingestionPipeline; }
+    public RecallPipeline recallPipeline() { return recallPipeline; }
+    public TierRouter tierRouter() { return tierRouter; }
+    public MemoryIndex index() { return index; }
+
+    @Override
+    public void close() {
+        log.info("SpectorMemory closing ({} total memories)", totalMemories());
+        virtualExecutor.close();
+        tierRouter.close();
+        wal.close();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // BUILDER
+    // ══════════════════════════════════════════════════════════════
+
+    public static Builder builder() { return new Builder(); }
+
+    public static final class Builder {
+        private int dimensions;
+        private EmbeddingProvider embeddingProvider;
+        private Path persistencePath;
+        private CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
+        private int workingCapacity = 100;
+        private int episodicPartitionCapacity = 10_000;
+        private int semanticCapacity = 100_000;
+        private int proceduralCapacity = 1_000;
+        private int surpriseWarmup = 20;
+        private double flashbulbThreshold = 3.0;
+        private float valenceLearningRate = 0.3f;
+        private float deduplicationRadius = 0.05f;
+        private TextGenerationProvider textGenerationProvider;
+        private ScalarQuantizer quantizer;
+
+        public Builder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
+        public Builder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
+        public Builder persistence(Path p) { this.persistencePath = p; return this; }
+        public Builder reflectPolicy(CircadianPolicy p) { this.circadianPolicy = p; return this; }
+        public Builder workingCapacity(int c) { this.workingCapacity = c; return this; }
+        public Builder episodicPartitionCapacity(int c) { this.episodicPartitionCapacity = c; return this; }
+        public Builder semanticCapacity(int c) { this.semanticCapacity = c; return this; }
+        public Builder proceduralCapacity(int c) { this.proceduralCapacity = c; return this; }
+        public Builder surpriseWarmup(int w) { this.surpriseWarmup = w; return this; }
+        public Builder flashbulbThreshold(double t) { this.flashbulbThreshold = t; return this; }
+        public Builder valenceLearningRate(float r) { this.valenceLearningRate = r; return this; }
+        public Builder deduplicationRadius(float r) { this.deduplicationRadius = r; return this; }
+        public Builder textGenerationProvider(TextGenerationProvider p) { this.textGenerationProvider = p; return this; }
+        public Builder quantizer(ScalarQuantizer quantizer) { this.quantizer = quantizer; return this; }
+
+        public SpectorMemory build() {
+            if (dimensions <= 0 && embeddingProvider != null) {
+                dimensions = embeddingProvider.dimensions();
+            }
+            return new SpectorMemory(this);
+        }
+    }
+}
