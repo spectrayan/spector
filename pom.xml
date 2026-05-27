@@ -33,6 +33,7 @@
         <module>spector-ingestion</module>
         <module>spector-rag</module>
         <module>spector-engine</module>
+        <module>spector-memory</module>
         <module>spector-server</module>
         <module>spector-cluster</module>
         <module>spector-bench</module>
@@ -154,6 +155,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-mcp</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
