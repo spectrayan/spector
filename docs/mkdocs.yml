@@ -112,6 +112,29 @@ nav:
       - TurboQuant: deep-dives/turbo-quant.md
       - Real-Embedding Benchmarks: deep-dives/real-embedding-benchmarks.md
       - "Whitepaper: VASQ + SpectorIndex": deep-dives/vasq-spectorindex-whitepaper.md
+  - "🧠 Cognitive Memory":
+      - Overview: memory/index.md
+      - Getting Started: memory/getting-started.md
+      - Architecture:
+          - System Architecture: memory/architecture.md
+          - The 6-Phase Scoring Pipeline: memory/scoring-pipeline.md
+      - Biological Systems:
+          - "Cortex — Tier Stores": memory/cortex.md
+          - "Hippocampus — Sleep Consolidation": memory/hippocampus.md
+          - "Synapse — Tags & Scoring": memory/synapse.md
+          - "Dopamine — Surprise Detection": memory/dopamine.md
+          - "Amygdala — Emotional Valence": memory/amygdala.md
+          - "Hebbian — Association Learning": memory/hebbian.md
+          - "Habituation — Anti-Filter Bubble": memory/habituation.md
+          - "Inhibition — Suppression": memory/inhibition.md
+          - "Interference — Deduplication": memory/interference.md
+          - "Prospective — Future Intents": memory/prospective.md
+          - "Metamemory — Self-Reflection": memory/metamemory.md
+          - "Sync — Persistence & Replication": memory/sync.md
+      - Deep Dives:
+          - "Performance & SIMD": memory/performance.md
+          - "Off-Heap Panama Design": memory/panama-design.md
+      - API Reference: memory/api-reference.md
   - Reference:
       - REST API: api-reference/rest-endpoints.md
       - MCP Server: sdk-usage/mcp-server.md
