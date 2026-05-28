@@ -1,6 +1,6 @@
 ---
 title: System Architecture
-description: "The full package hierarchy, design patterns, and data flow of Spector Memory."
+description: "Package hierarchy, data flow, and extensibility model for Spector Memory."
 ---
 
 # System Architecture
@@ -9,18 +9,15 @@ Spector Memory is organized around a **biological metaphor** where each Java pac
 
 ---
 
-## Design Patterns
+## Extensibility
 
-The codebase uses five core design patterns to achieve modularity and extensibility:
-
-| Pattern | Where | Why |
+| Component | Extension point | What you can customize |
 |---|---|---|
-| **Façade** | `SpectorMemory` | Single entry point hides 15+ subsystem interactions |
-| **Strategy** | `TierStore` interface + `TierRouter` | Polymorphic dispatch to tier stores — zero `switch` statements |
-| **Template Method** | `AbstractTierStore` | Common Arena/segment lifecycle for Working, Semantic, Procedural |
-| **Observer** | `RecallListener` | Async post-recall hooks (Hebbian co-activation, LTP reconsolidation) |
-| **Builder** | `SpectorMemory.Builder`, `RecallOptions.Builder` | Fluent configuration with sensible defaults |
-| **Pipeline** | `IngestionPipeline`, `RecallPipeline` | Discrete, testable steps chained sequentially |
+| `SpectorMemory` | Single entry point for all operations | Configure tiers, capacities, embedding providers |
+| `TierStore` interface | Add new memory tiers | Implement the interface + register in `TierRouter` — no other changes needed |
+| `AbstractTierStore` | Common tier lifecycle | Extend for new off-heap tier stores with Arena/segment management |
+| `RecallListener` | Post-recall hooks | Add async listeners for co-activation tracking, logging, metrics |
+| `IngestionPipeline` / `RecallPipeline` | Discrete processing steps | Each step is independently testable and replaceable |
 
 ---
 
@@ -176,36 +173,6 @@ graph LR
     style CS fill:#e74c3c,color:white
     style TR fill:#2ecc71,color:white
 ```
-
----
-
-## SOLID Principles in Action
-
-### Single Responsibility (SRP)
-
-| Class | Single Responsibility |
-|---|---|
-| `IngestionPipeline` | Orchestrates the 10-step remember flow |
-| `RecallPipeline` | Orchestrates parallel recall + post-processing |
-| `CognitiveScorer` | Inner-loop SIMD scoring only |
-| `TierRouter` | Store registration + polymorphic dispatch |
-| `MemoryIndex` | ID ↔ offset bidirectional mapping |
-| `HabituationPenalty` | Frequency-based score attenuation |
-
-### Open/Closed (OCP)
-
-Adding a new memory tier (e.g., `FLASH`) requires:
-
-1. Implement `TierStore` interface
-2. Register in `TierRouter` constructor
-
-**Zero changes** to `SpectorMemory`, `RecallPipeline`, or `IngestionPipeline`.
-
-### Dependency Inversion (DIP)
-
-- `TierRouter` depends on `TierStore` abstraction, not concrete stores
-- `RecallPipeline` depends on `EmbeddingProvider` interface, not Ollama
-- `SpectorMemory` depends on `ScalarQuantizer` abstraction, not specific quantization
 
 ---
 

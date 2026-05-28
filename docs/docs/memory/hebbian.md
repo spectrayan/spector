@@ -30,7 +30,7 @@ graph LR
 
 ## CoActivationTracker
 
-The `CoActivationTracker` observes recall results via the **Observer pattern** and updates co-activation counts:
+The `CoActivationTracker` observes recall results and updates co-activation counts:
 
 ```java
 public final class CoActivationTracker {
@@ -125,7 +125,7 @@ public final class HebbianGraph {
 
 ---
 
-## HebbianCoActivationListener (Observer Pattern)
+## HebbianCoActivationListener
 
 The `HebbianCoActivationListener` implements `RecallListener` and is registered with the `RecallPipeline`:
 
