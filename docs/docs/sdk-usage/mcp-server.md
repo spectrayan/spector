@@ -296,6 +296,6 @@ That's it — the tool is automatically available to all connected agents.
 
 ## See Also
 
-- [MCP Integration Architecture](../architecture/mcp-integration.md) — Design patterns, module structure, and performance analysis
+- [MCP Integration Architecture](../architecture/mcp-integration.md) — Module structure, data flow, and performance analysis
 - [Architecture Overview](../architecture/overview.md) — Full system architecture
 - [REST API Reference](../api-reference/rest-endpoints.md) — Alternative HTTP interface

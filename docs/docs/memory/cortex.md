@@ -19,7 +19,7 @@ Human memory is not a single system. Cognitive science identifies distinct memor
 graph TB
     subgraph "TierRouter — Polymorphic Registry"
         direction TB
-        TR["TierStore interface<br/>(Strategy Pattern)"]
+        TR["TierStore interface"]
     end
     
     TR --> WM["🧪 Working Memory<br/>WorkingMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Prefrontal Cortex<br/>Volatile circular buffer<br/>~100 records"]
@@ -35,9 +35,9 @@ graph TB
 
 ---
 
-## TierStore Interface (Strategy Pattern)
+## TierStore Interface
 
-All four stores implement a common `TierStore` interface, enabling **zero switch statements** in the router:
+All four stores implement a common `TierStore` interface, enabling polymorphic dispatch in the router:
 
 ```java
 public interface TierStore extends AutoCloseable {
@@ -58,12 +58,11 @@ public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
 }
 ```
 
-!!! success "Open/Closed Principle"
-    Adding a new tier (e.g., `FLASH` for ultra-fast scratch memory) requires: (1) implement `TierStore`, (2) register in `TierRouter`. Zero changes to `SpectorMemory`, `RecallPipeline`, or `IngestionPipeline`.
+> Adding a new tier (e.g., `FLASH` for ultra-fast scratch memory) requires only: (1) implement `TierStore`, (2) register in `TierRouter`. No changes needed in `SpectorMemory`, `RecallPipeline`, or `IngestionPipeline`.
 
 ---
 
-## AbstractTierStore (Template Method)
+## AbstractTierStore
 
 Three of the four stores (Working, Semantic, Procedural) extend `AbstractTierStore`, which provides:
 
@@ -190,9 +189,9 @@ Procedural memories represent **rules and patterns** that the agent has internal
 
 ---
 
-## TierRouter — Zero Switch Statements
+## TierRouter
 
-The `TierRouter` class replaces all `switch(type)` blocks with polymorphic dispatch via an `EnumMap`:
+The `TierRouter` dispatches all operations to the appropriate store via an `EnumMap`:
 
 ```java
 public final class TierRouter implements AutoCloseable {

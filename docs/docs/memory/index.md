@@ -127,7 +127,7 @@ Just as the human brain has distinct memory systems, Spector organizes memories 
 
     ---
 
-    Package hierarchy, data flow diagrams, design patterns (Strategy, Observer, Façade, Template Method)
+    Package hierarchy, data flow diagrams, and extensibility model
 
     [:octicons-arrow-right-24: Architecture](architecture.md)
 

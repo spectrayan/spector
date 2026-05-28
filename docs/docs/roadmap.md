@@ -185,9 +185,9 @@ Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that 
 **Tools:** `semantic_search`, `hybrid_search`, `rag_query`, `ingest_document`, `delete_document`, `engine_status`
 
 **Architecture:**
-- `McpToolHandler` abstract base (template method: timing, error handling, arg parsing)
+- `McpToolHandler` abstract base class (common timing, error handling, arg parsing)
 - `ToolSchemaBuilder` fluent JSON schema construction
-- `SpectorToolRegistry` for Open/Closed Principle tool registration
+- `SpectorToolRegistry` for extensible tool registration
 - `SpectorResourceProvider` + `SpectorPromptProvider` for MCP resources/prompts
 - `ResultFormatter` shared formatting utilities
 

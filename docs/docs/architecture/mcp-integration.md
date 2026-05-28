@@ -179,22 +179,20 @@ Returns engine metadata including document count, dimensions, SIMD capabilities,
 
 ---
 
-## Design Patterns
+## Extending the MCP Server
 
-### Template Method — McpToolHandler
+### Adding a New Tool
 
-Every tool extends `McpToolHandler`, which provides the common scaffolding:
+Every tool extends `McpToolHandler`, which handles timing, error handling, and argument parsing. You implement four methods:
 
 ```java
 public abstract class McpToolHandler {
-    // Subclass implements:
     abstract String name();
     abstract String description();
     abstract Map<String, Object> inputSchema();
     abstract CallToolResult execute(SpectorEngine engine, Map<String, Object> args);
 
-    // Base class provides:
-    // - Tool spec construction (schema + description assembly)
+    // Base class automatically provides:
     // - Timing wrapper (nanoTime → milliseconds)
     // - Structured error handling with logging
     // - Argument parsing: requireString(), optionalInt(), optionalString()
@@ -202,15 +200,9 @@ public abstract class McpToolHandler {
 }
 ```
 
-> [!TIP]
-> The base class wraps every tool invocation with `try/catch`, timing, and structured logging — individual tools never handle these concerns.
-
-### Builder Pattern — ToolSchemaBuilder
-
-Type-safe, composable JSON schema construction:
+Define the tool schema with `ToolSchemaBuilder`:
 
 ```java
-// Instead of error-prone nested Map.of() literals:
 var schema = ToolSchemaBuilder.object()
     .requiredString("query", "Natural language search query.")
     .optionalInt("top_k", "Number of results to return.", 5)
@@ -218,11 +210,7 @@ var schema = ToolSchemaBuilder.object()
     .build();
 ```
 
-### Open/Closed Principle — SpectorToolRegistry
-
-Adding a new tool requires only two steps:
-1. Create a class extending `McpToolHandler`
-2. Add one line to `SpectorToolRegistry.handlers()`
+Register the tool in `SpectorToolRegistry.handlers()`:
 
 ```java
 List.of(
