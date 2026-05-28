@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "spector-search": {
+      "command": "java",
+      "args": [
+        "--add-modules", "jdk.incubator.vector",
+        "--enable-native-access=ALL-UNNAMED",
+        "--enable-preview",
+        "-jar", "/path/to/spector-dist/target/spector.jar",
+        "--config", "/path/to/spector.yml"
+      ]
+    }
+  }
+}

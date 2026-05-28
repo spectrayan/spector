@@ -1,0 +1,38 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Spector Search — Configuration Example
+# ═══════════════════════════════════════════════════════════════════════
+# Copy this file to spector.yml and customize for your environment.
+# Values here override the bundled spector-defaults.yml.
+# CLI args (--dims, --ollama-model, etc.) override values in this file.
+# ═══════════════════════════════════════════════════════════════════════
+
+spector:
+  engine:
+    dimensions: 768
+    capacity: 100000
+    similarity: COSINE
+    index-type: HNSW
+    persistence-mode: DISK
+    data-directory: .spector-data
+
+  embedding:
+    model: nomic-embed-text
+    base-url: http://localhost:11434
+    timeout: 30s
+    batch-size: 32
+
+  hnsw:
+    m: 16
+    ef-construction: 200
+    ef-search: 50
+
+  memory:
+    enabled: false
+    persistence-path: .spector-memory
+
+  ingestion:
+    root-directory: .
+    file-pattern: "**/*.md"
+    skip-dirs: ".git,.idea,.mvn,target,node_modules,.github"
+    chunk-size: 800
+    chunk-overlap: 100
