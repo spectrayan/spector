@@ -15,7 +15,6 @@ import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.query.ranking.LlmReranker;
 import com.spectrayan.spector.query.ranking.Reranker;
 import com.spectrayan.spector.storage.DocumentStore;
-import com.spectrayan.spector.storage.InMemoryVectorStore;
 import com.spectrayan.spector.config.PersistenceMode;
 import com.spectrayan.spector.storage.VectorStore;
 import com.spectrayan.spector.config.PersistenceFiles;
@@ -82,77 +81,78 @@ public class EngineComponentFactory {
         DocumentStore ds;
         VectorIndex vi;
         KeywordIndex ki;
-        boolean loadedFromDisk = false;
 
-        // ── Try loading from disk ──
-        // Skip disk index if forceWritable is set (e.g., during ingestion)
-        // because DiskHnswIndex is read-only (memory-mapped).
-        if (config.persistenceMode() == PersistenceMode.DISK && !config.forceWritable()) {
-            Path indexFile = persistenceFiles.resolveIndex(config.dataDirectory());
-            if (Files.exists(indexFile)) {
-                try {
-                    log.info("Loading existing disk index from {}", indexFile);
-                    var diskIndex = DiskHnswIndex.open(indexFile);
-                    vs = new InMemoryVectorStore(config.dimensions(), config.capacity());
+        // ── Create fresh writable components ──
+        vs = storeFactory.create(config);
+        vi = indexFactory.create(config, vs);
+        ki = new BM25Index();
 
-                    // Load DocumentStore from disk (not a fresh empty one!)
-                    Path docsFile = persistenceFiles.resolveDocuments(config.dataDirectory());
-                    if (java.nio.file.Files.exists(docsFile)) {
-                        ds = DocumentStore.load(docsFile);
-                        log.info("Loaded DocumentStore from disk: {} documents", ds.size());
-                    } else {
-                        ds = new DocumentStore(config.capacity());
-                    }
-
-                    vi = diskIndex;
-                    ki = new BM25Index();
-
-                    // Load ID mappings for MappedVectorStore
-                    if (vs instanceof com.spectrayan.spector.storage.MappedVectorStore mvs) {
-                        Path idMappingsFile = persistenceFiles.resolveIdMappings(config.dataDirectory());
-                        mvs.loadIdMappings(idMappingsFile);
-                    }
-
-                    loadedFromDisk = true;
-                    log.info("Loaded disk index: {} vectors", diskIndex.size());
-                } catch (IOException e) {
-                    log.warn("Failed to load disk index, creating fresh: {}", e.getMessage());
-                    vs = null; ds = null; vi = null; ki = null;
-                }
-            } else {
-                vs = null; ds = null; vi = null; ki = null;
-            }
-        } else {
-            if (config.forceWritable()) {
-                log.info("forceWritable=true — skipping disk index, creating fresh writable index");
-            }
-            vs = null; ds = null; vi = null; ki = null;
-        }
-
-        // ── Build fresh components if not loaded from disk ──
-        if (!loadedFromDisk) {
-            vs = storeFactory.create(config);
-            vi = indexFactory.create(config, vs);
-            ki = new BM25Index();
-
-            // DocumentStore: load from disk if DISK mode and file exists
-            if (config.persistenceMode() == PersistenceMode.DISK) {
-                Path docsFile = persistenceFiles.resolveDocuments(config.dataDirectory());
-                if (java.nio.file.Files.exists(docsFile)) {
-                    ds = DocumentStore.load(docsFile);
-                    log.info("Loaded DocumentStore from disk: {} documents", ds.size());
-                } else {
-                    ds = new DocumentStore(config.capacity());
-                }
-
-                // Load ID mappings for MappedVectorStore
-                if (vs instanceof com.spectrayan.spector.storage.MappedVectorStore mvs) {
-                    Path idMappingsFile = persistenceFiles.resolveIdMappings(config.dataDirectory());
+        // ── Load persisted data from disk (if available) ──
+        if (config.persistenceMode() == PersistenceMode.DISK) {
+            // 1. Load VectorStore ID mappings (restores id→index map + count)
+            if (vs instanceof com.spectrayan.spector.storage.MappedVectorStore mvs) {
+                Path idMappingsFile = persistenceFiles.resolveIdMappings(config.dataDirectory());
+                if (Files.exists(idMappingsFile)) {
                     mvs.loadIdMappings(idMappingsFile);
+                    log.info("Loaded VectorStore ID mappings: {} entries", mvs.size());
                 }
+            }
+
+            // 2. Load HNSW graph structure into the writable index
+            Path indexFile = persistenceFiles.resolveIndex(config.dataDirectory());
+            if (Files.exists(indexFile) && vi instanceof com.spectrayan.spector.index.HnswIndex writable) {
+                try {
+                    var diskIndex = DiskHnswIndex.open(indexFile);
+                    int nodeCount = diskIndex.size();
+                    log.info("Loading {} nodes from disk index into writable HNSW...", nodeCount);
+
+                    for (int i = 0; i < nodeCount; i++) {
+                        String id = diskIndex.getId(i);
+                        float[] vector = diskIndex.readVector(i);
+                        int level = diskIndex.readLevel(i);
+
+                        // Resolve store index from loaded ID mappings
+                        int storeIndex = vs.indexOf(id);
+                        if (storeIndex < 0) {
+                            // Vector not in store yet — add it
+                            storeIndex = vs.put(id, vector);
+                        }
+
+                        // Collect neighbor arrays
+                        int[] layer0 = diskIndex.readNeighbors(i, 0);
+                        int[][] upper = null;
+                        if (level > 0) {
+                            upper = new int[level][];
+                            for (int l = 1; l <= level; l++) {
+                                upper[l - 1] = diskIndex.readNeighbors(i, l);
+                            }
+                        }
+
+                        writable.addPrebuilt(id, storeIndex, vector, level, layer0, upper);
+                    }
+
+                    // Restore graph state (entry point + max level)
+                    if (nodeCount > 0) {
+                        writable.restoreGraphState(diskIndex.entryPoint(), diskIndex.maxLevel());
+                    }
+
+                    diskIndex.close();
+                    log.info("Loaded {} nodes into writable HNSW index", nodeCount);
+                } catch (IOException e) {
+                    log.warn("Failed to load disk index, starting fresh: {}", e.getMessage());
+                }
+            }
+
+            // 3. Load DocumentStore
+            Path docsFile = persistenceFiles.resolveDocuments(config.dataDirectory());
+            if (Files.exists(docsFile)) {
+                ds = DocumentStore.load(docsFile);
+                log.info("Loaded DocumentStore from disk: {} documents", ds.size());
             } else {
                 ds = new DocumentStore(config.capacity());
             }
+        } else {
+            ds = new DocumentStore(config.capacity());
         }
 
         // ── GPU acceleration (optional, graceful fallback) ──
