@@ -16,8 +16,8 @@
         Single fat JAR containing all Spector modules.
         Default main class: SpectorMcpMain (MCP server).
         Use -cp with the appropriate main class to run different tools:
-          - MCP Server:       com.spectrayan.spector.mcp.SpectorMcpMain
-          - File Ingestion:   com.spectrayan.spector.ingestion.FileIngestionMain
+          - MCP Server:  com.spectrayan.spector.mcp.SpectorMcpMain
+          - CLI:         com.spectrayan.spector.cli.SpectorCtl
     </description>
 
     <dependencies>
@@ -39,6 +39,13 @@
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-runtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- ── CLI (spectorctl — ingest, search, status commands) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-cli</artifactId>
             <version>${project.version}</version>
         </dependency>
 

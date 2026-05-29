@@ -24,6 +24,7 @@
     <modules>
         <module>spector-commons</module>
         <module>spector-core</module>
+        <module>spector-config</module>
         <module>spector-storage</module>
         <module>spector-index</module>
         <module>spector-query</module>
@@ -88,6 +89,11 @@
     <dependencyManagement>
         <dependencies>
             <!-- ── Internal modules ── -->
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-config</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-core</artifactId>
