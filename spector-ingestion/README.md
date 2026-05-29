@@ -1,71 +1,89 @@
 # spector-ingestion 📥
 
-> **Pure ingestion utilities — file discovery, text chunking, and title extraction.**
+> **Unified ingestion pipeline — builder-configured chunk → embed → store orchestration.**
 
-`spector-ingestion` is a utility module with **no dependency on engine, runtime, or memory**. It provides the building blocks that `IngestionHandler` (in `spector-runtime`) uses for file-based ingestion.
+`spector-ingestion` defines the core `IngestionPipeline` and `IngestionTarget` interface. It has **no dependency on engine, runtime, or memory** — downstream modules implement the `IngestionTarget` interface for their storage backends.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-spector-ingestion (pure utility)
-├── FileIngestionService    — file discovery + title extraction
-├── IngestionPipeline       — chunking pipeline with configurable strategies
+spector-ingestion (core pipeline + interface)
+├── IngestionPipeline       — builder-configured: chunk → embed → store
+├── IngestionTarget         — interface for storage backends
 ├── IngestionResult         — result record for ingestion operations
-└── EmbeddingProviderFactory — embedding provider creation
+├── FileDiscoveryService    — file discovery + title extraction
+└── StreamingChunker bridge — bounded-memory file processing
 
 Dependencies:
 ├── spector-config     (configuration)
-└── spector-embed-api  (embedding SPI)
+├── spector-commons    (TextChunker, StreamingChunker)
+└── spector-embed-api  (EmbeddingProvider, ParallelEmbeddingPipeline)
 ```
 
 > [!IMPORTANT]
-> This module does **NOT** depend on `spector-engine` or `spector-runtime`. Mode-aware ingestion routing is handled by `IngestionHandler` in `spector-runtime`.
+> This module does **NOT** depend on `spector-engine` or `spector-memory`. Those modules depend on `spector-ingestion` to implement `IngestionTarget`.
 
 ---
 
 ## 🚀 Key APIs
 
+### Builder Pattern
+
+```java
+// Read config from spector.yml
+var config = SpectorConfigFactory.ingestionDefaults(props);
+
+var pipeline = IngestionPipeline.builder()
+    .target(myTarget)                          // required
+    .embeddingProvider(embedder)               // optional (not needed for pre-embedded)
+    .chunking(new TextChunker(config.chunkSize(), config.chunkOverlap()))
+    .chunkThreshold(config.chunkSize())        // auto-chunk if content > this
+    .build();
+
+// Single API — pipeline decides strategy internally
+IngestionResult result = pipeline.ingest("doc-1", content);
+```
+
+### IngestionTarget Interface
+
+```java
+public interface IngestionTarget {
+    void ingest(String id, String text, float[] vector);
+    default void storeParentMetadata(String parentId, int chunkCount) {}
+    default void onBatchComplete() {}
+}
+```
+
+**Implementations:**
+
+| Target | Module | Storage path |
+|--------|--------|-------------|
+| `EngineIngestionTarget` | `spector-engine` | VectorStore → VectorIndex → KeywordIndex |
+| `CognitiveIngestionTarget` | `spector-memory` | Quantize → Surprise → Tier route → WAL |
+
 ### File Discovery
 
 ```java
-// Build from config
-var service = FileIngestionService.fromProperties(props, rootDir);
+var discovery = FileDiscoveryService.fromProperties(props, rootDir);
+List<Path> files = discovery.discover();
 
-// Or use the builder
-var service = FileIngestionService.builder()
-    .rootDirectory(Path.of("/docs"))
-    .filePattern("**/*.md")
-    .chunkSize(800)
-    .chunkOverlap(100)
-    .skipDirs(".git", ".idea")
-    .build();
-
-// Discover matching files
-List<Path> files = service.discover();
+// Title extraction
+String title = FileDiscoveryService.extractTitle(content, "fallback.md");
 ```
 
-### Title Extraction
+### Ingestion Modes
 
 ```java
-// Extract title from markdown heading or use fallback
-String title = FileIngestionService.extractTitle(content, "fallback.md");
-```
+// Auto-chunked text (pipeline decides based on content length)
+IngestionResult result = pipeline.ingest("doc-1", longText);
 
-### Chunking Pipeline
-
-```java
-var pipeline = new IngestionPipeline(target, embeddingProvider);
-
-// Single document
-IngestionResult result = pipeline.ingest("doc-1", "Hello world");
-
-// Chunked (auto-splits large docs)
-IngestionResult result = pipeline.ingestChunked("doc-1", longText);
+// Pre-embedded (skip embedding)
+IngestionResult result = pipeline.ingest("doc-1", text, precomputedVector);
 
 // Streaming file (bounded memory for large files)
-IngestionResult result = pipeline.ingestFile(Path.of("corpus.txt"), "corpus", 512, 64);
+IngestionResult result = pipeline.ingest(Path.of("corpus.txt"), "corpus");
 ```
 
 ---
@@ -90,12 +108,12 @@ public record IngestionResult(
 All entry points (CLI, MCP, Server) route through `SpectorRuntime`:
 
 ```
-CLI/MCP/Server → SpectorRuntime.ingestion() → IngestionHandler
-                                                    │
-                                          ┌─────────┼─────────┐
-                                          ▼                    ▼
-                                     engine/memory    FileIngestionService
-                                    (mode-aware)       (discovery + chunking)
+CLI/MCP/Server → SpectorRuntime.ingestion() → IngestionHandler → IngestionPipeline
+                                                                        │
+                                                                  ┌─────┴─────┐
+                                                                  ▼           ▼
+                                                       EngineIngestionTarget  CognitiveIngestionTarget
+                                                       (SEARCH mode)          (MEMORY mode)
 ```
 
-`IngestionHandler` composes this module's utilities with mode-aware routing — SEARCH mode routes to engine, MEMORY mode routes to cognitive memory.
+`SpectorRuntime.ingestion()` builds the pipeline with the right target based on the active mode and reads chunking config from `spector.yml`.

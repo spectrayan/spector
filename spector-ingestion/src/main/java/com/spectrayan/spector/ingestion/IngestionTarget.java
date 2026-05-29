@@ -1,46 +1,56 @@
 package com.spectrayan.spector.ingestion;
 
 /**
- * Abstraction for the storage and indexing operations that ingestion writes to.
+ * Abstraction for the storage target that ingestion writes to.
  *
- * <p>This decouples the ingestion pipeline from the concrete engine implementation,
- * allowing the pipeline to be tested independently and used in different contexts
- * (e.g., bulk offline ingestion, real-time ingestion, or rebuilding indexes).</p>
+ * <p>This decouples the ingestion pipeline from concrete implementations,
+ * allowing both search-engine and cognitive-memory targets to receive
+ * chunks from the same unified pipeline.</p>
+ *
+ * <h3>Implementations</h3>
+ * <ul>
+ *   <li><b>EngineIngestionTarget</b> (spector-engine): VectorStore → HNSW → BM25</li>
+ *   <li><b>CognitiveIngestionTarget</b> (spector-memory): quantize → surprise → tier route → WAL</li>
+ * </ul>
+ *
+ * <p>The pipeline calls {@link #ingest(String, String, float[])} for each
+ * chunk after embedding. The target handles all downstream storage.</p>
  */
 public interface IngestionTarget {
 
     /**
-     * Stores a vector and returns its storage index.
+     * Ingests a single chunk/document with its text and embedding vector.
+     *
+     * <p>Called by the pipeline once per chunk after chunking and embedding.
+     * The implementation handles all downstream storage, indexing, and
+     * persistence.</p>
      *
      * @param id     document or chunk ID
-     * @param vector the embedding vector
-     * @return the storage index assigned to this vector
+     * @param text   the text content of this chunk
+     * @param vector the embedding vector for this chunk
      */
-    int storeVector(String id, float[] vector);
+    void ingest(String id, String text, float[] vector);
 
     /**
-     * Stores document metadata.
+     * Stores lightweight parent document metadata after all chunks are ingested.
      *
-     * @param id      document ID
-     * @param title   document title (may be empty)
-     * @param content document text content
+     * <p>Called once per parent document with the total chunk count. This allows
+     * targets to maintain a registry of ingested documents without storing
+     * the full content.</p>
+     *
+     * <p>Default is no-op — cognitive targets may not need parent tracking.</p>
+     *
+     * @param parentId   the parent document ID
+     * @param chunkCount number of chunks the document was split into
      */
-    void storeDocument(String id, String title, String content);
+    default void storeParentMetadata(String parentId, int chunkCount) {}
 
     /**
-     * Adds a vector to the ANN index.
+     * Called when a batch of ingestion operations completes.
      *
-     * @param id         document or chunk ID
-     * @param storeIndex the storage index from {@link #storeVector}
-     * @param vector     the embedding vector
-     */
-    void indexVector(String id, int storeIndex, float[] vector);
-
-    /**
-     * Indexes text content for keyword (BM25) search.
+     * <p>Targets can use this for flush operations (WAL sync, index compaction, etc.).</p>
      *
-     * @param id      document or chunk ID
-     * @param content text to index
+     * <p>Default is no-op.</p>
      */
-    void indexKeywords(String id, String content);
+    default void onBatchComplete() {}
 }
