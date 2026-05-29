@@ -1,7 +1,7 @@
 @echo off
 REM ═══════════════════════════════════════════════════════════════
 REM  Spector File Ingestion Script
-REM  Discovers and ingests files from the repo using FileIngestionMain.
+REM  Uses spectorctl to discover and ingest files via SpectorRuntime.
 REM  All configuration is read from spector.yml (or CLI overrides).
 REM
 REM  Usage: scripts\ingest-docs.bat [--pattern "**\*.java"] [--root path]
@@ -17,18 +17,11 @@ if not exist "%JAR%" (
     exit /b 1
 )
 
-echo ═══════════════════════════════════════════════════
-echo  Spector — File Ingestion
-echo ═══════════════════════════════════════════════════
-
 java ^
     --add-modules jdk.incubator.vector ^
     --enable-native-access=ALL-UNNAMED ^
     --enable-preview ^
     -cp "%JAR%" ^
-    com.spectrayan.spector.ingestion.FileIngestionMain ^
-    --config "%CONFIG%" ^
+    com.spectrayan.spector.cli.SpectorCtl ^
+    ingest --config "%CONFIG%" ^
     %*
-
-echo.
-echo [Done] Ingestion complete.
