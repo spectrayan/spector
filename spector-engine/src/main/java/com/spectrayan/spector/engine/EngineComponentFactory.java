@@ -132,7 +132,7 @@ public class EngineComponentFactory {
         // ── Build fresh components if not loaded from disk ──
         if (!loadedFromDisk) {
             vs = storeFactory.create(config);
-            vi = indexFactory.create(config);
+            vi = indexFactory.create(config, vs);
             ki = new BM25Index();
 
             // DocumentStore: load from disk if DISK mode and file exists

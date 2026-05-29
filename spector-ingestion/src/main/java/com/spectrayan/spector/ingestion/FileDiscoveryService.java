@@ -18,34 +18,25 @@ import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorProperties;
 
 /**
- * Generic file ingestion service that discovers and ingests files from a directory tree.
+ * File discovery service — finds files matching patterns in a directory tree.
  *
- * <p>Unlike the MCP-specific {@code IngestMarkdownMain}, this service is:
- * <ul>
- *   <li>Format-agnostic — any file extension via configurable glob patterns</li>
- *   <li>Reusable — callable from MCP server, REST API, or Java CLI</li>
- *   <li>Configurable — reads from {@link SpectorProperties} for file pattern, skip dirs, chunk sizes</li>
- * </ul>
+ * <p>This is a pure utility service that discovers files without performing
+ * ingestion. It reads configuration from {@link SpectorProperties} and
+ * provides the file list to be ingested via {@link IngestionPipeline}.</p>
  *
  * <h3>Usage</h3>
  * <pre>{@code
- *   // From SpectorProperties (reads spector.yml)
- *   var service = FileIngestionService.fromProperties(SpectorProperties.load(), rootDir);
+ *   var discovery = FileDiscoveryService.fromProperties(props, rootDir);
+ *   List<Path> files = discovery.discover();
  *
- *   // Discover files
- *   List<Path> files = service.discover();
- *
- *   // Ingest into an engine
- *   FileIngestionResult result = service.ingest(engine);
- *
- *   // With progress reporting
- *   FileIngestionResult result = service.ingest(engine, (idx, path) ->
- *       System.out.printf("[%d] %s%n", idx, path));
+ *   for (Path file : files) {
+ *       pipeline.ingest(file, file.getFileName().toString());
+ *   }
  * }</pre>
  */
-public class FileIngestionService {
+public class FileDiscoveryService {
 
-    private static final Logger log = LoggerFactory.getLogger(FileIngestionService.class);
+    private static final Logger log = LoggerFactory.getLogger(FileDiscoveryService.class);
 
     private final Path rootDirectory;
     private final String filePattern;
@@ -53,7 +44,7 @@ public class FileIngestionService {
     private final int chunkSize;
     private final int chunkOverlap;
 
-    private FileIngestionService(Builder builder) {
+    private FileDiscoveryService(Builder builder) {
         this.rootDirectory = builder.rootDirectory.toAbsolutePath().normalize();
         this.filePattern = builder.filePattern;
         this.skipDirs = Set.copyOf(builder.skipDirs);
@@ -67,10 +58,10 @@ public class FileIngestionService {
      * Creates a service from hierarchical properties.
      *
      * @param props   configuration properties
-     * @param rootDir the root directory to ingest from
-     * @return configured file ingestion service
+     * @param rootDir the root directory to discover files from
+     * @return configured file discovery service
      */
-    public static FileIngestionService fromProperties(SpectorProperties props, Path rootDir) {
+    public static FileDiscoveryService fromProperties(SpectorProperties props, Path rootDir) {
         var ingestion = SpectorConfigFactory.ingestionDefaults(props);
         return builder()
                 .rootDirectory(rootDir)
@@ -122,22 +113,6 @@ public class FileIngestionService {
         return files;
     }
 
-    // ─────────────── Ingestion ───────────────
-
-    /**
-     * Result of a file ingestion batch.
-     *
-     * @param filesProcessed number of files successfully processed
-     * @param totalChunks    total chunks ingested across all files
-     * @param failures       list of file paths that failed
-     * @param elapsedMs      total elapsed time in milliseconds
-     */
-    public record FileIngestionResult(
-            int filesProcessed, int totalChunks,
-            List<String> failures, long elapsedMs
-    ) {}
-
-
     // ─────────────── Accessors ───────────────
 
     /** Returns the root directory. */
@@ -149,7 +124,10 @@ public class FileIngestionService {
     /** Returns the chunk size. */
     public int chunkSize() { return chunkSize; }
 
-    // ─────────────── Internal ───────────────
+    /** Returns the chunk overlap. */
+    public int chunkOverlap() { return chunkOverlap; }
+
+    // ─────────────── Utilities ───────────────
 
     /**
      * Extracts a title from the first heading in the content, or uses the filename as fallback.
@@ -192,6 +170,6 @@ public class FileIngestionService {
         public Builder skipDirs(List<String> dirs) { this.skipDirs = dirs; return this; }
         public Builder chunkSize(int chunkSize) { this.chunkSize = chunkSize; return this; }
         public Builder chunkOverlap(int chunkOverlap) { this.chunkOverlap = chunkOverlap; return this; }
-        public FileIngestionService build() { return new FileIngestionService(this); }
+        public FileDiscoveryService build() { return new FileDiscoveryService(this); }
     }
 }

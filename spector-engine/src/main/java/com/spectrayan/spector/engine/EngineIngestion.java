@@ -187,9 +187,13 @@ final class EngineIngestion {
     int ingestChunked(String id, String content,
                       Function<String, float[]> vectorProvider,
                       TextChunker chunker) {
-        documentStore.put(Document.of(id, content));
-
         var chunks = chunker.chunk(id, content);
+
+        // Store lightweight metadata only — full content is redundant since each
+        // chunk is individually stored in VectorStore + KeywordIndex.
+        // This avoids holding O(content_size) on the Java heap per document.
+        documentStore.put(Document.of(id, "[chunked: " + chunks.size() + " chunks]"));
+
         for (var chunk : chunks) {
             float[] vector = vectorProvider.apply(chunk.text());
             int storeIndex = vectorStore.put(chunk.chunkId(), vector);

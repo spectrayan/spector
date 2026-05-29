@@ -74,6 +74,7 @@ public class SpectorEngine implements AutoCloseable {
 
     // Delegates
     private final EngineIngestion ingestion;
+    private final EngineIngestionTarget ingestionTarget;
     private final EngineSearch search;
 
     // ─────────────── Construction ───────────────
@@ -139,6 +140,8 @@ public class SpectorEngine implements AutoCloseable {
         // ── Create delegates ──
         this.ingestion = new EngineIngestion(config, vectorStore, documentStore,
                 vectorIndex, keywordIndex, embeddingProvider);
+        this.ingestionTarget = new EngineIngestionTarget(config, vectorStore, documentStore,
+                vectorIndex, keywordIndex);
         this.search = new EngineSearch(config, orchestrator, embeddingProvider, gpuBatchSimilarity);
 
         log.info("SpectorEngine initialized successfully");
@@ -152,6 +155,15 @@ public class SpectorEngine implements AutoCloseable {
     /** Returns a new fluent {@link Builder} for constructing an engine. */
     public static Builder builder() {
         return new Builder();
+    }
+
+    // ─────────────── Ingestion Target ───────────────
+
+    /**
+     * Returns the engine's ingestion target for use with the unified {@link com.spectrayan.spector.ingestion.IngestionPipeline}.
+     */
+    public EngineIngestionTarget target() {
+        return ingestionTarget;
     }
 
     // ─────────────── Ingestion (delegated) ───────────────
