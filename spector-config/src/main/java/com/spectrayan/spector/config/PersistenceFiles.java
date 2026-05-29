@@ -15,18 +15,21 @@ import java.nio.file.Path;
  *   <li>{@code vectors.mmap} — Memory-mapped raw float32 vectors</li>
  *   <li>{@code documents.dat} — Document text content</li>
  *   <li>{@code id-mappings.dat} — String ID → integer index mappings</li>
+ *   <li>{@code index_shards/} — Directory for sharded index + vector files</li>
  * </ul>
  *
  * @param indexFile      HNSW index file name
  * @param vectorsFile    memory-mapped vectors file name
  * @param documentsFile  document store file name
  * @param idMappingsFile ID mappings file name
+ * @param shardDirName   subdirectory for sharded index/vector files
  */
 public record PersistenceFiles(
         String indexFile,
         String vectorsFile,
         String documentsFile,
-        String idMappingsFile
+        String idMappingsFile,
+        String shardDirName
 ) {
 
     /** Default file names. */
@@ -34,7 +37,8 @@ public record PersistenceFiles(
             "index.spct",
             "vectors.mmap",
             "documents.dat",
-            "id-mappings.dat"
+            "id-mappings.dat",
+            "index_shards"
     );
 
     public PersistenceFiles {
@@ -46,6 +50,21 @@ public record PersistenceFiles(
             throw new IllegalArgumentException("documentsFile must not be blank");
         if (idMappingsFile == null || idMappingsFile.isBlank())
             throw new IllegalArgumentException("idMappingsFile must not be blank");
+        if (shardDirName == null || shardDirName.isBlank())
+            throw new IllegalArgumentException("shardDirName must not be blank");
+    }
+
+    /**
+     * Backward-compatible constructor (4-arg) — uses default shard directory name.
+     *
+     * @param indexFile      HNSW index file name
+     * @param vectorsFile    vectors file name
+     * @param documentsFile  document store file name
+     * @param idMappingsFile ID mappings file name
+     */
+    public PersistenceFiles(String indexFile, String vectorsFile,
+                             String documentsFile, String idMappingsFile) {
+        this(indexFile, vectorsFile, documentsFile, idMappingsFile, "index_shards");
     }
 
     /**
@@ -59,7 +78,8 @@ public record PersistenceFiles(
                 props.getString("spector.persistence.files.index", DEFAULTS.indexFile),
                 props.getString("spector.persistence.files.vectors", DEFAULTS.vectorsFile),
                 props.getString("spector.persistence.files.documents", DEFAULTS.documentsFile),
-                props.getString("spector.persistence.files.id-mappings", DEFAULTS.idMappingsFile)
+                props.getString("spector.persistence.files.id-mappings", DEFAULTS.idMappingsFile),
+                props.getString("spector.persistence.files.shard-dir", DEFAULTS.shardDirName)
         );
     }
 
@@ -89,5 +109,15 @@ public record PersistenceFiles(
      */
     public Path resolveIdMappings(Path dataDir) {
         return dataDir.resolve(idMappingsFile);
+    }
+
+    /**
+     * Resolves the shard directory within the given data directory.
+     *
+     * @param dataDir the engine data directory
+     * @return path to the shard directory
+     */
+    public Path resolveShardDir(Path dataDir) {
+        return dataDir.resolve(shardDirName);
     }
 }

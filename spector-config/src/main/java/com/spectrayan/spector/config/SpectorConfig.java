@@ -406,4 +406,24 @@ public record SpectorConfig(
     public int effectiveSpectrumShardThreshold() {
         return spectrumShardThreshold > 0 ? spectrumShardThreshold : 20_000;
     }
+
+    // ─────────────── Index/Vector sharding defaults ───────────────
+
+    /**
+     * Default number of nodes per shard for index and vector file sharding.
+     * At 384 dimensions × 4 bytes, this yields ~30 MB vector data per shard.
+     */
+    public static final int DEFAULT_NODES_PER_SHARD = 50_000;
+
+    /**
+     * Returns the effective nodes-per-shard for index and vector file sharding.
+     *
+     * <p>Currently returns the constant default ({@value #DEFAULT_NODES_PER_SHARD}).
+     * This can be extended to read from configuration properties if needed.</p>
+     *
+     * @return nodes per shard
+     */
+    public int effectiveNodesPerShard() {
+        return DEFAULT_NODES_PER_SHARD;
+    }
 }
