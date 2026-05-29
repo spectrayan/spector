@@ -97,6 +97,15 @@ public final class SpectorProperties {
     }
 
     /**
+     * Loads configuration from classpath defaults only — no filesystem discovery.
+     * <p>Useful for tests that should not be affected by a {@code spector.yml}
+     * file in the working directory.</p>
+     */
+    public static SpectorProperties loadClasspathOnly() {
+        return new Builder().skipFilesystemDiscovery(true).build();
+    }
+
+    /**
      * Loads configuration with the specified profile.
      *
      * @param profile the active profile name (e.g., "dev", "production"), or null for none
@@ -327,6 +336,7 @@ public final class SpectorProperties {
     public static class Builder {
         private String profile;
         private Path configFile;
+        private boolean skipFilesystem;
         private final Properties overrides = new Properties();
 
         private Builder() {}
@@ -340,6 +350,12 @@ public final class SpectorProperties {
         /** Sets an explicit configuration file path. */
         public Builder configFile(Path configFile) {
             this.configFile = configFile;
+            return this;
+        }
+
+        /** If true, skip loading from working-directory files (spector.yml, spector.properties). */
+        Builder skipFilesystemDiscovery(boolean skip) {
+            this.skipFilesystem = skip;
             return this;
         }
 
@@ -387,7 +403,7 @@ public final class SpectorProperties {
             // 3. User config file
             if (configFile != null) {
                 loadFileOrFail(combined, configFile, "user-config");
-            } else {
+            } else if (!skipFilesystem) {
                 // Try spector.yml in working directory
                 loadFileIfExists(combined, Path.of(DEFAULT_CONFIG_FILE), "user-config");
                 // Also try spector.properties as fallback
