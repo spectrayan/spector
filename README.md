@@ -27,7 +27,7 @@ graph LR
     style E fill:#00b894,color:white
 ```
 
-> **100× faster** than Python MCP servers — zero network overhead, zero GC pressure.
+> **23–113× faster** than Python MCP servers — zero network overhead, zero GC pressure. [Benchmarked ↓](#-benchmarks)
 
 ### 2. ⚡ SpectorQuant (IVHNSW-VASQ)
 
@@ -105,11 +105,13 @@ Add to your `claude_desktop_config.json`:
 
 | Feature | Python Vector DB MCP | **Spector MCP** |
 |:---|:---|:---|
-| Search latency | 2–10ms (network + Python GIL) | **50–200µs** (in-process SIMD) |
+| Search latency | 2–10ms (network + Python GIL) | **88µs p50** (in-process SIMD) † |
 | Network overhead | HTTP/gRPC round-trip | **Zero** (direct method call) |
-| GC pauses | Python/JVM heap pressure | **Zero** (100% off-heap Panama) |
-| Concurrent queries | Limited by Python GIL | **10,000+ QPS** (Virtual Threads) |
+| GC pauses | Python/JVM heap pressure | **≤0.01%** (100% off-heap Panama) † |
+| Concurrent queries | Limited by Python GIL | **61,000 QPS** (Virtual Threads) † |
 | Dependencies | Python framework stack | **Single JAR** (zero Python) |
+
+† *Measured on Intel Core Ultra 9 285K, Java 25, AVX2. See [Benchmarks](#-benchmarks).*
 
 > See the full [spector-mcp documentation](spector-mcp/README.md) for CLI options, Cursor IDE config, and troubleshooting.
 
@@ -131,10 +133,12 @@ Spector Memory is a biologically-inspired cognitive memory engine that gives AI 
 | 🚫 Inhibition | `inhibition/` | Explicit memory suppression |
 
 **Key differentiators vs. Mem0, Letta, Zep:**
-- **~2ms** recall latency at 1M memories (vs. 50-200ms)
-- **Zero GC** — 100% off-heap Panama storage
+- **0.13ms** recall latency at 1M memories (vs. 50–200ms) †
+- **Zero GC** — 100% off-heap Panama storage (≤0.01% GC overhead measured) †
 - **Fused scoring** — similarity × importance × decay in a single SIMD pass (no truncation trap)
 - **Synaptic tag gating** — 64-bit Bloom filter eliminates 99% of candidates in 1 CPU cycle
+
+† *Measured. See [Benchmarks](#-benchmarks).*
 
 > 📖 See the full [Cognitive Memory documentation](docs/docs/memory/index.md) and the [module README](spector-memory/README.md).
 
@@ -160,6 +164,47 @@ Spector Memory is a biologically-inspired cognitive memory engine that gives AI 
 - **🧬 Embedding SPI** — Pluggable embedding providers (Ollama included out-of-the-box)
 - **📄 Chunked Ingestion** — Text, token-level, and streaming chunkers for large document support
 - **🤖 MCP Server** — Built-in Model Context Protocol server for AI agent integration
+
+---
+
+## 📊 Benchmarks
+
+All numbers measured on **Intel Core Ultra 9 285K** (24 cores), **Java 25.0.1**, AVX2 256-bit SIMD, 30GB heap.
+
+### Core Engine (in-process, 128-dim vectors)
+
+| Benchmark | Result | Notes |
+|:---|:---|:---|
+| Vector search p50 | **88–143µs** | 10K–100K docs, HNSW M=16 |
+| In-process vs Python MCP | **23–113× faster** | 88µs vs 2–10ms |
+| GC overhead | **0.01%** | 1 pause / 100K searches |
+| Peak QPS (16 threads) | **61,011** | Concurrent vectorSearch |
+| Search at 1M memories | **p50=0.13ms** | 15× better than 2ms target |
+| Truncation trap recall loss | **100%** | Top-K-then-rerank loses all correct results |
+
+### Disk Persistence (4096-dim vectors, real Ollama embeddings)
+
+| Benchmark | Result | Notes |
+|:---|:---|:---|
+| DISK vs IN_MEMORY overhead | **2.3%** | mmap’d sharded store, near-zero cost |
+| Cold-start latency | **11.3ms** | First search after JVM restart |
+| Warm search p50 | **2.2ms** | OS page cache populated (4096-dim) |
+| WAL fsync append | **1,203 ops/s** | Crash-durable, per-write fsync |
+| WAL buffered append | **339,416 ops/s** | 2.9µs/op, no fsync |
+| WAL concurrent (8 threads) | **222,586 ops/s** | Multi-agent write scenario |
+| Cognitive recall (Ollama) | **64ms** | End-to-end: embed + score + rank |
+
+### Run Benchmarks
+
+```bash
+# Core performance (no external dependencies)
+mvn exec:exec -pl spector-bench \
+  -Dexec.mainClass=com.spectrayan.spector.bench.CorePerformanceBenchmark
+
+# Disk + Memory + WAL (requires Ollama with an embedding model)
+mvn exec:exec -pl spector-bench \
+  -Dexec.mainClass=com.spectrayan.spector.bench.DiskPersistenceBenchmark
+```
 
 ---
 

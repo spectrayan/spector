@@ -24,22 +24,26 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Validates every performance claim made in the README with empirical data.
+ * Core performance benchmark suite for Spector Search.
  *
- * <h3>Claims Validated</h3>
+ * <p>Measures the fundamental performance characteristics of the in-process
+ * SIMD-accelerated search engine: latency, throughput, GC impact, scalability,
+ * and fused cognitive scoring correctness.</p>
+ *
+ * <h3>Benchmarks</h3>
  * <ul>
- *   <li>C1: "100× faster than Python MCP servers" — in-process vs localhost network</li>
- *   <li>C2: "50–200µs search latency" — vector search at 10K/50K/100K</li>
- *   <li>C3: "Zero GC pressure" — GC pause count during sustained search</li>
- *   <li>C4: "10,000+ QPS" — concurrent hybrid search throughput</li>
- *   <li>C5: "~2ms recall at 1M memories" — engine search at 100K→1M scale</li>
- *   <li>C6: "Fused scoring — no truncation trap" — recall correctness</li>
+ *   <li>In-process vs network latency comparison</li>
+ *   <li>Vector search latency at 10K/50K/100K scale</li>
+ *   <li>GC pressure during sustained search</li>
+ *   <li>Concurrent QPS scaling (1–64 threads)</li>
+ *   <li>Search latency at 100K → 1M scale</li>
+ *   <li>Fused cognitive scoring vs top-K-then-rerank</li>
  * </ul>
  *
- * <p>Run: {@code mvn -pl spector-bench exec:java
- *   -Dexec.mainClass=com.spectrayan.spector.bench.ClaimValidationBenchmark}</p>
+ * <p>Run: {@code mvn -pl spector-bench exec:exec
+ *   -Dexec.mainClass=com.spectrayan.spector.bench.CorePerformanceBenchmark}</p>
  */
-public class ClaimValidationBenchmark {
+public class CorePerformanceBenchmark {
 
     // ─────────────── Configuration ───────────────
 
@@ -59,12 +63,12 @@ public class ClaimValidationBenchmark {
     // ─────────────── Main ───────────────
 
     public static void main(String[] args) throws Exception {
-        new ClaimValidationBenchmark().run();
+        new CorePerformanceBenchmark().run();
     }
 
     public void run() throws Exception {
         System.out.println("╔══════════════════════════════════════════════════════════════╗");
-        System.out.println("║   SPECTOR SEARCH — README CLAIM VALIDATION BENCHMARK        ║");
+        System.out.println("║   SPECTOR SEARCH — CORE PERFORMANCE BENCHMARK               ║");
         System.out.println("╚══════════════════════════════════════════════════════════════╝");
         System.out.println();
         printSystemInfo();
@@ -574,9 +578,9 @@ public class ClaimValidationBenchmark {
 
     private void printVerdictTable() {
         System.out.println("═══════════════════════════════════════════════════════════════");
-        System.out.println("                    CLAIM VALIDATION REPORT                   ");
+        System.out.println("                  CORE PERFORMANCE REPORT                     ");
         System.out.println("═══════════════════════════════════════════════════════════════");
-        System.out.printf("  %-38s %-20s %-15s%n", "CLAIM", "RESULT", "VERDICT");
+        System.out.printf("  %-38s %-20s %-15s%n", "BENCHMARK", "RESULT", "VERDICT");
         System.out.println("  " + "─".repeat(73));
         for (var v : verdicts) {
             System.out.printf("  %-38s %-20s %-15s%n", v[0], v[1], v[2]);
@@ -586,7 +590,7 @@ public class ClaimValidationBenchmark {
 
     private void writeReport() throws IOException {
         StringBuilder sb = new StringBuilder();
-        sb.append("# Spector Search — Claim Validation Report\n\n");
+        sb.append("# Spector Search — Core Performance Report\n\n");
         sb.append("**Generated:** ").append(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)).append("\n\n");
 
         // System info
@@ -600,15 +604,15 @@ public class ClaimValidationBenchmark {
         sb.append("| Max Heap | ").append(Runtime.getRuntime().maxMemory() / (1024 * 1024)).append(" MB |\n");
         sb.append("| SIMD | ").append(SimdCapability.report()).append(" |\n\n");
 
-        // Verdicts
+        // Results
         sb.append("## Results\n\n");
-        sb.append("| Claim | Result | Verdict |\n");
+        sb.append("| Benchmark | Result | Verdict |\n");
         sb.append("|---|---|---|\n");
         for (var v : verdicts) {
             sb.append("| ").append(v[0]).append(" | ").append(v[1]).append(" | ").append(v[2]).append(" |\n");
         }
 
-        Path reportPath = Path.of("spector-bench", "target", "claim-validation-report.md");
+        Path reportPath = Path.of("spector-bench", "target", "core-performance-report.md");
         Files.createDirectories(reportPath.getParent());
         Files.writeString(reportPath, sb.toString());
         System.out.printf("%nReport saved: %s%n", reportPath.toAbsolutePath());
