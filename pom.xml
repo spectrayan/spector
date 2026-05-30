@@ -48,10 +48,8 @@
 
     <!-- ───────────────────────── Properties ───────────────────────── -->
     <properties>
-        <!-- Java -->
-        <java.version>25</java.version>
-        <maven.compiler.source>${java.version}</maven.compiler.source>
-        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <!-- Java (Valhalla EA JDK 27 — value classes preview) -->
+        <java.version>27</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
@@ -340,13 +338,39 @@
     <build>
         <pluginManagement>
             <plugins>
-                <!-- Compiler: Java 25 + Vector API incubator -->
+                <!-- Toolchains: select Valhalla EA JDK 27 for compilation -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-toolchains-plugin</artifactId>
+                    <version>3.2.0</version>
+                    <executions>
+                        <execution>
+                            <goals><goal>toolchain</goal></goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <toolchains>
+                            <jdk>
+                                <version>27</version>
+                                <vendor>valhalla</vendor>
+                            </jdk>
+                        </toolchains>
+                    </configuration>
+                </plugin>
+
+                <!-- Compiler: Valhalla EA JDK 27 + Vector API incubator
+                     Uses fork + executable to invoke Valhalla javac directly.
+                     The plugin's internal ASM doesn't support JDK 27, so we
+                     bypass it by forking to the actual javac binary. -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
-                        <release>${java.version}</release>
+                        <fork>true</fork>
+                        <executable>${env.VALHALLA_HOME}/bin/javac</executable>
+                        <source>27</source>
+                        <target>27</target>
                         <compilerArgs>
                             <arg>--add-modules</arg>
                             <arg>${vector.api.module}</arg>
@@ -404,6 +428,10 @@
         </pluginManagement>
 
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-toolchains-plugin</artifactId>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

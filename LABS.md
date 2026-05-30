@@ -53,31 +53,36 @@ which documents the rationale and hot-path frequency.
 ### Prerequisites
 
 1. **Download the Valhalla EA JDK** from [jdk.java.net/valhalla](https://jdk.java.net/valhalla/)
-2. Set `JAVA_HOME` to the Valhalla EA build:
+2. Extract it somewhere (your default JDK stays untouched):
 
 ```bash
-export JAVA_HOME=/path/to/valhalla-ea-jdk
-export PATH=$JAVA_HOME/bin:$PATH
+mkdir -p ~/jdks
+tar -xzf openjdk-27-jep401ea*.tar.gz -C ~/jdks
 
 # Verify
-java -version
-# Should show something like: openjdk version "25-valhalla+XX-XX"
+~/jdks/jdk-27/bin/java -version
+# Should show: openjdk version "27-jep401ea3" 2026-09-15
 ```
 
 ### Build
 
+Set `VALHALLA_HOME` to point to the EA JDK — no need to change `JAVA_HOME` or `PATH`:
+
 ```bash
-mvn clean compile -DskipTests
+VALHALLA_HOME=~/jdks/jdk-27 mvn clean compile -DskipTests
 ```
+
+Maven runs on your normal JDK 25. Only the compiler forks to the Valhalla javac via
+`<fork>true</fork>` + `<executable>${env.VALHALLA_HOME}/bin/javac</executable>` in the POM.
 
 ### Run Tests
 
 ```bash
-mvn test
+VALHALLA_HOME=~/jdks/jdk-27 mvn test
 ```
 
-> ⚠️ **Note:** This branch will NOT compile with a standard JDK 25/26/27.
-> The `value` keyword is only recognized by the Valhalla EA builds.
+> ⚠️ **Note:** This branch will NOT compile without the Valhalla EA JDK.
+> The `value` keyword is only recognized by the Valhalla EA builds, not standard JDK 25/26/27.
 
 ---
 
