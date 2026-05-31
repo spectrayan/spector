@@ -171,7 +171,7 @@ A Hebbian-first recall path that bypasses vector similarity entirely. When the a
 
 In executive dysfunction, the prefrontal cortex struggles with **top-down, goal-directed retrieval** — the ability to say "I need to find X" and systematically search for it. However, **bottom-up, associative recall** remains intact — memories surface via association chains rather than directed search.
 
-This is common in ADHD: you can't remember the specific thing you were looking for, but a tangential mention triggers a cascade of related memories. The [STDP infrastructure](../memory/hebbian.md#stdp--spike-timing-dependent-plasticity) now makes this possible — directed causal edges encode "thinking about A leads to thinking about B."
+This is common in ADHD: you can't remember the specific thing you were looking for, but a tangential mention triggers a cascade of related memories. The [STDP infrastructure](../memory/hebbian.md#offheapedgetable--directed-stdp-edges) now makes this possible — directed causal edges encode "thinking about A leads to thinking about B."
 
 ### Proposed Architecture
 

@@ -121,6 +121,9 @@ class MeteredSpectorMemoryTest {
         @Override public TierRouter tierRouter() { return null; }
         @Override public MemoryIndex index() { return null; }
         @Override public LateralEvaluator lateralEvaluator() { return null; }
+        @Override public com.spectrayan.spector.memory.graph.EntityGraph entityGraph() { return null; }
+        @Override public com.spectrayan.spector.memory.hebbian.HebbianGraph hebbianGraph() { return null; }
+        @Override public com.spectrayan.spector.memory.temporal.TemporalChain temporalChain() { return null; }
         @Override public void close() {}
     }
 }
