@@ -40,6 +40,9 @@ sequenceDiagram
     participant TR as TierRouter
     participant MI as MemoryIndex
     participant WAL as MemoryWal
+    participant HG as HebbianGraph
+    participant TC as TemporalChain
+    participant EG as EntityGraph
 
     App->>SM: remember(id, text, type, tags)
     SM->>CT: ingestCognitive(id, text, vector, type, tags, ...)
@@ -73,8 +76,17 @@ sequenceDiagram
     Note over CT: Step 8: Index
     CT->>MI: register(id, location, text, source, tags)
     
-    Note over CT: Step 9: WAL
+    Note over CT: Step 9a: WAL
     CT->>WAL: appendRemember(id, quantized)
+    
+    Note over CT: Step 9b: Hebbian edge strengthening
+    CT->>HG: strengthen(currentIdx, previousIdx, 1.0f)
+    
+    Note over CT: Step 9c: Temporal chain linking
+    CT->>TC: link(currentIdx, lastIdx, sessionId)
+    
+    Note over CT: Step 9d: Entity extraction & graph population
+    CT->>EG: addEntity() + linkToMemory() + addRelation()
     
     Note over CT: Step 10: Circadian check
     CT->>CT: triggerReflectIfDue()
@@ -82,6 +94,9 @@ sequenceDiagram
 
 > [!NOTE]
 > When ingestion comes through the unified `IngestionPipeline` (e.g., file ingestion), embedding (step 1) is handled by the pipeline itself. `CognitiveIngestionTarget.ingest()` receives a pre-embedded vector and executes steps 2–9. When called via `SpectorMemory.remember()`, `CognitiveIngestionTarget.ingestCognitive()` handles embedding internally.
+
+> [!NOTE]
+> Steps 9b–9d are **gracefully degrading**: if any graph component is null (not configured) or throws, the step is skipped with a `log.warn()` and ingestion continues normally.
 
 ---
 
@@ -99,6 +114,9 @@ sequenceDiagram
     participant CS as CognitiveScorer
     participant SS as SuppressionSet
     participant HP as HabituationPenalty
+    participant HG as HebbianGraph
+    participant TC as TemporalChain
+    participant EG as EntityGraph
 
     App->>RP: recall("query", options)
     
@@ -130,10 +148,25 @@ sequenceDiagram
     Note over RP: Step 4: Filter suppressed
     RP->>SS: isSuppressed(id)?
     
-    Note over RP: Step 5: Habituation penalty
+    Note over RP: Step 5a: Habituation penalty
     RP->>HP: recordAndComputePenalty(id)
     
-    Note over RP: Step 6: Sort & return top-K
+    Note over RP: Step 5b: STDP causal boost
+    RP->>RP: CoActivationTracker.getPredictiveStrength()
+    
+    Note over RP: Step 5c: Hebbian spreading activation
+    RP->>HG: activateNeighbors(seedIdx, depth=2)
+    HG-->>RP: graph-activated memory indices
+    
+    Note over RP: Step 5d: Temporal chain extension
+    RP->>TC: followForward/Backward(idx, maxHops=3)
+    TC-->>RP: temporally-linked memory indices
+    
+    Note over RP: Step 5e: Entity graph traversal
+    RP->>EG: extract query entities → BFS 2-hop
+    EG-->>RP: entity-linked memory indices
+    
+    Note over RP: Step 6: Merge, dedup, sort → final top-K
     RP-->>App: List<CognitiveResult>
     
     Note over RP: Step 7: Async listeners (Virtual Thread)
@@ -157,6 +190,10 @@ graph LR
     CT --> TR
     CT --> MI
     CT --> WAL[sync/<br/>MemoryWal]
+    CT --> HG[hebbian/<br/>HebbianGraph]
+    CT --> TC[temporal/<br/>TemporalChain]
+    CT --> EG[graph/<br/>EntityGraph]
+    CT --> EX[graph/<br/>EntityExtractor]
     
     RP --> EP
     RP --> CS[synapse/<br/>CognitiveScorer]
@@ -164,6 +201,9 @@ graph LR
     RP --> MI
     RP --> SS[inhibition/<br/>SuppressionSet]
     RP --> HP[habituation/<br/>HabituationPenalty]
+    RP --> HG
+    RP --> TC
+    RP --> EG
     
     CS --> SF[core/<br/>SimilarityFunction]
     CS --> DS[synapse/<br/>DecayStrategy]
@@ -179,6 +219,9 @@ graph LR
     style SM fill:#4a90d9,color:white
     style CS fill:#e74c3c,color:white
     style TR fill:#2ecc71,color:white
+    style HG fill:#e74c3c,color:white
+    style EG fill:#9b59b6,color:white
+    style TC fill:#f39c12,color:white
 ```
 
 ---
@@ -215,5 +258,6 @@ At 768 dimensions (INT8): **32 + 768 = 800 bytes/memory** — 50,000 memories fi
 ## Next Steps
 
 - :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — the SIMD hot-loop that makes it fast
+- :material-share-variant: [**3-Layer Cognitive Graph**](hebbian.md) — Hebbian, Entity, and Temporal graphs
 - :material-brain: [**Cortex — Tier Stores**](cortex.md) — the 4-tier memory architecture
 - :material-memory: [**Off-Heap Panama Design**](panama-design.md) — zero-GC binary layout

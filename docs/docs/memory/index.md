@@ -61,15 +61,24 @@ graph TB
             SS[SuppressionSet<br/>Inhibition]
         end
         
-        subgraph "Learning & Consolidation"
+        subgraph "3-Layer Cognitive Graph"
+            HG[HebbianGraph<br/>Layer 1: Association]
+            EG[EntityGraph<br/>Layer 2: Knowledge]
+            TC[TemporalChain<br/>Layer 3: Causal]
+            CA[CoActivationTracker<br/>STDP Learning]
+        end
+        
+        subgraph "Consolidation"
             RD[ReflectDaemon<br/>Sleep Consolidation]
-            CA[CoActivationTracker<br/>Hebbian Learning]
-            TC[TombstoneCompactor<br/>Synaptic Pruning]
+            TCC[TombstoneCompactor<br/>Synaptic Pruning]
         end
         
         CT --> TR
         RP --> CS
         RP --> TR
+        RP --> HG
+        RP --> TC
+        RP --> EG
     end
 ```
 
@@ -141,11 +150,19 @@ Just as the human brain has distinct memory systems, Spector organizes memories 
 
     [:octicons-arrow-right-24: Scoring Pipeline](scoring-pipeline.md)
 
+-   :material-share-variant:{ .lg .middle } **3-Layer Cognitive Graph**
+
+    ---
+
+    Hebbian association, entity-relationship knowledge, and temporal causal chains — three off-heap graph structures that augment vector recall
+
+    [:octicons-arrow-right-24: Cognitive Graph](hebbian.md)
+
 -   :material-head-cog:{ .lg .middle } **Biological Systems**
 
     ---
 
-    Each brain region mapped to code: Cortex, Hippocampus, Synapse, Dopamine, Amygdala, Hebbian, Habituation, Inhibition
+    Each brain region mapped to code: Cortex, Hippocampus, Synapse, Dopamine, Amygdala, Habituation, Inhibition
 
     [:octicons-arrow-right-24: Start with Cortex](cortex.md)
 

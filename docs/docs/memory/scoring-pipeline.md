@@ -264,8 +264,51 @@ Each partition scan runs on a **dedicated Virtual Thread** — disjoint memory s
 
 ---
 
+## Graph Augmentation (Post-Scorer)
+
+After the 6-phase scorer produces a **seed set** (top-K by fused cognitive score), three graph layers expand the result set by discovering memories that the scorer alone couldn't find:
+
+```mermaid
+graph LR
+    S["Seed Set<br/>(6-Phase Scorer Top-K)"] --> H["Step 5c: Hebbian<br/>Spreading Activation<br/>(depth=2, 0.3× attenuation)"]
+    H --> T["Step 5d: Temporal<br/>Chain Extension<br/>(maxHops=3, 0.8×/0.7×)"]
+    T --> E["Step 5e: Entity<br/>Graph Traversal<br/>(2-hop BFS, 0.25×/hop)"]
+    E --> M["Merge & Dedup<br/>→ Re-sort<br/>→ Final Top-K"]
+
+    style S fill:#4a90d9,color:white
+    style H fill:#e74c3c,color:white
+    style T fill:#f39c12,color:white
+    style E fill:#9b59b6,color:white
+    style M fill:#00b894,color:white
+```
+
+### Step 5c: Hebbian Spreading Activation
+
+For each seed result, `HebbianGraph.activateNeighbors(memoryIdx, depth=2)` traverses the off-heap adjacency list (164B/node, MAX_DEGREE=20). Activated neighbor memories are added to the result set with their score attenuated by **0.3×**.
+
+**Example:** Seed memory "database error" has a strong Hebbian edge (weight: 0.83) to "connection pool settings" → "connection pool settings" is added even though it wasn't in the vector similarity top-K.
+
+### Step 5d: Temporal Chain Extension
+
+For each seed result, `TemporalChain.followForward(idx, 3)` and `followBackward(idx, 3)` follow session-local linked list pointers. Forward-linked memories get **0.8×** score, backward-linked get **0.7×**.
+
+**Example:** Seed memory "deploy failed" → follow forward → "rollback initiated" → "post-mortem notes" — both added to results.
+
+### Step 5e: Entity Graph Traversal
+
+Entities are extracted from the query text, then looked up in the `EntityGraph`. For each matched entity, a 2-hop BFS with typed edge filtering discovers related entities. Their linked memories are added with **0.25× attenuation per hop**.
+
+**Example:** Query mentions "Alice" → Entity "Alice" → MANAGES → "Project Alpha" → memories mentioning "Project Alpha" are added.
+
+!!! tip "Graceful Degradation"
+    Each graph step is **additive and independently optional**. If a graph component is null (not configured), empty, or throws a `RuntimeException`, the step is a no-op. The system degrades gracefully to vector-only recall. Zero risk of regression.
+
+---
+
 ## Next Steps
 
+- :material-share-variant: [**3-Layer Cognitive Graph**](hebbian.md) — deep dive into Hebbian, Entity, and Temporal graphs
 - :material-brain: [**Cortex — Tier Stores**](cortex.md) — the 4-tier memory architecture
 - :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — Bloom filter and binary layout
 - :material-speedometer: [**Performance**](performance.md) — benchmark results
+

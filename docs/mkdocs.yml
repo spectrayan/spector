@@ -109,6 +109,30 @@ nav:
       - RAG Pipeline: architecture/rag-pipeline.md
       - Distributed Mode: architecture/distributed-mode.md
       - GPU Acceleration: architecture/gpu-acceleration.md
+      - Modules:
+          - Overview: modules/index.md
+          - spector-core: modules/spector-core.md
+          - spector-commons: modules/spector-commons.md
+          - spector-config: modules/spector-config.md
+          - spector-storage: modules/spector-storage.md
+          - spector-embed-api: modules/spector-embed-api.md
+          - spector-embed-ollama: modules/spector-embed-ollama.md
+          - spector-index: modules/spector-index.md
+          - spector-query: modules/spector-query.md
+          - spector-gpu: modules/spector-gpu.md
+          - spector-rag: modules/spector-rag.md
+          - spector-engine: modules/spector-engine.md
+          - spector-ingestion: modules/spector-ingestion.md
+          - spector-memory: modules/spector-memory.md
+          - spector-runtime: modules/spector-runtime.md
+          - spector-node: modules/spector-node.md
+          - spector-mcp: modules/spector-mcp.md
+          - spector-cli: modules/spector-cli.md
+          - spector-client: modules/spector-client.md
+          - spector-spring: modules/spector-spring.md
+          - spector-metrics: modules/spector-metrics.md
+          - spector-bench: modules/spector-bench.md
+          - spector-dist: modules/spector-dist.md
   - Deep Dives:
       - ANN Search Primer: deep-dives/ann-search-primer.md
       - HNSW Explained: deep-dives/hnsw-explained.md
@@ -131,7 +155,7 @@ nav:
           - "Synapse — Tags & Scoring": memory/synapse.md
           - "Dopamine — Surprise Detection": memory/dopamine.md
           - "Amygdala — Emotional Valence": memory/amygdala.md
-          - "Hebbian — Association Learning": memory/hebbian.md
+          - "3-Layer Cognitive Graph": memory/hebbian.md
           - "Habituation — Anti-Filter Bubble": memory/habituation.md
           - "Inhibition — Suppression": memory/inhibition.md
           - "Interference — Deduplication": memory/interference.md
@@ -148,30 +172,7 @@ nav:
           - "Off-Heap Panama Design": memory/panama-design.md
           - "WAL Design": memory/wal-design.md
       - API Reference: memory/api-reference.md
-  - Modules:
-      - Overview: modules/index.md
-      - spector-core: modules/spector-core.md
-      - spector-commons: modules/spector-commons.md
-      - spector-config: modules/spector-config.md
-      - spector-storage: modules/spector-storage.md
-      - spector-embed-api: modules/spector-embed-api.md
-      - spector-embed-ollama: modules/spector-embed-ollama.md
-      - spector-index: modules/spector-index.md
-      - spector-query: modules/spector-query.md
-      - spector-gpu: modules/spector-gpu.md
-      - spector-rag: modules/spector-rag.md
-      - spector-engine: modules/spector-engine.md
-      - spector-ingestion: modules/spector-ingestion.md
-      - spector-memory: modules/spector-memory.md
-      - spector-runtime: modules/spector-runtime.md
-      - spector-node: modules/spector-node.md
-      - spector-mcp: modules/spector-mcp.md
-      - spector-cli: modules/spector-cli.md
-      - spector-client: modules/spector-client.md
-      - spector-spring: modules/spector-spring.md
-      - spector-metrics: modules/spector-metrics.md
-      - spector-bench: modules/spector-bench.md
-      - spector-dist: modules/spector-dist.md
+
   - Reference:
       - REST API: api-reference/rest-endpoints.md
       - MCP Server: sdk-usage/mcp-server.md
