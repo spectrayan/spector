@@ -10,6 +10,15 @@ on:
       - 'scripts/collect-labs.sh'
       - 'LABS.md'
   workflow_dispatch:
+    inputs:
+      wiki_only:
+        description: 'Sync wiki only (skip pages deploy)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: write
@@ -23,6 +32,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.wiki_only == 'true') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,6 +66,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.wiki_only == 'true') }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
@@ -63,8 +74,8 @@ jobs:
 
   sync-wiki:
     runs-on: ubuntu-latest
-    needs: deploy
-    if: github.event_name == 'push'
+    needs: [deploy]
+    if: ${{ always() && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v4
