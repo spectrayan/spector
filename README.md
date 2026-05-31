@@ -8,6 +8,7 @@
 [![Java](https://img.shields.io/badge/Java-25-orange.svg)](https://openjdk.org/)
 [![Build](https://img.shields.io/github/actions/workflow/status/spectrayan/spector/ci.yml?branch=main)](https://github.com/spectrayan/spector/actions)
 [![MCP](https://img.shields.io/badge/MCP-Agent_Ready-blueviolet.svg)](spector-mcp/)
+[![Docs](https://img.shields.io/badge/Docs-MkDocs-blue?logo=materialformkdocs)](https://spectrayan.github.io/spector/)
 
 ## 🧠 Why Spector?
 
@@ -685,6 +686,17 @@ All comparisons below use **100K documents, 128 dimensions, top-10 retrieval** a
 - [ ] WASM runtime for edge deployment
 
 > See the [detailed Roadmap](docs/docs/roadmap.md) for in-depth descriptions, projected savings, and implementation plans.
+
+## 📖 Documentation
+
+| Resource | Link |
+|:---------|:-----|
+| **Full Documentation** | [spectrayan.github.io/spector](https://spectrayan.github.io/spector/) |
+| **GitHub Wiki** | [Wiki](https://github.com/spectrayan/spector/wiki) |
+| **Cognitive Memory** | [Memory Docs](https://spectrayan.github.io/spector/memory/) |
+| **Neural Dashboard** | [Cortex Dashboard](https://spectrayan.github.io/spector/cortex/) |
+| **API Reference** | [REST API](https://spectrayan.github.io/spector/api-reference/rest-endpoints/) |
+| **MCP Server** | [MCP Docs](https://spectrayan.github.io/spector/sdk-usage/mcp-server/) |
 
 ## 🤝 Contributing
 
