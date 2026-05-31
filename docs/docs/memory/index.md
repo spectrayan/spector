@@ -28,7 +28,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-GC, off-heap P
 | Concurrent queries | GIL-limited | **61,000 QPS** (Virtual Threads) † |
 | Memory per record | ~500B (Python objects) | **32B header + quantized vector** |
 
-† *Measured on Intel Core Ultra 9 285K, Java 25, AVX2. See [Benchmarks](../../#-benchmarks).*
+† *Measured on Intel Core Ultra 9 285K, Java 25, AVX2. See [Benchmarks](performance.md).*
 
 ---
 
