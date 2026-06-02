@@ -41,6 +41,7 @@ import com.spectrayan.spector.memory.SpectorMemory;
  * <ul>
  *   <li>{@link #search()} — mode-aware search (engine or memory)</li>
  *   <li>{@link #ingestion()} — mode-aware ingestion (text, file, directory)</li>
+ *   <li>{@link #memoryHandler()} — cognitive memory operations (remember, recall, suppress, etc.)</li>
  * </ul>
  *
  * <h3>Direct Subsystem Access</h3>
@@ -70,6 +71,7 @@ public final class SpectorRuntime implements AutoCloseable {
     // Lazily created services
     private volatile SearchHandler searchService;
     private volatile IngestionHandler ingestionService;
+    private volatile MemoryHandler memoryService;
 
     private SpectorRuntime(SpectorEngine engine, SpectorMemory memory,
                            SpectorProperties properties, SpectorMode mode) {
@@ -178,6 +180,24 @@ public final class SpectorRuntime implements AutoCloseable {
             ingestionService = new IngestionHandler(pipeline, engine, memory, mode);
         }
         return ingestionService;
+    }
+
+    /**
+     * Returns the cognitive memory handler, or {@code null} if memory is not enabled.
+     *
+     * <p>Unlike {@link #search()} and {@link #ingestion()} which are mode-aware
+     * (routing to engine or memory based on {@link SpectorMode}), this handler
+     * always operates on the cognitive memory subsystem directly. See
+     * {@link MemoryHandler} Javadoc for the design rationale.</p>
+     */
+    public MemoryHandler memoryHandler() {
+        if (memory == null) {
+            return null;
+        }
+        if (memoryService == null) {
+            memoryService = new MemoryHandler(memory);
+        }
+        return memoryService;
     }
 
     // ─────────────── Direct Subsystem Access ───────────────

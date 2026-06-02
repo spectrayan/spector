@@ -78,6 +78,9 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryForgetTool(memory));
             handlers.add(new MemoryStatusTool(memory));
             handlers.add(new MemoryIntrospectTool(memory));
+            handlers.add(new MemorySuppressTool(memory));
+            handlers.add(new MemoryResolveTool(memory));
+            handlers.add(new MemoryReminderTool(memory));
         }
 
         return List.copyOf(handlers);

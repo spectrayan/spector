@@ -26,6 +26,7 @@ import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
+import com.spectrayan.spector.events.*;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.metrics.MeteredSpectorEngine;
 import com.spectrayan.spector.metrics.SpectorMetrics;
@@ -33,7 +34,10 @@ import com.spectrayan.spector.metrics.SpectorJvmMetrics;
 import com.spectrayan.spector.node.api.ApiModule;
 import com.spectrayan.spector.node.api.v1.*;
 import com.spectrayan.spector.node.event.*;
+import com.spectrayan.spector.node.service.CortexMetricsPublisher;
+import com.spectrayan.spector.config.CortexTelemetryConfig;
 import com.spectrayan.spector.node.service.IngestService;
+import com.spectrayan.spector.node.service.MemoryService;
 import com.spectrayan.spector.node.service.RagService;
 import com.spectrayan.spector.node.service.SearchService;
 import com.spectrayan.spector.runtime.SpectorRuntime;
@@ -83,6 +87,10 @@ public class SpectorNode implements AutoCloseable {
     private final PrometheusMeterRegistry prometheusRegistry;
     private final SpectorEventBus eventBus;
     private final ClusterCoordinator coordinator; // null in standalone
+    private final CortexTelemetryConfig cortexConfig;
+    private MemoryService memoryService; // nullable — only when memory subsystem is present
+    private CortexMetricsPublisher cortexPublisher; // nullable
+    private TelemetryBus telemetryBus; // nullable
     private Server server;
 
     private SpectorNode(NodeConfig nodeConfig, SpectorEngine engine, SpectorMemory memory,
@@ -94,6 +102,7 @@ public class SpectorNode implements AutoCloseable {
         this.prometheusRegistry = prometheusRegistry;
         this.eventBus = eventBus;
         this.coordinator = coordinator;
+        this.cortexConfig = CortexTelemetryConfig.fromSystemProperties();
     }
 
     /**
@@ -152,20 +161,32 @@ public class SpectorNode implements AutoCloseable {
      * Blocks until the server is fully started.</p>
      */
     public void start() {
+        // ── Create TelemetryBus (must be first — passed to services) ──
+        telemetryBus = new TelemetryBus();
+        telemetryBus.subscribe(this::convertAndPublish);
+
         // ── Build service facades ──
-        SearchService searchService = new SearchService(engine, coordinator, eventBus, nodeConfig.nodeId());
+        SearchService searchService = new SearchService(engine, coordinator, eventBus, nodeConfig.nodeId(), cortexConfig, telemetryBus);
         IngestService ingestService = new IngestService(engine, coordinator, eventBus, nodeConfig.nodeId());
         RagService ragService = new RagService(engine);
 
+        // ── Memory service (if memory subsystem is present) ──
+        if (memory != null) {
+            this.memoryService = new MemoryService(memory, eventBus, nodeConfig.nodeId());
+        }
+
         // ── Assemble API v1 modules ──
-        List<ApiModule> v1Modules = List.of(
-                new SearchEndpoint(searchService),
-                new IngestEndpoint(ingestService),
-                new RagEndpoint(ragService),
-                new DocumentEndpoint(ingestService),
-                new StatusEndpoint(engine, nodeConfig, eventBus, coordinator),
-                new EventStreamEndpoint(eventBus)
-        );
+        var v1Modules = new java.util.ArrayList<ApiModule>();
+        v1Modules.add(new SearchEndpoint(searchService));
+        v1Modules.add(new IngestEndpoint(ingestService));
+        v1Modules.add(new RagEndpoint(ragService));
+        v1Modules.add(new DocumentEndpoint(ingestService));
+        v1Modules.add(new StatusEndpoint(engine, nodeConfig, eventBus, coordinator));
+        v1Modules.add(new EventStreamEndpoint(eventBus));
+
+        if (memoryService != null) {
+            v1Modules.add(new MemoryEndpoint(memoryService));
+        }
 
         // ── Build Armeria server ──
         ServerBuilder sb = Server.builder()
@@ -239,6 +260,85 @@ public class SpectorNode implements AutoCloseable {
                 nodeConfig.apiKey() != null ? "API-key" : "none",
                 nodeConfig.compressionEnabled() ? "enabled" : "disabled",
                 SimdCapability.report());
+
+        // ── Start cortex metrics publisher ──
+        cortexPublisher = new CortexMetricsPublisher(
+                prometheusRegistry, eventBus, nodeConfig.nodeId(), cortexConfig, coordinator);
+        cortexPublisher.start();
+    }
+
+    /**
+     * Converts lightweight {@link TelemetryEvent} records from the telemetry bus
+     * into full {@link SpectorEvent} records (adding nodeId + timestamp) and
+     * publishes them to the SSE event bus.
+     */
+    private void convertAndPublish(TelemetryEvent event) {
+        String nid = nodeConfig.nodeId();
+        Instant now = Instant.now();
+
+        switch (event) {
+            case SimdKernelTelemetry e -> eventBus.publish(new SpectorCortexSimdLaneEvent(
+                    nid, now, e.kernelName(), e.laneWidth(), e.vectorsProcessed(),
+                    e.durationNanos() / 1_000, 0L));
+
+            case GraphPulseTelemetry e -> eventBus.publish(new SpectorCortexGraphPulseEvent(
+                    nid, now, e.nodesVisited(), e.edgesTraversed(),
+                    e.maxDepth(), e.durationNanos() / 1_000));
+
+            case GpuKernelTelemetry e -> eventBus.publish(new SpectorCortexGpuKernelEvent(
+                    nid, now, e.streamIndex(), e.kernelName(),
+                    e.durationNanos() / 1_000,
+                    e.gridDimX(), e.gridDimY(), e.gridDimZ(),
+                    e.blockDimX(), e.blockDimY(), e.blockDimZ(),
+                    e.memoryTransferBytes()));
+
+            case QueryTraceTelemetry e -> eventBus.publish(new SpectorCortexQueryTraceEvent(
+                    nid, now, e.queryText(), e.cognitiveProfile(), 0,
+                    e.totalRecords(), e.afterTombstone(), e.afterTagGate(),
+                    e.afterValence(), e.afterDecay(), e.afterVector(),
+                    e.finalTopK(), 0, 0, 0, e.latencyMicros()));
+
+            case MemorySnapshotTelemetry e -> eventBus.publish(new SpectorCortexMemorySnapshotEvent(
+                    nid, now, e.phase(), e.reflectCycleId(),
+                    e.hebbianEdgeCount(), e.temporalLinkCount(),
+                    e.entityNodeCount(), e.entityEdgeCount(),
+                    e.offHeapBytes(), e.tombstoneCount(),
+                    e.coActivationPairs(), e.stdpEdges()));
+
+            case ReflectCycleTelemetry e -> eventBus.publish(new SpectorCortexReflectCycleEvent(
+                    nid, now, e.hebbianEdgesDecayed(), e.hebbianEdgesRemoved(),
+                    e.decayFactor(), e.durationMs()));
+
+            case MemoryDiagnosticTelemetry e -> eventBus.publish(new SpectorCortexMemoryDiagnosticEvent(
+                    nid, now, e.offHeapAllocated(), e.pinnedBytes(),
+                    e.jvmHeapUsed(), e.jvmHeapMax(),
+                    e.gpuAllocated(), e.gpuFree(),
+                    e.softPageFaults(), e.hardPageFaults(),
+                    e.workingCount(), e.episodicCount(), e.semanticCount(), e.proceduralCount(),
+                    e.hebbianEdges(), e.temporalLinks(),
+                    e.entityNodes(), e.entityEdges(),
+                    e.coActivationPairs(), e.stdpEdges()));
+
+            case ClusterTopologyTelemetry e -> {
+                var nodes = e.nodes().stream()
+                        .map(n -> new SpectorCortexClusterNodeInfo(
+                                n.nodeId(), n.status(), n.shardCount(),
+                                n.memoryUsedBytes(), n.queryRate()))
+                        .toList();
+                eventBus.publish(new SpectorCortexClusterTopologyEvent(
+                        nid, now, nodes, e.replicationLinks()));
+            }
+
+            case EmbeddingProjectionTelemetry e -> {
+                var dtos = e.points().stream()
+                        .map(p -> new SpectorCortexEmbeddingProjectionEvent.ProjectedPointDto(
+                                p.id(), p.x(), p.y(), p.z(),
+                                p.tier(), p.importance(), p.label()))
+                        .toList();
+                eventBus.publish(new SpectorCortexEmbeddingProjectionEvent(
+                        nid, now, dtos, e.queryProjection()));
+            }
+        }
     }
 
     /**
@@ -249,6 +349,12 @@ public class SpectorNode implements AutoCloseable {
         eventBus.publish(new SpectorNodeStoppingEvent(
                 nodeConfig.nodeId(), Instant.now(), "shutdown"));
 
+        if (cortexPublisher != null) {
+            cortexPublisher.close();
+        }
+        if (telemetryBus != null) {
+            telemetryBus.close();
+        }
         if (server != null) {
             server.stop().join();
         }

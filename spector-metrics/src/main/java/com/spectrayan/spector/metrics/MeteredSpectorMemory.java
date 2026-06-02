@@ -16,6 +16,9 @@
 package com.spectrayan.spector.metrics;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.events.MemorySnapshotTelemetry;
+import com.spectrayan.spector.events.ReflectCycleTelemetry;
+import com.spectrayan.spector.events.TelemetryScope;
 import com.spectrayan.spector.memory.CognitiveProfile;
 import com.spectrayan.spector.memory.CognitiveResult;
 import com.spectrayan.spector.memory.MemoryType;
@@ -182,6 +185,15 @@ public class MeteredSpectorMemory implements SpectorMemory {
 
     @Override
     public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+                                              MemorySource source,
+                                              com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                              String... tags) {
+        rememberCounter.increment();
+        return delegate.remember(id, text, type, source, hints, tags);
+    }
+
+    @Override
+    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                               String... tags) {
         rememberCounter.increment();
         return delegate.remember(id, text, type, tags);
@@ -213,7 +225,37 @@ public class MeteredSpectorMemory implements SpectorMemory {
 
     @Override
     public ReflectReport reflect() {
-        return reflectTimer.record(() -> delegate.reflect());
+        // Capture pre-reflect snapshot
+        String cycleId = java.util.UUID.randomUUID().toString();
+        TelemetryScope.publish(captureMemorySnapshot("pre-reflect", cycleId));
+
+        ReflectReport report = reflectTimer.record(() -> delegate.reflect());
+
+        // Capture post-reflect snapshot
+        TelemetryScope.publish(captureMemorySnapshot("post-reflect", cycleId));
+
+        // Publish reflect cycle summary
+        TelemetryScope.publish(new ReflectCycleTelemetry(
+                report.consolidatedCount(),
+                report.tombstonedCount(),
+                0.0, // decayFactor — available from config if needed
+                report.duration().toMillis()));
+
+        return report;
+    }
+
+    /** Captures a memory snapshot for telemetry. */
+    private MemorySnapshotTelemetry captureMemorySnapshot(String phase, String cycleId) {
+        return new MemorySnapshotTelemetry(
+                phase, cycleId,
+                delegate.hebbianGraph() != null ? delegate.hebbianGraph().totalEdges() : 0,
+                delegate.temporalChain() != null ? delegate.temporalChain().capacity() : 0,
+                delegate.entityGraph() != null ? delegate.entityGraph().entityCount() : 0,
+                delegate.entityGraph() != null ? delegate.entityGraph().edgeCount() : 0,
+                0L, // offHeapBytes — from Micrometer gauge
+                0,  // tombstoneCount — TBD
+                delegate.coActivation() != null ? delegate.coActivation().pairCount() : 0,
+                0); // stdpEdges — TBD
     }
 
     // ══════════════════════════════════════════════════════════════

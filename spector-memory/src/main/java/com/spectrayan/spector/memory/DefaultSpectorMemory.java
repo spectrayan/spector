@@ -50,6 +50,7 @@ import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
 import com.spectrayan.spector.memory.pipeline.RecallPipeline;
+import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -139,6 +140,8 @@ public final class DefaultSpectorMemory implements SpectorMemory {
     private final Path persistencePath;
     private final CircadianPolicy circadianPolicy;
     private final CognitiveProfileConfig profileConfig;
+    private final int temporalRetentionDays;
+    private final com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig;
     private final ExecutorService virtualExecutor;
     private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
 
@@ -146,6 +149,8 @@ public final class DefaultSpectorMemory implements SpectorMemory {
         this.dimensions = builder.dimensions;
         this.persistenceMode = builder.persistenceMode;
         this.persistencePath = builder.persistencePath;
+        this.temporalRetentionDays = builder.temporalRetentionDays;
+        this.twoFactorConfig = builder.twoFactorConfig;
         if (builder.embeddingProvider == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "embeddingProvider is required"); } EmbeddingProvider embeddingProvider = builder.embeddingProvider;
         this.circadianPolicy = builder.circadianPolicy;
         this.profileConfig = builder.profileConfig;
@@ -326,7 +331,8 @@ public final class DefaultSpectorMemory implements SpectorMemory {
                 embeddingProvider, tierRouter, index,
                 suppressionSet, habituationPenalty, prospectiveScheduler, wal,
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
-                null, hebbianGraph, temporalChain, entityGraph, entityExtractor);
+                null, hebbianGraph, temporalChain, entityGraph, entityExtractor,
+                builder.graphScoringPolicy);
 
         // Register post-recall observers (Phase 6: Observer pattern)
         recallPipeline.addListener(new LtpReconsolidationListener(index, tierRouter, wal));
@@ -355,11 +361,19 @@ public final class DefaultSpectorMemory implements SpectorMemory {
     @Override
     public CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
+        return remember(id, text, type, source, null, tags);
+    }
+
+    @Override
+    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+                                              MemorySource source,
+                                              com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                              String... tags) {
         return CompletableFuture.runAsync(() -> {
             try {
-                // Embed text, then pass to cognitive target
+                // Embed text, then pass to cognitive target with optional ICNU hints
                 float[] vector = embeddingProvider.embed(text).vector();
-                cognitiveTarget.ingestCognitive(id, text, vector, type, tags, source, null);
+                cognitiveTarget.ingestCognitive(id, text, vector, type, tags, source, hints);
 
                 // Circadian trigger: auto-reflect after volume threshold
                 if (type == MemoryType.EPISODIC) {
@@ -440,11 +454,117 @@ public final class DefaultSpectorMemory implements SpectorMemory {
             log.warn(ex.getMessage());
         }
 
-        // Temporal chain: decay old links (prune chains older than 7 days)
-        // TemporalChain nodes don't have a decay mechanism yet — future work
+        // Temporal chain: prune links older than configured retention period
+        int temporalPruned = 0;
+        if (temporalChain != null) {
+            try {
+                long cutoffMs = System.currentTimeMillis()
+                        - (long) temporalRetentionDays * 24 * 60 * 60 * 1000;
+                temporalPruned = temporalChain.pruneOlderThan(cutoffMs);
+            } catch (RuntimeException e) {
+                log.warn("Temporal chain pruning failed: {}", e.getMessage());
+            }
+        }
+
+        // ── Cross-Layer Promotion: Hebbian → Entity ──
+        // Strong Hebbian co-activation (weight ≥ 3.0) is promoted to entity-level
+        // RELATED_TO edges. This bridges statistical correlation (Hebbian) with
+        // structured knowledge (Entity graph).
+        int crossPromoted = 0;
+        try {
+            crossPromoted = promoteHebbianToEntity(3.0f);
+            if (crossPromoted > 0) {
+                log.info("Reflect: cross-layer promoted {} Hebbian edges to entity relations",
+                        crossPromoted);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Cross-layer promotion failed: {}", e.getMessage());
+        }
+
+        // ── Entity Graph Maintenance ──
+        if (entityGraph != null && entityGraph.entityCount() > 0) {
+            try {
+                // Decay entity edges: 5% decay per cycle, prune below 0.5
+                int entityDecayed = entityGraph.decayEdges(0.95f, 0.5f);
+                if (entityDecayed > 0) {
+                    log.info("Reflect: entity graph decayed {} weak edges", entityDecayed);
+                }
+                // Merge near-duplicate entities (Levenshtein distance ≤ 2)
+                int entityMerged = entityGraph.mergeSimilarEntities(2);
+                if (entityMerged > 0) {
+                    log.info("Reflect: merged {} similar entities", entityMerged);
+                }
+            } catch (RuntimeException e) {
+                log.warn("Entity graph maintenance failed: {}", e.getMessage());
+            }
+        }
 
         wal.append(WalEvent.EventType.REFLECT, "system", null);
-        return report;
+
+        // Overlay temporal pruning count onto the daemon's report
+        return new ReflectReport(
+                report.consolidatedCount(), report.tombstonedCount(),
+                report.compactedPartitions(), temporalPruned, report.duration());
+    }
+
+    /**
+     * Promotes strong Hebbian co-activation edges into entity-level RELATED_TO edges.
+     *
+     * <p>For each Hebbian edge with weight ≥ {@code minWeight}, scans both endpoint
+     * memories' entity associations and creates RELATED_TO edges between all entity
+     * pairs. This bridges the statistical co-occurrence layer (Hebbian) with the
+     * structured knowledge layer (Entity graph).</p>
+     *
+     * @param minWeight minimum Hebbian weight to qualify for promotion
+     * @return number of entity relations created or strengthened
+     */
+    private int promoteHebbianToEntity(float minWeight) {
+        if (entityGraph == null || entityGraph.entityCount() == 0) return 0;
+
+        // Build reverse index: memoryIdx → List<entityId>
+        // This converts O(C × 20 × E × R) → O(E × R + C × 20)
+        // Previously findEntitiesForMemory scanned ALL entities for EACH Hebbian edge endpoint.
+        int ecnt = entityGraph.entityCount();
+        java.util.Map<Integer, java.util.List<Integer>> memToEntities = new java.util.HashMap<>();
+        for (int e = 0; e < ecnt; e++) {
+            int refCount = entityGraph.memoryRefCount(e);
+            for (int r = 0; r < refCount; r++) {
+                int memIdx = entityGraph.memoryRefAt(e, r);
+                if (memIdx >= 0) {
+                    memToEntities.computeIfAbsent(memIdx, k -> new java.util.ArrayList<>(2)).add(e);
+                }
+            }
+        }
+
+        int promoted = 0;
+        int capacity = hebbianGraph.capacity();
+
+        for (int nodeA = 0; nodeA < capacity; nodeA++) {
+            var edges = hebbianGraph.neighbors(nodeA);
+            for (var edge : edges) {
+                if (edge.weight() < minWeight) break; // sorted descending, so remaining are weaker
+                int nodeB = edge.neighborIndex();
+                if (nodeB <= nodeA) continue; // avoid double-processing A↔B
+
+                // O(1) lookup via reverse index
+                var entitiesA = memToEntities.get(nodeA);
+                var entitiesB = memToEntities.get(nodeB);
+
+                if (entitiesA == null || entitiesB == null) continue;
+
+                // Create RELATED_TO edges between all entity pairs
+                for (int eA : entitiesA) {
+                    for (int eB : entitiesB) {
+                        if (eA != eB) {
+                            entityGraph.addRelation(eA, eB,
+                                    com.spectrayan.spector.memory.graph.RelationType.RELATED_TO);
+                            promoted++;
+                        }
+                    }
+                }
+            }
+        }
+        return promoted;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -465,6 +585,21 @@ public final class DefaultSpectorMemory implements SpectorMemory {
             CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
             valenceTracker.reinforce(segment, loc.offset(), layout, valence);
             layout.incrementRecallCount(segment, loc.offset()); // LTP on explicit use
+
+            // Two-Factor Memory: update storage strength S(t) on successful retrieval
+            // ΔS = sGain × (1 - R(t)) → max boost when retrieval was hard
+            var headerLayout = layout.headerLayout();
+            if (headerLayout.headerBytes() > 32) { // V2+ has storage_strength
+                float currentS = headerLayout.readStorageStrength(segment, loc.offset());
+                // Approximate R(t) from current decay bucket
+                long timestamp = layout.readTimestamp(segment, loc.offset());
+                int rawBucket = com.spectrayan.spector.memory.synapse.DecayStrategy.ageToBucket(
+                        timestamp, System.currentTimeMillis());
+                float currentR = com.spectrayan.spector.memory.synapse.DecayStrategy.decay(rawBucket);
+                float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
+                float newS = Math.min(currentS + deltaS, twoFactorConfig.sMax());
+                headerLayout.writeStorageStrength(segment, loc.offset(), newS);
+            }
         }
 
         // Neurodivergent: Feed lateral evaluator based on whether this was a lateral result
@@ -721,6 +856,10 @@ public final class DefaultSpectorMemory implements SpectorMemory {
         private int entityGraphCapacity = 50_000;
         private int maxEntitiesPerMemory = 10;
         private int maxRelationsPerMemory = 20;
+        private GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
+        private int temporalRetentionDays = 7;
+        private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
+                = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
 
         public Builder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
         public Builder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
@@ -790,6 +929,15 @@ public final class DefaultSpectorMemory implements SpectorMemory {
 
         /** Max relations to extract per memory (default: 20). */
         public Builder maxRelationsPerMemory(int c) { this.maxRelationsPerMemory = c; return this; }
+
+        /** Graph scoring policy — configurable weights for cognitive graph steps (default: GraphScoringPolicy.DEFAULT). */
+        public Builder graphScoringPolicy(GraphScoringPolicy policy) { this.graphScoringPolicy = policy; return this; }
+
+        /** Temporal chain retention in days — links older than this are pruned during reflect() (default: 7). */
+        public Builder temporalRetentionDays(int days) { this.temporalRetentionDays = days; return this; }
+
+        /** Two-Factor Memory (Bjork & Bjork) configuration (default: TwoFactorConfig.DEFAULT). */
+        public Builder twoFactorConfig(com.spectrayan.spector.memory.synapse.TwoFactorConfig config) { this.twoFactorConfig = config; return this; }
 
         /**
          * Parses a cognitive profile config from a YAML string value.

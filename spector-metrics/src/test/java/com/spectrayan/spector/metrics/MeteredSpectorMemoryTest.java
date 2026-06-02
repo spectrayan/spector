@@ -91,6 +91,7 @@ class MeteredSpectorMemoryTest {
     static class DummySpectorMemory implements SpectorMemory {
         @Override public CognitiveIngestionTarget target() { return null; }
         @Override public CompletableFuture<Void> remember(String id, String text, MemoryType type, MemorySource source, String... tags) { return CompletableFuture.completedFuture(null); }
+        @Override public CompletableFuture<Void> remember(String id, String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints, String... tags) { return CompletableFuture.completedFuture(null); }
         @Override public CompletableFuture<Void> remember(String id, String text, MemoryType type, String... tags) { return CompletableFuture.completedFuture(null); }
         @Override public List<CognitiveResult> recall(String queryText, RecallOptions options) { return null; }
         @Override public List<CognitiveResult> recall(String queryText, CognitiveProfile profile) { return null; }

@@ -77,6 +77,27 @@ public interface SpectorMemory extends AutoCloseable {
     CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                       MemorySource source, String... tags);
 
+    /**
+     * Ingests a new memory with cognitive hints (ICNU + valence + arousal).
+     *
+     * <p>The hints allow the caller (typically an LLM) to provide subjective
+     * importance signals — Interest, Challenge, Urgency — which are fused with
+     * Spector's native Novelty signal to compute final importance. Emotional
+     * valence and arousal modulate decay rates and recall ranking.</p>
+     *
+     * @param id     unique memory identifier
+     * @param text   memory content
+     * @param type   cognitive tier (WORKING, EPISODIC, SEMANTIC, PROCEDURAL)
+     * @param source provenance (USER_STATED, OBSERVED, INFERRED, PROCEDURAL)
+     * @param hints  ICNU + emotional context (null for novelty-only importance)
+     * @param tags   synaptic tag strings for Bloom filter encoding
+     * @see com.spectrayan.spector.memory.neurodivergent.IngestionHints
+     */
+    CompletableFuture<Void> remember(String id, String text, MemoryType type,
+                                      MemorySource source,
+                                      com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                      String... tags);
+
     /** Convenience overload with default source. */
     CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                       String... tags);
