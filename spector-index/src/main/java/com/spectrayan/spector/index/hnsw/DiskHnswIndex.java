@@ -64,6 +64,7 @@ public class DiskHnswIndex implements VectorIndex {
     private final SimilarityFunction similarityFunction;
     private volatile boolean closed;
     private volatile long lastAccessed;
+    private volatile Thread warmupThread;
 
     private DiskHnswIndex(Path filePath, IndexFileFormat.Header header,
                            Arena arena, MemorySegment segment,
@@ -161,6 +162,14 @@ public class DiskHnswIndex implements VectorIndex {
     public synchronized void close() {
         if (!closed) {
             closed = true;
+            if (warmupThread != null) {
+                try {
+                    warmupThread.interrupt();
+                    warmupThread.join(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             try {
                 if (segment.isMapped()) {
                     com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(segment);
@@ -183,7 +192,7 @@ public class DiskHnswIndex implements VectorIndex {
      */
     public void warmup() {
         if (segment.isMapped()) {
-            Thread.startVirtualThread(() -> {
+            this.warmupThread = Thread.startVirtualThread(() -> {
                 long start = System.nanoTime();
                 try {
                     // Advise kernel to sequentially pre-read mapped segment pages

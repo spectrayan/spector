@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.List;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
@@ -67,6 +68,7 @@ public class ShardedDiskHnswIndex implements VectorIndex {
     private final SimilarityFunction similarityFunction;
     private volatile boolean closed;
     private volatile long lastAccessed;
+    private final List<Thread> warmupThreads = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /**
      * Per-shard mmap context.
@@ -211,6 +213,15 @@ public class ShardedDiskHnswIndex implements VectorIndex {
     public synchronized void close() {
         if (!closed) {
             closed = true;
+            for (Thread t : warmupThreads) {
+                try {
+                    t.interrupt();
+                    t.join(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            warmupThreads.clear();
             for (Shard shard : shards) {
                 try {
                     shard.close();
@@ -230,7 +241,7 @@ public class ShardedDiskHnswIndex implements VectorIndex {
     public void warmup() {
         for (Shard shard : shards) {
             if (shard.segment().isMapped()) {
-                Thread.startVirtualThread(() -> {
+                Thread t = Thread.startVirtualThread(() -> {
                     long start = System.nanoTime();
                     try {
                         shard.segment().load();
@@ -240,8 +251,11 @@ public class ShardedDiskHnswIndex implements VectorIndex {
                                 pinned, elapsedMs, shard.filePath());
                     } catch (Exception e) {
                         log.warn("Failed to warm up shard {}: {}", shard.filePath(), e.getMessage());
+                    } finally {
+                        warmupThreads.remove(Thread.currentThread());
                     }
                 });
+                warmupThreads.add(t);
             }
         }
     }

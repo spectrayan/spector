@@ -162,6 +162,61 @@ public class SpectorClient implements AutoCloseable {
         return get("/api/v1/metrics", MetricsResponse.class);
     }
 
+    /**
+     * Stores a memory with optional cognitive parameters.
+     */
+    public String remember(Map<String, Object> request) {
+        return post("/api/v1/memory/remember", request, String.class);
+    }
+
+    /**
+     * Performs cognitive recall query.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> recall(Map<String, Object> request) {
+        return post("/api/v1/memory/recall", request, Map.class);
+    }
+
+    /**
+     * Tombstones a memory by ID.
+     */
+    public String forgetMemory(String id) {
+        String path = "/api/v1/memory/" + id;
+        return executeRequest(buildRequest("DELETE", path, null), path, String.class);
+    }
+
+    /**
+     * Reinforces a memory's valence.
+     */
+    public String reinforceMemory(String id, int valence) {
+        String path = "/api/v1/memory/" + id + "/reinforce";
+        return post(path, Map.of("valence", valence), String.class);
+    }
+
+    /**
+     * Suppresses or unsuppresses a memory.
+     */
+    public String suppressMemory(String id, String action, String reason) {
+        String path = "/api/v1/memory/" + id + "/suppress";
+        return post(path, Map.of("action", action, "reason", reason), String.class);
+    }
+
+    /**
+     * Resolves or unresolves a Zeigarnik memory.
+     */
+    public String resolveMemory(String id, boolean resolved) {
+        String path = "/api/v1/memory/" + id + "/resolve";
+        return post(path, Map.of("resolved", resolved), String.class);
+    }
+
+    /**
+     * Retrieves status and counts of all memory tiers and graphs.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> memoryStatus() {
+        return get("/api/v1/memory/status", Map.class);
+    }
+
     @Override
     public void close() {
         // HttpClient does not require explicit close in Java 21+
@@ -212,6 +267,10 @@ public class SpectorClient implements AutoCloseable {
             if (statusCode >= 400) {
                 String errorMessage = extractErrorMessage(response.body());
                 throw new SpectorHttpException(statusCode, errorMessage, baseUrl + path);
+            }
+
+            if (responseType == String.class) {
+                return (T) new String(response.body(), java.nio.charset.StandardCharsets.UTF_8);
             }
 
             return objectMapper.readValue(response.body(), responseType);

@@ -30,11 +30,13 @@
         <module>spector-query</module>
         <module>spector-embed-api</module>
         <module>spector-embed-ollama</module>
+        <module>spector-test-support</module>
         <module>spector-gpu</module>
         <module>spector-rag</module>
         <module>spector-engine</module>
         <module>spector-ingestion</module>
         <module>spector-memory</module>
+        <module>spector-events</module>
         <module>spector-metrics</module>
         <module>spector-runtime</module>
         <module>spector-node</module>
@@ -149,6 +151,12 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
+                <artifactId>spector-test-support</artifactId>
+                <version>${project.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-gpu</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -175,6 +183,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-memory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-events</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

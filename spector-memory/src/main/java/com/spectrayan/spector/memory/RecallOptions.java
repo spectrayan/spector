@@ -72,7 +72,9 @@ public record RecallOptions(
         float strictnessCoefficient,
         // ── Valence Alignment (State-Dependent Recall) ──
         byte queryValence,
-        boolean enableValenceAlignment
+        boolean enableValenceAlignment,
+        // ── Two-Factor Memory (Bjork & Bjork) ──
+        com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -117,6 +119,10 @@ public record RecallOptions(
         // ── Valence Alignment (State-Dependent Recall) ──
         private byte queryValence = 0;              // 0 = neutral
         private boolean enableValenceAlignment = false;
+
+        // ── Two-Factor Memory (Bjork & Bjork) ──
+        private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
+                = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
 
         /**
          * Applies a {@link CognitiveProfile} preset to this builder.
@@ -325,7 +331,8 @@ public record RecallOptions(
                     hyperfocusMask, hyperfocusBoost,
                     lateralMode, lateralDistanceThreshold,
                     effectiveLateralMax, lateralMinTagOverlap,
-                    strictnessCoefficient, queryValence, enableValenceAlignment);
+                    strictnessCoefficient, queryValence, enableValenceAlignment,
+                    twoFactorConfig);
         }
     }
 }

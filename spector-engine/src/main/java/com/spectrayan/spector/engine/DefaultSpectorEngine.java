@@ -48,33 +48,42 @@ import java.nio.file.Path;
 /**
  * Default implementation of {@link SpectorEngine}.
  *
- * <p>Manages the lifecycle of all underlying components: vector store,
+ * <p>
+ * Manages the lifecycle of all underlying components: vector store,
  * document store, HNSW index, BM25 index, hybrid query orchestrator,
  * optional GPU acceleration, and optional LLM re-ranking.
- * Provides a simple API for document ingestion and search.</p>
+ * Provides a simple API for document ingestion and search.
+ * </p>
  *
- * <p>Delegates to {@link EngineIngestion} for ingestion and
- * {@link EngineSearch} for search operations.</p>
+ * <p>
+ * Delegates to {@link EngineIngestion} for ingestion and
+ * {@link EngineSearch} for search operations.
+ * </p>
  *
  * <h3>Construction</h3>
- * <p>Use the fluent {@link Builder} for clean engine construction:</p>
+ * <p>
+ * Use the fluent {@link Builder} for clean engine construction:
+ * </p>
+ * 
  * <pre>{@code
- *   SpectorEngine engine = DefaultSpectorEngine.builder()
- *       .dimensions(384)
- *       .capacity(100_000)
- *       .similarity(SimilarityFunction.COSINE)
- *       .gpu(true)
- *       .reranker("http://localhost:11434", "llama3.2")
- *       .embeddingProvider(myProvider)
- *       .build();
+ * SpectorEngine engine = DefaultSpectorEngine.builder()
+ *         .dimensions(384)
+ *         .capacity(100_000)
+ *         .similarity(SimilarityFunction.COSINE)
+ *         .gpu(true)
+ *         .reranker("http://localhost:11434", "llama3.2")
+ *         .embeddingProvider(myProvider)
+ *         .build();
  * }</pre>
  *
  * <h3>Design Patterns</h3>
  * <ul>
- *   <li><b>Facade</b> — unified API over 6+ subsystems</li>
- *   <li><b>Builder</b> — fluent construction via {@link Builder}</li>
- *   <li><b>Abstract Factory</b> — component assembly via {@link EngineComponentFactory}</li>
- *   <li><b>Delegation</b> — ingestion → {@link EngineIngestion}, search → {@link EngineSearch}</li>
+ * <li><b>Facade</b> — unified API over 6+ subsystems</li>
+ * <li><b>Builder</b> — fluent construction via {@link Builder}</li>
+ * <li><b>Abstract Factory</b> — component assembly via
+ * {@link EngineComponentFactory}</li>
+ * <li><b>Delegation</b> — ingestion → {@link EngineIngestion}, search →
+ * {@link EngineSearch}</li>
  * </ul>
  */
 public class DefaultSpectorEngine implements SpectorEngine {
@@ -119,22 +128,23 @@ public class DefaultSpectorEngine implements SpectorEngine {
     }
 
     /**
-     * Creates an engine with a custom component factory (for testing/extensibility).
+     * Creates an engine with a custom component factory (for
+     * testing/extensibility).
      *
      * @param config   the engine configuration
      * @param provider the embedding provider (nullable)
      * @param factory  component factory for assembling subsystems
      */
     public DefaultSpectorEngine(SpectorConfig config, EmbeddingProvider provider,
-                         EngineComponentFactory factory) {
+            EngineComponentFactory factory) {
         this.config = config;
         this.embeddingProvider = provider;
         this.persistenceFiles = PersistenceFiles.DEFAULTS;
         this.closed = false;
 
         log.info("Initializing SpectorEngine: dims={}, capacity={}, similarity={}, " +
-                        "quantization={}, persistence={}, indexType={}, embedding={}, " +
-                        "gpu={}, reranker={}, {}",
+                "quantization={}, persistence={}, indexType={}, embedding={}, " +
+                "gpu={}, reranker={}, {}",
                 config.dimensions(), config.capacity(), config.similarityFunction(),
                 config.quantization(), config.persistenceMode(), config.indexType(),
                 provider != null ? provider.modelName() : "none",
@@ -151,7 +161,8 @@ public class DefaultSpectorEngine implements SpectorEngine {
         this.keywordIndex = components.keywordIndex();
         this.reranker = components.reranker();
         this.gpuBatchSimilarity = components.gpuBatch() instanceof GpuBatchSimilarity gpu
-                ? gpu : null;
+                ? gpu
+                : null;
 
         // ── Wire orchestrator with optional re-ranker ──
         var orchestrator = new HybridSearchOrchestrator(
@@ -180,7 +191,8 @@ public class DefaultSpectorEngine implements SpectorEngine {
     // ─────────────── Ingestion Target ───────────────
 
     /**
-     * Returns the engine's ingestion target for use with the unified {@link com.spectrayan.spector.ingestion.IngestionPipeline}.
+     * Returns the engine's ingestion target for use with the unified
+     * {@link com.spectrayan.spector.ingestion.IngestionPipeline}.
      */
     @Override
     public EngineIngestionTarget target() {
@@ -220,7 +232,7 @@ public class DefaultSpectorEngine implements SpectorEngine {
     /** Ingests a large document by splitting it into overlapping chunks. */
     @Override
     public int ingestChunked(String id, String content,
-                             java.util.function.Function<String, float[]> vectorProvider) {
+            java.util.function.Function<String, float[]> vectorProvider) {
         ensureOpen();
         return ingestion.ingestChunked(id, content, vectorProvider);
     }
@@ -228,8 +240,8 @@ public class DefaultSpectorEngine implements SpectorEngine {
     /** Ingests a large document with a custom chunker configuration. */
     @Override
     public int ingestChunked(String id, String content,
-                             java.util.function.Function<String, float[]> vectorProvider,
-                             com.spectrayan.spector.commons.TextChunker chunker) {
+            java.util.function.Function<String, float[]> vectorProvider,
+            com.spectrayan.spector.commons.TextChunker chunker) {
         ensureOpen();
         return ingestion.ingestChunked(id, content, vectorProvider, chunker);
     }
@@ -244,8 +256,8 @@ public class DefaultSpectorEngine implements SpectorEngine {
     /** Ingests a large file using streaming chunking with bounded memory. */
     @Override
     public int ingestFile(java.nio.file.Path path, String documentId,
-                          java.util.function.Function<String, float[]> vectorProvider,
-                          int chunkSize, int overlap) throws java.io.IOException {
+            java.util.function.Function<String, float[]> vectorProvider,
+            int chunkSize, int overlap) throws java.io.IOException {
         ensureOpen();
         return ingestion.ingestFile(path, documentId, vectorProvider, chunkSize, overlap);
     }
@@ -253,8 +265,8 @@ public class DefaultSpectorEngine implements SpectorEngine {
     /** Ingests a large document using token-level chunking. */
     @Override
     public int ingestTokenChunked(String id, String content,
-                                  java.util.function.Function<String, float[]> vectorProvider,
-                                  int maxTokens, int overlapTokens) {
+            java.util.function.Function<String, float[]> vectorProvider,
+            int maxTokens, int overlapTokens) {
         ensureOpen();
         return ingestion.ingestTokenChunked(id, content, vectorProvider, maxTokens, overlapTokens);
     }
@@ -283,7 +295,7 @@ public class DefaultSpectorEngine implements SpectorEngine {
     /** Auto-embed file ingestion with streaming. */
     @Override
     public int ingestFileAuto(java.nio.file.Path path, String documentId,
-                              int chunkSize, int overlap) throws java.io.IOException {
+            int chunkSize, int overlap) throws java.io.IOException {
         ensureOpen();
         return ingestion.ingestFileAuto(path, documentId, chunkSize, overlap);
     }
@@ -327,7 +339,10 @@ public class DefaultSpectorEngine implements SpectorEngine {
 
     // ─────────────── GPU-Accelerated Batch Operations ───────────────
 
-    /** Computes batch cosine similarities using GPU if available, CPU SIMD otherwise. */
+    /**
+     * Computes batch cosine similarities using GPU if available, CPU SIMD
+     * otherwise.
+     */
     @Override
     public float[] batchCosineSimilarity(float[] query, float[] database, int n, int dims) {
         ensureOpen();
@@ -344,39 +359,57 @@ public class DefaultSpectorEngine implements SpectorEngine {
 
     /** Returns the engine configuration. */
     @Override
-    public SpectorConfig config() { return config; }
+    public SpectorConfig config() {
+        return config;
+    }
 
     /** Returns the number of indexed documents. */
     @Override
-    public int documentCount() { return vectorStore.size(); }
+    public int documentCount() {
+        return vectorStore.size();
+    }
 
     /** Returns the document store. */
     @Override
-    public DocumentStore documentStore() { return documentStore; }
+    public DocumentStore documentStore() {
+        return documentStore;
+    }
 
     /** Returns the vector store. */
     @Override
-    public VectorStore vectorStore() { return vectorStore; }
+    public VectorStore vectorStore() {
+        return vectorStore;
+    }
 
     /** Returns the underlying vector index (for ANN pre-filtering by Memory). */
     @Override
-    public VectorIndex index() { return vectorIndex; }
+    public VectorIndex index() {
+        return vectorIndex;
+    }
 
     /** Returns the embedding provider, or null if none configured. */
     @Override
-    public EmbeddingProvider embeddingProvider() { return embeddingProvider; }
+    public EmbeddingProvider embeddingProvider() {
+        return embeddingProvider;
+    }
 
     /** Returns true if an embedding provider is configured. */
     @Override
-    public boolean hasEmbeddingProvider() { return embeddingProvider != null; }
+    public boolean hasEmbeddingProvider() {
+        return embeddingProvider != null;
+    }
 
     /** Returns the active re-ranker, or null if none configured. */
     @Override
-    public Reranker reranker() { return reranker; }
+    public Reranker reranker() {
+        return reranker;
+    }
 
     /** Returns true if LLM re-ranking is active. */
     @Override
-    public boolean isRerankerActive() { return reranker != null; }
+    public boolean isRerankerActive() {
+        return reranker != null;
+    }
 
     // ─────────────── Lifecycle ───────────────
 
@@ -388,7 +421,8 @@ public class DefaultSpectorEngine implements SpectorEngine {
                 // Persist to disk if configured
                 if (config.persistenceMode() == PersistenceMode.DISK) {
                     // HNSW index (sharded)
-                    if (vectorIndex instanceof com.spectrayan.spector.index.AbstractHnswIndex hnswIdx && hnswIdx.size() > 0) {
+                    if (vectorIndex instanceof com.spectrayan.spector.index.AbstractHnswIndex hnswIdx
+                            && hnswIdx.size() > 0) {
                         try {
                             Path shardDir = persistenceFiles.resolveShardDir(config.dataDirectory());
                             int nodesPerShard = config.effectiveNodesPerShard();
@@ -401,7 +435,8 @@ public class DefaultSpectorEngine implements SpectorEngine {
                     }
 
                     // SpectorIndex (Spectrum)
-                    if (vectorIndex instanceof com.spectrayan.spector.index.spectrum.SpectorIndex specIdx && specIdx.size() > 0) {
+                    if (vectorIndex instanceof com.spectrayan.spector.index.spectrum.SpectorIndex specIdx
+                            && specIdx.size() > 0) {
                         try {
                             Path specIndexDir = config.dataDirectory().resolve("index_spectrum");
                             specIdx.save(specIndexDir, vectorStore);
@@ -437,8 +472,10 @@ public class DefaultSpectorEngine implements SpectorEngine {
                 keywordIndex.close();
                 vectorStore.close();
                 documentStore.close();
-                if (embeddingProvider != null) embeddingProvider.close();
-                if (gpuBatchSimilarity != null) gpuBatchSimilarity.close();
+                if (embeddingProvider != null)
+                    embeddingProvider.close();
+                if (gpuBatchSimilarity != null)
+                    gpuBatchSimilarity.close();
             } catch (Exception e) {
                 log.warn("Error during engine shutdown", e);
             }
@@ -447,11 +484,12 @@ public class DefaultSpectorEngine implements SpectorEngine {
     }
 
     private void ensureOpen() {
-        if (closed) throw new SpectorServerException(ErrorCode.ENGINE_CLOSED);
+        if (closed)
+            throw new SpectorServerException(ErrorCode.ENGINE_CLOSED);
     }
 
     // ═════════════════════════════════════════════════════════════════
-    //  Builder Pattern
+    // Builder Pattern
     // ═════════════════════════════════════════════════════════════════
 
     /**
@@ -463,33 +501,113 @@ public class DefaultSpectorEngine implements SpectorEngine {
         private EmbeddingProvider embeddingProvider;
         private EngineComponentFactory componentFactory;
 
-        Builder() {}
+        Builder() {
+        }
 
-        public Builder dimensions(int dims) { this.config = config.withDimensions(dims); return this; }
-        public Builder capacity(int capacity) { this.config = config.withCapacity(capacity); return this; }
-        public Builder similarity(SimilarityFunction sf) { this.config = config.withSimilarityFunction(sf); return this; }
-        public Builder quantization(com.spectrayan.spector.core.quantization.QuantizationType qt) { this.config = config.withQuantization(qt); return this; }
-        public Builder svasq() { this.config = config.withSvasq(); return this; }
-        public Builder svasq(int oversamplingFactor) { this.config = config.withSvasq(oversamplingFactor); return this; }
-        public Builder svasq4() { this.config = config.withSvasq4(); return this; }
-        public Builder svasq4(int oversamplingFactor) { this.config = config.withSvasq4(oversamplingFactor); return this; }
-        public Builder persistence(PersistenceMode mode, Path directory) { this.config = config.withPersistence(mode, directory); return this; }
-        public Builder ivfPq() { this.config = config.withIvfPq(); return this; }
-        public Builder ivfPq(int nlist, int nprobe, int subspaces) { this.config = config.withIvfPq(nlist, nprobe, subspaces); return this; }
-        public Builder spectrum() { this.config = config.withSpectrum(); return this; }
-        public Builder spectrum(int nCentroids, int nProbe, int shardThreshold) { this.config = config.withSpectrum(nCentroids, nProbe, shardThreshold); return this; }
-        public Builder gpu(boolean enabled) { this.config = config.withGpu(enabled); return this; }
-        public Builder reranker(String ollamaUrl, String model) { this.config = config.withReranker(ollamaUrl, model); return this; }
-        public Builder reranker(String ollamaUrl, String model, int maxCandidates) { this.config = config.withReranker(ollamaUrl, model, maxCandidates); return this; }
-        public Builder embeddingProvider(EmbeddingProvider provider) { this.embeddingProvider = provider; return this; }
-        public Builder componentFactory(EngineComponentFactory factory) { this.componentFactory = factory; return this; }
-        public Builder config(SpectorConfig config) { this.config = config; return this; }
-        public SpectorConfig config() { return this.config; }
+        public Builder dimensions(int dims) {
+            this.config = config.withDimensions(dims);
+            return this;
+        }
+
+        public Builder capacity(int capacity) {
+            this.config = config.withCapacity(capacity);
+            return this;
+        }
+
+        public Builder similarity(SimilarityFunction sf) {
+            this.config = config.withSimilarityFunction(sf);
+            return this;
+        }
+
+        public Builder quantization(com.spectrayan.spector.core.quantization.QuantizationType qt) {
+            this.config = config.withQuantization(qt);
+            return this;
+        }
+
+        public Builder svasq() {
+            this.config = config.withSvasq();
+            return this;
+        }
+
+        public Builder svasq(int oversamplingFactor) {
+            this.config = config.withSvasq(oversamplingFactor);
+            return this;
+        }
+
+        public Builder svasq4() {
+            this.config = config.withSvasq4();
+            return this;
+        }
+
+        public Builder svasq4(int oversamplingFactor) {
+            this.config = config.withSvasq4(oversamplingFactor);
+            return this;
+        }
+
+        public Builder persistence(PersistenceMode mode, Path directory) {
+            this.config = config.withPersistence(mode, directory);
+            return this;
+        }
+
+        public Builder ivfPq() {
+            this.config = config.withIvfPq();
+            return this;
+        }
+
+        public Builder ivfPq(int nlist, int nprobe, int subspaces) {
+            this.config = config.withIvfPq(nlist, nprobe, subspaces);
+            return this;
+        }
+
+        public Builder spectrum() {
+            this.config = config.withSpectrum();
+            return this;
+        }
+
+        public Builder spectrum(int nCentroids, int nProbe, int shardThreshold) {
+            this.config = config.withSpectrum(nCentroids, nProbe, shardThreshold);
+            return this;
+        }
+
+        public Builder gpu(boolean enabled) {
+            this.config = config.withGpu(enabled);
+            return this;
+        }
+
+        public Builder reranker(String ollamaUrl, String model) {
+            this.config = config.withReranker(ollamaUrl, model);
+            return this;
+        }
+
+        public Builder reranker(String ollamaUrl, String model, int maxCandidates) {
+            this.config = config.withReranker(ollamaUrl, model, maxCandidates);
+            return this;
+        }
+
+        public Builder embeddingProvider(EmbeddingProvider provider) {
+            this.embeddingProvider = provider;
+            return this;
+        }
+
+        public Builder componentFactory(EngineComponentFactory factory) {
+            this.componentFactory = factory;
+            return this;
+        }
+
+        public Builder config(SpectorConfig config) {
+            this.config = config;
+            return this;
+        }
+
+        public SpectorConfig config() {
+            return this.config;
+        }
 
         /** Builds and returns a fully initialized {@link DefaultSpectorEngine}. */
         public SpectorEngine build() {
             EngineComponentFactory factory = componentFactory != null
-                    ? componentFactory : new EngineComponentFactory();
+                    ? componentFactory
+                    : new EngineComponentFactory();
             return new DefaultSpectorEngine(config, embeddingProvider, factory);
         }
     }

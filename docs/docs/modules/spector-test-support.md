@@ -1,0 +1,1 @@
+--8<-- "spector-test-support/README.md"

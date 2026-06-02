@@ -45,7 +45,8 @@ import picocli.CommandLine.Option;
                 IndexCommand.class,
                 IngestCommand.class,
                 SearchCommand.class,
-                StatusCommand.class
+                StatusCommand.class,
+                MemoryCommand.class
         }
 )
 public class SpectorCtl implements Runnable {

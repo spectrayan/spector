@@ -28,6 +28,10 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
+            <artifactId>spector-events</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
             <artifactId>spector-memory</artifactId>
         </dependency>
         <dependency>

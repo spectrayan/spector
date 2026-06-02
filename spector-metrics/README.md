@@ -1,6 +1,6 @@
 # spector-metrics 📊
 
-> **Micrometer-based observability layer for Spector — Prometheus metrics, JVM telemetry, and decorator-pattern engine instrumentation.**
+> **Micrometer-based observability layer for Spector — Prometheus metrics, JVM telemetry, event-bus telemetry, and decorator-pattern engine instrumentation.**
 
 `spector-metrics` provides transparent instrumentation for the Spector engine and JVM runtime. It uses the [Micrometer](https://micrometer.io/) metrics facade, compatible with Prometheus, Datadog, JMX, and any Micrometer-supported backend.
 
@@ -13,20 +13,29 @@ graph TD
     subgraph "spector-metrics"
         SM["SpectorMetrics<br/><i>Global MeterRegistry holder</i>"]
         JVM["SpectorJvmMetrics<br/><i>JVM + system binders</i>"]
-        ME["MeteredSpectorEngine<br/><i>Decorator — search/ingest timers</i>"]
+        ME["MeteredSpectorEngine<br/><i>Decorator — Micrometer + TelemetryBus</i>"]
         MM["MeteredSpectorMemory<br/><i>Decorator — memory recall timers</i>"]
     end
 
+    subgraph "spector-events"
+        BUS["TelemetryBus<br/><i>Instance-based event router</i>"]
+        SCOPE["TelemetryScope<br/><i>Per-query scope tracking</i>"]
+    end
+
     subgraph "Consumers"
-        NODE["spector-node<br/><i>Prometheus /metrics endpoint</i>"]
+        NODE["spector-node<br/><i>Prometheus /metrics + SSE /telemetry</i>"]
         SPRING["spector-spring<br/><i>Spring Actuator auto-config</i>"]
+        CORTEX["spector-cortex<br/><i>Neural dashboard</i>"]
     end
 
     ME -->|wraps| ENGINE["SpectorEngine"]
+    ME -->|publishes via| SCOPE
+    SCOPE -->|flushes to| BUS
     MM -->|wraps| MEMORY["SpectorMemory"]
     NODE --> SM
     NODE --> JVM
     NODE --> ME
+    BUS -->|SSE| CORTEX
 ```
 
 ---
@@ -75,8 +84,12 @@ Decorator (Proxy pattern) wrapping a `SpectorEngine` to record metrics for all c
 ```java
 SpectorEngine engine = new DefaultSpectorEngine(config);
 SpectorEngine metered = new MeteredSpectorEngine(engine, registry);
-// Use `metered` everywhere — all search/ingest calls are timed
+// Or with event bus for real-time dashboard telemetry:
+SpectorEngine metered = new MeteredSpectorEngine(engine, registry, telemetryBus);
+// All search/ingest calls are both timed (Micrometer) and published (TelemetryBus)
 ```
+
+**TelemetryScope integration:** When a `TelemetryBus` is provided, each search/ingest call opens a `TelemetryScope` that accumulates SIMD kernel events, query traces, and GPU kernel data, then flushes the batch on completion. This unified decorator avoids the overhead of two separate wrapper layers.
 
 ### `MeteredSpectorMemory`
 
@@ -135,3 +148,4 @@ spector_engine_documents 50000
 | `micrometer-registry-prometheus` | Prometheus text format export |
 | `spector-engine` | Engine interface for decorator wrapping |
 | `spector-memory` | Memory interface for decorator wrapping |
+| `spector-events` | TelemetryBus and TelemetryScope for real-time event streaming |

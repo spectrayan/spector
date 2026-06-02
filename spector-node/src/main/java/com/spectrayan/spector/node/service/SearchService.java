@@ -6,7 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.cluster.ClusterCoordinator;
+import com.spectrayan.spector.config.CortexTelemetryConfig;
 import com.spectrayan.spector.engine.SpectorEngine;
+import com.spectrayan.spector.events.TelemetryBus;
+import com.spectrayan.spector.events.TelemetryScope;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.node.api.dto.SearchRequest;
 import com.spectrayan.spector.node.api.dto.SearchResponseDto;
@@ -28,6 +31,15 @@ import com.spectrayan.spector.commons.error.SpectorException;
  *
  * <p>All search operations publish events to the {@link SpectorEventBus}
  * for subscribers (SSE clients, metrics, audit logging).</p>
+ *
+ * <p>Latency is sourced from {@link SearchResponse#queryTimeMs()} which
+ * is already recorded by {@code MeteredSpectorEngine}'s Micrometer timer.
+ * No manual {@code System.nanoTime()} calls — Micrometer is the single
+ * source of truth.</p>
+ *
+ * <p>Cortex query trace events are controlled by {@link CortexTelemetryConfig}:
+ * per-query emission can be toggled, and a sampling rate controls what
+ * fraction of queries are traced (like Spring Boot's Micrometer config).</p>
  */
 public class SearchService {
 
@@ -37,17 +49,27 @@ public class SearchService {
     private final ClusterCoordinator coordinator; // nullable — null in standalone
     private final SpectorEventBus eventBus;
     private final String nodeId;
+    private final CortexTelemetryConfig cortexConfig;
+    private final TelemetryBus telemetryBus; // nullable
 
     public SearchService(SpectorEngine engine, ClusterCoordinator coordinator,
-                         SpectorEventBus eventBus, String nodeId) {
+                         SpectorEventBus eventBus, String nodeId,
+                         CortexTelemetryConfig cortexConfig,
+                         TelemetryBus telemetryBus) {
         this.engine = engine;
         this.coordinator = coordinator;
         this.eventBus = eventBus;
         this.nodeId = nodeId;
+        this.cortexConfig = cortexConfig;
+        this.telemetryBus = telemetryBus;
     }
 
     /**
      * Executes a search query, routing to local engine or cluster coordinator.
+     *
+     * <p>Latency is read from {@link SearchResponse#queryTimeMs()} — already
+     * timed by the Micrometer {@code MeteredSpectorEngine} decorator. No
+     * manual {@code System.nanoTime()} instrumentation needed.</p>
      *
      * @param request the search request DTO
      * @return the search response DTO
@@ -55,20 +77,27 @@ public class SearchService {
      */
     public SearchResponseDto search(SearchRequest request) throws com.spectrayan.spector.commons.error.SpectorException {
         SearchQuery query = request.toQuery();
-        long startNanos = System.nanoTime();
 
         try {
-            SearchResponse response = executeSearch(query);
-            long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
+            // Bind TelemetryBus via ScopedValue so all sub-components can publish telemetry
+            SearchResponse response = (telemetryBus != null)
+                    ? ScopedValue.where(TelemetryScope.BUS, telemetryBus)
+                            .call(() -> executeSearch(query))
+                    : executeSearch(query);
+
+            // Latency from Micrometer (via MeteredSpectorEngine) — single source of truth
+            long latencyMs = response.queryTimeMs();
 
             eventBus.publish(new SpectorSearchCompletedEvent(
                     nodeId, Instant.now(),
                     response.totalHits(), latencyMs, response.mode().name()));
 
+            // QueryTraceTelemetry is now published by MeteredSpectorEngine
+            // via TelemetryScope — no manual publish needed here
+
             return SearchResponseDto.from(response);
 
         } catch (Exception e) {
-            long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
             eventBus.publish(new SpectorSearchFailedEvent(
                     nodeId, Instant.now(),
                     request.resolvedMode().name(), e.getMessage()));
@@ -82,7 +111,10 @@ public class SearchService {
      * Used by streaming endpoints that need direct access to results.
      */
     public SearchResponse searchRaw(SearchQuery query) {
-        return executeSearch(query);
+        return (telemetryBus != null)
+                ? ScopedValue.where(TelemetryScope.BUS, telemetryBus)
+                        .call(() -> executeSearch(query))
+                : executeSearch(query);
     }
 
     private SearchResponse executeSearch(SearchQuery query) {
@@ -97,7 +129,7 @@ public class SearchService {
             long elapsed = (System.nanoTime() - start) / 1_000_000;
             return new SearchResponse(results, results.length, elapsed, query.mode());
         }
-        // Standalone — local engine
+        // Standalone — local engine (timed by MeteredSpectorEngine)
         return engine.search(query);
     }
 }

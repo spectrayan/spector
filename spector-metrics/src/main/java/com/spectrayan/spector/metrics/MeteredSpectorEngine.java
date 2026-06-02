@@ -19,6 +19,8 @@ import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.engine.EngineIngestionTarget;
 import com.spectrayan.spector.engine.SpectorEngine;
+import com.spectrayan.spector.events.QueryTraceTelemetry;
+import com.spectrayan.spector.events.TelemetryScope;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.query.SearchQuery;
 import com.spectrayan.spector.query.SearchResponse;
@@ -250,7 +252,18 @@ public class MeteredSpectorEngine implements SpectorEngine {
     @Override
     public SearchResponse search(SearchQuery query) {
         searchCounter.increment();
-        return searchTimer.record(() -> delegate.search(query));
+        SearchResponse response = searchTimer.record(() -> delegate.search(query));
+
+        // Publish telemetry event using Micrometer-recorded latency
+        TelemetryScope.publish(new QueryTraceTelemetry(
+                query.text(),
+                query.mode() != null ? query.mode().name() : "HYBRID",
+                response.totalHits(),
+                0, 0, 0, 0, 0, // funnel counts — populated by RecallPipeline via GraphPulseTelemetry
+                response.size(),
+                response.queryTimeMs() * 1_000)); // ms → µs
+
+        return response;
     }
 
     @Override

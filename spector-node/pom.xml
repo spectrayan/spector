@@ -55,7 +55,15 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
+            <artifactId>spector-events</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
             <artifactId>spector-metrics</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-gpu</artifactId>
         </dependency>
 
         <!-- MCP (tool definitions, prompts, resources — for SSE transport) -->

@@ -19,7 +19,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.config.SpectorConfig;
+import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.events.SimdKernelTelemetry;
+import com.spectrayan.spector.events.TelemetryScope;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.gpu.GpuBatchSimilarity;
 import com.spectrayan.spector.index.VectorIndex;
@@ -59,9 +62,21 @@ final class EngineSearch {
 
     // ─────────────── Search ───────────────
 
-    /** Executes a search query. */
+    /**
+     * Executes a search query. Reports SIMD telemetry per query if enabled.
+     *
+     * <p>Duration is sourced from {@link SearchResponse#queryTimeMs()} which
+     * is recorded by the Micrometer timer in {@code MeteredSpectorEngine}.
+     * No manual {@code System.nanoTime()} — Micrometer is the single source of truth.</p>
+     */
     SearchResponse search(SearchQuery query) {
-        return orchestrator.search(query);
+        SearchResponse response = orchestrator.search(query);
+        TelemetryScope.publish(new SimdKernelTelemetry(
+                config.similarityFunction().name(),
+                SimdCapability.PREFERRED_SPECIES.length(),
+                response.totalHits(),
+                response.queryTimeMs() * 1_000_000)); // ms → nanos
+        return response;
     }
 
     /** Convenience: keyword search. */
