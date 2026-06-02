@@ -48,6 +48,8 @@ import reactor.core.publisher.Sinks;
  *   <li>{@code cluster} — node join/leave, shard rebalance, replica sync</li>
  *   <li>{@code mcp} — MCP client connect/disconnect, tool execution</li>
  *   <li>{@code engine} — index rebuild, embedding provider changes</li>
+ *   <li>{@code cortex} — dashboard events (query trace, SIMD lanes, memory diagnostics,
+ *       graph pulses, reflect cycles)</li>
  * </ul>
  */
 @ExceptionHandler(ApiExceptionHandler.class)

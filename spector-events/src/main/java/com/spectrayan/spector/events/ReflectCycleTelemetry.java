@@ -1,0 +1,25 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
+package com.spectrayan.spector.events;
+
+/**
+ * Reflect cycle telemetry — emitted after memory consolidation.
+ *
+ * @param hebbianEdgesDecayed number of Hebbian edges with reduced weight
+ * @param hebbianEdgesRemoved number of Hebbian edges removed (below threshold)
+ * @param decayFactor         the decay factor applied
+ * @param durationMs          total reflect duration in milliseconds
+ */
+public record ReflectCycleTelemetry(
+        int hebbianEdgesDecayed,
+        int hebbianEdgesRemoved,
+        double decayFactor,
+        long durationMs
+) implements TelemetryEvent {}

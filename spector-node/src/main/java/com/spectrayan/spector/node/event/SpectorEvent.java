@@ -54,7 +54,17 @@ public sealed interface SpectorEvent permits
         SpectorMcpToolExecutedEvent,
         // ── Engine ──
         SpectorIndexRebuiltEvent,
-        SpectorEmbeddingProviderChangedEvent {
+        SpectorEmbeddingProviderChangedEvent,
+        // ── Cortex Dashboard ──
+        SpectorCortexQueryTraceEvent,
+        SpectorCortexSimdLaneEvent,
+        SpectorCortexMemoryDiagnosticEvent,
+        SpectorCortexGraphPulseEvent,
+        SpectorCortexReflectCycleEvent,
+        SpectorCortexMemorySnapshotEvent,
+        SpectorCortexGpuKernelEvent,
+        SpectorCortexClusterTopologyEvent,
+        SpectorCortexEmbeddingProjectionEvent {
 
     /** Timestamp when the event occurred. */
     Instant timestamp();

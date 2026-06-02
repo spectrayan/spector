@@ -1,0 +1,34 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
+package com.spectrayan.spector.events;
+
+/**
+ * GPU (CUDA) kernel execution telemetry — emitted per kernel launch
+ * from {@code CudaKernelLauncher}.
+ *
+ * @param streamIndex         CUDA stream index (0 = default)
+ * @param kernelName          kernel function name (e.g., "batch_cosine")
+ * @param durationNanos       elapsed time in nanoseconds
+ * @param gridDimX            grid dimension X
+ * @param gridDimY            grid dimension Y
+ * @param gridDimZ            grid dimension Z
+ * @param blockDimX           block dimension X
+ * @param blockDimY           block dimension Y
+ * @param blockDimZ           block dimension Z
+ * @param memoryTransferBytes total host↔device memory transfer in bytes
+ */
+public record GpuKernelTelemetry(
+        int streamIndex,
+        String kernelName,
+        long durationNanos,
+        int gridDimX, int gridDimY, int gridDimZ,
+        int blockDimX, int blockDimY, int blockDimZ,
+        long memoryTransferBytes
+) implements TelemetryEvent {}

@@ -7,12 +7,23 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+
 /**
  * Thread-safe publish/subscribe event bus for Spector node events.
  *
  * <p>Implements the Observer pattern. Any component can publish events,
- * and any number of subscribers can listen. Subscribers receive events
- * synchronously on the publisher's thread — keep handlers fast.</p>
+ * and any number of subscribers can listen.</p>
+ *
+ * <h3>Dispatch Modes</h3>
+ * <ul>
+ *   <li><b>Synchronous</b> (default): Subscribers receive events on the publisher's thread.
+ *       Keep handlers fast.</li>
+ *   <li><b>Async</b> (opt-in): Subscribers receive events on virtual threads via
+ *       {@link ConcurrentTasks#fireAndForget(Runnable)}. Enabled via
+ *       {@code -Dspector.events.async=true}. Prevents slow subscribers
+ *       from blocking the search hot path.</li>
+ * </ul>
  *
  * <h3>Usage</h3>
  * <pre>{@code
@@ -41,17 +52,40 @@ public class SpectorEventBus {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorEventBus.class);
 
+    /** System property to enable async event dispatch on virtual threads. */
+    private static final String ASYNC_PROP = "spector.events.async";
+
     private final List<Consumer<SpectorEvent>> subscribers = new CopyOnWriteArrayList<>();
+    private final boolean asyncMode;
+
+    public SpectorEventBus() {
+        this.asyncMode = Boolean.getBoolean(ASYNC_PROP);
+        if (asyncMode) {
+            log.info("Event bus initialized in ASYNC mode (virtual threads via ConcurrentTasks)");
+        }
+    }
 
     /**
      * Publishes an event to all subscribers.
      *
-     * <p>Exceptions thrown by individual subscribers are caught and logged
-     * to prevent one failing subscriber from blocking others.</p>
+     * <p>In synchronous mode, exceptions thrown by individual subscribers are caught
+     * and logged to prevent one failing subscriber from blocking others.</p>
+     *
+     * <p>In async mode, each subscriber is dispatched via
+     * {@link ConcurrentTasks#fireAndForget(Runnable)} on its own virtual thread.
+     * This prevents slow SSE serialization from blocking the search pipeline.</p>
      *
      * @param event the event to publish
      */
     public void publish(SpectorEvent event) {
+        if (asyncMode) {
+            publishAsync(event);
+        } else {
+            publishSync(event);
+        }
+    }
+
+    private void publishSync(SpectorEvent event) {
         for (Consumer<SpectorEvent> subscriber : subscribers) {
             try {
                 subscriber.accept(event);
@@ -59,6 +93,12 @@ public class SpectorEventBus {
                 log.warn("Event subscriber threw exception for {}: {}",
                         event.eventType(), e.getMessage(), e);
             }
+        }
+    }
+
+    private void publishAsync(SpectorEvent event) {
+        for (Consumer<SpectorEvent> subscriber : subscribers) {
+            ConcurrentTasks.fireAndForget(() -> subscriber.accept(event));
         }
     }
 
@@ -99,6 +139,11 @@ public class SpectorEventBus {
     /** Returns the current subscriber count (for monitoring). */
     public int subscriberCount() {
         return subscribers.size();
+    }
+
+    /** Returns whether async dispatch mode is enabled. */
+    public boolean isAsyncMode() {
+        return asyncMode;
     }
 
     /**
