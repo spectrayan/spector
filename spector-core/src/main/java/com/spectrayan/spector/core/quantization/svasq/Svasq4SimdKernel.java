@@ -100,15 +100,15 @@ public final class Svasq4SimdKernel {
      * <p>Reads directly from off-heap memory with zero JVM GC allocations.</p>
      *
      * @param segment    off-heap memory segment containing the encoded vector database
-     * @param offset     byte offset of the target vector's 4-byte float32 norm header
+     * @param offset     byte offset of the target vector's 2-byte float16 norm header
      * @param halfDim    half of paddedDim (= number of nibble-packed bytes to process)
      * @param qs         pre-prepared SVASQ-4 query state (from {@link Svasq4QueryPrep#prepare})
      * @return approximate squared L2 distance (non-negative)
      */
     public static float computeL2(MemorySegment segment, long offset,
                                    int halfDim, Svasq4QueryState qs) {
-        float exactNormSq = segment.get(ValueLayout.JAVA_FLOAT, offset);
-        long  codeOffset  = offset + 4L;
+        float exactNormSq = Float.float16ToFloat(segment.get(ValueLayout.JAVA_SHORT, offset));
+        long  codeOffset  = offset + 2L;
         float[] qTildeHi  = qs.qTildeHi();
         float[] qTildeLo  = qs.qTildeLo();
 
@@ -163,7 +163,7 @@ public final class Svasq4SimdKernel {
      */
     public static float computeDot(MemorySegment segment, long offset,
                                     int halfDim, Svasq4QueryState qs) {
-        long    codeOffset = offset + 4L;
+        long    codeOffset = offset + 2L;
         float[] qTildeHi   = qs.qTildeHi();
         float[] qTildeLo   = qs.qTildeLo();
 

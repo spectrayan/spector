@@ -23,6 +23,9 @@ import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 
+import com.spectrayan.spector.events.GpuKernelTelemetry;
+import com.spectrayan.spector.events.TelemetryScope;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.commons.error.SpectorServerException;
@@ -238,6 +241,11 @@ public final class CudaKernelLauncher implements AutoCloseable {
                 int blockSize = 256;
                 int gridSize = (n + blockSize - 1) / blockSize;
 
+                // NOTE: Manual nanoTime is intentional here. This times a GPU kernel
+                // sub-phase that doesn't have its own Micrometer timer. The overall
+                // GPU search is timed at the MeteredSpectorEngine level.
+                long kernelStartNanos = TelemetryScope.isActive() ? System.nanoTime() : 0;
+
                 int launchResult = (int) cuLaunchKernel.invoke(
                         MemorySegment.ofAddress(cuFunction),
                         gridSize, 1, 1,      // grid dims
@@ -250,6 +258,18 @@ public final class CudaKernelLauncher implements AutoCloseable {
 
                 // Synchronize
                 check((int) cuCtxSynchronize.invoke());
+
+                // ── GPU kernel telemetry ──
+                if (kernelStartNanos > 0) {
+                    long kernelElapsed = System.nanoTime() - kernelStartNanos;
+                    TelemetryScope.publish(new GpuKernelTelemetry(
+                            0,                       // stream 0 (default)
+                            "batch_cosine",
+                            kernelElapsed,
+                            gridSize, 1, 1,          // grid dims
+                            blockSize, 1, 1,         // block dims
+                            queryBytes + dbBytes + resultBytes)); // total transfer
+                }
 
                 // Copy results device → host
                 MemorySegment resultSegment = local.allocate(ValueLayout.JAVA_FLOAT, n);

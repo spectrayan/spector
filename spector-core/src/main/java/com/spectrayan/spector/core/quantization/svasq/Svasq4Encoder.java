@@ -31,13 +31,13 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Affine-quantize each rotated dimension: {@code z = round((x - μ) × invScale)}</li>
  *   <li>Clamp to [-7, 7] and offset-encode to [0, 14]: {@code u = z + 7}</li>
  *   <li>Nibble-pack: two unsigned 4-bit values per byte (high nibble first).</li>
- *   <li>Write to off-heap {@link MemorySegment}: 4-byte float32 norm header + nibble-packed codes.</li>
+ *   <li>Write to off-heap {@link MemorySegment}: 2-byte float16 norm header + nibble-packed codes.</li>
  * </ol>
  *
  * <h3>Memory layout (per vector)</h3>
  * <pre>
- *   [float32 exactNormSq (4 bytes)] [nibble-packed codes (paddedDim/2 bytes)]
- *   Total: 4 + paddedDim/2 bytes per vector
+ *   [float16 exactNormSq (2 bytes)] [nibble-packed codes (paddedDim/2 bytes)]
+ *   Total: 2 + paddedDim/2 bytes per vector
  * </pre>
  *
  * <h3>Thread safety</h3>
@@ -103,15 +103,17 @@ public final class Svasq4Encoder {
         // 1. Compute exact L2 norm² (double accumulator for precision)
         double normSqAcc = 0.0;
         for (float v : vector) normSqAcc += (double) v * v;
-        segment.set(ValueLayout.JAVA_FLOAT, offset, (float) normSqAcc);
+        segment.set(ValueLayout.JAVA_SHORT, offset, Float.floatToFloat16((float) normSqAcc));
 
         // 2. FWHT rotate into thread-local scratch (zero allocation)
         float[] rotated = rotScratch.get();
         params.fwht().rotate(vector, rotated);
 
         // 3. Quantize → clamp → offset-encode → nibble-pack → write
-        long codeOffset = offset + 4L;
-        int halfDim = paddedDim / 2;
+        // Only store storedDim codes (SIMD-aligned originalDim)
+        long codeOffset = offset + 2L;
+        int storedDim = params.storedDim();
+        int halfDim = storedDim / 2;
 
         for (int k = 0; k < halfDim; k++) {
             int d0 = 2 * k;       // even-indexed dimension (high nibble)
@@ -153,7 +155,7 @@ public final class Svasq4Encoder {
         float[] means  = params.means();
         float[] result = new float[dimensions];
 
-        long codeOffset = offset + 4L;
+        long codeOffset = offset + 2L;
 
         for (int d = 0; d < dimensions; d++) {
             int k = d / 2;
@@ -179,7 +181,7 @@ public final class Svasq4Encoder {
     public SvasqParams params() { return params; }
 
     /**
-     * Returns the number of bytes per encoded vector (4-byte header + paddedDim/2 code bytes).
+     * Returns the number of bytes per encoded vector (2-byte float16 header + paddedDim/2 code bytes).
      *
      * @return bytes per vector
      */

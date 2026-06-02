@@ -177,10 +177,11 @@ class SvasqCalibratorTest {
     }
 
     @Test
-    void bytesPerVector_is_4_plus_paddedDim() {
+    void bytesPerVector_is_2_plus_storedDim() {
         List<float[]> samples = gaussian(200, 64, new Random(9L));
         SvasqParams p = SvasqCalibrator.calibrate(samples, 64, SEED);
-        assertEquals(4 + p.paddedDim(), p.bytesPerVector());
+        // 2-byte float16 norm header + storedDim INT8 codes
+        assertEquals(2 + p.storedDim(), p.bytesPerVector());
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

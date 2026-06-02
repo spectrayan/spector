@@ -72,13 +72,14 @@ class Svasq4KernelTest {
     }
 
     @Test
-    void params_bytesPerVector_equals_4_plus_halfPaddedDim() {
-        assertEquals(4 + params.paddedDim() / 2, params.bytesPerVector());
+    void params_bytesPerVector_equals_2_plus_halfStoredDim() {
+        // 2-byte float16 norm header + storedDim/2 nibble-packed codes
+        assertEquals(2 + params.storedDim() / 2, params.bytesPerVector());
     }
 
     @Test
-    void params_codeBytesPerVector_equals_halfPaddedDim() {
-        assertEquals(params.paddedDim() / 2, params.codeBytesPerVector());
+    void params_codeBytesPerVector_equals_halfStoredDim() {
+        assertEquals(params.storedDim() / 2, params.codeBytesPerVector());
     }
 
     // ── Encode/Decode round-trip ──────────────────────────────────────────────
@@ -99,11 +100,13 @@ class Svasq4KernelTest {
             float[] decoded = encoder.decode(seg, 0L, DIM);
             assertEquals(DIM, decoded.length);
 
-            // Verify the norm header is correctly stored
-            float storedNorm = seg.get(java.lang.foreign.ValueLayout.JAVA_FLOAT, 0L);
+            // Verify the norm header is correctly stored (float16 format)
+            float storedNorm = Float.float16ToFloat(
+                    seg.get(java.lang.foreign.ValueLayout.JAVA_SHORT, 0L));
             float expectedNorm = exactNormSq(original);
-            assertEquals(expectedNorm, storedNorm, expectedNorm * 0.01f + 0.001f,
-                    "Stored norm should match exact ‖x‖²");
+            // float16 has limited precision — allow ~1% tolerance
+            assertEquals(expectedNorm, storedNorm, expectedNorm * 0.02f + 0.1f,
+                    "Stored norm should match exact ‖x‖² (float16 precision)");
 
             // Verify decoded values are finite and not all zero
             boolean hasNonZero = false;

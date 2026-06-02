@@ -27,6 +27,10 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-commons</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-events</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

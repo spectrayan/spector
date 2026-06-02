@@ -139,9 +139,10 @@ class SvasqKernelTest {
             SvasqQueryState qs = queryPrep.prepare(query);
             float approxL2 = SvasqSimdKernel.computeL2(seg, 0L, params.paddedDim(), qs);
 
-            // Should approximately equal exactNormSq stored in the header
-            float storedNorm = seg.get(java.lang.foreign.ValueLayout.JAVA_FLOAT, 0L);
-            assertEquals(storedNorm, approxL2, storedNorm * 0.02f + 0.01f,
+            // Should approximately equal exactNormSq stored in the header (float16)
+            float storedNorm = Float.float16ToFloat(
+                    seg.get(java.lang.foreign.ValueLayout.JAVA_SHORT, 0L));
+            assertEquals(storedNorm, approxL2, storedNorm * 0.05f + 0.1f,
                     "L2 with zero query should ≈ exactNormSq");
         }
     }

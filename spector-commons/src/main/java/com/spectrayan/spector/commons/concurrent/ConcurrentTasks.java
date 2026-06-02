@@ -109,6 +109,56 @@ public final class ConcurrentTasks {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    //  Fire-and-Forget: non-blocking dispatch on virtual threads
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Shared virtual thread executor for fire-and-forget tasks.
+     *
+     * <p>Unlike the fork-join methods, this executor is long-lived and never
+     * closed — tasks are submitted without waiting for results. Used by
+     * {@code SpectorEventBus} in async mode to prevent slow SSE subscribers
+     * from blocking the search hot path.</p>
+     */
+    private static final ExecutorService FIRE_FORGET_EXECUTOR =
+            Executors.newVirtualThreadPerTaskExecutor();
+
+    /**
+     * Submits a task for asynchronous execution on a virtual thread.
+     * The caller returns immediately — no result, no blocking, no joining.
+     *
+     * <p>Exceptions thrown by the task are caught and logged to prevent
+     * silent failures. This is intentionally not structured — there is no
+     * parent scope to propagate cancellation to.</p>
+     *
+     * <p>Use this for event dispatch, audit logging, metrics emission, and
+     * any other work that must not block the caller.</p>
+     *
+     * @param task the work to execute asynchronously
+     */
+    public static void fireAndForget(Runnable task) {
+        FIRE_FORGET_EXECUTOR.submit(() -> {
+            try {
+                task.run();
+            } catch (Exception e) {
+                log.log(System.Logger.Level.WARNING, "Fire-and-forget task failed: " + e.getMessage(), e);
+            }
+        });
+    }
+
+    /**
+     * Submits multiple tasks for asynchronous execution on virtual threads.
+     * Each task runs independently — failures in one do not affect others.
+     *
+     * @param tasks the tasks to execute asynchronously
+     */
+    public static void fireAndForgetAll(List<Runnable> tasks) {
+        for (Runnable task : tasks) {
+            fireAndForget(task);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     //  Fork-Join All: all tasks must succeed (fail-fast with auto-cancel)
     // ═══════════════════════════════════════════════════════════════════════
 

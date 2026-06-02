@@ -151,16 +151,22 @@ public final class SvasqParams {
     /**
      * Returns the number of bytes required to store one encoded vector in a MemorySegment.
      *
+     * <p>Uses the SIMD-aligned stored dimension ({@link #storedDim()}) instead of
+     * {@code paddedDim} to avoid wasting storage on FWHT padding. The stored dimension
+     * is rounded up to the next SIMD boundary (multiple of 16 bytes) to prevent scalar
+     * tail loops in the SIMD kernel.</p>
+     *
      * <ul>
-     *   <li>SVASQ-8: {@code 4 (float32 norm) + paddedDim (1 byte per dim)}</li>
-     *   <li>SVASQ-4: {@code 4 (float32 norm) + paddedDim/2 (nibble-packed, 2 dims per byte)}</li>
+     *   <li>SVASQ-8: {@code 2 (float16 norm) + storedDim (1 byte per dim)}</li>
+     *   <li>SVASQ-4: {@code 2 (float16 norm) + ceil(storedDim/2) (nibble-packed)}</li>
      * </ul>
      *
      * @return bytes per vector
      */
     public int bytesPerVector() {
-        int codeBytes = (bitWidth == BIT_WIDTH_4) ? paddedDim / 2 : paddedDim;
-        return 4 + codeBytes;
+        int sd = storedDim();
+        int codeBytes = (bitWidth == BIT_WIDTH_4) ? (sd + 1) / 2 : sd;
+        return 2 + codeBytes;  // 2-byte float16 norm header + quantized codes
     }
 
     /**
@@ -169,7 +175,22 @@ public final class SvasqParams {
      * @return code bytes per vector
      */
     public int codeBytesPerVector() {
-        return (bitWidth == BIT_WIDTH_4) ? paddedDim / 2 : paddedDim;
+        int sd = storedDim();
+        return (bitWidth == BIT_WIDTH_4) ? (sd + 1) / 2 : sd;
+    }
+
+    /**
+     * Returns the stored dimension — {@code originalDim} rounded up to the next
+     * SIMD boundary (multiple of 16). This wastes at most 15 bytes but keeps the
+     * SIMD distance kernel's loop clean (no scalar tail loop needed).
+     *
+     * <p>For power-of-2 dimensions (e.g., 512, 1024), this equals {@code originalDim}.
+     * For non-power-of-2 (e.g., 768), this equals 768 (already divisible by 16).</p>
+     *
+     * @return SIMD-aligned stored dimension
+     */
+    public int storedDim() {
+        return (originalDim + 15) & ~15;  // round up to next multiple of 16
     }
 
     @Override

@@ -27,8 +27,8 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * <h3>Memory Layout (per vector)</h3>
  * <pre>
  *   ┌─────────────────────┬──────────────────────────────────────────┐
- *   │ float32 exactNormSq │ INT8[paddedDim] signed quantized codes   │
- *   │ (4 bytes, offset 0) │ (paddedDim bytes, offset 4)              │
+ *   │ float16 exactNormSq │ INT8[paddedDim] signed quantized codes   │
+ *   │ (2 bytes, offset 0) │ (paddedDim bytes, offset 2)              │
  *   └─────────────────────┴──────────────────────────────────────────┘
  * </pre>
  *
@@ -37,7 +37,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Compute {@code exactNormSq = ‖x‖²} on the original float32 vector.</li>
  *   <li>Rotate: sign-flip, FWHT, normalize → {@code x_rot ∈ ℝ^paddedDim}.</li>
  *   <li>Quantize each dimension: {@code zᵢ = clip(round((x_rot_i - μᵢ) × invScaleᵢ), -127, 127)}.</li>
- *   <li>Write the 4-byte norm header and {@code paddedDim} signed byte codes.</li>
+ *   <li>Write the 2-byte float16 norm header and {@code paddedDim} signed byte codes.</li>
  * </ol>
  *
  * <h3>Allocation Budget</h3>
@@ -97,24 +97,26 @@ public final class SvasqEncoder {
         // 1. Exact L2 norm squared (pre-rotation; rotation is orthogonal so ‖x‖=‖Rx‖)
         double normSqAcc = 0.0;
         for (float v : vector) normSqAcc += (double) v * v;
-        segment.set(ValueLayout.JAVA_FLOAT, offset, (float) normSqAcc);
+        segment.set(ValueLayout.JAVA_SHORT, offset, Float.floatToFloat16((float) normSqAcc));
 
         // 2. Rotate into thread-local scratch — zero allocation per call
         float[] rotated = rotateScratch.get();
         params.fwht().rotate(vector, rotated);
 
         // 3. Quantize to signed INT8 [-127, 127] and write into segment
-        for (int i = 0; i < paddedDim; i++) {
+        // Only store storedDim codes (SIMD-aligned originalDim), not full paddedDim
+        int storedDim = params.storedDim();
+        for (int i = 0; i < storedDim; i++) {
             int q = Math.round((rotated[i] - means[i]) * invScales[i]);
             // Clamp to [-127, 127] — symmetric range avoids INT8_MIN=-128 asymmetry
             q = q < -127 ? -127 : (q > 127 ? 127 : q);
-            segment.set(ValueLayout.JAVA_BYTE, offset + 4L + i, (byte) q);
+            segment.set(ValueLayout.JAVA_BYTE, offset + 2L + i, (byte) q);
         }
     }
 
     /**
      * Returns the number of bytes per encoded vector:
-     * {@code 4 (float32 norm header) + paddedDim (signed INT8 codes)}.
+     * {@code 2 (float16 norm header) + paddedDim (signed INT8 codes)}.
      *
      * @return bytes per vector
      */

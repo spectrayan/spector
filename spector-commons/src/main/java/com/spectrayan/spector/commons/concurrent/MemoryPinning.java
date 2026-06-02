@@ -116,7 +116,10 @@ public final class MemoryPinning {
         }
 
         try {
-            int result = (int) LOCK_HANDLE.invokeExact(segment.address(), segment.byteSize());
+            // Downcall handle expects (MemorySegment, long) → int.
+            // Pass the segment itself (reinterpreted to the exact byte size) as the pointer argument.
+            MemorySegment addr = segment.reinterpret(segment.byteSize());
+            int result = (int) LOCK_HANDLE.invokeExact(addr, segment.byteSize());
             if (WINDOWS) {
                 // Windows VirtualLock returns non-zero (true) on success
                 if (result != 0) {
@@ -158,7 +161,8 @@ public final class MemoryPinning {
         }
 
         try {
-            int result = (int) UNLOCK_HANDLE.invokeExact(segment.address(), segment.byteSize());
+            MemorySegment addr = segment.reinterpret(segment.byteSize());
+            int result = (int) UNLOCK_HANDLE.invokeExact(addr, segment.byteSize());
             if (WINDOWS) {
                 if (result != 0) {
                     log.debug("VirtualUnlock: Unlocked off-heap segment at address {}", segment.address());

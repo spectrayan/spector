@@ -105,15 +105,15 @@ public final class SvasqSimdKernel {
      * Reads directly from off-heap memory with zero JVM GC allocations.</p>
      *
      * @param segment    off-heap memory segment containing the encoded vector database
-     * @param offset     byte offset of the target vector's 4-byte norm header
+     * @param offset     byte offset of the target vector's 2-byte float16 norm header
      * @param paddedDim  padded dimensionality (must be power-of-two ≥ {@code F_SPECIES.length()})
      * @param qs         pre-prepared query state (from {@link SvasqQueryPrep#prepare})
      * @return approximate squared L2 distance (non-negative)
      */
     public static float computeL2(MemorySegment segment, long offset,
                                    int paddedDim, SvasqQueryState qs) {
-        float exactNormSq = segment.get(ValueLayout.JAVA_FLOAT, offset);
-        long  codeOffset  = offset + 4L;
+        float exactNormSq = Float.float16ToFloat(segment.get(ValueLayout.JAVA_SHORT, offset));
+        long  codeOffset  = offset + 2L;
         float[] qTilde    = qs.qTilde();
 
         FloatVector acc0 = FloatVector.zero(F_SPECIES);
@@ -161,14 +161,14 @@ public final class SvasqSimdKernel {
      * <p>Uses the same 2× unrolled loop as {@link #computeL2} for symmetric throughput.</p>
      *
      * @param segment    off-heap memory segment
-     * @param offset     byte offset of the target vector's norm header (4-byte prefix)
+     * @param offset     byte offset of the target vector's norm header (2-byte float16 prefix)
      * @param paddedDim  padded dimensionality
      * @param qs         pre-prepared query state
      * @return approximate inner product (asymmetric: query in float32, corpus in INT8)
      */
     public static float computeDot(MemorySegment segment, long offset,
                                     int paddedDim, SvasqQueryState qs) {
-        long    codeOffset = offset + 4L;
+        long    codeOffset = offset + 2L;
         float[] qTilde     = qs.qTilde();
 
         FloatVector acc0 = FloatVector.zero(F_SPECIES);
