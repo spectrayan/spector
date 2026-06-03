@@ -294,6 +294,12 @@ public class MeteredSpectorMemory implements SpectorMemory {
         return delegate.introspect(topic);
     }
 
+    @Override
+    public com.spectrayan.spector.memory.WhyNotExplanation whyNot(
+            String memoryId, String query, RecallOptions options) {
+        return delegate.whyNot(memoryId, query, options);
+    }
+
     // ══════════════════════════════════════════════════════════════
     // PROSPECTIVE / SCRATCHPAD / STATS (pass-through)
     // ══════════════════════════════════════════════════════════════

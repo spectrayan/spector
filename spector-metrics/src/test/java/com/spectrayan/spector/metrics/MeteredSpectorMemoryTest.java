@@ -125,6 +125,7 @@ class MeteredSpectorMemoryTest {
         @Override public com.spectrayan.spector.memory.graph.EntityGraph entityGraph() { return null; }
         @Override public com.spectrayan.spector.memory.hebbian.HebbianGraph hebbianGraph() { return null; }
         @Override public com.spectrayan.spector.memory.temporal.TemporalChain temporalChain() { return null; }
+        @Override public com.spectrayan.spector.memory.WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) { return null; }
         @Override public void close() {}
     }
 }
