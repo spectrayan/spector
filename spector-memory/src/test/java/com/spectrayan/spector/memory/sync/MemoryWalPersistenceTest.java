@@ -336,7 +336,7 @@ class MemoryWalPersistenceTest {
         bytes[60] ^= (byte) 0xFF;
         Files.write(activeChunk, bytes);
 
-        org.junit.jupiter.api.Assertions.assertThrows(java.io.UncheckedIOException.class, () -> {
+        org.junit.jupiter.api.Assertions.assertThrows(com.spectrayan.spector.commons.error.SpectorStorageException.class, () -> {
             new MemoryWal(walDir);
         });
 
