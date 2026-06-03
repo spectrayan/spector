@@ -32,5 +32,18 @@ public enum SpectorMode {
     SEARCH,
 
     /** Cognitive memory mode with decay, consolidation, and importance scoring. */
-    MEMORY
+    MEMORY,
+
+    /** Both engine and memory subsystems active simultaneously. */
+    HYBRID;
+
+    /** Returns true if the engine subsystem should be initialized. */
+    public boolean engineEnabled() {
+        return this == SEARCH || this == HYBRID;
+    }
+
+    /** Returns true if the memory subsystem should be initialized. */
+    public boolean memoryEnabled() {
+        return this == MEMORY || this == HYBRID;
+    }
 }

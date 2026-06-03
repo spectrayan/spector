@@ -100,6 +100,10 @@ spector:
     # list of profile names (e.g., "BALANCED,DEBUGGING,HYPERFOCUS").
     # Default: ALL — BSL license governs commercial use, not this config.
     cognitive-profiles: ALL
+    # Tag extraction mode: content (keyword-based, default), llm (Ollama semantic), none (disabled)
+    tag-extractor: content
+    # Ollama model for LLM tag extraction (only used when tag-extractor=llm)
+    tag-extractor-model: ""
 
   # ─── File Ingestion ───
   ingestion:

@@ -273,13 +273,16 @@ public final class SpectorConfigFactory {
      * @param consolidationInterval  time between memory consolidation runs
      * @param defaultIngestionTier   default memory tier for ingestion (e.g., "SEMANTIC")
      * @param hnswPrefilter          HNSW pre-filter mode ("auto", "enabled", "disabled")
+     * @param tagExtractor           tag extraction mode ("content", "llm", "none")
+     * @param tagExtractorModel      LLM model for tag extraction (e.g., "qwen3:1.7b"); only used when tagExtractor=llm
      */
     public record MemoryDefaults(
             boolean enabled,
             String persistenceMode, Path persistencePath,
-            int dimensions, int capacity,
+            int dimensions, int capacity, int nodesPerPartition,
             boolean decayEnabled, Duration consolidationInterval,
-            String defaultIngestionTier, String hnswPrefilter
+            String defaultIngestionTier, String hnswPrefilter,
+            String tagExtractor, String tagExtractorModel
     ) {}
 
     /**
@@ -292,10 +295,13 @@ public final class SpectorConfigFactory {
                 props.getPath("spector.memory.persistence-path", Path.of(".spector", "memory")),
                 props.getInt("spector.memory.dimensions", 384),
                 props.getInt("spector.memory.capacity", 100_000),
+                props.getInt("spector.memory.nodes-per-partition", 10_000),
                 props.getBoolean("spector.memory.decay-enabled", true),
                 props.getDuration("spector.memory.consolidation-interval", Duration.ofSeconds(60)),
                 props.getString("spector.memory.default-ingestion-tier", "SEMANTIC"),
-                props.getString("spector.memory.hnsw-prefilter", "auto")
+                props.getString("spector.memory.hnsw-prefilter", "auto"),
+                props.getString("spector.memory.tag-extractor", "content"),
+                props.getString("spector.memory.tag-extractor-model", "")
         );
     }
 
