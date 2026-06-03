@@ -23,12 +23,15 @@ import com.spectrayan.spector.config.SpectorMode;
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.PersistenceMode;
 import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.embed.TextGenerationProvider;
 import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.pipeline.LlmTagExtractor;
+import com.spectrayan.spector.memory.pipeline.TagExtractor;
 
 /**
  * Composition root for a Spector instance.
@@ -91,11 +94,31 @@ public final class SpectorRuntime implements AutoCloseable {
      * @return initialized runtime (caller must close)
      */
     public static SpectorRuntime from(SpectorProperties props, EmbeddingProvider embedder) {
+        return from(props, embedder, null);
+    }
+
+    /**
+     * Creates a runtime from configuration, embedding provider, and optional
+     * text generation provider for LLM-powered tag extraction.
+     *
+     * <p>When {@code spector.memory.tag-extractor=llm} in the config, the
+     * provided {@code textGenProvider} is used to create an {@link LlmTagExtractor}
+     * that extracts semantic tags during ingestion and {@code remember()} calls.
+     * If {@code textGenProvider} is null and LLM mode is requested, falls back
+     * to content-based extraction.</p>
+     *
+     * @param props           hierarchical configuration
+     * @param embedder        embedding provider (shared by engine and memory)
+     * @param textGenProvider text generation provider for LLM tag extraction (nullable)
+     * @return initialized runtime (caller must close)
+     */
+    public static SpectorRuntime from(SpectorProperties props, EmbeddingProvider embedder,
+                                      TextGenerationProvider textGenProvider) {
         SpectorMode mode = SpectorConfigFactory.mode(props);
 
         // ── Read memory config early (needed to configure engine in MEMORY mode) ──
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
-        boolean memoryEnabled = memoryConfig.enabled() || mode == SpectorMode.MEMORY;
+        boolean memoryEnabled = memoryConfig.enabled() || mode.memoryEnabled();
 
         // ── Engine ──
         SpectorConfig engineConfig = SpectorConfig.from(props);
@@ -103,7 +126,7 @@ public final class SpectorRuntime implements AutoCloseable {
         // recall. Use DISK persistence so the HNSW graph + VectorStore survive
         // restarts. Point engine data to .spector/index (sibling of memory path).
         // Use the memory config's capacity so the HNSW can hold all semantic vectors.
-        if (mode == SpectorMode.MEMORY && memoryEnabled) {
+        if (mode.memoryEnabled() && memoryEnabled) {
             java.nio.file.Path indexDir = memoryConfig.persistencePath()
                     .resolveSibling("index");
             engineConfig = engineConfig
@@ -125,11 +148,30 @@ public final class SpectorRuntime implements AutoCloseable {
                     .embeddingProvider(embedder)
                     .persistenceMode(MemoryPersistenceMode.valueOf(memoryConfig.persistenceMode()))
                     .persistence(memoryConfig.persistencePath())
-                    .semanticCapacity(memoryConfig.capacity());
+                    .semanticCapacity(memoryConfig.capacity())
+                    .nodesPerPartition(memoryConfig.nodesPerPartition());
 
-            if (mode == SpectorMode.MEMORY) {
+            if (mode.memoryEnabled()) {
                 memoryBuilder.semanticIndex(engine.index());
                 memoryBuilder.vectorStore(engine.vectorStore());
+            }
+
+            // ── Tag extractor (content, llm, or none) ──
+            String tagMode = memoryConfig.tagExtractor().toLowerCase();
+            switch (tagMode) {
+                case "llm" -> {
+                    if (textGenProvider != null) {
+                        memoryBuilder.tagExtractor(new LlmTagExtractor(textGenProvider));
+                        log.info("[Runtime] Tag extractor: LLM (model={})", textGenProvider.modelName());
+                    } else {
+                        log.warn("[Runtime] tag-extractor=llm but no TextGenerationProvider supplied, falling back to content");
+                    }
+                }
+                case "none" -> {
+                    memoryBuilder.tagExtractor(TagExtractor.NONE);
+                    log.info("[Runtime] Tag extractor: NONE (Bloom filter disabled)");
+                }
+                default -> log.info("[Runtime] Tag extractor: content (keyword-based)");
             }
 
             memory = memoryBuilder.build();
@@ -164,7 +206,7 @@ public final class SpectorRuntime implements AutoCloseable {
 
             // Select target based on mode
             com.spectrayan.spector.ingestion.IngestionTarget target =
-                    (mode == SpectorMode.MEMORY && memory != null)
+                    (mode.memoryEnabled() && memory != null)
                     ? memory.target()
                     : engine.target();
 
@@ -235,4 +277,5 @@ public final class SpectorRuntime implements AutoCloseable {
         }
         log.info("[Runtime] Shutdown complete (mode={})", mode);
     }
+
 }
