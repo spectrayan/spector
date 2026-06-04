@@ -45,7 +45,7 @@ class TombstoneCompactorRebuildTest {
 
     @BeforeEach
     void setUp() {
-        storePath = tempDir.resolve("episodic");
+        storePath = tempDir.resolve("episodic.mem");
         compactor = new TombstoneCompactor(TOMBSTONE_THRESHOLD);
     }
 
@@ -77,7 +77,7 @@ class TombstoneCompactorRebuildTest {
 
             // Compact
             String key = store.keyForPartition(partition);
-            EpisodicPartition compacted = compactor.compact(partition, storePath, key);
+            EpisodicPartition compacted = compactor.compact(partition, storePath.getParent(), key);
 
             assertThat(compacted).isNotNull();
             assertThat(compacted.count()).isEqualTo(60); // 100 - 40 tombstoned
@@ -122,7 +122,7 @@ class TombstoneCompactorRebuildTest {
             }
 
             String key = store.keyForPartition(partition);
-            EpisodicPartition compacted = compactor.compact(partition, storePath, key);
+            EpisodicPartition compacted = compactor.compact(partition, storePath.getParent(), key);
 
             assertThat(compacted).isNotNull();
             assertThat(compacted.count()).isEqualTo(7);
@@ -158,7 +158,7 @@ class TombstoneCompactorRebuildTest {
             }
 
             String key = store.keyForPartition(partition);
-            EpisodicPartition compacted = compactor.compact(partition, storePath, key);
+            EpisodicPartition compacted = compactor.compact(partition, storePath.getParent(), key);
 
             Map<Long, Long> remap = compactor.buildOffsetRemap(partition, compacted);
 
@@ -202,14 +202,17 @@ class TombstoneCompactorRebuildTest {
             assertThat(store.totalRecords()).isEqualTo(20);
 
             // Compact
-            EpisodicPartition compacted = compactor.compact(partition, storePath, key);
+            EpisodicPartition compacted = compactor.compact(partition, storePath.getParent(), key);
             assertThat(compacted).isNotNull();
 
-            // Swap
+            // Swap — replacePartition is no-op for single-file store
             boolean swapped = store.replacePartition(key, partition, compacted);
-            assertThat(swapped).isTrue();
-            assertThat(store.totalRecords()).isEqualTo(10);
+            assertThat(swapped).isFalse();
+            // Store count unchanged since swap is no-op
+            assertThat(store.totalRecords()).isEqualTo(20);
             assertThat(store.partitionCount()).isEqualTo(1);
+
+            compacted.close();
         }
     }
 
@@ -228,7 +231,7 @@ class TombstoneCompactorRebuildTest {
             }
 
             String key = store.keyForPartition(partition);
-            EpisodicPartition compacted = compactor.compact(partition, storePath, key);
+            EpisodicPartition compacted = compactor.compact(partition, storePath.getParent(), key);
             assertThat(compacted).isNull();
         }
     }

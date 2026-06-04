@@ -271,6 +271,13 @@ public abstract class AbstractTierStore implements TierStore {
     }
 
     /**
+     * Returns the file path for persistent stores, or null for volatile.
+     */
+    public Path filePath() {
+        return filePath;
+    }
+
+    /**
      * Forces the mapped segment to be written to the underlying file (persistent only).
      */
     public void force() {

@@ -147,10 +147,11 @@ public final class TombstoneCompactor {
             return null;
         }
 
-        // Create new dense partition
-        Path compactedPath = basePath.resolve("episodic-" + key + "-compacted.mem");
-        EpisodicPartition compacted = new EpisodicPartition(
-                compactedPath, layout, liveCount, true);
+        // Create new dense store as the compacted partition
+        Path compactedPath = basePath.resolve("episodic-compacted.mem");
+        EpisodicMemoryStore compactedStore = new EpisodicMemoryStore(
+                compactedPath, layout.quantizedVecBytes(), liveCount);
+        EpisodicPartition compacted = compactedStore.partitions().getFirst();
 
         // Copy live records
         int copied = 0;
@@ -172,9 +173,6 @@ public final class TombstoneCompactor {
             compacted.append(header, quantizedVec);
             copied++;
         }
-
-        // Mark as compacted state
-        compacted.setState(EpisodicMemoryStore.PartitionState.ACTIVE);
 
         log.info("Compaction complete: partition {} — {} → {} records (removed {} tombstones)",
                 key, srcCount, copied, srcCount - copied);

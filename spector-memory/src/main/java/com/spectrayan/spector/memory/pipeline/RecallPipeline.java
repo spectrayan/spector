@@ -73,7 +73,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.spectrayan.spector.memory.cortex.EpisodicMemoryStore.EpisodicPartition.METADATA_HEADER_BYTES;
+
 
 /**
  * 8-step recall pipeline for cognitive memory retrieval.
@@ -699,7 +699,7 @@ public final class RecallPipeline {
                     tasks.add(() -> scoreStoreToList(
                             partition.segment(), partition.count(),
                             partition.layout(), queryVector, options, nowMs,
-                            MemoryType.EPISODIC, METADATA_HEADER_BYTES));
+                            MemoryType.EPISODIC, partition.dataOffset()));
                 }
             }
         }
@@ -759,7 +759,7 @@ public final class RecallPipeline {
             for (EpisodicPartition p : tierRouter.episodic().partitions()) {
                 if (p.count() > 0) {
                     results.addAll(scoreStoreToList(p.segment(), p.count(), p.layout(),
-                            queryVector, options, nowMs, MemoryType.EPISODIC, METADATA_HEADER_BYTES));
+                            queryVector, options, nowMs, MemoryType.EPISODIC, p.dataOffset()));
                 }
             }
         }

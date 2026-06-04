@@ -263,10 +263,10 @@ public final class DefaultSpectorMemory implements SpectorMemory {
 
         // ── Tier stores: created inside the active partition directory ──
         if (isDisk && basePath != null && activePartitionDir != null) {
-            // Episodic: inside partition
-            Path episodicPath = StorageLayout.episodicMem(activePartitionDir);
+            // Episodic: single file inside partition (matches semantic.mem pattern)
             EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
-                    episodicPath.getParent(), quantizedVecBytes, builder.episodicPartitionCapacity);
+                    StorageLayout.episodicMem(activePartitionDir),
+                    quantizedVecBytes, builder.episodicPartitionCapacity);
 
             // Procedural: inside partition
             ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
@@ -280,11 +280,8 @@ public final class DefaultSpectorMemory implements SpectorMemory {
             this.tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
             // IN_MEMORY mode: use standard in-memory stores
-            Path episodicPath = Path.of(System.getProperty("java.io.tmpdir"),
-                    "spector-memory-" + ProcessHandle.current().pid() + "-" + System.nanoTime(),
-                    "episodic");
             EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
-                    episodicPath, quantizedVecBytes, builder.episodicPartitionCapacity);
+                    quantizedVecBytes, builder.episodicPartitionCapacity);
             ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
                     quantizedVecBytes, builder.proceduralCapacity);
             SemanticMemoryStore semanticStore = new SemanticMemoryStore(
@@ -545,7 +542,7 @@ public final class DefaultSpectorMemory implements SpectorMemory {
 
                 // Create fresh tier stores in new partition
                 EpisodicMemoryStore newEpisodic = new EpisodicMemoryStore(
-                        StorageLayout.episodicMem(newPartition).getParent(),
+                        StorageLayout.episodicMem(newPartition),
                         quantizedVecBytes, episodicPartitionCapacity);
 
                 ProceduralMemoryStore newProcedural = new ProceduralMemoryStore(

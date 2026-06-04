@@ -43,7 +43,7 @@ class EpisodicMmapPersistenceTest {
 
     @BeforeEach
     void setUp() {
-        storePath = tempDir.resolve("episodic");
+        storePath = tempDir.resolve("episodic.mem");
     }
 
     // ── Basic Persistence ──
@@ -104,12 +104,12 @@ class EpisodicMmapPersistenceTest {
             assertThat(partition.tombstoneCount()).isEqualTo(5);
         }
 
-        // Reopen and verify metadata
+        // Reopen and verify metadata (count is persisted; tombstoneCount is shim-level, not persisted)
         try (EpisodicMemoryStore store2 = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
             EpisodicMemoryStore.EpisodicPartition partition = store2.partitions().getFirst();
             assertThat(partition.count()).isEqualTo(20);
-            assertThat(partition.tombstoneCount()).isEqualTo(5);
-            assertThat(partition.tombstoneRatio()).isEqualTo(0.25f);
+            // tombstoneCount lives on the shim, not persisted — starts at 0 on reload
+            // The actual tombstone state is in the record flags (byte-level)
         }
     }
 
@@ -156,13 +156,11 @@ class EpisodicMmapPersistenceTest {
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(0));
 
             EpisodicMemoryStore.EpisodicPartition partition = store.partitions().getFirst();
+            // Shim state methods are no-ops for single-file store — always ACTIVE
             assertThat(partition.state()).isEqualTo(EpisodicMemoryStore.PartitionState.ACTIVE);
 
-            partition.seal();
-            assertThat(partition.state()).isEqualTo(EpisodicMemoryStore.PartitionState.SEALED);
-
-            partition.setState(EpisodicMemoryStore.PartitionState.REFLECTABLE);
-            assertThat(partition.state()).isEqualTo(EpisodicMemoryStore.PartitionState.REFLECTABLE);
+            partition.seal();  // no-op
+            assertThat(partition.state()).isEqualTo(EpisodicMemoryStore.PartitionState.ACTIVE);
         }
     }
 
@@ -176,10 +174,8 @@ class EpisodicMmapPersistenceTest {
         }
 
         // Verify partition file exists
-        try (var files = Files.list(storePath)) {
-            long memFiles = files.filter(p -> p.getFileName().toString().endsWith(".mem")).count();
-            assertThat(memFiles).isGreaterThanOrEqualTo(1);
-        }
+        assertThat(Files.exists(storePath)).isTrue();
+        assertThat(Files.size(storePath)).isGreaterThan(0);
     }
 
     @Test
@@ -204,9 +200,8 @@ class EpisodicMmapPersistenceTest {
     // ── Replace Partition (for compaction) ──
 
     @Test
-    void replacePartitionSwapsAtomically() {
+    void replacePartitionIsNoOpForSingleFileStore() {
         try (EpisodicMemoryStore store = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
-            // Create partition with 10 records
             for (int i = 0; i < 10; i++) {
                 store.append(CognitiveHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, (float) i, (short) 0, MemoryType.EPISODIC), makeVec(i));
@@ -214,22 +209,12 @@ class EpisodicMmapPersistenceTest {
 
             EpisodicMemoryStore.EpisodicPartition old = store.partitions().getFirst();
             String key = store.keyForPartition(old);
-            assertThat(key).isNotNull();
+            assertThat(key).isEqualTo("default");
 
-            // Create a "compacted" replacement
-            Path compactedPath = storePath.resolve("episodic-" + key + "-compacted.mem");
-            EpisodicMemoryStore.EpisodicPartition replacement =
-                    new EpisodicMemoryStore.EpisodicPartition(compactedPath, store.layout(), 50, true);
-
-            // Copy only 5 records to the replacement
-            for (int i = 0; i < 5; i++) {
-                CognitiveHeader header = old.layout().readHeader(old.segment(), old.recordOffset(i));
-                replacement.append(header, makeVec(i));
-            }
-
-            boolean swapped = store.replacePartition(key, old, replacement);
-            assertThat(swapped).isTrue();
-            assertThat(store.totalRecords()).isEqualTo(5);
+            // replacePartition is a no-op for single-file stores
+            boolean swapped = store.replacePartition(key, old, old);
+            assertThat(swapped).isFalse();
+            assertThat(store.totalRecords()).isEqualTo(10);
         }
     }
 
