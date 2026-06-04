@@ -45,6 +45,7 @@ import com.spectrayan.spector.core.similarity.SimilarityFunction;
  * @param spectrumNCentroids number of IVF centroids for SPECTRUM index (0 = auto: 4×√capacity)
  * @param spectrumNProbe     number of centroids to probe at query time for SPECTRUM (0 = auto: 16)
  * @param spectrumShardThreshold shard size at which flat scan promotes to HNSW (0 = auto: 20000)
+ * @param nodesPerShard      override for vector shard size (0 = use {@link #DEFAULT_NODES_PER_SHARD})
  */
 public record SpectorConfig(
         int dimensions,
@@ -66,7 +67,8 @@ public record SpectorConfig(
         int oversamplingFactor,
         int spectrumNCentroids,
         int spectrumNProbe,
-        int spectrumShardThreshold
+        int spectrumShardThreshold,
+        int nodesPerShard
 ) {
     /** Default: 384-dim embeddings, 100K capacity, cosine similarity, HNSW, no quantization, in-memory. */
     public static final SpectorConfig DEFAULT =
@@ -74,7 +76,7 @@ public record SpectorConfig(
                     QuantizationType.NONE, PersistenceMode.IN_MEMORY, null,
                     IndexType.HNSW, 0, 0, 0,
                     false, false, null, null, 20, 0,
-                    0, 0, 0);
+                    0, 0, 0, 0);
 
     /**
      * Creates a {@link SpectorConfig} from hierarchical properties.
@@ -112,7 +114,8 @@ public record SpectorConfig(
                 engine.oversamplingFactor(),
                 spectrum.nCentroids(),
                 spectrum.nProbe(),
-                spectrum.shardThreshold()
+                spectrum.shardThreshold(),
+                0  // nodesPerShard: use default
         );
     }
 
@@ -123,7 +126,7 @@ public record SpectorConfig(
                 QuantizationType.NONE, PersistenceMode.IN_MEMORY, null,
                 IndexType.HNSW, 0, 0, 0,
                 false, false, null, null, 20, 0,
-                0, 0, 0);
+                0, 0, 0, 0);
     }
 
     /** Pre-quantization constructor (HNSW, in-memory). */
@@ -135,7 +138,7 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 IndexType.HNSW, 0, 0, 0,
                 false, false, null, null, 20, 0,
-                0, 0, 0);
+                0, 0, 0, 0);
     }
 
     /** Pre-IVF-PQ constructor (no GPU, no reranker). */
@@ -148,7 +151,7 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 false, false, null, null, 20, 0,
-                0, 0, 0);
+                0, 0, 0, 0);
     }
 
     public SpectorConfig {
@@ -176,7 +179,8 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodesPerShard);
     }
 
     /** Builder-style with custom capacity. */
@@ -185,7 +189,8 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodesPerShard);
     }
 
     /** Builder-style with custom similarity function. */
@@ -194,7 +199,8 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodesPerShard);
     }
 
     /** Builder-style with quantization type. */
@@ -203,7 +209,8 @@ public record SpectorConfig(
                 qt, persistenceMode, dataDirectory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodesPerShard);
     }
 
     /** Builder-style with persistence mode and data directory. */
@@ -212,7 +219,8 @@ public record SpectorConfig(
                 quantization, mode, directory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodesPerShard);
     }
 
     /**
@@ -227,7 +235,7 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 IndexType.IVF_PQ, nlist, nprobe, subspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, 0, 0, 0);
+                oversamplingFactor, 0, 0, 0, nodesPerShard);
     }
 
     /** Builder-style to switch to IVF-PQ index with auto parameters. */
@@ -249,7 +257,8 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 enabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodesPerShard);
     }
 
     /**
@@ -264,7 +273,8 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, true, ollamaUrl, model, maxCandidates,
-                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodesPerShard);
     }
 
     /**
@@ -293,7 +303,7 @@ public record SpectorConfig(
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
                 Math.max(1, oversamplingFactor),
-                spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                spectrumNCentroids, spectrumNProbe, spectrumShardThreshold, nodesPerShard);
     }
 
     /** Builder-style to enable SVASQ with the default oversampling factor (3). */
@@ -315,7 +325,7 @@ public record SpectorConfig(
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
                 Math.max(1, oversamplingFactor),
-                spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                spectrumNCentroids, spectrumNProbe, spectrumShardThreshold, nodesPerShard);
     }
 
     /** Builder-style to enable SVASQ-4 with the default oversampling factor (3). */
@@ -341,7 +351,8 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 indexType, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold);
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodesPerShard);
     }
 
     /**
@@ -360,7 +371,7 @@ public record SpectorConfig(
                 quantization, persistenceMode, dataDirectory,
                 IndexType.SPECTRUM, ivfNlist, ivfNprobe, pqSubspaces,
                 gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
-                oversamplingFactor, nCentroids, nProbe, shardThreshold);
+                oversamplingFactor, nCentroids, nProbe, shardThreshold, nodesPerShard);
     }
 
     /** Builder-style to switch to SPECTRUM index with auto parameters. */
@@ -439,6 +450,24 @@ public record SpectorConfig(
      * @return nodes per shard
      */
     public int effectiveNodesPerShard() {
-        return DEFAULT_NODES_PER_SHARD;
+        return nodesPerShard > 0 ? nodesPerShard : DEFAULT_NODES_PER_SHARD;
+    }
+
+    /**
+     * Builder-style to set custom nodes-per-shard for vector store sharding.
+     *
+     * <p>In memory mode, a smaller value (e.g., 5000) prevents the engine from
+     * pre-allocating a massive mmap file upfront. Each shard file will be
+     * {@code nodesPerShard × dimensions × 4 bytes}.</p>
+     *
+     * @param nodes number of vectors per shard file (0 = use default)
+     */
+    public SpectorConfig withNodesPerShard(int nodes) {
+        return new SpectorConfig(dimensions, capacity, similarityFunction, hnswParams,
+                quantization, persistenceMode, dataDirectory,
+                indexType, ivfNlist, ivfNprobe, pqSubspaces,
+                gpuEnabled, rerankerEnabled, rerankerOllamaUrl, rerankerModel, rerankerMaxCandidates,
+                oversamplingFactor, spectrumNCentroids, spectrumNProbe, spectrumShardThreshold,
+                nodes);
     }
 }

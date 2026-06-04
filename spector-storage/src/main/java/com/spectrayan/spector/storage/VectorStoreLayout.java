@@ -90,6 +90,18 @@ public record VectorStoreLayout(int dimensions) {
     }
 
     /**
+     * Returns the total byte size needed for a partition file that stores
+     * {@code count} vectors, including the {@link PartitionMetadata#HEADER_BYTES}
+     * metadata header.
+     *
+     * @param count number of vectors
+     * @return total partition file size in bytes
+     */
+    public long partitionByteSize(int count) {
+        return PartitionMetadata.HEADER_BYTES + totalByteSize(count);
+    }
+
+    /**
      * Writes a float array into the segment at the given vector index.
      *
      * @param segment the memory segment

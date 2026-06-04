@@ -35,6 +35,8 @@ import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHead
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
+import com.spectrayan.spector.memory.cortex.TextDataStore;
 import com.spectrayan.spector.storage.VectorStore;
 
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
@@ -103,6 +105,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final EntityExtractor entityExtractor;
     private final EntityGraph entityGraph;
 
+    // ── BM25 Text Search (nullable — graceful degradation) ──
+    private final MemoryBM25Index bm25Index;
+    private final TextDataStore textDataStore;
+    private final int activePartitionIndex;
+
     // ── Session tracking for Hebbian co-ingestion and temporal chains ──
     private final AtomicInteger lastIngestedMemoryIdx = new AtomicInteger(-1);
     private volatile int currentSessionId = 0;
@@ -122,7 +129,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HebbianGraph hebbianGraph,
                                      TemporalChain temporalChain,
                                      EntityExtractor entityExtractor,
-                                     EntityGraph entityGraph) {
+                                     EntityGraph entityGraph,
+                                     MemoryBM25Index bm25Index,
+                                     TextDataStore textDataStore,
+                                     int activePartitionIndex) {
         this.quantizer = quantizer;
         this.surpriseDetector = surpriseDetector;
         this.flashbulbPolicy = flashbulbPolicy;
@@ -139,6 +149,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.temporalChain = temporalChain;
         this.entityExtractor = entityExtractor;
         this.entityGraph = entityGraph;
+        this.bm25Index = bm25Index;
+        this.textDataStore = textDataStore;
+        this.activePartitionIndex = activePartitionIndex;
     }
 
     /**
@@ -158,7 +171,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this(quantizer, surpriseDetector, flashbulbPolicy, tierRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 vectorStore, tagExtractor, true,
-                null, null, null, null);
+                null, null, null, null,
+                null, null, -1);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -293,6 +307,22 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Step 9: WAL append
         wal.appendRemember(id, quantized);
+
+        // Step 9a: Index text for BM25 hybrid search
+        if (textDataStore != null) {
+            try {
+                textDataStore.write(id, type, text);
+            } catch (RuntimeException e) {
+                log.warn("Failed to write text.dat entry for '{}': {}", id, e.getMessage());
+            }
+        }
+        if (bm25Index != null && activePartitionIndex >= 0) {
+            try {
+                bm25Index.index(activePartitionIndex, id, text);
+            } catch (RuntimeException e) {
+                log.warn("Failed to index '{}' in BM25: {}", id, e.getMessage());
+            }
+        }
 
         // Step 9b: Hebbian edge strengthening (co-ingestion within session)
         int memoryIdx = index.size() - 1; // approximate index of this memory

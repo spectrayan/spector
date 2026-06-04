@@ -80,7 +80,11 @@ public record RecallOptions(
         // ── Two-Factor Memory (Bjork & Bjork) ──
         com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig,
         // ── Recall Mode (Statefulness Control) ──
-        RecallMode recallMode
+        RecallMode recallMode,
+        // ── Text Search (BM25 Hybrid) ──
+        float gamma,
+        boolean enableTextSearch,
+        TextSearchMode textSearchMode
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -108,6 +112,11 @@ public record RecallOptions(
         private float beta = 0.4f;   // importance × decay weight
         private float tagRelevanceBoost = 0.3f;  // weighted tag overlap boost
         private int semanticCandidateMultiplier = 3; // HNSW over-fetch for semantic
+
+        // ── Text Search (BM25 Hybrid) ──
+        private float gamma = 0.3f;                             // BM25 weight in fused score
+        private boolean enableTextSearch = true;                 // enable BM25 parallel path
+        private TextSearchMode textSearchMode = TextSearchMode.HYBRID; // search mode
 
         // ── Neurodivergent: Hyperfocus ──
         private long hyperfocusMask = 0L;       // 0 = disabled
@@ -349,6 +358,35 @@ public record RecallOptions(
             return this;
         }
 
+        // ── Text Search (BM25 Hybrid) ──
+
+        /**
+         * BM25 weight in the fused cognitive score (default: 0.3).
+         * Higher values give more weight to keyword matches.
+         */
+        public Builder gamma(float gamma) {
+            this.gamma = gamma;
+            return this;
+        }
+
+        /**
+         * Enables/disables the BM25 text search parallel path (default: true).
+         */
+        public Builder enableTextSearch(boolean enable) {
+            this.enableTextSearch = enable;
+            return this;
+        }
+
+        /**
+         * Sets the text search mode (default: {@link TextSearchMode#HYBRID}).
+         *
+         * @see TextSearchMode
+         */
+        public Builder textSearchMode(TextSearchMode mode) {
+            this.textSearchMode = mode;
+            return this;
+        }
+
         public RecallOptions build() {
             int effectiveLateralMax = lateralMaxResults >= 0
                     ? lateralMaxResults
@@ -360,7 +398,8 @@ public record RecallOptions(
                     lateralMode, lateralDistanceThreshold,
                     effectiveLateralMax, lateralMinTagOverlap,
                     strictnessCoefficient, queryValence, enableValenceAlignment,
-                    twoFactorConfig, recallMode);
+                    twoFactorConfig, recallMode,
+                    gamma, enableTextSearch, textSearchMode);
             return options;
         }
     }
@@ -416,6 +455,14 @@ public record RecallOptions(
         if (Math.abs(sum - 1.0f) > 0.01f) {
             String msg = "alpha (" + alpha + ") + beta (" + beta + ") = " + sum
                     + " — scoring weights don't sum to 1.0. Scores may be unnormalized.";
+            warnings.add(msg);
+            VALIDATION_LOG.warning(msg);
+        }
+
+        // 4. gamma out of useful range
+        if (gamma < 0.0f || gamma > 2.0f) {
+            String msg = "gamma (" + gamma + ") is outside the useful range [0.0, 2.0]. "
+                    + "BM25 scoring may produce unexpected results.";
             warnings.add(msg);
             VALIDATION_LOG.warning(msg);
         }

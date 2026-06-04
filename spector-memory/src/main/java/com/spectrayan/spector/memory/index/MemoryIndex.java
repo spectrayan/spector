@@ -202,6 +202,35 @@ public final class MemoryIndex {
         return locations;
     }
 
+    /**
+     * Returns a map of memory ID → text for all memories in the specified partition.
+     *
+     * <p>Used on startup to rebuild per-partition BM25 indexes from text data.
+     * Filters the global text map by partition index.</p>
+     *
+     * @param partitionIndex the partition index to filter by
+     * @return map of id → text for that partition (may be empty)
+     */
+    public Map<String, String> textsByPartition(int partitionIndex) {
+        Map<String, String> result = new java.util.HashMap<>();
+        for (Map.Entry<String, MemoryLocation> entry : locations.entrySet()) {
+            if (entry.getValue().partitionIndex() == partitionIndex) {
+                String text = texts.get(entry.getKey());
+                if (text != null) {
+                    result.put(entry.getKey(), text);
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Returns the total number of indexed memories (alias for quota enforcement).
+     */
+    public int totalCount() {
+        return locations.size();
+    }
+
     // ══════════════════════════════════════════════════════════════
     // PERSISTENCE: save / load
     // ══════════════════════════════════════════════════════════════
