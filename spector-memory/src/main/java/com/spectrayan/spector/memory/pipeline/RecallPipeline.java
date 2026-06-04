@@ -30,7 +30,11 @@ import com.spectrayan.spector.memory.MemoryType;
 import com.spectrayan.spector.memory.RecallMode;
 import com.spectrayan.spector.memory.RecallOptions;
 import com.spectrayan.spector.memory.ScoreBreakdown;
+import com.spectrayan.spector.memory.TextSearchMode;
+import com.spectrayan.spector.memory.cortex.AbstractTierStore;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore.EpisodicPartition;
+import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
+import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.TierRouter;
@@ -127,6 +131,9 @@ public final class RecallPipeline {
     private final EntityGraph entityGraph;
     private final EntityExtractor entityExtractor;
 
+    // ── BM25 Text Search (nullable — graceful degradation) ──
+    private final MemoryBM25Index bm25Index;
+
     // ── Neurodivergent: Lateral feedback tracking ──
     // Maps memoryId → RetrievalMode for the most recent recall.
     // Used by SpectorMemory.reinforce()/suppress() to feed LateralEvaluator.
@@ -163,7 +170,7 @@ public final class RecallPipeline {
                            float[] calibrationScales) {
         this(embeddingProvider, tierRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales, null, null,
-                null, null, null, null, GraphScoringPolicy.DEFAULT);
+                null, null, null, null, GraphScoringPolicy.DEFAULT, null);
     }
 
     /**
@@ -185,7 +192,7 @@ public final class RecallPipeline {
         this(embeddingProvider, tierRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, null,
-                null, null, null, null, GraphScoringPolicy.DEFAULT);
+                null, null, null, null, GraphScoringPolicy.DEFAULT, null);
     }
 
     /**
@@ -209,7 +216,7 @@ public final class RecallPipeline {
         this(embeddingProvider, tierRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker,
-                null, null, null, null, GraphScoringPolicy.DEFAULT);
+                null, null, null, null, GraphScoringPolicy.DEFAULT, null);
     }
 
     /**
@@ -230,7 +237,8 @@ public final class RecallPipeline {
                            TemporalChain temporalChain,
                            EntityGraph entityGraph,
                            EntityExtractor entityExtractor,
-                           GraphScoringPolicy graphScoringPolicy) {
+                           GraphScoringPolicy graphScoringPolicy,
+                           MemoryBM25Index bm25Index) {
         this.embeddingProvider = embeddingProvider;
         this.tierRouter = tierRouter;
         this.index = index;
@@ -247,6 +255,7 @@ public final class RecallPipeline {
         this.entityGraph = entityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
+        this.bm25Index = bm25Index;
     }
 
     /**
@@ -313,6 +322,19 @@ public final class RecallPipeline {
                 Thread.currentThread().interrupt();
                 log.warn("Recall interrupted during parallel scan");
                 return allResults;
+            }
+        }
+
+        // Step 3b: BM25 text search — parallel to tier scans
+        if (bm25Index != null && options.enableTextSearch()
+                && options.textSearchMode() != TextSearchMode.VECTOR_ONLY) {
+            try {
+                List<BM25Candidate> bm25Hits = bm25Index.search(queryText, options.topK() * 2);
+                if (!bm25Hits.isEmpty()) {
+                    fuseBM25Candidates(allResults, bm25Hits, options, nowMs);
+                }
+            } catch (RuntimeException e) {
+                log.warn("BM25 search failed, continuing with vector-only results", e);
             }
         }
 
@@ -570,6 +592,90 @@ public final class RecallPipeline {
     }
 
     // ══════════════════════════════════════════════════════════════
+    // BM25 FUSION — merges keyword results with vector results
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Fuses BM25 text search candidates with existing vector recall results.
+     *
+     * <p>Three cases:</p>
+     * <ol>
+     *   <li><b>Both paths</b>: vector result gets a γ·bm25Score additive boost</li>
+     *   <li><b>BM25-only</b>: creates a new CognitiveResult with score = γ·bm25Score</li>
+     *   <li><b>Vector-only</b>: unmodified (no BM25 boost)</li>
+     * </ol>
+     *
+     * @param vectorResults mutable list of existing vector recall results (modified in-place)
+     * @param bm25Hits      BM25 search candidates from all partitions
+     * @param options       recall options (for gamma weight)
+     * @param nowMs         current time for age calculation
+     */
+    private void fuseBM25Candidates(List<CognitiveResult> vectorResults,
+                                     List<BM25Candidate> bm25Hits,
+                                     RecallOptions options, long nowMs) {
+        float gamma = options.gamma();
+
+        // Index existing vector results by ID for O(1) lookup
+        Map<String, Integer> existingById = new java.util.HashMap<>(vectorResults.size());
+        for (int i = 0; i < vectorResults.size(); i++) {
+            CognitiveResult r = vectorResults.get(i);
+            if (r.id() != null) {
+                existingById.put(r.id(), i);
+            }
+        }
+
+        for (BM25Candidate bm25 : bm25Hits) {
+            Integer existingIdx = existingById.get(bm25.id());
+
+            if (existingIdx != null) {
+                // Case 1: Found by both vector AND BM25 — boost the existing result
+                CognitiveResult existing = vectorResults.get(existingIdx);
+                float boostedScore = existing.score() + gamma * bm25.bm25Score();
+
+                ScoreBreakdown bd = existing.breakdown();
+                ScoreBreakdown newBd = bd != null
+                        ? new ScoreBreakdown(
+                                bd.similarity(), bd.importanceDecay(), bd.tagBoostFactor(),
+                                bd.habituationPenalty(), bd.graphBoost(), bd.valenceAlignment(),
+                                boostedScore)
+                        : null;
+
+                vectorResults.set(existingIdx, new CognitiveResult(
+                        existing.id(), existing.text(), boostedScore, existing.importance(),
+                        existing.ageDays(), existing.recallCount(), existing.valence(),
+                        existing.memoryType(), existing.source(), existing.synapticTags(),
+                        existing.decayFactor(), existing.ltpAdjustedDecay(),
+                        existing.retrievalMode(), newBd));
+
+            } else {
+                // Case 2: BM25-only — create a new result from index metadata
+                String text = index.text(bm25.id());
+                if (text == null || text.isEmpty()) continue;
+
+                MemorySource source = index.source(bm25.id());
+                String[] tags = index.tags(bm25.id());
+
+                // Infer memory type from location
+                MemoryIndex.MemoryLocation loc = index.locate(bm25.id());
+                MemoryType type = loc != null ? loc.type() : MemoryType.SEMANTIC;
+
+                float bm25Score = gamma * bm25.bm25Score();
+
+                vectorResults.add(new CognitiveResult(
+                        bm25.id(), text, bm25Score, 0f, 0f,
+                        (short) 0, (byte) 0, type, source,
+                        tags, 1.0f, 1.0f));
+
+                // Track for dedup
+                existingById.put(bm25.id(), vectorResults.size() - 1);
+            }
+        }
+
+        log.debug("Fused {} BM25 candidates (gamma={}), total results now: {}",
+                bm25Hits.size(), gamma, vectorResults.size());
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // PARALLEL SCANNING — builds Callable tasks for each tier/partition
     // ══════════════════════════════════════════════════════════════
 
@@ -607,7 +713,8 @@ public final class RecallPipeline {
                     if (partition.store().size() > 0) {
                         tasks.add(() -> scoreHeaderSlabToList(
                                 partition.headerSlab(), partition.store().size(),
-                                partition.store().layout(), queryVector, options, nowMs));
+                                partition.store().layout(), queryVector, options, nowMs,
+                                partition.store().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0));
                     }
                 }
             } else if (tierRouter.semantic() != null && tierRouter.semantic().size() > 0) {
@@ -615,10 +722,11 @@ public final class RecallPipeline {
                     // Fused pipeline: HNSW search → cognitive re-ranking
                     tasks.add(() -> semanticRecallStrategy.recall(queryVector, options, nowMs));
                 } else {
-                    // Fallback: header-only slab scan (with tag/valence filters)
+                    // Fallback: full-record slab scan (with tag/valence filters)
                     tasks.add(() -> scoreHeaderSlabToList(
                             tierRouter.semantic().headerSlab(), tierRouter.semantic().size(),
-                            tierRouter.semantic().layout(), queryVector, options, nowMs));
+                            tierRouter.semantic().layout(), queryVector, options, nowMs,
+                            tierRouter.semantic().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0));
                 }
             }
         }
@@ -662,7 +770,8 @@ public final class RecallPipeline {
                     if (partition.store().size() > 0) {
                         results.addAll(scoreHeaderSlabToList(partition.headerSlab(),
                                 partition.store().size(), partition.store().layout(),
-                                queryVector, options, nowMs));
+                                queryVector, options, nowMs,
+                                partition.store().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0));
                     }
                 }
             } else if (tierRouter.semantic() != null && tierRouter.semantic().size() > 0) {
@@ -671,7 +780,8 @@ public final class RecallPipeline {
                 } else {
                     results.addAll(scoreHeaderSlabToList(tierRouter.semantic().headerSlab(),
                             tierRouter.semantic().size(), tierRouter.semantic().layout(),
-                            queryVector, options, nowMs));
+                            queryVector, options, nowMs,
+                            tierRouter.semantic().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0));
                 }
             }
         }
@@ -706,7 +816,8 @@ public final class RecallPipeline {
 
     private List<CognitiveResult> scoreHeaderSlabToList(MemorySegment headerSlab, int recordCount,
                                                           CognitiveRecordLayout layout, float[] queryVector,
-                                                          RecallOptions options, long nowMs) {
+                                                          RecallOptions options, long nowMs,
+                                                          long dataOffset) {
         long queryTagMask = options.synapticTagMask();
         byte minValence = options.minValence();
         byte maxValence = options.maxValence();
@@ -714,7 +825,7 @@ public final class RecallPipeline {
 
         List<CognitiveResult> results = new ArrayList<>();
         for (int i = 0; i < recordCount; i++) {
-            long offset = (long) i * layout.headerLayout().headerBytes();
+            long offset = dataOffset + (long) i * layout.stride();
             CognitiveHeader header = layout.readHeader(headerSlab, offset);
 
             byte flags = header.flags();

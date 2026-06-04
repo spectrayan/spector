@@ -164,8 +164,32 @@ public final class PartitionedSemanticStore implements TierStore {
 
     @Override
     public long write(CognitiveHeader header, byte[] quantizedVec) {
-        int globalIndex = store(header);
-        return globalIndex;
+        rollLock.readLock().lock();
+        try {
+            SemanticPartition active = activePartition;
+            if (active.isFull()) {
+                // Upgrade to write lock for rolling
+                rollLock.readLock().unlock();
+                rollLock.writeLock().lock();
+                try {
+                    // Double-check after acquiring write lock
+                    if (activePartition.isFull()) {
+                        rollNewPartition();
+                    }
+                    active = activePartition;
+                } finally {
+                    // Downgrade to read lock
+                    rollLock.readLock().lock();
+                    rollLock.writeLock().unlock();
+                }
+            }
+
+            active.store().append(header, quantizedVec);
+            int localIndex = active.store().size() - 1;
+            return active.globalOffset() + localIndex;
+        } finally {
+            rollLock.readLock().unlock();
+        }
     }
 
     // ─────────────── Reads ───────────────
