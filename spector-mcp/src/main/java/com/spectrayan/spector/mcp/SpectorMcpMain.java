@@ -100,6 +100,53 @@ public class SpectorMcpMain {
             propsBuilder.override("spector.engine.persistence-mode", "DISK");
         }
 
+        // Namespace isolation (multi-tenant memory spaces)
+        String cliNamespace = getStringArg(args, "--namespace", null);
+        if (cliNamespace != null) {
+            propsBuilder.override("spector.memory.namespace", cliNamespace);
+            log.info("[Spector MCP] Namespace: {}", cliNamespace);
+        }
+
+        // OpenClaw mode: auto-configure for optimal OpenClaw integration
+        String mode = getStringArg(args, "--mode", null);
+        if ("openclaw".equalsIgnoreCase(mode)) {
+            propsBuilder.override("spector.mode", "memory");
+            propsBuilder.override("spector.memory.enabled", "true");
+            propsBuilder.override("spector.engine.persistence-mode", "DISK");
+            propsBuilder.override("spector.memory.persistence-mode", "DISK");
+            // Default data directory if not explicitly set
+            if (cliDataDir == null && getStringArg(args, "--config", null) == null) {
+                String openclawDataDir = System.getProperty("user.home")
+                        + "/.openclaw/spector/data";
+                propsBuilder.override("spector.engine.data-directory",
+                        openclawDataDir + "/index");
+                propsBuilder.override("spector.memory.persistence-path",
+                        openclawDataDir + "/memory");
+            }
+            log.info("[Spector MCP] OpenClaw mode: memory enabled, disk persistence");
+        }
+
+        // Odysseus mode: auto-configure for Odysseus AI workspace integration
+        if ("odysseus".equalsIgnoreCase(mode)) {
+            propsBuilder.override("spector.mode", "memory");
+            propsBuilder.override("spector.memory.enabled", "true");
+            propsBuilder.override("spector.engine.persistence-mode", "DISK");
+            propsBuilder.override("spector.memory.persistence-mode", "DISK");
+            // Default data directory if not explicitly set
+            if (cliDataDir == null && getStringArg(args, "--config", null) == null) {
+                String odysseusDataDir = System.getProperty("user.home")
+                        + "/.odysseus/spector/data";
+                propsBuilder.override("spector.engine.data-directory",
+                        odysseusDataDir + "/index");
+                propsBuilder.override("spector.memory.persistence-path",
+                        odysseusDataDir + "/memory");
+            }
+            // Odysseus category → tier mapping: default ingestion to SEMANTIC
+            // (facts, contacts, preferences). EPISODIC for events via agent skill.
+            propsBuilder.override("spector.memory.default-ingestion-tier", "SEMANTIC");
+            log.info("[Spector MCP] Odysseus mode: memory enabled, disk persistence, SEMANTIC default tier");
+        }
+
         SpectorProperties props = propsBuilder.build();
 
         // ── Create embedding provider ──
@@ -189,6 +236,8 @@ public class SpectorMcpMain {
                   --ollama-model <NAME>  Ollama embedding model
                   --transport <MODE>     Transport mode: stdio (default) or http
                   --port <PORT>          HTTP port (default: 8080, only for --transport http)
+                  --mode <MODE>          Integration mode: standalone (default) or openclaw
+                  --namespace <NAME>     Memory namespace for multi-tenant isolation
                   --help, -h             Show this help message
                 
                 Config Hierarchy (highest priority wins):

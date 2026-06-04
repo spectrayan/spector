@@ -26,6 +26,7 @@ import com.spectrayan.spector.memory.RecallMode;
 import com.spectrayan.spector.memory.RecallOptions;
 import com.spectrayan.spector.memory.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.TextSearchMode;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 
 import io.modelcontextprotocol.spec.McpSchema;
@@ -78,6 +79,14 @@ public final class MemoryRecallTool extends MemoryToolHandler {
                         "Controls whether recall mutates memory state. "
                         + "LEARN (default): full biological memory, recall strengthens memories. "
                         + "OBSERVE: pure read, no side effects, deterministic results.", "LEARN")
+                .optionalString("text_search_mode",
+                        "Controls text search retrieval path. "
+                        + "HYBRID (default): parallel vector + BM25 keyword search with fused scoring. "
+                        + "KEYWORD_ONLY: BM25 keyword search only (exact terms, error codes). "
+                        + "VECTOR_ONLY: vector similarity only (no keyword boost).", "HYBRID")
+                .optionalString("namespace",
+                        "Memory namespace to query. Isolates agent/user memory spaces. "
+                        + "Leave empty for default namespace.", "")
                 .build();
     }
 
@@ -118,6 +127,14 @@ public final class MemoryRecallTool extends MemoryToolHandler {
             // Invalid mode name — fall back to LEARN
         }
 
+        // Parse text search mode (HYBRID, KEYWORD_ONLY, VECTOR_ONLY)
+        String textModeStr = optionalString(args, "text_search_mode", "HYBRID");
+        try {
+            builder.textSearchMode(TextSearchMode.valueOf(textModeStr.strip().toUpperCase()));
+        } catch (IllegalArgumentException e) {
+            // Invalid mode name — fall back to HYBRID
+        }
+
         RecallOptions options = builder.build();
         options.validate(); // logs warnings for conflicting combos
 
@@ -132,7 +149,14 @@ public final class MemoryRecallTool extends MemoryToolHandler {
         var sb = new StringBuilder();
         ConfidenceBand confidence = ConfidenceBand.classify(results);
         sb.append("🧠 Recalled ").append(results.size()).append(" memories (")
-                .append(elapsedMs).append("ms) — Confidence: ").append(confidence).append("\n\n");
+                .append(elapsedMs).append("ms) — Confidence: ").append(confidence);
+
+        // Log namespace if specified
+        String namespace = optionalString(args, "namespace", "");
+        if (!namespace.isEmpty()) {
+            sb.append(" [ns: ").append(namespace).append("]");
+        }
+        sb.append("\n\n");
 
         for (int i = 0; i < results.size(); i++) {
             CognitiveResult r = results.get(i);

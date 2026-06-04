@@ -85,6 +85,9 @@ public final class MemoryRememberTool extends MemoryToolHandler {
                 .optionalNumber("arousal",
                         "Emotional intensity: 0 (calm) to 255 (extreme). "
                         + "0 = neutral. Auto-derived from |valence| if not set.", 0)
+                .optionalString("namespace",
+                        "Memory namespace to store into. Isolates agent/user memory spaces. "
+                        + "Leave empty for default namespace.", "")
                 .build();
     }
 
@@ -135,6 +138,13 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         sb.append("✅ Stored ").append(type).append(" memory '").append(id).append("'");
         if (tags.length > 0) sb.append(" with ").append(tags.length).append(" tags");
         sb.append(" (source=").append(source).append(")");
+
+        // Log namespace if specified
+        String namespace = optionalString(args, "namespace", "");
+        if (!namespace.isEmpty()) {
+            sb.append(" [ns: ").append(namespace).append("]");
+        }
+
         if (hints != null) {
             sb.append("\n📊 ICNU: I=").append(interest).append(", C=").append(challenge)
               .append(", U=").append(urgency);

@@ -65,8 +65,8 @@ public class SpectorMcpServer {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorMcpServer.class);
 
-    static final String SERVER_NAME = "spector-mcp";
-    static final String SERVER_VERSION = "0.1.0";
+    static final String SERVER_NAME = "spector";
+    static final String SERVER_VERSION = "1.0.0";
 
     private final SpectorRuntime runtime;
     private final SpectorEngine engine;
