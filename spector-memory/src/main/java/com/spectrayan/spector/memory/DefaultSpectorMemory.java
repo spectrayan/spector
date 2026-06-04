@@ -25,9 +25,12 @@ import com.spectrayan.spector.memory.cortex.ProceduralMemoryStore;
 import com.spectrayan.spector.memory.cortex.PartitionedSemanticStore;
 import com.spectrayan.spector.memory.cortex.SemanticMemoryStore;
 import com.spectrayan.spector.memory.cortex.StorageMigrator;
+import com.spectrayan.spector.memory.cortex.PartitionLayoutMigrator;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
+import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
+import com.spectrayan.spector.memory.cortex.TextDataStore;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
@@ -60,6 +63,8 @@ import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
+import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
 
 import org.slf4j.Logger;
@@ -70,6 +75,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -141,12 +147,16 @@ public final class DefaultSpectorMemory implements SpectorMemory {
     private final int dimensions;
     private final MemoryPersistenceMode persistenceMode;
     private final Path persistencePath;
+    private final Path activePartitionDir;  // colocated partition dir for this instance
     private final CircadianPolicy circadianPolicy;
     private final CognitiveProfileConfig profileConfig;
     private final int temporalRetentionDays;
     private final com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig;
     private final ExecutorService virtualExecutor;
     private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
+
+    // ── Multi-Tenant Namespace ──
+    private final SpectorNamespaceManager namespaceManager;
 
     private DefaultSpectorMemory(Builder builder) {
         this.dimensions = builder.dimensions;
@@ -184,67 +194,108 @@ public final class DefaultSpectorMemory implements SpectorMemory {
             this.quantizer = ScalarQuantizer.fromBounds(dimensions, defaultMins, defaultMaxs);
         }
 
-        // ── Tier Stores → TierRouter ──
+        // ── Auto-migrate legacy layout → colocated partitions ──
+        if (isDisk && basePath != null) {
+            PartitionLayoutMigrator.migrate(basePath);
+        }
+
+        // ── Namespace Manager (multi-tenant isolation) ──
+        if (isDisk && basePath != null) {
+            this.namespaceManager = new SpectorNamespaceManager(basePath);
+            log.info("NamespaceManager initialized: {} namespaces discovered", namespaceManager.count());
+        } else {
+            this.namespaceManager = null;
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // COLOCATED PARTITION LAYOUT
+        // ══════════════════════════════════════════════════════════════
+        // In DISK mode, all tier stores and graphs live inside partition
+        // directories under basePath/partitions/NNN_epoch/. Global data
+        // (working memory, WAL, coactivation tracker) lives in basePath/global/.
+        //
+        // On a fresh start with no existing data, we create partition 000.
+
         int quantizedVecBytes = dimensions;
 
-        // Working memory: configurable persistence (default: volatile)
+        // ── Resolve the active partition directory (DISK mode) ──
+        Path resolvedPartitionDir = null;
+        if (isDisk && basePath != null) {
+            try {
+                // Ensure directory structure exists
+                java.nio.file.Files.createDirectories(StorageLayout.globalDir(basePath));
+                java.nio.file.Files.createDirectories(StorageLayout.partitionsDir(basePath));
+
+                // Discover existing partitions
+                resolvedPartitionDir = discoverOrCreatePartition(basePath);
+                log.info("Active partition: {}", resolvedPartitionDir.getFileName());
+            } catch (java.io.IOException e) {
+                log.error("Failed to initialize partition layout: {}", e.getMessage(), e);
+                resolvedPartitionDir = null;
+            }
+        }
+        this.activePartitionDir = resolvedPartitionDir;
+
+        // ── Working memory: always global (not partitioned) ──
         WorkingMemoryStore workingStore;
         if (isDisk && builder.persistWorkingMemory && basePath != null) {
             workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity,
-                    basePath.resolve("working.mem"));
+                    StorageLayout.workingMem(basePath));
         } else {
             workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity);
         }
 
-        // Episodic: always uses its own directory (already file-backed)
-        Path episodicPath;
-        if (basePath != null) {
-            episodicPath = basePath.resolve("episodic");
+        // ── Tier stores: created inside the active partition directory ──
+        if (isDisk && basePath != null && activePartitionDir != null) {
+            // Episodic: inside partition
+            Path episodicPath = StorageLayout.episodicMem(activePartitionDir);
+            EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
+                    episodicPath.getParent(), quantizedVecBytes, builder.episodicPartitionCapacity);
+
+            // Procedural: inside partition
+            ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
+                    quantizedVecBytes, builder.proceduralCapacity,
+                    StorageLayout.proceduralMem(activePartitionDir));
+
+            // Semantic: single file inside partition dir (partitioning is at directory level)
+            SemanticMemoryStore semanticStore = new SemanticMemoryStore(
+                    quantizedVecBytes, builder.semanticCapacity,
+                    StorageLayout.semanticMem(activePartitionDir));
+            this.tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
-            episodicPath = Path.of(System.getProperty("java.io.tmpdir"),
+            // IN_MEMORY mode: use standard in-memory stores
+            Path episodicPath = Path.of(System.getProperty("java.io.tmpdir"),
                     "spector-memory-" + ProcessHandle.current().pid() + "-" + System.nanoTime(),
                     "episodic");
-        }
-        EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
-                episodicPath, quantizedVecBytes, builder.episodicPartitionCapacity);
-
-        // Procedural: file-backed in DISK mode
-        ProceduralMemoryStore proceduralStore;
-        if (isDisk && basePath != null) {
-            proceduralStore = new ProceduralMemoryStore(quantizedVecBytes, builder.proceduralCapacity,
-                    basePath.resolve("procedural.mem"));
-        } else {
-            proceduralStore = new ProceduralMemoryStore(quantizedVecBytes, builder.proceduralCapacity);
-        }
-
-        // Semantic: partitioned in DISK mode, single-file otherwise
-        if (isDisk && basePath != null) {
-            // Auto-migrate from legacy single-file format if needed
-            StorageMigrator migrator = new StorageMigrator(quantizedVecBytes, builder.nodesPerPartition);
-            if (migrator.needsMigration(basePath)) {
-                log.info("Legacy semantic.mem detected — auto-migrating to partitioned format");
-                migrator.migrate(basePath);
-            }
-
-            Path semanticDir = basePath.resolve("semantic");
-            PartitionedSemanticStore partitionedStore = new PartitionedSemanticStore(
-                    quantizedVecBytes, builder.nodesPerPartition, semanticDir);
-            this.tierRouter = new TierRouter(workingStore, episodicStore, partitionedStore, proceduralStore);
-        } else {
-            SemanticMemoryStore semanticStore = new SemanticMemoryStore(quantizedVecBytes, builder.semanticCapacity);
+            EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
+                    episodicPath, quantizedVecBytes, builder.episodicPartitionCapacity);
+            ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
+                    quantizedVecBytes, builder.proceduralCapacity);
+            SemanticMemoryStore semanticStore = new SemanticMemoryStore(
+                    quantizedVecBytes, builder.semanticCapacity);
             this.tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         }
 
-        // ── Memory Index (load from disk if DISK mode and file exists) ──
-        if (isDisk && basePath != null) {
-            this.index = MemoryIndex.load(basePath.resolve("memory-index.mem"));
+        // ── Memory Index (load from partition or global, keeping backward compat) ──
+        if (isDisk && basePath != null && activePartitionDir != null) {
+            // Try partition-local index first, fall back to legacy global index
+            Path partitionIndex = StorageLayout.indexMidx(activePartitionDir);
+            Path legacyIndex = StorageLayout.legacyIndex(basePath);
+            if (java.nio.file.Files.exists(partitionIndex)) {
+                this.index = MemoryIndex.load(partitionIndex);
+            } else if (java.nio.file.Files.exists(legacyIndex)) {
+                this.index = MemoryIndex.load(legacyIndex);
+                log.info("Loaded legacy memory-index.mem — will save to partition on next close");
+            } else {
+                this.index = new MemoryIndex();
+            }
         } else {
             this.index = new MemoryIndex();
         }
 
-        // ── WAL (file-backed in DISK mode) ──
+        // ── WAL (file-backed in global/ directory) ──
         if (isDisk && basePath != null) {
-            this.wal = new MemoryWal(basePath.resolve("wal"));
+            this.wal = new MemoryWal(StorageLayout.walDir(basePath));
         } else {
             this.wal = new MemoryWal();
         }
@@ -253,10 +304,10 @@ public final class DefaultSpectorMemory implements SpectorMemory {
         SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
         FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
         this.valenceTracker = new ValenceTracker(builder.valenceLearningRate);
-        // CoActivationTracker: load from disk if available, else create fresh
+        // CoActivationTracker: global (load from global/ dir)
         if (isDisk && basePath != null) {
             this.coActivationTracker = CoActivationTracker.load(
-                    basePath.resolve("coactivation.tracker"), 10_000, 20_000);
+                    StorageLayout.coactivationTracker(basePath), 10_000, 20_000);
         } else {
             this.coActivationTracker = new CoActivationTracker();
         }
@@ -274,24 +325,28 @@ public final class DefaultSpectorMemory implements SpectorMemory {
                 builder.pinSourceEpisodes,
                 builder.pinnedQuota);
 
-        // ── 3-Layer Cognitive Graph ──
+        // ── 3-Layer Cognitive Graph (inside partition directory) ──
         int graphCapacity = builder.hebbianGraphCapacity > 0
                 ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
 
-        // HebbianGraph: load from disk if available, else create fresh
-        if (isDisk && basePath != null) {
+        // HebbianGraph: load from partition, fall back to legacy basePath
+        if (isDisk && basePath != null && activePartitionDir != null) {
+            Path partGraph = StorageLayout.hebbianGraph(activePartitionDir);
+            Path legacyGraph = basePath.resolve(StorageLayout.FILE_HEBBIAN);
             this.hebbianGraph = HebbianGraph.load(
-                    basePath.resolve("hebbian.graph"), graphCapacity);
+                    java.nio.file.Files.exists(partGraph) ? partGraph : legacyGraph, graphCapacity);
         } else {
             this.hebbianGraph = new HebbianGraph(graphCapacity);
         }
 
-        // TemporalChain: load from disk if available, else create fresh
+        // TemporalChain: load from partition, fall back to legacy basePath
         int temporalCapacity = builder.temporalChainCapacity > 0
                 ? builder.temporalChainCapacity : graphCapacity;
-        if (isDisk && basePath != null) {
+        if (isDisk && basePath != null && activePartitionDir != null) {
+            Path partChain = StorageLayout.temporalChain(activePartitionDir);
+            Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
             this.temporalChain = TemporalChain.load(
-                    basePath.resolve("temporal.chain"), temporalCapacity);
+                    java.nio.file.Files.exists(partChain) ? partChain : legacyChain, temporalCapacity);
         } else {
             this.temporalChain = new TemporalChain(temporalCapacity);
         }
@@ -314,9 +369,11 @@ public final class DefaultSpectorMemory implements SpectorMemory {
         if (entityEnabled) {
             int entityCap = builder.entityGraphCapacity;
             int edgeCap = entityCap * EntityGraph.MAX_DEGREE;
-            if (isDisk && basePath != null) {
+            if (isDisk && basePath != null && activePartitionDir != null) {
+                Path partEntity = StorageLayout.entityGraph(activePartitionDir);
+                Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);
                 this.entityGraph = EntityGraph.load(
-                        basePath.resolve("entity.graph"), entityCap, edgeCap);
+                        java.nio.file.Files.exists(partEntity) ? partEntity : legacyEntity, entityCap, edgeCap);
             } else {
                 this.entityGraph = new EntityGraph(entityCap, edgeCap);
             }
@@ -326,35 +383,106 @@ public final class DefaultSpectorMemory implements SpectorMemory {
 
         // ── Pipelines ──
         this.embeddingProvider = embeddingProvider;
+
+        // ── BM25 Text Search (inside partition directory) ──
+        MemoryBM25Index bm25Index;
+        TextDataStore textDataStore;
+        int activePartitionIndex;
+        if (isDisk && basePath != null && activePartitionDir != null) {
+            // text.dat inside partition
+            textDataStore = new TextDataStore(StorageLayout.textDat(activePartitionDir));
+            bm25Index = new MemoryBM25Index(1); // start with 1 partition
+
+            // Rebuild BM25 from MemoryIndex texts loaded from index
+            Map<String, String> allTexts = new java.util.HashMap<>();
+            for (var entry : index.locationMap().entrySet()) {
+                String text = index.text(entry.getKey());
+                if (text != null && !text.isEmpty()) {
+                    allTexts.put(entry.getKey(), text);
+                }
+            }
+            if (!allTexts.isEmpty()) {
+                bm25Index.rebuildPartition(0, allTexts);
+                log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
+            }
+            activePartitionIndex = 0;
+        } else {
+            // IN_MEMORY mode: still support BM25 for remember/recall within session
+            bm25Index = new MemoryBM25Index(1);
+            textDataStore = null;
+            activePartitionIndex = 0;
+        }
+
         this.cognitiveTarget = new CognitiveIngestionTarget(
                 quantizer, surpriseDetector, flashbulbPolicy,
                 tierRouter, index, wal, workingStore, builder.icnuWeights,
                 builder.semanticIndex, builder.vectorStore, builder.tagExtractor, true,
-                hebbianGraph, temporalChain, entityExtractor, entityGraph);
+                hebbianGraph, temporalChain, entityExtractor, entityGraph,
+                bm25Index, textDataStore, activePartitionIndex);
 
         // Build optional fused semantic recall strategy
         SemanticRecallStrategy semanticStrategy = null;
         if (builder.semanticIndex != null && tierRouter.semantic() != null) {
             semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, tierRouter.semantic(), index);
         }
-        // TODO: Phase 1b — add PartitionedSemanticRecallStrategy for partitioned mode
 
         this.recallPipeline = new RecallPipeline(
                 embeddingProvider, tierRouter, index,
                 suppressionSet, habituationPenalty, prospectiveScheduler, wal,
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
                 null, hebbianGraph, temporalChain, entityGraph, entityExtractor,
-                builder.graphScoringPolicy);
+                builder.graphScoringPolicy, bm25Index);
 
         // Register post-recall observers (Phase 6: Observer pattern)
         recallPipeline.addListener(new LtpReconsolidationListener(index, tierRouter, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
 
-        log.info("SpectorMemory initialized: dimensions={}, model={}, persistence={}, mode={}, quantizer={}",
+        log.info("SpectorMemory initialized: dimensions={}, model={}, persistence={}, mode={}, " +
+                 "partition={}, quantizer={}",
                 dimensions, embeddingProvider.modelName(),
                 basePath != null ? basePath : "in-memory",
                 persistenceMode,
+                activePartitionDir != null ? activePartitionDir.getFileName() : "none",
                 builder.quantizer != null ? "user-provided" : "identity-default");
+    }
+
+    /**
+     * Discovers existing partitions or creates partition 000 if none exist.
+     *
+     * @param basePath the memory persistence root
+     * @return path to the active (latest) partition directory
+     */
+    private static Path discoverOrCreatePartition(Path basePath) throws java.io.IOException {
+        Path partitionsDir = StorageLayout.partitionsDir(basePath);
+        java.nio.file.Files.createDirectories(partitionsDir);
+
+        // Scan for existing partition directories
+        Path latestPartition = null;
+        int maxSeq = -1;
+        try (var stream = java.nio.file.Files.newDirectoryStream(partitionsDir)) {
+            for (Path dir : stream) {
+                if (!java.nio.file.Files.isDirectory(dir)) continue;
+                String name = dir.getFileName().toString();
+                if (StorageLayout.isPartitionDir(name)) {
+                    int seq = StorageLayout.parsePartitionSeqNo(name);
+                    if (seq > maxSeq) {
+                        maxSeq = seq;
+                        latestPartition = dir;
+                    }
+                }
+            }
+        }
+
+        if (latestPartition != null) {
+            return latestPartition;
+        }
+
+        // No partitions found → create partition 000
+        long epochSecs = java.time.Instant.now().getEpochSecond();
+        Path newPartition = StorageLayout.partitionDir(basePath, 0, epochSecs);
+        java.nio.file.Files.createDirectories(newPartition);
+        log.info("Created initial partition: {}", newPartition.getFileName());
+        return newPartition;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -861,38 +989,49 @@ public final class DefaultSpectorMemory implements SpectorMemory {
     @Override public TemporalChain temporalChain() { return temporalChain; }
     @Override public EntityGraph entityGraph() { return entityGraph; }
 
+    /** Returns the namespace manager (null if IN_MEMORY mode). */
+    public SpectorNamespaceManager namespaceManager() { return namespaceManager; }
+
     @Override
     public void close() {
         log.info("SpectorMemory closing ({} total memories, mode={})", totalMemories(), persistenceMode);
 
-        // Save MemoryIndex to disk if DISK mode
+        // Save to partition directory (colocated layout) or legacy paths
         if (persistenceMode == MemoryPersistenceMode.DISK && persistencePath != null) {
+            // Determine save location: prefer partition dir, fall back to basePath
+            Path saveDir = activePartitionDir != null ? activePartitionDir : persistencePath;
+
             try {
-                index.save(persistencePath.resolve("memory-index.mem"));
+                // Index: save to partition-local index.midx
+                Path indexPath = activePartitionDir != null
+                        ? StorageLayout.indexMidx(activePartitionDir)
+                        : persistencePath.resolve(StorageLayout.LEGACY_FILE_INDEX);
+                index.save(indexPath);
             } catch (Exception e) {
                 log.error("Failed to save MemoryIndex on close: {}", e.getMessage(), e);
             }
 
-            // Save 3-Layer Cognitive Graph
+            // Save 3-Layer Cognitive Graph to partition
             try {
-                hebbianGraph.save(persistencePath.resolve("hebbian.graph"));
+                hebbianGraph.save(StorageLayout.hebbianGraph(saveDir));
             } catch (Exception e) {
                 log.error("Failed to save HebbianGraph on close: {}", e.getMessage(), e);
             }
             try {
-                temporalChain.save(persistencePath.resolve("temporal.chain"));
+                temporalChain.save(StorageLayout.temporalChain(saveDir));
             } catch (Exception e) {
                 log.error("Failed to save TemporalChain on close: {}", e.getMessage(), e);
             }
             if (entityGraph != null) {
                 try {
-                    entityGraph.save(persistencePath.resolve("entity.graph"));
+                    entityGraph.save(StorageLayout.entityGraph(saveDir));
                 } catch (Exception e) {
                     log.error("Failed to save EntityGraph on close: {}", e.getMessage(), e);
                 }
             }
+            // CoActivation tracker: always global
             try {
-                coActivationTracker.save(persistencePath.resolve("coactivation.tracker"));
+                coActivationTracker.save(StorageLayout.coactivationTracker(persistencePath));
             } catch (Exception e) {
                 log.error("Failed to save CoActivationTracker on close: {}", e.getMessage(), e);
             }

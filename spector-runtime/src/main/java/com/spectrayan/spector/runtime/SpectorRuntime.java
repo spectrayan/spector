@@ -125,13 +125,25 @@ public final class SpectorRuntime implements AutoCloseable {
         // In MEMORY mode the engine provides the shared HNSW index for semantic
         // recall. Use DISK persistence so the HNSW graph + VectorStore survive
         // restarts. Point engine data to .spector/index (sibling of memory path).
-        // Use the memory config's capacity so the HNSW can hold all semantic vectors.
+        //
+        // LAZY ALLOCATION: Use a small bootstrap capacity so the first shard
+        // file is only ~80 MB instead of 800 MB. ShardedMappedVectorStore
+        // creates new shards lazily as vectors are ingested.
         if (mode.memoryEnabled() && memoryEnabled) {
             java.nio.file.Path indexDir = memoryConfig.persistencePath()
                     .resolveSibling("index");
+            // Bootstrap with full capacity but small shard size for lazy allocation.
+            // The total capacity remains the same — ShardedMappedVectorStore will
+            // roll new shard files (each ~80 MB) on demand instead of pre-allocating
+            // the entire capacity upfront.
+            int lazyNodesPerShard = Math.min(5_000, memoryConfig.capacity());
             engineConfig = engineConfig
                     .withPersistence(PersistenceMode.DISK, indexDir)
-                    .withCapacity(memoryConfig.capacity());
+                    .withCapacity(memoryConfig.capacity())
+                    .withNodesPerShard(lazyNodesPerShard);
+            log.info("[Runtime] Memory mode: engine using lazy shard allocation " +
+                     "(nodesPerShard={}, total capacity={})",
+                     lazyNodesPerShard, memoryConfig.capacity());
         }
         SpectorEngine engine = new DefaultSpectorEngine(engineConfig, embedder);
         log.info("[Runtime] Engine: dims={}, index={}, persistence={}, dataDir={}, mode={}",
@@ -148,7 +160,7 @@ public final class SpectorRuntime implements AutoCloseable {
                     .embeddingProvider(embedder)
                     .persistenceMode(MemoryPersistenceMode.valueOf(memoryConfig.persistenceMode()))
                     .persistence(memoryConfig.persistencePath())
-                    .semanticCapacity(memoryConfig.capacity())
+                    .semanticCapacity(Math.min(5_000, memoryConfig.capacity()))
                     .nodesPerPartition(memoryConfig.nodesPerPartition());
 
             if (mode.memoryEnabled()) {
