@@ -213,12 +213,17 @@ public class MappedVectorStore implements VectorStore {
             if (!closed) {
                 closed = true;
                 try {
-                    // Force pending writes to disk
-                    segment.force();
+                    // Best-effort: unpin and unload before closing arena
                     if (segment.isMapped()) {
-                        com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(segment);
-                        segment.unload();
+                        try {
+                            com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(segment);
+                            segment.unload();
+                        } catch (Exception e) {
+                            log.debug("Best-effort unpin/unload failed (safe to ignore): {}", e.getMessage());
+                        }
                     }
+                    // Force pending writes, then close resources
+                    try { segment.force(); } catch (Exception ignored) { }
                     arena.close();
                     channel.close();
                     raf.close();
