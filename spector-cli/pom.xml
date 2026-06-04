@@ -48,7 +48,6 @@
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-embed-ollama</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <!-- Jackson for JSON parsing -->

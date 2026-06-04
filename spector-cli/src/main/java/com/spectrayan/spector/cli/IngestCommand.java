@@ -23,6 +23,8 @@ import com.spectrayan.spector.client.model.IngestResponse;
 import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
 import com.spectrayan.spector.ingestion.EmbeddingProviderFactory;
 import com.spectrayan.spector.runtime.IngestionHandler;
 import com.spectrayan.spector.runtime.SpectorRuntime;
@@ -157,8 +159,20 @@ class IngestCommand extends BaseCommand {
         propsBuilder.override("spector.memory.dimensions", String.valueOf(dims));
         props = propsBuilder.build();
 
+        // ── Create text generation provider for LLM tag extraction (if configured) ──
+        TextGenerationProvider textGenProvider = null;
+        var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
+        if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
+            String tagModel = memoryConfig.tagExtractorModel();
+            if (tagModel == null || tagModel.isBlank()) {
+                tagModel = "qwen3:1.7b";
+            }
+            textGenProvider = OllamaLlmProvider.create(tagModel, embedConfig.baseUrl());
+            out().printf("[Tags] LLM extraction: %s @ %s%n", tagModel, embedConfig.baseUrl());
+        }
+
         // ── Create runtime + ingest ──
-        try (SpectorRuntime runtime = SpectorRuntime.from(props, embedder)) {
+        try (SpectorRuntime runtime = SpectorRuntime.from(props, embedder, textGenProvider)) {
             long startMs = System.currentTimeMillis();
 
             var results = runtime.ingestion().ingest(
