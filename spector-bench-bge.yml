@@ -1,0 +1,46 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Spector — BEIR Benchmark Configuration (BGE-large, 1024 dims)
+# ═══════════════════════════════════════════════════════════════════════
+# Separate data directory per embedding model to keep vectors isolated.
+# ═══════════════════════════════════════════════════════════════════════
+
+spector:
+  mode: memory
+
+  engine:
+    dimensions: 1024
+    capacity: 1000
+    similarity: COSINE
+    index-type: HNSW
+    persistence-mode: DISK
+    data-directory: D:\git\spector-search\.spector-bench-bge\index
+
+  embedding:
+    model: bge-large
+    base-url: http://localhost:11434
+    timeout: 120s
+    batch-size: 32
+
+  memory:
+    enabled: true
+    persistence-mode: DISK
+    persistence-path: D:\git\spector-search\.spector-bench-bge\memory
+    dimensions: 1024
+    capacity: 15000   # Same as qwen3 config — 1200-char chunks produce ~13K chunks
+    decay-enabled: false
+    consolidation-interval: 600s
+    default-ingestion-tier: SEMANTIC
+    hnsw-prefilter: auto
+    tag-extractor: none
+
+  hnsw:
+    m: 16
+    ef-construction: 200
+    ef-search: 200
+
+  ingestion:
+    root: D:\git\spector-search\datasets\scifact\corpus-txt
+    pattern: "**/*.txt"
+    chunk-size: 1200
+    chunk-overlap: 400
+    threads: 4
