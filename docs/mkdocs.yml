@@ -121,7 +121,7 @@ nav:
           - "Use Cases & Configuration": memory/use-cases.md
           - API Reference: memory/api-reference.md
 
-  - Internals:
+  - Technical Reference:
       - Architecture:
           - System Overview: architecture/overview.md
           - Core Concepts: architecture/core-concepts.md
@@ -141,7 +141,7 @@ nav:
           - TurboQuant: deep-dives/turbo-quant.md
           - Real-Embedding Benchmarks: deep-dives/real-embedding-benchmarks.md
           - "Whitepaper: SVASQ + SpectorIndex": deep-dives/svasq-spectorindex-whitepaper.md
-      - Memory Internals:
+      - Cognitive Memory:
           - Architecture: memory/architecture.md
           - The 6-Phase Scoring Pipeline: memory/scoring-pipeline.md
           - Biological Systems:
