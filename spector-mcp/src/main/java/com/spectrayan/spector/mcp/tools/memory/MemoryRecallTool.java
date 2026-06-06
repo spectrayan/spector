@@ -199,7 +199,7 @@ public final class MemoryRecallTool extends MemoryToolHandler {
             if (r.synapticTags() != null && r.synapticTags().length > 0) {
                 sb.append("  synaptic_context: [").append(String.join(", ", r.synapticTags())).append("]\n");
             }
-            sb.append("  recall_count: ").append(r.recallCount()).append("\n");
+            sb.append("  recall_count: ").append(r.agentRecallCount()).append("\n");
             sb.append("  valence: ").append(r.valence()).append("\n");
             sb.append("  source: ").append(r.source()).append("\n");
             sb.append("  decay_factor: ").append(String.format("%.3f", r.decayFactor())).append("\n");
