@@ -10,6 +10,7 @@ param(
     [string]$OutputDir  = "target/benchmark-results",
     [double]$RegressionThreshold = 0,   # 0 = no regression check
     [int]$TopK          = 10,
+    [string]$Profile    = "",           # NONE, BALANCED, DEBUGGING, etc. (empty = per-query)
     [string]$OllamaUrl  = "http://localhost:11434",
     [string]$Model      = "nomic-embed-text",
     [int]$HeapMb        = 8192,
@@ -122,9 +123,15 @@ $harnessArgs = @(
 if ($RegressionThreshold -gt 0) {
     $harnessArgs += "$RegressionThreshold"
 } else {
-    $harnessArgs += ""
+    $harnessArgs += "0"
 }
 $harnessArgs += "$TopK"
+
+# Profile override (5th arg)
+if ($Profile -ne "") {
+    $harnessArgs += $Profile.ToUpper()
+    Write-Host "  Profile override: $($Profile.ToUpper())" -ForegroundColor Yellow
+}
 
 # ── Run benchmark ──
 Write-Host ""

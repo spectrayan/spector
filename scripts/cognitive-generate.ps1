@@ -10,10 +10,11 @@ param(
     [string]$Output     = "datasets/cognitive-benchmark",
     [string]$OllamaUrl  = "http://localhost:11434",
     [string]$Model      = "llama3.1",
-    [int]$CorpusSize    = 200,
-    [int]$NumDays       = 3,
-    [int]$ConversationsPerDay = 8,
-    [int]$BiographicalDepth   = 10,
+    [string]$AnnotationModel = "llama3.2",
+    [int]$CorpusSize    = 5000,
+    [int]$NumDays       = 180,
+    [int]$ConversationsPerDay = 15,
+    [int]$BiographicalDepth   = 15,
     [int]$MaxRetries    = 3,
     [string]$Seed       = "",        # Path to seed corpus directory (optional)
     [string]$Approved   = "",        # Path to approved corpus for incremental generation
@@ -78,6 +79,7 @@ Write-Host "  Configuration:" -ForegroundColor White
 Write-Host "    Persona:      $resolvedPersona" -ForegroundColor Gray
 Write-Host "    Output:       $resolvedOutput" -ForegroundColor Gray
 Write-Host "    Model:        $Model" -ForegroundColor Gray
+Write-Host "    Ann. Model:   $AnnotationModel" -ForegroundColor Gray
 Write-Host "    Corpus size:  $CorpusSize" -ForegroundColor Gray
 Write-Host "    Days:         $NumDays" -ForegroundColor Gray
 Write-Host "    Conv/day:     $ConversationsPerDay" -ForegroundColor Gray
@@ -144,6 +146,7 @@ $genArgs = @(
     "--output=$resolvedOutput"
     "--ollama-url=$OllamaUrl"
     "--model=$Model"
+    "--annotation-model=$AnnotationModel"
     "--corpus-size=$CorpusSize"
     "--num-days=$NumDays"
     "--conversations-per-day=$ConversationsPerDay"
