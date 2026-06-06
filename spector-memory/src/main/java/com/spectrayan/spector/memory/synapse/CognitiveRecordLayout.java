@@ -118,8 +118,8 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
     }
 
     /** Reads the recall count at the given record offset. */
-    public int readRecallCount(MemorySegment segment, long offset) {
-        return headerLayout.readRecallCount(segment, offset);
+    public int readAgentRecallCount(MemorySegment segment, long offset) {
+        return headerLayout.readAgentRecallCount(segment, offset);
     }
 
     /** Reads the arousal byte (unsigned 0-255). Returns 0 on V1 layouts. */
@@ -136,8 +136,8 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
      * Increments the recall count (reconsolidation / LTP reinforcement).
      *
      * <h3>Semantic Note</h3>
-     * <p>As of the recall_count inflation fix, this is only called from
-     * {@code SpectorMemory.reinforce()}, meaning recall_count represents
+     * <p>As of the agent_recall_count inflation fix, this is only called from
+     * {@code SpectorMemory.reinforce()}, meaning agent_recall_count represents
      * "times the agent explicitly found this useful" — not "times it appeared
      * in search results." This produces more meaningful LTP adjustment.</p>
      *
@@ -148,8 +148,36 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
      *
      * @return the previous recall count value
      */
-    public int incrementRecallCount(MemorySegment segment, long offset) {
-        return headerLayout.incrementRecallCount(segment, offset);
+    public int incrementAgentRecallCount(MemorySegment segment, long offset) {
+        return headerLayout.incrementAgentRecallCount(segment, offset);
+    }
+
+    /** Reads the spector-internal recall count. Returns 0 on V1/V2 layouts. */
+    public int readSpectorRecallCount(MemorySegment segment, long offset) {
+        return headerLayout.readSpectorRecallCount(segment, offset);
+    }
+
+    /**
+     * Atomically increments the spector-internal recall count (auto-LTP).
+     *
+     * <p>Unlike {@code incrementAgentRecallCount()}, this is called automatically
+     * by the recall pipeline when a memory surfaces in results, subject to
+     * a cooldown to prevent inflation from repeated queries.</p>
+     *
+     * @return the previous spector recall count value
+     */
+    public int incrementSpectorRecallCount(MemorySegment segment, long offset) {
+        return headerLayout.incrementSpectorRecallCount(segment, offset);
+    }
+
+    /** Reads the last auto-LTP timestamp. Returns 0L on V1/V2 layouts. */
+    public long readLastAutoLtp(MemorySegment segment, long offset) {
+        return headerLayout.readLastAutoLtp(segment, offset);
+    }
+
+    /** Writes the last auto-LTP timestamp. No-op on V1/V2 layouts. */
+    public void writeLastAutoLtp(MemorySegment segment, long offset, long timestampMs) {
+        headerLayout.writeLastAutoLtp(segment, offset, timestampMs);
     }
 
     /** Sets the tombstone flag (logical deletion / pruning by Deep Sleep). */
@@ -264,7 +292,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
      * @param synapticTags    64-bit Bloom filter of contextual markers
      * @param exactNorm       L2 norm for SIMD distance computation
      * @param importance      base importance (set by Prediction Error engine)
-     * @param recallCount     LTP reinforcement counter
+     * @param agentRecallCount     LTP reinforcement counter
      * @param centroidId      IVF partition routing ID
      * @param valence         signed emotion/reward (-128 to +127)
      * @param flags           bit field (tombstone, type, consolidated, pinned, resolved)
@@ -276,7 +304,7 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             long synapticTags,
             float exactNorm,
             float importance,
-            int recallCount,
+            int agentRecallCount,
             short centroidId,
             byte valence,
             byte flags,
@@ -291,10 +319,10 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
          * without arousal or storage strength fields.</p>
          */
         public CognitiveHeader(long timestampMs, long synapticTags, float exactNorm,
-                                float importance, int recallCount, short centroidId,
+                                float importance, int agentRecallCount, short centroidId,
                                 byte valence, byte flags) {
             this(timestampMs, synapticTags, exactNorm, importance,
-                 recallCount, centroidId, valence, flags,
+                 agentRecallCount, centroidId, valence, flags,
                  (byte) 0, 1.0f);
         }
 

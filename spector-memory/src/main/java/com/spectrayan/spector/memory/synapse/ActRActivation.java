@@ -46,7 +46,7 @@ import java.lang.foreign.ValueLayout;
  * <h3>Fallback</h3>
  * <p>On V1/V2 layouts (no reserved fields), or when the ring buffer is empty,
  * falls back to the simplified reconsolidation model (bucket bit-shift based
- * on recallCount).</p>
+ * on agentRecallCount).</p>
  *
  * <h3>Performance</h3>
  * <p>Zero {@code Math.pow}, zero {@code Math.log}, zero {@code Math.exp} at query time.
@@ -204,13 +204,13 @@ public final class ActRActivation {
      * @param recordOffset  byte offset of the record header
      * @param creationMs    memory creation timestamp (epoch millis)
      * @param nowMs         current time (epoch millis)
-     * @param recallCount   simplified recall count (for fallback)
+     * @param agentRecallCount   simplified recall count (for fallback)
      * @param decayExponent power-law decay exponent
      * @return decay multiplier in [0, 1]
      */
     public static float computeDecayWithActR(MemorySegment seg, long recordOffset,
                                               long creationMs, long nowMs,
-                                              int recallCount, float decayExponent) {
+                                              int agentRecallCount, float decayExponent) {
         if (seg != null) {
             float actr = computeBaseLevelActivation(seg, recordOffset, creationMs, nowMs, decayExponent);
             if (actr >= 0) {
@@ -218,6 +218,6 @@ public final class ActRActivation {
             }
         }
         // Fallback: simplified bucket-based decay
-        return DecayStrategy.computeDecay(creationMs, nowMs, recallCount);
+        return DecayStrategy.computeDecay(creationMs, nowMs, agentRecallCount);
     }
 }

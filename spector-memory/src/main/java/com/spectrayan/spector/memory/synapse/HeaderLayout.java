@@ -72,7 +72,7 @@ public sealed interface HeaderLayout
     float readImportance(MemorySegment seg, long off);
 
     /** Reads the LTP reinforcement counter. */
-    int readRecallCount(MemorySegment seg, long off);
+    int readAgentRecallCount(MemorySegment seg, long off);
 
     /** Reads the IVF centroid routing ID. */
     short readCentroidId(MemorySegment seg, long off);
@@ -162,7 +162,42 @@ public sealed interface HeaderLayout
      *
      * @return the previous recall count value
      */
-    int incrementRecallCount(MemorySegment seg, long off);
+    int incrementAgentRecallCount(MemorySegment seg, long off);
+
+    // ── V3 auto-LTP fields (defaults for V1/V2) ──
+
+    /**
+     * Reads the spector-internal recall count (passive retrieval counter).
+     *
+     * <p>Unlike {@code agentRecallCount} (agent-explicit reinforcement),
+     * this counter tracks how many times Spector's own recall pipeline
+     * has surfaced this memory. Used for a gentler decay adjustment.</p>
+     *
+     * @return spector recall count, or {@code 0} if this layout does not support it
+     */
+    default int readSpectorRecallCount(MemorySegment seg, long off) { return 0; }
+
+    /**
+     * Atomically increments the spector-internal recall count.
+     *
+     * @return the previous spector recall count value
+     */
+    default int incrementSpectorRecallCount(MemorySegment seg, long off) { return 0; }
+
+    /**
+     * Reads the last auto-LTP timestamp (epoch millis).
+     *
+     * <p>Used to enforce a cooldown between passive recall reinforcements,
+     * preventing runaway LTP from repeated queries.</p>
+     *
+     * @return last auto-LTP timestamp, or {@code 0L} if unsupported
+     */
+    default long readLastAutoLtp(MemorySegment seg, long off) { return 0L; }
+
+    /**
+     * Writes the last auto-LTP timestamp. No-op on V1/V2 layouts.
+     */
+    default void writeLastAutoLtp(MemorySegment seg, long off, long timestampMs) { /* no-op */ }
 
     // ── Factory methods ──
 

@@ -144,12 +144,30 @@ public final class DecayStrategy {
      * </table>
      *
      * @param rawBucket   original bucket from {@link #ageToBucket}
-     * @param recallCount number of times this memory has been recalled
+     * @param agentRecallCount number of times this memory has been recalled
      * @return adjusted bucket index (clamped to 0)
      */
-    public static int adjustForReconsolidation(int rawBucket, int recallCount) {
-        int shift = Math.min(recallCount, 5);
+    public static int adjustForReconsolidation(int rawBucket, int agentRecallCount) {
+        int shift = Math.min(agentRecallCount, 5);
         return rawBucket >> shift;
+    }
+
+    /**
+     * Adjusts the decay bucket for spector-internal passive recall (auto-LTP).
+     *
+     * <p>Unlike agent-explicit reinforcement (which uses aggressive bit-shifting),
+     * passive recall uses a gentler linear shift: {@code min(spectorRecallCount / 3, 2)}.
+     * This means a memory needs 3 passive recalls to shift down 1 bucket, and the
+     * maximum shift is 2 buckets — preventing passive retrieval from making memories
+     * artificially immortal.</p>
+     *
+     * @param bucket             current bucket (already adjusted for agent recalls)
+     * @param spectorRecallCount number of spector-internal passive recalls
+     * @return further adjusted bucket index (clamped to 0)
+     */
+    public static int adjustForAutoRecall(int bucket, int spectorRecallCount) {
+        int shift = Math.min(spectorRecallCount / 3, 2);
+        return Math.max(0, bucket - shift);
     }
 
     /**
@@ -168,12 +186,12 @@ public final class DecayStrategy {
      *
      * @param timestampMs memory creation time
      * @param nowMs       current time
-     * @param recallCount number of recalls
+     * @param agentRecallCount number of recalls
      * @return decay multiplier
      */
-    public static float computeDecay(long timestampMs, long nowMs, int recallCount) {
+    public static float computeDecay(long timestampMs, long nowMs, int agentRecallCount) {
         int rawBucket = ageToBucket(timestampMs, nowMs);
-        int adjusted = adjustForReconsolidation(rawBucket, recallCount);
+        int adjusted = adjustForReconsolidation(rawBucket, agentRecallCount);
         return decay(adjusted);
     }
 
@@ -223,13 +241,13 @@ public final class DecayStrategy {
      *
      * @param timestampMs memory creation time
      * @param nowMs       current time
-     * @param recallCount number of recalls
+     * @param agentRecallCount number of recalls
      * @param arousal     emotional intensity (unsigned byte 0-255)
      * @return arousal-modulated decay multiplier
      */
     public static float computeDecayWithArousal(long timestampMs, long nowMs,
-                                                  int recallCount, byte arousal) {
-        float baseDecay = computeDecay(timestampMs, nowMs, recallCount);
+                                                  int agentRecallCount, byte arousal) {
+        float baseDecay = computeDecay(timestampMs, nowMs, agentRecallCount);
         float modifier = arousalModifier(arousal);
         return Math.min(1.0f, baseDecay * modifier);
     }

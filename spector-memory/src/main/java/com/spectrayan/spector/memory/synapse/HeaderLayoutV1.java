@@ -28,7 +28,7 @@ import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.*;
  *    8      8B    synaptic_tags
  *   16      4B    exact_norm
  *   20      4B    importance
- *   24      4B    recall_count
+ *   24      4B    agent_recall_count
  *   28      2B    centroid_id
  *   30      1B    valence
  *   31      1B    flags
@@ -73,8 +73,8 @@ public record HeaderLayoutV1() implements HeaderLayout {
         return seg.get(LAYOUT_IMPORTANCE, off + OFFSET_IMPORTANCE);
     }
 
-    @Override public int readRecallCount(MemorySegment seg, long off) {
-        return seg.get(LAYOUT_RECALL_COUNT, off + OFFSET_RECALL_COUNT);
+    @Override public int readAgentRecallCount(MemorySegment seg, long off) {
+        return seg.get(LAYOUT_AGENT_RECALL_COUNT, off + OFFSET_AGENT_RECALL_COUNT);
     }
 
     @Override public short readCentroidId(MemorySegment seg, long off) {
@@ -98,7 +98,7 @@ public record HeaderLayoutV1() implements HeaderLayout {
                 readSynapticTags(seg, off),
                 readExactNorm(seg, off),
                 readImportance(seg, off),
-                readRecallCount(seg, off),
+                readAgentRecallCount(seg, off),
                 readCentroidId(seg, off),
                 readValence(seg, off),
                 readFlags(seg, off),
@@ -113,7 +113,7 @@ public record HeaderLayoutV1() implements HeaderLayout {
         seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_SYNAPTIC_TAGS, header.synapticTags());
         seg.set(LAYOUT_EXACT_NORM,    off + OFFSET_EXACT_NORM,    header.exactNorm());
         seg.set(LAYOUT_IMPORTANCE,    off + OFFSET_IMPORTANCE,    header.importance());
-        seg.set(LAYOUT_RECALL_COUNT,  off + OFFSET_RECALL_COUNT,  header.recallCount());
+        seg.set(LAYOUT_AGENT_RECALL_COUNT,  off + OFFSET_AGENT_RECALL_COUNT,  header.agentRecallCount());
         seg.set(LAYOUT_CENTROID_ID,   off + OFFSET_CENTROID_ID,   header.centroidId());
         seg.set(LAYOUT_VALENCE,       off + OFFSET_VALENCE,       header.valence());
         seg.set(LAYOUT_FLAGS,         off + OFFSET_FLAGS,         header.flags());
@@ -159,7 +159,7 @@ public record HeaderLayoutV1() implements HeaderLayout {
         seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags & ~FLAG_RESOLVED));
     }
 
-    @Override public int incrementRecallCount(MemorySegment seg, long off) {
-        return (int) VAR_HANDLE_RECALL_COUNT.getAndAdd(seg, off + OFFSET_RECALL_COUNT, 1);
+    @Override public int incrementAgentRecallCount(MemorySegment seg, long off) {
+        return (int) VAR_HANDLE_AGENT_RECALL_COUNT.getAndAdd(seg, off + OFFSET_AGENT_RECALL_COUNT, 1);
     }
 }

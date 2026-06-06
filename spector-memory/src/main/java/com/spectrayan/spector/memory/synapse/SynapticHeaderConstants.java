@@ -36,7 +36,7 @@ import java.lang.foreign.ValueLayout;
  *   [8B synaptic_tags]     Offset 8  — 64-bit Bloom filter of contextual markers
  *   [4B exact_norm]        Offset 16 — L2 norm for SIMD distance computation
  *   [4B importance]        Offset 20 — base importance (auto-set by Prediction Error engine)
- *   [4B recall_count]      Offset 24 — LTP reinforcement counter (4-byte aligned for atomic CAS)
+ *   [4B agent_recall_count] Offset 24 — agent-explicit LTP reinforcement counter (4-byte aligned for atomic CAS)
  *   [2B centroid_id]       Offset 28 — IVF partition routing ID (max 65,535 centroids)
  *   [1B valence]           Offset 30 — signed INT8 emotion/reward (-128 to +127)
  *   [1B flags]             Offset 31 — bit field (tombstone, memory_type, consolidated, pinned)
@@ -80,7 +80,7 @@ public final class SynapticHeaderConstants {
     public static final long OFFSET_SYNAPTIC_TAGS = 8L;
     public static final long OFFSET_EXACT_NORM    = 16L;
     public static final long OFFSET_IMPORTANCE    = 20L;
-    public static final long OFFSET_RECALL_COUNT  = 24L;
+    public static final long OFFSET_AGENT_RECALL_COUNT  = 24L;
     public static final long OFFSET_CENTROID_ID   = 28L;
     public static final long OFFSET_VALENCE       = 30L;
     public static final long OFFSET_FLAGS         = 31L;
@@ -90,7 +90,7 @@ public final class SynapticHeaderConstants {
     public static final ValueLayout.OfLong  LAYOUT_SYNAPTIC_TAGS = ValueLayout.JAVA_LONG;
     public static final ValueLayout.OfFloat LAYOUT_EXACT_NORM    = ValueLayout.JAVA_FLOAT;
     public static final ValueLayout.OfFloat LAYOUT_IMPORTANCE    = ValueLayout.JAVA_FLOAT;
-    public static final ValueLayout.OfInt   LAYOUT_RECALL_COUNT  = ValueLayout.JAVA_INT;
+    public static final ValueLayout.OfInt   LAYOUT_AGENT_RECALL_COUNT  = ValueLayout.JAVA_INT;
     public static final ValueLayout.OfShort LAYOUT_CENTROID_ID   = ValueLayout.JAVA_SHORT;
     public static final ValueLayout.OfByte  LAYOUT_VALENCE       = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfByte  LAYOUT_FLAGS         = ValueLayout.JAVA_BYTE;
@@ -101,9 +101,21 @@ public final class SynapticHeaderConstants {
     /** Layout for arousal: unsigned byte (0-255), stored as signed Java byte. */
     public static final ValueLayout.OfByte  LAYOUT_AROUSAL       = ValueLayout.JAVA_BYTE;
 
+    // ── V3 auto-LTP fields (repurposed from reserved buffer) ──
+    /** Offset of spector-internal recall count (V3 only, 4-byte int at offset 40). */
+    public static final long OFFSET_SPECTOR_RECALL_COUNT = 40L;
+    /** Offset of last auto-LTP timestamp in epoch millis (V3 only, 8-byte long at offset 48). */
+    public static final long OFFSET_LAST_AUTO_LTP        = 48L;
+    /** Layout for spector-internal recall count: 4-byte int. */
+    public static final ValueLayout.OfInt   LAYOUT_SPECTOR_RECALL_COUNT = ValueLayout.JAVA_INT;
+    /** Layout for last auto-LTP timestamp: 8-byte long. */
+    public static final ValueLayout.OfLong  LAYOUT_LAST_AUTO_LTP        = ValueLayout.JAVA_LONG;
+
     // ── VarHandle view for atomic access ──
-    /** VarHandle for atomic updates to the recall_count field. */
-    public static final java.lang.invoke.VarHandle VAR_HANDLE_RECALL_COUNT = LAYOUT_RECALL_COUNT.varHandle();
+    /** VarHandle for atomic updates to the agent_recall_count field. */
+    public static final java.lang.invoke.VarHandle VAR_HANDLE_AGENT_RECALL_COUNT = LAYOUT_AGENT_RECALL_COUNT.varHandle();
+    /** VarHandle for atomic updates to the spector_recall_count field. */
+    public static final java.lang.invoke.VarHandle VAR_HANDLE_SPECTOR_RECALL_COUNT = LAYOUT_SPECTOR_RECALL_COUNT.varHandle();
 
     // ── Flags bitmasks ──
     /** Bit 0: Record has been logically deleted (tombstoned). */
