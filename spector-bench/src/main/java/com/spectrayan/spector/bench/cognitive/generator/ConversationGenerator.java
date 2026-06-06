@@ -35,7 +35,7 @@ import tools.jackson.core.type.TypeReference;
  * Generates daily conversations using Ollama LLM based on persona context.
  *
  * <p>Produces corpus records simulating a day's worth of interactions between
- * the persona and their AI companion. Each day follows time-of-day patterns
+ * the persona and their AI assistant Jarvis. Each day follows time-of-day patterns
  * (morning, work, evening) and respects weekday/weekend schedules to maintain
  * temporal coherence.</p>
  *
@@ -53,14 +53,19 @@ public final class ConversationGenerator {
 
     private static final String SYSTEM_PROMPT = """
             You are a dataset generator for a cognitive memory benchmark. Your role is to generate
-            realistic conversation memories that a person would share with their AI companion
-            throughout a day.
+            realistic conversation memories between a person and their AI assistant Jarvis throughout a day.
             
-            Generate memories as a JSON array. Each memory object must have:
-            - "text": the memory content (50-300 chars, first person, natural language)
-            - "title": a short title (5-50 chars)
-            - "memory_type": one of EPISODIC, SEMANTIC, PROCEDURAL, WORKING
-            - "entity_mentions": array of {"name": "...", "type": "PERSON|SOFTWARE|ORGANIZATION|LOCATION|CONCEPT"}
+            Generate conversation turns as a JSON array. Each turn must have a user message AND a
+            Jarvis response. Each object must have:
+            - "userText": what the user told Jarvis (50-300 chars, first person, natural language)
+            - "aiResponse": what Jarvis replied (50-300 chars, helpful/empathetic tone)
+            - "userTitle": short title for the user's memory (5-50 chars)
+            - "aiTitle": short title for Jarvis's response memory (5-50 chars)
+            - "memoryType": one of EPISODIC, SEMANTIC, PROCEDURAL, WORKING
+            - "entityMentions": array of {"name": "...", "type": "PERSON|SOFTWARE|ORGANIZATION|LOCATION|CONCEPT"}
+            
+            Jarvis should respond naturally — offering suggestions, empathizing,
+            asking follow-up questions, or providing relevant information.
             
             Respond ONLY with a valid JSON array. No markdown, no explanation.
             """;
@@ -174,11 +179,11 @@ public final class ConversationGenerator {
 
         // Provide recent context from existing corpus
         if (!existingCorpus.isEmpty()) {
-            sb.append("\nRecent context (last 5 memories for continuity):\n");
-            int start = Math.max(0, existingCorpus.size() - 5);
+            sb.append("\nRecent conversation context (for continuity):\n");
+            int start = Math.max(0, existingCorpus.size() - 10);
             for (int i = start; i < existingCorpus.size(); i++) {
                 BenchmarkCorpusRecord rec = existingCorpus.get(i);
-                sb.append("- ").append(rec.title()).append(": ").append(truncate(rec.text(), 100)).append("\n");
+                sb.append("- [").append(rec.title()).append("]: ").append(truncate(rec.text(), 120)).append("\n");
             }
         }
 
@@ -209,30 +214,58 @@ public final class ConversationGenerator {
         for (int i = 0; i < rawMemories.size(); i++) {
             Map<String, Object> raw = rawMemories.get(i);
             try {
-                String id = String.format("mem-%04d", nextMemoryId++);
-                String text = getStringOr(raw, "text", "Memory content unavailable");
-                String title = getStringOr(raw, "title", "Untitled");
-                String memTypeStr = getStringOr(raw, "memory_type", "EPISODIC");
+                // User message record
+                String userText = getStringOr(raw, "userText", getStringOr(raw, "text", "Memory content unavailable"));
+                if (userText.isBlank() || userText.length() < 10) {
+                    log.debug("Skipping entry with empty/short user text at index {}", i);
+                    continue;
+                }
+                String userTitle = getStringOr(raw, "userTitle", getStringOr(raw, "title", "Untitled"));
+                String memTypeStr = getStringOr(raw, "memoryType", getStringOr(raw, "memory_type", "EPISODIC"));
                 MemoryType memoryType = parseMemoryType(memTypeStr);
 
-                long timestampMs = date.atTime(baseHour + i, i * 10 % 60)
+                long userTimestampMs = date.atTime(baseHour + i, i * 10 % 60)
                         .toInstant(ZoneOffset.UTC).toEpochMilli();
 
-                List<EntityMention> entities = parseEntityMentions(raw.get("entity_mentions"));
+                List<EntityMention> entities = parseEntityMentions(
+                        raw.get("entityMentions") != null ? raw.get("entityMentions") : raw.get("entity_mentions"));
 
-                BenchmarkCorpusRecord record = new BenchmarkCorpusRecord(
-                        id, text, title,
+                String userId = String.format("mem-%04d", nextMemoryId++);
+                BenchmarkCorpusRecord userRecord = new BenchmarkCorpusRecord(
+                        userId, userText, userTitle,
                         List.of(), // synapticTags — filled by CognitiveAnnotator
                         (byte) 0, // valence — filled by CognitiveAnnotator
                         1.0f,     // importance — filled by CognitiveAnnotator
                         50,       // arousal — filled by CognitiveAnnotator
                         sessionId,
-                        timestampMs,
+                        userTimestampMs,
                         entities,
                         memoryType,
                         0         // recallCount starts at 0
                 );
-                records.add(record);
+                records.add(userRecord);
+
+                // Jarvis response record (if present)
+                String aiResponse = getStringOr(raw, "aiResponse", null);
+                if (aiResponse != null) {
+                    String aiTitle = getStringOr(raw, "aiTitle", "AI: " + userTitle);
+                    String aiId = String.format("mem-%04d", nextMemoryId++);
+                    long aiTimestampMs = userTimestampMs + 30_000L; // 30 seconds after user
+
+                    BenchmarkCorpusRecord aiRecord = new BenchmarkCorpusRecord(
+                            aiId, aiResponse, aiTitle,
+                            List.of(),
+                            (byte) 0,
+                            1.0f,
+                            50,
+                            sessionId,
+                            aiTimestampMs,
+                            entities, // share entity mentions
+                            MemoryType.SEMANTIC, // AI responses are typically semantic knowledge
+                            0
+                    );
+                    records.add(aiRecord);
+                }
             } catch (Exception e) {
                 log.warn("Skipping malformed memory at index {}: {}", i, e.getMessage());
             }

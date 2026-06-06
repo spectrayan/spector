@@ -127,7 +127,7 @@ class ReferentialIntegrityPropertyTest {
             HebbianEdgeDef danglingEdge = new HebbianEdgeDef(
                     corpus.getFirst().id(), "mem-nonexistent-xyz", 5);
             Files.writeString(tempDir.resolve("hebbian_edges.jsonl"),
-                    String.format("{\"memory_id_a\":\"%s\",\"memory_id_b\":\"%s\",\"co_activation_count\":%d}",
+                    String.format("{\"memoryIdA\":\"%s\",\"memoryIdB\":\"%s\",\"coActivationCount\":%d}",
                             danglingEdge.memoryIdA(), danglingEdge.memoryIdB(), danglingEdge.coActivationCount()) + "\n");
 
             Files.writeString(tempDir.resolve("temporal_chains.jsonl"), "");
@@ -174,9 +174,9 @@ class ReferentialIntegrityPropertyTest {
         for (var record : corpus) {
             sb.append(String.format(
                     "{\"id\":\"%s\",\"text\":\"%s\",\"title\":\"%s\"," +
-                    "\"synaptic_tags\":%s,\"valence\":%d,\"importance\":%.4f," +
-                    "\"arousal\":%d,\"session_id\":\"%s\",\"timestamp_ms\":%d," +
-                    "\"entity_mentions\":[],\"memory_type\":\"%s\",\"recall_count\":%d}",
+                    "\"synapticTags\":%s,\"valence\":%d,\"importance\":%.4f," +
+                    "\"arousal\":%d,\"sessionId\":\"%s\",\"timestampMs\":%d," +
+                    "\"entityMentions\":[],\"memoryType\":\"%s\",\"recallCount\":%d}",
                     record.id(), record.text(), record.title(),
                     mapper.writeValueAsString(record.synapticTags()),
                     record.valence(), record.importance(),
@@ -191,9 +191,9 @@ class ReferentialIntegrityPropertyTest {
         StringBuilder sb = new StringBuilder();
         for (var query : queries) {
             sb.append(String.format(
-                    "{\"id\":\"%s\",\"text\":\"%s\",\"cognitive_profile\":\"%s\"," +
-                    "\"synaptic_filter_tags\":[],\"min_valence\":null,\"max_valence\":null," +
-                    "\"expected_subsystem\":\"TAG_GATING\",\"temporal_hint\":null}",
+                    "{\"id\":\"%s\",\"text\":\"%s\",\"cognitiveProfile\":\"%s\"," +
+                    "\"synapticFilterTags\":[],\"minValence\":null,\"maxValence\":null," +
+                    "\"expectedSubsystem\":\"TAG_GATING\",\"temporalHint\":null}",
                     query.id(), query.text(), query.cognitiveProfile().name()))
                 .append("\n");
         }
@@ -209,9 +209,9 @@ class ReferentialIntegrityPropertyTest {
     private void writePersona(Path dir) throws IOException {
         String personaJson = "{\"name\":\"Test Person\",\"age\":30,\"occupation\":\"Engineer\"," +
                 "\"interests\":[\"coding\",\"testing\",\"design\"]," +
-                "\"life_context\":\"A test persona for unit testing purposes with enough context to satisfy validation requirements\"," +
-                "\"personality_traits\":[\"analytical\",\"curious\",\"detail-oriented\"]," +
-                "\"companion_relationship\":\"Has been using the AI companion for testing purposes for several months now in a testing context\"}";
+                "\"lifeContext\":\"A test persona for unit testing purposes with enough context to satisfy validation requirements\"," +
+                "\"personalityTraits\":[\"analytical\",\"curious\",\"detail-oriented\"]," +
+                "\"companionRelationship\":\"Has been using Jarvis (OpenClaw AI) for testing purposes for several months now in a testing context\"}";
         Files.writeString(dir.resolve("persona.json"), personaJson);
     }
 

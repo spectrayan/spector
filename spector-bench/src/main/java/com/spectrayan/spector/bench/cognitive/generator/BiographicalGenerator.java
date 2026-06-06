@@ -56,15 +56,15 @@ public final class BiographicalGenerator {
     private static final String SYSTEM_PROMPT = """
             You are a dataset generator for a cognitive memory benchmark. Generate biographical
             memories from a person's past — things they would naturally recall or share with an
-            AI companion when reminiscing.
+            AI companion when reminiscing. The AI assistant is named Jarvis.
             
             Generate memories as a JSON array. Each memory object must have:
             - "text": the memory content (50-400 chars, first person, reflective/nostalgic tone)
             - "title": a short title (5-50 chars)
-            - "memory_type": one of EPISODIC, SEMANTIC, PROCEDURAL
+            - "memoryType": one of EPISODIC, SEMANTIC, PROCEDURAL
             - "category": one of "childhood", "school", "career", "family", "formative"
-            - "approximate_age": the age when this memory occurred
-            - "entity_mentions": array of {"name": "...", "type": "PERSON|ORGANIZATION|LOCATION|CONCEPT"}
+            - "approximateAge": the age when this memory occurred
+            - "entityMentions": array of {"name": "...", "type": "PERSON|ORGANIZATION|LOCATION|CONCEPT"}
             
             Respond ONLY with a valid JSON array. No markdown, no explanation.
             """;
@@ -114,8 +114,8 @@ public final class BiographicalGenerator {
         List<BenchmarkCorpusRecord> allBiographical = new ArrayList<>();
         int depthYears = config.biographicalDepthYears();
 
-        // Target ~20% of total corpus as biographical
-        int targetCount = config.totalCorpusSize() / 5;
+        // Target ~10% of total corpus as biographical, but cap at 100
+        int targetCount = Math.min(100, config.totalCorpusSize() / 10);
         int perCategory = Math.max(2, targetCount / 5);
 
         log.info("Generating ~{} biographical memories spanning {} years", targetCount, depthYears);
@@ -135,16 +135,27 @@ public final class BiographicalGenerator {
     // ─────────────── Private helpers ───────────────
 
     private List<BenchmarkCorpusRecord> generateCategory(String category, int ageFrom, int ageTo, int count) {
-        String userPrompt = buildCategoryPrompt(category, ageFrom, ageTo, count);
+        // Generate in small batches (5 per call) to avoid LLM JSON truncation
+        int batchSize = 5;
+        List<BenchmarkCorpusRecord> allRecords = new ArrayList<>();
 
-        try {
-            List<Map<String, Object>> rawMemories = client.completeAsJson(SYSTEM_PROMPT, userPrompt, LIST_MAP_TYPE);
-            return convertToRecords(rawMemories, category, ageFrom, ageTo);
-        } catch (OllamaCompletionException e) {
-            log.warn("Failed to generate biographical memories for category '{}': {}",
-                    category, e.getMessage());
-            return List.of();
+        for (int generated = 0; generated < count; ) {
+            int remaining = Math.min(batchSize, count - generated);
+            String userPrompt = buildCategoryPrompt(category, ageFrom, ageTo, remaining);
+
+            try {
+                List<Map<String, Object>> rawMemories = client.completeAsJson(SYSTEM_PROMPT, userPrompt, LIST_MAP_TYPE);
+                List<BenchmarkCorpusRecord> batch = convertToRecords(rawMemories, category, ageFrom, ageTo);
+                allRecords.addAll(batch);
+                generated += batch.size();
+                log.debug("Category '{}': generated {} records (total: {}/{})", category, batch.size(), generated, count);
+            } catch (OllamaCompletionException e) {
+                log.warn("Failed batch for biographical category '{}' ({}/{}): {}",
+                        category, generated, count, e.getMessage());
+                generated += remaining; // skip to avoid infinite loop
+            }
         }
+        return allRecords;
     }
 
     private String buildCategoryPrompt(String category, int ageFrom, int ageTo, int count) {
@@ -189,18 +200,19 @@ public final class BiographicalGenerator {
                 String id = String.format("mem-%04d", nextMemoryId++);
                 String text = getStringOr(raw, "text", "Biographical memory");
                 String title = getStringOr(raw, "title", "Untitled");
-                String memTypeStr = getStringOr(raw, "memory_type", "EPISODIC");
+                String memTypeStr = getStringOr(raw, "memoryType", getStringOr(raw, "memory_type", "EPISODIC"));
                 MemoryType memoryType = parseMemoryType(memTypeStr);
 
                 // Calculate timestamp based on approximate age
-                int approxAge = getIntOr(raw, "approximate_age", ageFrom + (ageTo - ageFrom) / 2);
+                int approxAge = getIntOr(raw, "approximateAge", getIntOr(raw, "approximate_age", ageFrom + (ageTo - ageFrom) / 2));
                 approxAge = Math.max(ageFrom, Math.min(ageTo, approxAge));
                 int yearsAgo = persona.age() - approxAge;
                 long timestampMs = LocalDate.now().minusYears(yearsAgo).minusDays(i)
                         .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
 
                 String sessionId = "session-biographical-" + category + "-" + i;
-                List<EntityMention> entities = parseEntityMentions(raw.get("entity_mentions"));
+                List<EntityMention> entities = parseEntityMentions(
+                        raw.get("entityMentions") != null ? raw.get("entityMentions") : raw.get("entity_mentions"));
 
                 BenchmarkCorpusRecord record = new BenchmarkCorpusRecord(
                         id, text, title,

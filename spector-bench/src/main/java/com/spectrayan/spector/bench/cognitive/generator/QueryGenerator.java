@@ -58,19 +58,19 @@ public final class QueryGenerator {
 
     private static final String SYSTEM_PROMPT = """
             You are a query generator for a cognitive memory benchmark. Generate natural queries
-            that a user would ask their AI companion when trying to recall specific memories.
+            that a user would ask their AI assistant Jarvis when trying to recall specific memories.
             
             For each query, provide:
             - "text": the query in natural language (10-100 chars, first person)
-            - "cognitive_profile": one of BALANCED, DEBUGGING, CREATIVE_FLOW, EMOTIONAL_SUPPORT,
+            - "cognitiveProfile": one of BALANCED, DEBUGGING, CREATIVE_FLOW, EMOTIONAL_SUPPORT,
               LEARNING, PLANNING, SOCIAL, HEALTH, WORK_FOCUS, REFLECTION, EXPLORATION, DEFAULT_MODE_NETWORK
-            - "synaptic_filter_tags": 0-5 tags that should filter results (can be empty)
-            - "min_valence": integer or null (minimum valence filter)
-            - "max_valence": integer or null (maximum valence filter)
-            - "temporal_hint": "RECENT", "OLD", or null
-            - "relevant_memory_ids": array of corpus IDs that are highly relevant (grade 3)
-            - "partially_relevant_ids": array of corpus IDs that are partially relevant (grade 2)
-            - "marginally_relevant_ids": array of corpus IDs that are marginally relevant (grade 1)
+            - "synapticFilterTags": 0-5 tags that should filter results (can be empty)
+            - "minValence": integer or null (minimum valence filter)
+            - "maxValence": integer or null (maximum valence filter)
+            - "temporalHint": "RECENT", "OLD", or null
+            - "relevantMemoryIds": array of corpus IDs that are highly relevant (grade 3)
+            - "partiallyRelevantIds": array of corpus IDs that are partially relevant (grade 2)
+            - "marginallyRelevantIds": array of corpus IDs that are marginally relevant (grade 1)
             
             Respond ONLY with a valid JSON array. No markdown, no explanation.
             """;
@@ -106,8 +106,11 @@ public final class QueryGenerator {
         List<RelevanceJudgment> allJudgments = new ArrayList<>();
         int queryIdCounter = 1;
 
+        // Generate in small batches (5 queries per LLM call) to avoid JSON truncation
+        int queriesPerBatch = 5;
+        int totalTargetPerSubsystem = Math.max(5, 200 / SUBSYSTEM_TYPES.size());
+
         for (String subsystem : SUBSYSTEM_TYPES) {
-            int queriesPerSubsystem = Math.max(5, 200 / SUBSYSTEM_TYPES.size());
             List<BenchmarkCorpusRecord> relevantCorpus = selectRelevantCorpus(corpus, subsystem);
 
             if (relevantCorpus.isEmpty()) {
@@ -115,22 +118,36 @@ public final class QueryGenerator {
                 continue;
             }
 
-            try {
-                String userPrompt = buildSubsystemPrompt(subsystem, relevantCorpus, queriesPerSubsystem);
-                List<Map<String, Object>> rawQueries = client.completeAsJson(SYSTEM_PROMPT, userPrompt, LIST_MAP_TYPE);
+            int generated = 0;
+            int batchAttempts = 0;
+            int maxBatchAttempts = (totalTargetPerSubsystem / queriesPerBatch) + 2;
 
-                for (Map<String, Object> raw : rawQueries) {
-                    String queryId = String.format("q-%03d", queryIdCounter++);
-                    BenchmarkQuery query = parseQuery(raw, queryId, subsystem);
-                    allQueries.add(query);
+            while (generated < totalTargetPerSubsystem && batchAttempts < maxBatchAttempts) {
+                batchAttempts++;
+                int remaining = totalTargetPerSubsystem - generated;
+                int batchSize = Math.min(queriesPerBatch, remaining);
 
-                    // Extract relevance judgments
-                    List<RelevanceJudgment> judgments = parseJudgments(raw, queryId);
-                    allJudgments.addAll(judgments);
+                try {
+                    String userPrompt = buildSubsystemPrompt(subsystem, relevantCorpus, batchSize);
+                    List<Map<String, Object>> rawQueries = client.completeAsJson(SYSTEM_PROMPT, userPrompt, LIST_MAP_TYPE);
+
+                    for (Map<String, Object> raw : rawQueries) {
+                        String queryId = String.format("q-%03d", queryIdCounter++);
+                        BenchmarkQuery query = parseQuery(raw, queryId, subsystem);
+                        allQueries.add(query);
+
+                        List<RelevanceJudgment> judgments = parseJudgments(raw, queryId);
+                        allJudgments.addAll(judgments);
+                        generated++;
+                    }
+                    log.debug("Subsystem {}: batch {}/{} generated {} queries (total: {})",
+                            subsystem, batchAttempts, maxBatchAttempts, rawQueries.size(), generated);
+                } catch (OllamaCompletionException e) {
+                    log.warn("Query batch failed for subsystem {} (attempt {}/{}): {}",
+                            subsystem, batchAttempts, maxBatchAttempts, e.getMessage());
                 }
-            } catch (OllamaCompletionException e) {
-                log.warn("Query generation failed for subsystem {}: {}", subsystem, e.getMessage());
             }
+            log.info("Subsystem {} complete: {} queries generated", subsystem, generated);
         }
 
         log.info("Generated {} queries with {} relevance judgments", allQueries.size(), allJudgments.size());
@@ -181,11 +198,11 @@ public final class QueryGenerator {
           .append(persona.age()).append("yo ").append(persona.occupation()).append("\n\n");
 
         sb.append("Available corpus memories (use their IDs for relevance judgments):\n");
-        int limit = Math.min(20, corpus.size());
+        int limit = Math.min(10, corpus.size());
         for (int i = 0; i < limit; i++) {
             BenchmarkCorpusRecord r = corpus.get(i);
             sb.append("- ").append(r.id()).append(": [").append(r.title()).append("] ");
-            sb.append(truncate(r.text(), 80));
+            sb.append(truncate(r.text(), 60));
             if (r.synapticTags() != null && !r.synapticTags().isEmpty()) {
                 sb.append(" tags=").append(r.synapticTags());
             }
@@ -194,16 +211,16 @@ public final class QueryGenerator {
 
         sb.append("\nSubsystem guidance for ").append(subsystem).append(":\n");
         switch (subsystem) {
-            case "TAG_GATING" -> sb.append("Queries should use synaptic_filter_tags to narrow results. "
+            case "TAG_GATING" -> sb.append("Queries should use synapticFilterTags to narrow results. "
                     + "Relevant memories share the specified tags.");
-            case "VALENCE_FILTER" -> sb.append("Queries should specify min/max_valence to filter by emotion. "
+            case "VALENCE_FILTER" -> sb.append("Queries should specify minValence/maxValence to filter by emotion. "
                     + "E.g., only positive memories, or only negative/frustrating ones.");
             case "IMPORTANCE_DECAY" -> sb.append("Queries should target important memories that would rank "
                     + "higher due to their significance in the persona's life.");
             case "HEBBIAN_GRAPH" -> sb.append("Queries should trigger associative recall — asking about "
                     + "topics that connect multiple co-activated memories.");
             case "TEMPORAL_CHAIN" -> sb.append("Queries should ask about sequences of events within sessions. "
-                    + "Set temporal_hint to RECENT or OLD as appropriate.");
+                    + "Set temporalHint to RECENT or OLD as appropriate.");
             case "ENTITY_GRAPH" -> sb.append("Queries should ask about relationships between people, "
                     + "software, or organizations mentioned in memories.");
             case "VECTOR_SIMILARITY" -> sb.append("Queries should be semantically similar to target memories "
@@ -217,12 +234,12 @@ public final class QueryGenerator {
     @SuppressWarnings("unchecked")
     private BenchmarkQuery parseQuery(Map<String, Object> raw, String queryId, String subsystem) {
         String text = getStringOr(raw, "text", "What do I remember about this?");
-        String profileStr = getStringOr(raw, "cognitive_profile", "BALANCED");
+        String profileStr = getStringOr(raw, "cognitiveProfile", getStringOr(raw, "cognitive_profile", "BALANCED"));
         CognitiveProfile profile = parseCognitiveProfile(profileStr);
-        List<String> filterTags = parseStringList(raw.get("synaptic_filter_tags"));
-        Byte minValence = parseNullableByte(raw.get("min_valence"));
-        Byte maxValence = parseNullableByte(raw.get("max_valence"));
-        String temporalHint = getStringOr(raw, "temporal_hint", null);
+        List<String> filterTags = parseStringList(raw.get("synapticFilterTags") != null ? raw.get("synapticFilterTags") : raw.get("synaptic_filter_tags"));
+        Byte minValence = parseNullableByte(raw.get("minValence") != null ? raw.get("minValence") : raw.get("min_valence"));
+        Byte maxValence = parseNullableByte(raw.get("maxValence") != null ? raw.get("maxValence") : raw.get("max_valence"));
+        String temporalHint = getStringOr(raw, "temporalHint", getStringOr(raw, "temporal_hint", null));
 
         if (temporalHint != null && !temporalHint.equals("RECENT") && !temporalHint.equals("OLD")) {
             temporalHint = null;
@@ -236,9 +253,9 @@ public final class QueryGenerator {
     private List<RelevanceJudgment> parseJudgments(Map<String, Object> raw, String queryId) {
         List<RelevanceJudgment> judgments = new ArrayList<>();
 
-        addJudgments(judgments, queryId, parseStringList(raw.get("relevant_memory_ids")), 3);
-        addJudgments(judgments, queryId, parseStringList(raw.get("partially_relevant_ids")), 2);
-        addJudgments(judgments, queryId, parseStringList(raw.get("marginally_relevant_ids")), 1);
+        addJudgments(judgments, queryId, parseStringList(raw.get("relevantMemoryIds") != null ? raw.get("relevantMemoryIds") : raw.get("relevant_memory_ids")), 3);
+        addJudgments(judgments, queryId, parseStringList(raw.get("partiallyRelevantIds") != null ? raw.get("partiallyRelevantIds") : raw.get("partially_relevant_ids")), 2);
+        addJudgments(judgments, queryId, parseStringList(raw.get("marginallyRelevantIds") != null ? raw.get("marginallyRelevantIds") : raw.get("marginally_relevant_ids")), 1);
 
         return judgments;
     }

@@ -129,8 +129,9 @@ public final class DatasetGeneratorMain {
      */
     public int run() {
         log.info("=== Cognitive Benchmark Dataset Generator ===");
-        log.info("Config: model={}, corpusSize={}, numDays={}, output={}",
-                config.modelName(), config.totalCorpusSize(), config.numDays(), config.outputDir());
+        log.info("Config: model={}, annotationModel={}, corpusSize={}, numDays={}, output={}",
+                config.modelName(), config.annotationModelName(),
+                config.totalCorpusSize(), config.numDays(), config.outputDir());
 
         try {
             Files.createDirectories(config.outputDir());
@@ -144,71 +145,76 @@ public final class DatasetGeneratorMain {
                     mapper.writeValueAsString(persona));
             log.info("Wrote persona.json");
 
-            // Step 2: Initialize Ollama client and verify connectivity
-            OllamaCompletionClient client = new OllamaCompletionClient(config);
-            if (!client.isAvailable()) {
+            // Step 2: Initialize Ollama clients and verify connectivity
+            OllamaCompletionClient generationClient = new OllamaCompletionClient(config);
+            if (!generationClient.isAvailable()) {
                 log.error("Ollama server is not available at {}", config.ollamaUrl());
                 return EXIT_GENERATION_ERROR;
+            }
+
+            // Create separate annotation client if models differ
+            OllamaCompletionClient annotationClient;
+            if (config.annotationModelName().equals(config.modelName())) {
+                annotationClient = generationClient;
+                log.info("Using same model for generation and annotation: {}", config.modelName());
+            } else {
+                annotationClient = new OllamaCompletionClient(
+                        config.ollamaUrl(), config.annotationModelName(), config.maxRetries());
+                log.info("Using {} for generation, {} for annotation",
+                        config.modelName(), config.annotationModelName());
             }
 
             // Step 3: Load seed/approved corpus
             List<BenchmarkCorpusRecord> existingCorpus = loadExistingCorpus();
             int startingId = existingCorpus.size() + 1;
 
-            // Step 4: Generate conversations — write each day incrementally
+            // Step 4: Generate conversations — write each day to a separate file
             log.info("--- Phase 1: Generating daily conversations ---");
-            ConversationGenerator conversationGen = new ConversationGenerator(client, persona, config);
+            ConversationGenerator conversationGen = new ConversationGenerator(generationClient, persona, config);
             conversationGen.setNextMemoryId(startingId);
 
             List<BenchmarkCorpusRecord> generatedCorpus = new ArrayList<>(existingCorpus);
             int targetNewRecords = config.totalCorpusSize() - existingCorpus.size();
             int conversationTarget = (int) (targetNewRecords * 0.8);
 
-            Path corpusFile = config.outputDir().resolve("corpus.jsonl");
-            // Write existing/approved records first
-            try (var writer = Files.newBufferedWriter(corpusFile)) {
-                ObjectMapper jsonlMapper = JsonMapper.builder().build();
-                for (BenchmarkCorpusRecord r : existingCorpus) {
-                    writer.write(jsonlMapper.writeValueAsString(r));
-                    writer.newLine();
-                }
-            }
-
             for (int day = 0; day < config.numDays() && generatedCorpus.size() < existingCorpus.size() + conversationTarget; day++) {
                 List<BenchmarkCorpusRecord> dayRecords = conversationGen.generateDay(day, generatedCorpus);
                 generatedCorpus.addAll(dayRecords);
 
-                // Append this day's records to corpus.jsonl immediately
-                appendJsonl(corpusFile, dayRecords);
-                log.info("Phase 1: Day {}/{} complete, {} total records (written to disk)",
-                        day + 1, config.numDays(), generatedCorpus.size());
+                // Write per-day batch file
+                Path dayFile = config.outputDir().resolve(String.format("corpus-day-%02d.jsonl", day + 1));
+                writeJsonl(dayFile, dayRecords);
+                log.info("Phase 1: Day {}/{} complete, {} records written to {}, {} total",
+                        day + 1, config.numDays(), dayRecords.size(), dayFile.getFileName(), generatedCorpus.size());
             }
 
             // Step 5: Generate biographical memories
             log.info("--- Phase 2: Generating biographical memories ---");
-            BiographicalGenerator bioGen = new BiographicalGenerator(client, persona, config);
+            BiographicalGenerator bioGen = new BiographicalGenerator(generationClient, persona, config);
             bioGen.setNextMemoryId(generatedCorpus.size() + 1);
             List<BenchmarkCorpusRecord> bioRecords = bioGen.generateBiographical(generatedCorpus);
             generatedCorpus.addAll(bioRecords);
 
-            // Append biographical records to corpus.jsonl
-            appendJsonl(corpusFile, bioRecords);
-            log.info("Phase 2 complete: {} biographical records written", bioRecords.size());
+            // Write biographical records to separate file
+            Path bioFile = config.outputDir().resolve("corpus-biographical.jsonl");
+            writeJsonl(bioFile, bioRecords);
+            log.info("Phase 2 complete: {} biographical records written to {}", bioRecords.size(), bioFile.getFileName());
 
-            // Step 6: Annotate cognitive metadata
+            // Step 6: Annotate cognitive metadata (using annotation model)
             log.info("--- Phase 3: Annotating cognitive metadata ---");
-            CognitiveAnnotator annotator = new CognitiveAnnotator(client, persona);
+            CognitiveAnnotator annotator = new CognitiveAnnotator(annotationClient, persona);
             List<BenchmarkCorpusRecord> toAnnotate = generatedCorpus.subList(
                     existingCorpus.size(), generatedCorpus.size());
             List<BenchmarkCorpusRecord> annotated = annotator.annotateAll(toAnnotate);
 
-            // Reassemble and rewrite corpus with annotations
+            // Reassemble final corpus
             List<BenchmarkCorpusRecord> finalCorpus = new ArrayList<>(existingCorpus);
             finalCorpus.addAll(annotated);
 
-            // Rewrite corpus.jsonl with annotated data
+            // Write merged corpus.jsonl with all annotated data
+            Path corpusFile = config.outputDir().resolve("corpus.jsonl");
             writeJsonl(corpusFile, finalCorpus);
-            log.info("Phase 3 complete: corpus.jsonl rewritten with annotations ({} records)", finalCorpus.size());
+            log.info("Phase 3 complete: corpus.jsonl written with annotations ({} records)", finalCorpus.size());
 
             // Step 7: Build graphs — write each immediately
             log.info("--- Phase 4: Building graphs ---");
@@ -228,7 +234,7 @@ public final class DatasetGeneratorMain {
 
             // Step 8: Generate queries — write immediately
             log.info("--- Phase 5: Generating queries ---");
-            QueryGenerator queryGen = new QueryGenerator(client, persona);
+            QueryGenerator queryGen = new QueryGenerator(generationClient, persona);
             QueryGenerator.QueryResult queryResult = queryGen.generate(finalCorpus);
 
             writeJsonl(config.outputDir().resolve("queries.jsonl"), queryResult.queries());
@@ -252,7 +258,10 @@ public final class DatasetGeneratorMain {
 
             log.info("=== Dataset generation complete: {} corpus, {} queries, {} judgments ===",
                     finalCorpus.size(), queryResult.queries().size(), queryResult.judgments().size());
-            client.close();
+            generationClient.close();
+            if (annotationClient != generationClient) {
+                annotationClient.close();
+            }
             return EXIT_SUCCESS;
 
         } catch (OllamaCompletionException e) {

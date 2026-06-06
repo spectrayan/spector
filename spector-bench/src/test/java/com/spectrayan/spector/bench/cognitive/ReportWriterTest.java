@@ -33,6 +33,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.spectrayan.spector.bench.cognitive.ReportWriter.BenchmarkReport;
 import com.spectrayan.spector.bench.cognitive.ReportWriter.QueryResult;
 import com.spectrayan.spector.bench.cognitive.ReportWriter.RetrieverMetrics;
+import com.spectrayan.spector.bench.cognitive.ReportWriter.StatComparison;
 import com.spectrayan.spector.bench.cognitive.ReportWriter.SubsystemContributions;
 import com.spectrayan.spector.bench.cognitive.ReportWriter.WinTieLoss;
 
@@ -202,7 +203,7 @@ class ReportWriterTest {
         assertTrue(Files.exists(detailFile));
 
         List<String> lines = Files.readAllLines(detailFile);
-        assertEquals("query_id,baseline_nDCG,cognitive_nDCG,delta,contributing_subsystems,profile,latency_ms",
+        assertEquals("query_id,baseline_nDCG,cognitive_nDCG,similarity_nDCG,delta,contributing_subsystems,profile,latency_ms",
                 lines.get(0));
     }
 
@@ -216,17 +217,17 @@ class ReportWriterTest {
         // Header + data rows
         assertEquals(1 + results.size(), lines.size());
 
-        // Each data row should have 7 columns
+        // Each data row should have 8 columns
         for (int i = 1; i < lines.size(); i++) {
             String[] columns = lines.get(i).split(",");
-            assertEquals(7, columns.length, "Row " + i + " should have 7 columns");
+            assertEquals(8, columns.length, "Row " + i + " should have 8 columns");
         }
     }
 
     @Test
     void writeDetail_dataRowFormatCorrect(@TempDir Path outputDir) throws IOException {
         List<QueryResult> results = List.of(
-                new QueryResult("q-001", 0.412, 0.856, 0.444, "TAG_GATING;IMPORTANCE_DECAY", "DEBUGGING", 3)
+                new QueryResult("q-001", 0.412, 0.856, 0.650, 0.444, "TAG_GATING;IMPORTANCE_DECAY", "DEBUGGING", 3)
         );
 
         writer.writeDetail(outputDir, results);
@@ -235,7 +236,7 @@ class ReportWriterTest {
         assertEquals(2, lines.size());
 
         String dataRow = lines.get(1);
-        assertEquals("q-001,0.412,0.856,0.444,TAG_GATING;IMPORTANCE_DECAY,DEBUGGING,3", dataRow);
+        assertEquals("q-001,0.412,0.856,0.650,0.444,TAG_GATING;IMPORTANCE_DECAY,DEBUGGING,3", dataRow);
     }
 
     @Test
@@ -244,7 +245,7 @@ class ReportWriterTest {
 
         List<String> lines = Files.readAllLines(outputDir.resolve("detail.csv"));
         assertEquals(1, lines.size());
-        assertEquals("query_id,baseline_nDCG,cognitive_nDCG,delta,contributing_subsystems,profile,latency_ms",
+        assertEquals("query_id,baseline_nDCG,cognitive_nDCG,similarity_nDCG,delta,contributing_subsystems,profile,latency_ms",
                 lines.get(0));
     }
 
@@ -266,7 +267,7 @@ class ReportWriterTest {
         }
 
         String output = baos.toString().trim();
-        assertEquals("Cognitive nDCG@10=0.687 vs Baseline nDCG@10=0.412 (\u0394=0.275, p=0.00001)", output);
+        assertEquals("Cognitive nDCG@10=0.687 vs Similarity nDCG@10=0.550 vs Baseline nDCG@10=0.412 (\u0394cog-base=0.275, p=0.00001)", output);
     }
 
     @Test
@@ -278,11 +279,14 @@ class ReportWriterTest {
                 100,
                 new RetrieverMetrics(0.500, 0.400, 0.350, 2.0),
                 new RetrieverMetrics(0.800, 0.700, 0.650, 5.0),
+                new RetrieverMetrics(0.600, 0.500, 0.450, 3.5),
                 new SubsystemContributions(10.0, 8.0, 9.0, 20.0, 15.0, 30.0),
                 Map.of("BALANCED", 0.75),
                 new WinTieLoss(80, 5, 15),
                 0.90,
                 0.00010,
+                new StatComparison(0.30, 0.01),
+                new StatComparison(0.60, 0.001),
                 4.5
         );
 
@@ -296,7 +300,7 @@ class ReportWriterTest {
         }
 
         String output = baos.toString().trim();
-        assertEquals("Cognitive nDCG@10=0.800 vs Baseline nDCG@10=0.500 (\u0394=0.300, p=0.00010)", output);
+        assertEquals("Cognitive nDCG@10=0.800 vs Similarity nDCG@10=0.600 vs Baseline nDCG@10=0.500 (\u0394cog-base=0.300, p=0.00010)", output);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -310,20 +314,23 @@ class ReportWriterTest {
                 200,
                 new RetrieverMetrics(0.412, 0.385, 0.340, 2.1),
                 new RetrieverMetrics(0.687, 0.621, 0.580, 4.8),
+                new RetrieverMetrics(0.550, 0.510, 0.460, 3.5),
                 new SubsystemContributions(12.5, 8.3, 9.1, 22.4, 15.7, 31.0),
                 Map.of("BALANCED", 0.72, "DEBUGGING", 0.81),
                 new WinTieLoss(165, 12, 23),
                 0.82,
                 0.00001,
+                new StatComparison(0.35, 0.005),
+                new StatComparison(0.50, 0.0001),
                 4.8
         );
     }
 
     private List<QueryResult> createSampleResults() {
         return List.of(
-                new QueryResult("q-001", 0.412, 0.856, 0.444, "TAG_GATING;IMPORTANCE_DECAY", "DEBUGGING", 3),
-                new QueryResult("q-002", 0.300, 0.650, 0.350, "HEBBIAN_GRAPH", "BALANCED", 5),
-                new QueryResult("q-003", 0.500, 0.520, 0.020, "TEMPORAL_CHAIN", "RECALLING", 4)
+                new QueryResult("q-001", 0.412, 0.856, 0.650, 0.444, "TAG_GATING;IMPORTANCE_DECAY", "DEBUGGING", 3),
+                new QueryResult("q-002", 0.300, 0.650, 0.500, 0.350, "HEBBIAN_GRAPH", "BALANCED", 5),
+                new QueryResult("q-003", 0.500, 0.520, 0.510, 0.020, "TEMPORAL_CHAIN", "RECALLING", 4)
         );
     }
 }

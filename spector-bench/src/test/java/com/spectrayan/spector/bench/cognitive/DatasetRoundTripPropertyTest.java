@@ -63,12 +63,12 @@ class DatasetRoundTripPropertyTest {
         Path tempDir = Files.createTempDirectory("round-trip-test");
         try {
             Path corpusFile = tempDir.resolve("corpus.jsonl");
-            // Write JSON in snake_case format matching corpus.jsonl schema
+            // Write JSON in camelCase format matching corpus.jsonl schema
             String json = String.format(
                     "{\"id\":\"%s\",\"text\":\"%s\",\"title\":\"%s\"," +
-                    "\"synaptic_tags\":%s,\"valence\":%d,\"importance\":%.4f," +
-                    "\"arousal\":%d,\"session_id\":\"%s\",\"timestamp_ms\":%d," +
-                    "\"entity_mentions\":[],\"memory_type\":\"%s\",\"recall_count\":%d}",
+                    "\"synapticTags\":%s,\"valence\":%d,\"importance\":%.4f," +
+                    "\"arousal\":%d,\"sessionId\":\"%s\",\"timestampMs\":%d," +
+                    "\"entityMentions\":[],\"memoryType\":\"%s\",\"recallCount\":%d}",
                     original.id(), original.text(), original.title(),
                     mapper.writeValueAsString(original.synapticTags()),
                     original.valence(), original.importance(),
@@ -109,9 +109,9 @@ class DatasetRoundTripPropertyTest {
         try {
             Path queryFile = tempDir.resolve("queries.jsonl");
             String json = String.format(
-                    "{\"id\":\"%s\",\"text\":\"%s\",\"cognitive_profile\":\"%s\"," +
-                    "\"synaptic_filter_tags\":%s,\"min_valence\":null,\"max_valence\":null," +
-                    "\"expected_subsystem\":\"%s\",\"temporal_hint\":null}",
+                    "{\"id\":\"%s\",\"text\":\"%s\",\"cognitiveProfile\":\"%s\"," +
+                    "\"synapticFilterTags\":%s,\"minValence\":null,\"maxValence\":null," +
+                    "\"expectedSubsystem\":\"%s\",\"temporalHint\":null}",
                     original.id(), original.text(), original.cognitiveProfile().name(),
                     mapper.writeValueAsString(original.synapticFilterTags()),
                     original.expectedSubsystem());
@@ -142,7 +142,7 @@ class DatasetRoundTripPropertyTest {
         try {
             Path edgeFile = tempDir.resolve("hebbian_edges.jsonl");
             String json = String.format(
-                    "{\"memory_id_a\":\"%s\",\"memory_id_b\":\"%s\",\"co_activation_count\":%d}",
+                    "{\"memoryIdA\":\"%s\",\"memoryIdB\":\"%s\",\"coActivationCount\":%d}",
                     original.memoryIdA(), original.memoryIdB(), original.coActivationCount());
             Files.writeString(edgeFile, json + "\n");
 

@@ -34,6 +34,7 @@ import com.spectrayan.spector.memory.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
@@ -88,6 +89,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .hebbianGraphCapacity(corpusSize + 100)
                 .temporalChainCapacity(corpusSize + 100)
                 .entityGraphCapacity(Math.max(200, corpusSize))
+                .entityExtractionMode(EntityExtractionMode.CUSTOM)
                 .build();
 
         // Ingest all corpus records and build idToSlot mapping
@@ -96,17 +98,25 @@ public final class BenchmarkSetup implements AutoCloseable {
         for (BenchmarkCorpusRecord record : corpus) {
             try {
                 IngestionHints hints = new IngestionHints(
-                        0.5f, 0.5f, 0.5f,
+                        record.interest(), record.challenge(), record.urgency(),
                         record.valence(),
                         (byte) record.arousal()
                 );
+
+                // Use IngestionContext to pass the corpus record's original timestamp
+                // into the cognitive header, preserving temporal accuracy for decay and
+                // temporal chain ordering across the 180-day benchmark span.
+                var context = com.spectrayan.spector.memory.IngestionContext.builder()
+                        .hints(hints)
+                        .overrideTimestampMs(record.timestampMs())
+                        .build();
 
                 memory.remember(
                         record.id(),
                         record.text(),
                         record.memoryType(),
                         MemorySource.OBSERVED,
-                        hints,
+                        context,
                         record.synapticTags().toArray(String[]::new)
                 ).get(30, TimeUnit.SECONDS);
 
@@ -122,10 +132,22 @@ public final class BenchmarkSetup implements AutoCloseable {
         // Store for external access (subsystem contribution detection)
         this.idToSlot = idToSlot;
 
-        // Load graph structures from dataset definitions
-        loadHebbianEdges(memory.hebbianGraph(), dataset.hebbianEdges(), idToSlot);
-        loadTemporalChains(memory.temporalChain(), dataset.temporalChains(), idToSlot);
-        loadEntityGraph(memory.entityGraph(), dataset.entityRelations(), corpus);
+        // Load graph structures from dataset definitions (null-safe: subsystems may be unconfigured)
+        if (memory.hebbianGraph() != null) {
+            loadHebbianEdges(memory.hebbianGraph(), dataset.hebbianEdges(), idToSlot);
+        } else {
+            log.warn("HebbianGraph is null — skipping {} edge definitions", dataset.hebbianEdges().size());
+        }
+        if (memory.temporalChain() != null) {
+            loadTemporalChains(memory.temporalChain(), dataset.temporalChains(), idToSlot);
+        } else {
+            log.warn("TemporalChain is null — skipping {} chain definitions", dataset.temporalChains().size());
+        }
+        if (memory.entityGraph() != null) {
+            loadEntityGraph(memory.entityGraph(), dataset.entityRelations(), corpus);
+        } else {
+            log.warn("EntityGraph is null — skipping {} entity relation definitions", dataset.entityRelations().size());
+        }
 
         log.info("Benchmark memory setup complete: hebbian edges={}, temporal chains={}, entity relations={}",
                 dataset.hebbianEdges().size(), dataset.temporalChains().size(),
@@ -316,12 +338,21 @@ public final class BenchmarkSetup implements AutoCloseable {
         if (typeName == null || typeName.isBlank()) {
             return EntityType.OTHER;
         }
-        try {
-            return EntityType.valueOf(typeName.trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            log.warn("Unknown entity type '{}', defaulting to OTHER", typeName);
-            return EntityType.OTHER;
-        }
+        String upper = typeName.trim().toUpperCase();
+        // Map common LLM-generated aliases to valid enum values
+        return switch (upper) {
+            case "SOFTWARE" -> EntityType.PRODUCT;
+            case "GROUP" -> EntityType.TEAM;
+            case "HOBBY", "HOBBI", "ACTIVITY" -> EntityType.OTHER;
+            default -> {
+                try {
+                    yield EntityType.valueOf(upper);
+                } catch (IllegalArgumentException e) {
+                    log.warn("Unknown entity type '{}', defaulting to OTHER", typeName);
+                    yield EntityType.OTHER;
+                }
+            }
+        };
     }
 
     private static RelationType parseRelationType(String typeName) {

@@ -51,7 +51,7 @@ public final class CognitiveAnnotator {
     private static final Logger log = LoggerFactory.getLogger(CognitiveAnnotator.class);
 
     /** Number of records to annotate per LLM batch request. */
-    private static final int BATCH_SIZE = 10;
+    private static final int BATCH_SIZE = 15;
 
     private static final String SYSTEM_PROMPT = """
             You are a cognitive annotation engine. For each memory text provided, assign
@@ -61,10 +61,10 @@ public final class CognitiveAnnotator {
             - "valence": integer -128 to 127 (negative=unpleasant, 0=neutral, positive=pleasant)
             - "importance": float 0.05 to 10.0 (how significant/memorable this is)
             - "arousal": integer 0 to 255 (how emotionally activating — 0=calm, 255=extremely intense)
-            - "synaptic_tags": array of 2-8 contextual keywords for semantic categorization
+            - "synapticTags": array of 2-8 contextual keywords for semantic categorization
             
             Respond with a JSON array of annotation objects in the same order as the input memories.
-            Each object must have exactly: valence, importance, arousal, synaptic_tags.
+            Each object must have exactly: valence, importance, arousal, synapticTags.
             
             Respond ONLY with a valid JSON array. No markdown, no explanation.
             """;
@@ -161,7 +161,7 @@ public final class CognitiveAnnotator {
                 byte valence = clampByte(getNumberOr(ann, "valence", 0));
                 float importance = clampImportance(getFloatOr(ann, "importance", 1.0f));
                 int arousal = clampArousal(getNumberOr(ann, "arousal", 50));
-                List<String> tags = parseStringList(ann.get("synaptic_tags"));
+                List<String> tags = parseStringList(ann.get("synapticTags"));
 
                 if (tags.isEmpty()) {
                     tags = List.of("general");

@@ -1,15 +1,15 @@
-{"from_entity":{"name":"Alice","type":"PERSON"},"to_entity":{"name":"payment service","type":"SOFTWARE"},"relation_type":"WORKS_ON","source_memory_ids":["mem-001","mem-002"]}
-{"from_entity":{"name":"Marcus","type":"PERSON"},"to_entity":{"name":"Nexus","type":"ORGANIZATION"},"relation_type":"MANAGES","source_memory_ids":["mem-006"]}
-{"from_entity":{"name":"payment service","type":"SOFTWARE"},"to_entity":{"name":"Redis","type":"SOFTWARE"},"relation_type":"DEPENDS_ON","source_memory_ids":["mem-009"]}
-{"from_entity":{"name":"Bob","type":"PERSON"},"to_entity":{"name":"unknown thing","type":"SOFTWARE"},"relation_type":"UNKNOWN_RELATION","source_memory_ids":["mem-001"]}
-{"from_entity":{"name":"Sam","type":"PERSON"},"to_entity":{"name":"Seattle","type":"LOCATION"},"relation_type":"LIVES_IN","source_memory_ids":["mem-029","mem-016"]}
-{"from_entity":{"name":"Marcus","type":"PERSON"},"to_entity":{"name":"caching layer","type":"SOFTWARE"},"relation_type":"WORKS_ON","source_memory_ids":["mem-006"]}
-{"from_entity":{"name":"notification subsystem","type":"SOFTWARE"},"to_entity":{"name":"Kafka","type":"SOFTWARE"},"relation_type":"DEPENDS_ON","source_memory_ids":["mem-008"]}
-{"from_entity":{"name":"Synth.io","type":"ORGANIZATION"},"to_entity":{"name":"Nexus","type":"ORGANIZATION"},"relation_type":"ACQUIRED_BY","source_memory_ids":["mem-034"]}
-{"from_entity":{"name":"Leo","type":"PERSON"},"to_entity":{"name":"Mika","type":"PERSON"},"relation_type":"FRIENDS_WITH","source_memory_ids":["mem-015","mem-044"]}
-{"from_entity":{"name":"distributed lock service","type":"SOFTWARE"},"to_entity":{"name":"Alice","type":"PERSON"},"relation_type":"MAINTAINED_BY","source_memory_ids":["mem-010"]}
-{"from_entity":{"name":"Byte","type":"PERSON"},"to_entity":{"name":"Sam","type":"PERSON"},"relation_type":"OWNED_BY","source_memory_ids":["mem-017","mem-021"]}
-{"from_entity":{"name":"Cascade Labs","type":"ORGANIZATION"},"to_entity":{"name":"Synth.io","type":"ORGANIZATION"},"relation_type":"PREDECESSOR_OF","source_memory_ids":["mem-030","mem-033"]}
-{"from_entity":{"name":"Kubernetes","type":"SOFTWARE"},"to_entity":{"name":"Nexus","type":"ORGANIZATION"},"relation_type":"USED_BY","source_memory_ids":["mem-007"]}
-{"from_entity":{"name":"rate limiter","type":"SOFTWARE"},"to_entity":{"name":"Redis","type":"SOFTWARE"},"relation_type":"DEPENDS_ON","source_memory_ids":["mem-009"]}
-{"from_entity":{"name":"Professor Harmon","type":"PERSON"},"to_entity":{"name":"University of Washington","type":"ORGANIZATION"},"relation_type":"WORKS_AT","source_memory_ids":["mem-028"]}
+{"fromEntity":{"name":"Alice","type":"PERSON"},"toEntity":{"name":"payment service","type":"SOFTWARE"},"relationType":"WORKS_ON","sourceMemoryIds":["mem-001","mem-002"]}
+{"fromEntity":{"name":"Marcus","type":"PERSON"},"toEntity":{"name":"Nexus","type":"ORGANIZATION"},"relationType":"MANAGES","sourceMemoryIds":["mem-006"]}
+{"fromEntity":{"name":"payment service","type":"SOFTWARE"},"toEntity":{"name":"Redis","type":"SOFTWARE"},"relationType":"DEPENDS_ON","sourceMemoryIds":["mem-009"]}
+{"fromEntity":{"name":"Bob","type":"PERSON"},"toEntity":{"name":"unknown thing","type":"SOFTWARE"},"relationType":"UNKNOWN_RELATION","sourceMemoryIds":["mem-001"]}
+{"fromEntity":{"name":"Sam","type":"PERSON"},"toEntity":{"name":"Seattle","type":"LOCATION"},"relationType":"LIVES_IN","sourceMemoryIds":["mem-029","mem-016"]}
+{"fromEntity":{"name":"Marcus","type":"PERSON"},"toEntity":{"name":"caching layer","type":"SOFTWARE"},"relationType":"WORKS_ON","sourceMemoryIds":["mem-006"]}
+{"fromEntity":{"name":"notification subsystem","type":"SOFTWARE"},"toEntity":{"name":"Kafka","type":"SOFTWARE"},"relationType":"DEPENDS_ON","sourceMemoryIds":["mem-008"]}
+{"fromEntity":{"name":"Synth.io","type":"ORGANIZATION"},"toEntity":{"name":"Nexus","type":"ORGANIZATION"},"relationType":"ACQUIRED_BY","sourceMemoryIds":["mem-034"]}
+{"fromEntity":{"name":"Leo","type":"PERSON"},"toEntity":{"name":"Mika","type":"PERSON"},"relationType":"FRIENDS_WITH","sourceMemoryIds":["mem-015","mem-044"]}
+{"fromEntity":{"name":"distributed lock service","type":"SOFTWARE"},"toEntity":{"name":"Alice","type":"PERSON"},"relationType":"MAINTAINED_BY","sourceMemoryIds":["mem-010"]}
+{"fromEntity":{"name":"Byte","type":"PERSON"},"toEntity":{"name":"Sam","type":"PERSON"},"relationType":"OWNED_BY","sourceMemoryIds":["mem-017","mem-021"]}
+{"fromEntity":{"name":"Cascade Labs","type":"ORGANIZATION"},"toEntity":{"name":"Synth.io","type":"ORGANIZATION"},"relationType":"PREDECESSOR_OF","sourceMemoryIds":["mem-030","mem-033"]}
+{"fromEntity":{"name":"Kubernetes","type":"SOFTWARE"},"toEntity":{"name":"Nexus","type":"ORGANIZATION"},"relationType":"USED_BY","sourceMemoryIds":["mem-007"]}
+{"fromEntity":{"name":"rate limiter","type":"SOFTWARE"},"toEntity":{"name":"Redis","type":"SOFTWARE"},"relationType":"DEPENDS_ON","sourceMemoryIds":["mem-009"]}
+{"fromEntity":{"name":"Professor Harmon","type":"PERSON"},"toEntity":{"name":"University of Washington","type":"ORGANIZATION"},"relationType":"WORKS_AT","sourceMemoryIds":["mem-028"]}

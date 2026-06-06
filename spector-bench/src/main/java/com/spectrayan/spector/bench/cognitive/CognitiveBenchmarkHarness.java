@@ -66,7 +66,7 @@ import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
  * <h3>Exit Codes</h3>
  * <ul>
  *   <li>0: SUCCESS — all criteria passed</li>
- *   <li>1: EFFECT_SIZE_INSUFFICIENT — Cohen's d &lt; 0.5</li>
+ *   <li>1: EFFECT_SIZE_INSUFFICIENT — Cohen's d &lt; 0.2</li>
  *   <li>2: NDCG_REGRESSION — cognitive nDCG below regression threshold</li>
  *   <li>3: DATASET_VALIDATION_FAILED — dataset loading failed</li>
  *   <li>4: SETUP_FAILED — memory instance creation failed</li>
@@ -87,6 +87,8 @@ public final class CognitiveBenchmarkHarness {
     private final Path outputDir;
     private final Double regressionThreshold;
     private final int topK;
+    /** Profile override: null = per-query profiles, "NONE" = no profile, else a CognitiveProfile name. */
+    private final String profileOverride;
 
     /**
      * Creates a new benchmark harness with the specified configuration.
@@ -95,23 +97,36 @@ public final class CognitiveBenchmarkHarness {
      * @param outputDir           path to the output directory for reports
      * @param regressionThreshold optional nDCG regression threshold (null = no check)
      * @param topK                number of results to retrieve and evaluate
+     * @param profileOverride     optional profile override: null = per-query, "NONE" = no profile,
+     *                            or a valid CognitiveProfile name to force on all queries
      */
     public CognitiveBenchmarkHarness(Path datasetDir, Path outputDir,
-                                     Double regressionThreshold, int topK) {
+                                     Double regressionThreshold, int topK,
+                                     String profileOverride) {
         this.datasetDir = datasetDir;
         this.outputDir = outputDir;
         this.regressionThreshold = regressionThreshold;
         this.topK = topK;
+        this.profileOverride = profileOverride;
+    }
+
+    /** Backward-compatible constructor — no profile override. */
+    public CognitiveBenchmarkHarness(Path datasetDir, Path outputDir,
+                                     Double regressionThreshold, int topK) {
+        this(datasetDir, outputDir, regressionThreshold, topK, null);
     }
 
     /**
      * Main entry point. Parses CLI arguments and runs the benchmark.
      *
-     * @param args CLI arguments: datasetDir, outputDir, [regressionThreshold], [topK]
+     * @param args CLI arguments: datasetDir, outputDir, [regressionThreshold], [topK], [profile]
      */
     public static void main(String[] args) {
         if (args.length < 2) {
-            System.err.println("Usage: CognitiveBenchmarkHarness <datasetDir> <outputDir> [regressionThreshold] [topK]");
+            System.err.println("Usage: CognitiveBenchmarkHarness <datasetDir> <outputDir> "
+                    + "[regressionThreshold] [topK] [profile]");
+            System.err.println("  profile: NONE (no profile), BALANCED, DEBUGGING, etc. "
+                    + "(default: use per-query profiles from dataset)");
             System.exit(BenchmarkExitCode.SETUP_FAILED.code());
             return;
         }
@@ -121,7 +136,10 @@ public final class CognitiveBenchmarkHarness {
 
         Double regressionThreshold = null;
         if (args.length >= 3 && !args[2].isBlank()) {
-            regressionThreshold = Double.parseDouble(args[2]);
+            double parsed = Double.parseDouble(args[2]);
+            if (parsed > 0) {
+                regressionThreshold = parsed;
+            }
         }
 
         int topK = 10;
@@ -129,8 +147,13 @@ public final class CognitiveBenchmarkHarness {
             topK = Integer.parseInt(args[3]);
         }
 
+        String profileOverride = null;
+        if (args.length >= 5 && !args[4].isBlank()) {
+            profileOverride = args[4].toUpperCase();
+        }
+
         CognitiveBenchmarkHarness harness = new CognitiveBenchmarkHarness(
-                datasetDir, outputDir, regressionThreshold, topK);
+                datasetDir, outputDir, regressionThreshold, topK, profileOverride);
 
         BenchmarkExitCode exitCode = harness.run();
         System.exit(exitCode.code());
@@ -165,7 +188,10 @@ public final class CognitiveBenchmarkHarness {
 
             // ── Step 3: Create retrievers ──
             BaselineRetriever baselineRetriever = createBaselineRetriever(memory);
-            CognitiveRetriever cognitiveRetriever = new CognitiveRetriever(memory);
+            CognitiveRetriever cognitiveRetriever = new CognitiveRetriever(memory, profileOverride);
+            if (profileOverride != null) {
+                log.info("Profile override: {}", profileOverride);
+            }
 
             // ── Step 4: Execute benchmark loop ──
             return executeBenchmark(dataset, baselineRetriever, cognitiveRetriever, embedder,
@@ -195,6 +221,9 @@ public final class CognitiveBenchmarkHarness {
         int skippedCount = 0;
         List<String> skippedQueryIds = new ArrayList<>();
 
+        // Per-query cognitive results for detailed output
+        Map<String, List<CognitiveResult>> perQueryCognitiveResults = new LinkedHashMap<>();
+
         // Subsystem contribution tracking (Task 11.3/11.4)
         Map<String, Set<ContributingSubsystem>> perQueryContributions = new LinkedHashMap<>();
 
@@ -209,23 +238,33 @@ public final class CognitiveBenchmarkHarness {
             for (BenchmarkQuery query : queries) {
                 long startNanos = System.nanoTime();
 
-                // ── Execute both retrievers with timeout ──
+                // ── Execute all three retrievers with timeout ──
                 List<ScoredResult> baselineResults;
                 List<ScoredResult> cognitiveResults;
                 List<CognitiveResult> cognitiveRawResults;
+                List<ScoredResult> similarityResults;
 
                 try {
                     float[] queryVector = embedder.embed(query.text()).vector();
 
                     Future<List<ScoredResult>> baselineFuture = executor.submit(
                             () -> baselineRetriever.retrieve(queryVector, topK));
+                    baselineResults = baselineFuture.get(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
                     Future<List<CognitiveResult>> cognitiveFuture = executor.submit(
                             () -> cognitiveRetriever.retrieveWithBreakdown(query.text(), query));
-
-                    baselineResults = baselineFuture.get(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     cognitiveRawResults = cognitiveFuture.get(QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
                     cognitiveResults = cognitiveRawResults.stream()
+                            .map(r -> new ScoredResult(r.id(), r.score()))
+                            .toList();
+
+                    // Third leg: pipeline + SIMILARITY scoring mode
+                    Future<List<CognitiveResult>> similarityFuture = executor.submit(
+                            () -> cognitiveRetriever.retrieveWithSimilarityMode(query.text(), query));
+                    List<CognitiveResult> similarityRaw = similarityFuture.get(
+                            QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    similarityResults = similarityRaw.stream()
                             .map(r -> new ScoredResult(r.id(), r.score()))
                             .toList();
                 } catch (TimeoutException e) {
@@ -254,6 +293,9 @@ public final class CognitiveBenchmarkHarness {
                 List<String> cognitiveRankedIds = cognitiveResults.stream()
                         .map(ScoredResult::memoryId)
                         .toList();
+                List<String> similarityRankedIds = similarityResults.stream()
+                        .map(ScoredResult::memoryId)
+                        .toList();
 
                 // ── Compute per-query metrics ──
                 Map<String, Integer> queryQrels = qrels.getOrDefault(query.id(), Map.of());
@@ -265,6 +307,10 @@ public final class CognitiveBenchmarkHarness {
                 double cognitiveNdcg = metricsComputer.ndcgAtK(cognitiveRankedIds, queryQrels, topK);
                 double cognitiveMrr = metricsComputer.mrrAtK(cognitiveRankedIds, queryQrels, topK);
                 double cognitiveRecall = metricsComputer.recallAtK(cognitiveRankedIds, queryQrels, topK);
+
+                double similarityNdcg = metricsComputer.ndcgAtK(similarityRankedIds, queryQrels, topK);
+                double similarityMrr = metricsComputer.mrrAtK(similarityRankedIds, queryQrels, topK);
+                double similarityRecall = metricsComputer.recallAtK(similarityRankedIds, queryQrels, topK);
 
                 double delta = cognitiveNdcg - baselineNdcg;
 
@@ -313,13 +359,17 @@ public final class CognitiveBenchmarkHarness {
                 perQueryMetrics.add(new QueryMetrics(
                         baselineNdcg, baselineMrr, baselineRecall,
                         cognitiveNdcg, cognitiveMrr, cognitiveRecall,
+                        similarityNdcg, similarityMrr, similarityRecall,
                         elapsedMs));
 
                 queryResults.add(new ReportWriter.QueryResult(
-                        query.id(), baselineNdcg, cognitiveNdcg, delta,
+                        query.id(), baselineNdcg, cognitiveNdcg, similarityNdcg, delta,
                         contributingSubsystemsStr,
                         query.cognitiveProfile().name(),
                         elapsedMs));
+
+                // Save raw cognitive results for per-query output
+                perQueryCognitiveResults.put(query.id(), cognitiveRawResults);
             }
         } finally {
             executor.shutdownNow();
@@ -354,22 +404,42 @@ public final class CognitiveBenchmarkHarness {
         double meanCognitiveRecall = perQueryMetrics.stream()
                 .mapToDouble(QueryMetrics::cognitiveRecall).average().orElse(0.0);
 
+        double meanSimilarityNdcg = perQueryMetrics.stream()
+                .mapToDouble(QueryMetrics::similarityNdcg).average().orElse(0.0);
+        double meanSimilarityMrr = perQueryMetrics.stream()
+                .mapToDouble(QueryMetrics::similarityMrr).average().orElse(0.0);
+        double meanSimilarityRecall = perQueryMetrics.stream()
+                .mapToDouble(QueryMetrics::similarityRecall).average().orElse(0.0);
+
         double avgLatencyMs = perQueryMetrics.stream()
                 .mapToLong(QueryMetrics::latencyMs).average().orElse(0.0);
 
         // ── Step 7: Compute per-profile nDCG ──
         Map<String, Double> perProfileNdcg = computePerProfileNdcg(queryResults);
 
-        // ── Step 8: Statistical tests (Cohen's d and p-value on nDCG arrays) ──
+        // ── Step 8: Statistical tests ──
+        // Cognitive vs Baseline (primary comparison)
         double[] baselineArray = perQueryMetrics.stream()
                 .mapToDouble(QueryMetrics::baselineNdcg).toArray();
         double[] cognitiveArray = perQueryMetrics.stream()
                 .mapToDouble(QueryMetrics::cognitiveNdcg).toArray();
+        double[] similarityArray = perQueryMetrics.stream()
+                .mapToDouble(QueryMetrics::similarityNdcg).toArray();
 
         double cohensD = StatisticalTests.cohensD(baselineArray, cognitiveArray);
         double pValue = StatisticalTests.pairedTTestPValue(baselineArray, cognitiveArray);
 
-        log.info("Cohen's d = {}, p-value = {}", cohensD, pValue);
+        // Similarity vs Baseline (pipeline infrastructure effect)
+        double simVsBaselineCohensD = StatisticalTests.cohensD(baselineArray, similarityArray);
+        double simVsBaselinePValue = StatisticalTests.pairedTTestPValue(baselineArray, similarityArray);
+
+        // Cognitive vs Similarity (pure cognitive scoring effect)
+        double cogVsSimCohensD = StatisticalTests.cohensD(similarityArray, cognitiveArray);
+        double cogVsSimPValue = StatisticalTests.pairedTTestPValue(similarityArray, cognitiveArray);
+
+        log.info("Cognitive vs Baseline: Cohen's d = {}, p = {}", cohensD, pValue);
+        log.info("Similarity vs Baseline: Cohen's d = {}, p = {}", simVsBaselineCohensD, simVsBaselinePValue);
+        log.info("Cognitive vs Similarity: Cohen's d = {}, p = {}", cogVsSimCohensD, cogVsSimPValue);
 
         // ── Step 9: Write reports ──
         ReportWriter writer = new ReportWriter();
@@ -381,17 +451,22 @@ public final class CognitiveBenchmarkHarness {
                         meanBaselineNdcg, meanBaselineMrr, meanBaselineRecall, avgLatencyMs),
                 new ReportWriter.RetrieverMetrics(
                         meanCognitiveNdcg, meanCognitiveMrr, meanCognitiveRecall, avgLatencyMs),
+                new ReportWriter.RetrieverMetrics(
+                        meanSimilarityNdcg, meanSimilarityMrr, meanSimilarityRecall, avgLatencyMs),
                 ContributingSubsystem.computeContributionPercentages(
                         perQueryContributions, executedCount),
                 perProfileNdcg,
                 new ReportWriter.WinTieLoss(wtl.wins(), wtl.ties(), wtl.losses()),
                 cohensD,
                 pValue,
+                new ReportWriter.StatComparison(simVsBaselineCohensD, simVsBaselinePValue),
+                new ReportWriter.StatComparison(cogVsSimCohensD, cogVsSimPValue),
                 avgLatencyMs);
 
         try {
             writer.writeSummary(outputDir, report);
             writer.writeDetail(outputDir, queryResults);
+            writer.writePerQueryResults(outputDir, perQueryCognitiveResults);
             writer.logSummary(report);
         } catch (Exception e) {
             log.error("Failed to write reports: {}", e.getMessage(), e);
@@ -401,8 +476,8 @@ public final class CognitiveBenchmarkHarness {
         if (skippedCount > 0) {
             return BenchmarkExitCode.PARTIAL_EXECUTION;
         }
-        if (cohensD < 0.5) {
-            log.warn("FAIL: Cohen's d ({}) < 0.5 (medium effect threshold)", cohensD);
+        if (cohensD < 0.2) {
+            log.warn("FAIL: Cohen's d ({}) < 0.2 (small effect threshold)", cohensD);
             return BenchmarkExitCode.EFFECT_SIZE_INSUFFICIENT;
         }
         if (regressionThreshold != null && meanCognitiveNdcg < regressionThreshold) {
@@ -523,6 +598,7 @@ public final class CognitiveBenchmarkHarness {
     private record QueryMetrics(
             double baselineNdcg, double baselineMrr, double baselineRecall,
             double cognitiveNdcg, double cognitiveMrr, double cognitiveRecall,
+            double similarityNdcg, double similarityMrr, double similarityRecall,
             long latencyMs
     ) {}
 

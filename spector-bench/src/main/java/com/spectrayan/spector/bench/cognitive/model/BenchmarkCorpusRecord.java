@@ -55,6 +55,9 @@ import com.spectrayan.spector.memory.MemoryType;
  * @param entityMentions  entities mentioned in this memory
  * @param memoryType      cognitive memory type (EPISODIC, SEMANTIC, PROCEDURAL, WORKING)
  * @param recallCount     number of times this memory has been recalled (≥ 0)
+ * @param interest        ICNU Interest hint — how engaging this is to the user (0.0–1.0)
+ * @param challenge       ICNU Challenge hint — how complex the topic is (0.0–1.0)
+ * @param urgency         ICNU Urgency hint — how time-critical this information is (0.0–1.0)
  */
 public record BenchmarkCorpusRecord(
         String id,
@@ -68,5 +71,22 @@ public record BenchmarkCorpusRecord(
         long timestampMs,
         List<EntityMention> entityMentions,
         MemoryType memoryType,
-        int recallCount
-) {}
+        int recallCount,
+        float interest,
+        float challenge,
+        float urgency
+) {
+    /**
+     * Backward-compatible constructor for existing code that doesn't provide ICNU hints.
+     * Defaults to 0.5 for all ICNU values.
+     */
+    public BenchmarkCorpusRecord(String id, String text, String title,
+                                  List<String> synapticTags, byte valence, float importance,
+                                  int arousal, String sessionId, long timestampMs,
+                                  List<EntityMention> entityMentions, MemoryType memoryType,
+                                  int recallCount) {
+        this(id, text, title, synapticTags, valence, importance, arousal,
+                sessionId, timestampMs, entityMentions, memoryType, recallCount,
+                0.5f, 0.5f, 0.5f);
+    }
+}

@@ -57,7 +57,7 @@ public final class OllamaCompletionClient implements AutoCloseable {
     private static final Duration BASE_BACKOFF = Duration.ofSeconds(2);
 
     /** Request timeout per attempt. */
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(120);
 
     private final String model;
     private final String baseUrl;

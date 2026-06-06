@@ -19,9 +19,11 @@ import java.util.List;
 
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
+import com.spectrayan.spector.memory.CognitiveProfile;
 import com.spectrayan.spector.memory.CognitiveResult;
 import com.spectrayan.spector.memory.RecallMode;
 import com.spectrayan.spector.memory.RecallOptions;
+import com.spectrayan.spector.memory.ScoringMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 
 /**
@@ -58,6 +60,8 @@ import com.spectrayan.spector.memory.SpectorMemory;
 public final class CognitiveRetriever {
 
     private final SpectorMemory memory;
+    /** null = per-query profiles, "NONE" = no profile, else a CognitiveProfile name. */
+    private final String profileOverride;
 
     /**
      * Creates a new CognitiveRetriever backed by the given SpectorMemory instance.
@@ -67,20 +71,35 @@ public final class CognitiveRetriever {
      * @throws NullPointerException if memory is null
      */
     public CognitiveRetriever(SpectorMemory memory) {
+        this(memory, null);
+    }
+
+    /**
+     * Creates a new CognitiveRetriever with an optional profile override.
+     *
+     * @param memory          the memory instance for recall queries
+     * @param profileOverride null = per-query profiles from dataset,
+     *                        "NONE" = no profile (raw cognitive scoring with defaults),
+     *                        or a CognitiveProfile enum name to force on all queries
+     */
+    public CognitiveRetriever(SpectorMemory memory, String profileOverride) {
         if (memory == null) {
             throw new NullPointerException("SpectorMemory instance must not be null");
         }
         this.memory = memory;
+        this.profileOverride = profileOverride;
     }
 
     /**
      * Builds {@link RecallOptions} from a {@link BenchmarkQuery}, always using
      * {@link RecallMode#OBSERVE} to prevent state mutations during benchmarking.
      *
-     * <p>The builder applies the query's cognitive profile first (which sets
-     * alpha/beta weights, valence defaults, and profile-specific overrides such
-     * as memory type restrictions for DEFAULT_MODE_NETWORK), then conditionally
-     * applies query-specific overrides for synaptic filter tags and valence bounds.</p>
+     * <p>Profile resolution order:
+     * <ol>
+     *   <li>If profileOverride is "NONE": no profile applied (default alpha=0.6, beta=0.4)</li>
+     *   <li>If profileOverride is a CognitiveProfile name: that profile is used for all queries</li>
+     *   <li>Otherwise: uses the query's own cognitiveProfile from the dataset</li>
+     * </ol>
      *
      * @param query the benchmark query containing profile and filter parameters
      * @return configured RecallOptions ready for execution
@@ -88,8 +107,20 @@ public final class CognitiveRetriever {
     RecallOptions buildOptions(BenchmarkQuery query) {
         RecallOptions.Builder builder = RecallOptions.builder()
                 .topK(10)
-                .recallMode(RecallMode.OBSERVE)
-                .profile(query.cognitiveProfile());
+                .recallMode(RecallMode.OBSERVE);
+
+        // Apply profile based on override setting
+        if ("NONE".equals(profileOverride)) {
+            // No profile — use raw defaults (alpha=0.6, beta=0.4, full valence range)
+            // This measures pure cognitive pipeline effect without profile tuning
+        } else if (profileOverride != null) {
+            // Override all queries to use a specific profile
+            CognitiveProfile overrideProfile = CognitiveProfile.valueOf(profileOverride);
+            builder.profile(overrideProfile);
+        } else {
+            // Default: use per-query profile from the dataset
+            builder.profile(query.cognitiveProfile());
+        }
 
         // Apply synaptic tag filter only when tags are present
         if (!query.synapticFilterTags().isEmpty()) {
@@ -104,7 +135,35 @@ public final class CognitiveRetriever {
             builder.maxValence(query.maxValence());
         }
 
+        // Pass pre-extracted entity hints for entity graph traversal
+        if (query.entityHints() != null && !query.entityHints().isEmpty()) {
+            builder.entityHints(query.entityHints());
+        }
+
         return builder.build();
+    }
+
+    /**
+     * Builds options with pipeline tracing enabled for diagnostic queries.
+     */
+    RecallOptions buildOptionsWithTrace(BenchmarkQuery query) {
+        RecallOptions base = buildOptions(query);
+        RecallOptions.Builder traceBuilder = RecallOptions.builder()
+                .topK(base.topK())
+                .recallMode(base.recallMode())
+                .enableTrace(true)
+                .entityHints(base.entityHints());
+
+        // Re-apply profile the same way as buildOptions
+        if ("NONE".equals(profileOverride)) {
+            // no profile
+        } else if (profileOverride != null) {
+            traceBuilder.profile(CognitiveProfile.valueOf(profileOverride));
+        } else {
+            traceBuilder.profile(query.cognitiveProfile());
+        }
+
+        return traceBuilder.build();
     }
 
     /**
@@ -138,6 +197,67 @@ public final class CognitiveRetriever {
      */
     public List<CognitiveResult> retrieveWithBreakdown(String queryText, BenchmarkQuery query) {
         RecallOptions options = buildOptions(query);
+        return memory.recall(queryText, options);
+    }
+
+    /**
+     * Builds {@link RecallOptions} configured with {@link ScoringMode#SIMILARITY}.
+     *
+     * <p>Identical to {@link #buildOptions(BenchmarkQuery)} except scoring mode is
+     * set to {@link ScoringMode#SIMILARITY}. This means the full pipeline runs
+     * (HNSW index, Bloom filter tag gating, valence filter, importance threshold)
+     * but the final score is pure cosine similarity — no importance weighting,
+     * no temporal decay, no tag boost, no graph expansion.</p>
+     *
+     * <p>Use this to isolate the effect of the pipeline infrastructure
+     * (filtering, candidate selection) from the cognitive scoring model.</p>
+     *
+     * @param query the benchmark query with profile and filter parameters
+     * @return configured RecallOptions with SIMILARITY scoring mode
+     */
+    RecallOptions buildSimilarityOptions(BenchmarkQuery query) {
+        RecallOptions.Builder builder = RecallOptions.builder()
+                .topK(10)
+                .recallMode(RecallMode.OBSERVE)
+                .scoringMode(ScoringMode.SIMILARITY);
+
+        // Apply same tag filters as cognitive — the point is to test
+        // the pipeline with identical filtering but different scoring
+        if (!query.synapticFilterTags().isEmpty()) {
+            builder.synapticFilter(query.synapticFilterTags().toArray(String[]::new));
+        }
+
+        // Apply valence bounds from query (if specified)
+        if (query.minValence() != null) {
+            builder.minValence(query.minValence());
+        }
+        if (query.maxValence() != null) {
+            builder.maxValence(query.maxValence());
+        }
+
+        // Entity hints still useful for candidate discovery even in SIMILARITY mode
+        if (query.entityHints() != null && !query.entityHints().isEmpty()) {
+            builder.entityHints(query.entityHints());
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Executes a recall query using {@link ScoringMode#SIMILARITY} and returns
+     * the full {@link CognitiveResult} list.
+     *
+     * <p>This is the third benchmark leg: full pipeline infrastructure (HNSW,
+     * Bloom filter, valence filter) but pure similarity scoring. Comparing
+     * this against baseline isolates filtering effects; comparing against
+     * cognitive isolates scoring effects.</p>
+     *
+     * @param queryText the text content of the query for embedding and retrieval
+     * @param query     the benchmark query with filter parameters
+     * @return results ranked by pure cosine similarity through the pipeline
+     */
+    public List<CognitiveResult> retrieveWithSimilarityMode(String queryText, BenchmarkQuery query) {
+        RecallOptions options = buildSimilarityOptions(query);
         return memory.recall(queryText, options);
     }
 }

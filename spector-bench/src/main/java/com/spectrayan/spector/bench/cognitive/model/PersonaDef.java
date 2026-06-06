@@ -37,7 +37,7 @@ import java.util.List;
  *   <li>{@code personalityTraits} — array of 3–10 strings from a recognized trait
  *       taxonomy (e.g., Big Five facets, HEXACO dimensions)</li>
  *   <li>{@code companionRelationship} — string of 50–500 characters describing the
- *       user's relationship with the AI companion (duration, usage patterns, tone)</li>
+ *       user's relationship with the AI assistant Jarvis (duration, usage patterns, tone)</li>
  * </ul>
  *
  * @param name                   the persona's full name

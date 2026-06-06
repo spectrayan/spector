@@ -56,6 +56,9 @@ class BloomFalsePositivePropertyTest {
 
         if (queryTags.length == 0) return;
 
+        // Deduplicate queryTags to prevent Set.of duplicate element exceptions
+        queryTags = java.util.Arrays.stream(queryTags).distinct().toArray(String[]::new);
+
         long queryMask = SynapticTagEncoder.encode(queryTags);
         if (queryMask == 0) return;
 

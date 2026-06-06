@@ -432,9 +432,9 @@ class DatasetLoaderTest {
                   "age": 150,
                   "occupation": "Tester",
                   "interests": ["a", "b", "c"],
-                  "life_context": "This is a life context string that is definitely longer than fifty characters for testing purposes right here.",
-                  "personality_traits": ["trait1", "trait2", "trait3"],
-                  "companion_relationship": "This is a companion relationship string that is longer than fifty characters for the test."
+                  "lifeContext": "This is a life context string that is definitely longer than fifty characters for testing purposes right here.",
+                  "personalityTraits": ["trait1", "trait2", "trait3"],
+                  "companionRelationship": "This is a companion relationship string that is longer than fifty characters for the test."
                 }
                 """);
         try {
@@ -454,9 +454,9 @@ class DatasetLoaderTest {
                   "age": 30,
                   "occupation": "Tester",
                   "interests": ["a"],
-                  "life_context": "This is a life context string that is definitely longer than fifty characters for testing purposes right here.",
-                  "personality_traits": ["trait1", "trait2", "trait3"],
-                  "companion_relationship": "This is a companion relationship string that is longer than fifty characters for the test."
+                  "lifeContext": "This is a life context string that is definitely longer than fifty characters for testing purposes right here.",
+                  "personalityTraits": ["trait1", "trait2", "trait3"],
+                  "companionRelationship": "This is a companion relationship string that is longer than fifty characters for the test."
                 }
                 """);
         try {
@@ -523,9 +523,9 @@ class DatasetLoaderTest {
 
             // Write hebbian edges with one valid and one invalid (referencing non-existent ID)
             java.nio.file.Files.writeString(tempDir.resolve("hebbian_edges.jsonl"), """
-                    {"memory_id_a": "mem-001", "memory_id_b": "mem-002", "co_activation_count": 5}
-                    {"memory_id_a": "mem-001", "memory_id_b": "mem-NONEXISTENT", "co_activation_count": 3}
-                    {"memory_id_a": "mem-003", "memory_id_b": "mem-004", "co_activation_count": 2}
+                    {"memoryIdA": "mem-001", "memoryIdB": "mem-002", "coActivationCount": 5}
+                    {"memoryIdA": "mem-001", "memoryIdB": "mem-NONEXISTENT", "coActivationCount": 3}
+                    {"memoryIdA": "mem-003", "memoryIdB": "mem-004", "coActivationCount": 2}
                     """);
 
             DatasetLoader.LoadedDataset dataset = loader.load(tempDir);
@@ -647,7 +647,7 @@ class DatasetLoaderTest {
             // Write temporal chains referencing a non-existent memory ID
             java.nio.file.Files.writeString(tempDir.resolve("temporal_chains.jsonl"),
                     """
-                    {"session_id": "session-test", "ordered_memory_ids": ["mem-001", "mem-NONEXISTENT"]}
+                    {"sessionId": "session-test", "orderedMemoryIds": ["mem-001", "mem-NONEXISTENT"]}
                     """);
 
             DatasetValidationException ex = assertThrows(DatasetValidationException.class,
@@ -689,7 +689,7 @@ class DatasetLoaderTest {
             // mem-003 has timestamp 1750010000000, mem-001 has timestamp 1750000000000
             java.nio.file.Files.writeString(tempDir.resolve("temporal_chains.jsonl"),
                     """
-                    {"session_id": "session-test", "ordered_memory_ids": ["mem-003", "mem-001"]}
+                    {"sessionId": "session-test", "orderedMemoryIds": ["mem-003", "mem-001"]}
                     """);
 
             DatasetValidationException ex = assertThrows(DatasetValidationException.class,
@@ -729,7 +729,7 @@ class DatasetLoaderTest {
             // Write entities with a source_memory_id that doesn't exist
             java.nio.file.Files.writeString(tempDir.resolve("entities.jsonl"),
                     """
-                    {"from_entity": {"name": "Alice", "type": "PERSON"}, "to_entity": {"name": "Bob", "type": "PERSON"}, "relation_type": "KNOWS", "source_memory_ids": ["mem-001", "mem-NONEXISTENT"]}
+                    {"fromEntity": {"name": "Alice", "type": "PERSON"}, "toEntity": {"name": "Bob", "type": "PERSON"}, "relationType": "KNOWS", "sourceMemoryIds": ["mem-001", "mem-NONEXISTENT"]}
                     """);
 
             DatasetValidationException ex = assertThrows(DatasetValidationException.class,

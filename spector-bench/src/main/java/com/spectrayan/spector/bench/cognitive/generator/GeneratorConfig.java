@@ -30,6 +30,7 @@ import java.nio.file.Path;
  *
  * @param ollamaUrl              Ollama server base URL (default: http://localhost:11434)
  * @param modelName              LLM model to use for generation (default: llama3.1)
+ * @param annotationModelName    LLM model to use for annotation (default: same as modelName)
  * @param maxRetries             maximum retry attempts for failed LLM calls (default: 3)
  * @param personaPath            path to persona.json file (required)
  * @param seedPath               path to seed corpus directory (nullable — omit for fresh generation)
@@ -43,6 +44,7 @@ import java.nio.file.Path;
 public record GeneratorConfig(
         String ollamaUrl,
         String modelName,
+        String annotationModelName,
         int maxRetries,
         Path personaPath,
         Path seedPath,
@@ -64,16 +66,16 @@ public record GeneratorConfig(
     private static final int DEFAULT_MAX_RETRIES = 3;
 
     /** Default total corpus size target. */
-    private static final int DEFAULT_TOTAL_CORPUS_SIZE = 2000;
+    private static final int DEFAULT_TOTAL_CORPUS_SIZE = 5000;
 
     /** Default number of simulated days. */
-    private static final int DEFAULT_NUM_DAYS = 30;
+    private static final int DEFAULT_NUM_DAYS = 180;
 
     /** Default conversations per day. */
-    private static final int DEFAULT_CONVERSATIONS_PER_DAY = 8;
+    private static final int DEFAULT_CONVERSATIONS_PER_DAY = 15;
 
     /** Default biographical depth in years. */
-    private static final int DEFAULT_BIOGRAPHICAL_DEPTH_YEARS = 10;
+    private static final int DEFAULT_BIOGRAPHICAL_DEPTH_YEARS = 15;
 
     /**
      * Parses command-line arguments into a {@code GeneratorConfig}.
@@ -100,6 +102,7 @@ public record GeneratorConfig(
     public static GeneratorConfig fromArgs(String[] args) {
         String ollamaUrl = DEFAULT_OLLAMA_URL;
         String modelName = DEFAULT_MODEL;
+        String annotationModelName = null; // defaults to modelName
         int maxRetries = DEFAULT_MAX_RETRIES;
         Path personaPath = null;
         Path seedPath = null;
@@ -124,6 +127,7 @@ public record GeneratorConfig(
             switch (key) {
                 case "ollama-url" -> ollamaUrl = value;
                 case "model" -> modelName = value;
+                case "annotation-model" -> annotationModelName = value;
                 case "max-retries" -> maxRetries = parsePositiveInt(key, value);
                 case "persona" -> personaPath = Path.of(value);
                 case "seed" -> seedPath = value.isEmpty() ? null : Path.of(value);
@@ -144,8 +148,13 @@ public record GeneratorConfig(
             throw new IllegalArgumentException("Required argument --output is missing");
         }
 
+        // Default annotation model to generation model
+        if (annotationModelName == null) {
+            annotationModelName = modelName;
+        }
+
         return new GeneratorConfig(
-                ollamaUrl, modelName, maxRetries,
+                ollamaUrl, modelName, annotationModelName, maxRetries,
                 personaPath, seedPath, approvedPath, outputDir,
                 totalCorpusSize, numDays, conversationsPerDay, biographicalDepthYears
         );

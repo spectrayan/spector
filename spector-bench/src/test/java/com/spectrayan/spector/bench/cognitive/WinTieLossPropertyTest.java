@@ -59,7 +59,7 @@ class WinTieLossPropertyTest {
             double delta = cognitiveNdcg - baselineNdcg;
 
             results.add(new ReportWriter.QueryResult(
-                    "q-" + i, baselineNdcg, cognitiveNdcg, delta,
+                    "q-" + i, baselineNdcg, cognitiveNdcg, 0.0, delta,
                     "", "BALANCED", 10));
         }
 

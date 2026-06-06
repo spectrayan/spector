@@ -284,9 +284,8 @@ public final class DatasetLoader {
         String text = node.get("text").asText();
         String title = node.get("title").asText();
 
-        // synaptic_tags → synapticTags
         List<String> synapticTags = new ArrayList<>();
-        JsonNode tagsNode = node.get("synaptic_tags");
+        JsonNode tagsNode = node.get("synapticTags");
         if (tagsNode != null && tagsNode.isArray()) {
             for (JsonNode tag : tagsNode) {
                 synapticTags.add(tag.asText());
@@ -319,15 +318,11 @@ public final class DatasetLoader {
             arousal = AROUSAL_MAX;
         }
 
-        // session_id → sessionId
-        String sessionId = node.get("session_id").asText();
+        String sessionId = node.get("sessionId").asText();
+        long timestampMs = node.get("timestampMs").asLong();
 
-        // timestamp_ms → timestampMs
-        long timestampMs = node.get("timestamp_ms").asLong();
-
-        // entity_mentions → entityMentions
         List<EntityMention> entityMentions = new ArrayList<>();
-        JsonNode mentionsNode = node.get("entity_mentions");
+        JsonNode mentionsNode = node.get("entityMentions");
         if (mentionsNode != null && mentionsNode.isArray()) {
             for (JsonNode mention : mentionsNode) {
                 String name = mention.get("name").asText();
@@ -336,14 +331,12 @@ public final class DatasetLoader {
             }
         }
 
-        // memory_type → memoryType
-        String memoryTypeStr = node.get("memory_type").asText();
+        String memoryTypeStr = node.get("memoryType").asText();
         MemoryType memoryType = MemoryType.valueOf(memoryTypeStr);
 
-        // recall_count → recallCount, clamp minimum to 0
-        int recallCount = node.get("recall_count").asInt();
+        int recallCount = node.get("recallCount").asInt();
         if (recallCount < RECALL_COUNT_MIN) {
-            log.warn("Corpus line {} in {}: recall_count {} below minimum, clamping to {}",
+            log.warn("Corpus line {} in {}: recallCount {} below minimum, clamping to {}",
                     lineNumber, file, recallCount, RECALL_COUNT_MIN);
             recallCount = RECALL_COUNT_MIN;
         }
@@ -394,46 +387,40 @@ public final class DatasetLoader {
         String id = node.get("id").asText();
         String text = node.get("text").asText();
 
-        // cognitive_profile → cognitiveProfile, default to BALANCED for unknown values
-        String profileStr = node.get("cognitive_profile").asText();
+        String profileStr = node.get("cognitiveProfile").asText();
         CognitiveProfile cognitiveProfile;
         try {
             cognitiveProfile = CognitiveProfile.valueOf(profileStr);
         } catch (IllegalArgumentException e) {
-            log.warn("Query line {} in {}: unknown cognitive_profile '{}', defaulting to BALANCED",
+            log.warn("Query line {} in {}: unknown cognitiveProfile '{}', defaulting to BALANCED",
                     lineNumber, file, profileStr);
             cognitiveProfile = CognitiveProfile.BALANCED;
         }
 
-        // synaptic_filter_tags → synapticFilterTags
         List<String> synapticFilterTags = new ArrayList<>();
-        JsonNode tagsNode = node.get("synaptic_filter_tags");
+        JsonNode tagsNode = node.get("synapticFilterTags");
         if (tagsNode != null && tagsNode.isArray()) {
             for (JsonNode tag : tagsNode) {
                 synapticFilterTags.add(tag.asText());
             }
         }
 
-        // min_valence → minValence (nullable)
         Byte minValence = null;
-        JsonNode minValenceNode = node.get("min_valence");
+        JsonNode minValenceNode = node.get("minValence");
         if (minValenceNode != null && !minValenceNode.isNull()) {
             minValence = (byte) minValenceNode.asInt();
         }
 
-        // max_valence → maxValence (nullable)
         Byte maxValence = null;
-        JsonNode maxValenceNode = node.get("max_valence");
+        JsonNode maxValenceNode = node.get("maxValence");
         if (maxValenceNode != null && !maxValenceNode.isNull()) {
             maxValence = (byte) maxValenceNode.asInt();
         }
 
-        // expected_subsystem → expectedSubsystem
-        String expectedSubsystem = node.get("expected_subsystem").asText();
+        String expectedSubsystem = node.get("expectedSubsystem").asText();
 
-        // temporal_hint → temporalHint (nullable)
         String temporalHint = null;
-        JsonNode temporalHintNode = node.get("temporal_hint");
+        JsonNode temporalHintNode = node.get("temporalHint");
         if (temporalHintNode != null && !temporalHintNode.isNull()) {
             temporalHint = temporalHintNode.asText();
         }
@@ -532,33 +519,29 @@ public final class DatasetLoader {
     private EntityRelation parseEntityLine(String line, int lineNumber, Path file) {
         JsonNode node = mapper.readTree(line);
 
-        // from_entity → fromEntity
-        JsonNode fromNode = node.get("from_entity");
+        JsonNode fromNode = node.get("fromEntity");
         EntityMention fromEntity = new EntityMention(
                 fromNode.get("name").asText(),
                 fromNode.get("type").asText()
         );
 
-        // to_entity → toEntity
-        JsonNode toNode = node.get("to_entity");
+        JsonNode toNode = node.get("toEntity");
         EntityMention toEntity = new EntityMention(
                 toNode.get("name").asText(),
                 toNode.get("type").asText()
         );
 
-        // relation_type → relationType, default to OTHER for unknown values
-        String relationTypeStr = node.get("relation_type").asText();
+        String relationTypeStr = node.get("relationType").asText();
         try {
             RelationType.valueOf(relationTypeStr);
         } catch (IllegalArgumentException e) {
-            log.warn("Entity line {} in {}: unknown relation_type '{}', defaulting to OTHER",
+            log.warn("Entity line {} in {}: unknown relationType '{}', defaulting to OTHER",
                     lineNumber, file, relationTypeStr);
             relationTypeStr = RelationType.OTHER.name();
         }
 
-        // source_memory_ids → sourceMemoryIds
         List<String> sourceMemoryIds = new ArrayList<>();
-        JsonNode idsNode = node.get("source_memory_ids");
+        JsonNode idsNode = node.get("sourceMemoryIds");
         if (idsNode != null && idsNode.isArray()) {
             for (JsonNode idNode : idsNode) {
                 sourceMemoryIds.add(idNode.asText());
@@ -586,12 +569,10 @@ public final class DatasetLoader {
                 try {
                     JsonNode node = mapper.readTree(line);
 
-                    // session_id → sessionId
-                    String sessionId = node.get("session_id").asText();
+                    String sessionId = node.get("sessionId").asText();
 
-                    // ordered_memory_ids → orderedMemoryIds
                     List<String> orderedMemoryIds = new ArrayList<>();
-                    JsonNode idsNode = node.get("ordered_memory_ids");
+                    JsonNode idsNode = node.get("orderedMemoryIds");
                     if (idsNode != null && idsNode.isArray()) {
                         for (JsonNode idNode : idsNode) {
                             orderedMemoryIds.add(idNode.asText());
@@ -630,14 +611,9 @@ public final class DatasetLoader {
                 try {
                     JsonNode node = mapper.readTree(line);
 
-                    // memory_id_a → memoryIdA
-                    String memoryIdA = node.get("memory_id_a").asText();
-
-                    // memory_id_b → memoryIdB
-                    String memoryIdB = node.get("memory_id_b").asText();
-
-                    // co_activation_count → coActivationCount
-                    int coActivationCount = node.get("co_activation_count").asInt();
+                    String memoryIdA = node.get("memoryIdA").asText();
+                    String memoryIdB = node.get("memoryIdB").asText();
+                    int coActivationCount = node.get("coActivationCount").asInt();
 
                     edges.add(new HebbianEdgeDef(memoryIdA, memoryIdB, coActivationCount));
                 } catch (Exception e) {
@@ -683,20 +659,17 @@ public final class DatasetLoader {
                 }
             }
 
-            // life_context → lifeContext
-            String lifeContext = node.get("life_context").asText();
+            String lifeContext = node.get("lifeContext").asText();
 
-            // personality_traits → personalityTraits
             List<String> personalityTraits = new ArrayList<>();
-            JsonNode traitsNode = node.get("personality_traits");
+            JsonNode traitsNode = node.get("personalityTraits");
             if (traitsNode != null && traitsNode.isArray()) {
                 for (JsonNode item : traitsNode) {
                     personalityTraits.add(item.asText());
                 }
             }
 
-            // companion_relationship → companionRelationship
-            String companionRelationship = node.get("companion_relationship").asText();
+            String companionRelationship = node.get("companionRelationship").asText();
 
             // Schema validation
             List<String> violations = new ArrayList<>();

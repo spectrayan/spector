@@ -18,13 +18,15 @@ package com.spectrayan.spector.bench.cognitive.model;
 import java.util.List;
 
 import com.spectrayan.spector.memory.CognitiveProfile;
+import com.spectrayan.spector.memory.graph.ExtractedEntity;
 
 /**
  * A single query entry in the cognitive benchmark dataset.
  *
  * <p>Maps directly to one line in {@code queries.jsonl}. Contains the query text,
  * cognitive profile selection, synaptic filter tags, optional valence constraints,
- * the expected contributing subsystem, and an optional temporal hint — providing
+ * the expected contributing subsystem, an optional temporal hint, and optional
+ * pre-extracted entity hints for entity graph traversal — providing
  * all parameters the benchmark harness needs to exercise specific Spector Memory
  * subsystems.</p>
  *
@@ -39,6 +41,7 @@ import com.spectrayan.spector.memory.CognitiveProfile;
  *   <li>{@code expectedSubsystem} — one of: VECTOR_SIMILARITY, TAG_GATING,
  *       VALENCE_FILTER, IMPORTANCE_DECAY, HEBBIAN_GRAPH, TEMPORAL_CHAIN, ENTITY_GRAPH</li>
  *   <li>{@code temporalHint} — one of: RECENT, OLD, or null</li>
+ *   <li>{@code entityHints} — pre-extracted entities for graph traversal (nullable)</li>
  * </ul>
  *
  * @param id                  unique identifier for this query
@@ -49,6 +52,7 @@ import com.spectrayan.spector.memory.CognitiveProfile;
  * @param maxValence          optional maximum valence filter (nullable, -128 to +127)
  * @param expectedSubsystem   the subsystem expected to contribute most to correct retrieval
  * @param temporalHint        optional temporal bias hint (RECENT, OLD, or null)
+ * @param entityHints         pre-extracted entities for entity graph traversal (nullable)
  */
 public record BenchmarkQuery(
         String id,
@@ -58,5 +62,14 @@ public record BenchmarkQuery(
         Byte minValence,
         Byte maxValence,
         String expectedSubsystem,
-        String temporalHint
-) {}
+        String temporalHint,
+        List<ExtractedEntity> entityHints
+) {
+    /** Backward-compatible constructor — no entity hints. */
+    public BenchmarkQuery(String id, String text, CognitiveProfile cognitiveProfile,
+                          List<String> synapticFilterTags, Byte minValence, Byte maxValence,
+                          String expectedSubsystem, String temporalHint) {
+        this(id, text, cognitiveProfile, synapticFilterTags, minValence, maxValence,
+                expectedSubsystem, temporalHint, null);
+    }
+}
