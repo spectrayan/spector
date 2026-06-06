@@ -131,11 +131,11 @@ class ZeigarnickPropertyTest {
 
     private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
                              int index, float[] vector, float importance,
-                             long timestamp, int recallCount, byte flags,
+                             long timestamp, int agentRecallCount, byte flags,
                              float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
         CognitiveHeader header = new CognitiveHeader(
-                timestamp, 0L, 1.0f, importance, recallCount, (short) 0, (byte) 0, flags);
+                timestamp, 0L, 1.0f, importance, agentRecallCount, (short) 0, (byte) 0, flags);
         layout.writeHeader(segment, offset, header);
 
         byte[] quantized = new byte[DIMS];

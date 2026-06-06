@@ -141,7 +141,7 @@ class ImportancePreScreenPropertyTest {
 
     private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
                              int index, float[] vector, float importance,
-                             long timestamp, int recallCount, byte flags,
+                             long timestamp, int agentRecallCount, byte flags,
                              float[] mins, float[] scales) {
         long offset = (long) index * layout.stride();
 
@@ -150,7 +150,7 @@ class ImportancePreScreenPropertyTest {
                 0L,
                 1.0f,
                 importance,
-                recallCount,
+                agentRecallCount,
                 (short) 0,
                 (byte) 0,
                 flags

@@ -80,7 +80,7 @@ class DatasetLoaderTest {
         assertEquals("payment service", first.entityMentions().get(0).name());
         assertEquals("SOFTWARE", first.entityMentions().get(0).type());
         assertEquals(MemoryType.EPISODIC, first.memoryType());
-        assertEquals(2, first.recallCount());
+        assertEquals(2, first.agentRecallCount());
     }
 
     @Test
@@ -114,8 +114,8 @@ class DatasetLoaderTest {
     @Test
     void loadCorpus_clampsNegativeRecallCount() {
         List<BenchmarkCorpusRecord> records = loader.loadCorpus(corpusFile);
-        BenchmarkCorpusRecord clamped = records.get(2); // mem-003 has recall_count=-3
-        assertEquals(0, clamped.recallCount());
+        BenchmarkCorpusRecord clamped = records.get(2); // mem-003 has agent_recall_count=-3
+        assertEquals(0, clamped.agentRecallCount());
     }
 
     @Test

@@ -26,32 +26,32 @@ import net.jqwik.api.constraints.IntRange;
  *
  * <p><b>Validates: Requirements 3.6, 12.2</b>
  *
- * <p>Property 11: For any rawBucket ∈ [0, 11] and recallCount ≥ 0,
- * adjustForReconsolidation(rawBucket, recallCount) SHALL equal
- * rawBucket >> min(recallCount, 5), always producing a value ∈ [0, rawBucket].
+ * <p>Property 11: For any rawBucket ∈ [0, 11] and agentRecallCount ≥ 0,
+ * adjustForReconsolidation(rawBucket, agentRecallCount) SHALL equal
+ * rawBucket >> min(agentRecallCount, 5), always producing a value ∈ [0, rawBucket].
  */
 class ReconsolidationPropertyTest {
 
     // ══════════════════════════════════════════════════════════════
-    // Property 11: adjustedBucket = rawBucket >> min(recallCount, 5)
+    // Property 11: adjustedBucket = rawBucket >> min(agentRecallCount, 5)
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Property 11a: The adjusted bucket equals rawBucket >> min(recallCount, 5).
+     * Property 11a: The adjusted bucket equals rawBucket >> min(agentRecallCount, 5).
      *
      * <p><b>Validates: Requirements 3.6, 12.2</b>
      */
     @Property(tries = 200)
     void adjustedBucket_equalsRightShift(
             @ForAll @IntRange(min = 0, max = 11) int rawBucket,
-            @ForAll @IntRange(min = 0, max = 100) int recallCount) {
+            @ForAll @IntRange(min = 0, max = 100) int agentRecallCount) {
 
-        int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
-        int expected = rawBucket >> Math.min(recallCount, 5);
+        int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
+        int expected = rawBucket >> Math.min(agentRecallCount, 5);
 
         assert adjusted == expected
                 : String.format("adjustForReconsolidation(%d, %d) = %d, expected %d",
-                rawBucket, recallCount, adjusted, expected);
+                rawBucket, agentRecallCount, adjusted, expected);
     }
 
     /**
@@ -62,16 +62,16 @@ class ReconsolidationPropertyTest {
     @Property(tries = 200)
     void adjustedBucket_isWithinRange(
             @ForAll @IntRange(min = 0, max = 11) int rawBucket,
-            @ForAll @IntRange(min = 0, max = 1000) int recallCount) {
+            @ForAll @IntRange(min = 0, max = 1000) int agentRecallCount) {
 
-        int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
+        int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
 
         assert adjusted >= 0
-                : String.format("Adjusted bucket %d is negative for rawBucket=%d, recallCount=%d",
-                adjusted, rawBucket, recallCount);
+                : String.format("Adjusted bucket %d is negative for rawBucket=%d, agentRecallCount=%d",
+                adjusted, rawBucket, agentRecallCount);
         assert adjusted <= rawBucket
-                : String.format("Adjusted bucket %d exceeds rawBucket=%d for recallCount=%d",
-                adjusted, rawBucket, recallCount);
+                : String.format("Adjusted bucket %d exceeds rawBucket=%d for agentRecallCount=%d",
+                adjusted, rawBucket, agentRecallCount);
     }
 
     /**
@@ -98,13 +98,13 @@ class ReconsolidationPropertyTest {
     @Property(tries = 100)
     void highRecallCount_maxShift(
             @ForAll @IntRange(min = 0, max = 11) int rawBucket,
-            @ForAll @IntRange(min = 5, max = 1000) int recallCount) {
+            @ForAll @IntRange(min = 5, max = 1000) int agentRecallCount) {
 
-        int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
+        int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
         int expectedMax = rawBucket >> 5;
 
         assert adjusted == expectedMax
                 : String.format("Recall count >= 5 should shift by 5: raw=%d, rc=%d, adjusted=%d, expected=%d",
-                rawBucket, recallCount, adjusted, expectedMax);
+                rawBucket, agentRecallCount, adjusted, expectedMax);
     }
 }

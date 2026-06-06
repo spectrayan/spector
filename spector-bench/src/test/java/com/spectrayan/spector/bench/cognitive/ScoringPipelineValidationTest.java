@@ -324,6 +324,88 @@ class ScoringPipelineValidationTest {
         }
     }
 
+    /**
+     * Phase 6 (SIMILARITY Mode): Verifies that when ScoringMode is set to SIMILARITY,
+     * the score is purely vector similarity (i.e. does not include importance or decay).
+     */
+    @Test
+    void similarityScoringMode() {
+        float[] mins = IdentityCalibration.mins(DIMS);
+        float[] scales = IdentityCalibration.scales(DIMS);
+        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+
+        try (Arena arena = Arena.ofConfined()) {
+            int corpusSize = 2;
+            MemorySegment segment = arena.allocate((long) corpusSize * layout.stride());
+            long nowMs = System.currentTimeMillis();
+
+            float[] vec = new float[DIMS];
+            for (int i = 0; i < DIMS; i++) vec[i] = 0.3f;
+
+            // Record 0: high importance (9.0), but same vector
+            writeRecord(segment, layout, 0, vec, 9.0f, nowMs - 60_000,
+                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+            // Record 1: low importance (1.0), same vector
+            writeRecord(segment, layout, 1, vec, 1.0f, nowMs - 60_000,
+                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+
+            RecallOptions options = RecallOptions.builder()
+                    .topK(2)
+                    .scoringMode(com.spectrayan.spector.memory.ScoringMode.SIMILARITY)
+                    .build();
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
+                    segment, corpusSize, layout, vec, options, nowMs);
+
+            assertEquals(2, results.size());
+            // Since vectors are identical and importance is ignored in SIMILARITY mode,
+            // the scores must be exactly identical.
+            assertEquals(results.get(0).score(), results.get(1).score(), 1e-6,
+                    "In SIMILARITY mode, importance difference should not affect score");
+        }
+    }
+
+    /**
+     * Temporal Gating: Verifies that minTimestamp and maxTimestamp successfully exclude
+     * records outside the specified time window.
+     */
+    @Test
+    void timestampFiltering() {
+        float[] mins = IdentityCalibration.mins(DIMS);
+        float[] scales = IdentityCalibration.scales(DIMS);
+        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+
+        try (Arena arena = Arena.ofConfined()) {
+            int corpusSize = 3;
+            MemorySegment segment = arena.allocate((long) corpusSize * layout.stride());
+            long nowMs = System.currentTimeMillis();
+            float[] vec = new float[DIMS];
+
+            // Record 0: old (10 days ago)
+            writeRecord(segment, layout, 0, vec, 5.0f, nowMs - (10L * 24 * 60 * 60 * 1000),
+                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+            // Record 1: target (5 days ago)
+            long targetTs = nowMs - (5L * 24 * 60 * 60 * 1000);
+            writeRecord(segment, layout, 1, vec, 5.0f, targetTs,
+                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+            // Record 2: fresh (today)
+            writeRecord(segment, layout, 2, vec, 5.0f, nowMs,
+                    SynapticHeaderConstants.FLAG_RESOLVED, (byte) 0, 0L, mins, scales);
+
+            // Filter for memories between 7 days ago and 2 days ago
+            RecallOptions options = RecallOptions.builder()
+                    .topK(3)
+                    .minTimestamp(nowMs - (7L * 24 * 60 * 60 * 1000))
+                    .maxTimestamp(nowMs - (2L * 24 * 60 * 60 * 1000))
+                    .build();
+            List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
+                    segment, corpusSize, layout, vec, options, nowMs);
+
+            // Only Record 1 should match
+            assertEquals(1, results.size(), "Only 1 record should pass the timestamp filter window");
+            assertEquals(1, results.getFirst().index(), "Record 1 (index 1) should be the only match");
+        }
+    }
+
     // ══════════════════════════════════════════════════════════════
     // Helpers
     // ══════════════════════════════════════════════════════════════

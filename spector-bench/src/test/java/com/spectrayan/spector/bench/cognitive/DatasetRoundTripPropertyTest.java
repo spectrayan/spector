@@ -68,12 +68,12 @@ class DatasetRoundTripPropertyTest {
                     "{\"id\":\"%s\",\"text\":\"%s\",\"title\":\"%s\"," +
                     "\"synapticTags\":%s,\"valence\":%d,\"importance\":%.4f," +
                     "\"arousal\":%d,\"sessionId\":\"%s\",\"timestampMs\":%d," +
-                    "\"entityMentions\":[],\"memoryType\":\"%s\",\"recallCount\":%d}",
+                    "\"entityMentions\":[],\"memoryType\":\"%s\",\"agentRecallCount\":%d}",
                     original.id(), original.text(), original.title(),
                     mapper.writeValueAsString(original.synapticTags()),
                     original.valence(), original.importance(),
                     original.arousal(), original.sessionId(), original.timestampMs(),
-                    original.memoryType().name(), original.recallCount());
+                    original.memoryType().name(), original.agentRecallCount());
             Files.writeString(corpusFile, json + "\n");
 
             List<BenchmarkCorpusRecord> parsed = loader.loadCorpus(corpusFile);
@@ -91,7 +91,7 @@ class DatasetRoundTripPropertyTest {
             assert original.sessionId().equals(result.sessionId()) : "SessionId mismatch";
             assert original.timestampMs() == result.timestampMs() : "Timestamp mismatch";
             assert original.memoryType() == result.memoryType() : "MemoryType mismatch";
-            assert original.recallCount() == result.recallCount() : "RecallCount mismatch";
+            assert original.agentRecallCount() == result.agentRecallCount() : "agentRecallCount mismatch";
         } finally {
             deleteRecursively(tempDir);
         }

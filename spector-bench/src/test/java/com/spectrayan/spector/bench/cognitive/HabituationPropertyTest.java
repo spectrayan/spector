@@ -51,22 +51,22 @@ class HabituationPropertyTest {
     @Property(tries = 200)
     void habituationPenalty_matchesFormula(
             @ForAll("memoryIds") String memoryId,
-            @ForAll @IntRange(min = 1, max = 20) int recallCount) {
+            @ForAll @IntRange(min = 1, max = 20) int agentRecallCount) {
 
         HabituationPenalty penalty = new HabituationPenalty(DEFAULT_DECAY_RATE);
 
         // Record N recalls
         float lastPenalty = 1.0f;
-        for (int i = 0; i < recallCount; i++) {
+        for (int i = 0; i < agentRecallCount; i++) {
             lastPenalty = penalty.recordAndComputePenalty(memoryId);
         }
 
         // Verify formula: 1.0 / (1.0 + (N-1) * decayRate)
-        float expected = 1.0f / (1.0f + (recallCount - 1) * DEFAULT_DECAY_RATE);
+        float expected = 1.0f / (1.0f + (agentRecallCount - 1) * DEFAULT_DECAY_RATE);
 
         assert Math.abs(lastPenalty - expected) < 1e-5f
                 : String.format("After %d recalls, penalty should be %.6f, got %.6f",
-                recallCount, expected, lastPenalty);
+                agentRecallCount, expected, lastPenalty);
     }
 
     /**
@@ -114,12 +114,12 @@ class HabituationPropertyTest {
     @Property(tries = 100)
     void penalty_alwaysPositive(
             @ForAll("memoryIds") String memoryId,
-            @ForAll @IntRange(min = 1, max = 100) int recallCount) {
+            @ForAll @IntRange(min = 1, max = 100) int agentRecallCount) {
 
         HabituationPenalty penalty = new HabituationPenalty(DEFAULT_DECAY_RATE);
 
         float lastPenalty = 1.0f;
-        for (int i = 0; i < recallCount; i++) {
+        for (int i = 0; i < agentRecallCount; i++) {
             lastPenalty = penalty.recordAndComputePenalty(memoryId);
         }
 

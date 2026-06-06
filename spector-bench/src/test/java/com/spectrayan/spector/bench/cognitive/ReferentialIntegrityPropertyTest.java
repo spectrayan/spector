@@ -176,12 +176,12 @@ class ReferentialIntegrityPropertyTest {
                     "{\"id\":\"%s\",\"text\":\"%s\",\"title\":\"%s\"," +
                     "\"synapticTags\":%s,\"valence\":%d,\"importance\":%.4f," +
                     "\"arousal\":%d,\"sessionId\":\"%s\",\"timestampMs\":%d," +
-                    "\"entityMentions\":[],\"memoryType\":\"%s\",\"recallCount\":%d}",
+                    "\"entityMentions\":[],\"memoryType\":\"%s\",\"agentRecallCount\":%d}",
                     record.id(), record.text(), record.title(),
                     mapper.writeValueAsString(record.synapticTags()),
                     record.valence(), record.importance(),
                     record.arousal(), record.sessionId(), record.timestampMs(),
-                    record.memoryType().name(), record.recallCount()))
+                    record.memoryType().name(), record.agentRecallCount()))
                 .append("\n");
         }
         Files.writeString(dir.resolve("corpus.jsonl"), sb.toString());
