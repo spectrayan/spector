@@ -163,6 +163,7 @@ nav:
               - "Focus Mode": memory/focus-mode.md
               - "Explorer — Lateral Retrieval": memory/lateral-retrieval.md
               - "Importance Fusion (ICNU)": memory/importance-fusion.md
+          - "Cognitive Evaluation": memory/evaluation.md
           - Deep Dives:
               - "Performance & SIMD": memory/performance.md
               - "Off-Heap Panama Design": memory/panama-design.md

@@ -187,6 +187,14 @@ Just as the human brain has distinct memory systems, Spector organizes memories 
 
     [:octicons-arrow-right-24: Panama Design](panama-design.md)
 
+-   :material-chart-bar:{ .lg .middle } **Cognitive Evaluation**
+
+    ---
+
+    Detailed test methodology, evaluation results, statistical comparisons, and the Mike Thompson dataset
+
+    [:octicons-arrow-right-24: Evaluation & Results](evaluation.md)
+
 -   :material-api:{ .lg .middle } **API Reference**
 
     ---
