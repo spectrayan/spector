@@ -147,6 +147,21 @@ public final class ConcurrentTasks {
     }
 
     /**
+     * Returns the shared virtual-thread-per-task executor.
+     *
+     * <p>Use this when you need a {@link java.util.concurrent.CompletableFuture} handle
+     * (e.g., {@code CompletableFuture.runAsync(task, ConcurrentTasks.virtualExecutor())}).
+     * For truly fire-and-forget work, prefer {@link #fireAndForget(Runnable)}.</p>
+     *
+     * <p>This executor is long-lived and shared across all callers. Do <b>not</b> close it.</p>
+     *
+     * @return the shared virtual thread executor
+     */
+    public static ExecutorService virtualExecutor() {
+        return FIRE_FORGET_EXECUTOR;
+    }
+
+    /**
      * Submits multiple tasks for asynchronous execution on virtual threads.
      * Each task runs independently — failures in one do not affect others.
      *

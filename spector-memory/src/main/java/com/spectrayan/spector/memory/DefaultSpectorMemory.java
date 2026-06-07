@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
+import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.TextGenerationProvider;
@@ -86,8 +86,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.SpectorServerException;
@@ -99,13 +97,15 @@ import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
  * Default implementation of {@link SpectorMemory} — the Zero-GC Cognitive Backbone for Autonomous Agents.
  *
  * <h3>Design Pattern: Façade</h3>
- * <p>{@code DefaultSpectorMemory} is a thin façade that composes 5 subsystems:</p>
+ * <p>{@code DefaultSpectorMemory} is a thin façade that composes and delegates to focused subsystems:</p>
  * <ul>
- *   <li>{@link com.spectrayan.spector.ingestion.IngestionPipeline} — 10-step ingest (embed → quantize → route → WAL)</li>
+ *   <li>{@link CognitiveIngestionTarget} — 10-step ingest (embed → quantize → route → WAL)</li>
  *   <li>{@link RecallPipeline} — 8-step recall (embed → score → filter → sort)</li>
- *   <li>{@link TierRouter} — tier store registry (Working, Episodic, Semantic, Procedural)</li>
- *   <li>{@link MemoryIndex} — ID → metadata index (locations, text, tags, sources)</li>
- *   <li>{@link ReflectDaemon} — sleep consolidation (REM cycle, tombstone compaction)</li>
+ *   <li>{@link PartitionManager} — DISK partition discovery, creation, and rolling</li>
+ *   <li>{@link ImportanceEstimator} — read-only novelty/ICNU/flashbulb pipeline</li>
+ *   <li>{@link ReflectionOrchestrator} — sleep consolidation, graph decay, cross-layer promotion</li>
+ *   <li>{@link ReinforcementHandler} — valence, LTP, ACT-R, Two-Factor, ICNU re-fusion</li>
+ *   <li>{@link PersistenceManager} — flush-on-close and resource cleanup</li>
  * </ul>
  *
  * <h3>Example</h3>
@@ -131,25 +131,24 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final CognitiveIngestionTarget cognitiveTarget;
     private final EmbeddingProvider embeddingProvider;
     private final RecallPipeline recallPipeline;
-    private volatile TierRouter tierRouter;  // volatile: swapped on partition roll
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
 
-    // ── Importance Estimation (retained for estimateImportance) ──
-    private final SurpriseDetector surpriseDetector;
-    private final FlashbulbPolicy flashbulbPolicy;
-    private final IcnuWeights icnuWeights;
+    // ── Extracted Strategy/Handler Components ──
+    private final PartitionManager partitionManager;     // owns volatile tierRouter
+    private final ImportanceEstimator importanceEstimator;
+    private final ReflectionOrchestrator reflectionOrchestrator;
+    private final ReinforcementHandler reinforcementHandler;
 
     // ── Biological Subsystems ──
     private final ValenceTracker valenceTracker;
-    private final ReflectDaemon reflectDaemon;
     private final CoActivationTracker coActivationTracker;
     private final SuppressionSet suppressionSet;
     private final HabituationPenalty habituationPenalty;
     private final ProspectiveScheduler prospectiveScheduler;
     private final MemoryIntrospector introspector;
-    private final MemoryWal wal;
     private final LateralEvaluator lateralEvaluator;
+    private final MemoryWal wal;
 
     // ── 3-Layer Cognitive Graph ──
     private final HebbianGraph hebbianGraph;
@@ -160,40 +159,32 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final int dimensions;
     private final MemoryPersistenceMode persistenceMode;
     private final Path persistencePath;
-
     private final CircadianPolicy circadianPolicy;
     private final CognitiveProfileConfig profileConfig;
-    private final int temporalRetentionDays;
-    private final com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig;
-    private final ExecutorService virtualExecutor;
-    private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
 
     // ── Multi-Tenant Namespace ──
     private final SpectorNamespaceManager namespaceManager;
 
-    // ── Partition Rolling Config (retained for rollPartition) ──
-    private final Path basePath;
-    private final int quantizedVecBytes;
-    private final int semanticCapacity;
-    private final int episodicPartitionCapacity;
-    private final int proceduralCapacity;
-    private volatile Path activePartitionDir;  // volatile: updated on partition roll
-    private final Object partitionRollLock = new Object();
+    // ── Circadian trigger counter ──
+    private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
 
     private DefaultSpectorMemory(Builder builder) {
         this.dimensions = builder.dimensions;
         this.persistenceMode = builder.persistenceMode;
         this.persistencePath = builder.persistencePath;
-        this.temporalRetentionDays = builder.temporalRetentionDays;
-        this.twoFactorConfig = builder.twoFactorConfig;
-        if (builder.embeddingProvider == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "embeddingProvider is required"); } EmbeddingProvider embeddingProvider = builder.embeddingProvider;
         this.circadianPolicy = builder.circadianPolicy;
         this.profileConfig = builder.profileConfig;
-        this.virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
+
+        if (builder.embeddingProvider == null) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL,
+                    "embeddingProvider is required");
+        }
+        EmbeddingProvider embeddingProvider = builder.embeddingProvider;
+        this.embeddingProvider = embeddingProvider;
 
         boolean isDisk = persistenceMode == MemoryPersistenceMode.DISK;
 
-        // Resolve persistence path for DISK mode
+        // ── Resolve persistence path ──
         Path basePath;
         if (isDisk && builder.persistencePath != null) {
             basePath = builder.persistencePath;
@@ -205,23 +196,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             basePath = null;
         }
 
-        // ── Quantization calibration ──
+        // ── Quantizer ──
         if (builder.quantizer != null) {
             this.quantizer = builder.quantizer;
         } else {
-            float[] defaultMins = new float[dimensions];
-            float[] defaultMaxs = new float[dimensions];
+            float[] defaultMins = new float[builder.dimensions];
+            float[] defaultMaxs = new float[builder.dimensions];
             java.util.Arrays.fill(defaultMins, -1.0f);
             java.util.Arrays.fill(defaultMaxs, 1.0f);
-            this.quantizer = ScalarQuantizer.fromBounds(dimensions, defaultMins, defaultMaxs);
+            this.quantizer = ScalarQuantizer.fromBounds(builder.dimensions, defaultMins, defaultMaxs);
         }
 
-        // ── Auto-migrate legacy layout → colocated partitions ──
+        // ── Auto-migrate legacy layout ──
         if (isDisk && basePath != null) {
             PartitionLayoutMigrator.migrate(basePath);
         }
 
-        // ── Namespace Manager (multi-tenant isolation) ──
+        // ── Namespace Manager ──
         if (isDisk && basePath != null) {
             this.namespaceManager = new SpectorNamespaceManager(basePath);
             log.info("NamespaceManager initialized: {} namespaces discovered", namespaceManager.count());
@@ -229,43 +220,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             this.namespaceManager = null;
         }
 
-        // ══════════════════════════════════════════════════════════════
-        // COLOCATED PARTITION LAYOUT
-        // ══════════════════════════════════════════════════════════════
-        // In DISK mode, all tier stores and graphs live inside partition
-        // directories under basePath/partitions/NNN_epoch/. Global data
-        // (working memory, WAL, coactivation tracker) lives in basePath/global/.
-        //
-        // On a fresh start with no existing data, we create partition 000.
+        // ── Partition layout ──
+        int quantizedVecBytes = builder.dimensions;
 
-        int quantizedVecBytes = dimensions;
-
-        // Store partition rolling config
-        this.basePath = basePath;
-        this.quantizedVecBytes = quantizedVecBytes;
-        this.semanticCapacity = builder.semanticCapacity;
-        this.episodicPartitionCapacity = builder.episodicPartitionCapacity;
-        this.proceduralCapacity = builder.proceduralCapacity;
-
-        // ── Resolve the active partition directory (DISK mode) ──
         Path resolvedPartitionDir = null;
         if (isDisk && basePath != null) {
             try {
-                // Ensure directory structure exists
                 java.nio.file.Files.createDirectories(StorageLayout.globalDir(basePath));
                 java.nio.file.Files.createDirectories(StorageLayout.partitionsDir(basePath));
-
-                // Discover existing partitions
-                resolvedPartitionDir = discoverOrCreatePartition(basePath);
+                resolvedPartitionDir = PartitionManager.discoverOrCreatePartition(basePath);
                 log.info("Active partition: {}", resolvedPartitionDir.getFileName());
             } catch (java.io.IOException e) {
                 log.error("Failed to initialize partition layout: {}", e.getMessage(), e);
-                resolvedPartitionDir = null;
             }
         }
-        this.activePartitionDir = resolvedPartitionDir;
 
-        // ── Working memory: always global (not partitioned) ──
+        // ── Tier stores ──
+        TierRouter tierRouter;
         WorkingMemoryStore workingStore;
         if (isDisk && builder.persistWorkingMemory && basePath != null) {
             workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity,
@@ -274,38 +245,30 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity);
         }
 
-        // ── Tier stores: created inside the active partition directory ──
-        if (isDisk && basePath != null && activePartitionDir != null) {
-            // Episodic: single file inside partition (matches semantic.mem pattern)
+        if (isDisk && basePath != null && resolvedPartitionDir != null) {
             EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
-                    StorageLayout.episodicMem(activePartitionDir),
+                    StorageLayout.episodicMem(resolvedPartitionDir),
                     quantizedVecBytes, builder.episodicPartitionCapacity);
-
-            // Procedural: inside partition
             ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
                     quantizedVecBytes, builder.proceduralCapacity,
-                    StorageLayout.proceduralMem(activePartitionDir));
-
-            // Semantic: single file inside partition dir (partitioning is at directory level)
+                    StorageLayout.proceduralMem(resolvedPartitionDir));
             SemanticMemoryStore semanticStore = new SemanticMemoryStore(
                     quantizedVecBytes, builder.semanticCapacity,
-                    StorageLayout.semanticMem(activePartitionDir));
-            this.tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
+                    StorageLayout.semanticMem(resolvedPartitionDir));
+            tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
-            // IN_MEMORY mode: use standard in-memory stores
             EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
                     quantizedVecBytes, builder.episodicPartitionCapacity);
             ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
                     quantizedVecBytes, builder.proceduralCapacity);
             SemanticMemoryStore semanticStore = new SemanticMemoryStore(
                     quantizedVecBytes, builder.semanticCapacity);
-            this.tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
+            tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         }
 
-        // ── Memory Index (load from partition or global, keeping backward compat) ──
-        if (isDisk && basePath != null && activePartitionDir != null) {
-            // Try partition-local index first, fall back to legacy global index
-            Path partitionIndex = StorageLayout.indexMidx(activePartitionDir);
+        // ── Memory Index ──
+        if (isDisk && basePath != null && resolvedPartitionDir != null) {
+            Path partitionIndex = StorageLayout.indexMidx(resolvedPartitionDir);
             Path legacyIndex = StorageLayout.legacyIndex(basePath);
             if (java.nio.file.Files.exists(partitionIndex)) {
                 this.index = MemoryIndex.load(partitionIndex);
@@ -319,7 +282,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             this.index = new MemoryIndex();
         }
 
-        // ── WAL (file-backed in global/ directory) ──
+        // ── WAL ──
         if (isDisk && basePath != null) {
             this.wal = new MemoryWal(StorageLayout.walDir(basePath));
         } else {
@@ -327,13 +290,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
 
         // ── Biological Subsystems ──
-        this.surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
-        this.icnuWeights = builder.icnuWeights != null ? builder.icnuWeights : IcnuWeights.DEFAULT;
+        SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
+        IcnuWeights icnuWeights = builder.icnuWeights != null ? builder.icnuWeights : IcnuWeights.DEFAULT;
         FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
-        this.flashbulbPolicy = flashbulbPolicy;
-        SurpriseDetector surpriseDetector = this.surpriseDetector;
         this.valenceTracker = new ValenceTracker(builder.valenceLearningRate);
-        // CoActivationTracker: global (load from global/ dir)
+
         if (isDisk && basePath != null) {
             this.coActivationTracker = CoActivationTracker.load(
                     StorageLayout.coactivationTracker(basePath), 10_000, 20_000);
@@ -345,8 +306,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.prospectiveScheduler = new ProspectiveScheduler();
         this.introspector = new MemoryIntrospector(coActivationTracker);
         this.lateralEvaluator = new LateralEvaluator();
-        this.reflectDaemon = new ReflectDaemon(
-                circadianPolicy,
+
+        ReflectDaemon reflectDaemon = new ReflectDaemon(
+                builder.circadianPolicy,
                 builder.dimensions > 0 ? new CentroidRouter(builder.dimensions) : null,
                 builder.textGenerationProvider,
                 embeddingProvider,
@@ -354,13 +316,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 builder.pinSourceEpisodes,
                 builder.pinnedQuota);
 
-        // ── 3-Layer Cognitive Graph (inside partition directory) ──
+        // ── 3-Layer Cognitive Graph ──
         int graphCapacity = builder.hebbianGraphCapacity > 0
                 ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
 
-        // HebbianGraph: load from partition, fall back to legacy basePath
-        if (isDisk && basePath != null && activePartitionDir != null) {
-            Path partGraph = StorageLayout.hebbianGraph(activePartitionDir);
+        if (isDisk && basePath != null && resolvedPartitionDir != null) {
+            Path partGraph = StorageLayout.hebbianGraph(resolvedPartitionDir);
             Path legacyGraph = basePath.resolve(StorageLayout.FILE_HEBBIAN);
             this.hebbianGraph = HebbianGraph.load(
                     java.nio.file.Files.exists(partGraph) ? partGraph : legacyGraph, graphCapacity);
@@ -368,11 +329,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             this.hebbianGraph = new HebbianGraph(graphCapacity);
         }
 
-        // TemporalChain: load from partition, fall back to legacy basePath
         int temporalCapacity = builder.temporalChainCapacity > 0
                 ? builder.temporalChainCapacity : graphCapacity;
-        if (isDisk && basePath != null && activePartitionDir != null) {
-            Path partChain = StorageLayout.temporalChain(activePartitionDir);
+        if (isDisk && basePath != null && resolvedPartitionDir != null) {
+            Path partChain = StorageLayout.temporalChain(resolvedPartitionDir);
             Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
             this.temporalChain = TemporalChain.load(
                     java.nio.file.Files.exists(partChain) ? partChain : legacyChain, temporalCapacity);
@@ -380,7 +340,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             this.temporalChain = new TemporalChain(temporalCapacity);
         }
 
-        // EntityGraph + EntityExtractor: based on mode
         EntityExtractor entityExtractor;
         if (builder.entityExtractionMode == EntityExtractionMode.LLM
                 && builder.textGenerationProvider != null) {
@@ -398,8 +357,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (entityEnabled) {
             int entityCap = builder.entityGraphCapacity;
             int edgeCap = entityCap * EntityGraph.MAX_DEGREE;
-            if (isDisk && basePath != null && activePartitionDir != null) {
-                Path partEntity = StorageLayout.entityGraph(activePartitionDir);
+            if (isDisk && basePath != null && resolvedPartitionDir != null) {
+                Path partEntity = StorageLayout.entityGraph(resolvedPartitionDir);
                 Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);
                 this.entityGraph = EntityGraph.load(
                         java.nio.file.Files.exists(partEntity) ? partEntity : legacyEntity, entityCap, edgeCap);
@@ -410,19 +369,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             this.entityGraph = null;
         }
 
-        // ── Pipelines ──
-        this.embeddingProvider = embeddingProvider;
-
-        // ── BM25 Text Search (inside partition directory) ──
+        // ── BM25 Text Search ──
         MemoryBM25Index bm25Index;
         TextDataStore textDataStore;
         int activePartitionIndex;
-        if (isDisk && basePath != null && activePartitionDir != null) {
-            // text.dat inside partition
-            textDataStore = new TextDataStore(StorageLayout.textDat(activePartitionDir));
-            bm25Index = new MemoryBM25Index(1); // start with 1 partition
-
-            // Rebuild BM25 from MemoryIndex texts loaded from index
+        if (isDisk && basePath != null && resolvedPartitionDir != null) {
+            textDataStore = new TextDataStore(StorageLayout.textDat(resolvedPartitionDir));
+            bm25Index = new MemoryBM25Index(1);
             Map<String, String> allTexts = new java.util.HashMap<>();
             for (var entry : index.locationMap().entrySet()) {
                 String text = index.text(entry.getKey());
@@ -436,12 +389,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
             activePartitionIndex = 0;
         } else {
-            // IN_MEMORY mode: still support BM25 for remember/recall within session
             bm25Index = new MemoryBM25Index(1);
             textDataStore = null;
             activePartitionIndex = 0;
         }
 
+        // ── Ingestion Target ──
         this.cognitiveTarget = new CognitiveIngestionTarget(
                 quantizer, surpriseDetector, flashbulbPolicy,
                 tierRouter, index, wal, workingStore, builder.icnuWeights,
@@ -449,56 +402,30 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
                 bm25Index, textDataStore, activePartitionIndex);
 
-        // Wire automatic partition rolling: when any tier store is full,
-        // roll to a new colocated partition directory and retry the write
+        // ── Partition Manager ──
         if (isDisk) {
-            this.cognitiveTarget.setPartitionRollCallback(this::rollPartition);
+            this.partitionManager = new PartitionManager(
+                    basePath, quantizedVecBytes, builder.semanticCapacity,
+                    builder.episodicPartitionCapacity, builder.proceduralCapacity,
+                    tierRouter, resolvedPartitionDir,
+                    index, hebbianGraph, temporalChain, cognitiveTarget);
+            cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
+        } else {
+            this.partitionManager = new PartitionManager(
+                    null, quantizedVecBytes, builder.semanticCapacity,
+                    builder.episodicPartitionCapacity, builder.proceduralCapacity,
+                    tierRouter, null,
+                    index, hebbianGraph, temporalChain, cognitiveTarget);
         }
 
-        // Build optional fused semantic recall strategy
+        // ── Semantic Recall Strategy + HNSW Rebuild ──
         SemanticRecallStrategy semanticStrategy = null;
         if (builder.semanticIndex != null && tierRouter.semantic() != null) {
             semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, tierRouter.semantic(), index);
-
-            // Rebuild HNSW from persisted semantic store if it has data but HNSW is empty
-            var semStore = tierRouter.semantic();
-            int storeSize = semStore.size();
-            if (storeSize > 0 && builder.semanticIndex.size() == 0) {
-                log.info("Rebuilding HNSW index from {} persisted semantic records...", storeSize);
-                long startMs = System.currentTimeMillis();
-                var seg = semStore.primarySegment();
-                var recLayout = semStore.layout();
-                int stride = recLayout.stride();
-                int vecBytes = recLayout.quantizedVecBytes();
-                long baseOffset = semStore.filePath() != null
-                        ? com.spectrayan.spector.memory.cortex.AbstractTierStore.METADATA_HEADER_BYTES : 0;
-
-                int rebuilt = 0;
-                for (int i = 0; i < storeSize; i++) {
-                    long recordOff = baseOffset + (long) i * stride;
-                    // Read quantized vector bytes
-                    byte[] quantized = new byte[vecBytes];
-                    java.lang.foreign.MemorySegment.copy(
-                            seg, java.lang.foreign.ValueLayout.JAVA_BYTE,
-                            recLayout.vectorOffset(recordOff),
-                            java.lang.foreign.MemorySegment.ofArray(quantized), java.lang.foreign.ValueLayout.JAVA_BYTE,
-                            0, vecBytes);
-
-                    // Dequantize to float[]
-                    float[] vector = quantizer.decode(quantized);
-
-                    // Find the ID for this record from the MemoryIndex
-                    String id = index.findIdByOffset(MemoryType.SEMANTIC, recordOff);
-                    if (id != null && !builder.semanticIndex.isReadOnly()) {
-                        builder.semanticIndex.add(id, i, vector);
-                        rebuilt++;
-                    }
-                }
-                long elapsed = System.currentTimeMillis() - startMs;
-                log.info("HNSW rebuild complete: {}/{} vectors added in {}ms", rebuilt, storeSize, elapsed);
-            }
+            rebuildHnswIfNeeded(builder, tierRouter);
         }
 
+        // ── Recall Pipeline ──
         this.recallPipeline = new RecallPipeline(
                 embeddingProvider, tierRouter, index,
                 suppressionSet, habituationPenalty, prospectiveScheduler, wal,
@@ -506,145 +433,65 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 null, hebbianGraph, temporalChain, entityGraph, entityExtractor,
                 builder.graphScoringPolicy, bm25Index);
 
-        // Register post-recall observers (Phase 6: Observer pattern)
         recallPipeline.addListener(new LtpReconsolidationListener(index, tierRouter, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
+
+        // ── Extracted Components ──
+        this.importanceEstimator = new ImportanceEstimator(
+                surpriseDetector, flashbulbPolicy, icnuWeights, quantizer);
+
+        this.reflectionOrchestrator = new ReflectionOrchestrator(
+                reflectDaemon, hebbianGraph, temporalChain, entityGraph,
+                wal, builder.temporalRetentionDays);
+
+        this.reinforcementHandler = new ReinforcementHandler(
+                valenceTracker, hebbianGraph, lateralEvaluator, recallPipeline,
+                wal, builder.twoFactorConfig);
 
         log.info("SpectorMemory initialized: dimensions={}, model={}, persistence={}, mode={}, " +
                  "partition={}, quantizer={}",
                 dimensions, embeddingProvider.modelName(),
                 basePath != null ? basePath : "in-memory",
                 persistenceMode,
-                activePartitionDir != null ? activePartitionDir.getFileName() : "none",
+                resolvedPartitionDir != null ? resolvedPartitionDir.getFileName() : "none",
                 builder.quantizer != null ? "user-provided" : "identity-default");
     }
 
     /**
-     * Discovers existing partitions or creates partition 000 if none exist.
-     *
-     * @param basePath the memory persistence root
-     * @return path to the active (latest) partition directory
+     * Rebuilds HNSW index from persisted semantic store if it has data but HNSW is empty.
      */
-    private static Path discoverOrCreatePartition(Path basePath) throws java.io.IOException {
-        Path partitionsDir = StorageLayout.partitionsDir(basePath);
-        java.nio.file.Files.createDirectories(partitionsDir);
+    private void rebuildHnswIfNeeded(Builder builder, TierRouter tierRouter) {
+        var semStore = tierRouter.semantic();
+        int storeSize = semStore.size();
+        if (storeSize > 0 && builder.semanticIndex.size() == 0) {
+            log.info("Rebuilding HNSW index from {} persisted semantic records...", storeSize);
+            long startMs = System.currentTimeMillis();
+            var seg = semStore.primarySegment();
+            var recLayout = semStore.layout();
+            int stride = recLayout.stride();
+            int vecBytes = recLayout.quantizedVecBytes();
+            long baseOffset = semStore.filePath() != null
+                    ? com.spectrayan.spector.memory.cortex.AbstractTierStore.METADATA_HEADER_BYTES : 0;
 
-        // Scan for existing partition directories
-        Path latestPartition = null;
-        int maxSeq = -1;
-        try (var stream = java.nio.file.Files.newDirectoryStream(partitionsDir)) {
-            for (Path dir : stream) {
-                if (!java.nio.file.Files.isDirectory(dir)) continue;
-                String name = dir.getFileName().toString();
-                if (StorageLayout.isPartitionDir(name)) {
-                    int seq = StorageLayout.parsePartitionSeqNo(name);
-                    if (seq > maxSeq) {
-                        maxSeq = seq;
-                        latestPartition = dir;
-                    }
+            int rebuilt = 0;
+            for (int i = 0; i < storeSize; i++) {
+                long recordOff = baseOffset + (long) i * stride;
+                byte[] quantized = new byte[vecBytes];
+                java.lang.foreign.MemorySegment.copy(
+                        seg, java.lang.foreign.ValueLayout.JAVA_BYTE,
+                        recLayout.vectorOffset(recordOff),
+                        java.lang.foreign.MemorySegment.ofArray(quantized),
+                        java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
+
+                float[] vector = quantizer.decode(quantized);
+                String id = index.findIdByOffset(MemoryType.SEMANTIC, recordOff);
+                if (id != null && !builder.semanticIndex.isReadOnly()) {
+                    builder.semanticIndex.add(id, i, vector);
+                    rebuilt++;
                 }
             }
-        }
-
-        if (latestPartition != null) {
-            return latestPartition;
-        }
-
-        // No partitions found → create partition 000
-        long epochSecs = java.time.Instant.now().getEpochSecond();
-        Path newPartition = StorageLayout.partitionDir(basePath, 0, epochSecs);
-        java.nio.file.Files.createDirectories(newPartition);
-        log.info("Created initial partition: {}", newPartition.getFileName());
-        return newPartition;
-    }
-
-    /**
-     * Rolls to a new colocated partition directory.
-     *
-     * <p>Called automatically when a tier store reaches capacity during ingestion.
-     * Creates a new partition directory, fresh tier stores, and atomically swaps
-     * the TierRouter so subsequent writes go to the new partition.</p>
-     *
-     * <p>Thread-safe: synchronized on {@code partitionRollLock} so concurrent
-     * ingestion threads see a consistent swap.</p>
-     */
-    void rollPartition() {
-        synchronized (partitionRollLock) {
-            if (basePath == null) {
-                log.warn("Cannot roll partition — no basePath (IN_MEMORY mode)");
-                return;
-            }
-
-            try {
-                // Determine next sequence number
-                Path partitionsDir = StorageLayout.partitionsDir(basePath);
-                int maxSeq = -1;
-                try (var stream = java.nio.file.Files.newDirectoryStream(partitionsDir)) {
-                    for (Path dir : stream) {
-                        if (java.nio.file.Files.isDirectory(dir)
-                                && StorageLayout.isPartitionDir(dir.getFileName().toString())) {
-                            maxSeq = Math.max(maxSeq,
-                                    StorageLayout.parsePartitionSeqNo(dir.getFileName().toString()));
-                        }
-                    }
-                }
-
-                int nextSeq = maxSeq + 1;
-                long epochSecs = java.time.Instant.now().getEpochSecond();
-                Path newPartition = StorageLayout.partitionDir(basePath, nextSeq, epochSecs);
-                java.nio.file.Files.createDirectories(newPartition);
-
-                // Create fresh tier stores in new partition
-                EpisodicMemoryStore newEpisodic = new EpisodicMemoryStore(
-                        StorageLayout.episodicMem(newPartition),
-                        quantizedVecBytes, episodicPartitionCapacity);
-
-                ProceduralMemoryStore newProcedural = new ProceduralMemoryStore(
-                        quantizedVecBytes, proceduralCapacity,
-                        StorageLayout.proceduralMem(newPartition));
-
-                SemanticMemoryStore newSemantic = new SemanticMemoryStore(
-                        quantizedVecBytes, semanticCapacity,
-                        StorageLayout.semanticMem(newPartition));
-
-                // Preserve working memory (global, not partitioned)
-                WorkingMemoryStore workingStore = tierRouter.working();
-
-                // ── Flush index + graphs to the OLD partition before rolling ──
-                Path oldPartition = this.activePartitionDir;
-                if (oldPartition != null) {
-                    try {
-                        index.save(StorageLayout.indexMidx(oldPartition));
-                        log.info("Flushed MemoryIndex to rolling partition: {}", oldPartition.getFileName());
-                    } catch (Exception e) {
-                        log.error("Failed to flush MemoryIndex during partition roll: {}", e.getMessage(), e);
-                    }
-                    try {
-                        hebbianGraph.save(StorageLayout.hebbianGraph(oldPartition));
-                    } catch (Exception e) {
-                        log.error("Failed to flush HebbianGraph during partition roll: {}", e.getMessage(), e);
-                    }
-                    try {
-                        temporalChain.save(StorageLayout.temporalChain(oldPartition));
-                    } catch (Exception e) {
-                        log.error("Failed to flush TemporalChain during partition roll: {}", e.getMessage(), e);
-                    }
-                }
-
-                // Atomic swap
-                this.tierRouter = new TierRouter(workingStore, newEpisodic, newSemantic, newProcedural);
-                this.activePartitionDir = newPartition;
-
-                // Update ingestion target's router reference
-                cognitiveTarget.updateTierRouter(this.tierRouter);
-
-                log.info("Rolled to new partition: {} (seq={}, semantic capacity={})",
-                        newPartition.getFileName(), nextSeq, semanticCapacity);
-
-            } catch (java.io.IOException e) {
-                throw new SpectorServerException(ErrorCode.INTERNAL_ERROR,
-                        "Failed to roll partition: " + e.getMessage(), e);
-            }
+            long elapsed = System.currentTimeMillis() - startMs;
+            log.info("HNSW rebuild complete: {}/{} vectors added in {}ms", rebuilt, storeSize, elapsed);
         }
     }
 
@@ -664,7 +511,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
-        return remember(id, text, type, source, (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null, tags);
+        return remember(id, text, type, source,
+                (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null, tags);
     }
 
     @Override
@@ -674,26 +522,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               String... tags) {
         return CompletableFuture.runAsync(() -> {
             try {
-                // Embed text, then pass to cognitive target with optional ICNU hints
                 float[] vector = embeddingProvider.embed(text).vector();
                 cognitiveTarget.ingestCognitive(id, text, vector, type, tags, source, hints);
-
-                // Circadian trigger: auto-reflect after volume threshold
-                if (type == MemoryType.EPISODIC) {
-                    int count = episodicIngestCount.incrementAndGet();
-                    if (count >= circadianPolicy.volumeTrigger()) {
-                        episodicIngestCount.set(0);
-                        CompletableFuture.runAsync(() -> {
-                            log.info("Circadian volume trigger: {} episodic memories → auto-reflect", count);
-                            reflect();
-                        }, virtualExecutor);
-                    }
-                }
+                checkCircadianTrigger(type);
             } catch (Exception e) {
                 log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-                throw new SpectorServerException(ErrorCode.INTERNAL_ERROR, e, "Memory ingestion failed for id=" + id);
+                throw new SpectorServerException(ErrorCode.INTERNAL_ERROR, e,
+                        "Memory ingestion failed for id=" + id);
             }
-        }, virtualExecutor);
+        }, ConcurrentTasks.virtualExecutor());
     }
 
     @Override
@@ -711,119 +548,37 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             try {
                 float[] vector = embeddingProvider.embed(text).vector();
                 cognitiveTarget.ingestCognitive(id, text, vector, type, tags, source, context);
-
-                // Circadian trigger: auto-reflect after volume threshold
-                if (type == MemoryType.EPISODIC) {
-                    int count = episodicIngestCount.incrementAndGet();
-                    if (count >= circadianPolicy.volumeTrigger()) {
-                        episodicIngestCount.set(0);
-                        CompletableFuture.runAsync(() -> {
-                            log.info("Circadian volume trigger: {} episodic memories → auto-reflect", count);
-                            reflect();
-                        }, virtualExecutor);
-                    }
-                }
+                checkCircadianTrigger(type);
             } catch (Exception e) {
                 log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-                throw new SpectorServerException(ErrorCode.INTERNAL_ERROR, e, "Memory ingestion failed for id=" + id);
+                throw new SpectorServerException(ErrorCode.INTERNAL_ERROR, e,
+                        "Memory ingestion failed for id=" + id);
             }
-        }, virtualExecutor);
+        }, ConcurrentTasks.virtualExecutor());
+    }
+
+    /**
+     * Checks if episodic ingestion volume has reached the circadian trigger threshold.
+     * If so, fires a background reflection cycle.
+     */
+    private void checkCircadianTrigger(MemoryType type) {
+        if (type == MemoryType.EPISODIC) {
+            int count = episodicIngestCount.incrementAndGet();
+            if (count >= circadianPolicy.volumeTrigger()) {
+                episodicIngestCount.set(0);
+                ConcurrentTasks.fireAndForget(() -> {
+                    log.info("Circadian volume trigger: {} episodic memories → auto-reflect", count);
+                    reflect();
+                });
+            }
+        }
     }
 
     @Override
     public ImportanceEstimate estimateImportance(String text,
                                                   com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
-        try {
-            // Step 1: Embed text (same as remember())
-            float[] vector = embeddingProvider.embed(text).vector();
-
-            // Step 1b: L2-normalize (same as ingestion)
-            float norm = 0f;
-            for (float v : vector) norm += v * v;
-            norm = (float) Math.sqrt(norm);
-            if (norm > 0f && Math.abs(norm - 1.0f) > 1e-6f) {
-                float invNorm = 1.0f / norm;
-                float[] normalized = new float[vector.length];
-                for (int i = 0; i < vector.length; i++) normalized[i] = vector[i] * invNorm;
-                vector = normalized;
-            }
-
-            // Step 2: Compute nearest distance (read-only — don't update stats)
-            float nearestDist;
-            var workingStore = tierRouter.working();
-            if (workingStore != null && workingStore.count() > 0) {
-                nearestDist = workingStore.nearestDistance(
-                        vector, quantizer.mins(), quantizer.scales());
-            } else {
-                // Fallback: L2 norm of vector (high distance = novel)
-                float l2 = 0f;
-                for (float v : vector) l2 += v * v;
-                nearestDist = (float) Math.sqrt(l2);
-            }
-
-            // Step 3: Compute novelty (read-only peek — don't modify Welford stats)
-            double zScore = surpriseDetector.stats().count() >= 20
-                    ? surpriseDetector.stats().zScore(nearestDist) : 0.0;
-            float noveltyOnlyImportance = surpriseDetector.stats().count() >= 20
-                    ? SurpriseDetector.zScoreToImportance(zScore) : 1.0f;
-            float noveltyNorm = Math.clamp(noveltyOnlyImportance / 10.0f, 0f, 1f);
-
-            // Step 4: ICNU fusion (if hints provided)
-            float fusedImportance;
-            if (hints != null && !hints.isEmpty()) {
-                fusedImportance = icnuWeights.fuse(hints, noveltyNorm);
-            } else {
-                fusedImportance = noveltyOnlyImportance;
-            }
-
-            // Step 5: Flashbulb check
-            boolean wouldBeFlashbulb = false;
-            var flashbulbResult = flashbulbPolicy.evaluate(zScore);
-            if (flashbulbResult.isFlashbulb()) {
-                wouldBeFlashbulb = true;
-                fusedImportance = flashbulbResult.importance();
-            }
-
-            // Step 6: Find nearest existing memory ID
-            String nearestMemoryId = null;
-            float nearestMemoryDist = nearestDist;
-            // Search through index for closest match by checking if any ID maps nearby
-            // Use the HNSW index if available for efficient nearest-neighbor lookup
-            var semanticStore = tierRouter.semantic();
-            if (semanticStore != null && semanticStore.size() > 0) {
-                // Use brute-force scan of index (read-only) to find nearest memory
-                float bestDist = Float.MAX_VALUE;
-                for (var entry : index.locationMap().entrySet()) {
-                    String candidateId = entry.getKey();
-                    String candidateText = index.text(candidateId);
-                    if (candidateText != null && !candidateText.isEmpty()) {
-                        // Check tag overlap as a fast proxy for distance
-                        // (full vector comparison would be expensive)
-                        if (bestDist == Float.MAX_VALUE) {
-                            nearestMemoryId = candidateId;
-                            bestDist = nearestDist;
-                        }
-                    }
-                }
-                nearestMemoryDist = bestDist;
-            }
-
-            // Step 7: Build weights description
-            String weightsDesc = String.format(
-                    "I=%.0f%% C=%.0f%% N=%.0f%% U=%.0f%% (threshold=%.2f, steepness=%.1f)",
-                    icnuWeights.interest() * 100, icnuWeights.challenge() * 100,
-                    icnuWeights.novelty() * 100, icnuWeights.urgency() * 100,
-                    icnuWeights.threshold(), icnuWeights.steepness());
-
-            return new ImportanceEstimate(
-                    noveltyNorm, zScore, fusedImportance, noveltyOnlyImportance,
-                    nearestMemoryId, nearestMemoryDist, wouldBeFlashbulb, weightsDesc);
-
-        } catch (Exception e) {
-            log.error("Failed to estimate importance: {}", e.getMessage(), e);
-            throw new com.spectrayan.spector.commons.error.SpectorServerException(
-                    ErrorCode.INTERNAL_ERROR, e, "Importance estimation failed");
-        }
+        return importanceEstimator.estimate(text, hints, embeddingProvider,
+                partitionManager.tierRouter(), index);
     }
 
     @Override
@@ -850,13 +605,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             log.warn("Forget: memory '{}' not found in index", id);
             return;
         }
-
-        MemorySegment segment = tierRouter.segmentFor(loc.type());
+        MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
         if (segment != null) {
-            CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
+            CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
             layout.tombstone(segment, loc.offset());
         }
-
         wal.appendForget(id);
         index.remove(id);
         log.debug("Forget: '{}' tombstoned", id);
@@ -864,267 +617,33 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public ReflectReport reflect() {
-        log.info("Manual reflection triggered");
-        // Get the semantic TierStore (dir-level partitioning, single .mem per partition)
-        var semanticTarget = tierRouter.semantic();
-        ReflectReport report = reflectDaemon.runCycle(
-                tierRouter.episodic(), semanticTarget,
-                offset -> index.findTextByOffset(MemoryType.EPISODIC, offset));
-
-        // ── Graph Decay (Sleep Consolidation) ──
-        // Hebbian edges decay by 10% per reflection cycle (biological synaptic homeostasis)
-        try {
-            int hebbianDecayed = hebbianGraph.decayEdges(0.9f);
-            if (hebbianDecayed > 0) {
-                log.info("Reflect: Hebbian graph decayed {} weak edges", hebbianDecayed);
-            }
-        } catch (RuntimeException e) {
-            SpectorGraphDecayException ex = new SpectorGraphDecayException("Hebbian edge decay", e);
-            log.warn(ex.getMessage());
-        }
-
-        // Temporal chain: prune links older than configured retention period
-        int temporalPruned = 0;
-        if (temporalChain != null) {
-            try {
-                long cutoffMs = System.currentTimeMillis()
-                        - (long) temporalRetentionDays * 24 * 60 * 60 * 1000;
-                temporalPruned = temporalChain.pruneOlderThan(cutoffMs);
-            } catch (RuntimeException e) {
-                log.warn("Temporal chain pruning failed: {}", e.getMessage());
-            }
-        }
-
-        // ── Cross-Layer Promotion: Hebbian → Entity ──
-        // Strong Hebbian co-activation (weight ≥ 3.0) is promoted to entity-level
-        // RELATED_TO edges. This bridges statistical correlation (Hebbian) with
-        // structured knowledge (Entity graph).
-        int crossPromoted = 0;
-        try {
-            crossPromoted = promoteHebbianToEntity(3.0f);
-            if (crossPromoted > 0) {
-                log.info("Reflect: cross-layer promoted {} Hebbian edges to entity relations",
-                        crossPromoted);
-            }
-        } catch (RuntimeException e) {
-            log.warn("Cross-layer promotion failed: {}", e.getMessage());
-        }
-
-        // ── Entity Graph Maintenance ──
-        if (entityGraph != null && entityGraph.entityCount() > 0) {
-            try {
-                // Decay entity edges: 5% decay per cycle, prune below 0.5
-                int entityDecayed = entityGraph.decayEdges(0.95f, 0.5f);
-                if (entityDecayed > 0) {
-                    log.info("Reflect: entity graph decayed {} weak edges", entityDecayed);
-                }
-                // Merge near-duplicate entities (Levenshtein distance ≤ 2)
-                int entityMerged = entityGraph.mergeSimilarEntities(2);
-                if (entityMerged > 0) {
-                    log.info("Reflect: merged {} similar entities", entityMerged);
-                }
-            } catch (RuntimeException e) {
-                log.warn("Entity graph maintenance failed: {}", e.getMessage());
-            }
-        }
-
-        wal.append(WalEvent.EventType.REFLECT, "system", null);
-
-        // Overlay temporal pruning count onto the daemon's report
-        return new ReflectReport(
-                report.consolidatedCount(), report.tombstonedCount(),
-                report.compactedPartitions(), temporalPruned, report.duration());
-    }
-
-    /**
-     * Promotes strong Hebbian co-activation edges into entity-level RELATED_TO edges.
-     *
-     * <p>For each Hebbian edge with weight ≥ {@code minWeight}, scans both endpoint
-     * memories' entity associations and creates RELATED_TO edges between all entity
-     * pairs. This bridges the statistical co-occurrence layer (Hebbian) with the
-     * structured knowledge layer (Entity graph).</p>
-     *
-     * @param minWeight minimum Hebbian weight to qualify for promotion
-     * @return number of entity relations created or strengthened
-     */
-    private int promoteHebbianToEntity(float minWeight) {
-        if (entityGraph == null || entityGraph.entityCount() == 0) return 0;
-
-        // Build reverse index: memoryIdx → List<entityId>
-        // This converts O(C × 20 × E × R) → O(E × R + C × 20)
-        // Previously findEntitiesForMemory scanned ALL entities for EACH Hebbian edge endpoint.
-        int ecnt = entityGraph.entityCount();
-        java.util.Map<Integer, java.util.List<Integer>> memToEntities = new java.util.HashMap<>();
-        for (int e = 0; e < ecnt; e++) {
-            int refCount = entityGraph.memoryRefCount(e);
-            for (int r = 0; r < refCount; r++) {
-                int memIdx = entityGraph.memoryRefAt(e, r);
-                if (memIdx >= 0) {
-                    memToEntities.computeIfAbsent(memIdx, k -> new java.util.ArrayList<>(2)).add(e);
-                }
-            }
-        }
-
-        int promoted = 0;
-        int capacity = hebbianGraph.capacity();
-
-        for (int nodeA = 0; nodeA < capacity; nodeA++) {
-            var edges = hebbianGraph.neighbors(nodeA);
-            for (var edge : edges) {
-                if (edge.weight() < minWeight) break; // sorted descending, so remaining are weaker
-                int nodeB = edge.neighborIndex();
-                if (nodeB <= nodeA) continue; // avoid double-processing A↔B
-
-                // O(1) lookup via reverse index
-                var entitiesA = memToEntities.get(nodeA);
-                var entitiesB = memToEntities.get(nodeB);
-
-                if (entitiesA == null || entitiesB == null) continue;
-
-                // Create RELATED_TO edges between all entity pairs
-                for (int eA : entitiesA) {
-                    for (int eB : entitiesB) {
-                        if (eA != eB) {
-                            entityGraph.addRelation(eA, eB,
-                                    com.spectrayan.spector.memory.graph.RelationType.RELATED_TO);
-                            promoted++;
-                        }
-                    }
-                }
-            }
-        }
-        return promoted;
+        return reflectionOrchestrator.reflect(partitionManager.tierRouter(), index);
     }
 
     // ══════════════════════════════════════════════════════════════
-    // EXTENDED API — reinforce / suppress / introspect / Hebbian
+    // EXTENDED API — reinforce / suppress / introspect
     // ══════════════════════════════════════════════════════════════
 
     @Override
     public void reinforce(String memoryId, byte valence) {
-        if (memoryId == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "memoryId"); }
-        MemoryLocation loc = index.locate(memoryId);
-        if (loc == null) {
-            log.warn("Reinforce: memory '{}' not found", memoryId);
-            return;
-        }
-
-        MemorySegment segment = tierRouter.segmentFor(loc.type());
-        if (segment != null) {
-            CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
-            valenceTracker.reinforce(segment, loc.offset(), layout, valence);
-            layout.incrementAgentRecallCount(segment, loc.offset()); // LTP on explicit use
-
-            // ACT-R: record recall timestamp in ring buffer (V3 only)
-            if (layout.headerLayout().version() >= 3) {
-                long creationTs = layout.readTimestamp(segment, loc.offset());
-                ActRActivation.recordRecall(segment, loc.offset(), creationTs, System.currentTimeMillis());
-            }
-
-            // Two-Factor Memory: update storage strength S(t) on successful retrieval
-            // ΔS = sGain × (1 - R(t)) → max boost when retrieval was hard
-            var headerLayout = layout.headerLayout();
-            if (headerLayout.headerBytes() > 32) { // V2+ has storage_strength
-                float currentS = headerLayout.readStorageStrength(segment, loc.offset());
-                // Approximate R(t) from current decay bucket
-                long timestamp = layout.readTimestamp(segment, loc.offset());
-                int rawBucket = com.spectrayan.spector.memory.synapse.DecayStrategy.ageToBucket(
-                        timestamp, System.currentTimeMillis());
-                float currentR = com.spectrayan.spector.memory.synapse.DecayStrategy.decay(rawBucket);
-                float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
-                float newS = Math.min(currentS + deltaS, twoFactorConfig.sMax());
-                headerLayout.writeStorageStrength(segment, loc.offset(), newS);
-            }
-        }
-
-        // Neurodivergent: Feed lateral evaluator based on whether this was a lateral result
-        if (recallPipeline.wasLateral(memoryId)) {
-            if (valence > 0) {
-                lateralEvaluator.recordLateralReinforcement();
-                log.debug("Lateral reinforcement: '{}' (positive valence={})", memoryId, valence);
-            } else if (valence < 0) {
-                lateralEvaluator.recordLateralSuppression();
-                log.debug("Lateral suppression via reinforce: '{}' (negative valence={})", memoryId, valence);
-            }
-        }
-
-        wal.appendReinforce(memoryId, valence);
-        log.debug("Reinforce: '{}' with valence={}", memoryId, valence);
+        reinforcementHandler.reinforce(memoryId, valence,
+                partitionManager.tierRouter(), index);
     }
 
-    /**
-     * Reinforces a memory with optional ICNU importance re-fusion.
-     *
-     * <p>When {@code updatedHints} are provided, importance is re-fused using
-     * the ICNU formula and blended 50/50 with the current importance. This allows
-     * the agent to provide updated context (e.g., "this turned out to be very important")
-     * without discarding the original surprise-based importance entirely.</p>
-     *
-     * <p>When {@code updatedHints} is null, a simpler Hebbian degree-centrality boost
-     * is applied: memories with more co-activation edges are assumed to be more central
-     * to the user's knowledge graph and receive an importance bump.</p>
-     *
-     * @param memoryId     the memory ID to reinforce
-     * @param valence      positive/negative outcome (-128 to +127)
-     * @param updatedHints optional ICNU hints for re-fusion (null = auto-compute)
-     */
     @Override
     public void reinforce(String memoryId, byte valence,
                            com.spectrayan.spector.memory.neurodivergent.IngestionHints updatedHints) {
-        // Delegate core reinforcement (valence, LTP, storage strength, WAL)
-        reinforce(memoryId, valence);
-
-        // Phase 3 & 4: Importance re-fusion
-        MemoryLocation loc = index.locate(memoryId);
-        if (loc == null) return;
-
-        MemorySegment segment = tierRouter.segmentFor(loc.type());
-        if (segment == null) return;
-
-        CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
-        float currentImportance = layout.readImportance(segment, loc.offset());
-
-        float newImportance;
-        if (updatedHints != null && !updatedHints.isEmpty()) {
-            // Phase 3: Re-fuse importance with updated ICNU hints.
-            // Novelty component approximated from current importance (normalized to 0-1 range)
-            float noveltyApprox = Math.min(1.0f, currentImportance / 5.0f);
-            float refusedImportance = com.spectrayan.spector.memory.neurodivergent.IcnuWeights.DEFAULT.fuse(updatedHints, noveltyApprox);
-            // Blend 50/50 with current importance to avoid wild swings
-            newImportance = 0.5f * currentImportance + 0.5f * refusedImportance;
-        } else {
-            // Phase 4: Degree centrality boost from Hebbian graph.
-            // More co-activation edges → more central to user's knowledge → higher importance.
-            // The partitionIndex in MemoryLocation is the sequential slot used with HebbianGraph.
-            int graphIdx = loc.partitionIndex();
-            if (graphIdx >= 0 && hebbianGraph != null) {
-                var edges = hebbianGraph.neighbors(graphIdx);
-                int degree = edges.size();
-                // Logarithmic boost: +5% per edge, capped at +30%
-                float boost = Math.min(0.30f, degree * 0.05f);
-                newImportance = Math.min(10.0f, currentImportance * (1.0f + boost));
-            } else {
-                newImportance = currentImportance; // no graph data, no change
-            }
-        }
-
-        if (Math.abs(newImportance - currentImportance) > 0.001f) {
-            layout.writeImportance(segment, loc.offset(), newImportance);
-            log.debug("Reinforce re-fusion: '{}' importance {} → {}",
-                    memoryId, currentImportance, newImportance);
-        }
+        reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
+                partitionManager.tierRouter(), index);
     }
 
     @Override
     public void suppress(String memoryId, String reason) {
         suppressionSet.suppress(memoryId, reason);
-        // Also register offset for hot-loop filtering
         MemoryLocation loc = index.locate(memoryId);
         if (loc != null) {
             suppressionSet.registerOffset(loc.type().ordinal(), loc.offset());
         }
-
-        // Neurodivergent: Feed lateral evaluator
         if (recallPipeline.wasLateral(memoryId)) {
             lateralEvaluator.recordLateralSuppression();
             log.debug("Lateral suppression: '{}' (reason={})", memoryId, reason);
@@ -1141,7 +660,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public void markResolved(String memoryId) {
         var loc = index.locate(memoryId);
         if (loc == null) return;
-        tierRouter.layoutFor(loc.type()).markResolved(tierRouter.segmentFor(loc.type()), loc.offset());
+        partitionManager.tierRouter().layoutFor(loc.type())
+                .markResolved(partitionManager.tierRouter().segmentFor(loc.type()), loc.offset());
         log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
     }
 
@@ -1149,7 +669,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public void markUnresolved(String memoryId) {
         var loc = index.locate(memoryId);
         if (loc == null) return;
-        tierRouter.layoutFor(loc.type()).markUnresolved(tierRouter.segmentFor(loc.type()), loc.offset());
+        partitionManager.tierRouter().layoutFor(loc.type())
+                .markUnresolved(partitionManager.tierRouter().segmentFor(loc.type()), loc.offset());
         log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
     }
 
@@ -1161,7 +682,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) {
-        // Step 1: Does the memory exist at all?
         var loc = index.locate(memoryId);
         if (loc == null) {
             return new WhyNotExplanation(memoryId, queryText, false, false,
@@ -1169,21 +689,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     "Memory '" + memoryId + "' does not exist in the index.");
         }
 
-        // Step 2: Is it tombstoned?
-        var layout = tierRouter.layoutFor(loc.type());
-        var segment = tierRouter.segmentFor(loc.type());
+        var layout = partitionManager.tierRouter().layoutFor(loc.type());
+        var segment = partitionManager.tierRouter().segmentFor(loc.type());
         if (layout != null && segment != null) {
-            byte flags = segment.get(
-                    com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.LAYOUT_FLAGS,
-                    loc.offset() + com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.OFFSET_FLAGS);
-            if (com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isTombstoned(flags)) {
+            byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
+                    loc.offset() + SynapticHeaderConstants.OFFSET_FLAGS);
+            if (SynapticHeaderConstants.isTombstoned(flags)) {
                 return new WhyNotExplanation(memoryId, queryText, true, false,
                         null, 0f, WhyNotExplanation.Reason.TOMBSTONED,
                         "Memory '" + memoryId + "' has been deleted (tombstone flag set).");
             }
         }
 
-        // Step 3: Is it suppressed?
         if (suppressionSet.isSuppressed(memoryId)) {
             return new WhyNotExplanation(memoryId, queryText, true, true,
                     null, 0f, WhyNotExplanation.Reason.SUPPRESSED,
@@ -1191,16 +708,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     + "Use unsuppress(\"" + memoryId + "\") to allow recall.");
         }
 
-        // Step 4: Run a full recall in OBSERVE mode (no mutations)
         int originalTopK = options != null ? options.topK() : 5;
         RecallOptions observeOptions = RecallOptions.builder()
                 .recallMode(RecallMode.OBSERVE)
-                .topK(Math.max(originalTopK, 20)) // wider net to find the missing memory
+                .topK(Math.max(originalTopK, 20))
                 .build();
 
         List<CognitiveResult> results = recall(queryText, observeOptions);
 
-        // Step 5: Is the memory in the results?
         CognitiveResult found = null;
         for (CognitiveResult r : results) {
             if (memoryId.equals(r.id())) {
@@ -1210,9 +725,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
 
         if (found != null) {
-            // Memory WAS returned — it's in the top-K.
-            // This means it was probably outranked for a smaller topK.
-            float cutoffScore = results.isEmpty() ? 0f : results.get(results.size() - 1).score();
             return new WhyNotExplanation(memoryId, queryText, true, false,
                     found.breakdown(), 0f, WhyNotExplanation.Reason.OUTRANKED,
                     "Memory '" + memoryId + "' WAS found in extended recall "
@@ -1220,7 +732,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     + "It may have been outside your original topK cutoff.");
         }
 
-        // Step 6: Memory exists but wasn't in results — it was pre-filtered or outranked
         float cutoffScore = results.isEmpty() ? 0f : results.get(results.size() - 1).score();
         return new WhyNotExplanation(memoryId, queryText, true, false,
                 null, cutoffScore, WhyNotExplanation.Reason.FILTERED,
@@ -1250,10 +761,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
-    public int totalMemories() { return tierRouter.totalCount(); }
+    public int totalMemories() { return partitionManager.tierRouter().totalCount(); }
 
     @Override
-    public int memoryCount(MemoryType type) { return tierRouter.countFor(type); }
+    public int memoryCount(MemoryType type) { return partitionManager.tierRouter().countFor(type); }
 
     @Override
     public int decay(Duration olderThan, float factor) {
@@ -1263,10 +774,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         long nowMs = System.currentTimeMillis();
         long thresholdMs = nowMs - olderThan.toMillis();
 
-        var partitions = tierRouter.episodic().partitions();
+        var partitions = partitionManager.tierRouter().episodic().partitions();
         if (partitions.isEmpty()) return 0;
 
-        // Parallel decay: each partition on its own Virtual Thread
         try {
             java.util.List<java.util.concurrent.Callable<Integer>> tasks = new java.util.ArrayList<>(partitions.size());
             for (var partition : partitions) {
@@ -1278,7 +788,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         long offset = partition.recordOffset(i);
                         byte flags = layout.readFlags(segment, offset);
                         if (SynapticHeaderConstants.isTombstoned(flags)) continue;
-
                         long ts = layout.readTimestamp(segment, offset);
                         if (ts < thresholdMs) {
                             float oldImp = layout.readImportance(segment, offset);
@@ -1297,7 +806,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } catch (ConcurrentExecutionException | InterruptedException e) {
             Thread.currentThread().interrupt();
             log.warn("Parallel decay failed, falling back to sequential: {}", e.getMessage());
-            // Sequential fallback
             int affected = 0;
             for (var partition : partitions) {
                 CognitiveRecordLayout layout = partition.layout();
@@ -1337,7 +845,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public ScalarQuantizer quantizer() { return quantizer; }
     @Override public CognitiveIngestionTarget cognitiveTarget() { return cognitiveTarget; }
     @Override public RecallPipeline recallPipeline() { return recallPipeline; }
-    @Override public TierRouter tierRouter() { return tierRouter; }
+    @Override public TierRouter tierRouter() { return partitionManager.tierRouter(); }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
     @Override public HebbianGraph hebbianGraph() { return hebbianGraph; }
@@ -1349,56 +857,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void close() {
-        log.info("SpectorMemory closing ({} total memories, mode={})", totalMemories(), persistenceMode);
+        log.info("SpectorMemory closing ({} total memories, mode={})",
+                totalMemories(), persistenceMode);
 
-        // Save to partition directory (colocated layout) or legacy paths
-        if (persistenceMode == MemoryPersistenceMode.DISK && persistencePath != null) {
-            // Determine save location: prefer partition dir, fall back to basePath
-            Path saveDir = activePartitionDir != null ? activePartitionDir : persistencePath;
-
-            try {
-                // Index: save to partition-local index.midx
-                Path indexPath = activePartitionDir != null
-                        ? StorageLayout.indexMidx(activePartitionDir)
-                        : persistencePath.resolve(StorageLayout.LEGACY_FILE_INDEX);
-                index.save(indexPath);
-            } catch (Exception e) {
-                log.error("Failed to save MemoryIndex on close: {}", e.getMessage(), e);
-            }
-
-            // Save 3-Layer Cognitive Graph to partition
-            try {
-                hebbianGraph.save(StorageLayout.hebbianGraph(saveDir));
-            } catch (Exception e) {
-                log.error("Failed to save HebbianGraph on close: {}", e.getMessage(), e);
-            }
-            try {
-                temporalChain.save(StorageLayout.temporalChain(saveDir));
-            } catch (Exception e) {
-                log.error("Failed to save TemporalChain on close: {}", e.getMessage(), e);
-            }
-            if (entityGraph != null) {
-                try {
-                    entityGraph.save(StorageLayout.entityGraph(saveDir));
-                } catch (Exception e) {
-                    log.error("Failed to save EntityGraph on close: {}", e.getMessage(), e);
-                }
-            }
-            // CoActivation tracker: always global
-            try {
-                coActivationTracker.save(StorageLayout.coactivationTracker(persistencePath));
-            } catch (Exception e) {
-                log.error("Failed to save CoActivationTracker on close: {}", e.getMessage(), e);
-            }
-        }
-
-        virtualExecutor.close();
-        tierRouter.close();
-        wal.close();
-        hebbianGraph.close();
-        temporalChain.close();
-        coActivationTracker.close();
-        if (entityGraph != null) entityGraph.close();
+        PersistenceManager.flushAndClose(
+                persistenceMode, persistencePath,
+                partitionManager.activePartitionDir(),
+                index, hebbianGraph, temporalChain, entityGraph,
+                coActivationTracker, partitionManager.tierRouter(), wal);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -1408,43 +874,43 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public static Builder builder() { return new Builder(); }
 
     public static final class Builder {
-        private int dimensions;
-        private EmbeddingProvider embeddingProvider;
-        private Path persistencePath;
-        private MemoryPersistenceMode persistenceMode = MemoryPersistenceMode.DISK;
-        private boolean persistWorkingMemory = false;
-        private CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
-        private int workingCapacity = 100;
-        private int episodicPartitionCapacity = 1_000;  // 1K per daily partition (~4MB at 4160B/record)
-        private int semanticCapacity = 10_000;  // 10K per partition (~40MB at 4160B/record)
-        private int nodesPerPartition = 10_000;
-        private int proceduralCapacity = 1_000;
-        private int surpriseWarmup = 20;
-        private double flashbulbThreshold = 3.0;
-        private float valenceLearningRate = 0.3f;
-        private float deduplicationRadius = 0.05f;
-        private TextGenerationProvider textGenerationProvider;
-        private ScalarQuantizer quantizer;
-        private com.spectrayan.spector.index.VectorIndex semanticIndex;
-        private long inhibitionTtlMs = 300_000L;
-        private float inhibitionFloor = 0.1f;
-        private IcnuWeights icnuWeights;
-        private boolean pinSourceEpisodes = false;
-        private int pinnedQuota = 10_000;
-        private com.spectrayan.spector.memory.pipeline.TagExtractor tagExtractor;
-        private CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
+        int dimensions;
+        EmbeddingProvider embeddingProvider;
+        Path persistencePath;
+        MemoryPersistenceMode persistenceMode = MemoryPersistenceMode.DISK;
+        boolean persistWorkingMemory = false;
+        CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
+        int workingCapacity = 100;
+        int episodicPartitionCapacity = 1_000;
+        int semanticCapacity = 10_000;
+        int nodesPerPartition = 10_000;
+        int proceduralCapacity = 1_000;
+        int surpriseWarmup = 20;
+        double flashbulbThreshold = 3.0;
+        float valenceLearningRate = 0.3f;
+        float deduplicationRadius = 0.05f;
+        TextGenerationProvider textGenerationProvider;
+        ScalarQuantizer quantizer;
+        com.spectrayan.spector.index.VectorIndex semanticIndex;
+        long inhibitionTtlMs = 300_000L;
+        float inhibitionFloor = 0.1f;
+        IcnuWeights icnuWeights;
+        boolean pinSourceEpisodes = false;
+        int pinnedQuota = 10_000;
+        com.spectrayan.spector.memory.pipeline.TagExtractor tagExtractor;
+        CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
 
         // 3-Layer Cognitive Graph configuration
-        private int hebbianGraphCapacity = 0; // 0 = use episodicPartitionCapacity
-        private int temporalChainCapacity = 0; // 0 = use hebbianGraphCapacity
-        private EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
-        private EntityExtractor entityExtractor;
-        private int entityGraphCapacity = 50_000;
-        private int maxEntitiesPerMemory = 10;
-        private int maxRelationsPerMemory = 20;
-        private GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
-        private int temporalRetentionDays = 7;
-        private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
+        int hebbianGraphCapacity = 0;
+        int temporalChainCapacity = 0;
+        EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
+        EntityExtractor entityExtractor;
+        int entityGraphCapacity = 50_000;
+        int maxEntitiesPerMemory = 10;
+        int maxRelationsPerMemory = 20;
+        GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
+        int temporalRetentionDays = 7;
+        com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
                 = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
 
         public Builder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
