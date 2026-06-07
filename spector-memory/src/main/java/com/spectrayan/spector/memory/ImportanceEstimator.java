@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
@@ -83,15 +84,10 @@ final class ImportanceEstimator {
             // Step 1: Embed text (same as remember())
             float[] vector = embeddingProvider.embed(text).vector();
 
-            // Step 1b: L2-normalize (same as ingestion)
-            float norm = 0f;
-            for (float v : vector) norm += v * v;
-            norm = (float) Math.sqrt(norm);
+            // Step 1b: L2-normalize (SIMD-accelerated via VectorOps)
+            float norm = VectorOps.magnitude(vector);
             if (norm > 0f && Math.abs(norm - 1.0f) > 1e-6f) {
-                float invNorm = 1.0f / norm;
-                float[] normalized = new float[vector.length];
-                for (int i = 0; i < vector.length; i++) normalized[i] = vector[i] * invNorm;
-                vector = normalized;
+                vector = VectorOps.normalize(vector);
             }
 
             // Step 2: Compute nearest distance (read-only — don't update stats)
@@ -102,9 +98,7 @@ final class ImportanceEstimator {
                         vector, quantizer.mins(), quantizer.scales());
             } else {
                 // Fallback: L2 norm of vector (high distance = novel)
-                float l2 = 0f;
-                for (float v : vector) l2 += v * v;
-                nearestDist = (float) Math.sqrt(l2);
+                nearestDist = VectorOps.magnitude(vector);
             }
 
             // Step 3: Compute novelty (read-only peek — don't modify Welford stats)

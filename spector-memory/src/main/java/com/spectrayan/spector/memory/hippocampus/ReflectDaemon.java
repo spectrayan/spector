@@ -26,6 +26,7 @@ import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.TextGenerationProvider;
 import com.spectrayan.spector.embed.GenerationOptions;
+import com.spectrayan.spector.core.similarity.VectorOps;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -578,9 +579,7 @@ public final class ReflectDaemon {
             if (embeddingProvider != null) {
                 try {
                     float[] vec = embeddingProvider.embed(synthesized).vector();
-                    float sum = 0f;
-                    for (float v : vec) sum += v * v;
-                    exactNorm = (float) Math.sqrt(sum);
+                    exactNorm = VectorOps.magnitude(vec);
                 } catch (Exception e) {
                     log.warn("REM: Failed to embed synthesized text: {}", e.getMessage());
                 }

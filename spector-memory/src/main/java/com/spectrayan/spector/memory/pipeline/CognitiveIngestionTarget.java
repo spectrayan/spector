@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.pipeline;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -676,9 +677,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     // ═══════════════════════════════════════════════════════════════
 
     private static float computeL2Norm(float[] vector) {
-        float sum = 0f;
-        for (float v : vector) sum += v * v;
-        return (float) Math.sqrt(sum);
+        return VectorOps.magnitude(vector);
     }
 
     /**
@@ -689,11 +688,6 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private static float[] l2Normalize(float[] vector) {
         float norm = computeL2Norm(vector);
         if (norm == 0f || Math.abs(norm - 1.0f) < 1e-6f) return vector; // already normalized or zero
-        float[] normalized = new float[vector.length];
-        float invNorm = 1.0f / norm;
-        for (int i = 0; i < vector.length; i++) {
-            normalized[i] = vector[i] * invNorm;
-        }
-        return normalized;
+        return VectorOps.normalize(vector);
     }
 }
