@@ -332,6 +332,12 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override public int memoryCount(MemoryType type) { return delegate.memoryCount(type); }
     @Override public int decay(Duration olderThan, float factor) { return delegate.decay(olderThan, factor); }
 
+    @Override
+    public com.spectrayan.spector.memory.ImportanceEstimate estimateImportance(
+            String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
+        return delegate.estimateImportance(text, hints);
+    }
+
     // ══════════════════════════════════════════════════════════════
     // ADMIN + SUBSYSTEM ACCESSORS (pass-through)
     // ══════════════════════════════════════════════════════════════

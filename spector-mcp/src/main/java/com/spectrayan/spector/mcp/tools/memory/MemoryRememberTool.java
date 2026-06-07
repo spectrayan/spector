@@ -132,6 +132,14 @@ public final class MemoryRememberTool extends MemoryToolHandler {
                     (byte) Math.clamp(arousal, 0, 255));
         }
 
+        // Compute importance estimate (read-only) to show what was assigned
+        com.spectrayan.spector.memory.ImportanceEstimate estimate = null;
+        try {
+            estimate = memory.estimateImportance(text, hints);
+        } catch (Exception e) {
+            // Non-fatal: importance display is best-effort
+        }
+
         memory.remember(id, text, type, source, hints, tags).join();
 
         StringBuilder sb = new StringBuilder();
@@ -150,6 +158,19 @@ public final class MemoryRememberTool extends MemoryToolHandler {
               .append(", U=").append(urgency);
             if (valence != 0) sb.append(" | valence=").append(valence);
             if (arousal != 0) sb.append(" | arousal=").append(arousal);
+        }
+
+        // Show computed importance feedback
+        if (estimate != null) {
+            sb.append(String.format("\n📈 Importance: %.2f / 10.0", estimate.fusedImportance()));
+            sb.append(String.format(" (novelty=%.2f, z=%.2f)", estimate.noveltyScore(), estimate.noveltyZScore()));
+            if (estimate.wouldBeFlashbulb()) {
+                sb.append(" ⚡ FLASHBULB");
+            }
+            if (estimate.nearestMemoryId() != null) {
+                sb.append(String.format("\n🔗 Nearest: '%s' (dist=%.4f)",
+                        estimate.nearestMemoryId(), estimate.nearestDistance()));
+            }
         }
 
         return textResult(sb.toString());

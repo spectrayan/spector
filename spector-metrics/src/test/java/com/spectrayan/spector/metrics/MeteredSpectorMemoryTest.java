@@ -128,6 +128,7 @@ class MeteredSpectorMemoryTest {
         @Override public com.spectrayan.spector.memory.temporal.TemporalChain temporalChain() { return null; }
         @Override public com.spectrayan.spector.memory.WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) { return null; }
         @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return null; }
+        @Override public com.spectrayan.spector.memory.ImportanceEstimate estimateImportance(String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) { return null; }
         @Override public void close() {}
     }
 }

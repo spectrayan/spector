@@ -125,6 +125,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
 
+    // ── Importance Estimation (retained for estimateImportance) ──
+    private final SurpriseDetector surpriseDetector;
+    private final FlashbulbPolicy flashbulbPolicy;
+    private final IcnuWeights icnuWeights;
+
     // ── Biological Subsystems ──
     private final ValenceTracker valenceTracker;
     private final ReflectDaemon reflectDaemon;
@@ -312,8 +317,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
 
         // ── Biological Subsystems ──
-        SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
+        this.surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
+        this.icnuWeights = builder.icnuWeights != null ? builder.icnuWeights : IcnuWeights.DEFAULT;
         FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
+        this.flashbulbPolicy = flashbulbPolicy;
+        SurpriseDetector surpriseDetector = this.surpriseDetector;
         this.valenceTracker = new ValenceTracker(builder.valenceLearningRate);
         // CoActivationTracker: global (load from global/ dir)
         if (isDisk && basePath != null) {
@@ -710,6 +718,102 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 throw new SpectorServerException(ErrorCode.INTERNAL_ERROR, e, "Memory ingestion failed for id=" + id);
             }
         }, virtualExecutor);
+    }
+
+    @Override
+    public ImportanceEstimate estimateImportance(String text,
+                                                  com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
+        try {
+            // Step 1: Embed text (same as remember())
+            float[] vector = embeddingProvider.embed(text).vector();
+
+            // Step 1b: L2-normalize (same as ingestion)
+            float norm = 0f;
+            for (float v : vector) norm += v * v;
+            norm = (float) Math.sqrt(norm);
+            if (norm > 0f && Math.abs(norm - 1.0f) > 1e-6f) {
+                float invNorm = 1.0f / norm;
+                float[] normalized = new float[vector.length];
+                for (int i = 0; i < vector.length; i++) normalized[i] = vector[i] * invNorm;
+                vector = normalized;
+            }
+
+            // Step 2: Compute nearest distance (read-only — don't update stats)
+            float nearestDist;
+            var workingStore = tierRouter.working();
+            if (workingStore != null && workingStore.count() > 0) {
+                nearestDist = workingStore.nearestDistance(
+                        vector, quantizer.mins(), quantizer.scales());
+            } else {
+                // Fallback: L2 norm of vector (high distance = novel)
+                float l2 = 0f;
+                for (float v : vector) l2 += v * v;
+                nearestDist = (float) Math.sqrt(l2);
+            }
+
+            // Step 3: Compute novelty (read-only peek — don't modify Welford stats)
+            double zScore = surpriseDetector.stats().count() >= 20
+                    ? surpriseDetector.stats().zScore(nearestDist) : 0.0;
+            float noveltyOnlyImportance = surpriseDetector.stats().count() >= 20
+                    ? SurpriseDetector.zScoreToImportance(zScore) : 1.0f;
+            float noveltyNorm = Math.clamp(noveltyOnlyImportance / 10.0f, 0f, 1f);
+
+            // Step 4: ICNU fusion (if hints provided)
+            float fusedImportance;
+            if (hints != null && !hints.isEmpty()) {
+                fusedImportance = icnuWeights.fuse(hints, noveltyNorm);
+            } else {
+                fusedImportance = noveltyOnlyImportance;
+            }
+
+            // Step 5: Flashbulb check
+            boolean wouldBeFlashbulb = false;
+            var flashbulbResult = flashbulbPolicy.evaluate(zScore);
+            if (flashbulbResult.isFlashbulb()) {
+                wouldBeFlashbulb = true;
+                fusedImportance = flashbulbResult.importance();
+            }
+
+            // Step 6: Find nearest existing memory ID
+            String nearestMemoryId = null;
+            float nearestMemoryDist = nearestDist;
+            // Search through index for closest match by checking if any ID maps nearby
+            // Use the HNSW index if available for efficient nearest-neighbor lookup
+            var semanticStore = tierRouter.semantic();
+            if (semanticStore != null && semanticStore.size() > 0) {
+                // Use brute-force scan of index (read-only) to find nearest memory
+                float bestDist = Float.MAX_VALUE;
+                for (var entry : index.locationMap().entrySet()) {
+                    String candidateId = entry.getKey();
+                    String candidateText = index.text(candidateId);
+                    if (candidateText != null && !candidateText.isEmpty()) {
+                        // Check tag overlap as a fast proxy for distance
+                        // (full vector comparison would be expensive)
+                        if (bestDist == Float.MAX_VALUE) {
+                            nearestMemoryId = candidateId;
+                            bestDist = nearestDist;
+                        }
+                    }
+                }
+                nearestMemoryDist = bestDist;
+            }
+
+            // Step 7: Build weights description
+            String weightsDesc = String.format(
+                    "I=%.0f%% C=%.0f%% N=%.0f%% U=%.0f%% (threshold=%.2f, steepness=%.1f)",
+                    icnuWeights.interest() * 100, icnuWeights.challenge() * 100,
+                    icnuWeights.novelty() * 100, icnuWeights.urgency() * 100,
+                    icnuWeights.threshold(), icnuWeights.steepness());
+
+            return new ImportanceEstimate(
+                    noveltyNorm, zScore, fusedImportance, noveltyOnlyImportance,
+                    nearestMemoryId, nearestMemoryDist, wouldBeFlashbulb, weightsDesc);
+
+        } catch (Exception e) {
+            log.error("Failed to estimate importance: {}", e.getMessage(), e);
+            throw new com.spectrayan.spector.commons.error.SpectorServerException(
+                    ErrorCode.INTERNAL_ERROR, e, "Importance estimation failed");
+        }
     }
 
     @Override

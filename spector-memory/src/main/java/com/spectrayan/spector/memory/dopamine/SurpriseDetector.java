@@ -106,7 +106,7 @@ public final class SurpriseDetector {
      *   z ≫ 3  → near 10.0 (extreme outlier — dopamine spike!)
      * </pre>
      */
-    static float zScoreToImportance(double zScore) {
+    public static float zScoreToImportance(double zScore) {
         // Shifted sigmoid: σ(k · (z - center))
         // center=1.0: moderate novelty is the midpoint
         // steepness=1.2: gradual transition, not a cliff

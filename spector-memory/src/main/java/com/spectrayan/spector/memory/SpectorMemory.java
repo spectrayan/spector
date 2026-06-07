@@ -139,6 +139,47 @@ public interface SpectorMemory extends AutoCloseable {
     ReflectReport reflect();
 
     // ══════════════════════════════════════════════════════════════
+    // IMPORTANCE ESTIMATION — pre-ingestion computation
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Computes importance for a prospective memory <em>without</em> ingesting it.
+     *
+     * <p>This is a <b>read-only, side-effect-free</b> operation. It embeds the text,
+     * computes novelty against the existing store, and fuses with optional ICNU
+     * hints to produce a full importance estimate. The LLM can use this to:
+     * <ul>
+     *   <li>Preview what importance a memory would receive before committing</li>
+     *   <li>Adjust ICNU hints (Interest, Challenge, Urgency) based on the novelty signal</li>
+     *   <li>Detect near-duplicates via the nearest memory ID</li>
+     *   <li>Understand how the active cognitive profile affects scoring</li>
+     * </ul>
+     *
+     * <h3>MCP Workflow</h3>
+     * <pre>{@code
+     *   // 1. LLM asks for importance estimate
+     *   var est = memory.estimateImportance("The database crashed", hints);
+     *   // → novelty=0.82, fused=7.8, nearest="mem-42"
+     *
+     *   // 2. LLM decides to proceed (or skip if near-duplicate)
+     *   memory.remember("db-crash", "The database crashed...", ...);
+     * }</pre>
+     *
+     * @param text  the memory text to evaluate
+     * @param hints optional ICNU hints (null = novelty-only estimate)
+     * @return importance estimate with novelty, fusion, nearest memory, and profile weights
+     */
+    ImportanceEstimate estimateImportance(String text,
+                                          com.spectrayan.spector.memory.neurodivergent.IngestionHints hints);
+
+    /**
+     * Convenience overload — estimates importance with novelty-only (no ICNU hints).
+     */
+    default ImportanceEstimate estimateImportance(String text) {
+        return estimateImportance(text, null);
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // EXTENDED API — reinforce / suppress / introspect
     // ══════════════════════════════════════════════════════════════
 

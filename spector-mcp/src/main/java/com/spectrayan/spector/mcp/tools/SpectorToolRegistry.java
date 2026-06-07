@@ -41,6 +41,7 @@ import com.spectrayan.spector.mcp.tools.memory.MemorySuppressTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryResolveTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryReminderTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryWhyNotTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryComputeImportanceTool;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
 
@@ -102,6 +103,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryResolveTool(memory));
             handlers.add(new MemoryReminderTool(memory));
             handlers.add(new MemoryWhyNotTool(memory));
+            handlers.add(new MemoryComputeImportanceTool(memory));
         }
 
         return List.copyOf(handlers);
@@ -175,6 +177,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryResolveTool(memory));
             handlers.add(new MemoryReminderTool(memory));
             handlers.add(new MemoryWhyNotTool(memory));
+            handlers.add(new MemoryComputeImportanceTool(memory));
         }
 
         return handlers.stream()
