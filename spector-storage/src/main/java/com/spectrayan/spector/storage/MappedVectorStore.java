@@ -147,11 +147,12 @@ public class MappedVectorStore implements VectorStore {
     }
 
     @Override
-    public float[] get(String id) {
+    public java.util.Optional<float[]> get(String id) {
         ensureOpen();
         this.lastAccessed = System.currentTimeMillis();
         Integer index = idToIndex.get(id);
-        return index == null ? null : layout.readVector(segment, index);
+        return index == null ? java.util.Optional.empty()
+                : java.util.Optional.of(layout.readVector(segment, index));
     }
 
     @Override

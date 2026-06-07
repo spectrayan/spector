@@ -100,7 +100,7 @@ class McpToolsFunctionalTest {
                 @Override public String modelName() { return "stub-readonly"; }
             });
         }
-        memory = runtime.memory();
+        memory = runtime.memory().orElse(null);
         assertThat(memory).isNotNull();
 
         System.out.printf("Runtime initialized. Total memories: %d%n", memory.totalMemories());

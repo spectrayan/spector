@@ -43,7 +43,7 @@ class MappedVectorStoreTest {
         try (var store = new MappedVectorStore(file, 3, 100)) {
             store.put("doc-1", new float[]{1f, 2f, 3f});
 
-            float[] result = store.get("doc-1");
+            float[] result = store.get("doc-1").orElseThrow();
             assertThat(result).containsExactly(1f, 2f, 3f);
         }
     }
@@ -96,7 +96,7 @@ class MappedVectorStoreTest {
             store.put("doc-1", new float[]{10f, 20f, 30f});
 
             assertThat(store.size()).isEqualTo(1);
-            assertThat(store.get("doc-1")).containsExactly(10f, 20f, 30f);
+            assertThat(store.get("doc-1").orElseThrow()).containsExactly(10f, 20f, 30f);
         }
     }
 
@@ -124,7 +124,7 @@ class MappedVectorStoreTest {
 
             // Verify a random sample
             float[] expected = randomVector(128, 42);
-            float[] actual = store.get("doc-42");
+            float[] actual = store.get("doc-42").orElseThrow();
             for (int j = 0; j < 128; j++) {
                 assertThat(actual[j]).isCloseTo(expected[j], within(1e-6f));
             }

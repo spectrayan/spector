@@ -38,7 +38,7 @@ class InMemoryVectorStoreTest {
             float[] v = {1f, 2f, 3f};
             store.put("doc-1", v);
 
-            float[] result = store.get("doc-1");
+            float[] result = store.get("doc-1").orElseThrow();
             assertThat(result).containsExactly(1f, 2f, 3f);
         }
     }
@@ -80,7 +80,7 @@ class InMemoryVectorStoreTest {
             store.put("doc-1", new float[]{10f, 20f, 30f});
 
             assertThat(store.size()).isEqualTo(1);
-            assertThat(store.get("doc-1")).containsExactly(10f, 20f, 30f);
+            assertThat(store.get("doc-1").orElseThrow()).containsExactly(10f, 20f, 30f);
         }
     }
 
@@ -100,7 +100,7 @@ class InMemoryVectorStoreTest {
     @Test
     void getNonexistentReturnsNull() {
         try (var store = new InMemoryVectorStore(3, 10)) {
-            assertThat(store.get("nope")).isNull();
+            assertThat(store.get("nope")).isEmpty();
         }
     }
 
@@ -142,7 +142,7 @@ class InMemoryVectorStoreTest {
             float[] v = randomVector(dim, 42);
             store.put("test", v);
 
-            float[] result = store.get("test");
+            float[] result = store.get("test").orElseThrow();
             assertThat(result).containsExactly(v);
         }
     }
@@ -156,7 +156,7 @@ class InMemoryVectorStoreTest {
             assertThat(store.size()).isEqualTo(100);
 
             for (int i = 0; i < 100; i++) {
-                float[] v = store.get("doc-" + i);
+                float[] v = store.get("doc-" + i).orElseThrow();
                 assertThat(v[0]).isCloseTo(i, within(1e-6f));
             }
         }

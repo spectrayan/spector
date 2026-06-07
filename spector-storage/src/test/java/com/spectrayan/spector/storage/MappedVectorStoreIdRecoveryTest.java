@@ -68,11 +68,11 @@ class MappedVectorStoreIdRecoveryTest {
             assertThat(store.indexOf("vec-gamma")).isEqualTo(2);
 
             // Verify vector data survived via mmap
-            float[] alpha = store.get("vec-alpha");
+            float[] alpha = store.get("vec-alpha").orElseThrow();
             assertThat(alpha).isNotNull();
             assertThat(alpha).containsExactly(1.0f, 2.0f, 3.0f, 4.0f);
 
-            float[] gamma = store.get("vec-gamma");
+            float[] gamma = store.get("vec-gamma").orElseThrow();
             assertThat(gamma).containsExactly(9.0f, 10.0f, 11.0f, 12.0f);
         }
     }

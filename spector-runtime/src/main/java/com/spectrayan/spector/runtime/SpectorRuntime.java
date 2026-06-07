@@ -74,10 +74,13 @@ public final class SpectorRuntime implements AutoCloseable {
     private final SpectorProperties properties;
     private final SpectorMode mode;
 
-    // Lazily created services
+    // Lazily created services — double-checked locking for thread safety.
+    // The volatile + synchronized pattern ensures exactly-once initialization
+    // even under concurrent access from multiple threads.
     private volatile SearchHandler searchService;
     private volatile IngestionHandler ingestionService;
     private volatile MemoryHandler memoryService;
+    private final Object serviceLock = new Object();
 
     private SpectorRuntime(SpectorEngine engine, SpectorMemory memory,
                            SpectorProperties properties, SpectorMode mode) {
@@ -209,53 +212,74 @@ public final class SpectorRuntime implements AutoCloseable {
 
     /** Returns the mode-aware search service. */
     public SearchHandler search() {
-        if (searchService == null) {
-            searchService = new SearchHandler(engine, memory, mode);
+        SearchHandler svc = searchService; // volatile read
+        if (svc == null) {
+            synchronized (serviceLock) {
+                svc = searchService;
+                if (svc == null) {
+                    svc = new SearchHandler(engine, memory, mode);
+                    searchService = svc; // volatile write
+                }
+            }
         }
-        return searchService;
+        return svc;
     }
 
     /** Returns the mode-aware ingestion service. */
     public IngestionHandler ingestion() {
-        if (ingestionService == null) {
-            var ingestionConfig = SpectorConfigFactory.ingestionDefaults(properties);
+        IngestionHandler svc = ingestionService; // volatile read
+        if (svc == null) {
+            synchronized (serviceLock) {
+                svc = ingestionService;
+                if (svc == null) {
+                    var ingestionConfig = SpectorConfigFactory.ingestionDefaults(properties);
 
-            // Select target based on mode
-            com.spectrayan.spector.ingestion.IngestionTarget target =
-                    (mode.memoryEnabled() && memory != null)
-                    ? memory.target()
-                    : engine.target();
+                    // Select target based on mode
+                    com.spectrayan.spector.ingestion.IngestionTarget target =
+                            (mode.memoryEnabled() && memory != null)
+                            ? memory.target()
+                            : engine.target();
 
-            // Build unified pipeline from config
-            var pipeline = com.spectrayan.spector.ingestion.IngestionPipeline.builder()
-                    .target(target)
-                    .embeddingProvider(engine.embeddingProvider())
-                    .chunking(new com.spectrayan.spector.commons.TextChunker(
-                            ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap()))
-                    .chunkThreshold(ingestionConfig.chunkSize())
-                    .build();
+                    // Build unified pipeline from config
+                    var pipeline = com.spectrayan.spector.ingestion.IngestionPipeline.builder()
+                            .target(target)
+                            .embeddingProvider(engine.embeddingProvider())
+                            .chunking(new com.spectrayan.spector.commons.TextChunker(
+                                    ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap()))
+                            .chunkThreshold(ingestionConfig.chunkSize())
+                            .build();
 
-            ingestionService = new IngestionHandler(pipeline, engine, memory, mode);
+                    svc = new IngestionHandler(pipeline, engine, memory, mode);
+                    ingestionService = svc; // volatile write
+                }
+            }
         }
-        return ingestionService;
+        return svc;
     }
 
     /**
-     * Returns the cognitive memory handler, or {@code null} if memory is not enabled.
+     * Returns the cognitive memory handler, or empty if memory is not enabled.
      *
      * <p>Unlike {@link #search()} and {@link #ingestion()} which are mode-aware
      * (routing to engine or memory based on {@link SpectorMode}), this handler
      * always operates on the cognitive memory subsystem directly. See
      * {@link MemoryHandler} Javadoc for the design rationale.</p>
      */
-    public MemoryHandler memoryHandler() {
+    public java.util.Optional<MemoryHandler> memoryHandler() {
         if (memory == null) {
-            return null;
+            return java.util.Optional.empty();
         }
-        if (memoryService == null) {
-            memoryService = new MemoryHandler(memory);
+        MemoryHandler svc = memoryService; // volatile read
+        if (svc == null) {
+            synchronized (serviceLock) {
+                svc = memoryService;
+                if (svc == null) {
+                    svc = new MemoryHandler(memory);
+                    memoryService = svc; // volatile write
+                }
+            }
         }
-        return memoryService;
+        return java.util.Optional.of(svc);
     }
 
     // ─────────────── Direct Subsystem Access ───────────────
@@ -263,8 +287,8 @@ public final class SpectorRuntime implements AutoCloseable {
     /** Returns the search engine (never null). */
     public SpectorEngine engine() { return engine; }
 
-    /** Returns the cognitive memory, or {@code null} if not enabled. */
-    public SpectorMemory memory() { return memory; }
+    /** Returns the cognitive memory, or empty if not enabled. */
+    public java.util.Optional<SpectorMemory> memory() { return java.util.Optional.ofNullable(memory); }
 
     /** Returns {@code true} if cognitive memory is available. */
     public boolean hasMemory() { return memory != null; }
@@ -279,19 +303,29 @@ public final class SpectorRuntime implements AutoCloseable {
 
     @Override
     public void close() {
+        Exception firstException = null;
         try {
             engine.close();
         } catch (Exception e) {
             log.error("[Runtime] Error closing engine: {}", e.getMessage(), e);
+            firstException = e;
         }
         if (memory != null) {
             try {
                 memory.close();
             } catch (Exception e) {
                 log.error("[Runtime] Error closing memory: {}", e.getMessage(), e);
+                if (firstException != null) {
+                    firstException.addSuppressed(e);
+                } else {
+                    firstException = e;
+                }
             }
         }
         log.info("[Runtime] Shutdown complete (mode={})", mode);
+        if (firstException != null) {
+            throw new RuntimeException("[Runtime] Shutdown failed", firstException);
+        }
     }
 
 }

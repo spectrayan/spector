@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.storage;
 
+import java.util.Optional;
+
 /**
  * Abstraction for storing and retrieving dense float vectors by string ID.
  *
@@ -39,9 +41,10 @@ public interface VectorStore extends AutoCloseable {
      * Retrieves the vector for the given ID.
      *
      * @param id the vector identifier
-     * @return a copy of the stored float array, or {@code null} if not found
+     * @return an {@code Optional} containing a copy of the stored float array,
+     *         or {@link Optional#empty()} if not found
      */
-    float[] get(String id);
+    Optional<float[]> get(String id);
 
     /**
      * Retrieves the vector at the given internal index.
