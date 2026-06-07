@@ -122,7 +122,8 @@ public final class ScalarQuantizer {
      */
     public static ScalarQuantizer fromBounds(int dimensions, float[] mins, float[] maxs) {
         if (mins.length != dimensions || maxs.length != dimensions) {
-            throw new SpectorValidationException(ErrorCode.LENGTH_MISMATCH, "mins/maxs", 0, "dimensions", 0);
+            throw new SpectorValidationException(ErrorCode.LENGTH_MISMATCH,
+                    "mins", mins.length, "dimensions", dimensions);
         }
         return new ScalarQuantizer(dimensions,
                 Arrays.copyOf(mins, dimensions),

@@ -23,8 +23,7 @@ import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.*;
 /**
  * Read/write operations for cognitive memory records.
  *
- * <p>A cognitive record = versioned synaptic header + quantized vector payload.
- * The header size depends on the {@link HeaderLayout} version (32B/48B/64B).
+ * <p>A cognitive record = 64-byte synaptic header + quantized vector payload.
  * This layout does <em>not</em> extend or modify the existing {@code VectorStoreLayout}
  * in {@code spector-storage}. It is a new, independent layout specific to
  * {@code spector-memory}.</p>
@@ -35,24 +34,22 @@ import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.*;
  * equivalent — a lightweight marker enabling microsecond-latency routing,
  * filtering, and scoring without touching the heavy vector payload.</p>
  *
- * <h3>Polymorphic Header Layout</h3>
+ * <h3>Header Layout</h3>
  * <p>The {@link HeaderLayout} sealed interface provides version-aware access
- * to header fields. V1 (32B) stores only core fields. V2 (48B) adds arousal
- * and storage strength. V3 (64B) adds a full cache-line-sized future buffer.
- * Extended fields return safe defaults when read via older layouts.</p>
+ * to header fields. The current layout is 64 bytes (full cache line), with
+ * header_version at byte 0 and synaptic_tags at the end of the core (offset 24)
+ * for future 128-bit growth.</p>
  *
  * @param quantizedVecBytes number of bytes for the quantized vector payload
  * @param headerLayout      the versioned header layout to use for read/write
  *
  * @see HeaderLayout
- * @see HeaderLayoutV1
- * @see HeaderLayoutV2
  * @see HeaderLayoutV3
  */
 public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLayout) {
 
     /**
-     * Backward-compatible constructor — defaults to V3 (64B) layout.
+     * Default constructor — uses the default 64-byte header layout.
      *
      * @param quantizedVecBytes bytes per quantized vector payload
      */

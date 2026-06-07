@@ -104,28 +104,28 @@ class DecayConfigTest {
     @Test
     void exponentBelowRangeThrows() {
         assertThatThrownBy(() -> new DecayConfig(0.04f, 0.10f, null))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class)
                 .hasMessageContaining("exponent");
     }
 
     @Test
     void exponentAboveRangeThrows() {
         assertThatThrownBy(() -> new DecayConfig(1.5f, 0.10f, null))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class)
                 .hasMessageContaining("exponent");
     }
 
     @Test
     void floorBelowRangeThrows() {
         assertThatThrownBy(() -> new DecayConfig(0.3f, -0.1f, null))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class)
                 .hasMessageContaining("floor");
     }
 
     @Test
     void floorAboveRangeThrows() {
         assertThatThrownBy(() -> new DecayConfig(0.3f, 0.6f, null))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class)
                 .hasMessageContaining("floor");
     }
 
@@ -133,7 +133,7 @@ class DecayConfigTest {
     void wrongBucketCountThrows() {
         float[] badBuckets = new float[]{1.0f, 0.5f, 0.25f}; // only 3
         assertThatThrownBy(() -> new DecayConfig(0.3f, 0.10f, badBuckets))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorValidationException.class)
                 .hasMessageContaining("12");
     }
 

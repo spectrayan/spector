@@ -43,7 +43,7 @@ public record Document(
         if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
         if (content == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "content"); }
         if (title == null) title = "";
-        if (metadata == null) metadata = Map.of();
+        metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
     }
 
     /**

@@ -21,43 +21,33 @@ import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.*;
  * Polymorphic, versioned accessor for synaptic memory record headers.
  *
  * <h3>Design: Strategy Pattern with Sealed Interface</h3>
- * <p>The header format evolves across versions (V1=32B, V2=48B, V3=64B).
- * Instead of branching on version in every hot-path read, we construct the
- * correct {@code HeaderLayout} implementation <em>once</em> at store-open time
- * and inject it everywhere. The JIT devirtualizes the sealed hierarchy into
- * direct method calls — zero overhead vs. hardcoded constants.</p>
+ * <p>The header format is a 64-byte cache-line-aligned binary layout (V1).
+ * The sealed interface enables future layout versions (V2 with 128-bit tags,
+ * etc.) to be added without modifying existing code. The JIT devirtualizes
+ * the sealed hierarchy into direct method calls — zero overhead vs. hardcoded
+ * constants.</p>
  *
- * <h3>On-Load Compatibility</h3>
- * <p>Extended fields (V2+) have default implementations that return safe defaults:
- * {@code arousal=0}, {@code storageStrength=1.0f}. This means a V1 layout can
- * serve all read requests without error — callers never need to check the version.</p>
- *
- * <h3>Versions</h3>
+ * <h3>Current Version</h3>
  * <ul>
- *   <li><b>V1 (32B)</b> — Legacy/lightweight. Core fields only.</li>
- *   <li><b>V2 (48B)</b> — Adds arousal + storage_strength for emotional modulation
- *       and Two-Factor Memory research.</li>
- *   <li><b>V3 (64B)</b> — Full cache-line aligned layout with 32 bytes of future
- *       buffer. Default for all new stores.</li>
+ *   <li><b>V1 (64B)</b> — Full cache-line-aligned format. All fields included.
+ *       Default for all stores. See {@link HeaderLayoutV3}.</li>
  * </ul>
  *
- * @see HeaderLayoutV1
- * @see HeaderLayoutV2
  * @see HeaderLayoutV3
  * @see CognitiveRecordLayout
  */
 public sealed interface HeaderLayout
-        permits HeaderLayoutV1, HeaderLayoutV2, HeaderLayoutV3 {
+        permits HeaderLayoutV3 {
 
     // ── Layout metadata ──
 
     /** Header size in bytes for this layout version. */
     int headerBytes();
 
-    /** Layout version number (1, 2, or 3). */
+    /** Layout version number. */
     int version();
 
-    // ── Core field reads (all versions) ──
+    // ── Core field reads ──
 
     /** Reads the timestamp (epoch millis) at the given record offset. */
     long readTimestamp(MemorySegment seg, long off);
@@ -83,7 +73,7 @@ public sealed interface HeaderLayout
     /** Reads the flags bitfield. */
     byte readFlags(MemorySegment seg, long off);
 
-    // ── Extended field reads (V2+ — defaults for V1) ──
+    // ── Extended field reads ──
 
     /**
      * Reads the arousal byte (emotional intensity, unsigned 0-255).
@@ -91,9 +81,9 @@ public sealed interface HeaderLayout
      * <p>Use {@code Byte.toUnsignedInt()} for arithmetic. Higher arousal
      * modulates decay — emotionally intense memories resist forgetting.</p>
      *
-     * @return arousal value, or {@code 0} if this layout version does not support it
+     * @return arousal value
      */
-    default byte readArousal(MemorySegment seg, long off) { return 0; }
+    byte readArousal(MemorySegment seg, long off);
 
     /**
      * Reads the storage strength for Two-Factor Memory (Bjork &amp; Bjork).
@@ -102,17 +92,17 @@ public sealed interface HeaderLayout
      * It increases most when retrieval occurs right before forgetting
      * (the spacing effect).</p>
      *
-     * @return storage strength, or {@code 1.0f} (standard decay) if unsupported
+     * @return storage strength
      */
-    default float readStorageStrength(MemorySegment seg, long off) { return 1.0f; }
+    float readStorageStrength(MemorySegment seg, long off);
 
-    // ── Extended field writes (V2+ — no-ops for V1) ──
+    // ── Extended field writes ──
 
-    /** Writes the arousal byte. No-op on V1 layouts. */
-    default void writeArousal(MemorySegment seg, long off, byte arousal) { /* no-op */ }
+    /** Writes the arousal byte. */
+    void writeArousal(MemorySegment seg, long off, byte arousal);
 
-    /** Writes the storage strength. No-op on V1 layouts. */
-    default void writeStorageStrength(MemorySegment seg, long off, float strength) { /* no-op */ }
+    /** Writes the storage strength. */
+    void writeStorageStrength(MemorySegment seg, long off, float strength);
 
     // ── Full header read/write ──
 
@@ -122,7 +112,7 @@ public sealed interface HeaderLayout
     /** Writes all header fields from a {@link CognitiveRecordLayout.CognitiveHeader}. */
     void writeHeader(MemorySegment seg, long off, CognitiveRecordLayout.CognitiveHeader header);
 
-    // ── Mutation helpers (shared logic, version-aware offsets) ──
+    // ── Mutation helpers ──
 
     /** Updates the importance field. */
     void writeImportance(MemorySegment seg, long off, float importance);
@@ -130,29 +120,29 @@ public sealed interface HeaderLayout
     /** Updates the timestamp field. */
     void writeTimestamp(MemorySegment seg, long off, long timestampMs);
 
-    /** Merges synaptic tags via bitwise OR. */
+    /** Merges synaptic tags via atomic bitwise OR. */
     void mergeSynapticTags(MemorySegment seg, long off, long additionalTags);
 
-    /** Sets the tombstone flag (logical deletion). */
+    /** Sets the tombstone flag (logical deletion). Atomic. */
     void markTombstoned(MemorySegment seg, long off);
 
-    /** Sets the consolidated flag (reflected from Episodic → Semantic). */
+    /** Sets the consolidated flag (reflected from Episodic → Semantic). Atomic. */
     void markConsolidated(MemorySegment seg, long off);
 
     /**
-     * Sets the pinned flag (exempt from decay and pruning).
+     * Sets the pinned flag (exempt from decay and pruning). Atomic.
      * Used by neurodivergent lossless consolidation (SYSTEMATIZER profile).
      */
     void markPinned(MemorySegment seg, long off);
 
     /**
-     * Sets the resolved flag (Zeigarnik Effect — task is done).
+     * Sets the resolved flag (Zeigarnik Effect — task is done). Atomic.
      * The memory succumbs to normal time-decay.
      */
     void markResolved(MemorySegment seg, long off);
 
     /**
-     * Clears the resolved flag (Zeigarnik Effect — task re-opened).
+     * Clears the resolved flag (Zeigarnik Effect — task re-opened). Atomic.
      * The memory re-enters the Zeigarnik loop and resists decay.
      */
     void markUnresolved(MemorySegment seg, long off);
@@ -164,7 +154,7 @@ public sealed interface HeaderLayout
      */
     int incrementAgentRecallCount(MemorySegment seg, long off);
 
-    // ── V3 auto-LTP fields (defaults for V1/V2) ──
+    // ── Auto-LTP fields ──
 
     /**
      * Reads the spector-internal recall count (passive retrieval counter).
@@ -173,16 +163,16 @@ public sealed interface HeaderLayout
      * this counter tracks how many times Spector's own recall pipeline
      * has surfaced this memory. Used for a gentler decay adjustment.</p>
      *
-     * @return spector recall count, or {@code 0} if this layout does not support it
+     * @return spector recall count
      */
-    default int readSpectorRecallCount(MemorySegment seg, long off) { return 0; }
+    int readSpectorRecallCount(MemorySegment seg, long off);
 
     /**
      * Atomically increments the spector-internal recall count.
      *
      * @return the previous spector recall count value
      */
-    default int incrementSpectorRecallCount(MemorySegment seg, long off) { return 0; }
+    int incrementSpectorRecallCount(MemorySegment seg, long off);
 
     /**
      * Reads the last auto-LTP timestamp (epoch millis).
@@ -190,35 +180,33 @@ public sealed interface HeaderLayout
      * <p>Used to enforce a cooldown between passive recall reinforcements,
      * preventing runaway LTP from repeated queries.</p>
      *
-     * @return last auto-LTP timestamp, or {@code 0L} if unsupported
+     * @return last auto-LTP timestamp
      */
-    default long readLastAutoLtp(MemorySegment seg, long off) { return 0L; }
+    long readLastAutoLtp(MemorySegment seg, long off);
 
     /**
-     * Writes the last auto-LTP timestamp. No-op on V1/V2 layouts.
+     * Writes the last auto-LTP timestamp.
      */
-    default void writeLastAutoLtp(MemorySegment seg, long off, long timestampMs) { /* no-op */ }
+    void writeLastAutoLtp(MemorySegment seg, long off, long timestampMs);
 
     // ── Factory methods ──
 
     /**
      * Returns the layout for the given version number.
      *
-     * @param version 1, 2, or 3
+     * @param version layout version (currently only 1 is supported)
      * @return the corresponding layout instance (singleton)
      * @throws IllegalArgumentException if version is unknown
      */
     static HeaderLayout forVersion(int version) {
         return switch (version) {
-            case 1 -> HeaderLayoutV1.INSTANCE;
-            case 2 -> HeaderLayoutV2.INSTANCE;
-            case 3 -> HeaderLayoutV3.INSTANCE;
+            case 1 -> HeaderLayoutV3.INSTANCE;
             default -> throw new IllegalArgumentException(
-                    "Unknown header layout version: " + version + ". Supported: 1, 2, 3");
+                    "Unknown header layout version: " + version + ". Supported: 1");
         };
     }
 
-    /** Default layout for all new stores (V3, 64 bytes). */
+    /** Default layout for all new stores (V1, 64 bytes). */
     static HeaderLayout defaultLayout() {
         return HeaderLayoutV3.INSTANCE;
     }
@@ -226,15 +214,12 @@ public sealed interface HeaderLayout
     /**
      * Detects the layout version from a store's metadata segment.
      *
-     * <p>Reads the {@code header_version} byte from the store metadata.
-     * If the byte is 0 or the metadata is too small, assumes V1 (legacy).</p>
-     *
-     * @param metadataVersion the version byte from the store metadata (0 = legacy)
+     * @param metadataVersion the version byte from the store metadata
      * @return the corresponding layout
      */
     static HeaderLayout detect(int metadataVersion) {
-        if (metadataVersion <= 0 || metadataVersion > 3) {
-            return HeaderLayoutV1.INSTANCE; // legacy or unknown → V1
+        if (metadataVersion <= 0) {
+            return HeaderLayoutV3.INSTANCE; // assume current version
         }
         return forVersion(metadataVersion);
     }

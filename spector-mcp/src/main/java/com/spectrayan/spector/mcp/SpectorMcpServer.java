@@ -85,7 +85,7 @@ public class SpectorMcpServer {
     public SpectorMcpServer(SpectorRuntime runtime, TransportMode transportMode, int httpPort) {
         this.runtime = runtime;
         this.engine = runtime.engine();
-        this.memory = runtime.memory();
+        this.memory = runtime.memory().orElse(null);
         this.transportMode = transportMode;
         this.httpPort = httpPort;
     }

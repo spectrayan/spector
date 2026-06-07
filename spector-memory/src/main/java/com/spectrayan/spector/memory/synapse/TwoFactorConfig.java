@@ -64,10 +64,16 @@ public record TwoFactorConfig(
      */
     public TwoFactorConfig {
         if (sGain < 0 || sGain > 1.0f)
-            throw new IllegalArgumentException("sGain must be in [0, 1.0]: " + sGain);
+            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
+                    com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
+                    "sGain", 0, 1.0f, sGain);
         if (sMax < 1.0f || sMax > 100.0f)
-            throw new IllegalArgumentException("sMax must be in [1.0, 100.0]: " + sMax);
+            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
+                    com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
+                    "sMax", 1.0f, 100.0f, sMax);
         if (sExponent < 0 || sExponent > 2.0f)
-            throw new IllegalArgumentException("sExponent must be in [0, 2.0]: " + sExponent);
+            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
+                    com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
+                    "sExponent", 0, 2.0f, sExponent);
     }
 }

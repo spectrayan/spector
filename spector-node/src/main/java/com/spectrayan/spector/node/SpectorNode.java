@@ -150,7 +150,7 @@ public class SpectorNode implements AutoCloseable {
 
         var eventBus = new SpectorEventBus();
 
-        return new SpectorNode(nodeConfig, engine, runtime.memory(), prometheusRegistry, eventBus, null);
+        return new SpectorNode(nodeConfig, engine, runtime.memory().orElse(null), prometheusRegistry, eventBus, null);
     }
 
     /**

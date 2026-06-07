@@ -18,77 +18,46 @@ import java.lang.foreign.ValueLayout;
 import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.*;
 
 /**
- * Header layout V3 — the full 64-byte cache-line-aligned format.
+ * Header layout V1 — the 64-byte cache-line-aligned format.
+ *
+ * <p>This is the sole header layout shipped in Spector 1.0. The class retains
+ * the name {@code HeaderLayoutV3} for internal continuity during development;
+ * the on-disk version byte is {@code 1}.</p>
  *
  * <h3>Layout (64 bytes)</h3>
  * <pre>
- *   Offset  Size  Field              Default    Notes
- *   ──────  ────  ─────────────────  ────────   ──────
- *    0-31   32B   (same as V1)                  Core fields
- *   32      1B    arousal            0          Emotional intensity (unsigned)
- *   33      1B    header_version     3          Format version
- *   34      2B    _pad1              0          Alignment padding
- *   36      4B    storage_strength   1.0f       Two-Factor Memory S(t)
- *   40      4B    _reserved_f1       0.0f       Future float field
- *   44      4B    _reserved_f2       0.0f       Future float field
- *   48      8B    _reserved_l1       0L         Future long (e.g., causal_link_id)
- *   56      4B    _reserved_i1       0          Future int field
- *   60      2B    _reserved_s1       0          Future short field
- *   62      1B    _reserved_b1       0          Future byte field
- *   63      1B    _reserved_b2       0          Future byte field
+ *   Offset  Size  Field              Notes
+ *   ──────  ────  ─────────────────  ──────
+ *    0      1B    header_version     Always 1
+ *    1      1B    flags              Tombstone, type, consolidated, pinned, resolved
+ *    2      1B    valence            Signed emotion (-128 to +127)
+ *    3      1B    arousal            Unsigned intensity (0-255)
+ *    4      4B    importance         Base importance score
+ *    8      8B    timestamp_ms       When the memory was formed
+ *   16      4B    agent_recall_count LTP reinforcement counter
+ *   20      4B    exact_norm         L2 norm for cosine normalization
+ *   24      8B    synaptic_tags      64-bit Bloom filter (at end of core for growth)
+ *   32      2B    centroid_id        IVF partition routing ID
+ *   34      2B    _pad0              Alignment padding
+ *   36      4B    storage_strength   Two-Factor Memory S(t)
+ *   40      4B    spector_recall_cnt Auto-LTP passive counter
+ *   44      4B    _reserved_f1       Future float
+ *   48      8B    last_auto_ltp      Auto-LTP timestamp
+ *   56      8B    _reserved_l1       Future (128-bit tag upper half)
  * </pre>
  *
- * <p>The 64-byte size is a full CPU cache line, providing optimal alignment for
- * sequential scans. The vector payload starts at offset 64, perfectly aligned
- * for all SIMD register widths (SSE-128, AVX-256, AVX-512).</p>
- *
- * <p>The 32 bytes of reserved space (offsets 32-63 minus used fields) provide
- * ample buffer for future field additions without another format break.</p>
- *
- * <h3>Use Cases</h3>
- * <ul>
- *   <li>Default for all new stores — maximum future-proofing</li>
- *   <li>Full arousal + Two-Factor Memory + future extensions</li>
- * </ul>
- *
  * @see HeaderLayout
- * @see HeaderLayoutV1
- * @see HeaderLayoutV2
+ * @see SynapticHeaderConstants
  */
 public record HeaderLayoutV3() implements HeaderLayout {
 
     /** Singleton instance. */
     public static final HeaderLayoutV3 INSTANCE = new HeaderLayoutV3();
 
-    /** V3 header size: 64 bytes (full cache line). */
-    public static final int HEADER_SIZE = 64;
+    @Override public int headerBytes() { return HEADER_BYTES; }
+    @Override public int version() { return HEADER_VERSION; }
 
-    // ── V3 field offsets (shared with V2 where applicable) ──
-    /** Offset of the arousal byte (unsigned, 0-255). */
-    public static final long OFFSET_AROUSAL          = 32L;
-    /** Offset of the header_version byte. */
-    public static final long OFFSET_HEADER_VERSION   = 33L;
-    /** Offset of the storage_strength float (4-byte aligned at 36). */
-    public static final long OFFSET_STORAGE_STRENGTH = 36L;
-    /** Offset of the first reserved float field. */
-    public static final long OFFSET_RESERVED_F1      = 40L;
-    /** Offset of the second reserved float field. */
-    public static final long OFFSET_RESERVED_F2      = 44L;
-    /** Offset of the reserved long field (e.g., causal_link_id). */
-    public static final long OFFSET_RESERVED_L1      = 48L;
-    /** Offset of the reserved int field. */
-    public static final long OFFSET_RESERVED_I1      = 56L;
-    /** Offset of the reserved short field. */
-    public static final long OFFSET_RESERVED_S1      = 60L;
-    /** Offset of the first reserved byte field. */
-    public static final long OFFSET_RESERVED_B1      = 62L;
-    /** Offset of the second reserved byte field. */
-    public static final long OFFSET_RESERVED_B2      = 63L;
-
-    @Override public int headerBytes() { return HEADER_SIZE; }
-    @Override public int version() { return 3; }
-
-    // ── Core field reads (identical to V1/V2) ──
+    // ── Core field reads ──
 
     @Override public long readTimestamp(MemorySegment seg, long off) {
         return seg.get(LAYOUT_TIMESTAMP, off + OFFSET_TIMESTAMP);
@@ -122,24 +91,24 @@ public record HeaderLayoutV3() implements HeaderLayout {
         return seg.get(LAYOUT_FLAGS, off + OFFSET_FLAGS);
     }
 
-    // ── Extended field reads (V3) ──
+    // ── Extended field reads ──
 
     @Override public byte readArousal(MemorySegment seg, long off) {
-        return seg.get(ValueLayout.JAVA_BYTE, off + OFFSET_AROUSAL);
+        return seg.get(LAYOUT_AROUSAL, off + OFFSET_AROUSAL);
     }
 
     @Override public float readStorageStrength(MemorySegment seg, long off) {
-        return seg.get(ValueLayout.JAVA_FLOAT, off + OFFSET_STORAGE_STRENGTH);
+        return seg.get(LAYOUT_STORAGE_STRENGTH, off + OFFSET_STORAGE_STRENGTH);
     }
 
-    // ── Extended field writes (V3) ──
+    // ── Extended field writes ──
 
     @Override public void writeArousal(MemorySegment seg, long off, byte arousal) {
-        seg.set(ValueLayout.JAVA_BYTE, off + OFFSET_AROUSAL, arousal);
+        seg.set(LAYOUT_AROUSAL, off + OFFSET_AROUSAL, arousal);
     }
 
     @Override public void writeStorageStrength(MemorySegment seg, long off, float strength) {
-        seg.set(ValueLayout.JAVA_FLOAT, off + OFFSET_STORAGE_STRENGTH, strength);
+        seg.set(LAYOUT_STORAGE_STRENGTH, off + OFFSET_STORAGE_STRENGTH, strength);
     }
 
     // ── Full header read/write ──
@@ -163,29 +132,27 @@ public record HeaderLayoutV3() implements HeaderLayout {
     @Override
     public void writeHeader(MemorySegment seg, long off, CognitiveRecordLayout.CognitiveHeader header) {
         // Core fields
-        seg.set(LAYOUT_TIMESTAMP,     off + OFFSET_TIMESTAMP,     header.timestampMs());
-        seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_SYNAPTIC_TAGS, header.synapticTags());
-        seg.set(LAYOUT_EXACT_NORM,    off + OFFSET_EXACT_NORM,    header.exactNorm());
-        seg.set(LAYOUT_IMPORTANCE,    off + OFFSET_IMPORTANCE,    header.importance());
-        seg.set(LAYOUT_AGENT_RECALL_COUNT,  off + OFFSET_AGENT_RECALL_COUNT,  header.agentRecallCount());
-        seg.set(LAYOUT_CENTROID_ID,   off + OFFSET_CENTROID_ID,   header.centroidId());
-        seg.set(LAYOUT_VALENCE,       off + OFFSET_VALENCE,       header.valence());
-        seg.set(LAYOUT_FLAGS,         off + OFFSET_FLAGS,         header.flags());
+        seg.set(LAYOUT_HEADER_VERSION, off + OFFSET_HEADER_VERSION, (byte) HEADER_VERSION);
+        seg.set(LAYOUT_FLAGS,         off + OFFSET_FLAGS,          header.flags());
+        seg.set(LAYOUT_VALENCE,       off + OFFSET_VALENCE,        header.valence());
+        seg.set(LAYOUT_AROUSAL,       off + OFFSET_AROUSAL,        header.arousal());
+        seg.set(LAYOUT_IMPORTANCE,    off + OFFSET_IMPORTANCE,     header.importance());
+        seg.set(LAYOUT_TIMESTAMP,     off + OFFSET_TIMESTAMP,      header.timestampMs());
+        seg.set(LAYOUT_AGENT_RECALL_COUNT, off + OFFSET_AGENT_RECALL_COUNT, header.agentRecallCount());
+        seg.set(LAYOUT_EXACT_NORM,    off + OFFSET_EXACT_NORM,     header.exactNorm());
+        seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_SYNAPTIC_TAGS,  header.synapticTags());
         // Extended fields
-        seg.set(ValueLayout.JAVA_BYTE,  off + OFFSET_AROUSAL,          header.arousal());
-        seg.set(ValueLayout.JAVA_BYTE,  off + OFFSET_HEADER_VERSION,   (byte) 3);
-        seg.set(ValueLayout.JAVA_FLOAT, off + OFFSET_STORAGE_STRENGTH, header.storageStrength());
-        // Zero reserved fields (ensure clean state)
+        seg.set(LAYOUT_CENTROID_ID,   off + OFFSET_CENTROID_ID,    header.centroidId());
+        seg.set(ValueLayout.JAVA_SHORT, off + 34L, (short) 0);    // _pad0
+        seg.set(LAYOUT_STORAGE_STRENGTH, off + OFFSET_STORAGE_STRENGTH, header.storageStrength());
+        // Zero auto-LTP and reserved fields (ensure clean state)
+        seg.set(LAYOUT_SPECTOR_RECALL_COUNT, off + OFFSET_SPECTOR_RECALL_COUNT, 0);
         seg.set(ValueLayout.JAVA_FLOAT, off + OFFSET_RESERVED_F1, 0.0f);
-        seg.set(ValueLayout.JAVA_FLOAT, off + OFFSET_RESERVED_F2, 0.0f);
-        seg.set(ValueLayout.JAVA_LONG,  off + OFFSET_RESERVED_L1, 0L);
-        seg.set(ValueLayout.JAVA_INT,   off + OFFSET_RESERVED_I1, 0);
-        seg.set(ValueLayout.JAVA_SHORT, off + OFFSET_RESERVED_S1, (short) 0);
-        seg.set(ValueLayout.JAVA_BYTE,  off + OFFSET_RESERVED_B1, (byte) 0);
-        seg.set(ValueLayout.JAVA_BYTE,  off + OFFSET_RESERVED_B2, (byte) 0);
+        seg.set(LAYOUT_LAST_AUTO_LTP, off + OFFSET_LAST_AUTO_LTP, 0L);
+        seg.set(ValueLayout.JAVA_LONG, off + OFFSET_RESERVED_L1,  0L);
     }
 
-    // ── Mutation helpers (core fields — identical to V1/V2) ──
+    // ── Mutation helpers ──
 
     @Override public void writeImportance(MemorySegment seg, long off, float importance) {
         seg.set(LAYOUT_IMPORTANCE, off + OFFSET_IMPORTANCE, importance);
@@ -196,8 +163,7 @@ public record HeaderLayoutV3() implements HeaderLayout {
     }
 
     @Override public void mergeSynapticTags(MemorySegment seg, long off, long additionalTags) {
-        long existing = readSynapticTags(seg, off);
-        seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_SYNAPTIC_TAGS, existing | additionalTags);
+        VAR_HANDLE_SYNAPTIC_TAGS.getAndBitwiseOr(seg, off + OFFSET_SYNAPTIC_TAGS, additionalTags);
     }
 
     @Override public void markTombstoned(MemorySegment seg, long off) {
@@ -229,7 +195,7 @@ public record HeaderLayoutV3() implements HeaderLayout {
         return (int) VAR_HANDLE_AGENT_RECALL_COUNT.getAndAdd(seg, off + OFFSET_AGENT_RECALL_COUNT, 1);
     }
 
-    // ── V3 auto-LTP field implementations ──
+    // ── Auto-LTP field implementations ──
 
     @Override public int readSpectorRecallCount(MemorySegment seg, long off) {
         return seg.get(LAYOUT_SPECTOR_RECALL_COUNT, off + OFFSET_SPECTOR_RECALL_COUNT);

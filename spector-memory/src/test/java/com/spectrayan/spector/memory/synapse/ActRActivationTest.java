@@ -21,12 +21,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for {@link ActRActivation} — full ACT-R base-level activation
- * using the 4-slot recall-timestamp ring buffer.
+ * using the 3-slot recall-timestamp ring buffer.
  */
 class ActRActivationTest {
 
-    /** V3 header is 64 bytes — we need at least that much for the ring buffer. */
-    private static final int HEADER_SIZE = HeaderLayoutV3.HEADER_SIZE;
+    /** Header is 64 bytes — we need at least that much for the ring buffer. */
+    private static final int HEADER_SIZE = SynapticHeaderConstants.HEADER_BYTES;
 
     // ══════════════════════════════════════════════════════════════
     // Ring buffer: recordRecall / readRecallTimestamps
@@ -38,7 +38,7 @@ class ActRActivationTest {
             MemorySegment seg = arena.allocate(HEADER_SIZE);
             long creationMs = 1_000_000_000L;
 
-            // Record 3 recalls at different times
+            // Record 3 recalls at different times (fills all 3 slots)
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 10_000L);
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 20_000L);
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 30_000L);
@@ -47,7 +47,6 @@ class ActRActivationTest {
             assertThat(timestamps[0]).isEqualTo(10);  // 10 seconds
             assertThat(timestamps[1]).isEqualTo(20);  // 20 seconds
             assertThat(timestamps[2]).isEqualTo(30);  // 30 seconds
-            assertThat(timestamps[3]).isZero();        // empty
         }
     }
 
@@ -57,20 +56,18 @@ class ActRActivationTest {
             MemorySegment seg = arena.allocate(HEADER_SIZE);
             long creationMs = 1_000_000_000L;
 
-            // Fill all 4 slots
+            // Fill all 3 slots
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 10_000L);
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 20_000L);
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 30_000L);
+
+            // 4th recall should overwrite oldest (slot 0 = 10s)
             ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 40_000L);
 
-            // 5th recall should overwrite oldest (slot 0 = 10s)
-            ActRActivation.recordRecall(seg, 0, creationMs, creationMs + 50_000L);
-
             int[] timestamps = ActRActivation.readRecallTimestamps(seg, 0);
-            assertThat(timestamps[0]).isEqualTo(50);  // overwritten
+            assertThat(timestamps[0]).isEqualTo(40);  // overwritten
             assertThat(timestamps[1]).isEqualTo(20);
             assertThat(timestamps[2]).isEqualTo(30);
-            assertThat(timestamps[3]).isEqualTo(40);
         }
     }
 
@@ -149,10 +146,9 @@ class ActRActivationTest {
             // Memory recalled once (1 day ago)
             ActRActivation.recordRecall(segOnce, 0, creation, now - 86_400_000L);
 
-            // Memory recalled 4 times (at days 1, 3, 5, 6)
+            // Memory recalled 3 times (at days 1, 3, 6)
             ActRActivation.recordRecall(segFour, 0, creation, creation + 1L * 86_400_000L);
             ActRActivation.recordRecall(segFour, 0, creation, creation + 3L * 86_400_000L);
-            ActRActivation.recordRecall(segFour, 0, creation, creation + 5L * 86_400_000L);
             ActRActivation.recordRecall(segFour, 0, creation, creation + 6L * 86_400_000L);
 
             float activationOnce = ActRActivation.computeBaseLevelActivation(
@@ -175,17 +171,15 @@ class ActRActivationTest {
             long now = System.currentTimeMillis();
             long creation = now - 90L * 86_400_000L; // 90 days ago
 
-            // Spaced: recalls spread across days 30, 50, 70, 85
+            // Spaced: recalls spread across days 30, 50, 85
             ActRActivation.recordRecall(segSpaced, 0, creation, creation + 30L * 86_400_000L);
             ActRActivation.recordRecall(segSpaced, 0, creation, creation + 50L * 86_400_000L);
-            ActRActivation.recordRecall(segSpaced, 0, creation, creation + 70L * 86_400_000L);
             ActRActivation.recordRecall(segSpaced, 0, creation, creation + 85L * 86_400_000L);
 
-            // Massed: all 4 recalls on day 10 (within 1 minute)
+            // Massed: all 3 recalls on day 10 (within 1 minute)
             ActRActivation.recordRecall(segMassed, 0, creation, creation + 10L * 86_400_000L);
             ActRActivation.recordRecall(segMassed, 0, creation, creation + 10L * 86_400_000L + 15_000L);
             ActRActivation.recordRecall(segMassed, 0, creation, creation + 10L * 86_400_000L + 30_000L);
-            ActRActivation.recordRecall(segMassed, 0, creation, creation + 10L * 86_400_000L + 45_000L);
 
             float activationSpaced = ActRActivation.computeBaseLevelActivation(
                     segSpaced, 0, creation, now, 0.15f);

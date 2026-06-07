@@ -27,24 +27,23 @@ import java.lang.foreign.ValueLayout;
  * <b>recency</b> and <b>frequency</b>, and models the <b>spacing effect</b>:
  * recalls spaced over time produce stronger activation than massed practice.</p>
  *
- * <h3>Storage: 4-Slot Ring Buffer in V3 Reserved Fields</h3>
+ * <h3>Storage: 3-Slot Ring Buffer in Reserved Fields</h3>
  * <p>Instead of storing every recall timestamp (variable-length), we store the
- * <b>last 4</b> as 32-bit relative offsets from the memory's creation time.
+ * <b>last 3</b> as 32-bit relative offsets from the memory's creation time.
  * This gives ~136 years of range with second-level granularity, fitting in the
- * 16 bytes of V3 reserved space (offsets 40-55):</p>
+ * 12 bytes of reserved space in the 64-byte header:</p>
  *
  * <pre>
- *   Offset 40 (reserved_f1): recall_ts[0] as int (seconds since creation)
- *   Offset 44 (reserved_f2): recall_ts[1] as int
- *   Offset 48 (reserved_l1): recall_ts[2] as int (lower 32 bits)
- *   Offset 52 (reserved_l1): recall_ts[3] as int (upper 32 bits)
+ *   Offset 44 (reserved_f1): recall_ts[0] as int (seconds since creation)
+ *   Offset 56 (reserved_l1): recall_ts[1] as int (lower 32 bits)
+ *   Offset 60 (reserved_l1): recall_ts[2] as int (upper 32 bits)
  * </pre>
  *
  * <p>A slot value of 0 means "no recall recorded at this slot."
  * The ring buffer overwrites the oldest slot when full.</p>
  *
  * <h3>Fallback</h3>
- * <p>On V1/V2 layouts (no reserved fields), or when the ring buffer is empty,
+ * <p>When the ring buffer is empty,
  * falls back to the simplified reconsolidation model (bucket bit-shift based
  * on agentRecallCount).</p>
  *
@@ -65,18 +64,15 @@ public final class ActRActivation {
     private ActRActivation() {}
 
     /** Number of recall timestamp slots in the ring buffer. */
-    public static final int RING_BUFFER_SLOTS = 4;
+    public static final int RING_BUFFER_SLOTS = 3;
 
-
-
-    // ── V3 reserved field offsets repurposed as recall timestamp ring buffer ──
-    private static final long OFFSET_RECALL_TS_0 = HeaderLayoutV3.OFFSET_RESERVED_F1; // 40
-    private static final long OFFSET_RECALL_TS_1 = HeaderLayoutV3.OFFSET_RESERVED_F2; // 44
-    private static final long OFFSET_RECALL_TS_2 = HeaderLayoutV3.OFFSET_RESERVED_L1; // 48
-    private static final long OFFSET_RECALL_TS_3 = HeaderLayoutV3.OFFSET_RESERVED_L1 + 4; // 52
+    // ── Reserved field offsets repurposed as recall timestamp ring buffer ──
+    private static final long OFFSET_RECALL_TS_0 = SynapticHeaderConstants.OFFSET_RESERVED_F1;  // 44
+    private static final long OFFSET_RECALL_TS_1 = SynapticHeaderConstants.OFFSET_RESERVED_L1;  // 56
+    private static final long OFFSET_RECALL_TS_2 = SynapticHeaderConstants.OFFSET_RESERVED_L1 + 4; // 60
 
     private static final long[] OFFSETS = {
-            OFFSET_RECALL_TS_0, OFFSET_RECALL_TS_1, OFFSET_RECALL_TS_2, OFFSET_RECALL_TS_3
+            OFFSET_RECALL_TS_0, OFFSET_RECALL_TS_1, OFFSET_RECALL_TS_2
     };
 
     /**

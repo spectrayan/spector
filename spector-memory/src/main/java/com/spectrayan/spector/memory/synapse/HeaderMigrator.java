@@ -177,7 +177,7 @@ public final class HeaderMigrator {
 
                 // Write metadata header
                 targetSegment.set(ValueLayout.JAVA_INT, META_MAGIC, TIER_MAGIC);
-                targetSegment.set(ValueLayout.JAVA_INT, META_VERSION, TIER_MAGIC);
+                targetSegment.set(ValueLayout.JAVA_INT, META_VERSION, target.version());
                 targetSegment.set(ValueLayout.JAVA_INT, META_COUNT, recordCount);
                 targetSegment.set(ValueLayout.JAVA_INT, META_CAPACITY, capacity);
                 targetSegment.set(ValueLayout.JAVA_INT, META_STRIDE, targetRecordStride);
@@ -280,7 +280,7 @@ public final class HeaderMigrator {
                                               boolean isHeaderOnly) {
         try (FileChannel ch = FileChannel.open(storePath, StandardOpenOption.READ)) {
             if (ch.size() < METADATA_HEADER_BYTES) {
-                return HeaderLayoutV1.INSTANCE; // too small, assume legacy
+                return HeaderLayoutV3.INSTANCE; // assume current layout
             }
 
             ByteBuffer buf = ByteBuffer.allocate(METADATA_HEADER_BYTES);
@@ -289,24 +289,22 @@ public final class HeaderMigrator {
 
             int magic = buf.getInt(META_MAGIC);
             if (magic != TIER_MAGIC) {
-                return HeaderLayoutV1.INSTANCE; // invalid magic, assume legacy
+                log.warn("Invalid magic in {}, assuming current layout", storePath);
+                return HeaderLayoutV3.INSTANCE;
             }
 
             int stride = buf.getInt(META_STRIDE);
             int headerBytes = isHeaderOnly ? stride : stride - vectorBytes;
 
-            return switch (headerBytes) {
-                case 32 -> HeaderLayoutV1.INSTANCE;
-                case 48 -> HeaderLayoutV2.INSTANCE;
-                case 64 -> HeaderLayoutV3.INSTANCE;
-                default -> {
-                    log.warn("Unknown header size {} in {}, defaulting to V1", headerBytes, storePath);
-                    yield HeaderLayoutV1.INSTANCE;
-                }
-            };
+            if (headerBytes != SynapticHeaderConstants.HEADER_BYTES) {
+                log.warn("Unexpected header size {} in {} (expected {}), assuming current layout",
+                        headerBytes, storePath, SynapticHeaderConstants.HEADER_BYTES);
+            }
+
+            return HeaderLayoutV3.INSTANCE;
         } catch (IOException e) {
             log.warn("Cannot detect header version from {}: {}", storePath, e.getMessage());
-            return HeaderLayoutV1.INSTANCE;
+            return HeaderLayoutV3.INSTANCE;
         }
     }
 

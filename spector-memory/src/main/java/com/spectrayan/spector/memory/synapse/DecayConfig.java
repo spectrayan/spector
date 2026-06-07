@@ -77,15 +77,20 @@ public record DecayConfig(
      */
     public DecayConfig {
         if (exponent < 0.05f || exponent > 1.0f)
-            throw new IllegalArgumentException("exponent must be in [0.05, 1.0]: " + exponent);
+            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
+                    com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
+                    "exponent", 0.05f, 1.0f, exponent);
         if (floor < 0.0f || floor > 0.5f)
-            throw new IllegalArgumentException("floor must be in [0.0, 0.5]: " + floor);
+            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
+                    com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
+                    "floor", 0.0f, 0.5f, floor);
         if (buckets == null) {
             buckets = computeBuckets(exponent, floor);
         }
         if (buckets.length != BUCKET_COUNT) {
-            throw new IllegalArgumentException(
-                    "buckets must have exactly " + BUCKET_COUNT + " entries, got " + buckets.length);
+            throw new com.spectrayan.spector.commons.error.SpectorValidationException(
+                    com.spectrayan.spector.commons.error.ErrorCode.LENGTH_MISMATCH,
+                    "buckets", buckets.length, "BUCKET_COUNT", BUCKET_COUNT);
         }
     }
 

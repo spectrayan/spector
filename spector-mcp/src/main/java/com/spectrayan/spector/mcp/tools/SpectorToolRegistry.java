@@ -148,7 +148,7 @@ public final class SpectorToolRegistry {
     public static List<McpServerFeatures.SyncToolSpecification> createAll(
             SpectorRuntime runtime, String serverVersion) {
         SpectorMode mode = runtime.mode();
-        SpectorMemory memory = runtime.hasMemory() ? runtime.memory() : null;
+        SpectorMemory memory = runtime.memory().orElse(null);
 
         var handlers = new ArrayList<McpToolHandler>();
 

@@ -16,33 +16,42 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
 /**
- * Constants for the Synaptic Header — shared across all layout versions.
+ * Constants for the Synaptic Header — the 64-byte cache-line-aligned binary format.
  *
- * <h3>Versioned Layout System</h3>
- * <p>The header format is versioned via the {@link HeaderLayout} sealed interface.
- * Three versions are supported:</p>
- * <ul>
- *   <li><b>V1 (32B)</b> — Legacy/lightweight. Core fields only.
- *       See {@link HeaderLayoutV1}.</li>
- *   <li><b>V2 (48B)</b> — Adds arousal + storage_strength for emotional
- *       modulation and Two-Factor Memory. See {@link HeaderLayoutV2}.</li>
- *   <li><b>V3 (64B)</b> — Full cache-line-aligned format with 32B of future
- *       buffer. Default for all new stores. See {@link HeaderLayoutV3}.</li>
- * </ul>
- *
- * <h3>Core Layout (first 32 bytes — shared by all versions)</h3>
+ * <h3>Layout (64 bytes — V1, full cache line)</h3>
  * <pre>
- *   [8B timestamp_ms]      Offset 0  — when the memory was formed
- *   [8B synaptic_tags]     Offset 8  — 64-bit Bloom filter of contextual markers
- *   [4B exact_norm]        Offset 16 — L2 norm for SIMD distance computation
- *   [4B importance]        Offset 20 — base importance (auto-set by Prediction Error engine)
- *   [4B agent_recall_count] Offset 24 — agent-explicit LTP reinforcement counter (4-byte aligned for atomic CAS)
- *   [2B centroid_id]       Offset 28 — IVF partition routing ID (max 65,535 centroids)
- *   [1B valence]           Offset 30 — signed INT8 emotion/reward (-128 to +127)
- *   [1B flags]             Offset 31 — bit field (tombstone, memory_type, consolidated, pinned)
+ *   Offset  Size  Field              Access Phase  Frequency
+ *   ──────  ────  ─────────────────  ────────────  ──────────
+ *    0      1B    header_version     One-time      Format detection (byte 0)
+ *    1      1B    flags              Phase 1       EVERY record (tombstone check)
+ *    2      1B    valence            Phase 3       ~98% (emotion filter)
+ *    3      1B    arousal            Phase 4.5     ~90% (emotional intensity)
+ *    4      4B    importance         Phase 4       ~95% (importance pre-screen)
+ *    8      8B    timestamp_ms       Phase 1b      ~99% (temporal gating)
+ *   16      4B    agent_recall_count Phase 4       ~95% (reconsolidation)
+ *   20      4B    exact_norm         Heap insert   ~0.1% (cosine normalization)
+ *   24      8B    synaptic_tags      Phase 2       ~98% (Bloom filter, AT END of core for 128-bit growth)
+ *   ── 32B: end of core fields ─────────────────────────────────────────
+ *   32      2B    centroid_id        Heap insert   ~0.1% (IVF routing)
+ *   34      2B    _pad0              —             Alignment to 4B
+ *   36      4B    storage_strength   Phase 6       ~1-10% (Two-Factor scoring)
+ *   40      4B    spector_recall_cnt Auto-LTP      Passive retrieval counter
+ *   44      4B    _reserved_f1       —             Future float field
+ *   48      8B    last_auto_ltp      Auto-LTP      Auto-LTP timestamp
+ *   56      8B    _reserved_l1       —             Future: 128-bit tag upper half
+ *   ── 64B: full cache line ────────────────────────────────────────────
  * </pre>
  *
- * <h3>Flags Bitfield</h3>
+ * <h3>Design Principles</h3>
+ * <ul>
+ *   <li><b>Version at byte 0</b> — universal convention (ELF, PNG, Java .class).</li>
+ *   <li><b>Flags at byte 1</b> — first decision field in scoring hot path.</li>
+ *   <li><b>Natural alignment</b> — longs at 8B boundaries, ints/floats at 4B.</li>
+ *   <li><b>Synaptic tags at end of core (offset 24)</b> — growable to 128-bit
+ *       without reshuffling core fields.</li>
+ * </ul>
+ *
+ * <h3>Flags Bitfield (byte 1)</h3>
  * <pre>
  *   bit 0:   tombstone  (deleted / pruned by Deep Sleep)
  *   bit 1-2: memory_type (2 bits → 4 types)
@@ -52,10 +61,6 @@ import java.lang.foreign.ValueLayout;
  *   bits 6-7: reserved
  * </pre>
  *
- * <p>This class holds only the <em>core</em> constants shared across all versions.
- * Version-specific offsets and layouts are defined in the respective
- * {@link HeaderLayout} implementations.</p>
- *
  * @see HeaderLayout
  * @see CognitiveRecordLayout
  */
@@ -63,61 +68,76 @@ public final class SynapticHeaderConstants {
 
     private SynapticHeaderConstants() {}
 
-    /**
-     * V1 (core) header size in bytes.
-     *
-     * <p>This constant is retained for SIMD alignment purposes (Arena allocation
-     * alignment parameter) and for backward compatibility. The actual header size
-     * used at runtime is determined by the {@link HeaderLayout#headerBytes()} method
-     * on the active layout version.</p>
-     *
-     * @see HeaderLayout#headerBytes()
-     */
-    public static final int HEADER_BYTES = 32;
+    /** Header size in bytes (64B = full cache line). */
+    public static final int HEADER_BYTES = 64;
 
-    // ── Field offsets ──
-    public static final long OFFSET_TIMESTAMP     = 0L;
-    public static final long OFFSET_SYNAPTIC_TAGS = 8L;
-    public static final long OFFSET_EXACT_NORM    = 16L;
-    public static final long OFFSET_IMPORTANCE    = 20L;
-    public static final long OFFSET_AGENT_RECALL_COUNT  = 24L;
-    public static final long OFFSET_CENTROID_ID   = 28L;
-    public static final long OFFSET_VALENCE       = 30L;
-    public static final long OFFSET_FLAGS         = 31L;
+    /** Current header format version. */
+    public static final int HEADER_VERSION = 1;
+
+    // ── Core field offsets (first 32 bytes) ──
+
+    /** Offset of header_version byte (always byte 0). */
+    public static final long OFFSET_HEADER_VERSION      = 0L;
+    /** Offset of flags bitfield. */
+    public static final long OFFSET_FLAGS               = 1L;
+    /** Offset of valence byte (signed -128 to +127). */
+    public static final long OFFSET_VALENCE             = 2L;
+    /** Offset of arousal byte (unsigned 0-255). */
+    public static final long OFFSET_AROUSAL             = 3L;
+    /** Offset of importance float (4B-aligned). */
+    public static final long OFFSET_IMPORTANCE          = 4L;
+    /** Offset of timestamp_ms long (8B-aligned). */
+    public static final long OFFSET_TIMESTAMP           = 8L;
+    /** Offset of agent_recall_count int (4B-aligned). */
+    public static final long OFFSET_AGENT_RECALL_COUNT  = 16L;
+    /** Offset of exact_norm float. */
+    public static final long OFFSET_EXACT_NORM          = 20L;
+    /** Offset of synaptic_tags long (8B-aligned, at end of core for 128-bit growth). */
+    public static final long OFFSET_SYNAPTIC_TAGS       = 24L;
+
+    // ── Extended field offsets (bytes 32-63) ──
+
+    /** Offset of centroid_id short (IVF routing). */
+    public static final long OFFSET_CENTROID_ID         = 32L;
+    // 34-35: alignment padding
+    /** Offset of storage_strength float (Two-Factor scoring). */
+    public static final long OFFSET_STORAGE_STRENGTH    = 36L;
+    /** Offset of spector-internal recall count int (auto-LTP). */
+    public static final long OFFSET_SPECTOR_RECALL_COUNT = 40L;
+    /** Offset of reserved float field. */
+    public static final long OFFSET_RESERVED_F1         = 44L;
+    /** Offset of last auto-LTP timestamp long (8B-aligned). */
+    public static final long OFFSET_LAST_AUTO_LTP       = 48L;
+    /** Offset of reserved long field (future: 128-bit tag upper half). */
+    public static final long OFFSET_RESERVED_L1         = 56L;
 
     // ── Value layouts ──
-    public static final ValueLayout.OfLong  LAYOUT_TIMESTAMP     = ValueLayout.JAVA_LONG;
-    public static final ValueLayout.OfLong  LAYOUT_SYNAPTIC_TAGS = ValueLayout.JAVA_LONG;
-    public static final ValueLayout.OfFloat LAYOUT_EXACT_NORM    = ValueLayout.JAVA_FLOAT;
-    public static final ValueLayout.OfFloat LAYOUT_IMPORTANCE    = ValueLayout.JAVA_FLOAT;
-    public static final ValueLayout.OfInt   LAYOUT_AGENT_RECALL_COUNT  = ValueLayout.JAVA_INT;
-    public static final ValueLayout.OfShort LAYOUT_CENTROID_ID   = ValueLayout.JAVA_SHORT;
-    public static final ValueLayout.OfByte  LAYOUT_VALENCE       = ValueLayout.JAVA_BYTE;
-    public static final ValueLayout.OfByte  LAYOUT_FLAGS         = ValueLayout.JAVA_BYTE;
 
-    // ── V2+ Extended field offsets (beyond 32-byte core) ──
-    /** Arousal byte offset (V2/V3 only — returns 0 on V1 reads). */
-    public static final long OFFSET_AROUSAL = 32L;
-    /** Layout for arousal: unsigned byte (0-255), stored as signed Java byte. */
-    public static final ValueLayout.OfByte  LAYOUT_AROUSAL       = ValueLayout.JAVA_BYTE;
-
-    // ── V3 auto-LTP fields (repurposed from reserved buffer) ──
-    /** Offset of spector-internal recall count (V3 only, 4-byte int at offset 40). */
-    public static final long OFFSET_SPECTOR_RECALL_COUNT = 40L;
-    /** Offset of last auto-LTP timestamp in epoch millis (V3 only, 8-byte long at offset 48). */
-    public static final long OFFSET_LAST_AUTO_LTP        = 48L;
-    /** Layout for spector-internal recall count: 4-byte int. */
+    public static final ValueLayout.OfByte  LAYOUT_HEADER_VERSION     = ValueLayout.JAVA_BYTE;
+    public static final ValueLayout.OfByte  LAYOUT_FLAGS              = ValueLayout.JAVA_BYTE;
+    public static final ValueLayout.OfByte  LAYOUT_VALENCE            = ValueLayout.JAVA_BYTE;
+    public static final ValueLayout.OfByte  LAYOUT_AROUSAL            = ValueLayout.JAVA_BYTE;
+    public static final ValueLayout.OfFloat LAYOUT_IMPORTANCE         = ValueLayout.JAVA_FLOAT;
+    public static final ValueLayout.OfLong  LAYOUT_TIMESTAMP          = ValueLayout.JAVA_LONG;
+    public static final ValueLayout.OfInt   LAYOUT_AGENT_RECALL_COUNT = ValueLayout.JAVA_INT;
+    public static final ValueLayout.OfFloat LAYOUT_EXACT_NORM         = ValueLayout.JAVA_FLOAT;
+    public static final ValueLayout.OfLong  LAYOUT_SYNAPTIC_TAGS      = ValueLayout.JAVA_LONG;
+    public static final ValueLayout.OfShort LAYOUT_CENTROID_ID        = ValueLayout.JAVA_SHORT;
+    public static final ValueLayout.OfFloat LAYOUT_STORAGE_STRENGTH   = ValueLayout.JAVA_FLOAT;
     public static final ValueLayout.OfInt   LAYOUT_SPECTOR_RECALL_COUNT = ValueLayout.JAVA_INT;
-    /** Layout for last auto-LTP timestamp: 8-byte long. */
-    public static final ValueLayout.OfLong  LAYOUT_LAST_AUTO_LTP        = ValueLayout.JAVA_LONG;
+    public static final ValueLayout.OfLong  LAYOUT_LAST_AUTO_LTP      = ValueLayout.JAVA_LONG;
 
-    // ── VarHandle view for atomic access ──
+    // ── VarHandle views for atomic access ──
+
     /** VarHandle for atomic updates to the agent_recall_count field. */
     public static final java.lang.invoke.VarHandle VAR_HANDLE_AGENT_RECALL_COUNT = LAYOUT_AGENT_RECALL_COUNT.varHandle();
     /** VarHandle for atomic updates to the spector_recall_count field. */
     public static final java.lang.invoke.VarHandle VAR_HANDLE_SPECTOR_RECALL_COUNT = LAYOUT_SPECTOR_RECALL_COUNT.varHandle();
+    /** VarHandle for atomic bitwise synaptic tag merging (getAndBitwiseOr). */
+    public static final java.lang.invoke.VarHandle VAR_HANDLE_SYNAPTIC_TAGS = LAYOUT_SYNAPTIC_TAGS.varHandle();
 
     // ── Flags bitmasks ──
+
     /** Bit 0: Record has been logically deleted (tombstoned). */
     public static final byte FLAG_TOMBSTONE    = 0x01;
     /** Bits 1-2: Memory type (2 bits → 4 types). */

@@ -17,8 +17,6 @@ package com.spectrayan.spector.commons.error;
 
 import java.util.HashMap;
 import java.util.Map;
-import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.commons.error.SpectorException;
 
 /**
  * Central registry of all Spector error codes.

@@ -78,11 +78,26 @@ public final class DecayStrategy {
      * so bucket 0 = 1.0. The floor of 0.10 reflects Bahrick's "permastore" finding.</p>
      *
      * <p>Index 0 = freshest (1.0), index 11 = oldest (0.10 permastore floor).</p>
+     *
+     * <p><b>Package-private:</b> hot-path access via {@link #decay(int)} avoids
+     * array copy overhead. External callers use {@link #decayBuckets()} for a
+     * safe defensive copy.</p>
      */
-    public static final float[] DECAY_BUCKETS = DecayConfig.DEFAULT.buckets();
+    static final float[] DECAY_BUCKETS = DecayConfig.DEFAULT.buckets();
 
     /** Maximum bucket index. */
     public static final int MAX_BUCKET = DECAY_BUCKETS.length - 1;
+
+    /**
+     * Returns a defensive copy of the decay bucket multipliers.
+     *
+     * <p>For hot-path access, use {@link #decay(int)} instead.</p>
+     *
+     * @return copy of the 12-entry decay multiplier array
+     */
+    public static float[] decayBuckets() {
+        return DECAY_BUCKETS.clone();
+    }
 
     /**
      * Maps a timestamp to a decay bucket index (0–11).
@@ -204,12 +219,14 @@ public final class DecayStrategy {
      *
      * <p>Higher arousal = slower decay. The arousal byte is unsigned (0-255),
      * divided into 4 quartile buckets. The modifier is multiplied with the
-     * base decay to produce the final effective decay.</p>
+     * base decay to produce the final effective decay. Values above 1.0 mean
+     * the memory decays <em>slower</em> — arousal "slows the forgetting clock."
+     * The caller must clamp the result to [0.0, 1.0] after multiplication.</p>
      *
      * <p>At arousal=0 (neutral), the modifier is 1.0 — no effect.
-     * At arousal=255 (extreme), memories decay 65% slower.</p>
+     * At arousal=255 (extreme), the modifier is 1.65 — memories decay 65% slower.</p>
      */
-    public static final float[] AROUSAL_DECAY_MODIFIERS = {
+    static final float[] AROUSAL_DECAY_MODIFIERS = {
             1.00f,  // arousal 0-63:    neutral     → no change
             1.15f,  // arousal 64-127:  mild        → 15% slower decay
             1.35f,  // arousal 128-191: moderate    → 35% slower decay
