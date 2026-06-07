@@ -86,7 +86,7 @@ import java.nio.file.Path;
  * {@link EngineSearch}</li>
  * </ul>
  */
-public class DefaultSpectorEngine implements SpectorEngine {
+public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultSpectorEngine.class);
 
@@ -355,7 +355,11 @@ public class DefaultSpectorEngine implements SpectorEngine {
         return search.isGpuActive();
     }
 
-    // ─────────────── Accessors ───────────────
+    // ─────────────── Admin Interface ───────────────
+
+    @Override public SpectorEngineAdmin admin() { return this; }
+
+    // ─────────────── Accessors (satisfies both SpectorEngine + SpectorEngineAdmin) ───────────────
 
     /** Returns the engine configuration. */
     @Override

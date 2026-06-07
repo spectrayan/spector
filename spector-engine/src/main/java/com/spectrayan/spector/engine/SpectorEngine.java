@@ -124,37 +124,45 @@ public interface SpectorEngine extends AutoCloseable {
     /** Returns whether GPU acceleration is active. */
     boolean isGpuActive();
 
-    // ─────────────── Accessors ───────────────
-
-    /** Returns the engine configuration. */
-    SpectorConfig config();
-
     /** Returns the number of indexed documents. */
     int documentCount();
-
-    /** Returns the document store. */
-    DocumentStore documentStore();
-
-    /** Returns the vector store. */
-    VectorStore vectorStore();
-
-    /** Returns the underlying vector index (for ANN pre-filtering by Memory). */
-    VectorIndex index();
-
-    /** Returns the embedding provider, or null if none configured. */
-    EmbeddingProvider embeddingProvider();
 
     /** Returns true if an embedding provider is configured. */
     boolean hasEmbeddingProvider();
 
-    /** Returns the active re-ranker, or null if none configured. */
-    Reranker reranker();
-
     /** Returns true if LLM re-ranking is active. */
     boolean isRerankerActive();
 
-    /** Returns the engine's ingestion target for use with the unified IngestionPipeline. */
-    EngineIngestionTarget target();
+    // ─────────────── Admin Interface ───────────────
+
+    /**
+     * Returns the administrative interface for accessing internal subsystems.
+     *
+     * <p>Typical SDK consumers should not need this — it provides access to
+     * document store, vector store, vector index, embedding provider, and
+     * re-ranker for operational monitoring, tuning, and advanced integrations.</p>
+     *
+     * @return the admin interface (never null)
+     * @since 1.0.0
+     */
+    SpectorEngineAdmin admin();
+
+    // ─────────────── Deprecated Accessors (use admin() instead) ───────────────
+
+    /** @deprecated Use {@link #admin()}.{@link SpectorEngineAdmin#config() config()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) SpectorConfig config();
+    /** @deprecated Use {@link #admin()}.{@link SpectorEngineAdmin#documentStore() documentStore()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) DocumentStore documentStore();
+    /** @deprecated Use {@link #admin()}.{@link SpectorEngineAdmin#vectorStore() vectorStore()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) VectorStore vectorStore();
+    /** @deprecated Use {@link #admin()}.{@link SpectorEngineAdmin#index() index()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) VectorIndex index();
+    /** @deprecated Use {@link #admin()}.{@link SpectorEngineAdmin#embeddingProvider() embeddingProvider()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) EmbeddingProvider embeddingProvider();
+    /** @deprecated Use {@link #admin()}.{@link SpectorEngineAdmin#reranker() reranker()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) Reranker reranker();
+    /** @deprecated Use {@link #admin()}.{@link SpectorEngineAdmin#target() target()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) EngineIngestionTarget target();
 
     /** Closes the engine and releases all resources. */
     @Override

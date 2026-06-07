@@ -333,8 +333,10 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override public int decay(Duration olderThan, float factor) { return delegate.decay(olderThan, factor); }
 
     // ══════════════════════════════════════════════════════════════
-    // SUBSYSTEM ACCESSORS (pass-through)
+    // ADMIN + SUBSYSTEM ACCESSORS (pass-through)
     // ══════════════════════════════════════════════════════════════
+
+    @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return delegate.admin(); }
 
     @Override public CoActivationTracker coActivation() { return delegate.coActivation(); }
     @Override public MemoryWal wal() { return delegate.wal(); }

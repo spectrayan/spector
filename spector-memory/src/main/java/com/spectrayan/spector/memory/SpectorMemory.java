@@ -219,58 +219,56 @@ public interface SpectorMemory extends AutoCloseable {
     /** Returns the number of memories in a specific tier. */
     int memoryCount(MemoryType type);
 
-    /** Explicitly decays importance of old episodic memories. */
-    int decay(Duration olderThan, float factor);
-
     // ══════════════════════════════════════════════════════════════
-    // SUBSYSTEM ACCESSORS
+    // ADMIN INTERFACE
     // ══════════════════════════════════════════════════════════════
 
-    /** Returns the Hebbian co-activation tracker. */
-    CoActivationTracker coActivation();
-
-    /** Returns the Write-Ahead Log. */
-    MemoryWal wal();
-
-    /** Returns the prospective memory scheduler. */
-    ProspectiveScheduler prospective();
-
-    /** Returns the suppression set. */
-    SuppressionSet suppression();
-
-    /** Returns the habituation penalty tracker. */
-    HabituationPenalty habituation();
-
-    /** Returns the scalar quantizer used for vector compression. */
-    ScalarQuantizer quantizer();
-
-    /** Returns the cognitive ingestion target. */
-    CognitiveIngestionTarget cognitiveTarget();
-
-    /** Returns the recall pipeline. */
-    RecallPipeline recallPipeline();
-
-    /** Returns the tier router (Working, Episodic, Semantic, Procedural). */
-    TierRouter tierRouter();
-
-    /** Returns the memory index. */
-    MemoryIndex index();
-
-    /** Returns the lateral (neurodivergent) evaluator. */
-    LateralEvaluator lateralEvaluator();
+    /**
+     * Returns the administrative interface for accessing internal subsystems.
+     *
+     * <p>Typical SDK consumers should not need this — it provides access to
+     * WAL, tier router, Hebbian graph, quantizer, and other internal
+     * components for operational monitoring, tuning, and advanced integrations.</p>
+     *
+     * @return the admin interface (never null)
+     * @since 1.0.0
+     */
+    SpectorMemoryAdmin admin();
 
     // ══════════════════════════════════════════════════════════════
-    // GRAPH SUBSYSTEM ACCESSORS (3-Layer Cognitive Graph)
+    // DEPRECATED SUBSYSTEM ACCESSORS (use admin() instead)
     // ══════════════════════════════════════════════════════════════
 
-    /** Returns the Hebbian memory-to-memory association graph (nullable if disabled). */
-    HebbianGraph hebbianGraph();
-
-    /** Returns the temporal causal chain (nullable if disabled). */
-    TemporalChain temporalChain();
-
-    /** Returns the entity-relationship graph (nullable if disabled). */
-    EntityGraph entityGraph();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#coActivation() coActivation()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) CoActivationTracker coActivation();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#wal() wal()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) MemoryWal wal();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#prospective() prospective()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) ProspectiveScheduler prospective();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#suppression() suppression()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) SuppressionSet suppression();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#habituation() habituation()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) HabituationPenalty habituation();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#quantizer() quantizer()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) ScalarQuantizer quantizer();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#cognitiveTarget() cognitiveTarget()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) CognitiveIngestionTarget cognitiveTarget();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#recallPipeline() recallPipeline()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) RecallPipeline recallPipeline();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#tierRouter() tierRouter()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) TierRouter tierRouter();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#index() index()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) MemoryIndex index();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#lateralEvaluator() lateralEvaluator()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) LateralEvaluator lateralEvaluator();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#hebbianGraph() hebbianGraph()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) HebbianGraph hebbianGraph();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#temporalChain() temporalChain()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) TemporalChain temporalChain();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#entityGraph() entityGraph()} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) EntityGraph entityGraph();
+    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#decay(Duration, float) decay(Duration, float)} instead. */
+    @Deprecated(since = "1.0.0", forRemoval = true) int decay(Duration olderThan, float factor);
 
     /** Closes the memory system and persists data. */
     @Override

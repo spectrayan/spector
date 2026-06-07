@@ -102,6 +102,7 @@ class MeteredSpectorEngineTest {
         @Override public Reranker reranker() { return null; }
         @Override public boolean isRerankerActive() { return false; }
         @Override public EngineIngestionTarget target() { return null; }
+        @Override public com.spectrayan.spector.engine.SpectorEngineAdmin admin() { return null; }
         @Override public void close() {}
     }
 }

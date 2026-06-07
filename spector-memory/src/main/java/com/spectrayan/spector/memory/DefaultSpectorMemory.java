@@ -113,7 +113,7 @@ import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
  *       RecallOptions.builder().topK(5).synapticFilter("preferences").build());
  * }</pre>
  */
-public final class DefaultSpectorMemory implements SpectorMemory {
+public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryAdmin {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultSpectorMemory.class);
 
@@ -1206,7 +1206,13 @@ public final class DefaultSpectorMemory implements SpectorMemory {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // SUBSYSTEM ACCESSORS
+    // ADMIN INTERFACE
+    // ══════════════════════════════════════════════════════════════
+
+    @Override public SpectorMemoryAdmin admin() { return this; }
+
+    // ══════════════════════════════════════════════════════════════
+    // SUBSYSTEM ACCESSORS (implements both SpectorMemory + SpectorMemoryAdmin)
     // ══════════════════════════════════════════════════════════════
 
     @Override public CoActivationTracker coActivation() { return coActivationTracker; }

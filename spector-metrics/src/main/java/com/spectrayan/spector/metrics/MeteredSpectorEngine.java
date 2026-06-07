@@ -300,7 +300,9 @@ public class MeteredSpectorEngine implements SpectorEngine {
     @Override
     public boolean isGpuActive() { return delegate.isGpuActive(); }
 
-    // ─────────────── Accessors (pass-through) ───────────────
+    // ─────────────── Admin + Accessors (pass-through) ───────────────
+
+    @Override public com.spectrayan.spector.engine.SpectorEngineAdmin admin() { return delegate.admin(); }
 
     @Override public SpectorConfig config() { return delegate.config(); }
     @Override public int documentCount() { return delegate.documentCount(); }
