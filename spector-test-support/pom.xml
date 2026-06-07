@@ -7,12 +7,16 @@
     <parent>
         <groupId>com.spectrayan</groupId>
         <artifactId>spector</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>spector-test-support</artifactId>
     <name>Spector Test Support</name>
     <description>LLM-powered test validation utilities for Spector modules — LLM-as-Judge assertions.</description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.test.support</spector.module.name>
+    </properties>
 
     <dependencies>
         <!-- Spector embed API (TextGenerationProvider interface) -->

@@ -7,12 +7,16 @@
     <parent>
         <groupId>com.spectrayan</groupId>
         <artifactId>spector</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>spector-metrics</artifactId>
     <name>Spector Metrics</name>
     <description>Micrometer-based observability for Spector — metered decorators for engine, memory, and ingestion.</description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.metrics</spector.module.name>
+    </properties>
 
     <dependencies>
         <!-- Micrometer core (standalone, no Spring) -->

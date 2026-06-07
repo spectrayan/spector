@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.spectrayan</groupId>
         <artifactId>spector</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>spector-memory</artifactId>
@@ -18,6 +18,10 @@
         hippocampal sleep consolidation — running natively on Java Panama with
         zero-GC, SIMD-accelerated off-heap storage.
     </description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.memory</spector.module.name>
+    </properties>
 
     <dependencies>
         <!-- ── Internal modules ── -->

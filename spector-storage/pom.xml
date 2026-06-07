@@ -7,12 +7,16 @@
     <parent>
         <groupId>com.spectrayan</groupId>
         <artifactId>spector</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>spector-storage</artifactId>
     <name>Spector Storage</name>
     <description>Panama MemorySegment-based zero-copy vector and document storage.</description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.storage</spector.module.name>
+    </properties>
 
     <dependencies>
 

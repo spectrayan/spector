@@ -7,12 +7,16 @@
     <parent>
         <groupId>com.spectrayan</groupId>
         <artifactId>spector</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>spring-ai-starter-vector-store-spector</artifactId>
     <name>Spector Spring AI Integration</name>
     <description>Spring AI VectorStore implementation backed by Spector engine.</description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.spring</spector.module.name>
+    </properties>
 
     <dependencies>
         <!-- Spring AI Vector Store (VectorStore, SearchRequest, Filter) -->

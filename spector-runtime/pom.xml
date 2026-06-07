@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.spectrayan</groupId>
         <artifactId>spector</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>spector-runtime</artifactId>
@@ -17,6 +17,10 @@
         SpectorMemory (cognitive) into a single configurable runtime.
         All consumers (MCP, API, CLI) depend on this module.
     </description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.runtime</spector.module.name>
+    </properties>
 
     <dependencies>
 
