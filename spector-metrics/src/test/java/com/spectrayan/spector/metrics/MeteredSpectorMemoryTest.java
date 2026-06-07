@@ -17,6 +17,7 @@ package com.spectrayan.spector.metrics;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
@@ -126,9 +127,9 @@ class MeteredSpectorMemoryTest {
         @Override public com.spectrayan.spector.memory.graph.EntityGraph entityGraph() { return null; }
         @Override public com.spectrayan.spector.memory.hebbian.HebbianGraph hebbianGraph() { return null; }
         @Override public com.spectrayan.spector.memory.temporal.TemporalChain temporalChain() { return null; }
-        @Override public com.spectrayan.spector.memory.WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) { return null; }
+        @Override public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) { return null; }
         @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return null; }
-        @Override public com.spectrayan.spector.memory.ImportanceEstimate estimateImportance(String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) { return null; }
+        @Override public com.spectrayan.spector.memory.model.ImportanceEstimate estimateImportance(String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) { return null; }
         @Override public void close() {}
     }
 }

@@ -19,11 +19,11 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.events.MemorySnapshotTelemetry;
 import com.spectrayan.spector.events.ReflectCycleTelemetry;
 import com.spectrayan.spector.events.TelemetryScope;
-import com.spectrayan.spector.memory.CognitiveProfile;
-import com.spectrayan.spector.memory.CognitiveResult;
-import com.spectrayan.spector.memory.MemoryType;
-import com.spectrayan.spector.memory.RecallOptions;
-import com.spectrayan.spector.memory.ReflectReport;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.TierRouter;
@@ -202,7 +202,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override
     public CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                               MemorySource source,
-                                              com.spectrayan.spector.memory.IngestionContext context,
+                                              com.spectrayan.spector.memory.model.IngestionContext context,
                                               String... tags) {
         rememberCounter.increment();
         return delegate.remember(id, text, type, source, context, tags);
@@ -304,7 +304,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
-    public com.spectrayan.spector.memory.WhyNotExplanation whyNot(
+    public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(
             String memoryId, String query, RecallOptions options) {
         return delegate.whyNot(memoryId, query, options);
     }
@@ -333,7 +333,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override public int decay(Duration olderThan, float factor) { return delegate.decay(olderThan, factor); }
 
     @Override
-    public com.spectrayan.spector.memory.ImportanceEstimate estimateImportance(
+    public com.spectrayan.spector.memory.model.ImportanceEstimate estimateImportance(
             String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
         return delegate.estimateImportance(text, hints);
     }

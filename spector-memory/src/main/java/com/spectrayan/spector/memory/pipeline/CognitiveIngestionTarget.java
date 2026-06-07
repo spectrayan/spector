@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pipeline;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.ingestion.IngestionTarget;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
@@ -425,7 +425,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     }
 
     /**
-     * Full cognitive ingestion with consolidated {@link com.spectrayan.spector.memory.IngestionContext}.
+     * Full cognitive ingestion with consolidated {@link com.spectrayan.spector.memory.model.IngestionContext}.
      *
      * <p>Delegates core ingestion (steps 2-9c) to the existing pipeline, then
      * processes pre-extracted entities, Hebbian edge hints, and temporal link
@@ -443,7 +443,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public void ingestCognitive(String id, String text, float[] vector,
                                  MemoryType type, String[] tags,
                                  MemorySource source,
-                                 com.spectrayan.spector.memory.IngestionContext context) {
+                                 com.spectrayan.spector.memory.model.IngestionContext context) {
         if (context == null) {
             ingestCognitive(id, text, vector, type, tags, source, (IngestionHints) null);
             return;

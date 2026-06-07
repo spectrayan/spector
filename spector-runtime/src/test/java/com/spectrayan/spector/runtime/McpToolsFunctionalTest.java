@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.*;
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.ingestion.EmbeddingProviderFactory;
 import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import org.junit.jupiter.api.*;

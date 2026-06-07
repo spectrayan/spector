@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.index;
 
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;

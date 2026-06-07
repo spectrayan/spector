@@ -10,7 +10,7 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.model;
 
 /**
  * Explains why a specific memory was NOT returned in a recall query.

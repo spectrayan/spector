@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 

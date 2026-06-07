@@ -19,11 +19,11 @@ import java.util.List;
 
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
-import com.spectrayan.spector.memory.CognitiveProfile;
-import com.spectrayan.spector.memory.CognitiveResult;
-import com.spectrayan.spector.memory.RecallMode;
-import com.spectrayan.spector.memory.RecallOptions;
-import com.spectrayan.spector.memory.ScoringMode;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.RecallMode;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 
 /**
@@ -54,7 +54,7 @@ import com.spectrayan.spector.memory.SpectorMemory;
  *   <li>Null minValence → profile default applies (no override)</li>
  *   <li>Null maxValence → profile default applies (no override)</li>
  *   <li>DEFAULT_MODE_NETWORK profile → restricts to SEMANTIC and PROCEDURAL
- *       memory types (handled implicitly by {@link com.spectrayan.spector.memory.CognitiveProfile#applyTo})</li>
+ *       memory types (handled implicitly by {@link com.spectrayan.spector.memory.model.CognitiveProfile#applyTo})</li>
  * </ul>
  */
 public final class CognitiveRetriever {

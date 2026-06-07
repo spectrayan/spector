@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.hippocampus;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
-import com.spectrayan.spector.memory.MemoryType;
-import com.spectrayan.spector.memory.ReflectReport;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore.EpisodicPartition;

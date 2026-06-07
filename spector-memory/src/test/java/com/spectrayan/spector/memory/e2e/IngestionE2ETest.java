@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.e2e.E2ESeedData.SeedMemory;
 
 import org.junit.jupiter.api.*;

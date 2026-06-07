@@ -23,7 +23,12 @@ import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 

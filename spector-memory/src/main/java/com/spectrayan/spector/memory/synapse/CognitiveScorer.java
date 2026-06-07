@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.RecallOptions;
-import com.spectrayan.spector.memory.ScoringMode;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 
 import java.lang.foreign.MemorySegment;

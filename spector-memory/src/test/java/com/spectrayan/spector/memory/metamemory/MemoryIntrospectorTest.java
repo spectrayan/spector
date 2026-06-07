@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.metamemory;
 
-import com.spectrayan.spector.memory.CognitiveResult;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import org.junit.jupiter.api.Test;
 

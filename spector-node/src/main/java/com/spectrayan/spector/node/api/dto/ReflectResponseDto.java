@@ -1,6 +1,6 @@
 package com.spectrayan.spector.node.api.dto;
 
-import com.spectrayan.spector.memory.ReflectReport;
+import com.spectrayan.spector.memory.model.ReflectReport;
 
 /**
  * Response DTO for {@code POST /memory/reflect}.

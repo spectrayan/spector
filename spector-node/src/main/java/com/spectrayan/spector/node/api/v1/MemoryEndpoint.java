@@ -10,8 +10,8 @@ import com.linecorp.armeria.server.annotation.Get;
 import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Post;
 
-import com.spectrayan.spector.memory.MemoryType;
-import com.spectrayan.spector.memory.RecallOptions;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.node.api.ApiModule;
@@ -75,7 +75,7 @@ public class MemoryEndpoint implements ApiModule {
     @Post("/recall")
     public HttpResponse recall(RecallRequest request) {
         long start = System.currentTimeMillis();
-        var profile = com.spectrayan.spector.memory.CognitiveProfile.valueOf(request.effectiveProfile());
+        var profile = com.spectrayan.spector.memory.model.CognitiveProfile.valueOf(request.effectiveProfile());
         var builder = RecallOptions.builder().profile(profile).topK(request.effectiveTopK());
         if (request.queryValence() != null) {
             builder.queryValence((byte) Math.clamp(request.queryValence(), -128, 127));

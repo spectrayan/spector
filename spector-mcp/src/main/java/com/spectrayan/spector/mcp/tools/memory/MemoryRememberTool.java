@@ -21,7 +21,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
@@ -133,7 +133,7 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         }
 
         // Compute importance estimate (read-only) to show what was assigned
-        com.spectrayan.spector.memory.ImportanceEstimate estimate = null;
+        com.spectrayan.spector.memory.model.ImportanceEstimate estimate = null;
         try {
             estimate = memory.estimateImportance(text, hints);
         } catch (Exception e) {

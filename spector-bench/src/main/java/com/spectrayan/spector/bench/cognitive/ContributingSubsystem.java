@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.spectrayan.spector.memory.ScoreBreakdown;
+import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;

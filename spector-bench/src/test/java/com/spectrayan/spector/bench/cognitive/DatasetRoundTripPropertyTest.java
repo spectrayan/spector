@@ -23,8 +23,8 @@ import java.util.List;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
-import com.spectrayan.spector.memory.CognitiveProfile;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;

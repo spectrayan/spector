@@ -2,7 +2,7 @@ package com.spectrayan.spector.node.api.dto;
 
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spectrayan.spector.memory.CognitiveResult;
+import com.spectrayan.spector.memory.model.CognitiveResult;
 
 /**
  * Response DTO for cognitive recall via the REST API.

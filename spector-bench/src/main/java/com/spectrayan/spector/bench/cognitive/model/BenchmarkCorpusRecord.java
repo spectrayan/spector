@@ -17,7 +17,7 @@ package com.spectrayan.spector.bench.cognitive.model;
 
 import java.util.List;
 
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
  * A single corpus entry in the cognitive benchmark dataset.

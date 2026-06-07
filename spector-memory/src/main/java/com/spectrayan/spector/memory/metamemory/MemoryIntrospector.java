@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.metamemory;
 
-import com.spectrayan.spector.memory.CognitiveResult;
+import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
 
 import org.slf4j.Logger;

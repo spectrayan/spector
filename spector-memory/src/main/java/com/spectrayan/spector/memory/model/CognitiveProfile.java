@@ -10,7 +10,8 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.model;
+
 
 /**
  * Preset cognitive scoring profiles for thalamic modulation.

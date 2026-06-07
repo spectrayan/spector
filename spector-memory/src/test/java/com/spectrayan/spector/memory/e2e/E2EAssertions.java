@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
-import com.spectrayan.spector.memory.CognitiveResult;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 import java.util.Arrays;
 import java.util.List;

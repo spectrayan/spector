@@ -1,6 +1,6 @@
 package com.spectrayan.spector.node.api.dto;
 
-import com.spectrayan.spector.memory.WhyNotExplanation;
+import com.spectrayan.spector.memory.model.WhyNotExplanation;
 
 /**
  * Response DTO for {@code POST /memory/why-not}.

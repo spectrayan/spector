@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.memory.RecallOptions;
+import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
@@ -351,7 +351,7 @@ class ScoringPipelineValidationTest {
 
             RecallOptions options = RecallOptions.builder()
                     .topK(2)
-                    .scoringMode(com.spectrayan.spector.memory.ScoringMode.SIMILARITY)
+                    .scoringMode(com.spectrayan.spector.memory.model.ScoringMode.SIMILARITY)
                     .build();
             List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
                     segment, corpusSize, layout, vec, options, nowMs);

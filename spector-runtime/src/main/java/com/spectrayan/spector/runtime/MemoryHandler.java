@@ -23,10 +23,10 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.CognitiveResult;
-import com.spectrayan.spector.memory.MemoryType;
-import com.spectrayan.spector.memory.RecallOptions;
-import com.spectrayan.spector.memory.ReflectReport;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;

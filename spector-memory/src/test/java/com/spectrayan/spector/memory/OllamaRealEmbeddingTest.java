@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.model.*;
+
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.EmbeddingResult;
 import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;

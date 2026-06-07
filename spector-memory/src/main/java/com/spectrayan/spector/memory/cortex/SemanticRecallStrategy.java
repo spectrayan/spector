@@ -14,11 +14,11 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
-import com.spectrayan.spector.memory.CognitiveResult;
-import com.spectrayan.spector.memory.MemoryType;
-import com.spectrayan.spector.memory.RecallOptions;
-import com.spectrayan.spector.memory.ScoreBreakdown;
-import com.spectrayan.spector.memory.ScoringMode;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoreBreakdown;
+import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;

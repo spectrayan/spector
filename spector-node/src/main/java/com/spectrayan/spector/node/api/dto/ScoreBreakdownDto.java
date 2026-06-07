@@ -1,6 +1,6 @@
 package com.spectrayan.spector.node.api.dto;
 
-import com.spectrayan.spector.memory.ScoreBreakdown;
+import com.spectrayan.spector.memory.model.ScoreBreakdown;
 
 /**
  * Serializable DTO for the scoring pipeline breakdown.

@@ -20,7 +20,7 @@ import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
-import com.spectrayan.spector.memory.MemoryPersistenceMode;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.metrics.MeteredSpectorEngine;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;

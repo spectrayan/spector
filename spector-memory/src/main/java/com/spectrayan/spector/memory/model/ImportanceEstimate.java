@@ -10,7 +10,7 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.model;
 
 /**
  * Result of a pre-ingestion importance estimate — computed without side effects.

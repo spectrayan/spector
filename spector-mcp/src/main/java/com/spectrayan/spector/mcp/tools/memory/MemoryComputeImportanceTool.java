@@ -21,7 +21,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
-import com.spectrayan.spector.memory.ImportanceEstimate;
+import com.spectrayan.spector.memory.model.ImportanceEstimate;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;

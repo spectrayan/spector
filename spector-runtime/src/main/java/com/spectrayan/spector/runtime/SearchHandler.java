@@ -24,8 +24,8 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.config.SpectorMode;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.index.ScoredResult;
-import com.spectrayan.spector.memory.CognitiveResult;
-import com.spectrayan.spector.memory.RecallOptions;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.query.SearchResponse;
 

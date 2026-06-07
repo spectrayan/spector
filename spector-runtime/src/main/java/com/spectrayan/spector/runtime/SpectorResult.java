@@ -16,7 +16,7 @@
 package com.spectrayan.spector.runtime;
 
 import com.spectrayan.spector.config.SpectorMode;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
  * Product-level result type for mode-aware queries.

@@ -9,10 +9,10 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.CognitiveResult;
-import com.spectrayan.spector.memory.MemoryType;
-import com.spectrayan.spector.memory.RecallOptions;
-import com.spectrayan.spector.memory.ReflectReport;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
@@ -207,7 +207,7 @@ public class MemoryService {
     }
 
     /** Explains why a specific memory was not returned for a query. */
-    public com.spectrayan.spector.memory.WhyNotExplanation whyNot(
+    public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(
             String memoryId, String query, RecallOptions options) {
         return memory.whyNot(memoryId, query, options);
     }

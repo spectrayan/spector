@@ -30,7 +30,7 @@ import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
 import com.spectrayan.spector.bench.cognitive.model.TemporalChainDef;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
-import com.spectrayan.spector.memory.MemoryPersistenceMode;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityGraph;
@@ -106,7 +106,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 // Use IngestionContext to pass the corpus record's original timestamp
                 // into the cognitive header, preserving temporal accuracy for decay and
                 // temporal chain ordering across the 180-day benchmark span.
-                var context = com.spectrayan.spector.memory.IngestionContext.builder()
+                var context = com.spectrayan.spector.memory.model.IngestionContext.builder()
                         .hints(hints)
                         .overrideTimestampMs(record.timestampMs())
                         .build();

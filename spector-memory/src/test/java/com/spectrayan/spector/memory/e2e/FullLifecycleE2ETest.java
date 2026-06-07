@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.e2e;
 
 import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import org.junit.jupiter.api.*;

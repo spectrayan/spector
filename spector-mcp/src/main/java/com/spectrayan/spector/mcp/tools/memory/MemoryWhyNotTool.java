@@ -18,10 +18,10 @@ package com.spectrayan.spector.mcp.tools.memory;
 import java.util.Map;
 
 import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.memory.RecallOptions;
-import com.spectrayan.spector.memory.ScoreBreakdown;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.WhyNotExplanation;
+import com.spectrayan.spector.memory.model.WhyNotExplanation;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 
 import io.modelcontextprotocol.spec.McpSchema;

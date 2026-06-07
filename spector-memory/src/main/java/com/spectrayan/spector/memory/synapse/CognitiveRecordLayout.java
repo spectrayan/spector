@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.synapse;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;

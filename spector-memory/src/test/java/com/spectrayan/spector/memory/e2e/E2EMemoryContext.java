@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.e2e;
 import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
-import com.spectrayan.spector.memory.MemoryPersistenceMode;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.e2e.E2ESeedData.SeedMemory;

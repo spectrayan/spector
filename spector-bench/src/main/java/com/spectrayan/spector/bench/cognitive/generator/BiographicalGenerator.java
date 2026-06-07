@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.EntityMention;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 import tools.jackson.core.type.TypeReference;
 

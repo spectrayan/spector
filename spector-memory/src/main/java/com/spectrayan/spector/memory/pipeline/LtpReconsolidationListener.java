@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
-import com.spectrayan.spector.memory.CognitiveResult;
+import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;

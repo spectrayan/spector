@@ -35,8 +35,8 @@ import com.spectrayan.spector.bench.cognitive.model.EntityRelation;
 import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
 import com.spectrayan.spector.bench.cognitive.model.TemporalChainDef;
-import com.spectrayan.spector.memory.CognitiveProfile;
-import com.spectrayan.spector.memory.MemoryType;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.graph.RelationType;
 
 import tools.jackson.databind.DeserializationFeature;

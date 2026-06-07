@@ -26,7 +26,7 @@ import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
 import com.spectrayan.spector.bench.cognitive.model.RelevanceJudgment;
-import com.spectrayan.spector.memory.CognitiveProfile;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
 
 import tools.jackson.core.type.TypeReference;
 
