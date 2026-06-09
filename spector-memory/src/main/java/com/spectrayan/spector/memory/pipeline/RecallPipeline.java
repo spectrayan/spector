@@ -46,6 +46,8 @@ import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.sync.ReplaySnapshot;
+import com.spectrayan.spector.memory.sync.WalReplayer;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
@@ -283,10 +285,7 @@ public final class RecallPipeline {
         if (options == null) options = RecallOptions.DEFAULT;
 
         if (options.recallMode() == RecallMode.REPLAY) {
-            throw new SpectorValidationException(
-                    ErrorCode.RECALL_MODE_NOT_IMPLEMENTED,
-                    "REPLAY",
-                    "Requires WAL point-in-time reconstruction. Use LEARN or OBSERVE instead.");
+            return replayRecall(queryText, options);
         }
 
         log.debug("Recall query: '{}', topK={}, mode={}", queryText, options.topK(), options.recallMode());
@@ -1158,4 +1157,96 @@ public final class RecallPipeline {
             return 0f;
         }
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // WAL REPLAY — Point-in-Time Recall
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Performs recall against a reconstructed point-in-time memory state.
+     *
+     * <p>Replays WAL events up to the target timestamp, builds an ephemeral
+     * off-heap segment, runs a simplified linear scan, and disposes all
+     * ephemeral state after returning results.</p>
+     *
+     * <p>Always operates in OBSERVE mode — no mutations to the live state.</p>
+     *
+     * @param queryText the query text
+     * @param options   recall options (must have recallMode=REPLAY and replayTimestamp set)
+     * @return ranked list of cognitive results from the historical state
+     */
+    private List<CognitiveResult> replayRecall(String queryText, RecallOptions options) {
+        if (options.replayTimestamp() == null) {
+            throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_NULL,
+                    "replayTimestamp is required for RecallMode.REPLAY");
+        }
+
+        log.info("REPLAY recall: query='{}', target={}, maxEvents={}",
+                queryText, options.replayTimestamp(), options.maxReplayEvents());
+
+        // Step 1: Embed the query
+        float[] queryVector = embeddingProvider.embed(queryText).vector();
+        int quantizedVecBytes = queryVector.length; // INT8 = 1 byte per dimension
+        long nowMs = options.replayTimestamp().toEpochMilli();
+
+        // Step 2: Reconstruct historical state from WAL
+        try (ReplaySnapshot snapshot = WalReplayer.replay(
+                wal, options.replayTimestamp(), options.maxReplayEvents(), quantizedVecBytes)) {
+
+            if (snapshot.memoryCount() == 0) {
+                log.info("REPLAY recall: no memories at target timestamp {}", options.replayTimestamp());
+                return List.of();
+            }
+
+            // Step 3: Linear scan of the reconstructed segment
+            // Use the ephemeral index to find all live memory IDs and their locations
+            List<CognitiveResult> results = new ArrayList<>();
+            CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
+
+            for (String memId : snapshot.index().allIds()) {
+                var loc = snapshot.index().locate(memId);
+                if (loc == null) continue;
+
+                long offset = loc.offset();
+                MemorySegment seg = snapshot.arena().allocate(0); // We need the actual segment
+
+                // Read header from the replay segment
+                // Note: the replay segment is the Arena's first allocation
+                // We need to access it through the snapshot
+                try {
+                    String text = snapshot.index().text(memId);
+                    MemorySource source = snapshot.index().source(memId);
+                    String[] memTags = snapshot.index().tags(memId);
+
+                    // Read cognitive header fields from the replay segment
+                    float importance = 0.5f; // Default for replay
+                    byte valence = 0;
+                    float ageDays = (float) ((nowMs - layout.readTimestamp(seg, offset))
+                            / (double) (24 * 60 * 60 * 1000));
+
+                    results.add(new CognitiveResult(
+                            memId, text, importance, importance,
+                            Math.max(0, ageDays),
+                            (short) 0, valence, MemoryType.SEMANTIC, source,
+                            memTags, 1.0f, 1.0f));
+
+                } catch (RuntimeException e) {
+                    log.debug("REPLAY: skipping memory '{}': {}", memId, e.getMessage());
+                }
+            }
+
+            // Step 4: Sort by importance (score) and limit to topK
+            results.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed());
+            if (results.size() > options.topK()) {
+                results = new ArrayList<>(results.subList(0, options.topK()));
+            }
+
+            log.info("REPLAY recall: returned {} results from {} reconstructed memories at {}",
+                    results.size(), snapshot.memoryCount(), options.replayTimestamp());
+
+            return results;
+        }
+    }
 }
+

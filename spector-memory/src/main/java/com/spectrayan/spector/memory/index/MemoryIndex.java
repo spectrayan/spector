@@ -196,6 +196,18 @@ public final class MemoryIndex {
     }
 
     /**
+     * Returns all registered memory IDs.
+     *
+     * <p>Used by WAL replay to iterate over all reconstructed memories.
+     * Returns a snapshot of the key set — safe for concurrent modification.</p>
+     *
+     * @return unmodifiable set of all memory IDs
+     */
+    public java.util.Set<String> allIds() {
+        return java.util.Collections.unmodifiableSet(new java.util.HashSet<>(locations.keySet()));
+    }
+
+    /**
      * Returns the raw location map (for iteration in decay, etc.).
      */
     public ConcurrentHashMap<String, MemoryLocation> locationMap() {

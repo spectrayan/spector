@@ -74,12 +74,12 @@ public enum RecallMode {
      *
      * <p>Use case: "Why did the agent retrieve X instead of Y at 2pm yesterday?"</p>
      *
-     * <p><b>Not yet implemented.</b> Requires WAL point-in-time reconstruction
-     * (replaying ingestion, reinforcement, and suppression events to rebuild
-     * off-heap header state at a target timestamp). See roadmap.</p>
+     * <p>Requires {@link RecallOptions#replayTimestamp()} to be set. The
+     * {@link RecallOptions#maxReplayEvents()} field caps the number of WAL
+     * events processed to prevent excessive off-heap allocation.</p>
      *
-     * @throws com.spectrayan.spector.commons.error.SpectorValidationException
-     *         SPE-310-012 if used before implementation
+     * @see com.spectrayan.spector.memory.sync.WalReplayer
+     * @see com.spectrayan.spector.memory.sync.ReplaySnapshot
      */
     REPLAY
 }

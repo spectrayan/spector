@@ -19,10 +19,12 @@ import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ImportanceEstimate;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -130,6 +132,41 @@ public interface SpectorMemory extends AutoCloseable {
     /** Convenience overload with default source. */
     CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                       String... tags);
+
+    // ══════════════════════════════════════════════════════════════
+    // AUTO-ID INGESTION — ID generated automatically
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Ingests a memory with an auto-generated ID.
+     *
+     * <p>The ID is generated using the configured {@link MemoryIdGenerator}
+     * (default: TSID — 13-char time-sorted identifier). This is the preferred
+     * API for LLM/MCP callers who don't need to manage IDs manually.</p>
+     *
+     * @param text   the memory content
+     * @param type   cognitive tier
+     * @param source provenance source
+     * @param tags   synaptic tag strings
+     * @return a future that completes with the generated ID
+     */
+    CompletableFuture<String> remember(String text, MemoryType type,
+                                       MemorySource source, String... tags);
+
+    /**
+     * Ingests a memory with auto-generated ID and cognitive hints.
+     *
+     * @param text   the memory content
+     * @param type   cognitive tier
+     * @param source provenance source
+     * @param hints  ICNU + emotional context (null for novelty-only)
+     * @param tags   synaptic tag strings
+     * @return a future that completes with the generated ID
+     */
+    CompletableFuture<String> remember(String text, MemoryType type,
+                                       MemorySource source,
+                                       com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                       String... tags);
 
     /** Performs fused cognitive scoring across all relevant memory tiers. */
     List<CognitiveResult> recall(String queryText, RecallOptions options);
@@ -248,6 +285,62 @@ public interface SpectorMemory extends AutoCloseable {
      * @return a diagnostic explanation of why the memory was not retrieved
      */
     WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options);
+
+    // ══════════════════════════════════════════════════════════════
+    // INSPECT — Full Cognitive X-Ray
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Returns the complete cognitive snapshot for a memory — the "X-ray" view.
+     *
+     * <p>Combines data from three subsystems into a single {@link CognitiveRecord}:</p>
+     * <ul>
+     *   <li><b>MemoryIndex</b>: text, source, tags, physical location</li>
+     *   <li><b>CognitiveHeader</b> (64-byte off-heap): importance, valence, arousal,
+     *       recall count, storage strength, synaptic tags, flags</li>
+     *   <li><b>Vector payload</b>: quantized INT8 bytes</li>
+     * </ul>
+     *
+     * @param id the memory ID to inspect
+     * @return the full cognitive record, or null if the memory is not found
+     */
+    CognitiveRecord inspect(String id);
+
+    // ══════════════════════════════════════════════════════════════
+    // BROWSE — Tag-Based Iteration
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Returns all memories matching the given tags (without vector search).
+     *
+     * <p>This is a metadata-only scan — it does not embed a query or compute
+     * similarity scores. Useful for browsing, auditing, and bulk operations
+     * ("show me all memories tagged 'payments'").</p>
+     *
+     * <p>If multiple tags are provided, a memory must contain <b>all</b> of them
+     * (AND semantics).</p>
+     *
+     * @param tags one or more tag strings to match
+     * @return list of matching cognitive records (without vectors — use inspect() for full detail)
+     */
+    List<CognitiveRecord> browse(String... tags);
+
+    // ══════════════════════════════════════════════════════════════
+    // EXPORT — Bulk Memory Export
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Exports all memories as a JSON array string.
+     *
+     * <p>Each memory is serialized as a {@link CognitiveRecord#toJson()} object.
+     * This is suitable for backup, migration, audit, and debugging.</p>
+     *
+     * <p>For large memory stores, consider using {@link #browse(String...)} with
+     * tag filters to export subsets.</p>
+     *
+     * @return JSON array string containing all memory records
+     */
+    String exportJson();
 
     // ══════════════════════════════════════════════════════════════
     // PROSPECTIVE / SCRATCHPAD / STATS

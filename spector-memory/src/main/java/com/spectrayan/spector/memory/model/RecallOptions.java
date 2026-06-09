@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory.model;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -96,7 +97,10 @@ public record RecallOptions(
         Long minTimestamp,
         Long maxTimestamp,
         // ── Graph Expansion Gating ──
-        float graphExpansionThreshold
+        float graphExpansionThreshold,
+        // ── WAL Replay (Time-Travel) ──
+        Instant replayTimestamp,
+        int maxReplayEvents
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -145,6 +149,10 @@ public record RecallOptions(
 
         // ── Graph Expansion Gating ──
         private float graphExpansionThreshold = 0.40f; // default: expand when max similarity < 0.40
+
+        // ── WAL Replay (Time-Travel) ──
+        private Instant replayTimestamp = null;    // null = disabled
+        private int maxReplayEvents = 100_000;     // cap to prevent OOM on large WALs
 
         // ── Neurodivergent: Hyperfocus ──
         private long hyperfocusMask = 0L;       // 0 = disabled
@@ -386,6 +394,34 @@ public record RecallOptions(
             return this;
         }
 
+        /**
+         * Sets the target timestamp for REPLAY mode.
+         *
+         * <p>When {@link RecallMode#REPLAY} is used, this specifies the point-in-time
+         * to reconstruct memory state from WAL events. All events after this timestamp
+         * are ignored, and recall runs against the historical state.</p>
+         *
+         * @param timestamp the target point-in-time
+         */
+        public Builder replayTimestamp(Instant timestamp) {
+            this.replayTimestamp = timestamp;
+            return this;
+        }
+
+        /**
+         * Maximum number of WAL events to replay (default: 100,000).
+         *
+         * <p>Safety cap to prevent excessive off-heap allocation when replaying
+         * large WALs. If the WAL contains more events before the target timestamp,
+         * only the first {@code maxReplayEvents} are processed.</p>
+         *
+         * @param max maximum events to replay
+         */
+        public Builder maxReplayEvents(int max) {
+            this.maxReplayEvents = max;
+            return this;
+        }
+
         // ── Text Search (BM25 Hybrid) ──
 
         /**
@@ -515,7 +551,8 @@ public record RecallOptions(
                     gamma, enableTextSearch, textSearchMode,
                     scoringMode, entityHints, enableTrace,
                     minTimestamp, maxTimestamp,
-                    graphExpansionThreshold);
+                    graphExpansionThreshold,
+                    replayTimestamp, maxReplayEvents);
             return options;
         }
     }
@@ -579,6 +616,14 @@ public record RecallOptions(
         if (gamma < 0.0f || gamma > 2.0f) {
             String msg = "gamma (" + gamma + ") is outside the useful range [0.0, 2.0]. "
                     + "BM25 scoring may produce unexpected results.";
+            warnings.add(msg);
+            VALIDATION_LOG.warning(msg);
+        }
+
+        // 5. REPLAY mode requires replayTimestamp
+        if (recallMode == RecallMode.REPLAY && replayTimestamp == null) {
+            String msg = "recallMode=REPLAY requires replayTimestamp to be set. "
+                    + "Use RecallOptions.builder().replayTimestamp(Instant.parse(...)).build()";
             warnings.add(msg);
             VALIDATION_LOG.warning(msg);
         }

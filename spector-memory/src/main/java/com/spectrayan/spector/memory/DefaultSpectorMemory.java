@@ -92,6 +92,9 @@ import com.spectrayan.spector.commons.error.SpectorServerException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
+import com.spectrayan.spector.memory.id.IdStrategy;
+import com.spectrayan.spector.memory.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
 
 /**
  * Default implementation of {@link SpectorMemory} — the Zero-GC Cognitive Backbone for Autonomous Agents.
@@ -164,6 +167,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     // ── Multi-Tenant Namespace ──
     private final SpectorNamespaceManager namespaceManager;
+
+    // ── ID Generation ──
+    private final MemoryIdGenerator idGenerator;
 
     // ── Circadian trigger counter ──
     private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
@@ -449,12 +455,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 wal, builder.twoFactorConfig);
 
         log.info("SpectorMemory initialized: dimensions={}, model={}, persistence={}, mode={}, " +
-                 "partition={}, quantizer={}",
+                 "partition={}, quantizer={}, idStrategy={}",
                 dimensions, embeddingProvider.modelName(),
                 basePath != null ? basePath : "in-memory",
                 persistenceMode,
                 resolvedPartitionDir != null ? resolvedPartitionDir.getFileName() : "none",
-                builder.quantizer != null ? "user-provided" : "identity-default");
+                builder.quantizer != null ? "user-provided" : "identity-default",
+                builder.idGenerator != null ? "custom" : builder.idStrategy.name());
+
+        // ── ID Generator ── (must be after logging)
+        this.idGenerator = builder.idGenerator != null
+                ? builder.idGenerator
+                : builder.idStrategy.createGenerator();
     }
 
     /**
@@ -537,6 +549,24 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                               String... tags) {
         return remember(id, text, type, MemorySource.OBSERVED, tags);
+    }
+
+    @Override
+    public CompletableFuture<String> remember(String text, MemoryType type,
+                                               MemorySource source, String... tags) {
+        String generatedId = idGenerator.generate();
+        return remember(generatedId, text, type, source, tags)
+                .thenApply(v -> generatedId);
+    }
+
+    @Override
+    public CompletableFuture<String> remember(String text, MemoryType type,
+                                               MemorySource source,
+                                               com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                               String... tags) {
+        String generatedId = idGenerator.generate();
+        return remember(generatedId, text, type, source, hints, tags)
+                .thenApply(v -> generatedId);
     }
 
     @Override
@@ -742,6 +772,130 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     // ══════════════════════════════════════════════════════════════
+    // INSPECT — Full Cognitive X-Ray
+    // ══════════════════════════════════════════════════════════════
+
+    @Override
+    public CognitiveRecord inspect(String id) {
+        if (id == null) return null;
+
+        MemoryLocation loc = index.locate(id);
+        if (loc == null) return null;
+
+        String text = index.text(id);
+        MemorySource source = index.source(id);
+        String[] memTags = index.tags(id);
+
+        MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
+        CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
+
+        if (segment == null || layout == null) return null;
+
+        // Read the 64-byte cognitive header
+        var header = layout.readHeader(segment, loc.offset());
+
+        // Read the quantized vector payload
+        int vecBytes = layout.quantizedVecBytes();
+        byte[] quantizedVec = new byte[vecBytes];
+        long vecOffset = layout.vectorOffset(loc.offset());
+        MemorySegment.copy(
+                segment, java.lang.foreign.ValueLayout.JAVA_BYTE, vecOffset,
+                MemorySegment.ofArray(quantizedVec),
+                java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
+
+        // Read extended fields that aren't in the base CognitiveHeader
+        int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
+
+        return new CognitiveRecord(
+                id, text, loc.type(), source, memTags,
+                header.timestampMs(), header.synapticTags(), header.exactNorm(),
+                header.importance(), header.agentRecallCount(), spectorRecallCount,
+                header.centroidId(), header.valence(), header.arousal(),
+                header.storageStrength(), header.flags(),
+                quantizedVec, loc.partitionIndex(), loc.offset());
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // BROWSE — Tag-Based Iteration
+    // ══════════════════════════════════════════════════════════════
+
+    @Override
+    public List<CognitiveRecord> browse(String... tags) {
+        if (tags == null || tags.length == 0) return List.of();
+
+        var results = new java.util.ArrayList<CognitiveRecord>();
+
+        for (var entry : index.locationMap().entrySet()) {
+            String memId = entry.getKey();
+            String[] memTags = index.tags(memId);
+
+            // AND semantics: memory must contain all requested tags
+            boolean allMatch = true;
+            for (String tag : tags) {
+                boolean found = false;
+                for (String memTag : memTags) {
+                    if (tag.equalsIgnoreCase(memTag)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    allMatch = false;
+                    break;
+                }
+            }
+
+            if (allMatch) {
+                MemoryLocation loc = entry.getValue();
+                MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
+                CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
+
+                if (segment != null && layout != null) {
+                    var header = layout.readHeader(segment, loc.offset());
+                    if (!SynapticHeaderConstants.isTombstoned(header.flags())) {
+                        int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
+                        results.add(new CognitiveRecord(
+                                memId, index.text(memId), loc.type(),
+                                index.source(memId), memTags,
+                                header.timestampMs(), header.synapticTags(), header.exactNorm(),
+                                header.importance(), header.agentRecallCount(), spectorRecallCount,
+                                header.centroidId(), header.valence(), header.arousal(),
+                                header.storageStrength(), header.flags(),
+                                null, // no vector for browse (use inspect for full detail)
+                                loc.partitionIndex(), loc.offset()));
+                    }
+                }
+            }
+        }
+
+        return List.copyOf(results);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // EXPORT — Bulk Memory Export
+    // ══════════════════════════════════════════════════════════════
+
+    @Override
+    public String exportJson() {
+        var sb = new StringBuilder();
+        sb.append("[");
+        boolean first = true;
+
+        for (var entry : index.locationMap().entrySet()) {
+            String memId = entry.getKey();
+            CognitiveRecord record = inspect(memId);
+            if (record != null && !record.isTombstoned()) {
+                if (!first) sb.append(",");
+                sb.append(record.toJson());
+                first = false;
+            }
+        }
+
+        sb.append("]");
+        return sb.toString();
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // PROSPECTIVE / SCRATCHPAD / STATS
     // ══════════════════════════════════════════════════════════════
 
@@ -913,6 +1067,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
                 = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
 
+        // ID generation strategy
+        IdStrategy idStrategy = IdStrategy.TSID;
+        MemoryIdGenerator idGenerator;
+
         public Builder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
         public Builder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
         public Builder persistence(Path p) { this.persistencePath = p; return this; }
@@ -997,6 +1155,31 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
          * @see CognitiveProfileConfig#fromConfigValue(String)
          */
         public Builder cognitiveProfiles(String configValue) { this.profileConfig = CognitiveProfileConfig.fromConfigValue(configValue); return this; }
+
+        // ── ID Generation ──
+
+        /**
+         * Sets the ID generation strategy for auto-generated memory IDs.
+         *
+         * <p>Default: {@link IdStrategy#TSID} — 13-char time-sorted, distributed-safe.
+         * This is only used when {@link SpectorMemory#remember(String, MemoryType, MemorySource, String...)}
+         * is called without an explicit ID.</p>
+         *
+         * @param strategy the built-in strategy to use
+         * @return this builder
+         */
+        public Builder idStrategy(IdStrategy strategy) { this.idStrategy = strategy; return this; }
+
+        /**
+         * Sets a custom ID generator, overriding the built-in {@link #idStrategy(IdStrategy)}.
+         *
+         * <p>Use this for custom ID schemes (e.g., database-sequence-backed, ULID, etc.).
+         * The generator must be thread-safe.</p>
+         *
+         * @param generator the custom generator
+         * @return this builder
+         */
+        public Builder idGenerator(MemoryIdGenerator generator) { this.idGenerator = generator; return this; }
 
         public SpectorMemory build() {
             if (dimensions <= 0 && embeddingProvider != null) {
