@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spector-sdk"
+version = "0.1.0"
+description = "Python SDK for Spector — Zero-GC Cognitive Memory & Vector Search"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Spectrayan", email = "dev@spectrayan.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["spector", "vector-search", "cognitive-memory", "mcp", "ai-agents"]
+
+# Zero mandatory dependencies — stdlib only
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+
+[project.urls]
+Homepage = "https://github.com/spectrayan/spector"
+Documentation = "https://spectrayan.github.io/spector/"
+Repository = "https://github.com/spectrayan/spector"
+
+[tool.setuptools.packages.find]
+where = ["src"]
