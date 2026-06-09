@@ -209,6 +209,22 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
+    public CompletableFuture<String> remember(String text, MemoryType type,
+                                              MemorySource source, String... tags) {
+        rememberCounter.increment();
+        return delegate.remember(text, type, source, tags);
+    }
+
+    @Override
+    public CompletableFuture<String> remember(String text, MemoryType type,
+                                              MemorySource source,
+                                              com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
+                                              String... tags) {
+        rememberCounter.increment();
+        return delegate.remember(text, type, source, hints, tags);
+    }
+
+    @Override
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
         recallCounter.increment();
         return recallTimer.record(() -> delegate.recall(queryText, options));
@@ -309,6 +325,11 @@ public class MeteredSpectorMemory implements SpectorMemory {
         return delegate.whyNot(memoryId, query, options);
     }
 
+    @Override
+    public com.spectrayan.spector.memory.model.CognitiveRecord inspect(String id) {
+        return delegate.inspect(id);
+    }
+
     // ══════════════════════════════════════════════════════════════
     // PROSPECTIVE / SCRATCHPAD / STATS (pass-through)
     // ══════════════════════════════════════════════════════════════
@@ -331,6 +352,16 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override public int totalMemories() { return delegate.totalMemories(); }
     @Override public int memoryCount(MemoryType type) { return delegate.memoryCount(type); }
     @Override public int decay(Duration olderThan, float factor) { return delegate.decay(olderThan, factor); }
+
+    @Override
+    public java.util.List<com.spectrayan.spector.memory.model.CognitiveRecord> browse(String... tags) {
+        return delegate.browse(tags);
+    }
+
+    @Override
+    public String exportJson() {
+        return delegate.exportJson();
+    }
 
     @Override
     public com.spectrayan.spector.memory.model.ImportanceEstimate estimateImportance(

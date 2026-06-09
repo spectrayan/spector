@@ -55,7 +55,6 @@ plugins:
       separator: '[\s\-\.]+'        # Better tokenization for compound terms
       lang: en
   - callouts
-  - markdownwavedrom
   - tags                            # Tag-based content discovery
   - minify:                         # Minify HTML for faster page loads
       minify_html: true

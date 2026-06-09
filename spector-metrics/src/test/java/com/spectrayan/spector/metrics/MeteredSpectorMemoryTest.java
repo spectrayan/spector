@@ -95,6 +95,8 @@ class MeteredSpectorMemoryTest {
         @Override public CompletableFuture<Void> remember(String id, String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints, String... tags) { return CompletableFuture.completedFuture(null); }
         @Override public CompletableFuture<Void> remember(String id, String text, MemoryType type, MemorySource source, IngestionContext context, String... tags) { return CompletableFuture.completedFuture(null); }
         @Override public CompletableFuture<Void> remember(String id, String text, MemoryType type, String... tags) { return CompletableFuture.completedFuture(null); }
+        @Override public CompletableFuture<String> remember(String text, MemoryType type, MemorySource source, String... tags) { return CompletableFuture.completedFuture("auto-id"); }
+        @Override public CompletableFuture<String> remember(String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints, String... tags) { return CompletableFuture.completedFuture("auto-id"); }
         @Override public List<CognitiveResult> recall(String queryText, RecallOptions options) { return null; }
         @Override public List<CognitiveResult> recall(String queryText, CognitiveProfile profile) { return null; }
         @Override public List<CognitiveResult> recall(String queryText) { return null; }
@@ -130,6 +132,9 @@ class MeteredSpectorMemoryTest {
         @Override public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) { return null; }
         @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return null; }
         @Override public com.spectrayan.spector.memory.model.ImportanceEstimate estimateImportance(String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) { return null; }
+        @Override public com.spectrayan.spector.memory.model.CognitiveRecord inspect(String id) { return null; }
+        @Override public java.util.List<com.spectrayan.spector.memory.model.CognitiveRecord> browse(String... tags) { return java.util.List.of(); }
+        @Override public String exportJson() { return "[]"; }
         @Override public void close() {}
     }
 }
