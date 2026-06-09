@@ -124,7 +124,7 @@ gantt
 | **Total** | | **~10.2 MB** |
 
 !!! tip "vs. Python Memory Layers"
-    A Python memory system stores each memory as a Python object (~500-800 bytes overhead) plus the vector in NumPy (~3KB for 768-dim float32). Spector stores the same memory in **800 bytes** (32B header + 768B INT8 vector) — a 5-10× reduction.
+    A Python memory system stores each memory as a Python object (~500-800 bytes overhead) plus the vector in NumPy (~3KB for 768-dim float32). Spector stores the same memory in **832 bytes** (64B header + 768B INT8 vector) — a 4-8× reduction.
 
 ---
 

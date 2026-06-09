@@ -176,9 +176,12 @@ This ratio is used as a multiplier in the scoring formula: `finalScore = baseSco
 The `CognitiveRecordLayout` class manages reading/writing headers and quantized vectors to/from off-heap `MemorySegment`. It delegates header operations to the active `HeaderLayout`:
 
 ```java
-public final class CognitiveRecordLayout {
-    private final HeaderLayout headerLayout;
-    private final int quantizedVecBytes;
+public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLayout) {
+    
+    /** Default constructor — uses the default 64-byte header layout. */
+    public CognitiveRecordLayout(int quantizedVecBytes) {
+        this(quantizedVecBytes, HeaderLayout.defaultLayout());
+    }
     
     /**
      * Record stride = header bytes + vector payload.
@@ -215,7 +218,7 @@ public record CognitiveHeader(
     long synapticTags,      // 64-bit Bloom filter
     float exactNorm,        // L2 norm of original vector
     float importance,       // cognitive importance (0.05 – 10.0)
-    int recallCount,        // LTP reconsolidation counter
+    int agentRecallCount,   // LTP reconsolidation counter
     short centroidId,       // IVF partition routing ID
     byte valence,           // emotional coloring (-128 to +127)
     byte flags,             // bit field (tombstone, type, consolidated, pinned, resolved)
@@ -231,48 +234,97 @@ public record CognitiveHeader(
 !!! warning "The `exp()` Problem"
     The naive decay formula `Math.exp(-λ·age)` costs 50-100ns per call and is a **scalar operation** — it cannot be SIMD-vectorized. At 1M memories, this adds 50-100ms of pure overhead, destroying the SIMD advantage.
 
-### The Solution: Precomputed Decay Buckets
+### The Solution: Power-Law Decay Buckets
 
-`DecayStrategy` quantizes time into discrete buckets and uses a precomputed lookup table:
+`DecayStrategy` quantizes time into **12 discrete buckets** spanning 5+ years and uses precomputed lookup tables derived from the power law of forgetting: `R(t) = a · t^{-d}`.
+
+Bucket values are generated at startup by `DecayConfig.computeBuckets()`, not hardcoded — making the decay curve fully configurable:
 
 ```java
-// Precomputed — zero Math.exp() calls at query time
-private static final float[] DECAY_TABLE = {
-    1.00f,  // Bucket 0: 0-1 hours
-    0.95f,  // Bucket 1: 1-6 hours
-    0.85f,  // Bucket 2: 6-24 hours
-    0.70f,  // Bucket 3: 1-3 days
-    0.50f,  // Bucket 4: 3-7 days
-    0.30f,  // Bucket 5: 1-2 weeks
-    0.15f,  // Bucket 6: 2-4 weeks
-    0.05f,  // Bucket 7: 1-3 months
-    0.01f   // Bucket 8+: 3+ months
-};
+// Bucket values from DecayConfig.DEFAULT (d=0.15, floor=0.10)
+static final float[] DECAY_BUCKETS = DecayConfig.DEFAULT.buckets();
 
 public static float decay(int bucket) {
-    return DECAY_TABLE[Math.min(bucket, DECAY_TABLE.length - 1)];
+    return DECAY_BUCKETS[Math.min(bucket, MAX_BUCKET)];
 }
 ```
 
-### Reconsolidation Adjustment
+### 12-Bucket Time Ranges
 
-Every 3 recalls shifts the bucket back by 1, simulating Long-Term Potentiation:
+| Bucket | Time Range | Decay Multiplier (d=0.15) |
+|:---:|:---|:---:|
+| 0 | 0–1 hours | 1.00 |
+| 1 | 1–6 hours | ~0.87 |
+| 2 | 6–24 hours | ~0.67 |
+| 3 | 1–3 days | ~0.53 |
+| 4 | 3–7 days | ~0.43 |
+| 5 | 1–4 weeks | ~0.32 |
+| 6 | 1–3 months | ~0.24 |
+| 7 | 3–6 months | ~0.20 |
+| 8 | 6–12 months | ~0.17 |
+| 9 | 1–2 years | ~0.14 |
+| 10 | 2–5 years | ~0.11 |
+| 11 | 5+ years | 0.10 (permastore floor) |
+
+### DecayConfig Presets
+
+Three presets are available for different agent personalities:
+
+| Preset | Exponent | Floor | Use Case |
+|:---|:---:|:---:|:---|
+| `DEFAULT` | d=0.15 | 0.10 | General-purpose agent memory |
+| `SLOW_FORGET` | d=0.08 | 0.15 | Digital legacy, long-term knowledge bases |
+| `FAST_FORGET` | d=0.30 | 0.05 | Chat assistants, fast-moving contexts |
+
+### Reconsolidation Adjustment (LTP)
+
+Each recall effectively **halves the memory's perceived age** by bit-shifting the bucket index right. This mirrors biological spaced repetition where each successful retrieval doubles the memory's half-life:
 
 ```java
-public static int adjustForReconsolidation(int rawBucket, int recallCount) {
-    return Math.max(0, rawBucket - (recallCount / 3));
+public static int adjustForReconsolidation(int rawBucket, int agentRecallCount) {
+    int shift = Math.min(agentRecallCount, 5);
+    return rawBucket >> shift;
 }
 ```
 
-A memory recalled 12 times is 4 buckets "younger" than its actual age — it resists forgetting.
+| Recall Count | Shift | Effect |
+|:---:|:---:|:---|
+| 0 | ÷1 | No change |
+| 1 | ÷2 | bucket 6 → 3 |
+| 2 | ÷4 | bucket 6 → 1 |
+| 3 | ÷8 | bucket 7 → 0 |
+| 5+ | ÷32 | Effectively fresh |
+
+A memory recalled 3 times is **8× "younger"** than its actual age — it powerfully resists forgetting.
+
+### Auto-LTP (Passive Recall)
+
+Spector also tracks internal passive recalls separately from agent-explicit reinforcement. Passive recall uses a gentler linear shift: `min(spectorRecallCount / 3, 2)` — capped at 2 buckets to prevent passive retrieval from making memories artificially immortal:
+
+```java
+public static int adjustForAutoRecall(int bucket, int spectorRecallCount) {
+    int shift = Math.min(spectorRecallCount / 3, 2);
+    return Math.max(0, bucket - shift);
+}
+```
 
 ### Arousal-Modulated Decay
 
-Emotionally intense memories resist forgetting. The `arousal` byte modulates the decay curve through a 4-bucket lookup table:
+Emotionally intense memories resist forgetting. The `arousal` byte modulates the decay curve through a 4-entry lookup table:
 
 ```java
-private static final int[] AROUSAL_THRESHOLDS = {64, 128, 192};
-private static final float[] AROUSAL_MODIFIERS = {1.0f, 1.15f, 1.35f, 1.65f};
+static final float[] AROUSAL_DECAY_MODIFIERS = {
+    1.00f,  // arousal 0-63:    neutral     → no change
+    1.15f,  // arousal 64-127:  mild        → 15% slower decay
+    1.35f,  // arousal 128-191: moderate    → 35% slower decay
+    1.65f   // arousal 192-255: extreme     → 65% slower decay
+};
+
+public static float arousalModifier(byte arousal) {
+    int unsigned = Byte.toUnsignedInt(arousal);
+    int bucket = Math.min(3, unsigned / 64);
+    return AROUSAL_DECAY_MODIFIERS[bucket];
+}
 ```
 
 | Arousal Range | Bucket | Modifier | Biological Basis |
@@ -285,25 +337,11 @@ private static final float[] AROUSAL_MODIFIERS = {1.0f, 1.15f, 1.35f, 1.65f};
 The modifier **multiplies the base decay factor**, slowing the decay rate. A production outage at arousal=200 decays 1.65× slower than a routine log entry at arousal=0.
 
 ```java
-/**
- * Computes decay with arousal modulation.
- * Higher arousal → slower decay → memory persists longer.
- */
-public static float computeDecayWithArousal(int bucket, byte arousal) {
-    float baseFactor = decay(bucket);
+public static float computeDecayWithArousal(long timestampMs, long nowMs,
+                                              int agentRecallCount, byte arousal) {
+    float baseDecay = computeDecay(timestampMs, nowMs, agentRecallCount);
     float modifier = arousalModifier(arousal);
-    return Math.min(1.0f, baseFactor * modifier);
-}
-
-/**
- * Returns the arousal modifier for a given arousal byte (unsigned 0-255).
- */
-public static float arousalModifier(byte arousal) {
-    int unsigned = Byte.toUnsignedInt(arousal);
-    for (int i = AROUSAL_THRESHOLDS.length - 1; i >= 0; i--) {
-        if (unsigned >= AROUSAL_THRESHOLDS[i]) return AROUSAL_MODIFIERS[i + 1];
-    }
-    return AROUSAL_MODIFIERS[0];
+    return Math.min(1.0f, baseDecay * modifier);
 }
 ```
 

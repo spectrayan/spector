@@ -67,7 +67,7 @@ public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
 Three of the four stores (Working, Semantic, Procedural) extend `AbstractTierStore`, which provides:
 
 - **Arena lifecycle**: `Arena.ofShared()` for thread-safe off-heap access
-- **Segment allocation**: 32-byte aligned via `arena.allocate(bytes, 32)`
+- **Segment allocation**: 64-byte aligned via `arena.allocate(bytes, 64)` (one cache line)
 - **Layout creation** from quantized vector byte count
 - **Capacity tracking** and size reporting
 - **Close/cleanup** lifecycle
@@ -131,8 +131,8 @@ Each episodic partition is a memory-mapped file with a 64-byte metadata header:
 │   ├── 4B state (ACTIVE/SEALED/REFLECTABLE/TOMBSTONED/...)  │
 │   ├── 4B stride                                             │
 │   └── 36B reserved                                          │
-├── [Record 0: 32B header + NB vector] ──────────────────────┤
-├── [Record 1: 32B header + NB vector] ──────────────────────┤
+├── [Record 0: 64B header + NB vector] ──────────────────────┤
+├── [Record 1: 64B header + NB vector] ──────────────────────┤
 │   ...                                                       │
 └── [Record N-1]  ───────────────────────────────────────────┘
 ```

@@ -26,7 +26,7 @@ Spector Memory collapses the entire cognitive stack onto a **zero-GC, off-heap P
 | GC pauses | Unpredictable | **≤0.01%** (100% off-heap) † |
 | Scoring pipeline | Post-filter (lossy) | **Fused SIMD** (lossless) |
 | Concurrent queries | GIL-limited | **61,000 QPS** (Virtual Threads) † |
-| Memory per record | ~500B (Python objects) | **32B header + quantized vector** |
+| Memory per record | ~500B (Python objects) | **64B header + quantized vector** |
 
 † *Measured on Intel Core Ultra 9 285K, Java 25, AVX2. See [Benchmarks](performance.md).*
 
@@ -183,7 +183,7 @@ Just as the human brain has distinct memory systems, Spector organizes memories 
 
     ---
 
-    Zero-GC architecture, MemorySegment lifecycle, mmap partitions, 32-byte CognitiveRecord binary format
+    Zero-GC architecture, MemorySegment lifecycle, mmap partitions, 64-byte CognitiveRecord binary format
 
     [:octicons-arrow-right-24: Panama Design](panama-design.md)
 

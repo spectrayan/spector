@@ -30,9 +30,9 @@ In a standard JVM application, objects live on the heap and are managed by the g
 Every memory record is stored in a `MemorySegment` — a contiguous off-heap byte buffer managed by an `Arena`:
 
 ```java
-// Allocate 8 MB of off-heap memory, 32-byte aligned
+// Allocate 8 MB of off-heap memory, 64-byte aligned (1 cache line)
 Arena arena = Arena.ofShared();
-MemorySegment segment = arena.allocate(8 * 1024 * 1024, 32);
+MemorySegment segment = arena.allocate(8 * 1024 * 1024, 64);
 
 // Write a float directly at a byte offset — no Java objects involved
 segment.set(ValueLayout.JAVA_FLOAT, offset + 20, 0.85f);
@@ -44,7 +44,7 @@ float importance = segment.get(ValueLayout.JAVA_FLOAT, offset + 20);
 **Key properties**:
 
 - `Arena.ofShared()` — thread-safe for concurrent reads (Virtual Threads)
-- 32-byte alignment ensures SIMD-friendly access patterns
+- 64-byte alignment ensures SIMD-friendly access patterns and cache-line-aligned header reads
 - No Java objects are created — the GC never sees this memory
 
 ### Arena Lifecycle
@@ -188,14 +188,15 @@ graph LR
 The header layout is designed for **sequential access** in the scoring hot-loop. Fields are ordered by access frequency:
 
 ```
-Phase 1: flags        (offset 31, 1B)  — First check, highest skip rate
-Phase 2: synapticTags (offset 8,  8B)  — Second check, eliminates 99%
-Phase 3: valence      (offset 30, 1B)  — Third check (profile-dependent)
-Phase 4: importance   (offset 20, 4B)  — Fourth check
-Phase 4: timestamp    (offset 0,  8B)  — Read with importance
-Phase 4: recallCount  (offset 24, 4B)  — Reconsolidation adjustment
+Phase 1: flags        (offset 1,  1B)  — First check, highest skip rate
+Phase 2: synapticTags (offset 24, 8B)  — Second check, eliminates 99%
+Phase 3: valence      (offset 2,  1B)  — Third check (profile-dependent)
+Phase 4: importance   (offset 4,  4B)  — Fourth check
+Phase 4: timestamp    (offset 8,  8B)  — Read with importance
+Phase 4: recallCount  (offset 16, 4B)  — Reconsolidation adjustment
 Phase 4: arousal      (offset 3,  1B)  — Arousal-modulated decay
-Phase 5: vector       (offset H,  NB)  — Only if all filters pass (H = header bytes)
+Phase 4: storageStr   (offset 36, 4B)  — Two-Factor S(t)
+Phase 5: vector       (offset 64, NB)  — Only if all filters pass
 ```
 
 !!! tip "Cache Line Optimization"
@@ -222,7 +223,7 @@ Offset   Size   Field            Description
 
 **File naming**: `episodic-{yyyyMMdd}.mem` (e.g., `episodic-20260527.mem`)
 
-**Partition capacity**: Default 10,000 records per partition. At 800 bytes/record (768-dim INT8), each partition file is ~8 MB.
+**Partition capacity**: Default 10,000 records per partition. At 832 bytes/record (768-dim INT8), each partition file is ~8 MB.
 
 ---
 

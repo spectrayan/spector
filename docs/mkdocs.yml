@@ -55,6 +55,7 @@ plugins:
       separator: '[\s\-\.]+'        # Better tokenization for compound terms
       lang: en
   - callouts
+  - markdownwavedrom
   - tags                            # Tag-based content discovery
   - minify:                         # Minify HTML for faster page loads
       minify_html: true
@@ -119,6 +120,7 @@ nav:
       - Installation: getting-started/installation.md
       - MCP Server: sdk-usage/mcp-server.md
       - Java SDK: sdk-usage/java-client.md
+      - Python SDK: sdk-usage/python-sdk.md
       - Spring AI Integration: sdk-usage/spring-ai.md
       - CLI Reference: cli-reference/spectorctl.md
       - REST API: api-reference/rest-endpoints.md

@@ -1,0 +1,18 @@
+[
+    {"name": "ver",                "bits": 1,  "attr": "1B",   "type": 4},
+    {"name": "flags",              "bits": 1,  "attr": "1B",   "type": 4},
+    {"name": "valence",            "bits": 1,  "attr": "1B",   "type": 3},
+    {"name": "arousal",            "bits": 1,  "attr": "1B",   "type": 3},
+    {"name": "importance",         "bits": 4,  "attr": "float", "type": 2},
+    {"name": "timestamp_ms",       "bits": 8,  "attr": "long",  "type": 5},
+    {"name": "agent_recall_count", "bits": 4,  "attr": "int",   "type": 6},
+    {"name": "exact_norm",         "bits": 4,  "attr": "float", "type": 2},
+    {"name": "synaptic_tags",      "bits": 8,  "attr": "long",  "type": 5},
+    {"name": "centroid_id",        "bits": 2,  "attr": "short", "type": 6},
+    {"name": "pad",                "bits": 2,  "attr": "",      "type": 7},
+    {"name": "storage_strength",   "bits": 4,  "attr": "float", "type": 2},
+    {"name": "spector_recall_cnt", "bits": 4,  "attr": "int",   "type": 6},
+    {"name": "reserved_f1",        "bits": 4,  "attr": "",      "type": 7},
+    {"name": "last_auto_ltp",      "bits": 8,  "attr": "long",  "type": 5},
+    {"name": "reserved_l1",        "bits": 8,  "attr": "",      "type": 7}
+]
