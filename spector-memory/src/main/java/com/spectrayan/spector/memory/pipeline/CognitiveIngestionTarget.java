@@ -396,7 +396,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             try {
                 List<ExtractedEntity> entities = entityExtractor.extract(id, text);
                 for (ExtractedEntity entity : entities) {
-                    int eid = entityGraph.addEntity(entity.name(), entity.type());
+                    int eid = entityGraph.addEntity(entity.name(), entity.typeName());
                     if (eid >= 0) {
                         entityGraph.linkEntityToMemory(eid, memoryIdx);
 
@@ -407,10 +407,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                 // Target not yet in graph — add it as OTHER
                                 targetEid = entityGraph.addEntity(
                                         rel.targetEntityName(),
-                                        com.spectrayan.spector.memory.graph.EntityType.OTHER);
+                                        "OTHER");
                             }
                             if (targetEid >= 0) {
-                                entityGraph.addRelation(eid, targetEid, rel.relationType());
+                                entityGraph.addRelation(eid, targetEid, rel.relationTypeName());
                             }
                         }
                     }
@@ -622,7 +622,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         if (context.hasEntities() && entityGraph != null) {
             try {
                 for (ExtractedEntity entity : context.entities()) {
-                    int eid = entityGraph.addEntity(entity.name(), entity.type());
+                    int eid = entityGraph.addEntity(entity.name(), entity.typeName());
                     if (eid >= 0) {
                         entityGraph.linkEntityToMemory(eid, memoryIdx);
                         for (EntityRelation rel : entity.relations()) {
@@ -630,10 +630,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                             if (targetEid < 0) {
                                 targetEid = entityGraph.addEntity(
                                         rel.targetEntityName(),
-                                        com.spectrayan.spector.memory.graph.EntityType.OTHER);
+                                        "OTHER");
                             }
                             if (targetEid >= 0) {
-                                entityGraph.addRelation(eid, targetEid, rel.relationType());
+                                entityGraph.addRelation(eid, targetEid, rel.relationTypeName());
                             }
                         }
                     }
@@ -646,7 +646,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             try {
                 List<ExtractedEntity> entities = entityExtractor.extract(id, text);
                 for (ExtractedEntity entity : entities) {
-                    int eid = entityGraph.addEntity(entity.name(), entity.type());
+                    int eid = entityGraph.addEntity(entity.name(), entity.typeName());
                     if (eid >= 0) {
                         entityGraph.linkEntityToMemory(eid, memoryIdx);
                         for (EntityRelation rel : entity.relations()) {
@@ -654,10 +654,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                             if (targetEid < 0) {
                                 targetEid = entityGraph.addEntity(
                                         rel.targetEntityName(),
-                                        com.spectrayan.spector.memory.graph.EntityType.OTHER);
+                                        "OTHER");
                             }
                             if (targetEid >= 0) {
-                                entityGraph.addRelation(eid, targetEid, rel.relationType());
+                                entityGraph.addRelation(eid, targetEid, rel.relationTypeName());
                             }
                         }
                     }

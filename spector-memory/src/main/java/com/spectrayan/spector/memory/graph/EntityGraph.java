@@ -107,6 +107,11 @@ public final class EntityGraph implements AutoCloseable {
     /** On-heap name→entityId index for O(1) lookup (case-insensitive). */
     private final ConcurrentHashMap<String, Integer> nameIndex = new ConcurrentHashMap<>();
 
+    /** Open-schema entity type registry (String ↔ int). */
+    private final TypeRegistry entityTypeRegistry;
+    /** Open-schema relation type registry (String ↔ int). */
+    private final TypeRegistry relationTypeRegistry;
+
     /**
      * Creates a new entity graph.
      *
@@ -123,6 +128,8 @@ public final class EntityGraph implements AutoCloseable {
         this.edgeSegment = arena.allocate((long) EDGE_BYTES * edgeCapacity);
         entitySegment.fill((byte) 0);
         edgeSegment.fill((byte) 0);
+        this.entityTypeRegistry = TypeRegistry.seeded("entity-type", EntityType.SEED);
+        this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
 
         log.info("EntityGraph initialized: entities={}, edges={}, memory={}KB",
                 entityCapacity, edgeCapacity,
@@ -143,7 +150,8 @@ public final class EntityGraph implements AutoCloseable {
      */
     private EntityGraph(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
                          Arena arena, MemorySegment entitySegment, MemorySegment edgeSegment,
-                         ConcurrentHashMap<String, Integer> nameIndex) {
+                         ConcurrentHashMap<String, Integer> nameIndex,
+                         TypeRegistry entityTypeRegistry, TypeRegistry relationTypeRegistry) {
         this.entityCapacity = entityCapacity;
         this.edgeCapacity = edgeCapacity;
         this.entityCount = entityCount;
@@ -152,6 +160,8 @@ public final class EntityGraph implements AutoCloseable {
         this.entitySegment = entitySegment;
         this.edgeSegment = edgeSegment;
         this.nameIndex.putAll(nameIndex);
+        this.entityTypeRegistry = entityTypeRegistry;
+        this.relationTypeRegistry = relationTypeRegistry;
     }
 
     /**
@@ -163,9 +173,9 @@ public final class EntityGraph implements AutoCloseable {
      * @param type entity type
      * @return entity ID (index into entity segment)
      */
-    public int addEntity(String name, EntityType type) {
+    public int addEntity(String name, String type) {
         if (name == null || name.isBlank()) return -1;
-        if (type == null) type = EntityType.OTHER;
+        if (type == null || type.isBlank()) type = "OTHER";
         String normalized = name.trim().toLowerCase(Locale.ROOT);
 
         // Check if already exists
@@ -181,8 +191,9 @@ public final class EntityGraph implements AutoCloseable {
 
         int entityId = entityCount++;
         long offset = (long) entityId * ENTITY_NODE_BYTES;
+        int typeId = entityTypeRegistry.getOrRegister(type);
 
-        entitySegment.set(ValueLayout.JAVA_BYTE, offset + ENT_OFF_TYPE, (byte) type.ordinal());
+        entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_TYPE, typeId);
         entitySegment.set(ValueLayout.JAVA_LONG, offset + ENT_OFF_NAME_HASH, normalized.hashCode());
         entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_REF_COUNT, 0);
         entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_DEGREE, 0);
@@ -201,11 +212,12 @@ public final class EntityGraph implements AutoCloseable {
      * @param toEntity   target entity ID
      * @param type       relation type
      */
-    public synchronized void addRelation(int fromEntity, int toEntity, RelationType type) {
+    public synchronized void addRelation(int fromEntity, int toEntity, String type) {
         if (fromEntity < 0 || fromEntity >= entityCount) return;
         if (toEntity < 0 || toEntity >= entityCount) return;
         if (fromEntity == toEntity) return;
 
+        int typeId = relationTypeRegistry.getOrRegister(type != null ? type : "OTHER");
         long entityOffset = (long) fromEntity * ENTITY_NODE_BYTES;
         int degree = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_DEGREE);
         int edgeStart = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_EDGE_START);
@@ -216,7 +228,7 @@ public final class EntityGraph implements AutoCloseable {
                 long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
                 int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
                 int relType = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE);
-                if (target == toEntity && relType == type.ordinal()) {
+                if (target == toEntity && relType == typeId) {
                     // Strengthen existing edge
                     float weight = edgeSegment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
                     edgeSegment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, weight + 1.0f);
@@ -249,7 +261,7 @@ public final class EntityGraph implements AutoCloseable {
 
         long edgeOffset = (long) edgeIdx * EDGE_BYTES;
         edgeSegment.set(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET, toEntity);
-        edgeSegment.set(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE, type.ordinal());
+        edgeSegment.set(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE, typeId);
         edgeSegment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, 1.0f);
 
         entitySegment.set(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_DEGREE, degree + 1);
@@ -344,12 +356,11 @@ public final class EntityGraph implements AutoCloseable {
     /**
      * Returns the entity type for an entity ID.
      */
-    public EntityType entityType(int entityId) {
-        if (entityId < 0 || entityId >= entityCount) return EntityType.OTHER;
-        byte typeOrd = entitySegment.get(ValueLayout.JAVA_BYTE,
+    public String entityType(int entityId) {
+        if (entityId < 0 || entityId >= entityCount) return "OTHER";
+        int typeId = entitySegment.get(ValueLayout.JAVA_INT,
                 (long) entityId * ENTITY_NODE_BYTES + ENT_OFF_TYPE);
-        EntityType[] types = EntityType.values();
-        return typeOrd >= 0 && typeOrd < types.length ? types[typeOrd] : EntityType.OTHER;
+        return entityTypeRegistry.nameOf(typeId);
     }
 
     /**
@@ -368,12 +379,10 @@ public final class EntityGraph implements AutoCloseable {
         for (int i = 0; i < degree; i++) {
             long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
             int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
-            int relTypeOrd = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE);
+            int relTypeId = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE);
             float weight = edgeSegment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
 
-            RelationType[] types = RelationType.values();
-            RelationType relType = relTypeOrd >= 0 && relTypeOrd < types.length
-                    ? types[relTypeOrd] : RelationType.OTHER;
+            String relType = relationTypeRegistry.nameOf(relTypeId);
 
             result.add(new EntityEdge(target, relType, weight));
         }
@@ -388,7 +397,7 @@ public final class EntityGraph implements AutoCloseable {
      * @param maxHops     maximum traversal depth
      * @return list of reached entity IDs with their hop distances
      */
-    public List<TraversalResult> traverse(int startEntity, RelationType filter, int maxHops) {
+    public List<TraversalResult> traverse(int startEntity, String filter, int maxHops) {
         if (startEntity < 0 || startEntity >= entityCount) return List.of();
 
         List<TraversalResult> results = new ArrayList<>();
@@ -412,7 +421,7 @@ public final class EntityGraph implements AutoCloseable {
             if (depth >= maxHops) continue;
 
             for (EntityEdge edge : edges(entityId)) {
-                if (filter != null && edge.relationType() != filter) continue;
+                if (filter != null && !filter.equals(edge.relationType())) continue;
                 int target = edge.targetEntityId();
                 if (target >= 0 && target < entityCount && !visited[target]) {
                     visited[target] = true;
@@ -437,7 +446,7 @@ public final class EntityGraph implements AutoCloseable {
      * @param maxHops     maximum traversal depth
      * @return set of memory indices
      */
-    public Set<Integer> collectMemories(int startEntity, RelationType filter, int maxHops) {
+    public Set<Integer> collectMemories(int startEntity, String filter, int maxHops) {
         Set<Integer> memories = new HashSet<>();
 
         // Include start entity's memories
@@ -655,7 +664,7 @@ public final class EntityGraph implements AutoCloseable {
      * allocation. With specialized generics, {@code List<EntityEdge>} would store
      * flat values instead of boxed pointers.</p>
      */
-    public record EntityEdge(int targetEntityId, RelationType relationType, float weight) {}
+    public record EntityEdge(int targetEntityId, String relationType, float weight) {}
 
     /**
      * A BFS traversal result.
@@ -805,7 +814,9 @@ public final class EntityGraph implements AutoCloseable {
             }
 
             EntityGraph graph = new EntityGraph(entityCap, edgeCap, entCount, edgCount,
-                    arena, entSeg, edgSeg, names);
+                    arena, entSeg, edgSeg, names,
+                    TypeRegistry.seeded("entity-type", EntityType.SEED),
+                    TypeRegistry.seeded("relation-type", RelationType.SEED));
             log.info("EntityGraph loaded: entities={}, edges={} from {}",
                     entCount, edgCount, filePath);
             return graph;

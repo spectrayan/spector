@@ -82,5 +82,25 @@ public enum RelationType {
     /** A is related to B (generic association). */
     RELATED_TO,
     /** Fallback for unrecognized relation types. */
-    OTHER
+    OTHER;
+
+    /** All well-known relation type names, ordered by enum ordinal for registry seeding. */
+    public static final String[] SEED = {
+        "MANAGES", "REPORTS_TO", "KNOWS", "ASSIGNED_TO", "AUTHORED",
+        "WORKS_ON", "CREATED_BY", "OWNS", "IMPLEMENTS",
+        "PART_OF", "CONTAINS", "DEPENDS_ON", "USES",
+        "CAUSES", "BLOCKS", "SUPERSEDES", "PRECEDES", "FOLLOWS",
+        "LOCATED_AT",
+        "RELATED_TO", "OTHER"
+    };
+
+    /**
+     * Returns the relation type name for a legacy enum ordinal.
+     *
+     * @param ordinal the enum ordinal (0-based)
+     * @return the type name string, or "OTHER" if out of range
+     */
+    public static String fromOrdinal(int ordinal) {
+        return ordinal >= 0 && ordinal < SEED.length ? SEED[ordinal] : "OTHER";
+    }
 }

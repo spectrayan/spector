@@ -87,5 +87,31 @@ public enum EntityType {
 
     // ── Catch-all ──
     /** Any entity that doesn't fit the above categories. */
-    OTHER
+    OTHER;
+
+    // ══════════════════════════════════════════════════════════════
+    // Well-Known Constants (for code readability, UI icons, filtering)
+    // ══════════════════════════════════════════════════════════════
+
+    /** All well-known entity type names, ordered by enum ordinal for registry seeding. */
+    public static final String[] SEED = {
+        "PERSON", "ORGANIZATION", "TEAM", "ROLE",
+        "PROJECT", "PRODUCT", "TASK",
+        "CONCEPT", "TOPIC", "SKILL", "DECISION",
+        "TECHNOLOGY", "TOOL", "API", "ARTIFACT",
+        "EVENT", "LOCATION", "DATE_TIME",
+        "PROCESS", "METRIC", "DOCUMENT",
+        "OTHER"
+    };
+
+    /**
+     * Returns the entity type name for a legacy enum ordinal.
+     * Used for migrating persisted v1 EntityGraph files.
+     *
+     * @param ordinal the enum ordinal (0-based)
+     * @return the type name string, or "OTHER" if out of range
+     */
+    public static String fromOrdinal(int ordinal) {
+        return ordinal >= 0 && ordinal < SEED.length ? SEED[ordinal] : "OTHER";
+    }
 }

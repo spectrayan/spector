@@ -139,7 +139,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
     private List<ExtractedEntity> parseResponse(String response, String id) {
         // Parse entities
         List<String> entityNames = new ArrayList<>();
-        List<EntityType> entityTypes = new ArrayList<>();
+        List<String> entityTypes = new ArrayList<>();
 
         Matcher entityMatcher = ENTITY_PATTERN.matcher(response);
         int entityCount = 0;
@@ -147,15 +147,8 @@ public final class LlmEntityExtractor implements EntityExtractor {
             String name = entityMatcher.group(1).trim();
             String typeStr = entityMatcher.group(2).trim().toUpperCase(Locale.ROOT);
 
-            EntityType type;
-            try {
-                type = EntityType.valueOf(typeStr);
-            } catch (IllegalArgumentException e) {
-                type = EntityType.OTHER;
-            }
-
             entityNames.add(name);
-            entityTypes.add(type);
+            entityTypes.add(typeStr);
             entityCount++;
         }
 
@@ -170,17 +163,10 @@ public final class LlmEntityExtractor implements EntityExtractor {
         int relationCount = 0;
         while (relationMatcher.find() && relationCount < maxRelations) {
             String source = relationMatcher.group(1).trim();
-            String typeStr = relationMatcher.group(2).trim().toUpperCase(Locale.ROOT);
+            String relTypeStr = relationMatcher.group(2).trim().toUpperCase(Locale.ROOT);
             String target = relationMatcher.group(3).trim();
 
-            RelationType relType;
-            try {
-                relType = RelationType.valueOf(typeStr);
-            } catch (IllegalArgumentException e) {
-                relType = RelationType.OTHER;
-            }
-
-            relations.add(new RelationTriple(source, relType, target));
+            relations.add(new RelationTriple(source, relTypeStr, target));
             relationCount++;
         }
 
@@ -188,7 +174,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
         List<ExtractedEntity> result = new ArrayList<>();
         for (int i = 0; i < entityNames.size(); i++) {
             String name = entityNames.get(i);
-            EntityType type = entityTypes.get(i);
+            String type = entityTypes.get(i);
 
             // Collect relations where this entity is the source
             List<EntityRelation> entityRelations = relations.stream()
@@ -204,5 +190,6 @@ public final class LlmEntityExtractor implements EntityExtractor {
         return result;
     }
 
-    private record RelationTriple(String source, RelationType type, String target) {}
+    private record RelationTriple(String source, String type, String target) {}
 }
+

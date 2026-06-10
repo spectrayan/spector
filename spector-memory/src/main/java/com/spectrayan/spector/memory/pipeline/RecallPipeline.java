@@ -79,6 +79,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.spectrayan.spector.commons.concurrent.NativeOsMemory;
+
 
 
 /**
@@ -631,13 +633,7 @@ public final class RecallPipeline {
         if (options.recallMode() == RecallMode.LEARN && !listeners.isEmpty()) {
             final List<CognitiveResult> finalResults = allResults;
             for (RecallListener listener : listeners) {
-                Thread.startVirtualThread(() -> {
-                    try {
-                        listener.onRecallComplete(finalResults);
-                    } catch (Exception e) {
-                        log.error("Post-recall listener failed: {}", e.getMessage(), e);
-                    }
-                });
+                ConcurrentTasks.fireAndForget(() -> listener.onRecallComplete(finalResults));
             }
         }
 
@@ -850,50 +846,82 @@ public final class RecallPipeline {
             float[] queryVector, RecallOptions options, long nowMs, MemoryType[] targetTypes) {
         List<Callable<List<CognitiveResult>>> tasks = new ArrayList<>();
 
-        // Working Memory scan
+        // Working Memory scan — use visibleCount() for SWMR safety
         if (TierRouter.shouldScan(MemoryType.WORKING, targetTypes)
-                && tierRouter.working().size() > 0) {
-            tasks.add(() -> scoreStoreToList(
-                    tierRouter.working().segment(), tierRouter.working().size(),
-                    tierRouter.working().layout(), queryVector, options, nowMs,
-                    MemoryType.WORKING, 0L));
+                && tierRouter.working().visibleCount() > 0) {
+            tasks.add(() -> {
+                MemorySegment seg = tierRouter.working().segment();
+                NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
+                try {
+                    return scoreStoreToList(
+                            seg, tierRouter.working().visibleCount(),
+                            tierRouter.working().layout(), queryVector, options, nowMs,
+                            MemoryType.WORKING, 0L);
+                } finally {
+                    NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
+                }
+            });
         }
 
         // Episodic Memory — one task per partition (disjoint segments → zero contention)
         if (TierRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
             for (EpisodicPartition partition : tierRouter.episodic().partitions()) {
-                if (partition.count() > 0) {
-                    tasks.add(() -> scoreStoreToList(
-                            partition.segment(), partition.count(),
-                            partition.layout(), queryVector, options, nowMs,
-                            MemoryType.EPISODIC, partition.dataOffset()));
+                if (partition.visibleCount() > 0) {
+                    tasks.add(() -> {
+                        MemorySegment seg = partition.segment();
+                        NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
+                        try {
+                            return scoreStoreToList(
+                                    seg, partition.visibleCount(),
+                                    partition.layout(), queryVector, options, nowMs,
+                                    MemoryType.EPISODIC, partition.dataOffset());
+                        } finally {
+                            NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
+                        }
+                    });
                 }
             }
         }
 
         // Semantic Memory — fused HNSW+cognitive if strategy available, else header slab
         if (TierRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)) {
-            if (tierRouter.semantic() != null && tierRouter.semantic().size() > 0) {
+            if (tierRouter.semantic() != null && tierRouter.semantic().visibleCount() > 0) {
                 if (semanticRecallStrategy != null && semanticRecallStrategy.isAvailable()) {
                     // Fused pipeline: HNSW search → cognitive re-ranking
                     tasks.add(() -> semanticRecallStrategy.recall(queryVector, options, nowMs));
                 } else {
                     // Fallback: full-record slab scan (with tag/valence filters)
-                    tasks.add(() -> scoreHeaderSlabToList(
-                            tierRouter.semantic().headerSlab(), tierRouter.semantic().size(),
-                            tierRouter.semantic().layout(), queryVector, options, nowMs,
-                            tierRouter.semantic().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0));
+                    tasks.add(() -> {
+                        MemorySegment seg = tierRouter.semantic().headerSlab();
+                        NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
+                        try {
+                            return scoreHeaderSlabToList(
+                                    seg, tierRouter.semantic().visibleCount(),
+                                    tierRouter.semantic().layout(), queryVector, options, nowMs,
+                                    tierRouter.semantic().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0);
+                        } finally {
+                            NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
+                        }
+                    });
                 }
             }
         }
 
         // Procedural Memory scan
         if (TierRouter.shouldScan(MemoryType.PROCEDURAL, targetTypes)
-                && tierRouter.procedural().size() > 0) {
-            tasks.add(() -> scoreStoreToList(
-                    tierRouter.procedural().segment(), tierRouter.procedural().size(),
-                    tierRouter.procedural().layout(), queryVector, options, nowMs,
-                    MemoryType.PROCEDURAL, 0L));
+                && tierRouter.procedural().visibleCount() > 0) {
+            tasks.add(() -> {
+                MemorySegment seg = tierRouter.procedural().segment();
+                NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
+                try {
+                    return scoreStoreToList(
+                            seg, tierRouter.procedural().visibleCount(),
+                            tierRouter.procedural().layout(), queryVector, options, nowMs,
+                            MemoryType.PROCEDURAL, 0L);
+                } finally {
+                    NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
+                }
+            });
         }
 
         return tasks;
@@ -906,35 +934,35 @@ public final class RecallPipeline {
                                                    long nowMs, MemoryType[] targetTypes) {
         List<CognitiveResult> results = new ArrayList<>();
         if (TierRouter.shouldScan(MemoryType.WORKING, targetTypes)
-                && tierRouter.working().size() > 0) {
+                && tierRouter.working().visibleCount() > 0) {
             results.addAll(scoreStoreToList(tierRouter.working().segment(),
-                    tierRouter.working().size(), tierRouter.working().layout(),
+                    tierRouter.working().visibleCount(), tierRouter.working().layout(),
                     queryVector, options, nowMs, MemoryType.WORKING, 0L));
         }
         if (TierRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
             for (EpisodicPartition p : tierRouter.episodic().partitions()) {
-                if (p.count() > 0) {
-                    results.addAll(scoreStoreToList(p.segment(), p.count(), p.layout(),
+                if (p.visibleCount() > 0) {
+                    results.addAll(scoreStoreToList(p.segment(), p.visibleCount(), p.layout(),
                             queryVector, options, nowMs, MemoryType.EPISODIC, p.dataOffset()));
                 }
             }
         }
         if (TierRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)) {
-            if (tierRouter.semantic() != null && tierRouter.semantic().size() > 0) {
+            if (tierRouter.semantic() != null && tierRouter.semantic().visibleCount() > 0) {
                 if (semanticRecallStrategy != null && semanticRecallStrategy.isAvailable()) {
                     results.addAll(semanticRecallStrategy.recall(queryVector, options, nowMs));
                 } else {
                     results.addAll(scoreHeaderSlabToList(tierRouter.semantic().headerSlab(),
-                            tierRouter.semantic().size(), tierRouter.semantic().layout(),
+                            tierRouter.semantic().visibleCount(), tierRouter.semantic().layout(),
                             queryVector, options, nowMs,
                             tierRouter.semantic().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0));
                 }
             }
         }
         if (TierRouter.shouldScan(MemoryType.PROCEDURAL, targetTypes)
-                && tierRouter.procedural().size() > 0) {
+                && tierRouter.procedural().visibleCount() > 0) {
             results.addAll(scoreStoreToList(tierRouter.procedural().segment(),
-                    tierRouter.procedural().size(), tierRouter.procedural().layout(),
+                    tierRouter.procedural().visibleCount(), tierRouter.procedural().layout(),
                     queryVector, options, nowMs, MemoryType.PROCEDURAL, 0L));
         }
         return results;

@@ -16,9 +16,31 @@ package com.spectrayan.spector.memory.graph;
  * A typed relation between two entities extracted from memory text.
  *
  * @param targetEntityName name of the target entity (will be resolved to ID during graph population)
- * @param relationType     the type of relationship
+ * @param relationType     the relation type enum value
  */
 public record EntityRelation(
         String targetEntityName,
         RelationType relationType
-) {}
+) {
+    /**
+     * Creates a relation from a type name string, falling back to {@link RelationType#RELATED_TO}.
+     */
+    public EntityRelation(String targetEntityName, String relationTypeName) {
+        this(targetEntityName, parseRelationType(relationTypeName));
+    }
+
+    /**
+     * Returns the relation type name as a string (for graph storage compatibility).
+     */
+    public String relationTypeName() {
+        return relationType.name();
+    }
+
+    private static RelationType parseRelationType(String name) {
+        try {
+            return RelationType.valueOf(name);
+        } catch (IllegalArgumentException e) {
+            return RelationType.RELATED_TO;
+        }
+    }
+}
