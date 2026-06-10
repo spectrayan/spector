@@ -182,7 +182,6 @@ public class SpectorNode implements AutoCloseable {
         v1Modules.add(new RagEndpoint(ragService));
         v1Modules.add(new DocumentEndpoint(ingestService));
         v1Modules.add(new StatusEndpoint(engine, nodeConfig, eventBus, coordinator));
-        v1Modules.add(new EventStreamEndpoint(eventBus));
 
         if (memoryService != null) {
             v1Modules.add(new MemoryEndpoint(memoryService));
@@ -199,6 +198,12 @@ public class SpectorNode implements AutoCloseable {
         for (ApiModule module : v1Modules) {
             sb.annotatedService("/api/v1" + module.pathPrefix(), module);
         }
+
+        // SSE event stream — needs unlimited timeout (long-lived connection)
+        sb.annotatedService()
+                .pathPrefix("/api/v1")
+                .requestTimeout(java.time.Duration.ZERO)
+                .build(new EventStreamEndpoint(eventBus));
 
         // ── gRPC (auto-detected via content-type: application/grpc) ──
         sb.service(GrpcService.builder()
@@ -384,11 +389,34 @@ public class SpectorNode implements AutoCloseable {
      */
     public static void main(String[] args) {
         NodeConfig nodeConfig = NodeConfig.fromEnv();
-        SpectorNode node = SpectorNode.create(nodeConfig);
 
-        Runtime.getRuntime().addShutdownHook(new Thread(node::close));
+        // Load config (spector-defaults.yml has memory.enabled=true, mode=MEMORY)
+        var props = com.spectrayan.spector.config.SpectorProperties.load();
+
+        // Create a lightweight random embedding provider for dev mode.
+        // In production, configure Ollama or another real provider.
+        int dims = props.getInt("spector.engine.dimensions", 384);
+        var embedder = new com.spectrayan.spector.embed.EmbeddingProvider() {
+            private final java.util.Random rng = new java.util.Random();
+            @Override public com.spectrayan.spector.embed.EmbeddingResult embed(String text) {
+                float[] vec = new float[dims];
+                for (int i = 0; i < dims; i++) vec[i] = rng.nextFloat() * 2 - 1;
+                return new com.spectrayan.spector.embed.EmbeddingResult(vec, text.split("\\s+").length, "random-dev");
+            }
+            @Override public int dimensions() { return dims; }
+            @Override public String modelName() { return "random-dev"; }
+        };
+
+        SpectorRuntime runtime = SpectorRuntime.from(props, embedder);
+        SpectorNode node = SpectorNode.create(runtime, nodeConfig);
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            node.close();
+            runtime.close();
+        }));
         node.start();
 
-        log.info("Spector ready — http://localhost:{}/health", nodeConfig.port());
+        log.info("Spector ready — http://localhost:{}/health (memory={})",
+                nodeConfig.port(), runtime.hasMemory());
     }
 }

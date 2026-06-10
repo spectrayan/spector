@@ -185,6 +185,26 @@
                     </archive>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <executable>java</executable>
+                    <classpathScope>runtime</classpathScope>
+                    <addOutputToClasspath>true</addOutputToClasspath>
+                    <arguments>
+                        <argument>--enable-preview</argument>
+                        <argument>--add-modules</argument>
+                        <argument>jdk.incubator.vector</argument>
+                        <argument>--enable-native-access=ALL-UNNAMED</argument>
+                        <argument>-Xmx4g</argument>
+                        <argument>-classpath</argument>
+                        <classpath/>
+                        <argument>com.spectrayan.spector.node.SpectorNode</argument>
+                    </arguments>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

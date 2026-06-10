@@ -68,8 +68,16 @@ public class MemoryEndpoint implements ApiModule {
                     (byte) Math.clamp(arousal, 0, 255));
         }
 
-        memoryService.remember(request.id(), request.text(), tier, source, hints, request.tagsArray()).join();
-        return HttpResponse.of(HttpStatus.OK, MediaType.PLAIN_TEXT_UTF_8, "Stored cognitive memory: " + request.id());
+        String effectiveId;
+        if (request.id() != null && !request.id().isBlank()) {
+            effectiveId = request.id();
+            memoryService.remember(effectiveId, request.text(), tier, source, hints, request.tagsArray()).join();
+        } else {
+            // Auto-generate ID
+            effectiveId = memoryService.memory().remember(request.text(), tier, source, request.tagsArray()).join();
+        }
+        return HttpResponse.of(HttpStatus.OK, MediaType.JSON_UTF_8,
+                "{\"id\":\"" + effectiveId + "\",\"status\":\"stored\"}");
     }
 
     @Post("/recall")
@@ -173,5 +181,91 @@ public class MemoryEndpoint implements ApiModule {
     public HttpResponse reflect() {
         var report = memoryService.reflect();
         return HttpResponse.ofJson(ReflectResponseDto.from(report));
+    }
+
+    // ── Single Memory Detail ────────────────────────────────────
+
+    @Get("/{id}")
+    public HttpResponse getMemory(@Param("id") String id) {
+        var row = memoryService.getMemoryById(id);
+        if (row == null) {
+            return HttpResponse.of(HttpStatus.NOT_FOUND, MediaType.PLAIN_TEXT_UTF_8,
+                    "Memory not found: " + id);
+        }
+        return HttpResponse.ofJson(row);
+    }
+
+    // ── Table View & Vacuum (Feature 5) ─────────────────────────
+
+    @Get("/table")
+    public HttpResponse table(
+            @Param("page") @com.linecorp.armeria.server.annotation.Default("0") int page,
+            @Param("pageSize") @com.linecorp.armeria.server.annotation.Default("50") int pageSize,
+            @Param("tier") @com.linecorp.armeria.server.annotation.Default("") String tier,
+            @Param("tombstoned") @com.linecorp.armeria.server.annotation.Default("false") boolean tombstoned) {
+        String tierFilter = tier.isBlank() ? null : tier;
+        var table = memoryService.getMemoryTable(page, pageSize, tierFilter, tombstoned);
+        return HttpResponse.ofJson(table);
+    }
+
+    @Post("/vacuum")
+    public HttpResponse vacuum(com.fasterxml.jackson.databind.JsonNode body) {
+        String tierName = body.has("tier") ? body.get("tier").asText() : "SEMANTIC";
+        MemoryType tier = MemoryType.valueOf(tierName.toUpperCase());
+        var result = memoryService.vacuum(tier);
+        if (result == null) {
+            return HttpResponse.of(HttpStatus.OK, MediaType.PLAIN_TEXT_UTF_8,
+                    "No compaction needed for tier: " + tierName);
+        }
+        return HttpResponse.ofJson(result);
+    }
+
+    // ── Graph API (Phase 5) ─────────────────────────────────────
+
+    @Get("/{id}/graph")
+    public HttpResponse memoryGraph(
+            @Param("id") String id,
+            @Param("depth") @com.linecorp.armeria.server.annotation.Default("2") int depth) {
+        int clampedDepth = Math.max(1, Math.min(3, depth));
+        var graph = memoryService.getMemoryGraph(id, clampedDepth);
+        if (graph == null) {
+            return HttpResponse.of(HttpStatus.NOT_FOUND, MediaType.PLAIN_TEXT_UTF_8,
+                    "Memory not found: " + id);
+        }
+        return HttpResponse.ofJson(graph);
+    }
+
+    @Get("/graph/overview")
+    public HttpResponse graphOverview(
+            @Param("maxNodes") @com.linecorp.armeria.server.annotation.Default("100") int maxNodes) {
+        int clampedMax = Math.max(10, Math.min(500, maxNodes));
+        var graph = memoryService.getGraphOverview(clampedMax);
+        return HttpResponse.ofJson(graph);
+    }
+
+    // ── Bulk Import Admin Endpoints ──────────────────────────────
+
+    @Post("/admin/import/hebbian-edges")
+    public HttpResponse importHebbianEdges(
+            @com.linecorp.armeria.server.annotation.RequestObject
+            java.util.List<java.util.Map<String, Object>> edges) {
+        var result = memoryService.bulkImportHebbianEdges(edges);
+        return HttpResponse.ofJson(result);
+    }
+
+    @Post("/admin/import/temporal-chains")
+    public HttpResponse importTemporalChains(
+            @com.linecorp.armeria.server.annotation.RequestObject
+            java.util.List<java.util.Map<String, Object>> chains) {
+        var result = memoryService.bulkImportTemporalChains(chains);
+        return HttpResponse.ofJson(result);
+    }
+
+    @Post("/admin/import/entity-relations")
+    public HttpResponse importEntityRelations(
+            @com.linecorp.armeria.server.annotation.RequestObject
+            java.util.List<java.util.Map<String, Object>> relations) {
+        var result = memoryService.bulkImportEntityRelations(relations);
+        return HttpResponse.ofJson(result);
     }
 }
