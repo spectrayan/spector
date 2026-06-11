@@ -92,6 +92,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.SpectorServerException;
 import com.spectrayan.spector.commons.error.ErrorCode;
@@ -479,9 +480,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         // ── Daemon Supervisor + Checkpoint Daemon ── (DISK mode only)
         if (isDisk && basePath != null && builder.checkpointIntervalSeconds > 0) {
+            Path indexSavePath = resolvedPartitionDir != null
+                    ? StorageLayout.indexMidx(resolvedPartitionDir)
+                    : basePath.resolve(StorageLayout.LEGACY_FILE_INDEX);
             this.checkpointDaemon = new CheckpointDaemon(
                     tierRouter, wal,
-                    StorageLayout.checkpointMeta(basePath));
+                    StorageLayout.checkpointMeta(basePath),
+                    index, indexSavePath);
             this.daemonSupervisor = new DaemonSupervisor("memory");
             this.daemonSupervisor.schedule(
                     "checkpoint",
@@ -562,10 +567,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 float[] vector = embeddingProvider.embed(text).vector();
                 cognitiveTarget.ingestCognitive(id, text, vector, type, tags, source, hints);
                 checkCircadianTrigger(type);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-                throw new SpectorServerException(ErrorCode.INTERNAL_ERROR, e,
-                        "Memory ingestion failed for id=" + id);
+                throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
             }
         }, ConcurrentTasks.virtualExecutor());
     }
@@ -604,10 +608,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 float[] vector = embeddingProvider.embed(text).vector();
                 cognitiveTarget.ingestCognitive(id, text, vector, type, tags, source, context);
                 checkCircadianTrigger(type);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-                throw new SpectorServerException(ErrorCode.INTERNAL_ERROR, e,
-                        "Memory ingestion failed for id=" + id);
+                throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
             }
         }, ConcurrentTasks.virtualExecutor());
     }
@@ -848,29 +851,22 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public List<CognitiveRecord> browse(String... tags) {
         if (tags == null || tags.length == 0) return List.of();
 
+        // Pre-compute query tags as a lowercase Set (O(1) lookup)
+        var queryTagSet = new java.util.HashSet<String>(tags.length);
+        for (String tag : tags) queryTagSet.add(tag.toLowerCase());
+
         var results = new java.util.ArrayList<CognitiveRecord>();
 
         for (var entry : index.locationMap().entrySet()) {
             String memId = entry.getKey();
             String[] memTags = index.tags(memId);
+            if (memTags.length < tags.length) continue; // fast-path: can't match if fewer tags
 
             // AND semantics: memory must contain all requested tags
-            boolean allMatch = true;
-            for (String tag : tags) {
-                boolean found = false;
-                for (String memTag : memTags) {
-                    if (tag.equalsIgnoreCase(memTag)) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    allMatch = false;
-                    break;
-                }
-            }
+            var memTagSet = new java.util.HashSet<String>(memTags.length);
+            for (String memTag : memTags) memTagSet.add(memTag.toLowerCase());
 
-            if (allMatch) {
+            if (memTagSet.containsAll(queryTagSet)) {
                 MemoryLocation loc = entry.getValue();
                 MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
                 CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
@@ -902,22 +898,19 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public String exportJson() {
-        var sb = new StringBuilder();
-        sb.append("[");
-        boolean first = true;
+        var mapper = new tools.jackson.databind.ObjectMapper();
+        var arrayNode = mapper.createArrayNode();
 
         for (var entry : index.locationMap().entrySet()) {
             String memId = entry.getKey();
             CognitiveRecord record = inspect(memId);
             if (record != null && !record.isTombstoned()) {
-                if (!first) sb.append(",");
-                sb.append(record.toJson());
-                first = false;
+                // Parse record's JSON into a node to avoid double-encoding
+                arrayNode.add(mapper.readTree(record.toJson()));
             }
         }
 
-        sb.append("]");
-        return sb.toString();
+        return arrayNode.toString();
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -1038,6 +1031,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // VACUUM / COMPACTION
     // ══════════════════════════════════════════════════════════════
 
+    private final ReentrantLock vacuumLock = new ReentrantLock();
+
     @Override
     public CompactionResult vacuum(MemoryType tier) {
         TierRouter router = partitionManager.tierRouter();
@@ -1046,8 +1041,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             log.warn("Vacuum: tier {} is not compactable", tier);
             return null;
         }
-        synchronized (this) {
+        vacuumLock.lock();
+        try {
             return VacuumCompactor.compact(ats, tier, index);
+        } finally {
+            vacuumLock.unlock();
         }
     }
 
