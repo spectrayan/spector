@@ -25,6 +25,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -68,6 +70,7 @@ public class MappedVectorStore implements VectorStore {
     private final AtomicInteger count;
     private final ReentrantLock writeLock = new ReentrantLock();
     private volatile boolean closed;
+    private volatile Future<?> warmupFuture;
     private volatile long lastAccessed;
 
     /**
@@ -214,6 +217,17 @@ public class MappedVectorStore implements VectorStore {
             if (!closed) {
                 closed = true;
                 try {
+                    // Wait for warmup to release the arena session
+                    Future<?> wf = warmupFuture;
+                    if (wf != null && !wf.isDone()) {
+                        try {
+                            wf.get(5, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        } catch (Exception e) {
+                            // warmup failure is non-fatal
+                        }
+                    }
                     // Best-effort: unpin and unload before closing arena
                     if (segment.isMapped()) {
                         try {
@@ -246,16 +260,21 @@ public class MappedVectorStore implements VectorStore {
      */
     public void warmup() {
         if (segment.isMapped()) {
-            Thread.startVirtualThread(() -> {
+            warmupFuture = com.spectrayan.spector.commons.concurrent.ConcurrentTasks
+                    .virtualExecutor().submit(() -> {
                 long start = System.nanoTime();
                 try {
+                    if (closed) return; // store closed before warmup started
                     segment.load();
+                    if (closed) return; // store closed during load()
                     boolean pinned = com.spectrayan.spector.commons.concurrent.MemoryPinning.lock(segment);
                     long elapsedMs = (System.nanoTime() - start) / 1_000_000;
                     log.info("MappedVectorStore warmed up successfully (pinned={}) in {} ms (file={})",
                             pinned, elapsedMs, filePath);
                 } catch (Exception e) {
-                    log.warn("Failed to warm up MappedVectorStore: {}", e.getMessage());
+                    if (!closed) { // suppress noise during shutdown
+                        log.warn("Failed to warm up MappedVectorStore: {}", e.getMessage());
+                    }
                 }
             });
         }
