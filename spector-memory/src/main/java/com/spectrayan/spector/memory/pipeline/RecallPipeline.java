@@ -40,6 +40,7 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.TierStore;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
@@ -76,6 +77,7 @@ import java.util.Set;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -154,15 +156,18 @@ public final class RecallPipeline {
     // ── Semantic Satiation: Anti-looping LRU cache ──
     // Bounded LRU of last N result IDs. Any result that appears in this
     // hot cache gets a 0.5× penalty, breaking exact-query loops.
+    // Wrapped with Collections.synchronizedMap() because accessOrder=true
+    // mutates the internal linked list on every get(), making unsynchronized
+    // concurrent access unsafe (carrier pinning risk with virtual threads).
     private static final int SATIATION_CACHE_SIZE = 10;
     private static final float SATIATION_PENALTY = 0.5f;
-    private final LinkedHashMap<String, Long> satiationCache =
-            new LinkedHashMap<>(16, 0.75f, true) {
+    private final Map<String, Long> satiationCache =
+            Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) {
                     return size() > SATIATION_CACHE_SIZE;
                 }
-            };
+            });
 
     /**
      * Creates a recall pipeline with all required subsystems.
@@ -484,7 +489,7 @@ public final class RecallPipeline {
                     MemoryIndex.MemoryLocation loc = index.locate(seed.id());
                     if (loc == null) continue;
 
-                    int memIdx = (int) (loc.offset() / 164); // approximate index from offset
+                    int memIdx = offsetToRecordIndex(loc);
                     var activated = hebbianGraph.activateNeighbors(memIdx, graphScoringPolicy.hebbianMaxDepth());
                     graphEdgesTraversed += activated.size();
                     graphMaxDepth = Math.max(graphMaxDepth, graphScoringPolicy.hebbianMaxDepth());
@@ -529,7 +534,7 @@ public final class RecallPipeline {
                     MemoryIndex.MemoryLocation loc = index.locate(seed.id());
                     if (loc == null) continue;
 
-                    int memIdx = (int) (loc.offset() / 164);
+                    int memIdx = offsetToRecordIndex(loc);
                     // Follow forward and backward
                     for (int chainIdx : temporalChain.followForward(memIdx, graphScoringPolicy.temporalMaxHops())) {
                         addChainResultCoFusion(chainIdx, seed, existingIds, graphCandidates,
@@ -649,7 +654,15 @@ public final class RecallPipeline {
 
             // Step 8c: Cache retrieval modes for lateral feedback (reinforce/suppress)
             if (recentRetrievalModes.size() > RETRIEVAL_MODE_CACHE_MAX) {
-                recentRetrievalModes.clear(); // simple eviction — reset when full
+                // Evict ~25% of entries instead of clearing everything.
+                // ConcurrentHashMap iteration order is arbitrary, which is fine —
+                // retrieval modes are ephemeral session state.
+                int toRemove = RETRIEVAL_MODE_CACHE_MAX / 4;
+                var iter = recentRetrievalModes.keySet().iterator();
+                for (int i = 0; i < toRemove && iter.hasNext(); i++) {
+                    iter.next();
+                    iter.remove();
+                }
             }
             for (CognitiveResult r : allResults) {
                 if (r.id() != null) {
@@ -1109,6 +1122,21 @@ public final class RecallPipeline {
     // ── Graph helper methods ──
 
     /**
+     * Converts a MemoryLocation's byte offset to a record index.
+     *
+     * <p>Accounts for the metadata header on persistent tier stores.
+     * Replaces the previous hardcoded divisor (164) which was fragile
+     * if vector dimensions (and thus stride) ever changed.</p>
+     */
+    private int offsetToRecordIndex(MemoryIndex.MemoryLocation loc) {
+        int stride = tierRouter.layoutFor(loc.type()).stride();
+        TierStore store = tierRouter.get(loc.type());
+        long dataOffset = (store instanceof AbstractTierStore ats && ats.isPersistent())
+                ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
+        return (int) ((loc.offset() - dataOffset) / stride);
+    }
+
+    /**
      * Finds a memory ID by approximate index. Uses the reverse index
      * to search across all tiers.
      */
@@ -1117,7 +1145,10 @@ public final class RecallPipeline {
         for (MemoryType type : MemoryType.values()) {
             var layout = tierRouter.layoutFor(type);
             if (layout == null) continue;
-            long offset = (long) approxIdx * layout.stride();
+            TierStore store = tierRouter.get(type);
+            long dataOffset = (store instanceof AbstractTierStore ats && ats.isPersistent())
+                    ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
+            long offset = dataOffset + (long) approxIdx * layout.stride();
             String id = index.findIdByOffset(type, offset);
             if (id != null) return id;
         }
