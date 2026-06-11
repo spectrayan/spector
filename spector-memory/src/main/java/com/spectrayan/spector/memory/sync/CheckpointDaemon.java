@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.sync;
 
+import com.spectrayan.spector.memory.index.MemoryIndex;
+
 import com.spectrayan.spector.memory.cortex.TierRouter;
 
 import org.slf4j.Logger;
@@ -75,6 +77,8 @@ public final class CheckpointDaemon {
     private final TierRouter tierRouter;
     private final MemoryWal wal;
     private final Path checkpointMetaPath;
+    private final MemoryIndex index;   // nullable — only set for DISK mode
+    private final Path indexPath;      // nullable — where to save index.midx
 
     /**
      * Creates a checkpoint daemon.
@@ -86,12 +90,17 @@ public final class CheckpointDaemon {
      * @param tierRouter         the tier router (for forcing persistent segments)
      * @param wal                the write-ahead log
      * @param checkpointMetaPath path to the checkpoint.meta file
+     * @param index              the memory index to persist (nullable)
+     * @param indexPath          path to save the index file (nullable)
      */
     public CheckpointDaemon(TierRouter tierRouter, MemoryWal wal,
-                            Path checkpointMetaPath) {
+                            Path checkpointMetaPath,
+                            MemoryIndex index, Path indexPath) {
         this.tierRouter = tierRouter;
         this.wal = wal;
         this.checkpointMetaPath = checkpointMetaPath;
+        this.index = index;
+        this.indexPath = indexPath;
     }
 
     /**
@@ -106,21 +115,33 @@ public final class CheckpointDaemon {
         // Step 1: Force all persistent tier store segments
         tierRouter.forceAll();
 
-        // Step 2: Read the WAL high-water mark
+        // Step 2: Save MemoryIndex (ID→offset, text, tags, source)
+        // This is critical for crash recovery — without it, tier store
+        // records survive (mmap) but become orphaned (no ID mapping).
+        if (index != null && indexPath != null && index.size() > 0) {
+            try {
+                index.save(indexPath);
+            } catch (Exception e) {
+                log.error("Checkpoint: failed to save MemoryIndex: {}", e.getMessage());
+            }
+        }
+
+        // Step 3: Read the WAL high-water mark
         long hwm = wal.highWaterMark();
         if (hwm <= 0) {
             log.trace("Checkpoint skipped: no WAL events");
             return;
         }
 
-        // Step 3: Write HWM to checkpoint.meta (atomic via temp+rename)
+        // Step 4: Write HWM to checkpoint.meta (atomic via temp+rename)
         writeCheckpointMeta(hwm);
 
-        // Step 4: Truncate WAL events ≤ HWM
+        // Step 5: Truncate WAL events ≤ HWM
         wal.truncateBefore(hwm);
 
         long elapsed = (System.nanoTime() - start) / 1_000_000;
-        log.info("Checkpoint complete: hwm={}, elapsed={}ms", hwm, elapsed);
+        log.info("Checkpoint complete: hwm={}, index={} entries, elapsed={}ms",
+                hwm, index != null ? index.size() : 0, elapsed);
     }
 
     /**
