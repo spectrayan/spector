@@ -42,6 +42,9 @@ import com.spectrayan.spector.node.service.RagService;
 import com.spectrayan.spector.node.service.SearchService;
 import com.spectrayan.spector.runtime.SpectorRuntime;
 
+import com.spectrayan.spector.mcp.SpectorMcpServer;
+import com.spectrayan.spector.node.mcp.ArmeriaMcpTransport;
+
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 
@@ -91,6 +94,9 @@ public class SpectorNode implements AutoCloseable {
     private MemoryService memoryService; // nullable — only when memory subsystem is present
     private CortexMetricsPublisher cortexPublisher; // nullable
     private TelemetryBus telemetryBus; // nullable
+    private SpectorRuntime runtime; // nullable — set when created from runtime
+    private SpectorMcpServer mcpServer; // nullable — MCP SSE server
+    private ArmeriaMcpTransport mcpTransport; // nullable
     private Server server;
 
     private SpectorNode(NodeConfig nodeConfig, SpectorEngine engine, SpectorMemory memory,
@@ -150,7 +156,9 @@ public class SpectorNode implements AutoCloseable {
 
         var eventBus = new SpectorEventBus();
 
-        return new SpectorNode(nodeConfig, engine, runtime.memory().orElse(null), prometheusRegistry, eventBus, null);
+        var node = new SpectorNode(nodeConfig, engine, runtime.memory().orElse(null), prometheusRegistry, eventBus, null);
+        node.runtime = runtime;
+        return node;
     }
 
     /**
@@ -229,6 +237,24 @@ public class SpectorNode implements AutoCloseable {
                 }
                 return delegate.serve(ctx, req);
             });
+        }
+
+        // ── MCP transport (same port, no extra server) ──
+        if (nodeConfig.mcpEnabled() && runtime != null) {
+            mcpTransport = new ArmeriaMcpTransport();
+            mcpServer = new SpectorMcpServer(runtime);
+            mcpServer.buildMcpServer(mcpTransport);
+
+            // Streamable HTTP (MCP 2025-03-26) — single endpoint at /mcp
+            sb.service("/mcp", mcpTransport.streamableHttpService());
+
+            // Legacy SSE endpoints (backward compat for older clients)
+            sb.service("/mcp/sse", mcpTransport.sseService());
+            sb.service("/mcp/message", mcpTransport.messageService());
+
+            log.info("MCP Streamable HTTP enabled at /mcp (legacy SSE at /mcp/sse)");
+        } else if (nodeConfig.mcpEnabled()) {
+            log.warn("MCP enabled but no SpectorRuntime available — MCP disabled");
         }
 
         // ── CORS ──
@@ -362,6 +388,9 @@ public class SpectorNode implements AutoCloseable {
         }
         if (server != null) {
             server.stop().join();
+        }
+        if (mcpServer != null) {
+            mcpServer.stop();
         }
         engine.close();
         log.info("SpectorNode '{}' stopped", nodeConfig.nodeId());

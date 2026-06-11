@@ -15,14 +15,11 @@
  */
 package com.spectrayan.spector.mcp;
 
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.mcp.prompts.SpectorPromptProvider;
 import com.spectrayan.spector.mcp.resources.SpectorResourceProvider;
@@ -32,7 +29,7 @@ import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 
 import io.modelcontextprotocol.server.McpServer;
-import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -44,18 +41,12 @@ import io.modelcontextprotocol.spec.McpSchema;
  * into an MCP server. All search operations run in-process with zero
  * network overhead — tool handlers call {@link SpectorEngine} directly.</p>
  *
- * <h3>Responsibilities</h3>
+ * <h3>Transport Modes</h3>
  * <ul>
- *   <li>Transport setup (stdio via JSON-RPC)</li>
- *   <li>Capability declaration</li>
- *   <li>Provider assembly — delegates to:
- *     <ul>
- *       <li>{@link SpectorToolRegistry} — tool discovery and registration</li>
- *       <li>{@link SpectorResourceProvider} — resource definitions</li>
- *       <li>{@link SpectorPromptProvider} — prompt templates</li>
- *     </ul>
- *   </li>
- *   <li>Lifecycle management (start/stop)</li>
+ *   <li><b>STDIO</b> — JSON-RPC over stdin/stdout (local agents: Claude Desktop, Cursor).
+ *       Use {@link #start()} for blocking stdio mode.</li>
+ *   <li><b>HTTP/SSE</b> — For Docker/server deployments, use SpectorNode which
+ *       embeds the MCP server on the Armeria HTTP stack at {@code /mcp/*}.</li>
  * </ul>
  *
  * @see SpectorMcpMain
@@ -70,71 +61,60 @@ public class SpectorMcpServer {
 
     private final SpectorRuntime runtime;
     private final SpectorEngine engine;
-    private final SpectorMemory memory; // nullable
-    private final TransportMode transportMode;
-    private final int httpPort;
     private volatile McpSyncServer mcpServer;
 
     /**
      * Creates an MCP server backed by the given runtime.
-     *
-     * @param runtime       the Spector runtime (engine + optional memory)
-     * @param transportMode transport mode (STDIO or HTTP)
-     * @param httpPort      port for HTTP transport (ignored for STDIO)
-     */
-    public SpectorMcpServer(SpectorRuntime runtime, TransportMode transportMode, int httpPort) {
-        this.runtime = runtime;
-        this.engine = runtime.engine();
-        this.memory = runtime.memory().orElse(null);
-        this.transportMode = transportMode;
-        this.httpPort = httpPort;
-    }
-
-    /**
-     * Creates an MCP server with STDIO transport (backward-compatible).
      */
     public SpectorMcpServer(SpectorRuntime runtime) {
-        this(runtime, TransportMode.STDIO, 8080);
+        this.runtime = runtime;
+        this.engine = runtime.engine();
     }
 
     /**
-     * Starts the MCP server on stdio transport.
+     * Starts the MCP server on stdio transport (blocking).
      *
-     * <p>This method blocks indefinitely, reading JSON-RPC messages from stdin
-     * and writing responses to stdout. All logging is directed to stderr to
-     * prevent corruption of the JSON-RPC stream.</p>
+     * <p>Blocks indefinitely, reading JSON-RPC messages from stdin
+     * and writing responses to stdout.</p>
      */
     public void start() {
-        log.info("[Spector MCP] Starting server: {}, transport={}, dims={}, indexType={}, embedding={}, {}",
-                SERVER_NAME, transportMode,
+        log.info("[Spector MCP] Starting server: {}, transport=STDIO, dims={}, indexType={}, embedding={}, {}",
+                SERVER_NAME,
                 engine.config().dimensions(),
                 engine.config().indexType(),
                 engine.hasEmbeddingProvider() ? "configured" : "none",
                 SimdCapability.report());
 
-        // ── Assemble providers (runtime-aware for mode routing) ──
+        McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(
+                tools.jackson.databind.json.JsonMapper.builder().build());
+        var transportProvider = new StdioServerTransportProvider(jsonMapper);
+
+        mcpServer = buildMcpServer(transportProvider);
+
+        // The SDK handles the stdio read loop internally.
+        // Block the main thread to keep the server alive.
+        try {
+            Thread.currentThread().join();
+        } catch (InterruptedException e) {
+            log.info("[Spector MCP] Server interrupted, shutting down");
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Builds an MCP server on an arbitrary transport.
+     *
+     * <p>Used by SpectorNode to build the MCP server on the Armeria SSE
+     * transport without pulling in a separate HTTP server.</p>
+     *
+     * @param transportProvider the transport to bind to
+     * @return the built MCP server
+     */
+    public McpSyncServer buildMcpServer(McpServerTransportProvider transportProvider) {
         var toolSpecs  = SpectorToolRegistry.createAll(runtime, SERVER_VERSION);
         var resources  = SpectorResourceProvider.create(engine, SERVER_VERSION);
         var prompts    = SpectorPromptProvider.create(engine);
 
-        // ── Configure transport ──
-        McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(
-                tools.jackson.databind.json.JsonMapper.builder().build());
-
-        var transportProvider = switch (transportMode) {
-            case STDIO -> new StdioServerTransportProvider(jsonMapper);
-            case HTTP -> {
-                log.info("[Spector MCP] HTTP transport on port {}", httpPort);
-                // The MCP SDK's HttpServletStreamableServerTransportProvider requires
-                // a servlet container. For now, use stdio as fallback and log guidance.
-                log.warn("[Spector MCP] HTTP transport requires a servlet container (Jetty/Tomcat). " +
-                        "Configure via SpectorMcpServer.startHttp() with your servlet container. " +
-                        "Falling back to stdio transport for standalone mode.");
-                yield new StdioServerTransportProvider(jsonMapper);
-            }
-        };
-
-        // ── Build the MCP server ──
         mcpServer = McpServer.sync(transportProvider)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
                 .capabilities(McpSchema.ServerCapabilities.builder()
@@ -150,14 +130,7 @@ public class SpectorMcpServer {
         log.info("[Spector MCP] Server initialized with {} tools, {} resources, {} prompts",
                 toolSpecs.size(), resources.size(), prompts.size());
 
-        // The SDK handles the stdio read loop internally.
-        // Block the main thread to keep the server alive.
-        try {
-            Thread.currentThread().join();
-        } catch (InterruptedException e) {
-            log.info("[Spector MCP] Server interrupted, shutting down");
-            Thread.currentThread().interrupt();
-        }
+        return mcpServer;
     }
 
     /**

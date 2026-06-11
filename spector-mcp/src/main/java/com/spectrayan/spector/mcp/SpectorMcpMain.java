@@ -170,12 +170,9 @@ public class SpectorMcpMain {
         // ── Create runtime (engine + optional memory) ──
         SpectorRuntime runtime = SpectorRuntime.from(props, embedder, textGenProvider);
 
-        // ── Start the MCP server ──
-        String transportArg = getStringArg(args, "--transport", "stdio");
-        TransportMode transportMode = TransportMode.fromString(transportArg);
-        int port = getIntArg(args, "--port", 8080);
-
-        SpectorMcpServer server = new SpectorMcpServer(runtime, transportMode, port);
+        // ── Start the MCP server (STDIO for CLI use) ──
+        // For HTTP/SSE transport, use SpectorNode with mcpEnabled=true instead.
+        SpectorMcpServer server = new SpectorMcpServer(runtime);
 
         // Graceful shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
