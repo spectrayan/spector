@@ -15,8 +15,12 @@ package com.spectrayan.spector.memory.model;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
+
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HexFormat;
 
 /**
  * Complete cognitive snapshot of a single memory — the "X-ray" view.
@@ -137,9 +141,8 @@ public record CognitiveRecord(
         return quantizedVector != null && quantizedVector.length > 0;
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // JSON EXPORT
-    // ══════════════════════════════════════════════════════════════
+    /** Shared thread-safe ObjectMapper — Jackson 3 ObjectMapper is immutable after construction. */
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
      * Returns a JSON-compatible string representation of this cognitive record.
@@ -148,66 +151,36 @@ public record CognitiveRecord(
      * is represented as a hex string to avoid JSON array verbosity.</p>
      */
     public String toJson() {
-        var sb = new StringBuilder(512);
-        sb.append("{");
-        sb.append("\"id\":\"").append(escapeJson(id)).append("\",");
-        sb.append("\"text\":\"").append(escapeJson(text)).append("\",");
-        sb.append("\"memoryType\":\"").append(memoryType).append("\",");
-        sb.append("\"source\":\"").append(source).append("\",");
-        sb.append("\"tags\":").append(tagsToJson()).append(",");
-        sb.append("\"createdAt\":\"").append(createdAt()).append("\",");
-        sb.append("\"ageDays\":").append(String.format("%.2f", ageDays())).append(",");
-        sb.append("\"synapticTags\":\"0x").append(Long.toHexString(synapticTags)).append("\",");
-        sb.append("\"exactNorm\":").append(exactNorm).append(",");
-        sb.append("\"importance\":").append(String.format("%.4f", importance)).append(",");
-        sb.append("\"agentRecallCount\":").append(agentRecallCount).append(",");
-        sb.append("\"spectorRecallCount\":").append(spectorRecallCount).append(",");
-        sb.append("\"centroidId\":").append(centroidId).append(",");
-        sb.append("\"valence\":").append(valence).append(",");
-        sb.append("\"arousal\":").append(Byte.toUnsignedInt(arousal)).append(",");
-        sb.append("\"storageStrength\":").append(String.format("%.4f", storageStrength)).append(",");
-        sb.append("\"tombstoned\":").append(isTombstoned()).append(",");
-        sb.append("\"consolidated\":").append(isConsolidated()).append(",");
-        sb.append("\"pinned\":").append(isPinned()).append(",");
-        sb.append("\"resolved\":").append(isResolved()).append(",");
-        sb.append("\"partitionIndex\":").append(partitionIndex).append(",");
-        sb.append("\"byteOffset\":").append(byteOffset);
+        ObjectNode node = MAPPER.createObjectNode();
+        node.put("id", id);
+        node.put("text", text);
+        node.put("memoryType", memoryType.name());
+        node.put("source", source.name());
+        var tagsArray = node.putArray("tags");
+        if (tags != null) {
+            for (String tag : tags) tagsArray.add(tag);
+        }
+        node.put("createdAt", createdAt().toString());
+        node.put("ageDays", Float.parseFloat(String.format("%.2f", ageDays())));
+        node.put("synapticTags", "0x" + Long.toHexString(synapticTags));
+        node.put("exactNorm", exactNorm);
+        node.put("importance", Float.parseFloat(String.format("%.4f", importance)));
+        node.put("agentRecallCount", agentRecallCount);
+        node.put("spectorRecallCount", spectorRecallCount);
+        node.put("centroidId", centroidId);
+        node.put("valence", valence);
+        node.put("arousal", Byte.toUnsignedInt(arousal));
+        node.put("storageStrength", Float.parseFloat(String.format("%.4f", storageStrength)));
+        node.put("tombstoned", isTombstoned());
+        node.put("consolidated", isConsolidated());
+        node.put("pinned", isPinned());
+        node.put("resolved", isResolved());
+        node.put("partitionIndex", partitionIndex);
+        node.put("byteOffset", byteOffset);
         if (quantizedVector != null) {
-            sb.append(",\"quantizedVectorHex\":\"").append(bytesToHex(quantizedVector)).append("\"");
-            sb.append(",\"vectorDimensions\":").append(quantizedVector.length);
+            node.put("quantizedVectorHex", HexFormat.of().formatHex(quantizedVector));
+            node.put("vectorDimensions", quantizedVector.length);
         }
-        sb.append("}");
-        return sb.toString();
-    }
-
-    // ── Internal helpers ──
-
-    private String tagsToJson() {
-        if (tags == null || tags.length == 0) return "[]";
-        var sb = new StringBuilder();
-        sb.append("[");
-        for (int i = 0; i < tags.length; i++) {
-            if (i > 0) sb.append(",");
-            sb.append("\"").append(escapeJson(tags[i])).append("\"");
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
-    private static String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
-    }
-
-    private static String bytesToHex(byte[] bytes) {
-        var sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b & 0xFF));
-        }
-        return sb.toString();
+        return node.toString();
     }
 }

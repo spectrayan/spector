@@ -61,6 +61,12 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
 
+        <!-- ── JSON serialization (Jackson 3) ── -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
         <!-- ── Test ── -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
