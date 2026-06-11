@@ -153,7 +153,7 @@ public abstract class McpToolHandler {
 
             } catch (Exception e) {
                 log.error("{} failed", name(), e);
-                return errorResult(com.spectrayan.spector.commons.error.ErrorCode.INTERNAL_ERROR.format(e.getMessage()));
+                return errorResult(com.spectrayan.spector.commons.error.ErrorCode.MCP_TOOL_FAILED.format(e.getMessage()));
             }
         });
     }

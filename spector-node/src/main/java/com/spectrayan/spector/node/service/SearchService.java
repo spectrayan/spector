@@ -97,12 +97,12 @@ public class SearchService {
 
             return SearchResponseDto.from(response);
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             eventBus.publish(new SpectorSearchFailedEvent(
                     nodeId, Instant.now(),
                     request.resolvedMode().name(), e.getMessage()));
 
-            throw SpectorApiException.internal(ErrorCode.INTERNAL_ERROR, e, "Search failed: " + e.getMessage());
+            throw SpectorApiException.internal(ErrorCode.INTERNAL_ERROR, e, e.getMessage());
         }
     }
 

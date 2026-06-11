@@ -55,6 +55,8 @@ import reactor.core.publisher.Sinks;
 @ExceptionHandler(ApiExceptionHandler.class)
 public class EventStreamEndpoint implements ApiModule {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EventStreamEndpoint.class);
+
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.NON_NULL)
             .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
@@ -89,7 +91,7 @@ public class EventStreamEndpoint implements ApiModule {
                         .build();
                 sink.tryEmitNext(sse);
             } catch (Exception e) {
-                // Skip events that fail serialization
+                log.debug("SSE event serialization failed for '{}': {}", event.eventType(), e.getMessage());
             }
         });
 
