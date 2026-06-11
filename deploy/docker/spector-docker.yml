@@ -1,0 +1,48 @@
+# ═══════════════════════════════════════════════════════════════════
+# Spector — Docker Configuration
+# ═══════════════════════════════════════════════════════════════════
+# Container-specific overrides. Paths map to Docker volumes.
+# Ollama connects to host via Docker's host networking bridge.
+# ═══════════════════════════════════════════════════════════════════
+
+spector:
+  mode: memory
+
+  engine:
+    dimensions: 384
+    capacity: 100000
+    similarity: COSINE
+    index-type: HNSW
+    persistence-mode: DISK
+    data-directory: /data/index
+
+  embedding:
+    model: nomic-embed-text
+    base-url: http://host.docker.internal:11434
+    timeout: 60s
+    batch-size: 32
+
+  memory:
+    enabled: true
+    persistence-mode: DISK
+    persistence-path: /data/memory
+    dimensions: 384
+    capacity: 100000
+    decay-enabled: true
+    consolidation-interval: 120s
+    default-ingestion-tier: SEMANTIC
+
+  hnsw:
+    m: 16
+    ef-construction: 200
+    ef-search: 50
+
+  ingestion:
+    root-directory: /data/docs
+    file-pattern: "**/*.md,**/*.txt"
+    skip-dirs: ".git,node_modules,target"
+    chunk-size: 800
+    chunk-overlap: 100
+    parallelism: 2
+    max-retries: 3
+    retry-delay-ms: 2000

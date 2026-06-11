@@ -1,0 +1,58 @@
+# ═══════════════════════════════════════════════════════════════════
+# Spector — Docker Compose
+# ═══════════════════════════════════════════════════════════════════
+#
+# Single container with everything:
+#   - Backend (REST/gRPC/MCP-SSE/Prometheus)
+#   - Frontend (Angular dashboard via Nginx)
+#
+# Usage:
+#   docker compose up --build          # build and start
+#   docker compose up --build -d       # detached
+#   docker compose logs -f             # follow logs
+#   docker compose down                # stop and remove
+#   docker compose down -v             # stop, remove, delete data
+#
+# Endpoints:
+#   Dashboard:    http://localhost:3000
+#   Health:       http://localhost:3000/health
+#   Metrics:      http://localhost:3000/metrics
+#   Engine API:   http://localhost:3000/api/v1/engine/status
+#   Memory API:   http://localhost:3000/api/v1/memory/status
+#   Events SSE:   http://localhost:3000/api/v1/events
+#   MCP:          http://localhost:3000/mcp          (Streamable HTTP)
+#   MCP (legacy): http://localhost:3000/mcp/sse      (SSE transport)
+#   Direct API:   http://localhost:7070/api/v1/engine/status
+#
+# Prerequisites:
+#   - Docker Desktop with Docker Compose v2
+#   - Pre-built Angular frontend (npm run build in spector-cortex)
+#   - (Optional) Ollama running on host at localhost:11434
+# ═══════════════════════════════════════════════════════════════════
+
+name: spector
+
+services:
+  spector:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    image: spector
+    container_name: spector
+    ports:
+      - "3000:80"
+      - "7070:7070"
+    environment:
+      - SPECTOR_PORT=7070
+      - SPECTOR_NODE_ID=spector-docker
+      - SPECTOR_DIMS=384
+    volumes:
+      - spector-data:/data
+    restart: unless-stopped
+    # Allow connection to host services (Ollama)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  spector-data:
+    driver: local

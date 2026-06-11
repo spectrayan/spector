@@ -1,0 +1,58 @@
+# ──────────── Docker Build Context ────────────
+# Exclude files not needed for Docker builds
+
+# Git
+.git
+.github
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# Node (cortex source not needed — we copy pre-built dist)
+**/node_modules
+spector-cortex/.angular
+spector-cortex/src
+spector-cortex/public
+
+# Maven build output (rebuilt in container)
+**/target
+
+# Top-level documentation (not source code)
+ACKNOWLEDGMENTS.md
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+LICENSE
+NOTICE
+SECURITY.md
+docs/
+RnD/
+
+# Test data & benchmarks
+.spector/
+.spector-bench/
+.spector-bench-bge/
+.test-data/
+datasets/
+embedding-cache/
+openclaw/
+
+# Config & scripts
+.scratch/
+scripts/
+.agents/
+.gemini/
+.kiro/
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Docker context noise
+*.md
+!README.md
+.mcp-src
