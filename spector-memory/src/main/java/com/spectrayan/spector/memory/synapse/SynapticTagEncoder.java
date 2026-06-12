@@ -76,10 +76,11 @@ public final class SynapticTagEncoder {
         h2 ^= h2 >>> 33;
         h2 *= 0xc4ceb9fe1a85ec53L;
         h2 ^= h2 >>> 33;
+        h2 |= 1L; // Ensure step size is odd so that gcd(h2, 64) = 1 for power-of-two M
 
         long filter = 0L;
         for (int i = 0; i < K; i++) {
-            int bitIndex = Math.abs((int) ((h1 + (long) i * h2) % M));
+            int bitIndex = (int) ((h1 + (long) i * h2) & (M - 1));
             filter |= (1L << bitIndex);
         }
         return filter;
