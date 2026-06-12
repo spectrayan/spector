@@ -111,7 +111,7 @@ public class TextChunker {
 
         // Short documents don't need chunking
         if (text.length() <= chunkSize) {
-            return List.of(new Chunk(documentId, documentId + "#chunk-0", 0, text.trim(), 0, text.length()));
+            return List.of(new Chunk(documentId, documentId + "::chunk-0", 0, text.trim(), 0, text.length()));
         }
 
         List<Integer> sentenceBoundaries = findSentenceBoundaries(text);
@@ -127,17 +127,31 @@ public class TextChunker {
 
             String chunkText = text.substring(startChar, endChar).trim();
             if (!chunkText.isEmpty()) {
-                String chunkId = documentId + "#chunk-" + chunkIndex;
+                String chunkId = documentId + "::chunk-" + chunkIndex;
                 chunks.add(new Chunk(documentId, chunkId, chunkIndex, chunkText, startChar, endChar));
                 chunkIndex++;
             }
 
-            // Advance with overlap
+            // Advance with overlap — snap to sentence boundary so chunks
+            // never start mid-word or mid-sentence.
             int step = endChar - startChar;
             if (step <= 0) step = chunkSize; // safety: prevent infinite loop
-            startChar = endChar - overlap;
+
+            int rawOverlapStart = endChar - overlap;
+            if (rawOverlapStart < 0) rawOverlapStart = 0;
+
+            // Snap forward to the nearest sentence boundary at or after rawOverlapStart
+            int snappedStart = endChar; // fallback: no overlap if no boundary found
+            for (int i = 0; i < sentenceBoundaries.size(); i++) {
+                int boundary = sentenceBoundaries.get(i);
+                if (boundary >= rawOverlapStart && boundary < endChar) {
+                    snappedStart = boundary;
+                    break;
+                }
+            }
+            startChar = snappedStart;
+
             if (startChar >= text.length()) break;
-            if (startChar < 0) startChar = 0;
 
             // If we'd re-emit the same start, force forward
             if (chunks.size() > 1 && startChar <= chunks.get(chunks.size() - 1).startChar()) {

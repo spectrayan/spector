@@ -199,7 +199,7 @@ public final class StreamingChunker {
 
             var chunk = new TextChunker.Chunk(
                     documentId,
-                    documentId + "#chunk-" + chunkIndex,
+                    documentId + "::chunk-" + chunkIndex,
                     chunkIndex,
                     chunkText,
                     startChar,
@@ -239,30 +239,44 @@ public final class StreamingChunker {
         }
 
         /**
-         * Finds the best sentence-ending position before maxPos.
-         * Falls back to word boundary, then to maxPos.
+         * Finds the best break position before maxPos.
+         * Priority: paragraph break → sentence end → word boundary → hard cut.
          */
         private static int findSentenceBreak(CharSequence text, int maxPos) {
-            // Scan backwards for sentence-ending punctuation followed by space
-            for (int i = Math.min(maxPos, text.length()) - 1; i > maxPos / 2; i--) {
+            int limit = Math.min(maxPos, text.length());
+            int halfMax = maxPos / 2;
+
+            // Priority 1: Paragraph boundary (double newline) — best semantic break
+            for (int i = limit - 1; i > halfMax; i--) {
+                if (text.charAt(i) == '\n' && i > 0 && text.charAt(i - 1) == '\n') {
+                    return i + 1;
+                }
+            }
+
+            // Priority 2: Sentence-ending punctuation followed by whitespace or uppercase
+            for (int i = limit - 1; i > halfMax; i--) {
                 char c = text.charAt(i);
-                if ((c == '.' || c == '!' || c == '?' || c == '\n') && i + 1 < text.length()) {
+                if ((c == '.' || c == '!' || c == '?' || c == ';') && i + 1 < text.length()) {
                     char next = text.charAt(i + 1);
                     if (Character.isWhitespace(next) || Character.isUpperCase(next)) {
                         return i + 1;
                     }
                 }
+                // Single newline (line break) — good break for markdown, code, etc.
+                if (c == '\n' && i + 1 < text.length()) {
+                    return i + 1;
+                }
             }
 
-            // Fall back to word boundary (space)
-            for (int i = Math.min(maxPos, text.length()) - 1; i > maxPos / 2; i--) {
+            // Priority 3: Word boundary (whitespace)
+            for (int i = limit - 1; i > halfMax; i--) {
                 if (Character.isWhitespace(text.charAt(i))) {
                     return i + 1;
                 }
             }
 
             // No good break point — hard cut at maxPos
-            return Math.min(maxPos, text.length());
+            return limit;
         }
     }
 }
