@@ -66,6 +66,14 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-gpu</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-embed-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-embed-ollama</artifactId>
+        </dependency>
 
         <!-- MCP (tool definitions, prompts, resources — for SSE transport) -->
         <dependency>

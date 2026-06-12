@@ -17,6 +17,8 @@
     <properties>
         <spector.module.name>com.spectrayan.spector.cli</spector.module.name>
         <picocli.version>4.7.6</picocli.version>
+        <!-- CLI is main-method heavy with picocli wiring — lower coverage target -->
+        <jacoco.minimum.coverage>0.60</jacoco.minimum.coverage>
     </properties>
 
     <dependencies>

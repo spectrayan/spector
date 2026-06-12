@@ -51,6 +51,10 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-embed-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-embed-ollama</artifactId>
+        </dependency>
 
         <!-- ── Query types for mode-aware routing ── -->
         <dependency>

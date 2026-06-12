@@ -16,6 +16,8 @@
 
     <properties>
         <spector.module.name>com.spectrayan.spector.test.support</spector.module.name>
+        <!-- Test infrastructure module — skip coverage enforcement -->
+        <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
     </properties>
 
     <dependencies>

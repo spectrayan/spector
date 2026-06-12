@@ -18,6 +18,8 @@
         <spector.module.name>com.spectrayan.spector.bench</spector.module.name>
         <exec.mainClass>com.spectrayan.spector.bench.IndustryBenchmark</exec.mainClass>
         <skipBenchTests>true</skipBenchTests>
+        <!-- Benchmarks are not business logic — skip coverage enforcement -->
+        <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
     </properties>
 
     <dependencies>

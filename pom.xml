@@ -94,14 +94,19 @@
         <!-- Test dependency versions -->
         <junit.version>5.11.4</junit.version>
         <assertj.version>3.27.3</assertj.version>
+        <mockito.version>5.17.0</mockito.version>
 
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>3.5.3</maven-failsafe-plugin.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
-        <jacoco-plugin.version>0.8.12</jacoco-plugin.version>
+        <jacoco-plugin.version>0.8.15</jacoco-plugin.version>
         <license-maven-plugin.version>5.0.0</license-maven-plugin.version>
+
+        <!-- JaCoCo coverage threshold — default 0, modules raise as tests are added (target: 0.80) -->
+        <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
 
         <!-- Reproducible builds: fixed timestamp for deterministic JARs -->
         <project.build.outputTimestamp>2024-01-01T00:00:00Z</project.build.outputTimestamp>
@@ -350,6 +355,18 @@
                 <version>${assertj.version}</version>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -370,6 +387,16 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -399,7 +426,10 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
-                        <argLine>--add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview</argLine>
+                        <!-- ${argLine} placeholder lets JaCoCo inject its agent -->
+                        <argLine>${argLine} --add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
+                        <!-- Exclude functional tests (require external services) -->
+                        <excludedGroups>functional</excludedGroups>
                     </configuration>
                 </plugin>
 
@@ -441,6 +471,45 @@
                             <phase>verify</phase>
                             <goals>
                                 <goal>report</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>check</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <rules>
+                                    <rule>
+                                        <element>BUNDLE</element>
+                                        <limits>
+                                            <limit>
+                                                <counter>LINE</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>${jacoco.minimum.coverage}</minimum>
+                                            </limit>
+                                        </limits>
+                                    </rule>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Failsafe: integration tests (*IT.java, *IntegrationTest.java) -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                    <configuration>
+                        <argLine>${argLine} --add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
                             </goals>
                         </execution>
                     </executions>

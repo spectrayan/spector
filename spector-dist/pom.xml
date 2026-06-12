@@ -22,6 +22,8 @@
 
     <properties>
         <spector.module.name>com.spectrayan.spector.dist</spector.module.name>
+        <!-- Packaging-only module — skip coverage enforcement -->
+        <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
     </properties>
 
     <dependencies>

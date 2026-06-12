@@ -16,6 +16,8 @@
 
     <properties>
         <spector.module.name>com.spectrayan.spector.embed.ollama</spector.module.name>
+        <!-- External service integration — lower coverage target -->
+        <jacoco.minimum.coverage>0.50</jacoco.minimum.coverage>
     </properties>
 
     <dependencies>
