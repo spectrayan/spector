@@ -3,13 +3,18 @@
 # ═══════════════════════════════════════════════════════════════════
 # Container-specific overrides. Paths map to Docker volumes.
 # Ollama connects to host via Docker's host networking bridge.
+#
+# Prerequisites:
+#   - Ollama running on host with:
+#     ollama pull qwen3-embedding:0.6b
+#     ollama pull qwen3:1.7b
 # ═══════════════════════════════════════════════════════════════════
 
 spector:
   mode: memory
 
   engine:
-    dimensions: 384
+    dimensions: 1024
     capacity: 100000
     similarity: COSINE
     index-type: HNSW
@@ -17,20 +22,33 @@ spector:
     data-directory: /data/index
 
   embedding:
-    model: nomic-embed-text
+    model: qwen3-embedding:0.6b
     base-url: http://host.docker.internal:11434
-    timeout: 60s
+    timeout: 120s
     batch-size: 32
 
   memory:
     enabled: true
     persistence-mode: DISK
     persistence-path: /data/memory
-    dimensions: 384
+    dimensions: 1024
     capacity: 100000
     decay-enabled: true
     consolidation-interval: 120s
     default-ingestion-tier: SEMANTIC
+    tag-extractor: llm
+    tag-extractor-model: tag-extractor:latest
+    # ── Hybrid Search ──
+    text-search-mode: FULL_STACK       # VECTOR_ONLY, HYBRID, BM25_ONLY, SPLADE_ONLY, SPLADE_VECTOR, COLBERT, FULL_STACK
+    splade-enabled: true               # SPLADE learned sparse retrieval
+    colbert-enabled: true              # ColBERT v2 token-level reranking
+    bm25-enabled: true                 # BM25 keyword search
+    # ── LLM Generation ──
+    llm:
+      temperature: 0.3                 # sampling temperature (0.0 = deterministic, 1.0 = creative)
+      max-tokens: 1024                 # max tokens per generation call
+      top-p: 0.95                      # nucleus sampling threshold
+      entity-model: tag-extractor:latest # optional separate model for entity extraction
 
   hnsw:
     m: 16
@@ -41,8 +59,8 @@ spector:
     root-directory: /data/docs
     file-pattern: "**/*.md,**/*.txt"
     skip-dirs: ".git,node_modules,target"
-    chunk-size: 800
-    chunk-overlap: 100
+    chunk-size: 2500
+    chunk-overlap: 200
     parallelism: 2
     max-retries: 3
     retry-delay-ms: 2000

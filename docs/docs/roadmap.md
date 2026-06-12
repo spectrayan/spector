@@ -284,14 +284,34 @@ Multi-tenant query projection via SIMD matrix multiply. Instead of creating sepa
 
 ---
 
-### 🔬 ColBERT Late Interaction Reranking {#colbert}
+### ✅ ColBERT v2 Late Interaction Reranking {#colbert}
 
-!!! note "Status: Future Research"
-    Requires token-level vector storage and MaxSim SIMD kernel.
+!!! success "Graduated to Completed"
+    Implemented in `ColBERTReranker` (`spector-index`). SIMD-accelerated MaxSim scoring via Panama `FloatVector`.
+    Wired into `RecallPipeline` Step 6b. Configurable via `RecallOptions.enableReranker()` and `rerankerDepth()`.
 
-Native ColBERT reranking using Panama FMA loops. ColBERT stores a vector for every token in a document, then computes relevance via MaxSim (maximum similarity per query token). Python struggles with this due to GIL contention when routing massive matrices between C++ and Python memory.
+Native ColBERT reranking using Panama FMA loops. ColBERT stores a vector for every token in a document, then computes relevance via MaxSim (maximum similarity per query token).
 
-**Spector advantage:** Off-heap `MemorySegment` arrays and Fused-Multiply-Add Panama loops can natively execute ColBERT MaxSim reranking faster than almost any competitor.
+**Spector advantage:** Off-heap `MemorySegment` arrays and Fused-Multiply-Add Panama loops natively execute ColBERT MaxSim reranking faster than almost any competitor.
+
+**Implementation:**
+
+- `ColBERTReranker`: Takes `TokenEmbeddingProvider` SPI, computes MaxSim with SIMD-accelerated dot products
+- `TokenEmbeddingProvider` SPI: Produces per-token embedding arrays (e.g., from ColBERT v2 model)
+- `TokenEmbeddingResult`: Wraps `float[][]` token-level embeddings
+- Integration in `RecallPipeline` Step 6b: Reranks top-N first-stage candidates after sort
+- Scoring: `combinedScore = α·maxSimScore + (1-α)·firstStageScore`
+- Nullable SPI pattern: silently skips if `TokenEmbeddingProvider` is not configured
+
+**Configuration:**
+
+```java
+RecallOptions.builder()
+    .enableReranker(true)
+    .rerankerDepth(50)    // rerank top-50 first-stage candidates
+    .textSearchMode(TextSearchMode.COLBERT_RERANK)
+    .build();
+```
 
 ---
 
@@ -397,6 +417,71 @@ Instead of uniform INT8 across all dimensions, assign more bits to high-variance
 **Recall impact:** Minimal (< 0.5%) — allocating bits proportionally to variance is information-theoretically optimal.
 
 **Why it's not recommended:** FWHT already equalizes variance by design, so the marginal gain from adaptive bit-widths is small. The implementation requires variable-length encoding, non-aligned SIMD reads, and per-dimension bit-width bookkeeping — the worst effort-to-benefit ratio of all proposed improvements.
+
+---
+
+### 🔬 SPLARE — Sparse Autoencoder Learned Retrieval {#splare}
+
+!!! note "Status: Future Research"
+    Depends on multilingual sparse autoencoder models. No public models available yet.
+
+SPLARE (Sparse Autoencoder Learned Retrieval) uses sparse autoencoders to extract interpretable sparse features from dense embeddings. Unlike SPLADE which uses a masked language model, SPLARE operates on the embedding space directly, making it model-agnostic.
+
+**Proposed approach:**
+
+1. Train a sparse autoencoder on the embedding provider's dense vectors
+2. Extract top-K active features per document (typically 128-256)
+3. Use feature indices + activations as sparse retrieval keys
+4. Index into the existing `SpladeIndex` infrastructure (same posting list format)
+
+**Advantages over SPLADE:**
+
+| Aspect | SPLADE | SPLARE |
+|:---|:---|:---|
+| Model dependency | Requires MLM (BERT-family) | Model-agnostic (any embedding) |
+| Vocabulary | WordPiece (~30K) | Learned feature dictionary |
+| Multilingual | Requires multilingual MLM | Inherits from base embedder |
+| Interpretability | Token-level (human readable) | Feature-level (less interpretable) |
+
+**Prerequisites:** Sparse autoencoder training pipeline, feature dictionary management, `SparseEncodingProvider` adapter.
+
+---
+
+### 🔬 ColPali — Vision-Language Late Interaction {#colpali}
+
+!!! note "Status: Future Research"
+    Requires vision encoder integration and multi-modal token embedding. Very high effort.
+
+Extend ColBERT's late interaction paradigm to **visual documents** using the ColPali architecture (Faysse et al., 2024). Instead of OCR → text → embed, ColPali directly produces per-patch token embeddings from document images, enabling visual retrieval of PDFs, screenshots, diagrams, and handwritten notes.
+
+**How it works:**
+
+1. Document images are encoded by a vision transformer (e.g., PaliGemma) into per-patch embeddings
+2. Query text is encoded into per-token embeddings (same as ColBERT)
+3. MaxSim scoring between query tokens and image patches
+4. Reuses the existing `ColBERTReranker` MaxSim SIMD kernel
+
+**Architecture:**
+
+```
+Query: "database schema diagram"         Document: [screenshot.png]
+   ↓                                          ↓
+TokenEmbeddingProvider.embed()           VisionPatchProvider.embed()
+   ↓                                          ↓
+["database", "schema", "diagram"]        [patch_1, patch_2, ..., patch_N]
+   ↓              ↓            ↓              ↓
+[768-d vec]   [768-d vec]  [768-d vec]    [768-d vec] × N patches
+   └──────────── MaxSim ──────────────────────┘
+```
+
+**Prerequisites:**
+
+- `VisionPatchProvider` SPI (produces `float[][]` per-patch embeddings)
+- Vision model integration (PaliGemma, SigLIP, or similar)
+- Image storage in `TextDataStore` or new `MediaDataStore`
+- Multi-modal `MemoryType` extension
+
+**Estimated effort:** 6-8 weeks (vision encoder integration is the bottleneck).
 
 ---
 
@@ -665,6 +750,54 @@ Migrated all 6 concurrency sites from unstructured `ExecutorService` + `Future` 
 
 ---
 
+### ✅ 4-Layer Retrieval Stack {#retrieval-stack}
+
+!!! success "Completed"
+    Off-Heap BM25 SIMD, SPLADE sparse retrieval, ColBERT v2 reranking — all wired into `CognitiveIngestionTarget` and `RecallPipeline`. 539 tests pass, 0 failures.
+
+Full 4-layer retrieval architecture with SIMD-accelerated scoring at every layer:
+
+```
+Layer 4: ColBERT v2 Reranker   (token-level late interaction, SIMD MaxSim)
+Layer 3: SPLADE / Li-LSR       (learned sparse retrieval, inverted index)
+Layer 2: BM25                  (keyword search, AVX-512 SIMD scoring)
+Layer 1: Dense Vector           (HNSW semantic similarity, SQ8/SQ4 quantized)
+─────── RRF Fusion ─────────── (merges all layer signals)
+```
+
+**Components built:**
+
+| Component | Module | Description |
+|:---|:---|:---|
+| `SIMDScoreAccumulator` | spector-index | AVX-512 `FloatVector` utilities for BM25 dot-product scoring |
+| `BM25Index` | spector-index | Struct-of-arrays posting lists with SIMD-accelerated term scoring |
+| `SparseEncodingProvider` | spector-embed-api | SPI for SPLADE/Li-LSR/SPLARE sparse encoding |
+| `SpladeIndex` | spector-index | In-memory inverted index for sparse term-weight vectors |
+| `MemorySpladeIndex` | spector-memory | Partition manager for `SpladeIndex` with parallel search |
+| `TokenEmbeddingProvider` | spector-embed-api | SPI for per-token embeddings (ColBERT v2) |
+| `ColBERTReranker` | spector-index | MaxSim scoring with SIMD-accelerated dot products |
+| `TextSearchMode` | spector-memory | 8-mode enum controlling which retrieval layers are active |
+
+**Pipeline integration:**
+
+- `CognitiveIngestionTarget` Step 9a-splade: SPLADE encoding + indexing at ingestion
+- `RecallPipeline` Step 3c: SPLADE sparse search (parallel to BM25, fused via RRF)
+- `RecallPipeline` Step 6b: ColBERT reranking (top-N candidates after first-stage sort)
+- All features follow the **nullable SPI pattern** — graceful degradation when providers are absent
+
+**Configuration:**
+
+```java
+RecallOptions.builder()
+    .textSearchMode(TextSearchMode.FULL_STACK)  // all 4 layers
+    .enableReranker(true)                       // ColBERT reranking
+    .rerankerDepth(50)                          // top-50 reranked
+    .gamma(0.3f)                                // BM25/SPLADE weight
+    .build();
+```
+
+---
+
 ## Summary Table
 
 ### 📜 Active & Planned
@@ -685,26 +818,29 @@ Migrated all 6 concurrency sites from unstructured `ExecutorService` + `Future` 
 | 7 | **TypeScript/JS SDK** | Client SDKs | Medium | 🔬 Future |
 | 8 | **RecallMode.REPLAY (WAL time-travel)** | Agentic AI | High | 🔬 Research |
 | 9 | **LoRA adapter routing** | Agentic AI | High | 🔬 Research |
-| 10 | **ColBERT late interaction** | Agentic AI | High | 🔬 Research |
-| 11 | **SVASQ-PQ hybrid** | Compression | Very High | 🔬 Research |
-| 12 | **Flat-mode SVASQ** | Compression | Medium | 🔬 Research |
-| 13 | **NPU acceleration** | Compute | High | 🔬 Exploratory |
-| 14 | **WASM edge runtime** | Runtime | High | 🔬 Exploratory |
-| 15 | **Adaptive bit-width** | Compression | Very High | 🔴 Not planned |
+| 10 | **SVASQ-PQ hybrid** | Compression | Very High | 🔬 Research |
+| 11 | **Flat-mode SVASQ** | Compression | Medium | 🔬 Research |
+| 12 | **NPU acceleration** | Compute | High | 🔬 Exploratory |
+| 13 | **WASM edge runtime** | Runtime | High | 🔬 Exploratory |
+| 14 | **Adaptive bit-width** | Compression | Very High | 🔴 Not planned |
+| 15 | **SPLARE sparse autoencoder** | Retrieval | High | 🔬 Research |
+| 16 | **ColPali vision-language** | Retrieval | Very High | 🔬 Research |
 
 ### ✅ Completed
 
 | # | Improvement | Category | Effort |
 |---|------------|----------|--------|
-| 16 | **Native MCP Server** | Agentic AI | Medium |
-| 17 | **Streamable HTTP transport** | Agentic AI | Medium |
-| 18 | **3-Layer Cognitive Graph** | Graph Memory | High |
-| 19 | **Cross-layer promotion** | Graph Memory | Medium |
-| 20 | **Entity graph decay + merging** | Graph Memory | Medium |
-| 21 | **Graph scoring weights** | Graph Memory | Low |
-| 22 | **Temporal chain pruning** | Graph Memory | Low |
-| 23 | **SVASQ-4** | Compression | Medium |
-| 24 | **Padding-aware storage** | Compression | Low |
-| 25 | **Norm header f16** | Compression | Very Low |
-| 26 | **Structured Concurrency** | Runtime | Low |
+| 17 | **Native MCP Server** | Agentic AI | Medium |
+| 18 | **Streamable HTTP transport** | Agentic AI | Medium |
+| 19 | **3-Layer Cognitive Graph** | Graph Memory | High |
+| 20 | **Cross-layer promotion** | Graph Memory | Medium |
+| 21 | **Entity graph decay + merging** | Graph Memory | Medium |
+| 22 | **Graph scoring weights** | Graph Memory | Low |
+| 23 | **Temporal chain pruning** | Graph Memory | Low |
+| 24 | **SVASQ-4** | Compression | Medium |
+| 25 | **Padding-aware storage** | Compression | Low |
+| 26 | **Norm header f16** | Compression | Very Low |
+| 27 | **Structured Concurrency** | Runtime | Low |
+| 28 | **4-Layer Retrieval Stack** | Retrieval | High |
+| 29 | **ColBERT v2 reranking** | Retrieval | Medium |
 

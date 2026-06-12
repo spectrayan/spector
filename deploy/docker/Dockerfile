@@ -4,7 +4,7 @@
 #
 # Packages everything in one image:
 #   - SpectorNode backend (REST/gRPC/MCP-SSE/Prometheus) on :7070
-#   - Nginx serving Angular dashboard + reverse proxy on :80
+#   - Nginx serving Angular dashboard + reverse proxy on :3000
 #
 # Build:
 #   docker build -f deploy/docker/Dockerfile -t spector .
@@ -69,7 +69,7 @@ RUN mkdir -p /data/index /data/memory && chown -R spector:spector /data /app
 # Fix Nginx PID directory permissions
 RUN mkdir -p /run/nginx
 
-EXPOSE 80
+EXPOSE 3000
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
     CMD wget -qO- http://localhost:7070/health || exit 1

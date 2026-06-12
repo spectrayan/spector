@@ -1,6 +1,6 @@
 ---
 title: "Labs — Experimental Features"
-description: "Research roadmap for Spector's experimental cognitive features: Neuromodulatory Gain Control, Executive Dysfunction Profile, Two-Factor Memory Strength, and Dynamic Quantization Stepping."
+description: "Research roadmap for Spector's experimental cognitive features: 4-Layer Retrieval Stack, SPLARE, ColPali, Neuromodulatory Gain Control, Executive Dysfunction Profile, Two-Factor Memory Strength, and Dynamic Quantization Stepping."
 ---
 
 # 🔬 Labs — Experimental Features
@@ -9,6 +9,8 @@ description: "Research roadmap for Spector's experimental cognitive features: Ne
 >
 > Some features have graduated from Labs into the main release. Others remain
 > under active research and planned for implementation in the `labs` branch.
+>
+> **Recently graduated:** SPLADE sparse retrieval, ColBERT v2 reranking, Two-Factor Memory.
 
 ---
 
@@ -545,14 +547,192 @@ if (isSQ4(flags)) {
 
 ---
 
+## ✅ SPLADE / Li-LSR Learned Sparse Retrieval
+
+!!! success "Graduated to Main Release"
+    Implemented in `SpladeIndex`, `MemorySpladeIndex` (spector-index/memory), `SparseEncodingProvider` SPI (spector-embed-api). Wired into `CognitiveIngestionTarget` Step 9a-splade and `RecallPipeline` Step 3c.
+
+### Concept
+
+Neural term expansion via learned sparse retrieval. Unlike BM25 which matches exact keywords, SPLADE/Li-LSR models learn to **expand** queries and documents with semantically related terms — e.g., "car" also activates "vehicle", "automobile", "driving".
+
+### Architecture
+
+```
+Ingestion:  text → SparseEncodingProvider.encode() → {term: weight} → SpladeIndex.index()
+Recall:     query → SparseEncodingProvider.encode() → MemorySpladeIndex.search() → RRF fusion
+```
+
+### Components
+
+| Component | Module | Role |
+|:---|:---|:---|
+| `SparseEncodingProvider` | spector-embed-api | SPI for SPLADE/Li-LSR/SPLARE encoding |
+| `SparseEncodingResult` | spector-embed-api | `Map<String, Float>` term-weight result |
+| `SpladeIndex` | spector-index | In-memory inverted index for sparse vectors |
+| `MemorySpladeIndex` | spector-memory | Partition manager with parallel search via `ConcurrentTasks.forkJoinAll` |
+
+### Integration Points
+
+- **Ingestion:** `CognitiveIngestionTarget` Step 9a-splade (after BM25 Step 9a)
+- **Recall:** `RecallPipeline` Step 3c (parallel to BM25, fused via `fuseBM25Candidates` RRF)
+- **Configuration:** `TextSearchMode.SPLADE`, `SPLADE_HYBRID`, `LI_LSR`, `FULL_STACK`
+- **Graceful degradation:** null `SparseEncodingProvider` → silently skipped, WARN logged once
+
+---
+
+## ✅ ColBERT v2 Late Interaction Reranking
+
+!!! success "Graduated to Main Release"
+    Implemented in `ColBERTReranker` (spector-index). SIMD-accelerated MaxSim scoring via Panama `FloatVector`. Wired into `RecallPipeline` Step 6b.
+
+### Concept
+
+Token-level late interaction reranking. Unlike bi-encoders (which compress each document to a single vector), ColBERT stores a vector **per token** and computes relevance via **MaxSim** — the sum of per-query-token maximum similarities across all document tokens.
+
+### MaxSim Scoring
+
+$$
+\text{MaxSim}(q, d) = \sum_{i=1}^{|q|} \max_{j=1}^{|d|} \mathbf{q}_i \cdot \mathbf{d}_j
+$$
+
+### Components
+
+| Component | Module | Role |
+|:---|:---|:---|
+| `TokenEmbeddingProvider` | spector-embed-api | SPI for per-token embedding arrays |
+| `TokenEmbeddingResult` | spector-embed-api | `float[][]` token-level embeddings |
+| `ColBERTReranker` | spector-index | MaxSim scoring + SIMD-accelerated `simdDotProduct` |
+
+### Integration
+
+- **Recall:** `RecallPipeline` Step 6b (after first-stage sort, before final return)
+- **Scoring:** `combinedScore = α·maxSimScore + (1-α)·firstStageScore` (default α=0.7)
+- **Configuration:** `RecallOptions.enableReranker(true).rerankerDepth(50)`
+- **TextSearchMode:** `COLBERT_RERANK` or `FULL_STACK`
+
+---
+
+## 🔬 SPLARE — Sparse Autoencoder Learned Retrieval
+
+### Concept
+
+SPLARE uses sparse autoencoders to extract interpretable sparse features from dense embeddings. Unlike SPLADE which uses a masked language model, SPLARE operates on the embedding space directly, making it model-agnostic and naturally multilingual.
+
+### Proposed Architecture
+
+```mermaid
+flowchart TD
+    subgraph "Dense Embedding"
+        E["EmbeddingProvider.embed()"]
+    end
+    
+    subgraph "Sparse Autoencoder"
+        SAE["Encoder: d → K features"]
+        F["Top-K feature selection"]
+    end
+    
+    subgraph "Sparse Index"
+        SI["SpladeIndex (reused)"]
+    end
+    
+    E --> SAE
+    SAE --> F
+    F --> SI
+    
+    style SAE fill:#9b59b6,color:white
+    style F fill:#9b59b6,color:white
+```
+
+### Advantages over SPLADE
+
+| Aspect | SPLADE | SPLARE |
+|:---|:---|:---|
+| Model dependency | Requires MLM (BERT-family) | Model-agnostic (any embedding) |
+| Vocabulary | WordPiece (~30K) | Learned feature dictionary (configurable) |
+| Multilingual | Requires multilingual MLM | Inherits from base embedder |
+| Interpretability | Token-level (human readable) | Feature-level (less interpretable) |
+| Infrastructure | Needs separate model | Reuses existing `SpladeIndex` |
+
+### Implementation Plan
+
+1. Train sparse autoencoder on embedding provider's dense vectors
+2. Implement `SparseEncodingProvider` adapter that wraps autoencoder inference
+3. Use feature indices + activations as sparse retrieval keys
+4. Index into existing `SpladeIndex` infrastructure (same posting list format)
+
+### Dependencies & Complexity
+
+- **Dependencies:** Sparse autoencoder training pipeline, feature dictionary management
+- **Complexity:** High — autoencoder training requires representative corpus, feature stability across model updates is unknown
+- **Risk:** Feature drift when the base embedding model is updated
+
+---
+
+## 🔬 ColPali — Vision-Language Late Interaction
+
+### Concept
+
+Extend ColBERT's late interaction paradigm to **visual documents** using the ColPali architecture (Faysse et al., 2024). Instead of OCR → text → embed, ColPali directly produces per-patch token embeddings from document images.
+
+### Biological Basis
+
+Human memory doesn't separate "text memory" from "visual memory" — the hippocampal indexing system operates over multi-modal representations. ColPali brings this to Spector: a diagram, a screenshot, or a handwritten note can be retrieved with the same MaxSim infrastructure as text.
+
+### Proposed Architecture
+
+```mermaid
+flowchart TD
+    subgraph "Query Path"
+        QT["Query text"] --> TE["TokenEmbeddingProvider"]
+        TE --> QV["float[][] query tokens"]
+    end
+    
+    subgraph "Document Path"
+        IMG["Document image"] --> VE["VisionPatchProvider"]
+        VE --> PV["float[][] image patches"]
+    end
+    
+    subgraph "Scoring"
+        QV --> MS["MaxSim (SIMD)"]
+        PV --> MS
+        MS --> SC["Combined score"]
+    end
+    
+    style VE fill:#e74c3c,color:white
+    style MS fill:#27ae60,color:white
+```
+
+### Key Design Decisions
+
+| Decision | Choice | Rationale |
+|:---|:---|:---|
+| Vision encoder | PaliGemma / SigLIP | Strong patch-level embeddings, open weights |
+| Patch granularity | 16×16 or 32×32 | Balance quality vs token count |
+| Storage | New `MediaDataStore` | Images require separate storage from text |
+| MaxSim kernel | Reuse `ColBERTReranker` | Same SIMD infrastructure, different input |
+
+### Dependencies & Complexity
+
+- **Dependencies:** Vision encoder model integration, ONNX Runtime or similar inference engine
+- **New SPIs:** `VisionPatchProvider`, multi-modal `MemoryType` extension
+- **Complexity:** Very High — vision encoder integration, image storage lifecycle, multi-modal index management
+- **Estimated effort:** 6-8 weeks
+
+---
+
 ## Priority Matrix
 
 | Feature | Value | Complexity | Dependencies Ready? | Estimated Effort | Status |
 |:---|:---:|:---:|:---:|:---|:---:|
 | Two-Factor Memory (R+S) | 🟢 High | Medium | ✅ | 1-2 weeks | ✅ Done |
+| SPLADE Sparse Retrieval | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
+| ColBERT v2 Reranking | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
 | Executive Dysfunction | 🟡 Medium | Medium | ✅ | 1-2 weeks | 🔜 Planned |
 | Neuromodulatory Gain | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |
 | Dynamic Quantization | 🟡 Medium | High | ⏳ | 4-6 weeks | 🔬 Research |
+| SPLARE (Sparse Autoencoders) | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |
+| ColPali (Vision-Language) | 🟡 Medium | Very High | ⏳ | 6-8 weeks | 🔬 Research |
 
 ---
 
