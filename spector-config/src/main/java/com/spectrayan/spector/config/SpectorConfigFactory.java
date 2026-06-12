@@ -282,13 +282,35 @@ public final class SpectorConfigFactory {
             int dimensions, int capacity, int nodesPerPartition,
             boolean decayEnabled, Duration consolidationInterval,
             String defaultIngestionTier, String hnswPrefilter,
-            String tagExtractor, String tagExtractorModel
+            String tagExtractor, String tagExtractorModel,
+            String textSearchMode,
+            boolean spladeEnabled, boolean colbertEnabled, boolean bm25Enabled,
+            LlmDefaults llm
+    ) {}
+
+    /**
+     * LLM generation parameters for tag extraction, entity extraction, etc.
+     *
+     * @param temperature  sampling temperature (0.0 = deterministic, 1.0 = creative)
+     * @param maxTokens    maximum tokens to generate per call
+     * @param topP         nucleus sampling threshold
+     * @param entityModel  optional separate model for entity extraction (falls back to tag-extractor-model)
+     */
+    public record LlmDefaults(
+            float temperature, int maxTokens, float topP,
+            String entityModel
     ) {}
 
     /**
      * Loads memory defaults from properties.
      */
     public static MemoryDefaults memoryDefaults(SpectorProperties props) {
+        var llm = new LlmDefaults(
+                props.getFloat("spector.memory.llm.temperature", 0.3f),
+                props.getInt("spector.memory.llm.max-tokens", 1024),
+                props.getFloat("spector.memory.llm.top-p", 0.95f),
+                props.getString("spector.memory.llm.entity-model", "")
+        );
         return new MemoryDefaults(
                 props.getBoolean("spector.memory.enabled", false),
                 props.getString("spector.memory.persistence-mode", "DISK"),
@@ -301,7 +323,12 @@ public final class SpectorConfigFactory {
                 props.getString("spector.memory.default-ingestion-tier", "SEMANTIC"),
                 props.getString("spector.memory.hnsw-prefilter", "auto"),
                 props.getString("spector.memory.tag-extractor", "content"),
-                props.getString("spector.memory.tag-extractor-model", "")
+                props.getString("spector.memory.tag-extractor-model", ""),
+                props.getString("spector.memory.text-search-mode", "HYBRID"),
+                props.getBoolean("spector.memory.splade-enabled", true),
+                props.getBoolean("spector.memory.colbert-enabled", true),
+                props.getBoolean("spector.memory.bm25-enabled", true),
+                llm
         );
     }
 
@@ -347,8 +374,8 @@ public final class SpectorConfigFactory {
                 props.getPath("spector.ingestion.root-directory", Path.of(".")),
                 props.getString("spector.ingestion.file-pattern", "**/*.md"),
                 props.getString("spector.ingestion.skip-dirs", ".git,.idea,.mvn,target,node_modules,.github"),
-                props.getInt("spector.ingestion.chunk-size", 800),
-                props.getInt("spector.ingestion.chunk-overlap", 100),
+                props.getInt("spector.ingestion.chunk-size", 2500),
+                props.getInt("spector.ingestion.chunk-overlap", 200),
                 props.getInt("spector.ingestion.parallelism", 4),
                 props.getInt("spector.ingestion.max-retries", 3),
                 props.getInt("spector.ingestion.retry-delay-ms", 2000)
