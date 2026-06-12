@@ -71,6 +71,62 @@ class MeteredSpectorEngineTest {
         assertThat(registry.get(MeteredSpectorEngine.METRIC_INGEST_DURATION).timer().count()).isEqualTo(1L);
     }
 
+    @Test
+    void testAllDelegationMethods() throws Exception {
+        MeterRegistry registry = new SimpleMeterRegistry();
+        SpectorEngine stub = new DummySpectorEngine() {
+            @Override public int ingestFile(Path path, String documentId, Function<String, float[]> vectorProvider, int chunkSize, int overlap) throws IOException { return 42; }
+            @Override public int ingestFileAuto(Path path, String documentId, int chunkSize, int overlap) throws IOException { return 43; }
+        };
+
+        MeteredSpectorEngine metered = new MeteredSpectorEngine(stub, registry);
+
+        assertThat(metered.unwrap()).isSameAs(stub);
+
+        metered.ingest("id-1", "title-1", "content-1", new float[]{0.1f});
+        metered.ingestBatch(new String[]{"id-2"}, new String[]{"content-2"}, new float[][]{{0.2f}});
+        assertThat(metered.delete("id-1")).isTrue();
+
+        metered.ingestChunked("id-3", "content-3", s -> new float[]{0.3f});
+        metered.ingestChunked("id-4", "content-4", s -> new float[]{0.4f}, null);
+        metered.ingestStructured("id-5", "content-5", new float[]{0.5f});
+
+        Path tempFile = Path.of("nonexistent-file-xyz.txt");
+        try {
+            metered.ingestFile(tempFile, "doc-1", s -> new float[]{0.1f}, 10, 2);
+        } catch (IOException ignored) {}
+
+        try {
+            metered.ingestFileAuto(tempFile, "doc-1", 10, 2);
+        } catch (IOException ignored) {}
+
+        metered.ingestTokenChunked("id-6", "content-6", s -> new float[]{0.6f}, 10, 2);
+        metered.ingest("id-7", "content-7");
+        metered.ingest("id-8", "title-8", "content-8");
+        metered.ingestChunkedAuto("id-9", "content-9");
+
+        metered.keywordSearch("query", 10);
+        metered.vectorSearch(new float[]{0.1f}, 10);
+        metered.hybridSearch("query", new float[]{0.1f}, 10);
+        metered.search("query", 10);
+
+        metered.batchCosineSimilarity(new float[0], new float[0], 0, 0);
+        assertThat(metered.isGpuActive()).isFalse();
+
+        metered.admin();
+        metered.config();
+        assertThat(metered.documentCount()).isEqualTo(0);
+        metered.documentStore();
+        metered.vectorStore();
+        metered.index();
+        metered.embeddingProvider();
+        assertThat(metered.hasEmbeddingProvider()).isFalse();
+        metered.reranker();
+        assertThat(metered.isRerankerActive()).isFalse();
+        metered.target();
+        metered.close();
+    }
+
     static class DummySpectorEngine implements SpectorEngine {
         @Override public void ingest(String id, String content, float[] vector) {}
         @Override public void ingest(String id, String title, String content, float[] vector) {}

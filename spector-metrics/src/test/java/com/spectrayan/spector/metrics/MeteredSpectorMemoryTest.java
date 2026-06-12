@@ -89,6 +89,72 @@ class MeteredSpectorMemoryTest {
         assertThat(registry.find("spector.memory.pinned.bytes").gauge()).isNotNull();
     }
 
+    @Test
+    void testAllDelegationMethods() throws Exception {
+        MeterRegistry registry = new SimpleMeterRegistry();
+        ReflectReport reportMock = new ReflectReport(10, 5, 0, 0, Duration.ofMillis(100));
+        SpectorMemory stub = new DummySpectorMemory() {
+            @Override public ReflectReport reflect() { return reportMock; }
+        };
+
+        MeteredSpectorMemory metered = new MeteredSpectorMemory(stub, registry);
+
+        assertThat(metered.unwrap()).isSameAs(stub);
+        metered.target();
+
+        metered.remember("id-1", "text-1", MemoryType.EPISODIC, MemorySource.USER_STATED, "tag");
+        metered.remember("id-2", "text-2", MemoryType.EPISODIC, MemorySource.USER_STATED, (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null, "tag");
+        metered.remember("id-3", "text-3", MemoryType.EPISODIC, "tag");
+        metered.remember("id-4", "text-4", MemoryType.EPISODIC, MemorySource.USER_STATED, (IngestionContext) null, "tag");
+        metered.remember("text-5", MemoryType.EPISODIC, MemorySource.USER_STATED, "tag");
+        metered.remember("text-6", MemoryType.EPISODIC, MemorySource.USER_STATED, (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null, "tag");
+
+        metered.recall("query", (RecallOptions) null);
+        metered.recall("query", (CognitiveProfile) null);
+        metered.forget("id-1");
+
+        assertThat(metered.reflect()).isSameAs(reportMock);
+
+        metered.reinforce("id-1", (byte) 1);
+        metered.suppress("id-1", "reason");
+        metered.suppress("id-1");
+        metered.unsuppress("id-1");
+        metered.markResolved("id-1");
+        metered.markUnresolved("id-1");
+        metered.introspect("topic");
+        metered.whyNot("id-1", "query", null);
+        metered.inspect("id-1");
+
+        metered.scheduleReminder("text", Instant.now());
+        metered.scheduleReminder("text", Duration.ofMinutes(1));
+        metered.scratchpad("text");
+
+        assertThat(metered.totalMemories()).isEqualTo(0);
+        assertThat(metered.memoryCount(MemoryType.EPISODIC)).isEqualTo(0);
+        assertThat(metered.decay(Duration.ofDays(1), 0.5f)).isEqualTo(0);
+
+        metered.browse("tag");
+        metered.exportJson();
+        metered.estimateImportance("text", null);
+
+        metered.admin();
+        metered.coActivation();
+        metered.wal();
+        metered.prospective();
+        metered.suppression();
+        metered.habituation();
+        metered.quantizer();
+        metered.cognitiveTarget();
+        metered.recallPipeline();
+        metered.tierRouter();
+        metered.index();
+        metered.lateralEvaluator();
+        metered.hebbianGraph();
+        metered.temporalChain();
+        metered.entityGraph();
+        metered.close();
+    }
+
     static class DummySpectorMemory implements SpectorMemory {
         @Override public CognitiveIngestionTarget target() { return null; }
         @Override public CompletableFuture<Void> remember(String id, String text, MemoryType type, MemorySource source, String... tags) { return CompletableFuture.completedFuture(null); }
