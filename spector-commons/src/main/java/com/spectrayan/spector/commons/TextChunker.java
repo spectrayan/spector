@@ -132,6 +132,10 @@ public class TextChunker {
                 chunkIndex++;
             }
 
+            // If this chunk reached the end of the document, we're done —
+            // don't let overlap logic produce a spurious trailing chunk.
+            if (endChar >= text.length()) break;
+
             // Advance with overlap — snap to sentence boundary so chunks
             // never start mid-word or mid-sentence.
             int step = endChar - startChar;
