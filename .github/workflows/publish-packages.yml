@@ -54,5 +54,6 @@ jobs:
           mvn -B deploy -DskipTests
           --no-transfer-progress
           -Dgpg.skip=true
+          -Dmaven.deploy.skip=false
           -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }}
           || echo 'Version already published, skipping'

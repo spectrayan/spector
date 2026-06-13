@@ -3,8 +3,18 @@ name: CI
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '.github/**'
+      - '*.md'
+      - 'docs/**'
+      - 'LICENSE'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '.github/**'
+      - '*.md'
+      - 'docs/**'
+      - 'LICENSE'
   schedule:
     - cron: '0 2 * * *'
 
@@ -45,7 +55,9 @@ jobs:
         run: |
           mvn -B clean install \
             --no-transfer-progress \
-            -Dproject.build.outputTimestamp=2024-01-01T00:00:00Z
+            -Dproject.build.outputTimestamp=2024-01-01T00:00:00Z \
+            -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN \
+            -Dsurefire.useSystemClassLoader=false
 
       # ─── Verify Reproducibility ──────────────────────────────────────
       - name: Verify reproducible JARs
