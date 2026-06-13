@@ -43,3 +43,9 @@
   color: var(--mat-sys-primary);
   letter-spacing: 0.04em;
 }
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .radar-container { padding: 4px; gap: 4px; }
+  .profile-badge { font-size: 9px; padding: 2px 8px; }
+}

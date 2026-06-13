@@ -151,3 +151,43 @@
     color: var(--mat-sys-secondary);
   }
 }
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .funnel-container {
+    padding: 8px 10px;
+  }
+
+  .funnel-row {
+    grid-template-columns: 90px 1fr auto;
+    gap: 6px;
+  }
+
+  .phase-name {
+    font-size: 10px;
+  }
+
+  .phase-bar-track {
+    height: 12px;
+  }
+
+  .filter-badge {
+    font-size: 9px;
+    min-width: 36px;
+  }
+
+  .aug-chip {
+    font-size: 9px;
+    padding: 1px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .funnel-row {
+    grid-template-columns: 70px 1fr auto;
+  }
+
+  .phase-name {
+    font-size: 9px;
+  }
+}

@@ -419,3 +419,102 @@
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// RESPONSIVE BREAKPOINTS
+// ══════════════════════════════════════════════════════════════
+
+// Tablet (≤ 1024px)
+@media (max-width: 1024px) {
+  .brand-badge {
+    display: none;
+  }
+
+  .node-select {
+    width: 130px;
+  }
+
+  .replay-toolbar {
+    padding: 2px 4px;
+  }
+}
+
+// Mobile (≤ 767px)
+@media (max-width: 767px) {
+  .cortex-toolbar {
+    height: 48px;
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .brand-name {
+    display: none;
+  }
+
+  .brand-badge {
+    display: none;
+  }
+
+  .brand-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .status-label {
+    display: none;
+  }
+
+  .node-select {
+    display: none;
+  }
+
+  .profile-chip-set {
+    display: none;
+  }
+
+  .metric-badge {
+    display: none;
+  }
+
+  .replay-controls {
+    gap: 2px;
+  }
+
+  .recording-badge {
+    padding: 2px 6px;
+    font-size: 9px;
+  }
+
+  .replay-toolbar {
+    padding: 1px 4px;
+    gap: 0;
+  }
+
+  .replay-progress {
+    font-size: 9px;
+  }
+
+  ::ng-deep .notif-panel {
+    min-width: 280px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+}
+
+// Very small (≤ 480px)
+@media (max-width: 480px) {
+  .cortex-toolbar {
+    padding: 0 6px;
+    gap: 4px;
+  }
+
+  .replay-controls {
+    .recording-badge {
+      display: none;
+    }
+  }
+
+  .status-group {
+    gap: 0;
+  }
+}
+

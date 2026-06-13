@@ -66,3 +66,13 @@
   color: var(--mat-sys-tertiary);
   font-size: 10px;
 }
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .simd-container { padding: 6px 8px; gap: 6px; }
+  .stats-bar { padding: 6px 8px; gap: 8px; }
+  .stat { min-width: 48px; }
+  .stat-label { font-size: 8px; }
+  .stat-value { font-size: 11px; }
+  .kernel-badge { font-size: 9px; }
+}

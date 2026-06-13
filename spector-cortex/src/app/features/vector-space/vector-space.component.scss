@@ -71,3 +71,11 @@
   height: 8px;
   border-radius: 50%;
 }
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .layer-controls { padding: 4px 6px; gap: 1px; }
+  .layer-label { font-size: 9px; }
+  .legend { gap: 6px; padding: 3px 8px; font-size: 9px; }
+  .legend-dot { width: 6px; height: 6px; }
+}

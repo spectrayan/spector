@@ -142,3 +142,36 @@
     color: var(--mat-sys-error);
   }
 }
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .heatmap-container {
+    padding: 6px 8px;
+  }
+
+  .segment-row {
+    grid-template-columns: 80px 1fr 50px;
+    gap: 6px;
+  }
+
+  .seg-name {
+    font-size: 9px;
+  }
+
+  .seg-bar-track {
+    height: 10px;
+  }
+
+  .seg-size {
+    font-size: 8px;
+  }
+
+  .jvm-metric {
+    grid-template-columns: 32px 1fr auto;
+    gap: 6px;
+  }
+
+  .jvm-stats {
+    gap: 8px;
+  }
+}

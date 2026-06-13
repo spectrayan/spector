@@ -167,3 +167,36 @@ html, body {
 .cortex-mono {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
+
+// ── Responsive Utilities ──────────────────────────────────────────────
+// Breakpoints: mobile <768px, tablet 768–1024px, desktop >1024px
+
+.desktop-only {
+  @media (max-width: 767px) { display: none !important; }
+}
+
+.tablet-up {
+  @media (max-width: 767px) { display: none !important; }
+}
+
+.mobile-only {
+  display: none !important;
+  @media (max-width: 767px) { display: block !important; }
+}
+
+.mobile-only-flex {
+  display: none !important;
+  @media (max-width: 767px) { display: flex !important; }
+}
+
+.tablet-hide {
+  @media (max-width: 1024px) { display: none !important; }
+}
+
+// Allow natural scroll on mobile
+@media (max-width: 767px) {
+  html, body {
+    overflow: auto;
+    overflow-x: hidden;
+  }
+}

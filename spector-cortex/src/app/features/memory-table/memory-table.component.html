@@ -82,8 +82,8 @@
     </div>
   }
 
-  <!-- ── Data Table ── -->
-  <div class="table-wrapper">
+  <!-- ── Data Table (desktop/tablet) ── -->
+  <div class="table-wrapper desktop-only">
     <table class="memory-table">
       <thead>
         <tr>
@@ -222,6 +222,70 @@
         }
       </tbody>
     </table>
+  </div>
+
+  <!-- ── Card List (mobile only) ── -->
+  <div class="card-list mobile-only">
+    @for (row of table.rows(); track trackRow($index, row)) {
+      <div class="memory-card" [class.tombstoned]="row.tombstoned"
+           (click)="onRowClick(row)">
+        <div class="card-header">
+          <span class="tier-badge-sm" [style.background]="tierColors[row.tier]">{{ row.tier }}</span>
+          <span class="id-text cortex-mono" (click)="copyId(row.id, $event)">
+            {{ row.id.length > 12 ? row.id.substring(0, 12) + '…' : row.id }}
+          </span>
+          <span class="card-time cortex-mono">{{ relativeTime(row.timestampMs) }}</span>
+        </div>
+
+        <p class="card-text">{{ row.textPreview }}</p>
+
+        <div class="card-importance">
+          <div class="importance-bar-track">
+            <div class="importance-bar"
+                 [style.width.%]="row.importance * 100"
+                 [style.background]="'linear-gradient(90deg, #6366f1, #a855f7)'"></div>
+          </div>
+          <span class="importance-value cortex-mono">{{ row.importance.toFixed(2) }}</span>
+        </div>
+
+        <div class="card-meta">
+          <span class="valence-value cortex-mono"
+                [class.positive]="row.valence > 0"
+                [class.negative]="row.valence < 0">
+            ❤️ {{ row.valence > 0 ? '+' : '' }}{{ row.valence }}
+          </span>
+          <span class="recall-badge">♻️ {{ row.agentRecallCount }}</span>
+          @if (row.tombstoned) { <span>💀</span> }
+          @if (row.pinned) { <span>📌</span> }
+          @if (row.resolved) { <span>✅</span> }
+          @if (row.consolidated) { <span>🧠</span> }
+        </div>
+
+        @if (row.tags.length > 0) {
+          <div class="card-tags">
+            @for (tag of row.tags; track tag) {
+              <span class="tag-chip">{{ tag }}</span>
+            }
+          </div>
+        }
+
+        <div class="card-actions">
+          <button mat-icon-button class="action-btn reinforce-btn"
+                  (click)="onReinforce(row, $event)"><mat-icon>thumb_up</mat-icon></button>
+          <button mat-icon-button class="action-btn suppress-btn"
+                  (click)="onSuppress(row, $event)"><mat-icon>block</mat-icon></button>
+          <button mat-icon-button class="action-btn resolve-btn"
+                  (click)="onResolve(row, $event)"><mat-icon>{{ row.resolved ? 'undo' : 'check_circle' }}</mat-icon></button>
+          <button mat-icon-button class="action-btn forget-btn"
+                  (click)="onForget(row, $event)" [disabled]="row.tombstoned"><mat-icon>delete_outline</mat-icon></button>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state">
+        <mat-icon>inbox</mat-icon>
+        <span>No memory records found</span>
+      </div>
+    }
   </div>
 
   <!-- ── Mat Paginator ── -->

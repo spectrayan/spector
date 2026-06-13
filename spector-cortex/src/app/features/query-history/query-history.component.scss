@@ -41,3 +41,12 @@
   mat-icon { font-size: 32px; width: 32px; height: 32px; opacity: 0.3; }
   span { font-size: 12px; }
 }
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .history-container { padding: 6px 8px; gap: 3px; }
+  .history-item { padding: 5px 6px; gap: 6px; }
+  .item-time { font-size: 9px; min-width: 44px; }
+  .item-query { font-size: 10px; }
+  .meta-chip { font-size: 8px; padding: 1px 4px; }
+}

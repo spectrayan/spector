@@ -96,3 +96,28 @@
   background: var(--mat-sys-tertiary);
   animation: shimmer 1.2s ease-in-out infinite;
 }
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .search-bar {
+    padding: 4px 4px 4px 10px;
+    border-radius: 12px;
+    gap: 6px;
+  }
+
+  .search-input {
+    font-size: 12px;
+  }
+
+  .send-button {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+}

@@ -135,3 +135,30 @@
   }
 }
 
+// Very small (≤ 480px)
+@media (max-width: 480px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-auto-rows: minmax(200px, auto);
+    grid-template-rows: 260px;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .panel-neural-graph,
+  .panel-vector-space {
+    grid-column: 1;
+    min-height: 220px;
+  }
+
+  .cluster-grid {
+    grid-auto-rows: minmax(200px, auto);
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .query-bar {
+    margin: 4px 6px 0;
+  }
+}
+

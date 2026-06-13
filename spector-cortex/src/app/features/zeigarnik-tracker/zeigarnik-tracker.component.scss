@@ -23,3 +23,12 @@
   &.tension-high { background: var(--mat-sys-error); animation: pulse-glow 1.5s ease-in-out infinite; }
 }
 .tension-label { font-size: 9px; color: var(--mat-sys-on-surface-variant); text-align: center; cursor: help; }
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .tracker-container { padding: 8px 10px; gap: 6px; }
+  .tracker-body { gap: 4px; }
+  .tracker-divider { height: 24px; }
+  .big-number .number { font-size: 18px; }
+  .big-number .label { font-size: 8px; }
+}

@@ -191,3 +191,68 @@
     grid-template-columns: 1fr;
   }
 }
+
+// Mobile (≤ 767px)
+@media (max-width: 767px) {
+  :host {
+    padding: 12px;
+  }
+
+  .page-header {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .page-icon {
+    font-size: 24px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .stat-grid {
+    gap: 16px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .vacuum-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .tier-select {
+    width: 100%;
+  }
+
+  .result-json {
+    font-size: 10px;
+    padding: 8px;
+    max-height: 150px;
+  }
+}
+
+// Very small (≤ 480px)
+@media (max-width: 480px) {
+  :host {
+    padding: 8px;
+  }
+
+  .page-title {
+    font-size: 16px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .stat-label {
+    font-size: 9px;
+  }
+}

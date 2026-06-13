@@ -1,7 +1,7 @@
 <cortex-header />
 
 <div class="shell-layout">
-  <!-- Side Navigation -->
+  <!-- Side Navigation (desktop/tablet) -->
   <nav class="side-rail" [class.collapsed]="collapsed()">
 
     @for (item of navItems; track item.route) {
@@ -39,3 +39,15 @@
     <router-outlet />
   </main>
 </div>
+
+<!-- Bottom Tab Bar (mobile only) -->
+<nav class="bottom-nav">
+  @for (item of navItems; track item.route) {
+    <a class="bottom-nav-item"
+       [routerLink]="item.route"
+       routerLinkActive="bottom-nav-active">
+      <mat-icon class="bottom-nav-icon">{{ item.icon }}</mat-icon>
+      <span class="bottom-nav-label">{{ item.label }}</span>
+    </a>
+  }
+</nav>

@@ -478,6 +478,96 @@ mat-paginator {
 }
 
 // ══════════════════════════════════════════════════════════════
+// MOBILE CARD LIST
+// ══════════════════════════════════════════════════════════════
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memory-card {
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  animation: fade-in-row 0.3s ease both;
+
+  &:active {
+    background: var(--mat-sys-surface-container);
+    border-color: var(--mat-sys-primary);
+  }
+
+  &.tombstoned {
+    opacity: 0.5;
+    .card-text { text-decoration: line-through; text-decoration-color: var(--mat-sys-error); }
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-time {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+}
+
+.card-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mat-sys-on-surface-variant);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-importance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .importance-bar-track {
+    flex: 1;
+  }
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0;
+  justify-content: flex-end;
+  border-top: 1px solid var(--mat-sys-surface-container-highest);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+// ══════════════════════════════════════════════════════════════
 // RESPONSIVE BREAKPOINTS
 // ══════════════════════════════════════════════════════════════
 
@@ -543,6 +633,17 @@ mat-paginator {
   .add-label {
     display: none;
   }
+
+  // Paginator compact
+  mat-paginator {
+    ::ng-deep .mat-mdc-paginator-container {
+      padding: 0 4px;
+      min-height: 48px;
+    }
+    ::ng-deep .mat-mdc-paginator-page-size-label {
+      display: none;
+    }
+  }
 }
 
 // Very small (< 480px)
@@ -562,5 +663,15 @@ mat-paginator {
 
   .toolbar-title {
     font-size: 13px;
+  }
+
+  .memory-card {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .card-text {
+    font-size: 11px;
+    -webkit-line-clamp: 2;
   }
 }

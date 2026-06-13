@@ -247,3 +247,95 @@
     transform: translateY(0);
   }
 }
+
+// ══════════════════════════════════════════════════════════════
+// RESPONSIVE BREAKPOINTS
+// ══════════════════════════════════════════════════════════════
+
+// Tablet (≤ 1024px)
+@media (max-width: 1024px) {
+  :host {
+    padding: 16px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+}
+
+// Mobile (≤ 767px)
+@media (max-width: 767px) {
+  :host {
+    padding: 12px;
+  }
+
+  .page-header {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .page-icon {
+    font-size: 24px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .page-subtitle {
+    font-size: 11px;
+  }
+
+  .query-section {
+    margin-bottom: 16px;
+  }
+
+  .results-section {
+    margin-bottom: 16px;
+  }
+
+  .result-card {
+    padding: 10px 12px;
+    gap: 10px;
+
+    &:hover {
+      transform: none; // disable slide effect on touch
+    }
+  }
+
+  .result-text {
+    font-size: 12px;
+  }
+
+  .result-scores {
+    gap: 6px;
+  }
+
+  .score {
+    font-size: 10px;
+  }
+}
+
+// Very small (≤ 480px)
+@media (max-width: 480px) {
+  :host {
+    padding: 8px;
+  }
+
+  .page-title {
+    font-size: 16px;
+  }
+
+  .result-card {
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+
+  .result-rank {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+}
