@@ -12,9 +12,14 @@
  */
 package com.spectrayan.spector.memory.sync;
 
+import com.spectrayan.spector.memory.StorageLayout;
+import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 
 import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.temporal.TemporalChain;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +33,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
 /**
- * Performs periodic checkpoints of tier store segments and WAL truncation.
+ * Performs periodic checkpoints of tier store segments, cognitive graphs, and WAL truncation.
  *
  * <h3>Biological Analog: Sleep-Consolidation Flush</h3>
  * <p>During slow-wave sleep, the hippocampus replays recent events and
@@ -39,6 +44,8 @@ import java.nio.file.StandardOpenOption;
  * <h3>Algorithm</h3>
  * <ol>
  *   <li>Force all persistent tier store segments ({@code MemorySegment.force()})</li>
+ *   <li>Save MemoryIndex (ID→offset, text, tags, source)</li>
+ *   <li>Save HebbianGraph, TemporalChain, EntityGraph, CoActivationTracker</li>
  *   <li>Read the WAL high-water mark ({@code wal.highWaterMark()})</li>
  *   <li>Write the HWM to {@code checkpoint.meta} (atomic via temp+rename)</li>
  *   <li>Truncate WAL events ≤ HWM ({@code wal.truncateBefore(hwm)})</li>
@@ -80,27 +87,65 @@ public final class CheckpointDaemon {
     private final MemoryIndex index;   // nullable — only set for DISK mode
     private final Path indexPath;      // nullable — where to save index.midx
 
+    // ── 3-Layer Cognitive Graph + CoActivation ──
+    private final HebbianGraph hebbianGraph;           // nullable
+    private final TemporalChain temporalChain;         // nullable
+    private final EntityGraph entityGraph;             // nullable
+    private final CoActivationTracker coActivationTracker; // nullable
+    private final Path partitionDir;                   // nullable — active partition dir for graph saves
+    private final Path basePath;                       // nullable — persistence root for coactivation
+
     /**
-     * Creates a checkpoint daemon.
+     * Creates a checkpoint daemon with full graph persistence.
      *
      * <p>Does <b>not</b> start any threads. Use
      * {@link com.spectrayan.spector.commons.concurrent.DaemonSupervisor#schedule}
      * to drive periodic checkpoint calls.</p>
      *
-     * @param tierRouter         the tier router (for forcing persistent segments)
-     * @param wal                the write-ahead log
-     * @param checkpointMetaPath path to the checkpoint.meta file
-     * @param index              the memory index to persist (nullable)
-     * @param indexPath          path to save the index file (nullable)
+     * @param tierRouter            the tier router (for forcing persistent segments)
+     * @param wal                   the write-ahead log
+     * @param checkpointMetaPath    path to the checkpoint.meta file
+     * @param index                 the memory index to persist (nullable)
+     * @param indexPath             path to save the index file (nullable)
+     * @param hebbianGraph          the Hebbian co-activation graph (nullable)
+     * @param temporalChain         the temporal sequence chain (nullable)
+     * @param entityGraph           the entity knowledge graph (nullable)
+     * @param coActivationTracker   the co-activation frequency tracker (nullable)
+     * @param partitionDir          active partition directory for graph saves (nullable)
+     * @param basePath              persistence root for global files like coactivation (nullable)
      */
     public CheckpointDaemon(TierRouter tierRouter, MemoryWal wal,
                             Path checkpointMetaPath,
-                            MemoryIndex index, Path indexPath) {
+                            MemoryIndex index, Path indexPath,
+                            HebbianGraph hebbianGraph,
+                            TemporalChain temporalChain,
+                            EntityGraph entityGraph,
+                            CoActivationTracker coActivationTracker,
+                            Path partitionDir, Path basePath) {
         this.tierRouter = tierRouter;
         this.wal = wal;
         this.checkpointMetaPath = checkpointMetaPath;
         this.index = index;
         this.indexPath = indexPath;
+        this.hebbianGraph = hebbianGraph;
+        this.temporalChain = temporalChain;
+        this.entityGraph = entityGraph;
+        this.coActivationTracker = coActivationTracker;
+        this.partitionDir = partitionDir;
+        this.basePath = basePath;
+    }
+
+    /**
+     * Creates a checkpoint daemon (legacy constructor — no graph persistence).
+     *
+     * @deprecated Use the full constructor that includes graph subsystems.
+     */
+    @Deprecated(since = "1.0.0", forRemoval = true)
+    public CheckpointDaemon(TierRouter tierRouter, MemoryWal wal,
+                            Path checkpointMetaPath,
+                            MemoryIndex index, Path indexPath) {
+        this(tierRouter, wal, checkpointMetaPath, index, indexPath,
+                null, null, null, null, null, null);
     }
 
     /**
@@ -126,22 +171,56 @@ public final class CheckpointDaemon {
             }
         }
 
-        // Step 3: Read the WAL high-water mark
+        // Step 3: Persist cognitive graphs to partition directory
+        if (partitionDir != null) {
+            saveGraph("HebbianGraph", () ->
+                    hebbianGraph.save(StorageLayout.hebbianGraph(partitionDir)));
+            saveGraph("TemporalChain", () ->
+                    temporalChain.save(StorageLayout.temporalChain(partitionDir)));
+            if (entityGraph != null) {
+                saveGraph("EntityGraph", () ->
+                        entityGraph.save(StorageLayout.entityGraph(partitionDir)));
+            }
+        }
+
+        // Step 4: Persist CoActivationTracker (global, not partitioned)
+        if (coActivationTracker != null && basePath != null) {
+            saveGraph("CoActivationTracker", () ->
+                    coActivationTracker.save(
+                            StorageLayout.coactivationTracker(basePath)));
+        }
+
+        // Step 5: Read the WAL high-water mark
         long hwm = wal.highWaterMark();
         if (hwm <= 0) {
-            log.trace("Checkpoint skipped: no WAL events");
+            log.trace("Checkpoint skipped WAL: no WAL events");
+            long elapsed = (System.nanoTime() - start) / 1_000_000;
+            log.info("Checkpoint complete: hwm=0, index={} entries, elapsed={}ms",
+                    index != null ? index.size() : 0, elapsed);
             return;
         }
 
-        // Step 4: Write HWM to checkpoint.meta (atomic via temp+rename)
+        // Step 6: Write HWM to checkpoint.meta (atomic via temp+rename)
         writeCheckpointMeta(hwm);
 
-        // Step 5: Truncate WAL events ≤ HWM
+        // Step 7: Truncate WAL events ≤ HWM
         wal.truncateBefore(hwm);
 
         long elapsed = (System.nanoTime() - start) / 1_000_000;
         log.info("Checkpoint complete: hwm={}, index={} entries, elapsed={}ms",
                 hwm, index != null ? index.size() : 0, elapsed);
+    }
+
+    /**
+     * Saves a graph subsystem, logging any errors without propagating.
+     */
+    private void saveGraph(String name, Runnable saver) {
+        if (saver == null) return;
+        try {
+            saver.run();
+        } catch (Exception e) {
+            log.error("Checkpoint: failed to save {}: {}", name, e.getMessage(), e);
+        }
     }
 
     /**

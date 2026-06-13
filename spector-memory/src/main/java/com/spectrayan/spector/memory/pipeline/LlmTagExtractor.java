@@ -59,7 +59,7 @@ public final class LlmTagExtractor implements TagExtractor {
 
             Tag Formatting Rules:
             1. All tags must be in lowercase.
-            2. Multi-word tags must be hyphenated instead of using spaces (e.g., "product launch" becomes "product-launch").
+            2. Multi-word tags must be hyphenated instead of using spaces.
             3. Do not include spaces, symbols, punctuation, or special characters (hyphens are allowed per rule 2).
             4. Every tag must be directly derived from the text. Do not invent or infer tags that are not present.
             5. Return ONLY a comma-separated list of tags. No markdown, no explanations, no preamble.

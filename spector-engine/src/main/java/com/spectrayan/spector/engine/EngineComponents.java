@@ -34,6 +34,8 @@ import com.spectrayan.spector.storage.VectorStore;
  * @param keywordIndex  BM25 keyword index
  * @param reranker      LLM re-ranker (nullable)
  * @param gpuBatch      GPU batch similarity (nullable)
+ * @param gpuHnsw       GPU HNSW candidate distance kernel (nullable)
+ * @param gpuSvasq      GPU SVASQ quantized distance kernel (nullable)
  */
 public record EngineComponents(
         VectorStore vectorStore,
@@ -41,8 +43,18 @@ public record EngineComponents(
         VectorIndex vectorIndex,
         KeywordIndex keywordIndex,
         Reranker reranker,
-        Object gpuBatch  // GpuBatchSimilarity — Object to avoid hard dependency
+        Object gpuBatch,  // GpuBatchSimilarity — Object to avoid hard dependency
+        Object gpuHnsw,   // CudaHnswKernel — Object to avoid hard dependency
+        Object gpuSvasq   // CudaSvasqKernel — Object to avoid hard dependency
 ) implements AutoCloseable {
+
+    /** Backward-compatible constructor without HNSW/SVASQ kernels. */
+    public EngineComponents(VectorStore vectorStore, DocumentStore documentStore,
+                            VectorIndex vectorIndex, KeywordIndex keywordIndex,
+                            Reranker reranker, Object gpuBatch) {
+        this(vectorStore, documentStore, vectorIndex, keywordIndex,
+             reranker, gpuBatch, null, null);
+    }
 
     @Override
     public void close() throws Exception {
@@ -51,6 +63,12 @@ public record EngineComponents(
         vectorStore.close();
         documentStore.close();
         if (gpuBatch instanceof AutoCloseable ac) {
+            ac.close();
+        }
+        if (gpuHnsw instanceof AutoCloseable ac) {
+            ac.close();
+        }
+        if (gpuSvasq instanceof AutoCloseable ac) {
             ac.close();
         }
     }

@@ -379,20 +379,21 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
-        // Step 9b: Hebbian edge strengthening (co-ingestion within session)
+        // Step 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
+        // Capture previous memory index ONCE — shared by both subsystems.
+        // (Previously, step 9b set lastIngestedMemoryIdx to memoryIdx,
+        //  then step 9c re-read it and always saw memoryIdx → always -1 → no links.)
         int memoryIdx = index.size() - 1; // approximate index of this memory
-        if (hebbianGraph != null) {
-            try {
-                // Check session boundary
-                if (hebbianGraph.isNewSession()) {
-                    currentSessionId++;
-                    lastIngestedMemoryIdx.set(-1);
-                }
+        if (hebbianGraph != null && hebbianGraph.isNewSession()) {
+            currentSessionId++;
+            lastIngestedMemoryIdx.set(-1);
+        }
+        int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
 
-                int lastIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
-                if (lastIdx >= 0 && lastIdx != memoryIdx) {
-                    hebbianGraph.strengthen(memoryIdx, lastIdx, 1.0f);
-                }
+        // Step 9b: Hebbian edge strengthening
+        if (hebbianGraph != null && previousIdx >= 0 && previousIdx != memoryIdx) {
+            try {
+                hebbianGraph.strengthen(memoryIdx, previousIdx, 1.0f);
             } catch (RuntimeException e) {
                 SpectorHebbianException ex = new SpectorHebbianException("edge strengthening", e);
                 log.warn(ex.getMessage());
@@ -400,14 +401,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         }
 
         // Step 9c: Temporal chain linking (session-local sequence)
-        if (temporalChain != null) {
+        if (temporalChain != null && previousIdx >= 0 && previousIdx != memoryIdx) {
             try {
-                int lastIdx = lastIngestedMemoryIdx.get() == memoryIdx
-                        ? -1 : lastIngestedMemoryIdx.get();
-                // Use the previous memory index from the same session
-                if (lastIdx >= 0) {
-                    temporalChain.link(memoryIdx, lastIdx, currentSessionId);
-                }
+                temporalChain.link(memoryIdx, previousIdx, currentSessionId);
             } catch (RuntimeException e) {
                 SpectorTemporalChainException ex = new SpectorTemporalChainException("linking", e);
                 log.warn(ex.getMessage());
@@ -597,18 +593,19 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
-        // Step 9b: Hebbian edge strengthening (automatic co-ingestion)
+        // Step 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
+        // Capture previous memory index ONCE — shared by both subsystems.
         int memoryIdx = index.size() - 1;
-        if (hebbianGraph != null) {
+        if (hebbianGraph != null && hebbianGraph.isNewSession()) {
+            currentSessionId++;
+            lastIngestedMemoryIdx.set(-1);
+        }
+        int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
+
+        // Step 9b: Hebbian edge strengthening
+        if (hebbianGraph != null && previousIdx >= 0 && previousIdx != memoryIdx) {
             try {
-                if (hebbianGraph.isNewSession()) {
-                    currentSessionId++;
-                    lastIngestedMemoryIdx.set(-1);
-                }
-                int lastIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
-                if (lastIdx >= 0 && lastIdx != memoryIdx) {
-                    hebbianGraph.strengthen(memoryIdx, lastIdx, 1.0f);
-                }
+                hebbianGraph.strengthen(memoryIdx, previousIdx, 1.0f);
             } catch (RuntimeException e) {
                 log.warn(new SpectorHebbianException("edge strengthening", e).getMessage());
             }
@@ -633,13 +630,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         }
 
         // Step 9c: Temporal chain linking (automatic session-based)
-        if (temporalChain != null) {
+        if (temporalChain != null && previousIdx >= 0 && previousIdx != memoryIdx) {
             try {
-                int lastIdx = lastIngestedMemoryIdx.get() == memoryIdx
-                        ? -1 : lastIngestedMemoryIdx.get();
-                if (lastIdx >= 0) {
-                    temporalChain.link(memoryIdx, lastIdx, currentSessionId);
-                }
+                temporalChain.link(memoryIdx, previousIdx, currentSessionId);
             } catch (RuntimeException e) {
                 log.warn(new SpectorTemporalChainException("linking", e).getMessage());
             }

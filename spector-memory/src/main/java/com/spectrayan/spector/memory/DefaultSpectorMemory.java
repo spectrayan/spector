@@ -100,6 +100,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -192,6 +193,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ── Automatic Checkpointing ──
     private final CheckpointDaemon checkpointDaemon;
     private final DaemonSupervisor daemonSupervisor;
+
+    // ── Shutdown Hook (auto-registered for DISK mode) ──
+    private final Thread shutdownHook;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     // ── Chunking for remember() ──
     private final TextChunker chunker;
@@ -522,7 +527,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             this.checkpointDaemon = new CheckpointDaemon(
                     tierRouter, wal,
                     StorageLayout.checkpointMeta(basePath),
-                    index, indexSavePath);
+                    index, indexSavePath,
+                    hebbianGraph, temporalChain, entityGraph, coActivationTracker,
+                    resolvedPartitionDir, basePath);
             this.daemonSupervisor = new DaemonSupervisor("memory");
             this.daemonSupervisor.schedule(
                     "checkpoint",
@@ -532,6 +539,22 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } else {
             this.checkpointDaemon = null;
             this.daemonSupervisor = null;
+        }
+
+        // ── JVM Shutdown Hook ── (DISK mode only)
+        // Guarantees a final flush of all cognitive graphs and subsystems
+        // when the JVM exits, even if the caller never calls close().
+        if (isDisk && basePath != null) {
+            this.shutdownHook = new Thread(() -> {
+                if (closed.compareAndSet(false, true)) {
+                    log.info("JVM shutdown hook: flushing SpectorMemory...");
+                    doClose();
+                    log.info("JVM shutdown hook: SpectorMemory flushed successfully");
+                }
+            }, "spector-memory-shutdown");
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
+        } else {
+            this.shutdownHook = null;
         }
     }
 
@@ -1198,6 +1221,28 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void close() {
+        if (!closed.compareAndSet(false, true)) {
+            log.debug("SpectorMemory.close() already called, skipping");
+            return;
+        }
+
+        // Deregister shutdown hook to avoid double-flush
+        if (shutdownHook != null) {
+            try {
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            } catch (IllegalStateException ignored) {
+                // JVM is already shutting down — hook is running or already ran
+            }
+        }
+
+        doClose();
+    }
+
+    /**
+     * Internal close logic — called by both {@link #close()} and the JVM shutdown hook.
+     * Guarded by the {@code closed} AtomicBoolean so it runs at most once.
+     */
+    private void doClose() {
         log.info("SpectorMemory closing ({} total memories, mode={})",
                 totalMemories(), persistenceMode);
 

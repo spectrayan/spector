@@ -23,6 +23,8 @@ import com.spectrayan.spector.index.VectorIndexFactory;
 import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.gpu.GpuBatchSimilarity;
 import com.spectrayan.spector.gpu.GpuCapability;
+import com.spectrayan.spector.gpu.CudaHnswKernel;
+import com.spectrayan.spector.gpu.CudaSvasqKernel;
 import com.spectrayan.spector.index.BM25Index;
 import com.spectrayan.spector.index.DiskHnswIndex;
 import com.spectrayan.spector.index.ShardedDiskHnswIndex;
@@ -190,11 +192,13 @@ public class EngineComponentFactory {
 
         // ── GPU acceleration (optional, graceful fallback) ──
         GpuBatchSimilarity gpu = createGpu(config);
+        CudaHnswKernel hnswKernel = createHnswKernel(config);
+        CudaSvasqKernel svasqKernel = createSvasqKernel(config);
 
         // ── LLM Reranker (optional) ──
         Reranker reranker = createReranker(config);
 
-        return new EngineComponents(vs, ds, vi, ki, reranker, gpu);
+        return new EngineComponents(vs, ds, vi, ki, reranker, gpu, hnswKernel, svasqKernel);
     }
 
     /**
@@ -234,6 +238,44 @@ public class EngineComponentFactory {
             return rr;
         } catch (Exception e) {
             log.warn("LLM re-ranker initialization failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Creates the GPU HNSW candidate distance kernel if GPU is available.
+     *
+     * <p>Provides GPU-accelerated cosine similarity and L2 distance for
+     * HNSW candidate evaluation. Falls back to CPU SIMD if GPU is unavailable.</p>
+     */
+    protected CudaHnswKernel createHnswKernel(SpectorConfig config) {
+        if (!config.gpuEnabled()) return null;
+
+        try {
+            CudaHnswKernel kernel = new CudaHnswKernel();
+            log.info("GPU HNSW kernel enabled (active={})", kernel.isGpuActive());
+            return kernel;
+        } catch (Exception e) {
+            log.warn("GPU HNSW kernel initialization failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Creates the GPU SVASQ quantized distance kernel if GPU is available.
+     *
+     * <p>Provides GPU-accelerated asymmetric distance computation on SVASQ
+     * INT8 quantized codes. Falls back to CPU if GPU is unavailable.</p>
+     */
+    protected CudaSvasqKernel createSvasqKernel(SpectorConfig config) {
+        if (!config.gpuEnabled()) return null;
+
+        try {
+            CudaSvasqKernel kernel = new CudaSvasqKernel();
+            log.info("GPU SVASQ kernel enabled (active={})", kernel.isGpuActive());
+            return kernel;
+        } catch (Exception e) {
+            log.warn("GPU SVASQ kernel initialization failed: {}", e.getMessage());
             return null;
         }
     }
