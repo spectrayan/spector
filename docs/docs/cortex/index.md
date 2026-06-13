@@ -5,6 +5,15 @@ description: "Real-time visualization dashboard for Spector's cognitive memory e
 
 # 🧬 Spector Cortex — Neural Dashboard
 
+!!! warning "Moved to Spector Enterprise"
+    **The Cortex dashboard source code has moved to [spector-enterprise](https://github.com/spectrayan/spector-enterprise).** The `spector-cortex/` directory has been removed from this repository. The enterprise edition includes the full Cortex UI along with connector management, provider configuration, and template catalog pages — all served from a single-port Armeria server.
+
+    ```bash
+    # Run Cortex from spector-enterprise:
+    cd spector-enterprise/ui/spector-cortex
+    npm install && npx ng serve --port 4300
+    ```
+
 !!! quote "The Vision"
     What if you could **watch your AI's brain think?** Spector Cortex is a real-time neural dashboard that visualizes the cognitive memory engine — from SIMD lanes firing to Hebbian edges strengthening to memories decaying along the Ebbinghaus curve. It's the difference between a black box and a living brain.
 

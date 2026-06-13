@@ -168,3 +168,20 @@ Each workflow matches a specific slash command or task trigger. Use them sequent
 *   **On-Disk Storage**: `.spector/` (ignored via `.gitignore` - do not delete or commit).
 *   **Biologically-Inspired Design**: `spector-memory/RnD/` holds raw design math for cognitive memory mechanisms.
 *   **Documentation Site**: `docs/` (built via MkDocs Material: `python -m mkdocs build --clean`).
+
+---
+
+## 6. Spector Enterprise
+
+The **Cortex dashboard** and full-stack product features have been extracted to a separate repository: [spector-enterprise](https://github.com/spectrayan/spector-enterprise).
+
+**This repository (spector)** is the **core embeddable engine** — headless, no UI, no management APIs. Think of it as "Elasticsearch without Kibana."
+
+**spector-enterprise** adds:
+*   Data connectors (Apache Camel) — template-driven ingestion from REST, file, Kafka, S3, etc.
+*   LLM provider orchestration — OpenAI, Anthropic, Google via ServiceLoader
+*   Management APIs — versioned REST endpoints for configuration and monitoring
+*   Cortex Dashboard — Angular 22 neural visualization (migrated from `spector-cortex/`)
+*   Single-port architecture — everything on port 7070 via Armeria
+
+Enterprise **depends on** `spector-node` and always starts the core engine.

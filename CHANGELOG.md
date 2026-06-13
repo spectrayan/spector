@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — Enterprise Extraction
+- **spector-cortex:** Migrated to [spector-enterprise](https://github.com/spectrayan/spector-enterprise) — the `spector-cortex/` directory has been removed from this repository
+- **spector-node:** Core engine remains headless/embeddable — enterprise edition wraps it with management APIs, connectors, LLM providers, and the Cortex UI on a single Armeria port
+- **docs:** Cortex documentation page updated with migration notice pointing to spector-enterprise
+
 ### Added — spector-events (Telemetry Event Bus)
 - **spector-events:** New module — decoupled telemetry event bus for real-time observability
 - **spector-events:** `TelemetryBus` — instance-based, thread-safe event router (not static, HA-safe)

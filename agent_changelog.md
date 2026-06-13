@@ -4,6 +4,19 @@ This changelog records all updates, refutations, optimizations, and additions ma
 
 ---
 
+## [1.0.0] - 2026-06-13
+
+### Changed — Enterprise Extraction
+*   **Cortex Migration**: Removed `spector-cortex/` directory — migrated to `spector-enterprise/ui/spector-cortex`. Core repo is now headless/embeddable.
+*   **Docs Update**: Updated `docs/docs/cortex/index.md` with migration banner pointing to spector-enterprise.
+*   **Changelog**: Added enterprise extraction entry to `CHANGELOG.md`.
+
+### Impact
+*   **Separation of Concerns**: Core Spector is now a pure embeddable engine (like Elasticsearch without Kibana). The full-stack product with UI, connectors, and provider management lives in `spector-enterprise`.
+*   **No Maven Changes**: `spector-cortex` was never a Maven module (standalone Angular), so no POM modifications needed.
+
+---
+
 ## [1.0.0] - 2026-06-11
 
 ### Added
