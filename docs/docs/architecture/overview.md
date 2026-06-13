@@ -1,11 +1,230 @@
 ---
-title: "Architecture Overview — Module Structure & Data Flow"
-description: "Spector architecture: 25 Maven modules, SIMD-accelerated search pipeline, off-heap Panama memory, virtual thread concurrency, and MCP agent integration."
+title: "Architecture Overview — System Architecture & Data Flow"
+description: "Spector architecture: SIMD-accelerated search pipeline, cognitive memory, off-heap Panama storage, MCP agent integration, and REST/gRPC/SSE APIs."
 ---
 
 # 🏗️ Architecture Overview
 
-> **Spector is a modular, JVM-native AI memory backbone organized as a Maven multi-module project.** This page covers the module structure, dependency graph, data flow, threading model, and memory architecture that make sub-millisecond, agent-native search possible.
+> **Spector is a SIMD-accelerated AI memory backbone** with built-in MCP server, hybrid search, and biologically-inspired cognitive memory. This page covers the system architecture, data flows, threading model, and memory architecture that make sub-millisecond, agent-native search possible.
+
+---
+
+## System Architecture
+
+```mermaid
+graph TB
+    subgraph Clients["Client Interfaces"]
+        claude["🤖 Claude Desktop"]
+        cursor["✏️ Cursor / AI IDEs"]
+        agents["🦾 Autonomous Agents"]
+        sdk["☕ Java SDK"]
+        spring["🌱 Spring AI"]
+        cli["🖥️ spectorctl CLI"]
+        rest["🌐 REST / gRPC"]
+    end
+
+    subgraph Transport["Transport Layer"]
+        mcp["MCP Server<br/><i>stdio · 13 tools (6 search + 7 memory)</i>"]
+        armeria["Armeria Server :7070<br/><i>REST + gRPC + SSE streaming</i>"]
+    end
+
+    subgraph Engine["Spector Engine"]
+        runtime["SpectorRuntime<br/><i>Composition Root</i>"]
+
+        subgraph Search["Search Pipeline"]
+            hybrid["Hybrid Search<br/><i>Mode auto-detection</i>"]
+            hnsw["HNSW Index<br/><i>M=16, ef=200</i>"]
+            bm25["BM25 Index<br/><i>Inverted + analyzers</i>"]
+            rrf["RRF Fusion<br/><i>+ LLM reranking</i>"]
+        end
+
+        subgraph Memory["Cognitive Memory"]
+            cortex["4-Tier Cortex<br/><i>Working → Episodic → Semantic → Procedural</i>"]
+            hebbian["Hebbian Graph<br/><i>Co-activation associations</i>"]
+            decay["Memory Decay<br/><i>Power-law forgetting</i>"]
+            consolidation["Sleep Consolidation<br/><i>Hippocampal replay + pruning</i>"]
+        end
+
+        subgraph Ingest["Ingestion Pipeline"]
+            chunking["Document Chunking<br/><i>Sentence · Paragraph · Semantic</i>"]
+            embedding["Embedding<br/><i>Ollama · Provider SPI</i>"]
+            indexing["Index Writer<br/><i>Batch + streaming</i>"]
+        end
+    end
+
+    subgraph Platform["Platform Layer (Zero GC)"]
+        simd["SIMD Kernels<br/><i>AVX2 / AVX-512 / NEON</i>"]
+        panama["Panama Storage<br/><i>Off-heap MemorySegment · mmap</i>"]
+        quant["SVASQ Quantization<br/><i>INT8 · INT4 · IVF-PQ</i>"]
+        gpu["GPU Acceleration<br/><i>CUDA via Panama FFM</i>"]
+    end
+
+    subgraph Observe["Observability"]
+        events["TelemetryBus<br/><i>12 event types</i>"]
+        metrics["Micrometer<br/><i>Prometheus export</i>"]
+        sse["SSE Event Stream<br/><i>Real-time telemetry</i>"]
+    end
+
+    claude & cursor & agents --> mcp
+    sdk & spring --> Engine
+    cli & rest --> armeria
+    mcp & armeria --> runtime
+
+    runtime --> Search & Memory & Ingest
+
+    Search --> simd & panama & quant
+    Memory --> simd & panama
+    Ingest --> embedding
+
+    runtime --> events
+    events --> metrics & sse
+
+    gpu -.->|optional| simd
+
+    style Clients fill:#1a1a2e,stroke:#e94560,color:#fff
+    style Transport fill:#16213e,stroke:#0f3460,color:#fff
+    style Engine fill:#0f3460,stroke:#533483,color:#fff
+    style Platform fill:#533483,stroke:#e94560,color:#fff
+    style Observe fill:#1a1a2e,stroke:#533483,color:#fff
+    style Search fill:#16213e,stroke:#0f3460,color:#fff
+    style Memory fill:#16213e,stroke:#0f3460,color:#fff
+    style Ingest fill:#16213e,stroke:#0f3460,color:#fff
+```
+
+### Deployment Modes
+
+```mermaid
+graph LR
+    subgraph Embedded["Embedded Mode"]
+        lib["SpectorEngine API<br/><i>In-process · zero-network · drop-in JAR</i>"]
+    end
+
+    subgraph Standalone["Standalone Mode"]
+        jar["java -jar spector.jar<br/><i>Engine + MCP + REST/gRPC + SSE</i>"]
+    end
+
+    subgraph Distributed["Distributed Mode"]
+        coord["Coordinator<br/><i>Query routing · fan-out</i>"]
+        s1["Shard 1"] & s2["Shard 2"] & s3["Shard N"]
+        coord --> s1 & s2 & s3
+    end
+
+    style Embedded fill:#16213e,stroke:#0f3460,color:#fff
+    style Standalone fill:#0f3460,stroke:#533483,color:#fff
+    style Distributed fill:#533483,stroke:#e94560,color:#fff
+```
+
+---
+
+## 🤖 MCP Architecture — Agent-Native Engine
+
+Spector's MCP server runs **in-process** — the agent's tool calls go directly into SIMD kernels with zero network hops, zero serialization, and zero GC pressure. This is the architectural advantage over adapters that wrap a database behind an HTTP API.
+
+### Tool Registry
+
+```mermaid
+graph TB
+    subgraph Agents["AI Agents"]
+        claude["🤖 Claude Desktop"]
+        cursor["✏️ Cursor / Windsurf"]
+        cline["🔧 Cline / Aider"]
+        custom["🦾 Custom Agents"]
+    end
+
+    subgraph MCP["MCP Server — stdio · JSON-RPC 2.0"]
+        transport["Transport Layer<br/><i>stdin/stdout · async I/O</i>"]
+        registry["SpectorToolRegistry<br/><i>21 tools · auto-registration</i>"]
+        handler["McpToolHandler<br/><i>Base class · thread-safe · virtual threads</i>"]
+
+        subgraph Engine["Engine Tools — 6"]
+            e1["engine_search — Semantic vector search"]
+            e2["engine_hybrid_search — Vector + BM25 + RRF"]
+            e3["engine_rag — RAG with context assembly"]
+            e4["engine_ingest — File/text ingestion"]
+            e5["engine_delete — Document removal"]
+            e6["engine_status — Index stats & health"]
+        end
+
+        subgraph Mem["Cognitive Memory Tools — 15"]
+            m1["memory_remember — Store with importance & tags"]
+            m2["memory_recall — Fused SIMD scoring recall"]
+            m3["working_memory_scratchpad — Reasoning scratch space"]
+            m4["memory_reinforce — Outcome feedback +/-"]
+            m5["memory_forget — Intentional forgetting"]
+            m6["memory_status — Per-tier statistics"]
+            m7["memory_introspect — Self-reflection"]
+            m8["memory_suppress — Temporary suppression"]
+            m9["memory_resolve — Conflict resolution"]
+            m10["memory_reminder — Proactive reminders"]
+            m11["memory_why_not — Explain recall misses"]
+            m12["memory_compute_importance — Pre-ingestion scoring"]
+            m13["memory_inspect — Full cognitive X-ray"]
+            m14["memory_export — Bulk memory export"]
+            m15["memory_browse — Browse by tag/tier"]
+        end
+    end
+
+    subgraph Core["In-Process Engine — Zero Network Overhead"]
+        runtime["SpectorRuntime<br/><i>Engine + Memory + Ingestion</i>"]
+        simd["SIMD Kernels<br/><i>AVX2/512 · ~100µs per search</i>"]
+        panama["Panama Off-Heap<br/><i>Zero GC · mmap storage</i>"]
+    end
+
+    Agents -->|stdio| transport --> registry --> handler
+    handler --> Engine & Mem
+    Engine & Mem --> runtime --> simd --> panama
+
+    style Agents fill:#1a1a2e,stroke:#e94560,color:#fff
+    style MCP fill:#16213e,stroke:#0f3460,color:#fff
+    style Engine fill:#0f3460,stroke:#533483,color:#fff
+    style Mem fill:#533483,stroke:#e94560,color:#fff
+    style Core fill:#1a1a2e,stroke:#e94560,color:#fff
+```
+
+### Agent Interaction Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent as 🤖 AI Agent
+    participant MCP as 📡 MCP Server
+    participant Tools as 🔧 ToolRegistry
+    participant Runtime as ⚡ SpectorRuntime
+    participant SIMD as 🔬 SIMD (off-heap)
+
+    Note over Agent,SIMD: Single JVM process — no HTTP, no gRPC, no serialization
+
+    Agent->>MCP: tools/call {"name": "memory_remember", ...}
+    MCP->>Tools: Route → MemoryRememberTool
+    Tools->>Runtime: memory().remember(text, tags, importance)
+    Runtime->>SIMD: Embed → HNSW insert → tier assign
+    SIMD-->>Agent: ✅ memoryId + tier (~1ms)
+
+    Agent->>MCP: tools/call {"name": "memory_recall", ...}
+    MCP->>Tools: Route → MemoryRecallTool
+    Tools->>Runtime: memory().recall(query, topK)
+    Runtime->>SIMD: Fused scoring: sim × importance × decay
+    SIMD-->>Agent: 📋 Ranked memories (~0.13ms)
+
+    Agent->>MCP: tools/call {"name": "engine_hybrid_search", ...}
+    MCP->>Tools: Route → EngineHybridSearchTool
+    Tools->>Runtime: search().hybridSearch(text, topK)
+    Runtime->>SIMD: Parallel HNSW + BM25 → RRF
+    SIMD-->>Agent: 🔍 Ranked results (~88µs)
+```
+
+### Performance: MCP-Native vs. Adapter Pattern
+
+| Metric | Spector (in-process) | Typical MCP adapter |
+|:---|:---|:---|
+| **Architecture** | Engine + MCP in one JVM | Python → HTTP → DB → HTTP → agent |
+| **Search latency** | **88µs** (SIMD) | 5–50ms (network round-trip) |
+| **Memory recall** | **0.13ms** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
+| **Tools** | **21** (6 engine + 15 cognitive) | 3–5 basic CRUD |
+| **GC pressure** | **Zero** (Panama off-heap) | Full GC overhead |
+| **Deployment** | `java -jar spector.jar` | Python + pip + DB + config |
+
+> [!TIP]
+> For full MCP integration details, tool schemas, and Claude Desktop configuration, see the dedicated [MCP Integration](mcp-integration.md) page.
 
 ---
 

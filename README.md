@@ -170,6 +170,115 @@ graph TB
 
 ---
 
+## 🤖 MCP-Native — Built for AI Agents
+
+Spector is an **MCP-native engine** — not an afterthought adapter. The MCP server runs **in-process** with the search engine (zero network, zero serialization), giving agents direct SIMD-accelerated access to 21 tools across search, memory, and RAG.
+
+### MCP Architecture
+
+```mermaid
+graph TB
+    subgraph Agents["AI Agents"]
+        claude["🤖 Claude Desktop"]
+        cursor["✏️ Cursor"]
+        cline["🔧 Cline"]
+        custom["🦾 Custom Agents"]
+    end
+
+    subgraph MCP["MCP Server — stdio transport"]
+        transport["JSON-RPC 2.0<br/><i>stdio (stdin/stdout)</i>"]
+        registry["SpectorToolRegistry<br/><i>21 tools auto-registered</i>"]
+
+        subgraph EngineTools["Engine Tools — 6"]
+            engine_search["engine_search<br/><i>Semantic vector search</i>"]
+            engine_hybrid["engine_hybrid_search<br/><i>Vector + keyword + RRF</i>"]
+            engine_rag["engine_rag<br/><i>RAG with context assembly</i>"]
+            engine_ingest["engine_ingest<br/><i>File/text ingestion</i>"]
+            engine_delete["engine_delete<br/><i>Remove documents</i>"]
+            engine_status["engine_status<br/><i>Index stats & health</i>"]
+        end
+
+        subgraph MemoryTools["Cognitive Memory Tools — 15"]
+            mem_remember["memory_remember<br/><i>Store with importance/tags</i>"]
+            mem_recall["memory_recall<br/><i>Recall with fused scoring</i>"]
+            mem_scratchpad["working_memory_scratchpad<br/><i>In-progress reasoning</i>"]
+            mem_reinforce["memory_reinforce<br/><i>Outcome feedback +/-</i>"]
+            mem_forget["memory_forget<br/><i>Intentional forgetting</i>"]
+            mem_status["memory_status<br/><i>Per-tier statistics</i>"]
+            mem_introspect["memory_introspect<br/><i>Self-reflection</i>"]
+            mem_suppress["memory_suppress<br/><i>Temporary suppression</i>"]
+            mem_resolve["memory_resolve<br/><i>Conflict resolution</i>"]
+            mem_reminder["memory_reminder<br/><i>Proactive reminders</i>"]
+            mem_whynot["memory_why_not<br/><i>Explain recall misses</i>"]
+            mem_importance["memory_compute_importance<br/><i>Pre-ingestion scoring</i>"]
+            mem_inspect["memory_inspect<br/><i>Cognitive X-ray</i>"]
+            mem_export["memory_export<br/><i>Bulk export</i>"]
+            mem_browse["memory_browse<br/><i>Browse by tag</i>"]
+        end
+    end
+
+    subgraph Core["In-Process Engine — Zero Network"]
+        runtime["⚡ SpectorRuntime<br/><i>SIMD search + cognitive memory</i>"]
+        simd["🔬 SIMD Kernels<br/><i>~100µs per query</i>"]
+    end
+
+    Agents -->|stdio| transport
+    transport --> registry
+    registry --> EngineTools & MemoryTools
+    EngineTools & MemoryTools --> runtime
+    runtime --> simd
+
+    style Agents fill:#1a1a2e,stroke:#e94560,color:#fff
+    style MCP fill:#16213e,stroke:#0f3460,color:#fff
+    style EngineTools fill:#0f3460,stroke:#533483,color:#fff
+    style MemoryTools fill:#533483,stroke:#e94560,color:#fff
+    style Core fill:#1a1a2e,stroke:#e94560,color:#fff
+```
+
+### Agent Interaction Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent as 🤖 AI Agent
+    participant MCP as 📡 MCP Server (stdio)
+    participant Tools as 🔧 Tool Registry
+    participant Runtime as ⚡ SpectorRuntime
+    participant SIMD as 🔬 SIMD (off-heap)
+
+    Note over Agent,SIMD: Everything runs in ONE JVM process — zero network hops
+
+    Agent->>MCP: tools/call {"name": "memory_remember", "arguments": {...}}
+    MCP->>Tools: Route to MemoryRememberTool
+    Tools->>Runtime: runtime.memory().remember(text, tags, importance)
+    Runtime->>SIMD: Embed → HNSW insert → tier assignment (~1ms)
+    SIMD-->>Agent: ✅ {"memoryId": "...", "tier": "EPISODIC"}
+
+    Agent->>MCP: tools/call {"name": "memory_recall", "arguments": {"query": "..."}}
+    MCP->>Tools: Route to MemoryRecallTool
+    Tools->>Runtime: runtime.memory().recall(query, topK)
+    Runtime->>SIMD: Fused SIMD scoring: similarity × importance × decay (~0.13ms)
+    SIMD-->>Agent: 📋 Top memories with scores, tiers, associations
+
+    Agent->>MCP: tools/call {"name": "engine_hybrid_search", "arguments": {...}}
+    MCP->>Tools: Route to EngineHybridSearchTool
+    Tools->>Runtime: runtime.search().hybridSearch(text, vector, topK)
+    Runtime->>SIMD: Parallel HNSW + BM25 → RRF fusion (~88µs)
+    SIMD-->>Agent: 🔍 Ranked results with scores
+```
+
+### Why MCP-Native Matters
+
+| | Spector (MCP-native) | Typical MCP adapter |
+|:---|:---|:---|
+| **Architecture** | Engine + MCP in one JVM | Python wrapper → HTTP → DB |
+| **Search latency** | **88µs** (in-process SIMD) | 5–50ms (network + serialization) |
+| **Memory recall** | **0.13ms** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
+| **Tools** | **21** (6 engine + 15 cognitive) | 3–5 basic CRUD |
+| **Cognitive features** | Decay, Hebbian, consolidation, valence | Key-value store |
+| **GC pressure** | **Zero** (Panama off-heap) | Full GC overhead |
+
+---
+
 ## 🧠 Cognitive Memory — AI Agents That Actually Remember
 
 Spector Memory is a **biologically-inspired cognitive memory engine** that gives AI agents the ability to **remember**, **forget**, **consolidate**, and **associate** — with microsecond latency and zero garbage collection pressure.
