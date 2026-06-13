@@ -21,6 +21,155 @@ Legacy search engines bolted vectors onto text databases. **Spector** is designe
 
 ---
 
+## System Architecture
+
+```mermaid
+graph TB
+    subgraph Clients["Client Interfaces"]
+        claude["🤖 Claude Desktop"]
+        cursor["✏️ Cursor / AI IDEs"]
+        agents["🦾 Autonomous Agents"]
+        sdk["☕ Java SDK"]
+        spring["🌱 Spring AI"]
+        cli["🖥️ spectorctl CLI"]
+        rest["🌐 REST / gRPC"]
+    end
+
+    subgraph Transport["Transport Layer"]
+        mcp["MCP Server<br/><i>stdio · 13 tools</i>"]
+        armeria["Armeria Server<br/><i>REST + gRPC + SSE</i>"]
+    end
+
+    subgraph Core["Spector Engine"]
+        runtime["SpectorRuntime<br/><i>Composition Root</i>"]
+
+        subgraph Search["Search Pipeline"]
+            hybrid["Hybrid Search<br/><i>Vector + Keyword</i>"]
+            hnsw["HNSW Index<br/><i>M=16, ef=200</i>"]
+            bm25["BM25 Index<br/><i>Inverted Index</i>"]
+            rrf["RRF Fusion<br/><i>+ LLM Re-ranking</i>"]
+        end
+
+        subgraph Memory["Cognitive Memory"]
+            cortex["4-Tier Cortex<br/><i>Working → Episodic → Semantic → Procedural</i>"]
+            hebbian["Hebbian Graph<br/><i>Associative links</i>"]
+            decay["Memory Decay<br/><i>Power-law forgetting</i>"]
+            consolidation["Sleep Consolidation<br/><i>Hippocampal replay</i>"]
+        end
+
+        subgraph Ingestion["Ingestion Pipeline"]
+            chunking["Document Chunking<br/><i>Sentence · Paragraph · Semantic</i>"]
+            embedding["Embedding<br/><i>Ollama · Provider SPI</i>"]
+            indexing["Index Writer<br/><i>Batch + streaming</i>"]
+        end
+    end
+
+    subgraph Platform["Platform Layer"]
+        simd["SIMD Kernels<br/><i>AVX2 / AVX-512 / NEON</i>"]
+        panama["Panama Storage<br/><i>Off-heap MemorySegment</i>"]
+        quant["SVASQ Quantization<br/><i>INT8 · INT4 · IVF-PQ</i>"]
+        gpu["GPU Acceleration<br/><i>CUDA via Panama FFM</i>"]
+    end
+
+    subgraph Observe["Observability"]
+        events["TelemetryBus<br/><i>12 event types</i>"]
+        metrics["Micrometer<br/><i>Prometheus export</i>"]
+        sse["SSE Stream<br/><i>Real-time events</i>"]
+    end
+
+    claude & cursor & agents --> mcp
+    sdk & spring & cli & rest --> armeria
+    mcp & armeria --> runtime
+
+    runtime --> Search
+    runtime --> Memory
+    runtime --> Ingestion
+
+    Search --> simd & panama & quant
+    Memory --> simd & panama
+    Ingestion --> embedding
+
+    runtime --> events
+    events --> metrics & sse
+
+    gpu -.->|optional| simd
+
+    style Clients fill:#1a1a2e,stroke:#e94560,color:#fff
+    style Transport fill:#16213e,stroke:#0f3460,color:#fff
+    style Core fill:#0f3460,stroke:#533483,color:#fff
+    style Platform fill:#533483,stroke:#e94560,color:#fff
+    style Observe fill:#1a1a2e,stroke:#533483,color:#fff
+    style Search fill:#16213e,stroke:#0f3460,color:#fff
+    style Memory fill:#16213e,stroke:#0f3460,color:#fff
+    style Ingestion fill:#16213e,stroke:#0f3460,color:#fff
+```
+
+### Data Flow
+
+```mermaid
+graph LR
+    subgraph Ingest["Ingest"]
+        docs["📄 Documents"]
+        files["📁 Files"]
+        api["🌐 API Data"]
+    end
+
+    subgraph Process["Process"]
+        chunk["✂️ Chunk"]
+        embed["🧬 Embed"]
+        quantize["🗜️ Quantize"]
+    end
+
+    subgraph Store["Store"]
+        vectors["📊 Vector Index<br/><i>HNSW · IVF-PQ</i>"]
+        text["📝 Text Index<br/><i>BM25</i>"]
+        memory["🧠 Cognitive Store<br/><i>4-tier cortex</i>"]
+    end
+
+    subgraph Query["Query"]
+        search["🔍 Hybrid Search"]
+        recall["💭 Memory Recall"]
+        rag["🤖 RAG Pipeline"]
+    end
+
+    docs & files & api --> chunk --> embed --> quantize
+    quantize --> vectors & text & memory
+    vectors & text --> search --> rag
+    memory --> recall --> rag
+
+    style Ingest fill:#1a1a2e,stroke:#e94560,color:#fff
+    style Process fill:#16213e,stroke:#0f3460,color:#fff
+    style Store fill:#0f3460,stroke:#533483,color:#fff
+    style Query fill:#533483,stroke:#e94560,color:#fff
+```
+
+### Deployment Topology
+
+```mermaid
+graph TB
+    subgraph Standalone["Standalone Mode"]
+        jar["java -jar spector.jar<br/><i>Embedded engine + server</i>"]
+    end
+
+    subgraph Embedded["Embedded Mode"]
+        lib["SpectorEngine API<br/><i>In-process, zero-network</i>"]
+    end
+
+    subgraph Distributed["Distributed Mode"]
+        coord["Coordinator Node<br/><i>Query routing · fan-out</i>"]
+        shard1["Shard 1<br/><i>Partition A</i>"]
+        shard2["Shard 2<br/><i>Partition B</i>"]
+        shard3["Shard N<br/><i>Partition C</i>"]
+        coord --> shard1 & shard2 & shard3
+    end
+
+    style Standalone fill:#0f3460,stroke:#533483,color:#fff
+    style Embedded fill:#16213e,stroke:#0f3460,color:#fff
+    style Distributed fill:#1a1a2e,stroke:#e94560,color:#fff
+```
+
+---
+
 ## 🧠 Cognitive Memory — AI Agents That Actually Remember
 
 Spector Memory is a **biologically-inspired cognitive memory engine** that gives AI agents the ability to **remember**, **forget**, **consolidate**, and **associate** — with microsecond latency and zero garbage collection pressure.
@@ -38,16 +187,17 @@ Spector Memory is a **biologically-inspired cognitive memory engine** that gives
 
 ---
 
-## ✨ Features
+## ✨ Key Capabilities
 
-- **🤖 Agent-Native (MCP)** — Built-in Model Context Protocol server with 13 tools (6 search + 7 cognitive memory).<br>　<sub>Claude Desktop · Cursor · autonomous agents · stdio transport · zero Python</sub>
-- **⚡ SIMD-Accelerated** — Hardware vector math via Java Vector API (AVX2/AVX-512/NEON).<br>　<sub>88µs p50 search · 61K QPS · branchless kernels · masked tail handling</sub>
-- **🧊 100% Off-Heap Panama** — Bypasses GC entirely. Maps raw disk bytes directly into SIMD registers.<br>　<sub>zero network tax · zero serialization tax · zero GC pressure</sub>
-- **🗜️ SVASQ Quantization** — FWHT-rotated affine quantization. Float32 recall at INT8 memory sizes.<br>　<sub>SVASQ-8 (4×) · SVASQ-4 (6–8×) · IVF-PQ (32×) · 99.5%+ recall</sub>
-- **🔍 Hybrid Search** — Semantic vector (HNSW) + keyword (BM25) via Reciprocal Rank Fusion.<br>　<sub>LLM re-ranking · auto-embed · bulk ingest · document chunking</sub>
-- **📦 Embedded or Standalone** — Drop-in JAR (the "DuckDB of Vector DBs") or scale with REST/gRPC clustering.<br>　<sub>Spring AI integration · Java SDK · CLI · zero dependencies</sub>
-- **🖥️ GPU + Distributed** — CUDA kernel loader via Panama FFM, gRPC fan-out with consistent hashing.<br>　<sub>CUDA · coordinator/shard · TLS · SSE streaming</sub>
-- **🧠 Neural Dashboard** — Angular 21 real-time dashboard with 10+ live visualization cards.<br>　<sub>THREE.js · Canvas 2D · SSE · Micrometer metrics</sub>
+| Capability | Technology | Performance |
+|:---|:---|:---|
+| 🤖 **Agent-Native (MCP)** | Model Context Protocol · 13 tools · stdio | Claude · Cursor · autonomous agents |
+| ⚡ **SIMD Search** | Java Vector API (AVX2/AVX-512/NEON) | 88µs p50 · 61K QPS |
+| 🧊 **Off-Heap Storage** | Panama MemorySegment · zero-copy I/O | 0.01% GC overhead |
+| 🗜️ **Quantization** | SVASQ-8/4 · IVF-PQ · FWHT rotation | 4–32× compression · 99.5% recall |
+| 🔍 **Hybrid Search** | HNSW + BM25 + RRF + LLM re-ranking | Sub-ms latency |
+| 🖥️ **GPU Acceleration** | CUDA via Panama FFM | Optional · zero-copy transfer |
+| 📦 **Flexible Deployment** | Embedded JAR · Standalone · Distributed | Zero to cluster in one config |
 
 ---
 
@@ -138,7 +288,7 @@ java --add-modules jdk.incubator.vector \
 
 ---
 
-## 📊 Benchmarks (Highlights)
+## 📊 Benchmarks
 
 All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 
@@ -154,7 +304,7 @@ All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 
 ---
 
-## 📖 Docs by Goal
+## 📖 Documentation
 
 | I want to... | Start here |
 |:---|:---|
@@ -162,9 +312,8 @@ All numbers measured on Intel Core Ultra 9 285K, Java 25, AVX2 256-bit.
 | **Connect an AI agent** | [MCP Server Guide](https://spectrayan.github.io/spector/sdk-usage/mcp-server/) · [Claude Desktop Config](#claude-desktop-config) |
 | **Add cognitive memory** | [Memory Overview](https://spectrayan.github.io/spector/memory/) · [Getting Started](https://spectrayan.github.io/spector/memory/getting-started/) · [Use Cases](https://spectrayan.github.io/spector/memory/use-cases/) |
 | **Use the Java SDK** | [Java SDK Guide](https://spectrayan.github.io/spector/sdk-usage/java-client/) · [Spring AI Integration](https://spectrayan.github.io/spector/sdk-usage/spring-ai/) |
-| **Understand the internals** | [Architecture Overview](https://spectrayan.github.io/spector/architecture/overview/) · [Core Concepts](https://spectrayan.github.io/spector/architecture/core-concepts/) · [Deep Dives](https://spectrayan.github.io/spector/deep-dives/svasq-deep-dive/) |
-| **Contribute** | [Contributing Guide](CONTRIBUTING.md) · [Module Reference](https://spectrayan.github.io/spector/modules/) |
-| **Run benchmarks** | [Benchmark Report](https://spectrayan.github.io/spector/deep-dives/real-embedding-benchmarks/) · [Performance Tuning](https://spectrayan.github.io/spector/operations/performance-tuning/) |
+| **Deploy to production** | [Docker Deployment](deploy/docker/) · [Performance Tuning](https://spectrayan.github.io/spector/operations/performance-tuning/) |
+| **Extend with Enterprise** | [Spector Enterprise](https://github.com/spectrayan/spector-enterprise) — LLM providers, Cortex dashboard, data connectors |
 
 > 📖 **[Full Documentation →](https://spectrayan.github.io/spector/)**
 
@@ -178,8 +327,6 @@ We welcome contributions of all kinds — code, docs, tests, benchmarks, and ide
 - 💡 **Have an idea?** → [Start a Discussion](https://github.com/spectrayan/spector/discussions)
 - 🔧 **Want to contribute code?** → See [CONTRIBUTING.md](CONTRIBUTING.md)
 - 🤖 **AI-assisted PRs welcome!**
-
-> **Good first areas:** Documentation improvements, additional test coverage, new embedding provider implementations, CLI enhancements, and Spring AI adapter extensions.
 
 ---
 
