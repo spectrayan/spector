@@ -17,6 +17,7 @@ package com.spectrayan.spector.runtime;
 
 import com.spectrayan.spector.config.SpectorMode;
 import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.SourceModality;
 
 /**
  * Product-level result type for mode-aware queries.
@@ -35,6 +36,8 @@ import com.spectrayan.spector.memory.model.MemoryType;
  * @param mode            which mode produced this result
  * @param tags            associated tags (memory mode, empty array in search mode)
  * @param memoryType      memory tier (memory-mode only, null in search mode)
+ * @param sourceModality  what the memory originally was (TEXT, IMAGE, AUDIO, VIDEO)
+ * @param sourceUri       URI to the original asset (null for text-only memories)
  */
 public record SpectorResult(
         String id,
@@ -46,20 +49,37 @@ public record SpectorResult(
         Byte valence,
         SpectorMode mode,
         String[] tags,
-        MemoryType memoryType
+        MemoryType memoryType,
+        SourceModality sourceModality,
+        String sourceUri
 ) {
 
-    /** Creates a search-mode result. */
+    /** Creates a search-mode result (no modality). */
     public static SpectorResult fromSearch(String id, String text, float score, float similarity) {
         return new SpectorResult(id, text, score, similarity, null, null, null,
-                SpectorMode.SEARCH, new String[0], null);
+                SpectorMode.SEARCH, new String[0], null, SourceModality.TEXT, null);
     }
 
-    /** Creates a memory-mode result. */
+    /** Creates a memory-mode result (backward compatible — defaults to TEXT modality). */
     public static SpectorResult fromMemory(String id, String text, float score,
                                             float importance, float ageDays,
                                             byte valence, String[] tags, MemoryType memoryType) {
         return new SpectorResult(id, text, score, null, importance, ageDays, valence,
-                SpectorMode.MEMORY, tags, memoryType);
+                SpectorMode.MEMORY, tags, memoryType, SourceModality.TEXT, null);
+    }
+
+    /** Creates a memory-mode result with multimodal metadata. */
+    public static SpectorResult fromMemory(String id, String text, float score,
+                                            float importance, float ageDays,
+                                            byte valence, String[] tags, MemoryType memoryType,
+                                            SourceModality modality, String sourceUri) {
+        return new SpectorResult(id, text, score, null, importance, ageDays, valence,
+                SpectorMode.MEMORY, tags, memoryType,
+                modality != null ? modality : SourceModality.TEXT, sourceUri);
+    }
+
+    /** Returns true if this result represents a multimodal (non-text) memory. */
+    public boolean isMultimodal() {
+        return sourceModality != null && sourceModality != SourceModality.TEXT;
     }
 }

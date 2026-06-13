@@ -90,7 +90,8 @@ public final class SearchHandler {
                 .map(r -> SpectorResult.fromMemory(
                         r.id(), r.text(), r.score(),
                         r.importance(), r.ageDays(),
-                        r.valence(), r.synapticTags(), r.memoryType()))
+                        r.valence(), r.synapticTags(), r.memoryType(),
+                        r.sourceModality(), r.sourceUri()))
                 .toList();
     }
 }

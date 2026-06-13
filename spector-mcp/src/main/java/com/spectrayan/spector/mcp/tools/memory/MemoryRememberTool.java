@@ -21,7 +21,9 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
+import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
@@ -88,6 +90,12 @@ public final class MemoryRememberTool extends MemoryToolHandler {
                 .optionalString("namespace",
                         "Memory namespace to store into. Isolates agent/user memory spaces. "
                         + "Leave empty for default namespace.", "")
+                .optionalString("metadata",
+                        "JSON object with multimodal metadata. Keys: "
+                        + "'modality' (TEXT/IMAGE/AUDIO/VIDEO), "
+                        + "'source_uri' (asset path/URL), "
+                        + "plus any custom key-value pairs. Example: "
+                        + "{\"modality\":\"IMAGE\",\"source_uri\":\"file:///photo.jpg\"}", "")
                 .build();
     }
 
@@ -124,13 +132,37 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         int valence = optionalInt(args, "valence", 0);
         int arousal = optionalInt(args, "arousal", 0);
 
-        // Build IngestionHints only if any cognitive params were provided
+        // Build IngestionHints (if any cognitive params were provided)
         IngestionHints hints = null;
         if (interest > 0 || challenge > 0 || urgency > 0 || valence != 0 || arousal != 0) {
             hints = new IngestionHints(interest, challenge, urgency,
                     (byte) Math.clamp(valence, -128, 127),
                     (byte) Math.clamp(arousal, 0, 255));
         }
+
+        // Build IngestionContext with metadata + hints
+        var ctxBuilder = IngestionContext.builder();
+        if (hints != null) {
+            ctxBuilder.hints(hints);
+        }
+
+        // Parse metadata JSON (if provided)
+        String metadataJson = optionalString(args, "metadata", "");
+        if (!metadataJson.isBlank()) {
+            try {
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> raw = new tools.jackson.databind.ObjectMapper()
+                        .readValue(metadataJson, java.util.Map.class);
+                for (var entry : raw.entrySet()) {
+                    ctxBuilder.metadata(entry.getKey(), String.valueOf(entry.getValue()));
+                }
+            } catch (Exception e) {
+                // Non-fatal: metadata parsing failure shouldn't block ingestion
+                // Log and continue with text-only ingestion
+            }
+        }
+
+        IngestionContext context = ctxBuilder.build();
 
         // Compute importance estimate (read-only) to show what was assigned
         com.spectrayan.spector.memory.model.ImportanceEstimate estimate = null;
@@ -143,10 +175,17 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         // Ingest: auto-generate ID if not provided
         boolean autoId = id.isEmpty();
         if (autoId) {
-            var future = memory.remember(text, type, source, hints, tags);
-            id = future.join();
+            if (context.hasMetadata()) {
+                // Multimodal: use context-aware auto-ID path
+                var future = memory.remember(text, type, source, context, tags);
+                id = future.join();
+            } else {
+                // Text-only: hints-only path (backward compatible)
+                var future = memory.remember(text, type, source, hints, tags);
+                id = future.join();
+            }
         } else {
-            memory.remember(id, text, type, source, hints, tags).join();
+            memory.remember(id, text, type, source, context, tags).join();
         }
 
         StringBuilder sb = new StringBuilder();

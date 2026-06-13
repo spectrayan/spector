@@ -24,9 +24,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
@@ -101,6 +103,94 @@ public final class MemoryHandler {
     public CompletableFuture<Void> remember(String id, String text, MemoryType type,
                                              MemorySource source, String... tags) {
         return memory.remember(id, text, type, source, tags);
+    }
+
+    /**
+     * Stores a memory with full IngestionContext (metadata, hints, entities, etc.).
+     *
+     * <p>This is the richest overload — carries multimodal metadata (source modality,
+     * asset URIs), ICNU hints, pre-extracted entities, and temporal links.
+     * Preferred for programmatic multimodal ingestion.</p>
+     *
+     * @param id      unique memory identifier
+     * @param text    memory content (or extracted caption/transcript for multimodal)
+     * @param type    tier (WORKING, EPISODIC, SEMANTIC, PROCEDURAL)
+     * @param source  provenance
+     * @param context consolidated cognitive metadata
+     * @param tags    synaptic tags for Bloom filter encoding
+     * @return future that completes when the memory is persisted
+     */
+    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+                                             MemorySource source, IngestionContext context,
+                                             String... tags) {
+        log.debug("[Memory] remember id={}, tier={}, source={}, context={}",
+                id, type, source, context.hasMetadata() ? "multimodal" : "text-only");
+        return memory.remember(id, text, type, source, context, tags);
+    }
+
+    // ── Auto-ID convenience ──
+
+    /**
+     * Stores a memory with auto-generated ID.
+     *
+     * @return future that completes with the generated memory ID
+     */
+    public CompletableFuture<String> rememberAutoId(String text, MemoryType type,
+                                                     MemorySource source, String... tags) {
+        return memory.remember(text, type, source, tags);
+    }
+
+    /**
+     * Stores a memory with auto-generated ID and cognitive hints.
+     *
+     * @return future that completes with the generated memory ID
+     */
+    public CompletableFuture<String> rememberAutoId(String text, MemoryType type,
+                                                     MemorySource source,
+                                                     IngestionHints hints,
+                                                     String... tags) {
+        return memory.remember(text, type, source, hints, tags);
+    }
+
+    /**
+     * Stores a memory with auto-generated ID and full cognitive context.
+     *
+     * <p>The richest auto-ID API — ideal for multimodal memories where the
+     * caller provides a caption/transcript plus metadata about the original
+     * source (image path, VLM model, etc.).</p>
+     *
+     * @return future that completes with the generated memory ID
+     */
+    public CompletableFuture<String> rememberAutoId(String text, MemoryType type,
+                                                     MemorySource source,
+                                                     IngestionContext context,
+                                                     String... tags) {
+        log.debug("[Memory] rememberAutoId tier={}, source={}, modality={}",
+                type, source, context.sourceModality());
+        return memory.remember(text, type, source, context, tags);
+    }
+
+    /**
+     * Ingests a file as a memory with auto-generated ID.
+     *
+     * <p>Convenience method that wraps the file path into an {@link IngestionContext}
+     * with the {@code attachments} metadata key. The pipeline auto-detects MIME type
+     * and routes to the appropriate SensoryExtractor.</p>
+     *
+     * @param filePath local file path to ingest
+     * @param text     optional text description (null = use filename)
+     * @param type     cognitive tier
+     * @param source   provenance
+     * @param tags     synaptic tags
+     * @return future that completes with the generated memory ID
+     */
+    public CompletableFuture<String> rememberFile(java.nio.file.Path filePath,
+                                                    String text,
+                                                    MemoryType type,
+                                                    MemorySource source,
+                                                    String... tags) {
+        log.debug("[Memory] rememberFile path={}, tier={}, source={}", filePath, type, source);
+        return memory.rememberFile(filePath, text, type, source, tags);
     }
 
     /**

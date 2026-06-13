@@ -25,6 +25,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
+import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.model.TextSearchMode;
@@ -202,6 +203,15 @@ public final class MemoryRecallTool extends MemoryToolHandler {
             sb.append("  recall_count: ").append(r.agentRecallCount()).append("\n");
             sb.append("  valence: ").append(r.valence()).append("\n");
             sb.append("  source: ").append(r.source()).append("\n");
+            if (r.isMultimodal()) {
+                sb.append("  modality: ").append(r.sourceModality()).append("\n");
+                if (r.sourceUri() != null) {
+                    sb.append("  source_uri: ").append(r.sourceUri()).append("\n");
+                }
+                if (!r.metadata().isEmpty()) {
+                    sb.append("  metadata: ").append(r.metadata()).append("\n");
+                }
+            }
             sb.append("  decay_factor: ").append(String.format("%.3f", r.decayFactor())).append("\n");
             sb.append("  ltp_adjusted_decay: ").append(String.format("%.3f", r.ltpAdjustedDecay())).append("\n");
             sb.append("\n");
