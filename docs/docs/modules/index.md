@@ -33,7 +33,7 @@ graph LR
     subgraph "📡 Observability"
         events["spector-events<br/><i>Telemetry event bus</i>"]
         metrics["spector-metrics<br/><i>Micrometer + TelemetryBus</i>"]
-        cortex["spector-cortex<br/><i>Neural dashboard (Angular)</i>"]
+        cortex["spector-cortex<br/><i>Moved to enterprise</i>"]
     end
 
     subgraph "🌐 Runtime & Interfaces"
@@ -221,6 +221,6 @@ graph TD
 |:---|:---|
 | [spector-events](spector-events.md) | Telemetry — decoupled event bus (`TelemetryBus`, `TelemetryScope`, 12 event types) |
 | [spector-metrics](spector-metrics.md) | Metrics — Micrometer + TelemetryBus instrumentation |
-| [spector-cortex](spector-cortex.md) | Dashboard — Angular 21 real-time neural visualization (10+ cards, THREE.js + Canvas 2D) |
+| [spector-cortex](spector-cortex.md) | ⚠️ **Moved to [spector-enterprise](https://github.com/spectrayan/spector-enterprise)** — Angular 22 neural dashboard |
 | [spector-bench](spector-bench.md) | Benchmarks — JMH performance testing |
 | [spector-dist](spector-dist.md) | Distribution — single fat JAR packaging |
