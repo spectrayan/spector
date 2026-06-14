@@ -16,8 +16,13 @@ package com.spectrayan.spector.memory.namespace;
  * Configuration for a single memory namespace.
  *
  * <h3>Design</h3>
- * <p>Each namespace represents an isolated memory space for an agent or user.
- * The config defines quotas, permissions, and metadata.</p>
+ * <p>Each namespace represents an isolated memory space — give it a directory,
+ * it stores memories there. Core does not know or care about tenants,
+ * organizations, or multi-tenancy. That's the enterprise layer's job.</p>
+ *
+ * <h3>Extension Point</h3>
+ * <p>Enterprise layers can extend this record's semantics by wrapping it
+ * with tenant metadata externally. Core only needs {@code id} and quotas.</p>
  *
  * @param id              unique namespace identifier (e.g., "agent-alpha")
  * @param displayName     human-readable name
@@ -40,7 +45,7 @@ public record NamespaceConfig(
             new NamespaceConfig("default", "Default Namespace", -1, -1, -1, false);
 
     /** Maximum characters in a namespace ID. */
-    public static final int MAX_ID_LENGTH = 128;
+    public static final int MAX_ID_LENGTH = 63;
 
     /**
      * Creates a config with the given ID and unlimited quotas.
@@ -61,15 +66,33 @@ public record NamespaceConfig(
      * Validates the namespace ID format.
      *
      * <p>Namespace IDs must be non-null, non-empty, at most {@link #MAX_ID_LENGTH}
-     * characters, and contain only alphanumeric characters, hyphens, and underscores.</p>
+     * characters, start with alphanumeric, and contain only alphanumeric characters,
+     * hyphens, and underscores. Dots, slashes, and backslashes are forbidden
+     * to prevent path traversal.</p>
      *
      * @return true if the ID is valid
      */
     public boolean isValidId() {
-        if (id == null || id.isEmpty() || id.length() > MAX_ID_LENGTH) return false;
-        for (int i = 0; i < id.length(); i++) {
-            char c = id.charAt(i);
+        return isValidSegment(id);
+    }
+
+    /**
+     * Validates a single path segment (e.g., namespace ID).
+     *
+     * <p>Must be 1-63 chars, start with alphanumeric, contain only
+     * alphanumeric, hyphens, and underscores. No dots, slashes, or backslashes.</p>
+     *
+     * @param segment the ID to validate
+     * @return true if the segment is valid
+     */
+    public static boolean isValidSegment(String segment) {
+        if (segment == null || segment.isEmpty() || segment.length() > MAX_ID_LENGTH) return false;
+        char first = segment.charAt(0);
+        if (!Character.isLetterOrDigit(first)) return false;
+        for (int i = 0; i < segment.length(); i++) {
+            char c = segment.charAt(i);
             if (!Character.isLetterOrDigit(c) && c != '-' && c != '_') return false;
+            if (c == '/' || c == '\\' || c == '.') return false;
         }
         return true;
     }

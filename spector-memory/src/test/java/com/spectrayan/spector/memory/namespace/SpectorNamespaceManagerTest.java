@@ -113,10 +113,14 @@ class SpectorNamespaceManagerTest {
 
     @Test
     void discovers_existing_namespaces_on_restart() throws IOException {
-        // Create namespace directories manually
+        // Create namespace directories manually (with namespace.json marker files)
         Path nsDir = StorageLayout.namespacesDir(tempDir);
         Files.createDirectories(nsDir.resolve("agent-alpha"));
+        Files.writeString(nsDir.resolve("agent-alpha").resolve(StorageLayout.FILE_NAMESPACE),
+                "{\"id\":\"agent-alpha\"}");
         Files.createDirectories(nsDir.resolve("agent-beta"));
+        Files.writeString(nsDir.resolve("agent-beta").resolve(StorageLayout.FILE_NAMESPACE),
+                "{\"id\":\"agent-beta\"}");
 
         // Re-create manager to trigger discovery
         var freshManager = new SpectorNamespaceManager(tempDir);

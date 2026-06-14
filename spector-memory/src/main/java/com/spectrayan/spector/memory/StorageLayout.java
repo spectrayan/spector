@@ -63,6 +63,18 @@ import java.util.regex.Pattern;
  *         └── cross/
  * </pre>
  *
+ * <h3>Snapshots</h3>
+ * <pre>
+ * persistence-path/
+ * └── snapshots/
+ *     └── {namespace-id}/
+ *         └── {snapshot-id}/
+ *             ├── snapshot.json
+ *             ├── global/
+ *             ├── partitions/
+ *             └── cross/
+ * </pre>
+ *
  * @see DefaultSpectorMemory.Builder#persistence(Path)
  */
 public final class StorageLayout {
@@ -158,6 +170,16 @@ public final class StorageLayout {
 
     /** Namespace metadata, permissions, and quotas. */
     public static final String FILE_NAMESPACE = "namespace.json";
+
+    // ═══════════════════════════════════════════════════════════════
+    // Snapshot Directory & Files
+    // ═══════════════════════════════════════════════════════════════
+
+    /** Top-level directory for all snapshots. */
+    public static final String DIR_SNAPSHOTS = "snapshots";
+
+    /** Snapshot metadata file (inside each snapshot directory). */
+    public static final String FILE_SNAPSHOT = "snapshot.json";
 
     // ═══════════════════════════════════════════════════════════════
     // WAL File Pattern
@@ -262,6 +284,25 @@ public final class StorageLayout {
     /** Resolves a specific namespace directory. */
     public static Path namespaceDir(Path basePath, String namespaceId) {
         return namespacesDir(basePath).resolve(namespaceId);
+    }
+
+    // ── Snapshot resolvers ──
+
+    /** Resolves the top-level snapshots directory. */
+    public static Path snapshotsDir(Path basePath) {
+        return basePath.resolve(DIR_SNAPSHOTS);
+    }
+
+    /**
+     * Resolves a specific snapshot directory.
+     *
+     * @param basePath    the persistence root
+     * @param namespaceId the namespace identifier
+     * @param snapshotId  the snapshot identifier (e.g., timestamp-based)
+     * @return path to the snapshot directory
+     */
+    public static Path snapshotDir(Path basePath, String namespaceId, String snapshotId) {
+        return snapshotsDir(basePath).resolve(namespaceId).resolve(snapshotId);
     }
 
     // ── Global file resolvers ──

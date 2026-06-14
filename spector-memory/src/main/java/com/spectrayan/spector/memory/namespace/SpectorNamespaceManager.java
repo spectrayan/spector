@@ -12,11 +12,6 @@
  */
 package com.spectrayan.spector.memory.namespace;
 
-import com.spectrayan.spector.memory.StorageLayout;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.DirectoryStream;
@@ -26,39 +21,46 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.memory.StorageLayout;
+
 /**
- * Manages namespace lifecycle — creation, discovery, deletion, and quota enforcement.
+ * Manages namespace lifecycle — creation, discovery, and quota enforcement.
+ *
+ * <h3>Design</h3>
+ * <p>Each namespace is an isolated memory space at a directory path.
+ * The manager discovers existing namespaces at startup and provides
+ * create/get operations for runtime namespace management.</p>
  *
  * <h3>Disk Layout</h3>
  * <pre>
- *   persistence-path/
- *   ├── spector.lock
- *   ├── server.json
- *   └── namespaces/
- *       ├── agent-alpha/
- *       │   ├── namespace.json
- *       │   ├── global/
- *       │   ├── partitions/
- *       │   └── cross/
- *       └── agent-beta/
- *           └── ...
+ *   persistence-path/namespaces/
+ *   ├── agent-alpha/
+ *   │   ├── namespace.json
+ *   │   ├── global/
+ *   │   ├── partitions/
+ *   │   └── cross/
+ *   └── agent-beta/
+ *       └── ...
  * </pre>
+ *
+ * <h3>Extension Point</h3>
+ * <p>Enterprise layers can extend this by subclassing or wrapping with
+ * tenant-aware resolution, JWT-based namespace routing, and hierarchical
+ * directory layouts. Core only manages flat namespace directories.</p>
  *
  * <h3>Thread Safety</h3>
  * <p>Uses {@link ConcurrentHashMap} for the namespace registry.
  * Each namespace is isolated — operations on one namespace do not
  * affect others.</p>
  *
- * <h3>Scaling Model</h3>
- * <p>In single-node mode, all namespaces share the same persistence path.
- * In cloud mode (Phase 5), namespaces are distributed across nodes
- * via the {@code NamespaceRouter}.</p>
- *
  * @see NamespaceConfig
  * @see NamespaceQuotas
  * @see StorageLayout
  */
-public final class SpectorNamespaceManager {
+public class SpectorNamespaceManager {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorNamespaceManager.class);
 
@@ -82,17 +84,12 @@ public final class SpectorNamespaceManager {
         if (Files.isDirectory(namespacesDir)) {
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(namespacesDir)) {
                 for (Path entry : stream) {
-                    if (Files.isDirectory(entry)) {
-                        String nsId = entry.getFileName().toString();
-                        Path nsJsonPath = entry.resolve(StorageLayout.FILE_NAMESPACE);
+                    if (!Files.isDirectory(entry)) continue;
+                    String nsId = entry.getFileName().toString();
 
-                        NamespaceConfig config;
-                        if (Files.exists(nsJsonPath)) {
-                            config = loadConfig(nsId, nsJsonPath);
-                        } else {
-                            config = NamespaceConfig.unlimited(nsId);
-                        }
-
+                    // Only recognize directories with namespace.json
+                    if (Files.exists(entry.resolve(StorageLayout.FILE_NAMESPACE))) {
+                        NamespaceConfig config = loadConfig(nsId, entry);
                         namespaces.put(nsId, new NamespaceContext(config, entry));
                         log.info("Discovered namespace: {}", nsId);
                     }
@@ -128,10 +125,7 @@ public final class SpectorNamespaceManager {
             Files.createDirectories(nsDir.resolve(StorageLayout.DIR_GLOBAL));
             Files.createDirectories(nsDir.resolve(StorageLayout.DIR_PARTITIONS));
             Files.createDirectories(nsDir.resolve(StorageLayout.DIR_CROSS));
-
-            // Write namespace.json
             writeConfig(config, nsDir.resolve(StorageLayout.FILE_NAMESPACE));
-
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create namespace: " + config.id(), e);
         }
@@ -162,7 +156,6 @@ public final class SpectorNamespaceManager {
         NamespaceContext existing = namespaces.get(namespaceId);
         if (existing != null) return existing;
 
-        // Create outside of ConcurrentHashMap to avoid recursive update
         NamespaceConfig config = NamespaceConfig.unlimited(namespaceId);
         Path nsDir = StorageLayout.namespaceDir(basePath, config.id());
         try {
@@ -172,7 +165,7 @@ public final class SpectorNamespaceManager {
             Files.createDirectories(nsDir.resolve(StorageLayout.DIR_CROSS));
             writeConfig(config, nsDir.resolve(StorageLayout.FILE_NAMESPACE));
         } catch (IOException e) {
-            throw new java.io.UncheckedIOException("Failed to create namespace: " + namespaceId, e);
+            throw new UncheckedIOException("Failed to create namespace: " + namespaceId, e);
         }
 
         NamespaceContext newCtx = new NamespaceContext(config, nsDir);
@@ -220,14 +213,20 @@ public final class SpectorNamespaceManager {
 
     // ── Internal helpers ──
 
-    private NamespaceConfig loadConfig(String nsId, Path nsJsonPath) {
-        // Minimal JSON parsing — could use Jackson/Gson in future
-        // For now, return unlimited config with the discovered ID
-        log.debug("Loading namespace config: {}", nsJsonPath);
+    /**
+     * Loads namespace configuration from the directory.
+     * Subclasses (e.g., enterprise) can override for richer config parsing.
+     */
+    protected NamespaceConfig loadConfig(String nsId, Path nsDir) {
+        log.debug("Loading namespace config: {}", nsDir.resolve(StorageLayout.FILE_NAMESPACE));
         return NamespaceConfig.unlimited(nsId);
     }
 
-    private void writeConfig(NamespaceConfig config, Path path) throws IOException {
+    /**
+     * Writes namespace configuration to disk.
+     * Subclasses can override to write additional metadata.
+     */
+    protected void writeConfig(NamespaceConfig config, Path path) throws IOException {
         String json = """
                 {
                   "id": "%s",
@@ -263,7 +262,7 @@ public final class SpectorNamespaceManager {
         private final NamespaceQuotas quotas;
         private final Path directory;
 
-        NamespaceContext(NamespaceConfig config, Path directory) {
+        public NamespaceContext(NamespaceConfig config, Path directory) {
             this.config = config;
             this.quotas = new NamespaceQuotas(config);
             this.directory = directory;
