@@ -1,12 +1,10 @@
 ---
 title: "Inhibition — Suppression"
-description: "SuppressionSet enables explicit memory blocking — the digital equivalent of motivated forgetting."
+description: "Memory suppression enables explicit, reversible blocking — the digital equivalent of motivated forgetting."
 ---
 
 # 🚫 Inhibition — Suppression
 
-> **Package**: `com.spectrayan.spector.memory.inhibition`
->
 > **Biological Analog**: **Retrieval-Induced Forgetting** (Anderson et al., 1994) — the brain actively suppresses competing memories during recall. When you try to remember where you parked today, your brain inhibits memories of yesterday's parking spot. This is an active process, not passive decay.
 
 ---
@@ -15,7 +13,7 @@ description: "SuppressionSet enables explicit memory blocking — the digital eq
 
 Suppression is different from forgetting:
 
-| Operation | Method | Effect | Reversible? |
+| Operation | API | Effect | Reversible? |
 |---|---|---|---|
 | **Forget** | `memory.forget(id)` | Tombstones the record — permanently excluded from all scans | No |
 | **Suppress** | `memory.suppress(id, reason)` | Adds to suppression set — excluded from recall results | **Yes** |
@@ -24,59 +22,44 @@ Tombstoning modifies the off-heap flags byte (bit 0 = 1). Suppression maintains 
 
 ---
 
-## SuppressionSet
+## How It Works
 
-```java
-public final class SuppressionSet {
-    
-    private final ConcurrentHashMap<String, String> suppressed = new ConcurrentHashMap<>();
-    
-    /**
-     * Suppresses a memory — it will be excluded from all future recall results.
-     *
-     * @param memoryId the memory to suppress
-     * @param reason   human-readable reason (for auditability)
-     */
-    public void suppress(String memoryId, String reason) {
-        suppressed.put(memoryId, reason != null ? reason : "");
-    }
-    
-    /**
-     * Removes suppression — the memory will appear in recall results again.
-     */
-    public void unsuppress(String memoryId) {
-        suppressed.remove(memoryId);
-    }
-    
-    /**
-     * Checks if a memory is currently suppressed.
-     * Called at Step 4 of the recall pipeline.
-     */
-    public boolean isSuppressed(String memoryId) {
-        return suppressed.containsKey(memoryId);
-    }
-    
-    /**
-     * Returns the number of currently suppressed memories.
-     */
-    public int size() {
-        return suppressed.size();
-    }
-}
+```mermaid
+flowchart TD
+    subgraph "Suppress (Reversible)"
+        S1["memory.suppress(id, reason)"] --> S2["Add to suppression set<br/><i>in-memory, auditable</i>"]
+        S2 --> S3["Recall pipeline filters<br/>suppressed IDs after scoring"]
+        S3 --> S4["memory.unsuppress(id)<br/><i>restores to recall</i>"]
+    end
+
+    subgraph "Forget (Permanent)"
+        F1["memory.forget(id)"] --> F2["Set tombstone flag<br/><i>off-heap bit flip</i>"]
+        F2 --> F3["Scorer Phase 1 skips<br/>in ~1 CPU cycle"]
+        F3 --> F4["Cannot be undone"]
+    end
+
+    style S4 fill:#2ecc71,color:white
+    style F4 fill:#e74c3c,color:white
 ```
+
+**Performance difference**: Tombstoned memories are skipped in Phase 1 of the scorer (~1 cycle). Suppressed memories go through the full 6-phase scoring pipeline and are only filtered afterward. For bulk removal, `forget()` is more efficient.
 
 ---
 
-## Integration with RecallPipeline
+## Where It Fits in the Pipeline
 
-Suppression is checked at **Step 4** of the recall pipeline — after scoring but before habituation:
+Suppression is checked **after** the 6-phase scorer completes but **before** habituation:
 
-```java
-// Step 4: Filter suppressed memories (inhibition)
-allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
+```mermaid
+flowchart TD
+    SCORER["6-Phase Scorer<br/><i>produces scored candidates</i>"] --> SUPPRESS["Step 4: Suppression Filter<br/><b>Remove suppressed IDs</b>"]
+    SUPPRESS --> HAB["Step 5a: Habituation<br/><i>attenuate repeated results</i>"]
+    HAB --> GRAPH["Steps 5c–5e: Graph Augmentation"]
+    GRAPH --> SORT["Final Sort → Top-K"]
+
+    style SUPPRESS fill:#e74c3c,color:white
+    style SORT fill:#00b894,color:white
 ```
-
-**Timing matters**: Suppression is checked *after* the CognitiveScorer completes. This means suppressed memories still consume SIMD cycles during scoring. For high-frequency suppression scenarios, consider using `forget()` instead.
 
 ---
 
@@ -84,62 +67,35 @@ allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
 ### 1. User Redaction
 
-```java
-// User says: "Please forget what I said about project X"
-memory.suppress("project-x-conversation-1", "User requested redaction");
-memory.suppress("project-x-conversation-2", "User requested redaction");
+```
+User: "Please forget what I said about project X"
+→ memory.suppress("project-x-conversation-1", "User requested redaction")
+→ memory.suppress("project-x-conversation-2", "User requested redaction")
 ```
 
 ### 2. Context Switching
 
-```java
-// Agent is switching tasks — suppress irrelevant context
-memory.suppress("frontend-task-context", "Switching to backend work");
+```
+Agent switching to backend work:
+→ memory.suppress("frontend-task-context", "Switching to backend work")
 
-// Later, when switching back:
-memory.unsuppress("frontend-task-context");
+Later, switching back:
+→ memory.unsuppress("frontend-task-context")
 ```
 
 ### 3. Stale Data Quarantine
 
-```java
-// A data source is known to be stale — suppress while validating
-for (String id : staleSourceMemories) {
-    memory.suppress(id, "Source under validation — suppressed until confirmed");
-}
+```
+Data source under validation:
+→ memory.suppress(staleIds, "Source under validation — suppressed until confirmed")
 ```
 
 ### 4. A/B Testing Memory Strategies
 
-```java
-// Suppress certain memories to test how the agent performs without them
-experimentGroup.forEach(id -> 
-    memory.suppress(id, "A/B test: control group"));
 ```
-
----
-
-## Suppression vs. Tombstone
-
-```mermaid
-graph TB
-    subgraph "Suppress (Reversible)"
-        S1["memory.suppress(id)"] --> S2["SuppressionSet.add(id)"]
-        S2 --> S3["Recall Pipeline<br/>Step 4: removeIf(suppressed)"]
-        S3 --> S4["Can unsuppress(id)"]
-    end
-    
-    subgraph "Forget (Permanent)"
-        F1["memory.forget(id)"] --> F2["flags byte |= 0x01<br/>(tombstone bit)"]
-        F2 --> F3["CognitiveScorer<br/>Phase 1: skip immediately"]
-        F3 --> F4["Permanent — cannot undo"]
-    end
-    
-    style S4 fill:#2ecc71,color:white
-    style F4 fill:#e74c3c,color:white
+Suppress certain memories to test agent performance without them:
+→ experimentGroup.forEach(id → memory.suppress(id, "A/B test: control group"))
 ```
-
-**Performance difference**: Tombstoned memories are skipped in Phase 1 of the scorer (~1 cycle). Suppressed memories go through the full 6-phase scoring pipeline and are only filtered at Step 4 of the recall pipeline. For bulk suppression, `forget()` is more efficient.
 
 ---
 

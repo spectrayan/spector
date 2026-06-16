@@ -1,6 +1,6 @@
 #!/bin/sh
-# ═══════════════════════════════════════════════════════════════
-# Spector — Container Entrypoint (Backend Only)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+# Spector â€” Container Entrypoint (Backend Only)
 # Starts SpectorNode in foreground.
 #
 # The Cortex dashboard has been moved to spector-enterprise.
@@ -9,7 +9,7 @@
 # Graceful Shutdown:
 #   On SIGTERM (docker stop), the JVM receives the signal directly
 #   and runs its shutdown hook to persist graphs and flush data.
-# ═══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set -e
 
@@ -27,7 +27,7 @@ trap cleanup TERM INT
 
 # Start SpectorNode in background so trap can catch signals
 echo "[Spector] Starting SpectorNode (backend only, no UI)..."
-echo "[Spector] API → http://localhost:7070"
+echo "[Spector] API â†’ http://localhost:7070"
 java \
     --add-modules jdk.incubator.vector \
     --enable-preview \

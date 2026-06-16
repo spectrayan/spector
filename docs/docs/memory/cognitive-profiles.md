@@ -59,16 +59,17 @@ These profiles go beyond α/β tuning — they activate specialized scoring mech
 
 **Use case:** SRE agents, security auditors, compliance monitors. Only surfaces memories associated with negative outcomes — errors, failures, security incidents, regressions.
 
-```java
-PARANOID_SENTINEL(0.2f, 0.8f, Byte.MIN_VALUE, (byte) -1)
-//                 α      β    minValence     maxValence
-```
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.2 | Low similarity weight — severity matters more than closeness |
+| β | 0.8 | High importance weight — prioritize severe failures |
+| Valence range | [-128, -1] | **Negative memories only** — successes are invisible |
 
 **How it works:**
 
-- **Valence range [-128, -1]:** Only negative memories pass the valence filter in Phase 3 of the scorer. Successes, neutral logs, and positive outcomes are invisible.
-- **α=0.2, β=0.8:** Importance-dominated — the severity of the past failure matters more than how closely it matches the current query.
-- **Valence alignment:** Query valence is set to -128 (maximum threat), triggering mood-congruent recall amplification.
+- Only negative memories pass the valence filter in Phase 3 of the scorer. Successes, neutral logs, and positive outcomes are invisible.
+- Importance-dominated — the severity of the past failure matters more than how closely it matches the current query.
+- Query valence is set to -128 (maximum threat), triggering mood-congruent recall amplification.
 
 !!! example "Scenario"
     Agent query: "deployment configuration" → BALANCED returns general config docs. PARANOID_SENTINEL returns only the config-related incidents: the time a bad config caused a 4-hour outage, the security CVE from an exposed config file, the memory leak from misconfigured thread pool.
@@ -79,11 +80,12 @@ PARANOID_SENTINEL(0.2f, 0.8f, Byte.MIN_VALUE, (byte) -1)
 
 **Use case:** Devin-style agentic task runners. Combined with Zeigarnik Effect (`markUnresolved()`) for tracking open tasks that resist decay.
 
-```java
-THE_EXECUTOR(0.3f, 0.7f, Byte.MIN_VALUE, Byte.MAX_VALUE)
-// + strictnessCoefficient = 10.0
-// + lateralMode = false
-```
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.3 | Moderate similarity weight |
+| β | 0.7 | High importance weight |
+| Strictness coefficient | 10.0 | Heaviside Cliff — 95% of candidates score near zero |
+| Lateral mode | disabled | No cross-domain exploration |
 
 **How it works:**
 
@@ -102,19 +104,19 @@ At strictness=1.0 (default), this is a gentle hyperbola. At strictness=10.0, it'
 
 **Biological analog:** Enhanced sensory processing depth (Aron & Aron, 1997). The highly sensitive brain processes stimuli more deeply, captures finer environmental details, and has a lower threshold for emotional activation.
 
-```java
-HIGHLY_SENSITIVE(0.7f, 0.3f, Byte.MIN_VALUE, Byte.MAX_VALUE)
-// + flashbulbThreshold = 2.0 (default: 3.0)
-// + inhibitionFloor = 0.3 (stronger lateral inhibition)
-// + minImportance = 0.01
-```
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.7 | High similarity weight — capture nuanced matches |
+| β | 0.3 | Lower importance weight |
+| Flashbulb threshold | 2.0 (default: 3.0) | Pins more moments as permanent memories |
+| Inhibition floor | 0.3 | Stronger lateral inhibition — memories stay distinct |
+| Min importance | 0.01 | Nothing is too small to remember |
 
 **How it works:**
 
 - **Lower flashbulb threshold (2.0 vs 3.0):** Captures more "important" moments as flashbulb memories. Events that BALANCED would consider routine, HIGHLY_SENSITIVE pins permanently.
 - **Stronger lateral inhibition (0.3 floor):** Less interference between memories. Each memory maintains its distinctiveness rather than blurring with similar neighbors.
 - **minImportance=0.01:** Nothing is too small to remember. Subtle signals that other profiles would round down to zero are preserved.
-- **α=0.7:** Similarity-leaning — captures nuanced matches that importance-dominated profiles would miss.
 
 !!! tip "Ideal for"
     Medical reasoning, quality assurance, code review, accessibility testing — anywhere subtle signals could be critical.
@@ -123,11 +125,11 @@ HIGHLY_SENSITIVE(0.7f, 0.3f, Byte.MIN_VALUE, Byte.MAX_VALUE)
 
 **Biological analog:** The brain's default mode network (DMN), which activates during rest, mind-wandering, and unfocused cognition. The DMN surfaces deep, consolidated knowledge rather than recent events.
 
-```java
-DEFAULT_MODE_NETWORK(0.2f, 0.8f, Byte.MIN_VALUE, Byte.MAX_VALUE)
-// + memoryTypes = {SEMANTIC, PROCEDURAL}
-// + skipTiers = {WORKING, EPISODIC}
-```
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.2 | Low similarity weight |
+| β | 0.8 | High importance weight — deep knowledge |
+| Searched tiers | Semantic + Procedural only | Skips Working + Episodic |
 
 **How it works:**
 
@@ -142,29 +144,22 @@ DEFAULT_MODE_NETWORK(0.2f, 0.8f, Byte.MIN_VALUE, Byte.MAX_VALUE)
 
 ## Usage
 
-### Via CognitiveProfile Enum
+### Via Profile Preset
 
-```java
-// Simple: use a profile preset
-List<CognitiveResult> results = memory.recall("database deadlock", CognitiveProfile.HYPERFOCUS);
+```
+memory.recall("database deadlock", profile: HYPERFOCUS)
 ```
 
-### Via RecallOptions Builder
+### Via Recall Options
 
-```java
-// Advanced: profile + custom overrides
-var options = RecallOptions.builder()
-    .profile(CognitiveProfile.DIVERGENT)
-    .topK(20)
-    .lateralDistanceThreshold(1.5f)  // override default
-    .build();
-
-List<CognitiveResult> results = memory.recall("performance optimization", options);
+```
+memory.recall("performance optimization",
+    profile: DIVERGENT,
+    topK: 20,
+    lateralDistanceThreshold: 1.5)
 ```
 
 ### Via MCP Tool
-
-The `memory_recall` MCP tool accepts a `profile` parameter:
 
 ```json
 {
@@ -211,39 +206,25 @@ Agents can dynamically switch profiles during a conversation:
 3. **Switch to `DIVERGENT`** when stuck — lateral results may surface unexpected solutions
 4. **Switch to `SYSTEMATIZER`** when building a comprehensive knowledge base
 
-The `HyperfocusState` object supports TTL-based activation with agent self-extension:
+The hyperfocus system supports TTL-based activation with agent self-extension:
 
-```java
-// Agent detects a focused topic
-memory.hyperfocusState().activateFromTags("database", "deadlock");
+```mermaid
+flowchart LR
+    DETECT["Agent detects<br/>focused topic"] --> ACTIVATE["Activate hyperfocus<br/><i>tags: database, deadlock</i>"]
+    ACTIVATE --> BOOST["Matching memories<br/>get boost multiplier"]
+    BOOST --> CHECK{"Topic continues?"}
+    CHECK -->|"Yes"| EXTEND["Extend TTL"]
+    CHECK -->|"No — TTL expires"| DEACTIVATE["Auto-deactivate<br/><i>default: 30 min</i>"]
 
-// Agent extends focus when the topic continues
-memory.hyperfocusState().extend();
-
-// Focus automatically expires after TTL (default: 30 minutes)
-```
-
----
-
-## Custom Profiles
-
-You can create custom profiles by using `RecallOptions.builder()` directly:
-
-```java
-var customProfile = RecallOptions.builder()
-    .alpha(0.9f)
-    .beta(0.1f)
-    .hyperfocusMask("java", "concurrency")
-    .hyperfocusBoost(2.0f)
-    .lateralMode(false)
-    .build();
+    style ACTIVATE fill:#e74c3c,color:white
+    style DEACTIVATE fill:#95a5a6,color:white
 ```
 
 ---
 
 ## Result Metadata
 
-Each `CognitiveResult` carries a `RetrievalMode` indicating how it was retrieved:
+Each result carries a retrieval mode indicating how it was retrieved:
 
 | Mode | Meaning |
 |:---|:---|
@@ -251,15 +232,7 @@ Each `CognitiveResult` carries a `RetrievalMode` indicating how it was retrieved
 | `LATERAL` | Cross-domain retrieval via the Explorer dual-heap |
 | `HYPERFOCUS` | Tag-matched with zero decay and boost multiplier |
 
-```java
-for (CognitiveResult r : results) {
-    if (r.isLateral()) {
-        // Cross-domain insight — consider carefully
-    } else if (r.isHyperfocused()) {
-        // Focused match — high confidence
-    }
-}
-```
+Agents can use this metadata to adjust their reasoning — for example, treating `LATERAL` results with more caution, or presenting `HYPERFOCUS` results with higher confidence.
 
 ## What's Next
 
@@ -269,4 +242,3 @@ for (CognitiveResult r : results) {
 - [Synapse — Tags & Scoring](synapse.md) — Versioned header layouts (V1/V2/V3) and arousal-modulated decay
 - [Hebbian — Association Learning](hebbian.md) — STDP with directed causal edges
 - [Labs — Research Roadmap](../labs/roadmap.md) — Neuromodulatory Gain, Executive Dysfunction Profile
-

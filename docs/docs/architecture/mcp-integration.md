@@ -15,6 +15,11 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is Anthropi
 
 **Spector's MCP server runs in-process.** When Claude Desktop or Cursor calls `engine_search`, the request goes from JSON-RPC → Java method call → SIMD kernel — never touching a network socket. This makes Spector **23–113× faster than Python-based MCP servers** that route through HTTP/gRPC.
 
+Spector supports **two MCP transports**:
+
+- **Stdio** — JSON-RPC 2.0 over stdin/stdout, for CLI agents (Claude Desktop, Cursor)
+- **Streamable HTTP** — JSON-RPC 2.0 over HTTP at `/mcp`, for remote/web agents (MCP 2025-03-26 spec)
+
 ---
 
 ## Architecture
@@ -22,17 +27,18 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is Anthropi
 ```mermaid
 graph LR
     subgraph "AI Agent (Claude, Cursor, etc.)"
-        Agent["🤖 AI Agent"]
+        Agent["\ud83e\udd16 AI Agent"]
     end
 
     subgraph "spector-mcp (in-process)"
-        Transport["📡 StdioTransport<br/><i>JSON-RPC 2.0</i>"]
-        Server["⚡ SpectorMcpServer<br/><i>Thin orchestrator</i>"]
+        StdioTransport["\ud83d\udce1 StdioTransport<br/><i>JSON-RPC 2.0 — stdin/stdout</i>"]
+        HttpTransport["\ud83c\udf10 ArmeriaMcpTransport<br/><i>Streamable HTTP — POST/GET/DELETE /mcp</i>"]
+        Server["\u26a1 SpectorMcpServer<br/><i>Thin orchestrator</i>"]
         
         subgraph Providers
-            TR["🔧 SpectorToolRegistry"]
-            RP["📄 SpectorResourceProvider"]
-            PP["💬 SpectorPromptProvider"]
+            TR["\ud83d\udd27 SpectorToolRegistry"]
+            RP["\ud83d\udcc4 SpectorResourceProvider"]
+            PP["\ud83d\udcac SpectorPromptProvider"]
         end
 
         subgraph "Engine Tools"
@@ -49,7 +55,7 @@ graph LR
             M2["MemoryRecallTool"]
             M3["MemoryForgetTool"]
             M4["MemoryIntrospectTool"]
-            M5["... 7 more"]
+            M5["... 11 more"]
         end
 
         subgraph Foundation
@@ -60,19 +66,21 @@ graph LR
     end
 
     subgraph "spector-runtime"
-        Runtime["⚡ SpectorRuntime<br/><i>Composition Root</i>"]
+        Runtime["\u26a1 SpectorRuntime<br/><i>Composition Root</i>"]
     end
 
     subgraph "spector-engine"
-        Engine["🔧 SpectorEngine"]
+        Engine["\ud83d\udd27 SpectorEngine"]
     end
 
     subgraph "spector-core"
-        SIMD["🔬 SIMD Kernels<br/><i>AVX2/AVX-512/NEON</i>"]
+        SIMD["\ud83d\udd2c SIMD Kernels<br/><i>AVX2/AVX-512/NEON</i>"]
     end
 
-    Agent -- "stdin/stdout" --> Transport
-    Transport --> Server
+    Agent -- "stdin/stdout" --> StdioTransport
+    Agent -- "HTTP POST /mcp" --> HttpTransport
+    StdioTransport --> Server
+    HttpTransport --> Server
     Server --> TR & RP & PP
     TR --> T1 & T2 & T3 & T4 & T5 & T6
     T1 & T2 & T3 & T4 & T5 & T6 --> TH
@@ -88,12 +96,12 @@ graph LR
 
 ```mermaid
 sequenceDiagram
-    participant Agent as 🤖 AI Agent
-    participant MCP as 📡 MCP Transport (stdio)
-    participant Handler as 🔧 McpToolHandler
-    participant Runtime as ⚡ SpectorRuntime
-    participant Engine as 🔧 SpectorEngine
-    participant SIMD as 🔬 SIMD Kernel
+    participant Agent as \ud83e\udd16 AI Agent
+    participant MCP as \ud83d\udce1 MCP Transport (stdio / Streamable HTTP)
+    participant Handler as \ud83d\udd27 McpToolHandler
+    participant Runtime as \u26a1 SpectorRuntime
+    participant Engine as \ud83d\udd27 SpectorEngine
+    participant SIMD as \ud83d\udd2c SIMD Kernel
 
     Agent->>MCP: tools/call {"name": "engine_search", "arguments": {"query": "..."}}
     MCP->>Handler: EngineSearchTool.execute(runtime, args)

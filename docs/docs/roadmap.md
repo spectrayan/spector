@@ -550,10 +550,10 @@ RecallPipeline
 
 **Layer 2 — Entity-Relationship Graph:**
 
-- Off-heap entity store (48B/entity, 16B/edge), BFS traversal with typed edge filtering
-- 22 entity types × 21 relation types
+- Off-heap entity store (64B/entity, 12B/edge), BFS traversal with typed edge filtering
+- 21 entity types × 21 relation types (well-known seeds) + open-schema `TypeRegistry` for LLM-identified novel types
 - `EntityExtractor` SPI with `LlmEntityExtractor` (externalized prompt template) and `NoOpEntityExtractor`
-- Persistence via `ENTG` magic header with nameIndex reconstruction
+- Persistence via `EGPH` magic header with nameIndex reconstruction + separate TypeRegistry files
 
 **Layer 3 — Temporal Causal Chain:**
 

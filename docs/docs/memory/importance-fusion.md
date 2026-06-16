@@ -60,11 +60,17 @@ The formula maps to importance ∈ **[0.05, 10.0]**:
 
 Novelty is computed using the **nearest-neighbor distance** in working memory — the minimum L2 distance between the incoming embedding and all existing working memory slots:
 
-```java
-float nearestDist = workingStore.nearestDistance(quantizedVector, mins, scales);
+```mermaid
+flowchart LR
+    NEW["New memory<br/><i>embedding vector</i>"] --> SCAN["SIMD scan of<br/>working memory<br/><i>~0.5ms for 100×768</i>"]
+    SCAN --> DIST["Min L2 distance<br/><i>to nearest neighbor</i>"]
+    DIST --> NORM["Normalize to [0,1]<br/><i>d / 2.0, capped</i>"]
+
+    style SCAN fill:#0984e3,color:white
+    style NORM fill:#00b894,color:white
 ```
 
-`nearestDistance()` performs a SIMD-accelerated scan of all working memory slots (~0.5ms for 100 slots × 768 dims) and returns the minimum L2 distance. A high distance means the memory is genuinely novel — it's far from everything the agent has seen recently.
+A high distance means the memory is genuinely novel — it's far from everything the agent has seen recently.
 
 ### Normalization
 
@@ -78,31 +84,23 @@ Where 2.0 is a configurable threshold representing "maximally novel."
 
 ---
 
-## IngestionHints
+## Ingestion Hints
 
-The LLM provides hints via the `IngestionHints` record:
+The LLM provides hints at ingestion time with three signals:
 
-```java
-// At ingestion time
-var hints = new IngestionHints(
-    0.8f,   // interest: agent finds this very interesting
-    0.3f,   // challenge: moderate complexity
-    0.9f    // urgency: high time sensitivity
-);
+| Hint | Range | Description |
+|:---|:---:|:---|
+| **interest** | [0, 1] | How relevant the agent finds this information |
+| **challenge** | [0, 1] | Complexity or difficulty level |
+| **urgency** | [0, 1] | Time sensitivity |
 
-// Novelty is computed automatically from working memory
-cognitiveTarget.ingestCognitive(id, text, type, tags, source, hints);
-```
+Novelty is computed automatically from working memory — the LLM does not provide it.
 
 ### Safety Features
 
-- **Clamping**: All values are clamped to [0.0, 1.0] on construction
-- **Fallback**: `IngestionHints.NONE` triggers novelty-only mode (backward compatible)
-- **Gaming detection**: If all hints are maximal (I=1.0, C=1.0, U=1.0), a WARN is logged
-
-### NONE Fallback
-
-When no hints are provided (`IngestionHints.NONE`), the system falls back to `IcnuWeights.NOVELTY_ONLY` — importance is determined solely by nearest-neighbor distance, matching the pre-ICNU behavior.
+- **Clamping**: All values are clamped to [0.0, 1.0] on input
+- **Fallback**: When no hints are provided, the system falls back to novelty-only mode (backward compatible)
+- **Gaming detection**: If all hints are maximal (I=1.0, C=1.0, U=1.0), a warning is logged
 
 ---
 
@@ -110,10 +108,12 @@ When no hints are provided (`IngestionHints.NONE`), the system falls back to `Ic
 
 ### Fusion Weights
 
-```java
-var memory = SpectorMemory.builder()
-    .icnuWeights(new IcnuWeights(0.4f, 0.1f, 0.3f, 0.2f))  // custom weights
-    .build();
+Custom weights can be configured via the builder:
+
+```
+SpectorMemory.builder()
+    .icnuWeights(interest: 0.4, challenge: 0.1, novelty: 0.3, urgency: 0.2)
+    .build()
 ```
 
 ### Built-in Weight Presets
@@ -125,12 +125,7 @@ var memory = SpectorMemory.builder()
 
 ### Weight Auto-Normalization
 
-Weights are automatically normalized on construction:
-
-```java
-var w = new IcnuWeights(1f, 1f, 1f, 1f);
-// → interest=0.25, challenge=0.25, novelty=0.25, urgency=0.25
-```
+Weights are automatically normalized on construction. For example, weights of (1, 1, 1, 1) become (0.25, 0.25, 0.25, 0.25).
 
 ---
 
@@ -181,4 +176,3 @@ When using the MCP tools, importance fusion happens automatically if the ingesti
 
 !!! note "Backward Compatibility"
     The `hints` field is optional. When omitted, importance is computed using novelty-only mode — identical to the pre-ICNU behavior.
-

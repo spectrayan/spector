@@ -1,12 +1,10 @@
 ---
 title: "Habituation — Anti-Filter Bubble"
-description: "How HabituationPenalty prevents repetitive recall by attenuating scores for frequently-returned memories."
+description: "How Spector prevents repetitive recall by attenuating scores for frequently-returned memories."
 ---
 
 # 😴 Habituation — Anti-Filter Bubble
 
-> **Package**: `com.spectrayan.spector.memory.habituation`
->
 > **Biological Analog**: **Habituation** is the simplest form of learning — a decrease in response to a stimulus after repeated presentations. You stop hearing the ticking clock after a few minutes. The brain allocates attention to *novel* stimuli, not repeated ones. This prevents sensory overload and enables adaptation.
 
 ---
@@ -31,43 +29,25 @@ Query 3: "database issues" → [C, F, B, G, D]     ← New memories surface
 
 ---
 
-## HabituationPenalty
+## How It Works
 
-The `HabituationPenalty` tracks recall frequency per memory ID and computes a decay penalty:
+The habituation system tracks recall frequency per memory ID and applies an exponentially increasing penalty:
 
-```java
-public final class HabituationPenalty {
-    
-    private final ConcurrentHashMap<String, Integer> recallCounts 
-        = new ConcurrentHashMap<>();
-    private final float decayRate;  // default: 0.85
-    
-    /**
-     * Records a recall event and returns the habituation penalty.
-     * First recall: 1.0 (no penalty). Each subsequent recall multiplies
-     * the penalty by decayRate (default: 0.85).
-     *
-     * @param memoryId the memory being recalled
-     * @return penalty multiplier [0.0 – 1.0]
-     */
-    public float recordAndComputePenalty(String memoryId) {
-        int count = recallCounts.merge(memoryId, 1, Integer::sum);
-        if (count <= 1) return 1.0f;  // First recall — no penalty
-        return (float) Math.pow(decayRate, count - 1);
-    }
-    
-    /**
-     * Batch penalty computation for multiple IDs (P7 optimization).
-     */
-    public float[] batchPenalty(String[] ids) {
-        float[] penalties = new float[ids.length];
-        for (int i = 0; i < ids.length; i++) {
-            penalties[i] = recordAndComputePenalty(ids[i]);
-        }
-        return penalties;
-    }
-}
+```mermaid
+flowchart LR
+    RECALL["Memory recalled"] --> TRACK["Track recall count<br/><i>per memory ID</i>"]
+    TRACK --> COMPUTE["Compute penalty<br/><b>penalty = rate ^ (count - 1)</b>"]
+    COMPUTE --> APPLY["Adjust score<br/><b>score × penalty</b>"]
+    APPLY --> RESULT["Reduced score<br/>→ drops in ranking"]
+
+    style RECALL fill:#4a90d9,color:white
+    style APPLY fill:#e74c3c,color:white
+    style RESULT fill:#f39c12,color:white
 ```
+
+$$\text{penalty}(n) = \text{rate}^{(n-1)}$$
+
+Where $n$ is the number of times this memory has appeared in recall results and $\text{rate}$ is the configurable decay rate (default: 0.85).
 
 ### Penalty Curve
 
@@ -85,28 +65,22 @@ public final class HabituationPenalty {
 
 ---
 
-## Integration with RecallPipeline
+## Where It Fits in the Pipeline
 
-Habituation is applied at **Step 5** of the recall pipeline — after scoring but before final ranking:
+Habituation is applied **after** the 6-phase scorer produces results, but **before** final ranking:
 
-```java
-// In RecallPipeline.recall()
+```mermaid
+flowchart TD
+    SCORER["6-Phase Scorer<br/><i>produces top-K candidates</i>"] --> SUPPRESS["Step 4: Suppression Filter<br/><i>remove explicitly blocked</i>"]
+    SUPPRESS --> HAB["Step 5a: Habituation Penalty<br/><i>attenuate repeated results</i>"]
+    HAB --> GRAPH["Steps 5c–5e: Graph Augmentation<br/><i>Hebbian, Temporal, Entity</i>"]
+    GRAPH --> SORT["Final Sort → Top-K"]
 
-// Step 5: Apply habituation penalty (anti-filter-bubble)
-for (int i = 0; i < allResults.size(); i++) {
-    CognitiveResult r = allResults.get(i);
-    float habPenalty = habituationPenalty.recordAndComputePenalty(r.id());
-    if (habPenalty < 1.0f) {
-        allResults.set(i, new CognitiveResult(
-            r.id(), r.text(), r.score() * habPenalty, 
-            r.importance(), r.ageDays(),
-            r.recallCount(), r.valence(), r.memoryType(), r.source(),
-            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay()));
-    }
-}
+    style HAB fill:#e74c3c,color:white
+    style SORT fill:#00b894,color:white
 ```
 
-**Key**: The penalty multiplies the `score()` field — it doesn't modify the underlying memory. Habituation is a recall-time effect, not a storage-time effect.
+**Key**: The penalty multiplies the `score` field — it doesn't modify the underlying memory. Habituation is a **recall-time** effect, not a storage-time effect.
 
 ---
 

@@ -69,12 +69,26 @@ function Invoke-Build {
         exit 1
     }
 
-    Write-Log "Building Docker image '$ImageName'..."
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $versionTag = "v$timestamp"
+
+    # Backup current latest image if it exists
+    $existing = docker image inspect "${ImageName}:latest" 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        $backupTag = "backup-$timestamp"
+        Write-Log "Backing up current '${ImageName}:latest' image to '${ImageName}:${backupTag}' and '${ImageName}:backup'..."
+        docker tag "${ImageName}:latest" "${ImageName}:${backupTag}"
+        docker tag "${ImageName}:latest" "${ImageName}:backup"
+        Write-Ok "Backups created successfully: ${ImageName}:${backupTag} & ${ImageName}:backup"
+    }
+
+    Write-Log "Building Docker image '${ImageName}:latest' and '${ImageName}:${versionTag}'..."
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
     docker build `
         -f $Dockerfile `
-        -t $ImageName `
+        -t "${ImageName}:latest" `
+        -t "${ImageName}:${versionTag}" `
         --build-arg BUILDKIT_INLINE_CACHE=1 `
         .
 
@@ -84,8 +98,8 @@ function Invoke-Build {
     }
 
     $sw.Stop()
-    Write-Ok "Image '$ImageName' built in $([math]::Round($sw.Elapsed.TotalSeconds))s"
-    docker images $ImageName --format "  Size: {{.Size}}  Created: {{.CreatedAt}}"
+    Write-Ok "Image '${ImageName}:latest' (and '${ImageName}:${versionTag}') built in $([math]::Round($sw.Elapsed.TotalSeconds))s"
+    docker images $ImageName --format "  Tag: {{.Tag}}  Size: {{.Size}}  Created: {{.CreatedAt}}"
 }
 
 function Invoke-Stop {

@@ -55,6 +55,8 @@ This page compares Spector to popular vector databases and AI memory systems. We
 | **Emotional valence** | ✅ Amygdala model | ❌ | ❌ | ❌ | ❌ |
 | **Sleep consolidation** | ✅ Hippocampus model | ❌ | ❌ | ❌ | ❌ |
 | **Hebbian associations** | ✅ Co-activation graph | ❌ | ❌ | ❌ | ❌ |
+| **Entity knowledge graph** | ✅ LLM-powered, open-schema | ❌ | ❌ | ❌ | ❌ |
+| **Temporal causal chains** | ✅ Session-linked sequences | ❌ | ❌ | ❌ | ❌ |
 | **GC pressure** | 0.01% (off-heap) | High (Python) | High (Python) | Moderate | N/A |
 | **MCP integration** | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
 | **Infrastructure** | Zero (embedded JVM) | Redis + API | PostgreSQL + API | PostgreSQL + API | Research code |

@@ -36,7 +36,7 @@ graph TB
     end
 
     subgraph Transport["Transport Layer"]
-        mcp["MCP Server<br/><i>stdio · 13 tools</i>"]
+        mcp["MCP Server<br/><i>stdio · Streamable HTTP · 21 tools</i>"]
         armeria["Armeria Server<br/><i>REST + gRPC + SSE</i>"]
     end
 
@@ -53,6 +53,8 @@ graph TB
         subgraph Memory["Cognitive Memory"]
             cortex["4-Tier Cortex<br/><i>Working → Episodic → Semantic → Procedural</i>"]
             hebbian["Hebbian Graph<br/><i>Associative links</i>"]
+            entity_graph["Entity Graph<br/><i>LLM-powered knowledge</i>"]
+            temporal["Temporal Chain<br/><i>Causal sequences</i>"]
             decay["Memory Decay<br/><i>Power-law forgetting</i>"]
             consolidation["Sleep Consolidation<br/><i>Hippocampal replay</i>"]
         end
@@ -185,8 +187,8 @@ graph TB
         custom["🦾 Custom Agents"]
     end
 
-    subgraph MCP["MCP Server — stdio transport"]
-        transport["JSON-RPC 2.0<br/><i>stdio (stdin/stdout)</i>"]
+    subgraph MCP["MCP Server — Dual Transport"]
+        transport["JSON-RPC 2.0<br/><i>stdio (stdin/stdout) · Streamable HTTP (/mcp)</i>"]
         registry["SpectorToolRegistry<br/><i>21 tools auto-registered</i>"]
 
         subgraph EngineTools["Engine Tools — 6"]
@@ -240,7 +242,7 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant Agent as 🤖 AI Agent
-    participant MCP as 📡 MCP Server (stdio)
+    participant MCP as 📡 MCP Server (stdio / Streamable HTTP)
     participant Tools as 🔧 Tool Registry
     participant Runtime as ⚡ SpectorRuntime
     participant SIMD as 🔬 SIMD (off-heap)
@@ -300,7 +302,7 @@ Spector Memory is a **biologically-inspired cognitive memory engine** that gives
 
 | Capability | Technology | Performance |
 |:---|:---|:---|
-| 🤖 **Agent-Native (MCP)** | Model Context Protocol · 13 tools · stdio | Claude · Cursor · autonomous agents |
+| 🤖 **Agent-Native (MCP)** | Model Context Protocol · 21 tools · stdio + Streamable HTTP | Claude · Cursor · autonomous agents |
 | ⚡ **SIMD Search** | Java Vector API (AVX2/AVX-512/NEON) | 88µs p50 · 61K QPS |
 | 🧊 **Off-Heap Storage** | Panama MemorySegment · zero-copy I/O | 0.01% GC overhead |
 | 🗜️ **Quantization** | SVASQ-8/4 · IVF-PQ · FWHT rotation | 4–32× compression · 99.5% recall |

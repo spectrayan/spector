@@ -13,6 +13,7 @@ graph LR
     subgraph "SpectorNode (Armeria — single port :7070)"
         REST["🌐 REST API<br/>/api/v1/*"]
         gRPC["⚡ gRPC<br/>inter-node fan-out"]
+        MCP["🤖 MCP<br/>Streamable HTTP /mcp"]
         HEALTH["💚 Health<br/>/health"]
         METRICS["📊 Prometheus<br/>/metrics"]
         SSE["📡 SSE Events<br/>/api/v1/events"]
@@ -20,6 +21,7 @@ graph LR
 
     CLIENT["👤 Client"] --> REST
     AGENT["🤖 AI Agent"] --> REST
+    AGENT --> MCP
     PEER["🌐 Peer Node"] --> gRPC
     K8S["☸️ Kubernetes"] --> HEALTH
     PROM["📊 Prometheus"] --> METRICS
@@ -112,6 +114,7 @@ graph TD
 |----------|------|--------|
 | HTTP REST | `/api/v1/*` | JSON |
 | gRPC | (auto-detected via `application/grpc`) | Protobuf |
+| **MCP (Streamable HTTP)** | **`/mcp`** | **JSON-RPC 2.0** |
 | Health | `/health` | 200 OK |
 | Prometheus | `/metrics` | OpenMetrics text |
 | SSE Events | `/api/v1/events` | Server-Sent Events |
@@ -133,7 +136,7 @@ graph TD
 | `SPECTOR_REQUEST_TIMEOUT` | 30 | Request timeout (seconds) |
 | `SPECTOR_COMPRESSION` | true | Enable gzip/brotli response compression |
 | `SPECTOR_IDLE_TIMEOUT` | 60 | Idle connection timeout (seconds) |
-| `SPECTOR_MCP_ENABLED` | true | Enable MCP-over-SSE at /mcp |
+| `SPECTOR_MCP_ENABLED` | true | Enable Streamable HTTP MCP at /mcp |
 
 ### Launching
 

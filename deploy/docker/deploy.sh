@@ -42,13 +42,27 @@ cd "$PROJECT_ROOT"
 # ── Functions ──────────────────────────────────────────────────────
 
 build() {
-    log "Building Docker image '${IMAGE_NAME}'..."
+    log "Preparing image tags and backups..."
 
     # Check Docker is available
     if ! command -v docker &> /dev/null; then
         err "Docker is not installed or not in PATH"
         exit 1
     fi
+
+    local timestamp="$(date +%Y%m%d_%H%M%S)"
+    local version_tag="v${timestamp}"
+
+    # Backup current latest image if it exists
+    if docker image inspect "${IMAGE_NAME}:latest" &> /dev/null; then
+        local backup_tag="backup-${timestamp}"
+        log "Backing up current '${IMAGE_NAME}:latest' image to '${IMAGE_NAME}:${backup_tag}' and '${IMAGE_NAME}:backup'..."
+        docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:${backup_tag}"
+        docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:backup"
+        ok "Backups created successfully: ${IMAGE_NAME}:${backup_tag} & ${IMAGE_NAME}:backup"
+    fi
+
+    log "Building Docker image '${IMAGE_NAME}:latest' and '${IMAGE_NAME}:${version_tag}'..."
 
     # Check Dockerfile exists
     if [ ! -f "$DOCKERFILE" ]; then
@@ -60,15 +74,16 @@ build() {
 
     docker build \
         -f "$DOCKERFILE" \
-        -t "$IMAGE_NAME" \
+        -t "${IMAGE_NAME}:latest" \
+        -t "${IMAGE_NAME}:${version_tag}" \
         --build-arg BUILDKIT_INLINE_CACHE=1 \
         . 2>&1 | while IFS= read -r line; do
             echo "  $line"
         done
 
     local elapsed=$(( SECONDS - start_time ))
-    ok "Image '${IMAGE_NAME}' built in ${elapsed}s"
-    docker images "$IMAGE_NAME" --format "  Size: {{.Size}}  Created: {{.CreatedAt}}"
+    ok "Image '${IMAGE_NAME}:latest' (and '${IMAGE_NAME}:${version_tag}') built in ${elapsed}s"
+    docker images "$IMAGE_NAME" --format "  Tag: {{.Tag}}  Size: {{.Size}}  Created: {{.CreatedAt}}"
 }
 
 stop() {

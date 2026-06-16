@@ -66,6 +66,14 @@ spector-memory/
 │     ├── CoActivationTracker.java      (tag co-occurrence tracking)
 │     └── HebbianGraph.java             (associative memory network)
 │
+├── graph/                          ← "Entity-Relationship Graph" + temporal
+│     ├── EntityGraph.java              (LLM-powered knowledge graph)
+│     ├── EntityType.java               (21 well-known entity types)
+│     ├── RelationType.java             (21 well-known relation types)
+│     ├── TypeRegistry.java             (open-schema string ↔ int registry)
+│     ├── TemporalChain.java            (session-linked causal sequences)
+│     └── LlmEntityExtractor.java       (LLM entity extraction SPI impl)
+│
 ├── hippocampus/                    ← "Hippocampus" — consolidation & cleanup
 │     ├── ReflectDaemon.java            (sleep consolidation K-Means)
 │     └── TombstoneCompactor.java       (partition rebuild)
@@ -103,6 +111,8 @@ spector-memory/
 | ⚡ Dopamine System | `dopamine/` | `SurpriseDetector`, `FlashbulbPolicy` | Surprise detection, auto-importance, flashbulb pinning |
 | 😱 Amygdala | `amygdala/` | `ValenceTracker` | Emotional coloring (positive/negative/neutral) |
 | 🔄 Hebbian Learning | `hebbian/` | `CoActivationTracker`, `HebbianGraph` | "Neurons that fire together wire together" |
+| 🔗 Entity Knowledge | `graph/` | `EntityGraph`, `TypeRegistry`, `LlmEntityExtractor` | LLM-powered entity-relationship graph with open-schema types |
+| ⏳ Temporal Chain | `graph/` | `TemporalChain` | Session-linked causal sequences ("what happened next?") |
 | 🛏️ Hippocampus | `hippocampus/` | `ReflectDaemon`, `TombstoneCompactor` | Sleep consolidation, synaptic pruning, partition rebuild |
 | 😴 Habituation | `habituation/` | `HabituationPenalty` | Anti-filter bubble — penalizes repetitive recall |
 | 🚫 Inhibition | `inhibition/` | `SuppressionSet` | Explicit memory suppression (user redaction) |
@@ -213,6 +223,8 @@ Total: 443 tests, 0 failures
 | Emotional Valence | **✅ Built-in** | ❌ | ❌ | ❌ |
 | Synaptic Tag Gating | **✅ 1-cycle Bloom** | ❌ | ❌ | ❌ |
 | Sleep Consolidation | **✅ K-Means** | ❌ | ❌ | ❌ |
+| Entity Knowledge Graph | **✅ LLM-powered, open-schema** | ❌ | ❌ | ❌ |
+| Temporal Causal Chains | **✅ Session-linked** | ❌ | ❌ | ❌ |
 | Surprise Detection | **✅ Welford Z-score** | ❌ | ❌ | ❌ |
 | Habituation | **✅ Anti-filter bubble** | ❌ | ❌ | ❌ |
 | MCP Integration | **✅ Native** | ❌ | ❌ | ❌ |

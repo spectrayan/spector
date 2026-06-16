@@ -58,8 +58,10 @@ public class EventStreamEndpoint implements ApiModule {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EventStreamEndpoint.class);
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
             .setSerializationInclusion(JsonInclude.Include.NON_NULL)
-            .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+            .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private final SpectorEventBus eventBus;
 
@@ -89,9 +91,10 @@ public class EventStreamEndpoint implements ApiModule {
                         .event(event.eventType())
                         .data(data)
                         .build();
-                sink.tryEmitNext(sse);
+                var result = sink.tryEmitNext(sse);
+                log.info("[SSE-DISPATCH] type={}, result={}, dataLen={}", event.eventType(), result, data.length());
             } catch (Exception e) {
-                log.debug("SSE event serialization failed for '{}': {}", event.eventType(), e.getMessage());
+                log.warn("[SSE-DISPATCH] serialization FAILED for '{}': {}", event.eventType(), e.getMessage());
             }
         });
 

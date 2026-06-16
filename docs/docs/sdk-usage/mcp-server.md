@@ -170,9 +170,9 @@ Add to your Cursor MCP settings (`.cursor/mcp.json` in your project, or global s
 }
 ```
 
-### Custom MCP Clients
+### Custom MCP Clients (Stdio)
 
-Any application implementing the [MCP client specification](https://modelcontextprotocol.io/docs/concepts/clients) can connect to Spector. The server communicates via **JSON-RPC 2.0 over stdio** (stdin/stdout).
+Any application implementing the [MCP client specification](https://modelcontextprotocol.io/docs/concepts/clients) can connect to Spector. The stdio transport communicates via **JSON-RPC 2.0 over stdio** (stdin/stdout).
 
 **Key requirements:**
 
@@ -193,6 +193,45 @@ Any application implementing the [MCP client specification](https://modelcontext
 // Client → Server
 {"jsonrpc": "2.0", "method": "notifications/initialized"}
 ```
+
+### Streamable HTTP Clients (Remote Agents)
+
+When Spector runs as a server (via `SpectorNode` or Spector Enterprise), the same MCP tools are available over **Streamable HTTP** at the `/mcp` endpoint. This transport follows the [MCP 2025-03-26 specification](https://modelcontextprotocol.io/) and is implemented by `ArmeriaMcpTransport` on the Armeria HTTP server.
+
+**Endpoint:** `http://localhost:7070/mcp`
+
+| Method | Purpose |
+|:---|:---|
+| `POST /mcp` | JSON-RPC request → JSON response |
+| `GET /mcp` | SSE notification stream (stateful mode only) |
+| `DELETE /mcp` | Session termination (stateful mode only) |
+
+**Modes:**
+
+- **Stateless** (default, recommended) — No `Mcp-Session-Id` header. Server restart doesn't break clients.
+- **Stateful** — `Mcp-Session-Id` header for session tracking. Supports GET (SSE notifications) and DELETE (session teardown).
+
+**Example — initialize and call a tool:**
+
+```bash
+# Step 1: Initialize
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"my-app","version":"1.0"}}}'
+
+# Step 2: Send initialized notification
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+
+# Step 3: Call a tool
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"engine_status","arguments":{}}}'
+```
+
+> [!TIP]
+> The Streamable HTTP transport is particularly useful for web applications, remote AI agents, and Spector Enterprise's Cortex Dashboard. No process spawning required — just HTTP.
 
 ---
 

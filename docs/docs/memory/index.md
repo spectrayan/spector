@@ -159,7 +159,7 @@ Just as the human brain has distinct memory systems, Spector organizes memories 
 
     ---
 
-    Hebbian association, entity-relationship knowledge, and temporal causal chains — three off-heap graph structures that augment vector recall
+    Hebbian association, LLM-powered entity-relationship knowledge, and temporal causal chains — three graph structures that augment vector recall with multi-hop reasoning
 
     [:octicons-arrow-right-24: Cognitive Graph](hebbian.md)
 

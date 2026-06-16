@@ -5,8 +5,6 @@ description: "Append-only binary WAL with chunked files, CRC-32 integrity, DEFLA
 
 # 📝 WAL Design — Write-Ahead Log
 
-> **Package**: `com.spectrayan.spector.memory.sync`
->
 > **Biological Analog**: The hippocampus doesn't write memories directly to the neocortex. It first records a transient "replay buffer" — a sequential log of experiences — and consolidates them during sleep. The WAL is the digital equivalent: an ordered, append-only log of every memory mutation that can be replayed to reconstruct state.
 
 ---
@@ -70,35 +68,22 @@ graph TD
 
 | Mode | Constructor | Storage | Durability | Use Case |
 |---|---|---|---|---|
-| **File-backed** | `new MemoryWal(walDir)` | Append-only chunk files | ✅ Survives crashes | Production |
-| **In-memory** | `new MemoryWal()` | `ArrayList<WalEvent>` | ❌ Volatile | Testing, ephemeral agents |
-
-```java
-// Production: durable WAL with 8MB chunk rolling
-MemoryWal wal = new MemoryWal(Path.of(".spector/memory/wal"));
-
-// Production: custom chunk size + compression + per-write fsync
-MemoryWal wal = new MemoryWal(walDir, 16 * 1024 * 1024, true, 512, true);
-
-// Testing: in-memory, no disk I/O
-MemoryWal wal = new MemoryWal();
-```
+| **File-backed** | Append-only chunk files | ✅ Survives crashes | Production |
+| **In-memory** | In-memory event list | ❌ Volatile | Testing, ephemeral agents |
 
 ---
 
 ## Event Types
 
-Every memory mutation produces a `WalEvent` record:
+Every memory mutation produces a WAL event with the following fields:
 
-```java
-public record WalEvent(
-    long sequence,          // monotonically increasing
-    EventType type,         // REMEMBER, FORGET, REINFORCE, REFLECT, TAG_MERGE, RECALL_HIT
-    String memoryId,        // the affected memory ID
-    Instant timestamp,      // when the event occurred
-    byte[] payload          // serialized event data (format varies by type)
-) { }
-```
+| Field | Description |
+|---|---|
+| **sequence** | Monotonically increasing counter |
+| **type** | Event type (see table below) |
+| **memoryId** | The affected memory ID |
+| **timestamp** | When the event occurred |
+| **payload** | Serialized event data (format varies by type) |
 
 | Event Type | Trigger | Payload |
 |---|---|---|
@@ -224,15 +209,10 @@ WAL data is spread across multiple **chunk files** in a directory:
 
 When the active chunk exceeds `maxChunkBytes` (default **8 MB**), the WAL:
 
-1. Calls `force(true)` on the active `FileChannel` (metadata + data flush)
-2. Closes the channel
-3. Increments `chunkIndex`
+1. Flushes all data and metadata to disk
+2. Closes the file
+3. Increments the chunk index
 4. Opens a new chunk file with a fresh file header
-
-```java
-// Configurable chunk size
-new MemoryWal(walDir, 16 * 1024 * 1024); // 16 MB chunks
-```
 
 ### Compaction & Garbage Collection
 
@@ -262,15 +242,13 @@ flowchart TD
 2. **HWM declaration**: The snapshot records the highest WAL sequence number that has been fully materialized
 3. **Chunk disposal**: `truncateBefore(snapshotHwm)` sweeps all closed chunks — any chunk where the maximum sequence ≤ HWM is safely deleted
 4. **Active chunk protection**: The currently active chunk is **never** deleted, even if all its events are below the HWM
-5. **In-memory cache pruning**: Events with sequence ≤ HWM are also removed from the `ArrayList<WalEvent>` cache to prevent memory bloating
+5. **In-memory cache pruning**: Events with sequence ≤ HWM are also removed from the in-memory cache to prevent bloating
 
-```java
-// After a successful snapshot at sequence 5042:
-wal.truncateBefore(5042);
-// → deletes wal-000000.bin (maxSeq=3200), wal-000001.bin (maxSeq=4980)
-// → retains wal-000002.bin (maxSeq=5100, has events after HWM)
-// → retains wal-000003.bin (active chunk, never touched)
-```
+**Example**: After a snapshot at sequence 5042:
+
+- ✅ Deletes `wal-000000.bin` (maxSeq=3200) and `wal-000001.bin` (maxSeq=4980)
+- ⏳ Retains `wal-000002.bin` (maxSeq=5100 — has events after HWM)
+- 🔒 Retains `wal-000003.bin` (active chunk — never touched)
 
 !!! tip "Zero Page-Cache Poisoning"
     Chunk deletion uses `Files.delete()` at the file level — the compaction scanner does **not** read old WAL data back into memory. This avoids evicting the host's page cache, which would degrade active mmap partition performance during concurrent queries.
@@ -343,14 +321,7 @@ graph TD
 | **Safety** | The write was never acknowledged to the caller — the event is uncommitted |
 | **Resolution** | `handleTornWrite()` truncates the file to `startPos` (the last fully-written record boundary) and forces to disk. Writing resumes from the repaired position |
 
-```java
-private void handleTornWrite(Path path, FileChannel fc, long startPos) throws IOException {
-    log.warn("Torn WAL record detected in {} at position {}. "
-           + "Truncating file to recovery boundary.", path, startPos);
-    fc.truncate(startPos);
-    fc.force(true);
-}
-```
+**Action**: The WAL truncates the file to the last valid record boundary (`startPos`) and flushes to disk. Writing resumes from the repaired position.
 
 #### B. Mid-Log Corruption (Bit Rot)
 
@@ -361,22 +332,7 @@ private void handleTornWrite(Path path, FileChannel fc, long startPos) throws IO
 | **Safety** | Truncating would discard **committed** operations, causing silent partition state divergence |
 | **Resolution** | **Never auto-repair.** The chunk is moved to `.quarantine/` to preserve forensic evidence, and a `WalCorruptionException` halts startup. In cluster mode, the node initiates a **Cold Bootstrap** from a healthy peer |
 
-```java
-private void handleMiddleLogCorruption(Path path, FileChannel fc,
-                                        long startPos, String reason) throws IOException {
-    log.error("Fatal mid-log corruption in {} at position {}: {}. "
-            + "Triggering quarantine.", path, startPos, reason);
-    fc.close();
-
-    Path quarantineDir = path.getParent().resolve(".quarantine");
-    Files.createDirectories(quarantineDir);
-    Path quarantinedPath = quarantineDir.resolve(path.getFileName());
-    Files.move(path, quarantinedPath, StandardCopyOption.REPLACE_EXISTING);
-
-    throw new WalCorruptionException(
-        "Fatal WAL corruption: " + reason + " at position " + startPos);
-}
-```
+**Action**: The chunk file is moved to the `.quarantine/` directory to preserve forensic evidence. A `WalCorruptionException` halts startup. In cluster mode, the node initiates a Cold Bootstrap from a healthy peer.
 
 #### Summary Matrix
 
@@ -394,12 +350,7 @@ private void handleMiddleLogCorruption(Path path, FileChannel fc,
 
 ## Compression
 
-Payload compression is opt-in and uses **DEFLATE** (java.util.zip):
-
-```java
-// Enable compression for payloads > 512 bytes
-new MemoryWal(walDir, 8 * 1024 * 1024, true, 512, false);
-```
+Payload compression is opt-in and uses **DEFLATE**:
 
 | Setting | Default | Description |
 |---|---|---|
@@ -454,15 +405,7 @@ graph LR
 
 When a new agent joins (or corruption triggers a full resync):
 
-```java
-// Download snapshot from leader and restore local state
-long leaderHwm = CloudSync.bootstrapFromLeader(
-    "http://leader:7070",
-    localPersistenceDir
-);
-```
-
-The leader serves its entire off-heap state as a zip archive via `GET /api/v2/memory/snapshot`. The new agent unpacks it, restoring all mmap partition files and WAL chunks.
+The new agent requests a full state snapshot from a healthy leader via `GET /api/v2/memory/snapshot`. The leader serves its entire off-heap state as a zip archive. The new agent unpacks it, restoring all mmap partition files and WAL chunks.
 
 ---
 
@@ -483,14 +426,7 @@ When two agents modify the same memory concurrently, `CrdtMergeStrategy` resolve
 
 **Convergence guarantee**: All merge operations are commutative, associative, and idempotent — any order of merges from any agents produces the **same final state**.
 
-```java
-CrdtMergeStrategy.MergedHeader result = CrdtMergeStrategy.merge(local, remote);
-
-// Check if merge would actually change local state
-if (CrdtMergeStrategy.wouldChange(local, remote)) {
-    applyMerge(result);
-}
-```
+The merge is applied only if the remote state would actually change the local state, avoiding unnecessary writes.
 
 ---
 
@@ -533,15 +469,15 @@ spector:
 
 For cloud-based WAL replication, the `StorageAdapter` SPI provides a pluggable backend:
 
-```java
-public interface StorageAdapter extends AutoCloseable {
-    void upload(String namespace, String chunkName, ByteBuffer data);
-    ByteBuffer download(String namespace, String chunkName);
-    List<String> listChunks(String namespace);
-    List<String> listNamespaces();
-    boolean isAvailable();
-}
-```
+The `StorageAdapter` SPI provides a pluggable backend for cloud-based WAL replication. Implementations must support:
+
+| Operation | Description |
+|---|---|
+| **upload** | Upload a chunk to cloud storage |
+| **download** | Download a chunk from cloud storage |
+| **listChunks** | List all chunks in a namespace |
+| **listNamespaces** | List all available namespaces |
+| **isAvailable** | Health check |
 
 Planned implementations:
 

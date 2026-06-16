@@ -45,39 +45,43 @@ finalScore = score × hyperfocusBoost  // default: 1.5×
 
 This ensures focused memories consistently outrank non-focused ones in the final result list.
 
-### Configuration
+### Usage
 
-```java
-// Via profile preset
-var results = memory.recall("database deadlock", CognitiveProfile.HYPERFOCUS);
-
-// Via explicit options
-var options = RecallOptions.builder()
-    .profile(CognitiveProfile.HYPERFOCUS)
-    .hyperfocusMask("database", "deadlock")  // Bloom filter encoded
-    .hyperfocusBoost(2.0f)                   // custom boost
-    .build();
+```
+memory.recall("database deadlock",
+    profile: HYPERFOCUS,
+    hyperfocusMask: ["database", "deadlock"],   // Bloom filter encoded
+    hyperfocusBoost: 2.0)                       // custom boost
 ```
 
 ### TTL and Self-Extension
 
-Focus Mode is governed by `HyperfocusState`, a TTL-based state machine:
+Focus Mode is governed by a TTL-based state machine:
 
-```java
-// Activate focus for 30 minutes (default)
-memory.hyperfocusState().activateFromTags("database", "deadlock");
+```mermaid
+flowchart LR
+    DETECT["Agent detects<br/>focused topic"] --> ACTIVATE["Activate focus<br/><i>tags + 30 min TTL</i>"]
+    ACTIVATE --> ACTIVE{"Topic continues?"}
+    ACTIVE -->|"Yes"| EXTEND["Extend TTL<br/><i>+30 min or custom</i>"]
+    EXTEND --> ACTIVE
+    ACTIVE -->|"No — TTL expires"| DEACTIVATE["Auto-deactivate"]
+    ACTIVE -->|"Manual"| DEACTIVATE
 
-// Agent extends focus when topic continues
-memory.hyperfocusState().extend();         // adds another 30 minutes
-memory.hyperfocusState().extend(60_000L);  // adds 1 minute
-
-// Check status
-memory.hyperfocusState().isActive();       // true
-memory.hyperfocusState().remainingMs();    // milliseconds remaining
-
-// Deactivate manually (or wait for TTL expiry)
-memory.hyperfocusState().deactivate();
+    style ACTIVATE fill:#e74c3c,color:white
+    style EXTEND fill:#f39c12,color:white
+    style DEACTIVATE fill:#95a5a6,color:white
 ```
+
+Available operations:
+
+| Operation | Description |
+|:---|:---|
+| **activate(tags)** | Start focus with 30 min TTL |
+| **extend()** | Add another 30 minutes |
+| **extend(ms)** | Add custom duration |
+| **isActive()** | Check if focus is currently on |
+| **remainingMs()** | Time remaining before expiry |
+| **deactivate()** | Stop focus immediately |
 
 !!! tip "Agent Self-Extension"
     The `extend()` method is designed to be called by the agent itself. When the agent detects that the conversation is still focused on the same topic, it extends the TTL. When the topic naturally shifts, the TTL expires and Focus Mode deactivates automatically.
@@ -99,7 +103,7 @@ The Systematizer profile is designed for agents that need to build **comprehensi
 
 The key feature of SYSTEMATIZER is **lossless consolidation**. During the [sleep consolidation cycle](hippocampus.md) (REM sleep), the system normally clusters similar episodic memories and promotes a summary to semantic memory. The source episodes may then be tombstoned.
 
-With SYSTEMATIZER, source episodes are **pinned** — they receive the `FLAG_PINNED` bit in their record header, which prevents tombstoning:
+With SYSTEMATIZER, source episodes are **pinned** — they receive the pinned flag in their record header, which prevents tombstoning:
 
 ```
 Episodic: [mem-1] [mem-2] [mem-3] → Cluster → Semantic summary created
@@ -110,16 +114,7 @@ Episodic: [mem-1] [mem-2] [mem-3] → Cluster → Semantic summary created
 
 ### Quota Management
 
-To prevent unbounded memory growth, pinning is governed by a configurable quota:
-
-```java
-var memory = SpectorMemory.builder()
-    .pinSourceEpisodes(true)   // enable pinning
-    .pinnedQuota(10_000)       // max pinned records (default)
-    .build();
-```
-
-When the quota is reached, the oldest pinned records are eligible for tombstoning during the next consolidation cycle.
+To prevent unbounded memory growth, pinning is governed by a configurable quota (default: 10,000 pinned records). When the quota is reached, the oldest pinned records are eligible for tombstoning during the next consolidation cycle.
 
 ### Use Cases
 

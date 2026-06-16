@@ -1,12 +1,10 @@
 ---
 title: "Amygdala — Emotional Valence"
-description: "How ValenceTracker adds emotional coloring to memories — enabling agents to recall by mood, sentiment, and outcome quality."
+description: "How Spector adds emotional coloring to memories — enabling agents to recall by mood, sentiment, and outcome quality."
 ---
 
 # 😱 Amygdala — Emotional Valence
 
-> **Package**: `com.spectrayan.spector.memory.amygdala`
->
 > **Biological Analog**: The **amygdala** is the brain's emotional processor. It assigns emotional significance to experiences — fear, joy, anger, relief — which profoundly influences how memories are encoded, stored, and retrieved. Emotionally charged memories are remembered more vividly and last longer.
 
 ---
@@ -25,104 +23,80 @@ Every memory in Spector carries a **valence score** — a single byte (`-128` to
 
 ---
 
-## ValenceTracker
+## How It Works
 
-The `ValenceTracker` manages emotional coloring of memories:
+The valence tracker computes emotional coloring from two signals:
 
-```java
-public final class ValenceTracker {
-    
-    /**
-     * Computes valence from text content analysis.
-     * Uses keyword-based sentiment detection with configurable weights.
-     */
-    public byte computeValence(String text, MemorySource source) {
-        float score = 0f;
-        
-        // Source-based bias
-        if (source == MemorySource.PROCEDURAL) score += 0.1f;  // Rules are slightly positive
-        if (source == MemorySource.OBSERVED && containsError(text)) score -= 0.5f;
-        
-        // Content-based sentiment
-        score += sentimentScore(text);
-        
-        // Clamp and convert to byte range
-        return (byte) Math.max(-128, Math.min(127, (int)(score * 127)));
-    }
-}
+```mermaid
+flowchart TD
+    TEXT["Memory text content"] --> SENTIMENT["Content-based sentiment<br/><i>keyword analysis</i>"]
+    SOURCE["Memory source type"] --> BIAS["Source-based bias<br/><i>e.g., errors → negative</i>"]
+
+    SENTIMENT --> FUSE["Fused valence score<br/><b>clamped to [-128, +127]</b>"]
+    BIAS --> FUSE
+
+    FUSE --> NEG["Negative valence<br/><i>errors, failures, warnings</i>"]
+    FUSE --> ZERO["Neutral valence<br/><i>factual, routine</i>"]
+    FUSE --> POS["Positive valence<br/><i>successes, breakthroughs</i>"]
+
+    style NEG fill:#e74c3c,color:white
+    style ZERO fill:#95a5a6,color:white
+    style POS fill:#2ecc71,color:white
 ```
 
 ---
 
 ## Valence-Filtered Recall
 
-The most powerful use of valence is in **recall filtering**. The `RecallOptions` builder supports valence range filtering:
+The most powerful use of valence is in **recall filtering**. Agents can filter by emotional range to answer different types of questions:
 
-```java
-// Recall only negative-outcome memories (for debugging)
-List<CognitiveResult> errors = memory.recall("database connection",
-    RecallOptions.builder()
-        .topK(10)
-        .maxValence((byte) -10)     // Only negative memories
-        .build());
+### "What went wrong?" — Negative Memories
 
-// Recall only positive outcomes (for best practices)
-List<CognitiveResult> successes = memory.recall("deployment strategy",
-    RecallOptions.builder()
-        .topK(5)
-        .minValence((byte) 10)      // Only positive memories
-        .build());
+```
+memory.recall("database connection",
+    topK: 10,
+    maxValence: -10,       // Only negative memories
+    tags: ["database", "error"])
 ```
 
-### Phase 3 — Valence Filter in CognitiveScorer
+### "What worked well?" — Positive Memories
 
-Valence filtering happens at **Phase 3** of the scoring pipeline — before the expensive SIMD vector math:
+```
+memory.recall("deployment strategy",
+    topK: 5,
+    minValence: +10,       // Only positive memories
+    tags: ["deployment"])
+```
 
-```java
-// Phase 3: Valence Filter (~2 cycles)
-byte valence = segment.get(LAYOUT_VALENCE, offset + OFFSET_VALENCE);
-if (valence < minValence || valence > maxValence) continue;
+### Full Emotional Range (Default)
+
+By default, no valence filter is applied — the agent sees the full emotional spectrum. The valence still influences recall indirectly because the flashbulb policy pins emotionally intense memories at higher importance.
+
+---
+
+## Where It Fits in the Pipeline
+
+Valence filtering happens at **Phase 3** of the 6-phase scorer — before the expensive SIMD vector math:
+
+```mermaid
+flowchart LR
+    P1["Phase 1<br/>Tombstone"] --> P2["Phase 2<br/>Tag Gate"]
+    P2 --> P3["Phase 3<br/><b>Valence Filter</b><br/><i>~2 cycles</i>"]
+    P3 --> P4["Phase 4<br/>Importance"]
+    P4 --> P5["Phase 5<br/>SIMD L2<br/><i>~200 cycles</i>"]
+    P5 --> P6["Phase 6<br/>Fused Score"]
+
+    style P3 fill:#e74c3c,color:white
+    style P5 fill:#0984e3,color:white
 ```
 
 **Cost**: 2 CPU cycles — a single byte read and two comparisons. Records outside the valence range are eliminated before Phase 5's ~200-cycle SIMD computation.
 
 ---
 
-## Use Cases
-
-### 1. Debugging: "What Went Wrong?"
-
-An agent can filter for negative-valence memories when debugging:
-
-```java
-// "Show me only memories associated with failures"
-memory.recall("connection timeout",
-    RecallOptions.builder()
-        .maxValence((byte) -10)
-        .synapticFilter("database", "error")
-        .build());
-```
-
-### 2. Best Practices: "What Worked Well?"
-
-```java
-// "Show me successful approaches"
-memory.recall("deployment strategy",
-    RecallOptions.builder()
-        .minValence((byte) 10)
-        .synapticFilter("deployment")
-        .build());
-```
-
-### 3. Balanced Recall: Full Emotional Range
-
-By default, no valence filter is applied — the agent sees the full emotional spectrum. The valence still influences recall indirectly because the `FlashbulbPolicy` pins emotionally intense memories at higher importance.
-
----
-
 ## Storage
 
-Valence is stored in the 64-byte synaptic header at **offset 2** as a single signed byte:
+Valence is stored in the 64-byte synaptic header as a single signed byte:
 
 ```
 Offset 30: [1B valence] — signed byte [-128 to +127]

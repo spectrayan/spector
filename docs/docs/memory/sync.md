@@ -5,100 +5,107 @@ description: "Write-Ahead Log for durability and CRDT merge strategy for distrib
 
 # 🔄 Sync — Persistence & Replication
 
-> **Package**: `com.spectrayan.spector.memory.sync`
->
-> **Biological Analog**: Memory consolidation doesn't happen in isolation. During sleep, the brain replays memories and transfers them between regions (hippocampus → neocortex). The sync package provides the infrastructure for **durable persistence** and **distributed memory merge**.
+> **Biological Analog**: Memory consolidation doesn't happen in isolation. During sleep, the brain replays memories and transfers them between regions (hippocampus → neocortex). The sync subsystem provides the infrastructure for **durable persistence** and **distributed memory merge**.
 
 ---
 
-## MemoryWal — Write-Ahead Log
+## Write-Ahead Log (WAL)
 
-The `MemoryWal` provides crash-safe durability for cognitive memory operations:
+The WAL provides crash-safe durability for cognitive memory operations. Every memory mutation is first written to an append-only log before being applied to the in-memory state.
 
-```java
-public final class MemoryWal implements AutoCloseable {
+```mermaid
+flowchart LR
+    WRITE["memory.remember()"] --> WAL["Append to WAL<br/><i>sequence + CRC</i>"]
+    WAL --> STORE["Apply to off-heap<br/><i>MemorySegment</i>"]
+    STORE --> ACK["Acknowledge"]
 
-    /**
-     * Appends a REMEMBER event to the WAL.
-     */
-    public void appendRemember(String id, MemoryType type, byte[] quantizedVec,
-                                CognitiveHeader header, String text,
-                                MemorySource source, String[] tags) { ... }
+    CRASH["JVM Crash"] --> RECOVER["Replay WAL<br/><i>rebuild state</i>"]
+    RECOVER --> RESTORED["Full state restored"]
 
-    /**
-     * Appends a FORGET event to the WAL.
-     */
-    public void appendForget(String id) { ... }
-
-    /**
-     * Replays all WAL events to rebuild memory state after restart.
-     */
-    public void replay(WalEventHandler handler) { ... }
-
-    /**
-     * Returns the number of events in the WAL.
-     */
-    public long eventCount() { ... }
-
-    /**
-     * Returns the high-water mark (latest event offset).
-     */
-    public long highWaterMark() { ... }
-}
+    style WAL fill:#00b894,color:white
+    style CRASH fill:#e74c3c,color:white
+    style RESTORED fill:#0984e3,color:white
 ```
+
+**Key capabilities:**
+
+| Capability | Description |
+|---|---|
+| **Crash recovery** | Replay the log → full state reconstruction |
+| **Event types** | REMEMBER, FORGET, REINFORCE, REFLECT, TAG_MERGE, RECALL_HIT |
+| **Chunked files** | Auto-roll at 8 MB boundaries |
+| **Dual CRC-32** | Independent header + payload checksums |
+| **Compression** | Optional DEFLATE for large payloads |
 
 **Two modes**:
 
 | Mode | Storage | Use Case |
 |---|---|---|
-| **File-backed** | Append-only log file | Production — survives JVM restarts |
-| **In-memory** | `ArrayList<WalEvent>` | Testing — fast, no disk I/O |
+| **File-backed** | Append-only chunk files | Production — survives JVM restarts |
+| **In-memory** | Volatile event list | Testing — fast, no disk I/O |
+
+📖 **Deep dive**: [WAL Design](wal-design.md) — binary format, crash recovery, chunk rolling, compression
 
 ---
 
-## CrdtMergeStrategy — Distributed Merge
+## CRDT Merge — Distributed Sync
 
-For multi-agent or distributed deployments, the `CrdtMergeStrategy` resolves conflicts between divergent memory replicas using **Conflict-free Replicated Data Types (CRDTs)**:
+For multi-agent or distributed deployments, the merge strategy resolves conflicts between divergent memory replicas using **Conflict-free Replicated Data Types (CRDTs)**:
 
-```java
-public final class CrdtMergeStrategy {
+```mermaid
+flowchart LR
+    subgraph "Agent A"
+        WA["Memory State A"]
+    end
 
-    /**
-     * Merges two versions of the same memory record.
-     *
-     * CRDT merge rules:
-     * - timestamp:    max(local, remote)     — Last-Write-Wins
-     * - synapticTags: local | remote         — OR-merge (union)
-     * - importance:   max(local, remote)     — Highest signal wins
-     * - recallCount:  max(local, remote)     — Monotonic counter
-     * - flags:        local | remote         — OR-merge (tombstone propagates)
-     */
-    public CognitiveHeader merge(CognitiveHeader local, CognitiveHeader remote) { ... }
+    subgraph "Agent B"
+        WB["Memory State B"]
+    end
 
-    /**
-     * Determines if a remote update should be applied.
-     */
-    public boolean shouldApply(CognitiveHeader local, CognitiveHeader remote) { ... }
-}
+    WA -->|"export events"| MERGE["CRDT Merge<br/><i>commutative, idempotent</i>"]
+    WB -->|"export events"| MERGE
+    MERGE --> CONVERGE["Identical final state<br/><i>guaranteed convergence</i>"]
+
+    style MERGE fill:#9b59b6,color:white
+    style CONVERGE fill:#00b894,color:white
 ```
+
+**Merge rules per field:**
+
+| Field | CRDT Type | Merge Rule | Guarantee |
+|---|---|---|---|
+| `timestamp` | LWW Register | `max(local, remote)` | Most recent write wins |
+| `synapticTags` | G-Set (OR) | `local \| remote` | Tags only accumulate, never removed |
+| `importance` | Max Register | `max(local, remote)` | Highest signal preserved |
+| `recallCount` | G-Counter | `max(local, remote)` | Monotonic counter |
+| `valence` | LWW Register | Value from newer `timestamp` | Latest emotional signal wins |
+| `tombstone` (flag) | OR | `local \| remote` | Once deleted, always deleted |
+| `consolidated` (flag) | OR | `local \| remote` | Once consolidated, stays consolidated |
+| `pinned` (flag) | OR | `local \| remote` | Once pinned, stays pinned |
+
+**Convergence guarantee**: All merge operations are commutative, associative, and idempotent — any order of merges from any agents produces the **same final state**.
 
 **Key insight**: Synaptic tags use **bitwise OR** for merge — this is a natural CRDT (G-Set). Tags can only be added, never removed, which guarantees convergence without coordination.
 
 ---
 
-## PartitionReplicator — Partition Snapshot Shipping
+## Partition Replicator — Snapshot Shipping
 
-For clustered deployments, the `PartitionReplicator` handles file-level replication of semantic memory partitions:
+For clustered deployments, partition replication operates in two modes:
 
+```mermaid
+flowchart TD
+    subgraph "Mode 1: WAL Incremental (Real-time)"
+        P1["Primary"] -->|"WAL event"| R1["Replica replays locally"]
+    end
+
+    subgraph "Mode 2: Partition Snapshot (Post-compaction)"
+        P2["Primary compacts partition"] -->|"ship .mem file"| R2["Replica downloads + swaps"]
+    end
+
+    style P1 fill:#0984e3,color:white
+    style P2 fill:#9b59b6,color:white
 ```
-Mode 1: WAL incremental (real-time, low latency)
-  Primary → WAL event → Replica replays locally
-
-Mode 2: Partition snapshot (post-compaction, bulk)
-  Primary compacts partition 3 → ships .mem file → Replica downloads + swaps
-```
-
-**Key behaviors:**
 
 | Event | Action |
 |---|---|
@@ -106,7 +113,7 @@ Mode 2: Partition snapshot (post-compaction, bulk)
 | **Partition compacted** | Re-ship compacted file to all replicas |
 | **New replica joins** | Full sync — ship all partition files |
 
-Immutable partitions are shipped exactly once per replica. Only the active (mutable) partition requires WAL-based delta replication via the `ReplicationManager`.
+Immutable partitions are shipped exactly once per replica. Only the active (mutable) partition requires WAL-based delta replication.
 
 ---
 
