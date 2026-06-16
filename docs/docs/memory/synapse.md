@@ -5,34 +5,13 @@ description: "The 64-byte cache-line-aligned synaptic header (HeaderLayout64), 6
 
 # 🔗 Synapse — Tags & Scoring
 
-> **Package**: `com.spectrayan.spector.memory.synapse`
->
 > **Biological Analog**: In neuroscience, the **Synaptic Tagging and Capture (STC)** hypothesis (Frey & Morris, 1997) describes how synapses are "tagged" during learning with lightweight chemical markers. These tags don't contain the memory itself — they identify *what* the memory is about and *when* it was formed, enabling the brain to route consolidation activity efficiently.
 
 ---
 
 ## Header Layout — 64-Byte Cache-Line Format
 
-Every cognitive memory record begins with a synaptic header — the digital equivalent of a synaptic tag. The header format is defined by the `HeaderLayout` sealed interface with a single implementation: `HeaderLayout64`.
-
-```mermaid
-classDiagram
-    class HeaderLayout {
-        <<sealed interface>>
-        +headerBytes() int
-        +version() int
-        +readHeader(segment, offset) CognitiveHeader
-        +writeHeader(segment, offset, header)
-        +defaultLayout() HeaderLayout$
-    }
-    
-    class HeaderLayout64 {
-        +headerBytes() = 64
-        +version() = 1
-    }
-    
-    HeaderLayout <|.. HeaderLayout64 : permits
-```
+Every cognitive memory record begins with a synaptic header — the digital equivalent of a synaptic tag. The format is defined by the `HeaderLayout` sealed interface with a single implementation: `HeaderLayout64`.
 
 ### Layout (64 bytes) — Cache-Line Aligned
 
@@ -89,17 +68,7 @@ The `flags` byte at offset 1 encodes per-record state:
 
 ### Zeigarnik Effect (Bit 5)
 
-Unresolved memories (bit 5 = 0) resist time-decay — their decay bucket is clamped to 0, keeping them perpetually "fresh." This models the psychological phenomenon where incomplete tasks remain more accessible than completed ones.
-
-```java
-// In CognitiveScorer Phase 4:
-if (!isResolved(flags) && !isPinned(flags)) {
-    adjustedBucket = 0;  // acts like the memory was just formed
-}
-
-// Agent marks task complete:
-memory.markResolved("task-123");  // bit 5 → 1, normal decay resumes
-```
+Unresolved memories (bit 5 = 0) resist time-decay — their decay bucket is clamped to 0, keeping them perpetually "fresh." This models the psychological phenomenon where incomplete tasks remain more accessible than completed ones. Once the agent marks a task complete, bit 5 is set to 1 and normal decay resumes.
 
 ---
 
@@ -109,35 +78,14 @@ The `synaptic_tags` field is a **64-bit inline Bloom filter** rather than a disc
 
 ### How It Works
 
-```java
-public static long encode(String... tags) {
-    long filter = 0L;
-    for (String tag : tags) {
-        filter |= encodeTag(tag);
-    }
-    return filter;
-}
-
-private static long encodeTag(String tag) {
-    long h = murmurHash64(tag);
-    long h1 = h;
-    long h2 = h >>> 32 | h << 32; // Swap halves for second hash
-    
-    long filter = 0L;
-    for (int i = 0; i < K; i++) {  // K = 3 hash functions
-        int bitIndex = Math.abs((int) ((h1 + (long) i * h2) % M)); // M = 64
-        filter |= (1L << bitIndex);
-    }
-    return filter;
-}
-```
+Each tag string is hashed via double hashing (MurmurHash3-inspired) to produce k=3 bit positions within the 64-bit filter. The match operation is a single bitwise AND: `(record & query) == query`.
 
 **Key properties**:
 
 | Property | Value |
 |:---|:---|
 | Filter size | 64 bits (fits in a single CPU register) |
-| Hash functions | k = 3 (MurmurHash3-inspired double hashing) |
+| Hash functions | k = 3 (double hashing) |
 | Bits per tag | 3 |
 | Match operation | `(record & query) == query` (containment check) |
 | Cost | **1 CPU cycle** (single `long` read + bitwise AND) |
@@ -156,16 +104,11 @@ private static long encodeTag(String tag) {
 
 ### Tag Overlap Scoring
 
-Beyond binary gating, the `SynapticTagEncoder` also computes a **fractional overlap ratio** for weighted tag relevance in Phase 6:
+Beyond binary gating, the tag encoder computes a **fractional overlap ratio** for weighted tag relevance:
 
-```java
-public static float overlapRatio(long recordTags, long queryMask) {
-    if (queryMask == 0) return 0f;
-    int overlapBits = Long.bitCount(recordTags & queryMask);
-    int queryBits = Long.bitCount(queryMask);
-    return (float) overlapBits / queryBits;
-}
-```
+$$
+\text{tagOverlap} = \frac{\text{popcount}(\text{recordTags} \land \text{queryMask})}{\text{popcount}(\text{queryMask})}
+$$
 
 This ratio is used as a multiplier in the scoring formula: `finalScore = baseScore × (1 + tagOverlap × tagRelevanceBoost)`. A record matching 3 of 5 query tags gets a 60% tag boost vs 100% for a full match.
 
@@ -173,59 +116,27 @@ This ratio is used as a multiplier in the scoring formula: `finalScore = baseSco
 
 ## CognitiveRecordLayout — Binary Format
 
-The `CognitiveRecordLayout` class manages reading/writing headers and quantized vectors to/from off-heap `MemorySegment`. It delegates header operations to the active `HeaderLayout`:
+The record layout manages reading/writing headers and quantized vectors to/from off-heap memory. Each record is: **64-byte header + N-byte quantized vector**.
 
-```java
-public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLayout) {
-    
-    /** Default constructor — uses the default 64-byte header layout. */
-    public CognitiveRecordLayout(int quantizedVecBytes) {
-        this(quantizedVecBytes, HeaderLayout.defaultLayout());
-    }
-    
-    /**
-     * Record stride = header bytes + vector payload.
-     * Always 64 + vecBytes (one cache line + vector).
-     */
-    public int stride() {
-        return headerLayout.headerBytes() + quantizedVecBytes;
-    }
-    
-    /**
-     * Offset where the quantized vector begins within a record.
-     */
-    public long vectorOffset(long recordOffset) {
-        return recordOffset + headerLayout.headerBytes();
-    }
-    
-    public void writeHeader(MemorySegment segment, long offset, CognitiveHeader header) {
-        headerLayout.writeHeader(segment, offset, header);
-    }
-    
-    public CognitiveHeader readHeader(MemorySegment segment, long offset) {
-        return headerLayout.readHeader(segment, offset);
-    }
-}
+```
+Record stride = 64B header + quantized vector bytes
+Example (768-dim INT8): stride = 64 + 768 = 832 bytes
 ```
 
-### CognitiveHeader Record
+### CognitiveHeader Fields
 
-The header data is represented as a Java `record` with all fields:
-
-```java
-public record CognitiveHeader(
-    long timestampMs,       // when the memory was formed
-    long synapticTags,      // 64-bit Bloom filter
-    float exactNorm,        // L2 norm of original vector
-    float importance,       // cognitive importance (0.05 – 10.0)
-    int agentRecallCount,   // LTP reconsolidation counter
-    short centroidId,       // IVF partition routing ID
-    byte valence,           // emotional coloring (-128 to +127)
-    byte flags,             // bit field (tombstone, type, consolidated, pinned, resolved)
-    byte arousal,           // emotional intensity (unsigned 0-255)
-    float storageStrength   // Two-Factor durability S(t)
-) {}
-```
+| Field | Type | Description |
+|:---|:---|:---|
+| `timestampMs` | long | When the memory was formed |
+| `synapticTags` | long | 64-bit Bloom filter |
+| `exactNorm` | float | L2 norm of original vector |
+| `importance` | float | Cognitive importance (0.05 – 10.0) |
+| `agentRecallCount` | int | LTP reconsolidation counter |
+| `centroidId` | short | IVF partition routing ID |
+| `valence` | byte | Emotional coloring (-128 to +127) |
+| `flags` | byte | Bit field (tombstone, type, consolidated, pinned, resolved) |
+| `arousal` | byte | Emotional intensity (unsigned 0-255) |
+| `storageStrength` | float | Two-Factor durability S(t) |
 
 ---
 
@@ -236,18 +147,13 @@ public record CognitiveHeader(
 
 ### The Solution: Power-Law Decay Buckets
 
-`DecayStrategy` quantizes time into **12 discrete buckets** spanning 5+ years and uses precomputed lookup tables derived from the power law of forgetting: `R(t) = a · t^{-d}`.
+The decay strategy quantizes time into **12 discrete buckets** spanning 5+ years and uses precomputed lookup tables derived from the power law of forgetting:
 
-Bucket values are generated at startup by `DecayConfig.computeBuckets()`, not hardcoded — making the decay curve fully configurable:
+$$
+R(t) = a \cdot t^{-d}
+$$
 
-```java
-// Bucket values from DecayConfig.DEFAULT (d=0.15, floor=0.10)
-static final float[] DECAY_BUCKETS = DecayConfig.DEFAULT.buckets();
-
-public static float decay(int bucket) {
-    return DECAY_BUCKETS[Math.min(bucket, MAX_BUCKET)];
-}
-```
+Bucket values are generated at startup from `DecayConfig`, not hardcoded — making the decay curve fully configurable.
 
 ### 12-Bucket Time Ranges
 
@@ -280,13 +186,6 @@ Three presets are available for different agent personalities:
 
 Each recall effectively **halves the memory's perceived age** by bit-shifting the bucket index right. This mirrors biological spaced repetition where each successful retrieval doubles the memory's half-life:
 
-```java
-public static int adjustForReconsolidation(int rawBucket, int agentRecallCount) {
-    int shift = Math.min(agentRecallCount, 5);
-    return rawBucket >> shift;
-}
-```
-
 | Recall Count | Shift | Effect |
 |:---:|:---:|:---|
 | 0 | ÷1 | No change |
@@ -299,33 +198,11 @@ A memory recalled 3 times is **8× "younger"** than its actual age — it powerf
 
 ### Auto-LTP (Passive Recall)
 
-Spector also tracks internal passive recalls separately from agent-explicit reinforcement. Passive recall uses a gentler linear shift: `min(spectorRecallCount / 3, 2)` — capped at 2 buckets to prevent passive retrieval from making memories artificially immortal:
-
-```java
-public static int adjustForAutoRecall(int bucket, int spectorRecallCount) {
-    int shift = Math.min(spectorRecallCount / 3, 2);
-    return Math.max(0, bucket - shift);
-}
-```
+Spector also tracks internal passive recalls separately from agent-explicit reinforcement. Passive recall uses a gentler linear shift capped at 2 buckets — preventing passive retrieval from making memories artificially immortal.
 
 ### Arousal-Modulated Decay
 
 Emotionally intense memories resist forgetting. The `arousal` byte modulates the decay curve through a 4-entry lookup table:
-
-```java
-static final float[] AROUSAL_DECAY_MODIFIERS = {
-    1.00f,  // arousal 0-63:    neutral     → no change
-    1.15f,  // arousal 64-127:  mild        → 15% slower decay
-    1.35f,  // arousal 128-191: moderate    → 35% slower decay
-    1.65f   // arousal 192-255: extreme     → 65% slower decay
-};
-
-public static float arousalModifier(byte arousal) {
-    int unsigned = Byte.toUnsignedInt(arousal);
-    int bucket = Math.min(3, unsigned / 64);
-    return AROUSAL_DECAY_MODIFIERS[bucket];
-}
-```
 
 | Arousal Range | Bucket | Modifier | Biological Basis |
 |:---|:---:|:---:|:---|
@@ -336,15 +213,6 @@ public static float arousalModifier(byte arousal) {
 
 The modifier **multiplies the base decay factor**, slowing the decay rate. A production outage at arousal=200 decays 1.65× slower than a routine log entry at arousal=0.
 
-```java
-public static float computeDecayWithArousal(long timestampMs, long nowMs,
-                                              int agentRecallCount, byte arousal) {
-    float baseDecay = computeDecay(timestampMs, nowMs, agentRecallCount);
-    float modifier = arousalModifier(arousal);
-    return Math.min(1.0f, baseDecay * modifier);
-}
-```
-
 **Automatic arousal derivation:** When arousal is not explicitly set by the LLM, it is auto-derived from valence at ingestion time:
 
 $$
@@ -352,22 +220,6 @@ $$
 $$
 
 This means both extremely positive (valence=+100) and extremely negative (valence=-100) memories are equally arousing — matching the psychological finding that emotional intensity, not polarity, drives memory persistence.
-
-### Wiring in CognitiveScorer
-
-The scorer reads arousal from the header and applies the modifier to both standard and lateral scoring paths:
-
-```java
-// In CognitiveScorer, after Phase 4 (temporal/importance pre-screen):
-
-// Read arousal from 64-byte header
-byte arousal = segment.get(LAYOUT_AROUSAL, offset + OFFSET_AROUSAL);
-
-// Phase 6: Standard scoring
-float decay = DecayStrategy.decay(adjustedBucket) * DecayStrategy.arousalModifier(arousal);
-decay = Math.min(1.0f, decay);
-float baseScore = alpha * similarity + beta * importance * decay;
-```
 
 ---
 

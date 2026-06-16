@@ -19,10 +19,10 @@ Measured on **Intel Core Ultra 9 285K**, Java 25, AVX2 256-bit (8 float lanes), 
 | **SIMD L2 Distance (384-dim)** | 1.5 µs/vector | 2.6M vectors/sec |
 | **SIMD L2 Distance (768-dim)** | 2.2 µs/vector | 1.4M vectors/sec |
 | **SIMD L2 Distance (1024-dim)** | 3.0 µs/vector | 1.0M vectors/sec |
-| **Reverse Index Lookup** | 180 ns/lookup | O(1) packed-key ConcurrentHashMap |
-| **CognitiveScorer (10K × 128-dim)** | 2.9 ms total | Full 6-phase pipeline |
+| **Reverse Index Lookup** | 180 ns/lookup | O(1) packed-key map |
+| **Cognitive Scorer (10K × 128-dim)** | 2.9 ms total | Full 6-phase pipeline |
 | **Batch Habituation (1K IDs)** | 101 µs total | 100 ns per penalty computation |
-| **TierRouter.totalCount()** | 17 ms / 100K calls | 170 ns per call |
+| **Tier Count Query** | 17 ms / 100K calls | 170 ns per call |
 | **Full Pipeline (1K ingest + 100 recall)** | < 50 ms/query | End-to-end latency |
 | **Real Embedding (qwen3-embedding 4096-dim)** | 31 ms/embed | Via Ollama (network bound) |
 
@@ -32,14 +32,7 @@ Measured on **Intel Core Ultra 9 285K**, Java 25, AVX2 256-bit (8 float lanes), 
 
 ### O(1) Reverse Index
 
-Memory IDs are resolved in constant time using a packed-key `ConcurrentHashMap<Long, String>`:
-
-```java
-// Pack (type, offset) into a single long — zero String concatenation
-private static long reverseKey(MemoryType type, long offset) {
-    return ((long) type.ordinal() << 48) | (offset & 0x0000_FFFF_FFFF_FFFFL);
-}
-```
+Memory IDs are resolved in constant time using a packed-key map. The key packs `(type, offset)` into a single 64-bit long — zero string concatenation, zero hashing overhead.
 
 This yields **180 ns** lookups at 50K entries.
 
@@ -49,17 +42,21 @@ This yields **180 ns** lookups at 50K entries.
 
 Quantized INT8 Euclidean distance uses the Java Vector API for hardware acceleration:
 
-```java
-// Vectorized dequantization + L2 in a single SIMD pass
-FloatVector vQuery = FloatVector.fromArray(SPECIES, queryVector, i);
-ByteVector vQuantized = ByteVector.fromMemorySegment(SPECIES_BYTE, segment, offset + i, NATIVE);
-FloatVector vFloat = vQuantized.castShape(SPECIES, 0);  // INT8 → float32
-FloatVector vDequant = vFloat.mul(vScale).add(vMin);    // Affine dequantization
-FloatVector vDiff = vQuery.sub(vDequant);
-vSum = vDiff.fma(vDiff, vSum);                          // Fused multiply-add
+```mermaid
+flowchart LR
+    READ["Read INT8 bytes<br/>from MemorySegment"] --> CAST["Cast INT8 → float32<br/><i>vectorized</i>"]
+    CAST --> DEQUANT["Affine dequantize<br/><i>float = byte × scale + min</i>"]
+    DEQUANT --> L2["Fused multiply-add<br/><i>accumulate squared diff</i>"]
+    L2 --> RESULT["L2 distance<br/><b>2.2 µs/768-dim</b>"]
+
+    style READ fill:#2d3436,color:#dfe6e9
+    style L2 fill:#0984e3,color:white
+    style RESULT fill:#00b894,color:white
 ```
 
-This achieves **2.2 µs/vector** at 768 dimensions (1.4M vectors/sec).
+The entire computation runs in SIMD registers — no intermediate Java objects are created.
+
+**Throughput**: 2.2 µs/vector at 768 dimensions (1.4M vectors/sec on AVX2).
 
 ---
 
@@ -71,19 +68,19 @@ The habituation penalty module computes all penalties in a single batch call wit
 
 ### Inline Header Capture
 
-`ScoredRecord` captures the `CognitiveHeader` inline during scoring, eliminating N×8 off-heap re-reads per recall query.
+Scored records capture the cognitive header inline during scoring, eliminating N×8 off-heap re-reads per recall query.
 
 ---
 
-### Direct TierRouter Access
+### Direct Tier Access
 
-`totalCount()` uses direct field access to typed store references rather than iteration, completing 100K calls in **17 ms** (170 ns/call).
+Tier count queries use direct field access to typed store references rather than iteration, completing 100K calls in **17 ms** (170 ns/call).
 
 ---
 
 ## Parallel Tier Scanning
 
-Each memory tier is scanned on a dedicated **Virtual Thread** via `ConcurrentTasks.forkJoinAll()`:
+Each memory tier is scanned on a dedicated **Virtual Thread**:
 
 ```mermaid
 gantt
@@ -105,7 +102,7 @@ gantt
     Top-K    :a6, 3, 4
 ```
 
-**Key insight**: Episodic partitions use **disjoint memory segments** — each partition's mmap is a separate `MemorySegment`. This guarantees zero contention between virtual threads, enabling perfect parallel scaling.
+**Key insight**: Episodic partitions use **disjoint memory segments** — each partition's mmap is a separate off-heap buffer. This guarantees zero contention between virtual threads, enabling perfect parallel scaling.
 
 **Fallback**: If parallel scanning fails (e.g., thread pool exhaustion), the pipeline falls back to sequential scanning with identical results.
 
@@ -115,13 +112,13 @@ gantt
 
 | Component | Formula | 10K memories (768-dim) |
 |---|---|---|
-| Episodic partition | 64B header + N × (32B + vecBytes) | 64B + 10K × 800B = **7.8 MB** |
-| Working memory | capacity × (32B + vecBytes) | 100 × 800B = **78 KB** |
-| Semantic headers | capacity × 32B | 5K × 32B = **156 KB** |
-| Procedural store | capacity × (32B + vecBytes) | 500 × 800B = **390 KB** |
+| Episodic partition | 64B header + N × (64B + vecBytes) | 64B + 10K × 832B = **8.1 MB** |
+| Working memory | capacity × (64B + vecBytes) | 100 × 832B = **81 KB** |
+| Semantic headers | capacity × 64B | 5K × 64B = **312 KB** |
+| Procedural store | capacity × (64B + vecBytes) | 500 × 832B = **406 KB** |
 | Forward index | ~120B per entry | 10K × 120B = **1.2 MB** |
 | Reverse index | ~60B per entry | 10K × 60B = **600 KB** |
-| **Total** | | **~10.2 MB** |
+| **Total** | | **~10.7 MB** |
 
 !!! tip "vs. Python Memory Layers"
     A Python memory system stores each memory as a Python object (~500-800 bytes overhead) plus the vector in NumPy (~3KB for 768-dim float32). Spector stores the same memory in **832 bytes** (64B header + 768B INT8 vector) — a 4-8× reduction.

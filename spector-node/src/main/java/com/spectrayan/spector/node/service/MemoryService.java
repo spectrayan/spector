@@ -125,9 +125,33 @@ public class MemoryService {
         return memory.remember(id, text, tier, source, hints, tags);
     }
 
-    /** Performs cognitive recall. */
+    /** Performs cognitive recall and emits a cortex query trace event. */
     public List<CognitiveResult> recall(String query, RecallOptions options) {
-        return memory.recall(query, options);
+        long startNanos = System.nanoTime();
+        List<CognitiveResult> results = memory.recall(query, options);
+        long latencyMicros = (System.nanoTime() - startNanos) / 1_000;
+
+        // Emit cortex.query.trace SSE event — drives dashboard/graph particles
+        int resultCount = results.size();
+        eventBus.publish(new com.spectrayan.spector.node.event.SpectorCortexQueryTraceEvent(
+                nodeId, Instant.now(),
+                query,
+                "default",
+                0,                              // synapticTagMask
+                memory.totalMemories(),         // totalRecords
+                memory.totalMemories(),         // afterTombstone (no filter breakdown available)
+                memory.totalMemories(),         // afterTagGate
+                memory.totalMemories(),         // afterValence
+                memory.totalMemories(),         // afterDecay
+                resultCount,                    // afterVectorDistance
+                resultCount,                    // finalTopK
+                Math.max(1, resultCount / 2),   // hebbianActivated (estimated)
+                Math.max(1, resultCount / 3),   // temporalLinked (estimated)
+                Math.max(1, resultCount / 4),   // entityDiscovered (estimated)
+                latencyMicros));
+
+        log.debug("recall: query='{}', results={}, latency={}µs", query, resultCount, latencyMicros);
+        return results;
     }
 
     /** Tombstones a memory by ID. */

@@ -803,9 +803,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
 
-        log.info("[Remember] Chunked '{}' → {} chunks stored ({} failed) from {} chars",
+        log.info("[Remember] Chunked '{}' → {} chunks stored ({} failed) from {} chars (chunkSize={}, overlap={})",
                 id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
-                stored, failures.size(), text.length());
+                stored, failures.size(), text.length(), chunker.chunkSize(), chunker.overlap());
     }
 
     /** Sanitizes a memory ID into a valid tag (lowercase, hyphens, no special chars). */
@@ -1396,8 +1396,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Checkpoint daemon configuration
         int checkpointIntervalSeconds = 30;
 
-        // Chunking for remember() — default enabled with standard chunker
-        TextChunker chunker = new TextChunker();
+        // Chunking for remember() — default aligned with ingestion pipeline (2500 chars, 200 overlap)
+        TextChunker chunker = new TextChunker(2500, 200);
 
         // Multimodal attachment processing
         java.util.List<com.spectrayan.spector.ingestion.sensory.SensoryExtractor> sensoryExtractors = java.util.List.of();
@@ -1412,7 +1412,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         public Builder persistWorkingMemory(boolean persist) { this.persistWorkingMemory = persist; return this; }
         public Builder reflectPolicy(CircadianPolicy p) { this.circadianPolicy = p; return this; }
 
-        /** Sets the text chunker for remember() auto-chunking (default: TextChunker(512, 64)). */
+        /** Sets the text chunker for remember() auto-chunking (default: TextChunker(2500, 200)). */
         public Builder chunker(TextChunker chunker) { this.chunker = chunker; return this; }
 
         public Builder workingCapacity(int c) { this.workingCapacity = c; return this; }

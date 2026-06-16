@@ -24,11 +24,11 @@ But some of the most valuable insights come from **cross-domain connections**:
 
 ### Dual-Heap Architecture
 
-When `lateralMode=true`, the [CognitiveScorer](scoring-pipeline.md) maintains **two priority queues** instead of one:
+When `lateralMode=true`, the scorer maintains **two priority queues** instead of one:
 
 ```mermaid
 flowchart LR
-    Q["Query Vector"] --> S["CognitiveScorer"]
+    Q["Query Vector"] --> S["Cognitive Scorer"]
     S --> |"L2 distance ≤ threshold"| H1["Standard Heap\n(top-K by score)"]
     S --> |"L2 distance > threshold\n+ tag overlap ≥ minOverlap"| H2["Lateral Heap\n(top-N by lateral score)"]
     H1 --> M["Merged Results"]
@@ -67,31 +67,18 @@ After the scoring loop, lateral results are appended after standard results:
 Final results = [standard top-K] + [lateral top-N]
 ```
 
-The caller can distinguish them via `CognitiveResult.retrievalMode()`:
-
-```java
-for (CognitiveResult r : results) {
-    if (r.isLateral()) {
-        System.out.println("Cross-domain insight: " + r.text());
-    }
-}
-```
+Each result carries a retrieval mode flag (`STANDARD` or `LATERAL`) so the agent can distinguish cross-domain insights from direct matches.
 
 ---
 
 ## Configuration
 
-```java
-// Via profile preset (recommended)
-var results = memory.recall("performance optimization", CognitiveProfile.DIVERGENT);
-
-// Via explicit options
-var options = RecallOptions.builder()
-    .profile(CognitiveProfile.DIVERGENT)
-    .lateralDistanceThreshold(1.5f)   // how far is "far enough"
-    .lateralMaxResults(5)             // max lateral candidates
-    .lateralMinTagOverlap(0.3f)       // minimum tag overlap
-    .build();
+```
+memory.recall("performance optimization",
+    profile: DIVERGENT,
+    lateralDistanceThreshold: 1.5,    // how far is "far enough"
+    lateralMaxResults: 5,             // max lateral candidates
+    lateralMinTagOverlap: 0.3)        // minimum tag overlap
 ```
 
 ### Parameter Tuning
@@ -106,7 +93,7 @@ var options = RecallOptions.builder()
 
 ## Auto-Tuning via the Lateral Evaluator
 
-The system automatically monitors whether lateral results are useful through the **LateralEvaluator**:
+The system automatically monitors whether lateral results are useful through the **Lateral Evaluator**:
 
 ### Feedback Loop
 

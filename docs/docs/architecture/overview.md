@@ -24,7 +24,7 @@ graph TB
     end
 
     subgraph Transport["Transport Layer"]
-        mcp["MCP Server<br/><i>stdio · 13 tools (6 search + 7 memory)</i>"]
+        mcp["MCP Server<br/><i>stdio · Streamable HTTP · 21 tools (6 search + 15 memory)</i>"]
         armeria["Armeria Server :7070<br/><i>REST + gRPC + SSE streaming</i>"]
     end
 
@@ -131,8 +131,8 @@ graph TB
         custom["🦾 Custom Agents"]
     end
 
-    subgraph MCP["MCP Server — stdio · JSON-RPC 2.0"]
-        transport["Transport Layer<br/><i>stdin/stdout · async I/O</i>"]
+    subgraph MCP["MCP Server — Dual Transport · JSON-RPC 2.0"]
+        transport["Transport Layer<br/><i>stdio (stdin/stdout) for CLI agents<br/>Streamable HTTP (/mcp) for remote agents</i>"]
         registry["SpectorToolRegistry<br/><i>21 tools · auto-registration</i>"]
         handler["McpToolHandler<br/><i>Base class · thread-safe · virtual threads</i>"]
 
@@ -170,7 +170,7 @@ graph TB
         panama["Panama Off-Heap<br/><i>Zero GC · mmap storage</i>"]
     end
 
-    Agents -->|stdio| transport --> registry --> handler
+    Agents -->|stdio / HTTP| transport --> registry --> handler
     handler --> Engine & Mem
     Engine & Mem --> runtime --> simd --> panama
 
@@ -448,7 +448,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Agent as 🤖 AI Agent (Claude/Cursor)
-    participant MCP as 📡 MCP Transport (stdio)
+    participant MCP as 📡 MCP Transport (stdio / Streamable HTTP)
     participant Handler as 🔧 McpToolHandler
     participant Runtime as ⚡ SpectorRuntime
     participant Engine as 🔧 SpectorEngine

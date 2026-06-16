@@ -27,34 +27,22 @@ In a standard JVM application, objects live on the heap and are managed by the g
 
 ### MemorySegment — The Core Abstraction
 
-Every memory record is stored in a `MemorySegment` — a contiguous off-heap byte buffer managed by an `Arena`:
-
-```java
-// Allocate 8 MB of off-heap memory, 64-byte aligned (1 cache line)
-Arena arena = Arena.ofShared();
-MemorySegment segment = arena.allocate(8 * 1024 * 1024, 64);
-
-// Write a float directly at a byte offset — no Java objects involved
-segment.set(ValueLayout.JAVA_FLOAT, offset + 20, 0.85f);
-
-// Read it back — zero deserialization
-float importance = segment.get(ValueLayout.JAVA_FLOAT, offset + 20);
-```
+Every memory record is stored in a `MemorySegment` — a contiguous off-heap byte buffer managed by an `Arena`. Fields are read and written directly at byte offsets — no Java objects are created, no deserialization occurs.
 
 **Key properties**:
 
-- `Arena.ofShared()` — thread-safe for concurrent reads (Virtual Threads)
-- 64-byte alignment ensures SIMD-friendly access patterns and cache-line-aligned header reads
-- No Java objects are created — the GC never sees this memory
+- **Shared Arena** — thread-safe for concurrent reads across Virtual Threads
+- **64-byte alignment** — ensures SIMD-friendly access patterns and cache-line-aligned header reads
+- **GC-invisible** — the garbage collector never sees this memory
 
 ### Arena Lifecycle
 
 ```mermaid
 graph LR
-    A["Arena.ofShared()"] --> B["allocate(bytes, alignment)"]
-    B --> C["MemorySegment<br/>(off-heap)"]
-    C -->|read/write| D["SIMD Scorer<br/>Virtual Threads"]
-    C -->|"arena.close()"| E["Memory Released<br/>to OS"]
+    A["Create shared Arena"] --> B["Allocate off-heap<br/>(bytes + alignment)"]
+    B --> C["MemorySegment<br/>(off-heap buffer)"]
+    C -->|"read/write"| D["SIMD Scorer<br/>Virtual Threads"]
+    C -->|"close Arena"| E["Memory released<br/>back to OS"]
 
     style A fill:#3498db,color:white
     style C fill:#2ecc71,color:white
@@ -62,22 +50,36 @@ graph LR
 ```
 
 !!! warning "Lifetime Management"
-Unlike heap objects, off-heap memory is **not garbage collected**. You must explicitly close the `Arena` when done. `SpectorMemory` implements `AutoCloseable` and closes all arenas in its `close()` method. Always use try-with-resources.
+    Unlike heap objects, off-heap memory is **not garbage collected**. You must explicitly close the `Arena` when done. `SpectorMemory` implements `AutoCloseable` and closes all arenas in its `close()` method. Always use try-with-resources.
 
 ---
 
 ## Three Storage Modes
 
+```mermaid
+flowchart TD
+    subgraph "Volatile (In-Memory)"
+        WM["Working Memory<br/><i>circular buffer</i>"]
+        PM["Procedural Memory<br/><i>learned procedures</i>"]
+    end
+
+    subgraph "Persistent (mmap)"
+        EM["Episodic Memory<br/><i>time-partitioned files</i>"]
+    end
+
+    subgraph "Compact (Header-Only)"
+        SM["Semantic Memory<br/><i>metadata slab, no vectors</i>"]
+    end
+
+    style WM fill:#e74c3c,color:white
+    style PM fill:#e74c3c,color:white
+    style EM fill:#0984e3,color:white
+    style SM fill:#00b894,color:white
+```
+
 ### 1. Arena-Allocated (Working, Procedural)
 
-Volatile, in-memory segments for transient data:
-
-```java
-// WorkingMemoryStore — circular buffer
-Arena arena = Arena.ofShared();
-long totalBytes = (long) capacity * stride;
-MemorySegment segment = arena.allocate(totalBytes, HEADER_BYTES);
-```
+Volatile, in-memory segments for transient data.
 
 **Characteristics**:
 
@@ -88,31 +90,18 @@ MemorySegment segment = arena.allocate(totalBytes, HEADER_BYTES);
 
 ### 2. mmap-Backed (Episodic)
 
-Persistent, memory-mapped files for durable storage:
-
-```java
-// EpisodicPartition — mmap via FileChannel.map()
-FileChannel channel = FileChannel.open(path, READ, WRITE);
-MemorySegment segment = channel.map(MapMode.READ_WRITE, 0, totalBytes, arena);
-```
+Persistent, memory-mapped files for durable storage. The OS handles paging data between RAM and disk.
 
 **Characteristics**:
 
 - Persists across JVM restarts
 - OS handles paging to/from disk
 - Lazy loading — only mapped pages are in physical RAM
-- Atomic `force()` for durability
+- Atomic flush for durability
 
 ### 3. Header-Only Slab (Semantic)
 
-Compact metadata-only storage (no vectors):
-
-```java
-// SemanticMemoryStore — header slab
-// Uses 64-byte HeaderLayout64 (cache-line aligned)
-long slabBytes = (long) capacity * headerLayout.headerBytes();
-MemorySegment headerSlab = arena.allocate(slabBytes, headerLayout.headerBytes());
-```
+Compact metadata-only storage (no vectors).
 
 **Characteristics**:
 
@@ -200,7 +189,7 @@ Phase 5: vector       (offset 64, NB)  — Only if all filters pass
 ```
 
 !!! tip "Cache Line Optimization"
-The 64-byte header occupies exactly **one CPU cache line**. During sequential scans, each header read hits exactly one cache line — no split-line loads, no false sharing. The CPU prefetcher can pre-fetch the next record's header while the current one is being scored.
+    The 64-byte header occupies exactly **one CPU cache line**. During sequential scans, each header read hits exactly one cache line — no split-line loads, no false sharing. The CPU prefetcher can pre-fetch the next record's header while the current one is being scored.
 
 ---
 
@@ -229,13 +218,13 @@ Offset   Size   Field            Description
 
 ## Thread Safety Model
 
-| Component                   | Thread Safety       | Mechanism                               |
-| --------------------------- | ------------------- | --------------------------------------- |
-| `Arena.ofShared()`          | ✅ Concurrent reads | Built-in Panama support                 |
-| `MemorySegment` reads       | ✅ Lock-free        | Direct memory access                    |
-| `MemorySegment` writes      | ⚠️ Single writer    | `synchronized` on partition append      |
-| `ConcurrentHashMap` (index) | ✅ Lock-free reads  | CAS-based updates                       |
-| Partition metadata          | ⚠️ Single writer    | Metadata header writes are synchronized |
+| Component              | Thread Safety       | Mechanism                          |
+| ---------------------- | ------------------- | ---------------------------------- |
+| Shared Arena           | ✅ Concurrent reads | Built-in Panama support            |
+| Segment reads          | ✅ Lock-free        | Direct memory access               |
+| Segment writes         | ⚠️ Single writer    | Synchronized on partition append   |
+| Reverse index          | ✅ Lock-free reads  | CAS-based updates                  |
+| Partition metadata     | ⚠️ Single writer    | Metadata header writes serialized  |
 
 **Recall**: Multiple Virtual Threads read different partitions concurrently — zero contention because each partition's `MemorySegment` is disjoint.
 
@@ -258,7 +247,7 @@ graph LR
 
 > **No Java objects created. No serialization. No deserialization. No GC pressure.**
 
-The entire data path from persistent storage to CPU computation operates on **raw bytes**. The JVM heap is used only for the top-K result set (`List<CognitiveResult>`) — typically 5-20 small Java records.
+The entire data path from persistent storage to CPU computation operates on **raw bytes**. The JVM heap is used only for the top-K result set — typically 5-20 small result records.
 
 ---
 

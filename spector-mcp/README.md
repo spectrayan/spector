@@ -1,4 +1,4 @@
-﻿# âš¡ Spector MCP Server
+# âš¡ Spector MCP Server
 
 **Agent-native search and cognitive memory integration for the Spector AI Memory Backbone.**
 
@@ -7,10 +7,10 @@ Give any AI agent (Claude Desktop, Cursor, autonomous agents) instant access to 
 ## Architecture
 
 ```
-AI Agent â”€â”€JSON-RPC (stdio)â”€â”€â–º SpectorMcpServer (thin orchestrator)
-                                â”œâ”€â”€ SpectorRuntime
-                                â”‚   â”œâ”€â”€ SpectorEngine (search, ingest, RAG)
-                                â”‚   â””â”€â”€ SpectorMemory (cognitive â€” optional)
+AI Agent ──JSON-RPC (stdio)──► SpectorMcpServer (thin orchestrator)
+                                ├── SpectorRuntime
+AI Agent ──JSON-RPC (HTTP)──►   │   ├── SpectorEngine (search, ingest, RAG)
+  POST /mcp                     │   └── SpectorMemory (cognitive – optional)
                                 â”œâ”€â”€ SpectorToolRegistry
                                 â”‚   â”œâ”€â”€ EngineSearchTool  â”€â”€â–º engine.search()
                                 â”‚   â”œâ”€â”€ EngineHybridSearchTool    â”€â”€â–º engine.keywordSearch()
@@ -202,7 +202,36 @@ List.of(
 
 ## Protocol Support
 
-- **Transport:** Stdio (JSON-RPC 2.0 over stdin/stdout)
+### Transports
+
+| Transport | Protocol | Use Case | Module |
+|:---|:---|:---|:---|
+| **Stdio** | JSON-RPC 2.0 over stdin/stdout | Claude Desktop, Cursor, CLI agents | `spector-mcp` (SpectorMcpMain) |
+| **Streamable HTTP** | JSON-RPC 2.0 over HTTP POST `/mcp` | Web clients, remote agents, Spector Enterprise | `spector-node` (ArmeriaMcpTransport) |
+
+### Stdio Transport (CLI / Desktop Agents)
+
+The default transport for local MCP agents (Claude Desktop, Cursor). The MCP server runs in-process — the agent's tool calls go from JSON-RPC → Java method call → SIMD kernel with **zero network overhead**.
+
+### Streamable HTTP Transport (Remote / Web Agents)
+
+When Spector runs as a server (via `SpectorNode` or Spector Enterprise), the same MCP tools are exposed over **Streamable HTTP** at `/mcp`. This follows the [MCP 2025-03-26 spec](https://modelcontextprotocol.io/):
+
+- `POST /mcp` — JSON-RPC request → JSON response
+- `GET /mcp` — SSE stream for server-initiated notifications (stateful mode only)
+- `DELETE /mcp` — Session termination (stateful mode only)
+
+Supports both **stateless mode** (default, recommended — no session tracking, restart-resilient) and **stateful mode** (with `Mcp-Session-Id` header management).
+
+```bash
+# Example: call an MCP tool via Streamable HTTP
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"engine_status","arguments":{}}}'
+```
+
+### Other Details
+
 - **MCP SDK:** Official Anthropic Java SDK (`io.modelcontextprotocol.sdk:mcp`)
 - **Capabilities:** Tools, Resources, Prompts
 - **Java Version:** 25+ (Virtual Threads, Vector API, Panama FFM)

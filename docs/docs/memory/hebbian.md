@@ -1,13 +1,11 @@
 ---
 title: "3-Layer Cognitive Graph"
-description: "HebbianGraph, TemporalChain, and EntityGraph — three biologically-inspired off-heap graph structures that augment vector recall with associative, temporal, and relational signals."
+description: "HebbianGraph, TemporalChain, and EntityGraph — three biologically-inspired graph structures that augment vector recall with associative, temporal, and relational signals."
 ---
 
 # 🧠 3-Layer Cognitive Graph
 
-> **Packages**: `com.spectrayan.spector.memory.hebbian`, `.temporal`, `.graph`
->
-> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), and **semantic knowledge** (who manages what project?). Spector Memory implements all three as off-heap graph structures that augment vector recall.
+> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), and **semantic knowledge** (who manages what project?). Spector Memory implements all three as graph structures that augment vector recall.
 
 ---
 
@@ -28,17 +26,17 @@ graph TB
     S5e --> M
 
     subgraph "Layer 1 — Hebbian Association"
-        HG["HebbianGraph<br/>164B/node, off-heap"]
-        CAT["CoActivationTracker<br/>OffHeapPairTable + OffHeapEdgeTable"]
+        HG["HebbianGraph<br/>Co-activation edges"]
+        CAT["CoActivationTracker<br/>Tag-level STDP learning"]
     end
 
     subgraph "Layer 2 — Entity-Relationship"
-        EG["EntityGraph<br/>64B/entity, 12B/edge"]
+        EG["EntityGraph<br/>LLM-identified entities & relations"]
         EX["EntityExtractor SPI<br/>LLM / NoOp / Custom"]
     end
 
     subgraph "Layer 3 — Temporal Causal"
-        TC["TemporalChain<br/>16B/node, linked list"]
+        TC["TemporalChain<br/>Session-linked sequences"]
     end
 
     S5c --> HG
@@ -62,9 +60,9 @@ graph TB
 
 > *"Neurons that fire together, wire together."* — Donald Hebb, 1949
 
-### HebbianGraph — Memory-Level Associations
+### How It Works
 
-The `HebbianGraph` stores explicit **memory-to-memory edges** with association weights in an off-heap adjacency list.
+The Hebbian graph stores **memory-to-memory edges** with association weights. When two memories are co-ingested within the same session, their edge is strengthened. During recall, the graph discovers associated memories that pure vector similarity might miss.
 
 ```mermaid
 graph LR
@@ -77,70 +75,31 @@ graph LR
     style C fill:#2ecc71,color:white
 ```
 
-**Off-heap layout** (164 bytes per node):
-
-```
-┌──────────┬──────────────────────────────────────────────┐
-│ degree   │ edges[0..19]: (neighborIdx:4B, weight:4B)    │
-│ (4B)     │ = 20 × 8B = 160B                            │
-└──────────┴──────────────────────────────────────────────┘
-```
-
-**Key properties:**
+### Key Properties
 
 | Property | Value |
 |---|---|
-| Storage | Off-heap `MemorySegment` via Panama |
 | Max degree | 20 neighbors per memory |
 | Edge weight | Float — strengthened on co-ingestion |
-| Eviction | Weakest edge evicted when degree exceeds MAX_DEGREE |
-| Decay | 0.9 multiplicative factor per consolidation cycle |
+| Eviction | Weakest edge evicted when degree exceeds max |
+| Decay | 0.9× multiplicative factor per consolidation cycle |
 | Spreading activation | BFS with depth=2, attenuated by edge weight |
-| Persistence | `HGPH` magic header, chunked 64KB FileChannel I/O |
+| Persistence | Binary file with chunked 64KB I/O |
 
-**Pipeline integration:**
+### How It's Used
 
-- **Ingestion (Step 9b):** When memories are co-ingested within the same session, `HebbianGraph.strengthen(currentIdx, previousIdx, 1.0f)` strengthens the bidirectional edge.
-- **Recall (Step 5c):** After the 6-phase scorer produces a seed set, `HebbianGraph.activateNeighbors(seedIdx, depth=2)` discovers associated memories. These are added to the result set with a 0.3× score attenuation.
+- **Ingestion**: When memories are co-ingested within the same session, the bidirectional edge between them is strengthened
+- **Recall**: After the 6-phase scorer produces a seed set, the graph discovers associated memories via 2-hop BFS. These are added to the result set with 0.3× score attenuation
 
 ### CoActivationTracker — Tag-Level Associations
 
-The `CoActivationTracker` tracks **tag co-occurrence patterns** using two off-heap hash tables:
+Beyond memory-to-memory edges, the `CoActivationTracker` tracks **tag co-occurrence patterns**:
 
-#### OffHeapPairTable — Undirected Co-Activation Counts
-
-Tracks how often two tags appear together in ingested memories.
-
-```
-Slot layout (32 bytes):
-┌───────────┬───────────┬──────────┬───────┐
-│ keyHashA  │ keyHashB  │ count    │ flags │
-│ 8 bytes   │ 8 bytes   │ 4 bytes  │ ...   │
-└───────────┴───────────┴──────────┴───────┘
-```
-
-- Open-addressing hash table with linear probing
-- FNV-1a 64-bit hashing for tag strings
-- ~50% load factor for fast lookups
-
-#### OffHeapEdgeTable — Directed STDP Edges
-
-Tracks causal/predictive relationships between tags (Spike-Timing Dependent Plasticity):
-
-```
-Slot layout (40 bytes):
-┌────────────┬────────────┬────────┬──────────┬───────────┬───────┐
-│ sourceHash │ targetHash │ weight │ lastMs   │ actCount  │ flags │
-│ 8 bytes    │ 8 bytes    │ 4 bytes│ 8 bytes  │ 4 bytes   │ ...   │
-└────────────┴────────────┴────────┴──────────┴───────────┴───────┘
-```
-
-- Weight clamped to `[0.0, 1.0]`
-- Temporal metadata for STDP learning rules
-- Persistence via `COAX` magic header with hash→tag reverse map
+- **Undirected co-activation counts**: How often two tags appear together in ingested memories
+- **Directed STDP edges**: Spike-Timing Dependent Plasticity — if tag A is consistently recalled *before* tag B, the directed edge A→B is strengthened, creating predictive associations
 
 !!! info "STDP — Spike-Timing Dependent Plasticity"
-    If tag A is consistently recalled *before* tag B, the directed edge A→B is strengthened. This creates predictive associations: "when I think of A, I should also think of B." The `HebbianCoActivationListener` runs after each recall on a Virtual Thread, updating STDP weights with zero impact on recall latency.
+    This creates predictive associations: "when I think of A, I should also think of B." The listener runs after each recall on a Virtual Thread, updating STDP weights with zero impact on recall latency.
 
 ---
 
@@ -148,54 +107,73 @@ Slot layout (40 bytes):
 
 > *"What was the budget of the project managed by the person who met with me yesterday?"*
 
-The `EntityGraph` stores **typed entities** (PERSON, PROJECT, ORG, ...) and **typed relations** (MANAGES, AUTHORED, PART_OF, ...) extracted from ingested text. This enables **multi-hop knowledge traversal** that pure vector similarity cannot achieve.
+The Entity Graph stores **typed entities and typed relations** extracted from ingested text. This enables **multi-hop knowledge traversal** that pure vector similarity cannot achieve.
 
 ### Entity Extraction
 
 Entities are extracted at ingestion time via the `EntityExtractor` SPI:
 
-| Mode | Implementation | Description |
-|---|---|---|
-| `NONE` (default) | `NoOpEntityExtractor` | No extraction — graph features disabled |
-| `LLM` | `LlmEntityExtractor` | Uses `TextGenerationProvider` with a structured prompt |
-| `CUSTOM` | User-provided | Any custom `EntityExtractor` implementation |
+| Mode | Description |
+|---|---|
+| `NONE` (default) | No extraction — entity graph features disabled |
+| `LLM` | Uses an LLM with a structured prompt to identify entities and relations |
+| `CUSTOM` | Any user-provided `EntityExtractor` implementation |
+
+**Enable LLM entity extraction:**
 
 ```java
-// Enable LLM entity extraction via Builder
 SpectorMemory.builder()
     .entityExtractionMode(EntityExtractionMode.LLM)
     .textGenerationProvider(provider)
     .build();
 ```
 
-### Type System
+### Open-Schema Type System
 
-**22 Entity Types:**
-`PERSON`, `ORGANIZATION`, `PROJECT`, `CONCEPT`, `EVENT`, `LOCATION`, `TOOL`, `SKILL`, `DOCUMENT`, `API`, `DATABASE`, `FRAMEWORK`, `PROTOCOL`, `METRIC`, `ROLE`, `TEAM`, `PRODUCT`, `SERVICE`, `WORKFLOW`, `DECISION`, `RISK`, `OTHER`
+Spector uses an **open-schema type registry** — unlike traditional NER systems with fixed type sets, the entity graph accepts **any type string** the LLM identifies. Well-known types are pre-seeded for backward compatibility, but novel types (e.g., `VEHICLE`, `REGULATION`, `RECIPE`) are automatically registered on first use.
 
-**21 Relation Types:**
-`MANAGES`, `AUTHORED`, `ATTENDED`, `PART_OF`, `RELATED_TO`, `CAUSES`, `DEPENDS_ON`, `USES`, `CREATED`, `MENTIONS`, `MEMBER_OF`, `ASSIGNED_TO`, `REPORTED_BY`, `BLOCKED_BY`, `IMPLEMENTS`, `EXTENDS`, `TESTED_BY`, `DEPLOYED_TO`, `MONITORS`, `TRIGGERS`, `OTHER`
+**21 well-known entity types** (pre-seeded):
 
-### Off-Heap Layout
+| Category | Types |
+|---|---|
+| People & Org | `PERSON`, `ORGANIZATION`, `TEAM`, `ROLE` |
+| Projects | `PROJECT`, `PRODUCT`, `TASK` |
+| Knowledge | `CONCEPT`, `TOPIC`, `SKILL`, `DECISION` |
+| Technology | `TECHNOLOGY`, `TOOL`, `API`, `ARTIFACT` |
+| World | `EVENT`, `LOCATION`, `DATE_TIME` |
+| Process & Data | `PROCESS`, `METRIC`, `DOCUMENT` |
+| Catch-all | `OTHER` |
 
-**Entity Node (64 bytes, 8-byte aligned):**
-```
-[type:1B][pad:7B][nameHash:8B][memRef0:4B][memRef1:4B][memRef2:4B][memRef3:4B]
-[refCount:4B][degree:4B][edgeStart:4B][pad:20B]
-```
+**21 well-known relation types** (pre-seeded):
 
-**Entity Edge (12 bytes):**
-```
-[targetId:4B][relationType:4B][weight:4B]
-```
+| Category | Types |
+|---|---|
+| People | `MANAGES`, `REPORTS_TO`, `KNOWS`, `ASSIGNED_TO`, `AUTHORED` |
+| Work | `WORKS_ON`, `CREATED_BY`, `OWNS`, `IMPLEMENTS` |
+| Structure | `PART_OF`, `CONTAINS`, `DEPENDS_ON`, `USES` |
+| Causality | `CAUSES`, `BLOCKS`, `SUPERSEDES`, `PRECEDES`, `FOLLOWS` |
+| Location | `LOCATED_AT` |
+| General | `RELATED_TO`, `OTHER` |
 
-**Traversal:** BFS with typed edge filtering, max 32 edges per entity, max 4 memory references per entity.
+!!! tip "Dynamic Types"
+    If the LLM identifies an entity as `SOFTWARE` or a relation as `DEPLOYED_ON`, these are automatically registered in the type registry and stored as first-class types. No code changes or schema migrations required.
 
-**Pipeline integration:**
+### How It's Used
 
-- **Ingestion (Step 9d):** Extract entities from text → `entityGraph.addEntity(name, type)` → `entityGraph.linkEntityToMemory(eid, memoryIdx)` → `entityGraph.addRelation(fromEid, toEid, relationType)`
-- **Recall (Step 5e):** Extract entities from query → find in graph by name → 2-hop BFS → collect `memoriesForEntity(eid)` → add to result set with 0.25× attenuation per hop
-- **Persistence:** `ENTG` magic header with on-heap nameIndex reconstruction on load
+- **Ingestion**: The LLM extracts entities from text → entities are added to the graph → entities are linked to their source memory → relations are added between entities
+- **Recall**: Entities are extracted from the query → matched in the graph by name → 2-hop BFS traversal → memory references collected → added to result set with 0.25× attenuation per hop
+- **Consolidation**: Weak entity edges decay over reflection cycles. Similar entity names are merged via Levenshtein distance to handle NER typos (e.g., "kubernetes" / "kubernets")
+
+### Traversal
+
+The entity graph supports typed BFS traversal with optional relation filtering:
+
+| Method | Description |
+|---|---|
+| `traverse(startEntity, filter, maxHops)` | BFS with optional relation type filter |
+| `collectMemories(startEntity, filter, maxHops)` | Collect all memory indices reachable within N hops |
+| `findEntity(name)` | Case-insensitive entity lookup |
+| `memoriesForEntity(entityId)` | Memory indices that reference an entity |
 
 ---
 
@@ -203,7 +181,7 @@ SpectorMemory.builder()
 
 > *"What happened after the deployment failed?"*
 
-The `TemporalChain` links memories ingested within the same session into a **doubly-linked list**, enabling temporal navigation.
+The Temporal Chain links memories ingested within the same session into a **doubly-linked list**, enabling temporal navigation — both forward ("what happened next?") and backward ("what led to this?").
 
 ```mermaid
 graph LR
@@ -217,64 +195,30 @@ graph LR
     style M4 fill:#f39c12,color:white
 ```
 
-### Off-Heap Layout (16 bytes per node)
+### How It's Used
 
-```
-┌──────────┬──────────┬───────────┬──────────┐
-│ prevIdx  │ nextIdx  │ sessionId │ pad      │
-│ 4 bytes  │ 4 bytes  │ 4 bytes   │ 4 bytes  │
-└──────────┴──────────┴───────────┴──────────┘
-```
-
-`-1` is used as sentinel for "no link" (beginning or end of chain).
-
-**API:**
+- **Ingestion**: When a new memory is ingested within the same session, a bidirectional link is created to the previously ingested memory
+- **Recall**: For each seed result, the chain follows forward (3 hops) and backward (3 hops) to discover temporally adjacent memories. Forward links get 0.8× score, backward links get 0.7×
 
 | Method | Description |
 |---|---|
-| `link(currentIdx, prevIdx, sessionId)` | Links two memories within a session |
-| `followForward(startIdx, maxHops)` | "What happened next?" → `List<Integer>` |
-| `followBackward(startIdx, maxHops)` | "What happened before?" → `List<Integer>` |
-| `save(Path)` / `load(Path)` | Persistence with `TPCH` magic header |
-
-**Pipeline integration:**
-
-- **Ingestion (Step 9c):** When a new memory is ingested within the same session, `temporalChain.link(currentIdx, lastIngestedIdx, sessionId)` creates the bidirectional link.
-- **Recall (Step 5d):** For each seed result, `followForward(idx, 3)` and `followBackward(idx, 3)` discover temporally adjacent memories. Forward links get 0.8× score, backward links get 0.7×.
+| `followForward(startIdx, maxHops)` | "What happened next?" |
+| `followBackward(startIdx, maxHops)` | "What happened before?" |
+| `link(currentIdx, prevIdx, sessionId)` | Link two memories within a session |
 
 ---
 
 ## Persistence
 
-All graph components persist alongside episodic partitions in DISK mode:
+All graph components persist alongside memory data in DISK mode:
 
-| Component | File | Magic | Format |
-|---|---|---|---|
-| HebbianGraph | `hebbian.graph` | `HGPH` | 16B header + raw segment bytes |
-| CoActivationTracker | `coactivation.dat` | `COAX` | 16B header + pair table + edge table + hash→tag map |
-| EntityGraph | `entity.graph` | `ENTG` | 16B header + entity segment + edge segment + name index |
-| TemporalChain | `temporal.chain` | `TPCH` | 16B header + raw segment bytes |
-
-All use chunked 64KB FileChannel I/O to avoid `ByteBuffer` overflow on large segments.
-
----
-
-## Error Framework
-
-Graph operations use granular exceptions from the `SpectorGraphException` hierarchy:
-
-```
-SpectorMemoryException (SPE-310-xxx)
-  └── SpectorGraphException (base)
-      ├── SpectorHebbianException         (SPE-310-006)
-      ├── SpectorTemporalChainException   (SPE-310-007)
-      ├── SpectorEntityGraphException     (SPE-310-008)
-      ├── SpectorCoActivationException    (SPE-310-009)
-      ├── SpectorGraphPersistenceException(SPE-310-010)
-      └── SpectorGraphDecayException      (SPE-310-011)
-```
-
-All pipeline catch sites use `catch(RuntimeException)` → create granular exception → `log.warn(ex.getMessage())`. No generic catches, no swallowed exceptions.
+| Component | File | Format |
+|---|---|---|
+| HebbianGraph | `hebbian.graph` | Binary with chunked 64KB I/O |
+| CoActivationTracker | `coactivation.dat` | Pair table + edge table + hash→tag map |
+| EntityGraph | `entity.graph` | Entity segment + edge segment + name index |
+| TemporalChain | `temporal.chain` | Raw linked-list segment |
+| TypeRegistry | `entity-types.reg` / `relation-types.reg` | Type name ↔ ID mappings |
 
 ---
 
