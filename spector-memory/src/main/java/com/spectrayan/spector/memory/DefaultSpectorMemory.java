@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.model.SalienceProfile;
+
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -460,6 +462,17 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
                 memorySpladeIndex, builder.sparseEncodingProvider);
+
+        // ── Wire Salience Profile Provider ──
+        if (builder.salienceProfileProvider != null) {
+            SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
+            if (effective != null && !effective.isNeutral()) {
+                this.cognitiveTarget.setSalienceProfile(effective);
+                log.info("Salience profile applied: interests={}, disinterests={}, icnuOverride={}",
+                        effective.interests().size(), effective.disinterests().size(),
+                        effective.hasIcnuOverride());
+            }
+        }
 
         // ── Partition Manager ──
         if (isDisk) {
@@ -1399,6 +1412,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Chunking for remember() — default aligned with ingestion pipeline (2500 chars, 200 overlap)
         TextChunker chunker = new TextChunker(2500, 200);
 
+        // Salience profile provider (enterprise SPI)
+        SalienceProfileProvider salienceProfileProvider;
+
         // Multimodal attachment processing
         java.util.List<com.spectrayan.spector.ingestion.sensory.SensoryExtractor> sensoryExtractors = java.util.List.of();
         com.spectrayan.spector.ingestion.sensory.AssetStore assetStore;
@@ -1556,6 +1572,22 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         /** Sets the asset store for persisting original attachment files. */
         public Builder assetStore(com.spectrayan.spector.ingestion.sensory.AssetStore store) {
             this.assetStore = store;
+            return this;
+        }
+
+        /**
+         * Sets the salience profile provider for user-configurable importance scoring.
+         *
+         * <p>Enterprise callers supply a {@link TenantSalienceResolver} that merges
+         * tenant → agent → user profiles. The effective profile is applied during
+         * ingestion (ICNU weights + topic boost) and optionally at recall time
+         * (alpha/beta override).</p>
+         *
+         * @param provider the salience profile provider (null = noop/NEUTRAL)
+         * @return this builder
+         */
+        public Builder salienceProfileProvider(SalienceProfileProvider provider) {
+            this.salienceProfileProvider = provider;
             return this;
         }
 

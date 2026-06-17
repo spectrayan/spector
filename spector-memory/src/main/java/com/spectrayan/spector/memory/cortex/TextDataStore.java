@@ -420,4 +420,83 @@ public final class TextDataStore implements AutoCloseable {
             mappedSegment = null;
         }
     }
+
+    /**
+     * Securely erases a text entry by overwriting its text bytes with zeros.
+     *
+     * <p>Called when a memory is forgotten ({@code forget()}) to prevent
+     * forensic recovery of plaintext from the {@code text.dat} file.
+     * The overwrite is forced to disk via {@link FileChannel#force(boolean)}.</p>
+     *
+     * <p>This method scans the file sequentially to find the entry by ID,
+     * then overwrites the text_bytes region with zeros. The entry header
+     * (tier + id) is preserved for structural integrity.</p>
+     *
+     * @param targetId the memory ID whose text should be erased
+     * @return true if the entry was found and erased
+     */
+    public boolean eraseEntry(String targetId) {
+        if (!Files.exists(file)) {
+            return false;
+        }
+
+        try (FileChannel ch = FileChannel.open(file,
+                StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+
+            if (ch.size() < HEADER_BYTES) return false;
+
+            // Skip header
+            ch.position(HEADER_BYTES);
+
+            ByteBuffer sizeBuf = ByteBuffer.allocate(4);
+
+            while (ch.position() < ch.size()) {
+                long entryStart = ch.position();
+
+                // Read tier byte
+                ByteBuffer tierBuf = ByteBuffer.allocate(1);
+                if (ch.read(tierBuf) < 1) break;
+
+                // Read id_len + id_bytes
+                sizeBuf.clear();
+                if (ch.read(sizeBuf) < 4) break;
+                sizeBuf.flip();
+                int idLen = sizeBuf.getInt();
+
+                byte[] idBytes = new byte[idLen];
+                ByteBuffer idBuf = ByteBuffer.wrap(idBytes);
+                if (ch.read(idBuf) < idLen) break;
+                String id = new String(idBytes, StandardCharsets.UTF_8);
+
+                // Read text_len
+                sizeBuf.clear();
+                if (ch.read(sizeBuf) < 4) break;
+                sizeBuf.flip();
+                int textLen = sizeBuf.getInt();
+
+                long textStart = ch.position();
+
+                if (id.equals(targetId)) {
+                    // Overwrite text bytes with zeros
+                    byte[] zeros = new byte[textLen];
+                    ByteBuffer zeroBuf = ByteBuffer.wrap(zeros);
+                    ch.position(textStart);
+                    ch.write(zeroBuf);
+                    ch.force(true); // Force to disk immediately
+
+                    log.debug("Securely erased {} bytes of text for memory '{}'", textLen, targetId);
+                    return true;
+                }
+
+                // Skip past text bytes to next entry
+                ch.position(textStart + textLen);
+            }
+
+        } catch (IOException e) {
+            log.warn("Failed to erase text entry for '{}': {}", targetId, e.getMessage());
+        }
+
+        return false;
+    }
 }
+

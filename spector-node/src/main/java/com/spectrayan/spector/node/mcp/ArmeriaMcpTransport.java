@@ -47,29 +47,24 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Native Armeria implementation of MCP transports.
+ * Native Armeria implementation of MCP Streamable HTTP transport.
  *
- * <p>Supports two transport modes on the same Armeria HTTP stack:</p>
+ * <p>Supports two modes on the same Armeria HTTP stack:</p>
  *
- * <h3>Streamable HTTP (MCP 2025-03-26 â€” recommended)</h3>
- * <p>A single endpoint handles all MCP traffic:</p>
- * <ul>
- *   <li>{@code POST /mcp} â€” JSON-RPC request â†’ JSON response</li>
- *   <li>{@code GET  /mcp} â€” SSE stream for server-initiated notifications (stateful only)</li>
- *   <li>{@code DELETE /mcp} â€” Session termination (stateful only)</li>
- * </ul>
- *
- * <h3>Stateless Mode (recommended for most use cases)</h3>
- * <p>When {@code stateless=true}, no {@code Mcp-Session-Id} header is emitted in
- * responses. Per the MCP spec, this signals clients not to track sessions. A single
- * shared {@link McpServerSession} handles all requests internally. This makes the
- * server resilient to restarts â€” clients never cache a session ID that can go stale.
- * GET and DELETE return 405 since there are no sessions to stream or terminate.</p>
+ * <h3>Stateless Mode (default, recommended)</h3>
+ * <p>No {@code Mcp-Session-Id} header is emitted. A single shared
+ * {@link McpServerSession} handles all requests. Resilient to restarts.</p>
  *
  * <h3>Stateful Mode</h3>
- * <p>Session management via {@code Mcp-Session-Id} header. If a client sends an
- * unknown session ID (e.g., after server restart), a new session is transparently
- * created instead of returning 404.</p>
+ * <p>Session management via Mcp-Session-Id header. Stale sessions
+ * are transparently recovered.</p>
+ *
+ * <h3>Endpoints</h3>
+ * <ul>
+ *   <li>POST /mcp - JSON-RPC request / JSON response</li>
+ *   <li>GET  /mcp - SSE notification stream (stateful only)</li>
+ *   <li>DELETE /mcp - Session termination (stateful only)</li>
+ * </ul>
  */
 public class ArmeriaMcpTransport implements McpServerTransportProvider {
 
@@ -78,26 +73,24 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
     private static final String SESSION_HEADER = "Mcp-Session-Id";
     private static final String MESSAGE_EVENT = "message";
 
-
     /** Timeout for waiting for a response from session.handle(). */
     private static final long RESPONSE_TIMEOUT_SECONDS = 60;
 
     private final McpJsonMapper jsonMapper;
     private final boolean stateless;
 
-    // â”€â”€ Shared state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Shared state -------------------------------------------------
     private final Map<String, McpServerSession> sessions = new ConcurrentHashMap<>();
     private final AtomicBoolean isClosing = new AtomicBoolean(false);
     private volatile McpServerSession.Factory sessionFactory;
 
-    // â”€â”€ Stateless shared session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Stateless shared session -------------------------------------
     private static final String SHARED_SESSION_ID = "__stateless__";
     private volatile McpServerSession sharedSession;
     private volatile StreamableSessionTransport sharedTransport;
 
-    // â”€â”€ Streamable HTTP state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Streamable HTTP state ----------------------------------------
     private final Map<String, StreamableSessionTransport> streamableTransports = new ConcurrentHashMap<>();
-
 
     /**
      * Creates a transport with default settings (stateless mode).
@@ -109,8 +102,7 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
     /**
      * Creates a transport with the specified session mode.
      *
-     * @param stateless if true, operates in stateless mode (no session tracking,
-     *                  no Mcp-Session-Id headers â€” recommended for most use cases)
+     * @param stateless if true, operates in stateless mode (recommended)
      */
     public ArmeriaMcpTransport(boolean stateless) {
         this(McpJsonDefaults.getMapper(), stateless);
@@ -127,19 +119,48 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
         this.stateless = stateless;
     }
 
-    // â”€â”€ McpServerTransportProvider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- McpServerTransportProvider -----------------------------------
 
     @Override
     public void setSessionFactory(McpServerSession.Factory sessionFactory) {
         this.sessionFactory = sessionFactory;
         if (stateless) {
-            // Pre-create the shared session for stateless mode.
-            // All requests will be dispatched through this single session.
             sharedTransport = new StreamableSessionTransport(SHARED_SESSION_ID);
             sharedSession = sessionFactory.create(sharedTransport);
             sessions.put(SHARED_SESSION_ID, sharedSession);
             streamableTransports.put(SHARED_SESSION_ID, sharedTransport);
-            log.info("[MCP] Stateless mode: shared session created");
+
+            // Pre-initialize the shared session so tools/call works immediately.
+            // The SDK's McpServerSession has a Sinks.One exchangeSink that only
+            // emits after receiving 'notifications/initialized'. Without this,
+            // all tools/call requests block forever.
+            try {
+                var initRequest = new McpSchema.JSONRPCRequest(
+                        McpSchema.METHOD_INITIALIZE, "__init__",
+                        Map.of("protocolVersion", "2024-11-05",
+                                "capabilities", Map.of(),
+                                "clientInfo", Map.of("name", "stateless-bootstrap",
+                                        "version", "1.0")));
+                // Drain the response future created by sendMessage
+                var initFuture = new CompletableFuture<String>();
+                sharedTransport.pendingResponses.put("__init__", initFuture);
+                sharedSession.handle(initRequest)
+                        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                        .block(java.time.Duration.ofSeconds(5));
+                sharedTransport.pendingResponses.remove("__init__");
+
+                // Send 'initialized' notification to transition state
+                var initializedNotification = new McpSchema.JSONRPCNotification(
+                        McpSchema.METHOD_NOTIFICATION_INITIALIZED, null);
+                sharedSession.handle(initializedNotification)
+                        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                        .block(java.time.Duration.ofSeconds(5));
+
+                log.info("[MCP] Stateless mode: shared session created and pre-initialized");
+            } catch (Exception e) {
+                log.warn("[MCP] Pre-initialization failed (tools may require init): {}",
+                        e.getMessage());
+            }
         }
     }
 
@@ -176,7 +197,6 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
                 .flatMap(McpServerSession::closeGracefully)
                 .then()
                 .doOnSuccess(v -> {
-                    // Close all Streamable HTTP notification writers
                     streamableTransports.values().forEach(t -> {
                         HttpResponseWriter w = t.notificationWriter;
                         if (w != null) w.close();
@@ -187,20 +207,16 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
                 });
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // =============================================================
     //  Streamable HTTP Transport (MCP 2025-03-26)
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // =============================================================
 
     /**
      * Returns the unified Streamable HTTP service (mount at {@code /mcp}).
-     *
-     * <p>Handles POST (JSON-RPC request/response), GET (SSE notification stream),
-     * and DELETE (session termination) on a single endpoint.</p>
      */
     public HttpService streamableHttpService() {
         return new AbstractHttpService() {
 
-            // â”€â”€ POST /mcp â€” JSON-RPC request â†’ response â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             @Override
             protected HttpResponse doPost(ServiceRequestContext ctx, HttpRequest req) {
                 if (isClosing.get()) {
@@ -219,93 +235,101 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
                             McpSchema.JSONRPCMessage message =
                                     McpSchema.deserializeJsonRpcMessage(jsonMapper, body);
 
-                            // â”€â”€ Resolve session â”€â”€
+                            // -- Resolve session --
                             StreamableSessionTransport transport;
                             McpServerSession session;
 
                             if (stateless) {
-                                // Stateless mode: use the shared session for all requests.
-                                // Ignore any Mcp-Session-Id the client may send.
                                 transport = sharedTransport;
                                 session = sharedSession;
                             } else {
-                                // Stateful mode: resolve or create session
                                 String sessionId = req.headers().get(SESSION_HEADER);
 
                                 if (sessionId == null || sessionId.isBlank()) {
-                                    // New session (first request, typically "initialize")
                                     sessionId = UUID.randomUUID().toString();
                                     transport = new StreamableSessionTransport(sessionId);
                                     session = sessionFactory.create(transport);
                                     sessions.put(sessionId, session);
                                     streamableTransports.put(sessionId, transport);
-                                    log.info("[MCP] Streamable HTTP session created: {}", sessionId);
+                                    log.info("[MCP] Session created: {}", sessionId);
                                 } else {
                                     session = sessions.get(sessionId);
                                     transport = streamableTransports.get(sessionId);
                                     if (session == null || transport == null) {
-                                        // Recovery: client sent a stale/unknown session ID
-                                        // (e.g., after server restart). Create a new session
-                                        // transparently instead of returning 404.
                                         String newSessionId = UUID.randomUUID().toString();
                                         transport = new StreamableSessionTransport(newSessionId);
                                         session = sessionFactory.create(transport);
                                         sessions.put(newSessionId, session);
                                         streamableTransports.put(newSessionId, transport);
                                         sessionId = newSessionId;
-                                        log.info("[MCP] Recovered stale session â€” new session created: {}",
-                                                newSessionId);
+                                        log.info("[MCP] Recovered stale session: {}", newSessionId);
                                     }
                                 }
                             }
 
-                            // â”€â”€ Determine if this is a request (expects response) â”€â”€
+                            // -- Register pending response future --
                             boolean isRequest = message instanceof McpSchema.JSONRPCRequest;
                             CompletableFuture<String> responseFuture = null;
 
                             if (isRequest) {
                                 McpSchema.JSONRPCRequest jsonRpcRequest = (McpSchema.JSONRPCRequest) message;
-                                responseFuture = new CompletableFuture<>();
+                                responseFuture = new CompletableFuture<String>()
+                                        .orTimeout(RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                                 transport.pendingResponses.put(jsonRpcRequest.id(), responseFuture);
                             }
 
                             final CompletableFuture<String> rf = responseFuture;
 
-                            // â”€â”€ Handle the message â”€â”€
-                            return session.handle(message)
-                                    .then(Mono.defer(() -> {
-                                        if (rf != null) {
-                                            // Wait for the response from sendMessage()
-                                            return Mono.fromFuture(rf);
-                                        }
-                                        // Notification â€” no response expected
-                                        return Mono.just("");
-                                    }))
-                                    .map(responseJson -> {
-                                        if (responseJson == null || responseJson.isEmpty()) {
-                                            // Notification accepted â€” 202
-                                            return HttpResponse.of(
-                                                    ResponseHeaders.builder(HttpStatus.ACCEPTED)
-                                                            .build());
-                                        }
-                                        // Request response â€” 200 with JSON body.
-                                        // In stateless mode, omit Mcp-Session-Id so clients
-                                        // don't cache a session that can go stale.
+                            // -- Handle the message --
+                            // Run on boundedElastic scheduler to avoid blocking
+                            // the Armeria event loop. McpSyncServer tool handlers
+                            // execute synchronously and would block the thread
+                            // that needs to process the response future callback.
+                            session.handle(message)
+                                    .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                                    .subscribe(
+                                            unused -> {},
+                                            err -> {
+                                                log.error("[MCP] session.handle error: {}", err.getMessage());
+                                                if (rf != null && !rf.isDone()) {
+                                                    rf.completeExceptionally(err);
+                                                }
+                                            }
+                                    );
+
+                            if (rf != null) {
+                                // Wait for response from sendMessage()
+                                return rf.thenApply(responseJson -> {
+                                    if (responseJson == null || responseJson.isEmpty()) {
                                         return HttpResponse.of(
-                                                ResponseHeaders.builder(HttpStatus.OK)
-                                                        .contentType(MediaType.JSON)
-                                                        .build(),
-                                                HttpData.ofUtf8(responseJson));
-                                    })
-                                    .onErrorResume(e -> {
-                                        log.error("[MCP] Error handling message: {}",
-                                                e.getMessage());
-                                        return Mono.just(jsonError(
-                                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                                ResponseHeaders.builder(HttpStatus.ACCEPTED)
+                                                        .build());
+                                    }
+                                    return HttpResponse.of(
+                                            ResponseHeaders.builder(HttpStatus.OK)
+                                                    .contentType(MediaType.JSON)
+                                                    .build(),
+                                            HttpData.ofUtf8(responseJson));
+                                }).exceptionally(e -> {
+                                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                                    if (cause instanceof java.util.concurrent.TimeoutException) {
+                                        log.warn("[MCP] Response timeout after {}s",
+                                                RESPONSE_TIMEOUT_SECONDS);
+                                        return jsonError(HttpStatus.GATEWAY_TIMEOUT,
                                                 McpSchema.ErrorCodes.INTERNAL_ERROR,
-                                                e.getMessage()));
-                                    })
-                                    .toFuture();
+                                                "MCP response timeout");
+                                    }
+                                    log.error("[MCP] Error: {}", cause.getMessage());
+                                    return jsonError(HttpStatus.INTERNAL_SERVER_ERROR,
+                                            McpSchema.ErrorCodes.INTERNAL_ERROR,
+                                            cause.getMessage());
+                                });
+                            } else {
+                                // Notification -- no response expected
+                                return CompletableFuture.completedFuture(
+                                        HttpResponse.of(ResponseHeaders.builder(HttpStatus.ACCEPTED)
+                                                .build()));
+                            }
 
                         } catch (Exception e) {
                             log.error("[MCP] Error deserializing message: {}", e.getMessage());
@@ -318,7 +342,6 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
                 );
             }
 
-            // â”€â”€ GET /mcp â€” SSE notification stream â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             @Override
             protected HttpResponse doGet(ServiceRequestContext ctx, HttpRequest req) {
                 if (stateless) {
@@ -345,7 +368,6 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
                             "Session not found: " + sessionId);
                 }
 
-                // Open SSE stream for server â†’ client notifications
                 HttpResponseWriter writer = HttpResponse.streaming();
                 writer.write(ResponseHeaders.of(HttpStatus.OK,
                         "Content-Type", "text/event-stream",
@@ -364,7 +386,6 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
                 return writer;
             }
 
-            // â”€â”€ DELETE /mcp â€” Session termination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             @Override
             protected HttpResponse doDelete(ServiceRequestContext ctx, HttpRequest req) {
                 if (stateless) {
@@ -397,7 +418,7 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
         };
     }
 
-    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Helpers ------------------------------------------------------
 
     private void sendSseEvent(HttpResponseWriter writer, String eventType, String data) {
         String sseFrame = "event: " + eventType + "\ndata: " + data + "\n\n";
@@ -416,9 +437,9 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // =============================================================
     //  Session Transport
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // =============================================================
 
     /**
      * Per-session transport for Streamable HTTP.
@@ -439,35 +460,41 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
 
         @Override
         public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) {
-            return Mono.fromRunnable(() -> {
-                try {
-                    String json = jsonMapper.writeValueAsString(message);
+            // Execute eagerly -- the MCP SDK's reactive chain may not subscribe
+            // to a lazy Mono, causing the response future to never complete.
+            try {
+                String json = jsonMapper.writeValueAsString(message);
 
-                    // Route responses to the pending POST request
-                    if (message instanceof McpSchema.JSONRPCResponse response) {
-                        CompletableFuture<String> future = pendingResponses.remove(response.id());
-                        if (future != null) {
-                            future.complete(json);
-                            return;
+                if (message instanceof McpSchema.JSONRPCResponse response) {
+                    CompletableFuture<String> future = pendingResponses.remove(response.id());
+                    if (future == null) {
+                        // ID type mismatch fallback (String "1" vs Integer 1)
+                        String responseIdStr = String.valueOf(response.id());
+                        for (var entry : pendingResponses.entrySet()) {
+                            if (responseIdStr.equals(String.valueOf(entry.getKey()))) {
+                                future = pendingResponses.remove(entry.getKey());
+                                break;
+                            }
                         }
-                        log.warn("[MCP] No pending request for response id={} in session {}",
-                                response.id(), sessionId);
                     }
-
-                    // Server-initiated notifications â†’ SSE stream
-                    HttpResponseWriter writer = notificationWriter;
-                    if (writer != null) {
-                        sendSseEvent(writer, MESSAGE_EVENT, json);
-                        log.debug("[MCP] Notification sent to session {}", sessionId);
-                    } else {
-                        log.debug("[MCP] No notification stream for session {}, message buffered/dropped",
-                                sessionId);
+                    if (future != null) {
+                        future.complete(json);
+                        return Mono.empty();
                     }
-                } catch (Exception e) {
-                    log.error("[MCP] Failed to send message to session {}: {}",
-                            sessionId, e.getMessage());
+                    log.warn("[MCP] No pending request for response id={} in session {}",
+                            response.id(), sessionId);
                 }
-            });
+
+                // Server-initiated notifications -> SSE stream
+                HttpResponseWriter writer = notificationWriter;
+                if (writer != null) {
+                    sendSseEvent(writer, MESSAGE_EVENT, json);
+                }
+            } catch (Exception e) {
+                log.error("[MCP] Failed to send message in session {}: {}",
+                        sessionId, e.getMessage());
+            }
+            return Mono.empty();
         }
 
         @Override
@@ -480,7 +507,6 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
             return Mono.fromRunnable(() -> {
                 sessions.remove(sessionId);
                 streamableTransports.remove(sessionId);
-                // Cancel any pending responses
                 pendingResponses.values().forEach(f ->
                         f.completeExceptionally(new RuntimeException("Session closed")));
                 pendingResponses.clear();
@@ -499,4 +525,3 @@ public class ArmeriaMcpTransport implements McpServerTransportProvider {
         }
     }
 }
-
