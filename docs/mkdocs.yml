@@ -170,6 +170,9 @@ nav:
       - Performance Tuning: operations/performance-tuning.md
       - Test Framework & LLM Judge: architecture/test-framework.md
       - JDK API Status: getting-started/jdk-api-status.md
+      - Security & Data:
+          - "Encryption at Rest": architecture/encryption-at-rest.md
+          - "Salience & Importance": architecture/salience-importance.md
       - Deep Dives:
           - ANN Search Primer: deep-dives/ann-search-primer.md
           - HNSW Explained: deep-dives/hnsw-explained.md
