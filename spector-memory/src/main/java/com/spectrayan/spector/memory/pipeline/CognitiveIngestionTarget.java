@@ -32,6 +32,7 @@ import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
@@ -48,10 +49,12 @@ import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
+import com.spectrayan.spector.memory.model.SalienceProfile;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -119,6 +122,12 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final MemorySpladeIndex spladeIndex;
     private final SparseEncodingProvider spladeProvider;
 
+    // ── Data Encryption SPI (NOOP in OSS mode) ──
+    private final DataEncryptor encryptor;
+
+    // ── Salience Profile (NEUTRAL in OSS mode) ──
+    private volatile SalienceProfile salienceProfile;
+
     // ── Session tracking for Hebbian co-ingestion and temporal chains ──
     private final AtomicInteger lastIngestedMemoryIdx = new AtomicInteger(-1);
     private volatile int currentSessionId = 0;
@@ -146,6 +155,38 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEncodingProvider spladeProvider) {
+        this(quantizer, surpriseDetector, flashbulbPolicy, tierRouter,
+                index, wal, workingStore, icnuWeights, semanticIndex,
+                tagExtractor, normalizeAtIngest,
+                hebbianGraph, temporalChain, entityExtractor, entityGraph,
+                bm25Index, textDataStore, activePartitionIndex,
+                spladeIndex, spladeProvider, DataEncryptor.NOOP);
+    }
+
+    /**
+     * Full constructor with data encryption support.
+     */
+    public CognitiveIngestionTarget(ScalarQuantizer quantizer,
+                                     SurpriseDetector surpriseDetector,
+                                     FlashbulbPolicy flashbulbPolicy,
+                                     TierRouter tierRouter,
+                                     MemoryIndex index,
+                                     MemoryWal wal,
+                                     WorkingMemoryStore workingStore,
+                                     IcnuWeights icnuWeights,
+                                     VectorIndex semanticIndex,
+                                     TagExtractor tagExtractor,
+                                     boolean normalizeAtIngest,
+                                     HebbianGraph hebbianGraph,
+                                     TemporalChain temporalChain,
+                                     EntityExtractor entityExtractor,
+                                     EntityGraph entityGraph,
+                                     MemoryBM25Index bm25Index,
+                                     TextDataStore textDataStore,
+                                     int activePartitionIndex,
+                                     MemorySpladeIndex spladeIndex,
+                                     SparseEncodingProvider spladeProvider,
+                                     DataEncryptor encryptor) {
         this.quantizer = quantizer;
         this.surpriseDetector = surpriseDetector;
         this.flashbulbPolicy = flashbulbPolicy;
@@ -166,6 +207,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.activePartitionIndex = activePartitionIndex;
         this.spladeIndex = spladeIndex;
         this.spladeProvider = spladeProvider;
+        this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
+        this.salienceProfile = SalienceProfile.NEUTRAL;
     }
 
     /**
@@ -181,6 +224,23 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
      */
     public void setPartitionRollCallback(Runnable callback) {
         this.partitionRollCallback = callback;
+    }
+
+    /**
+     * Updates the salience profile for importance modulation.
+     *
+     * <p>Thread-safe: the field is volatile. Called by the enterprise layer
+     * when a user/agent/tenant profile is resolved.</p>
+     *
+     * @param profile the effective (pre-merged) salience profile
+     */
+    public void setSalienceProfile(SalienceProfile profile) {
+        this.salienceProfile = profile != null ? profile : SalienceProfile.NEUTRAL;
+    }
+
+    /** Returns the current salience profile (for testing/introspection). */
+    public SalienceProfile salienceProfile() {
+        return salienceProfile;
     }
 
     /**
@@ -265,8 +325,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             return;
         }
 
-        // Step 2: Encode synaptic tags
-        long synapticTags = SynapticTagEncoder.encode(tags);
+        // Step 2: Encode synaptic tags (keyed HMAC when encryption is active)
+        long synapticTags = encodeTags(tags);
 
         // Step 1c: L2-normalize vector (required for Parabolic RBF lateral scoring)
         if (normalizeAtIngest) {
@@ -287,10 +347,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         float importance;
         // Step 3b: ICNU fusion — blend LLM hints with native novelty
+        // Use salience profile's ICNU weights if configured, otherwise system default
+        IcnuWeights effectiveIcnuWeights = salienceProfile.hasIcnuOverride()
+                ? salienceProfile.icnuWeights() : icnuWeights;
+
         if (hints != null && !hints.isEmpty()) {
             float rawNoveltyImportance = surpriseDetector.computeImportance(nearestDist);
             float noveltyNorm = Math.clamp(rawNoveltyImportance / 10.0f, 0f, 1f);
-            importance = icnuWeights.fuse(hints, noveltyNorm);
+            importance = effectiveIcnuWeights.fuse(hints, noveltyNorm);
 
             // Gaming detection logging
             if (hints.interest() == 1.0f && hints.challenge() == 1.0f
@@ -303,6 +367,17 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                     hints.urgency(), importance);
         } else {
             importance = surpriseDetector.computeImportance(nearestDist);
+        }
+
+        // Step 3c: Salience-based topic boost (semantic embedding matching)
+        if (salienceProfile.hasInterests()) {
+            float topicBoost = salienceProfile.computeTopicBoost(vector);
+            if (topicBoost != 1.0f) {
+                float preBoost = importance;
+                importance = Math.clamp(importance * topicBoost, 0.05f, 10.0f);
+                log.debug("Salience boost: id={}, pre={}, post={}, boost={}",
+                        id, preBoost, importance, topicBoost);
+            }
         }
 
         // Step 4: Flashbulb check — extreme surprise gets full fidelity
@@ -351,13 +426,19 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 8: Register in ID index
         index.register(id, new MemoryLocation(type, offset, storeIndex), text, source, tags);
 
-        // Step 9: WAL append
-        wal.appendRemember(id, quantized);
+        // Step 9: WAL append (encrypt payload when encryption is active)
+        wal.appendRemember(id, encryptor.encryptPayload(quantized));
 
-        // Step 9a: Index text for BM25 hybrid search
+        // Step 9a: Index text for BM25 hybrid search (encrypt text in text.dat)
         if (textDataStore != null) {
             try {
-                textDataStore.write(id, type, text);
+                String textToStore = text;
+                if (encryptor.isEnabled()) {
+                    // Store encrypted text — BM25 indexes plaintext in-memory separately
+                    byte[] encBytes = encryptor.encryptText(text.getBytes(StandardCharsets.UTF_8));
+                    textToStore = java.util.Base64.getEncoder().encodeToString(encBytes);
+                }
+                textDataStore.write(id, type, textToStore);
             } catch (RuntimeException e) {
                 log.warn("Failed to write text.dat entry for '{}': {}", id, e.getMessage());
             }
@@ -500,8 +581,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             return;
         }
 
-        // Step 2: Encode synaptic tags
-        long synapticTags = SynapticTagEncoder.encode(tags);
+        // Step 2: Encode synaptic tags (keyed HMAC when encryption is active)
+        long synapticTags = encodeTags(tags);
 
         // Step 1c: L2-normalize vector
         if (normalizeAtIngest) {
@@ -521,12 +602,24 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         }
 
         float importance;
+        // Use salience profile's ICNU weights if configured
+        IcnuWeights effectiveIcnuWeights = salienceProfile.hasIcnuOverride()
+                ? salienceProfile.icnuWeights() : icnuWeights;
+
         if (hints != null && !hints.isEmpty()) {
             float rawNoveltyImportance = surpriseDetector.computeImportance(nearestDist);
             float noveltyNorm = Math.clamp(rawNoveltyImportance / 10.0f, 0f, 1f);
-            importance = icnuWeights.fuse(hints, noveltyNorm);
+            importance = effectiveIcnuWeights.fuse(hints, noveltyNorm);
         } else {
             importance = surpriseDetector.computeImportance(nearestDist);
+        }
+
+        // Salience-based topic boost (semantic embedding matching)
+        if (salienceProfile.hasInterests()) {
+            float topicBoost = salienceProfile.computeTopicBoost(vector);
+            if (topicBoost != 1.0f) {
+                importance = Math.clamp(importance * topicBoost, 0.05f, 10.0f);
+            }
         }
 
         // Step 4: Flashbulb check
@@ -578,13 +671,19 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         java.util.Map<String, String> metadata = context.hasMetadata() ? context.metadata() : null;
         index.register(id, new MemoryLocation(type, offset, storeIndex), text, source, tags, metadata);
 
-        // Step 9: WAL append
-        wal.appendRemember(id, quantized);
+        // Step 9: WAL append (encrypt payload when encryption is active)
+        wal.appendRemember(id, encryptor.encryptPayload(quantized));
 
-        // Step 9a: BM25 text index
+        // Step 9a: BM25 text index (encrypt text in text.dat)
         if (textDataStore != null) {
-            try { textDataStore.write(id, type, text); }
-            catch (RuntimeException e) { log.warn("Failed to write text.dat for '{}': {}", id, e.getMessage()); }
+            try {
+                String textToStore = text;
+                if (encryptor.isEnabled()) {
+                    byte[] encBytes = encryptor.encryptText(text.getBytes(StandardCharsets.UTF_8));
+                    textToStore = java.util.Base64.getEncoder().encodeToString(encBytes);
+                }
+                textDataStore.write(id, type, textToStore);
+            } catch (RuntimeException e) { log.warn("Failed to write text.dat for '{}': {}", id, e.getMessage()); }
         }
         if (bm25Index != null && activePartitionIndex >= 0) {
             try { bm25Index.index(activePartitionIndex, id, text); }
@@ -722,6 +821,20 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     }
 
     // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Encodes tags using the active encryptor (keyed HMAC or standard MurmurHash).
+     */
+    private long encodeTags(String[] tags) {
+        if (encryptor.isEnabled()) {
+            long filter = 0L;
+            for (String tag : tags) {
+                filter |= encryptor.encodeTag(tag);
+            }
+            return filter;
+        }
+        return SynapticTagEncoder.encode(tags);
+    }
 
     private static float computeL2Norm(float[] vector) {
         return VectorOps.magnitude(vector);

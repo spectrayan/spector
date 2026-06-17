@@ -198,6 +198,29 @@ public record RecallOptions(
         }
 
         /**
+         * Applies a {@link SalienceProfile} to this builder.
+         *
+         * <p>Overrides alpha/beta if the salience profile has scoring overrides.
+         * Applies the default cognitive profile if one is configured.
+         * Individual fields can be further overridden after applying.</p>
+         *
+         * @param salience the salience profile to apply (null-safe)
+         */
+        public Builder salienceProfile(SalienceProfile salience) {
+            if (salience != null) {
+                if (salience.alpha() != null) this.alpha = salience.alpha();
+                if (salience.beta() != null) this.beta = salience.beta();
+                if (salience.defaultProfile() != null) {
+                    salience.defaultProfile().applyTo(this);
+                    // Re-apply salience overrides (profile may have reset alpha/beta)
+                    if (salience.alpha() != null) this.alpha = salience.alpha();
+                    if (salience.beta() != null) this.beta = salience.beta();
+                }
+            }
+            return this;
+        }
+
+        /**
          * Maximum number of results to return.
          */
         public Builder topK(int topK) {

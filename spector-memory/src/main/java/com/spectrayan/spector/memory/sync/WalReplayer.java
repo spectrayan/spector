@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.sync;
 
+import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
@@ -72,6 +73,22 @@ public final class WalReplayer {
      */
     public static ReplaySnapshot replay(MemoryWal wal, Instant targetTimestamp,
                                          int maxEvents, int quantizedVecBytes) {
+        return replay(wal, targetTimestamp, maxEvents, quantizedVecBytes, DataEncryptor.NOOP);
+    }
+
+    /**
+     * Replays WAL events with decryption support for encrypted payloads.
+     *
+     * @param wal             the WAL to replay from
+     * @param targetTimestamp reconstruct state as of this instant
+     * @param maxEvents       safety cap on events to process
+     * @param quantizedVecBytes quantized vector size in bytes (must match original)
+     * @param encryptor       the data encryptor to use for payload decryption
+     * @return an ephemeral {@link ReplaySnapshot} — caller must close it
+     */
+    public static ReplaySnapshot replay(MemoryWal wal, Instant targetTimestamp,
+                                         int maxEvents, int quantizedVecBytes,
+                                         DataEncryptor encryptor) {
 
         log.info("WAL replay starting: target={}, maxEvents={}, vecBytes={}",
                 targetTimestamp, maxEvents, quantizedVecBytes);
@@ -97,12 +114,11 @@ public final class WalReplayer {
         for (WalEvent event : filtered) {
             switch (event.type()) {
                 case REMEMBER -> {
-                    // Payload contains the serialized data. For replay, we store
-                    // the payload bytes and extract text from the WAL event's ID context.
-                    // The REMEMBER payload in Spector WAL is the quantized vector bytes.
+                    // Decrypt payload when encryption is active
+                    byte[] payload = encryptor.decryptPayload(event.payload());
                     liveMemories.put(event.memoryId(), new ReplayEntry(
                             event.memoryId(),
-                            event.payload(),
+                            payload,
                             event.timestamp()
                     ));
                     rememberCount++;
