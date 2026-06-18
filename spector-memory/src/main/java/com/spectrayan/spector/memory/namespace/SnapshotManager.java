@@ -65,7 +65,13 @@ import java.util.stream.Stream;
  *
  * @see StorageLayout#snapshotsDir(Path)
  * @see StorageLayout#snapshotDir(Path, String, String)
+ * @deprecated Since 1.1. Snapshot and replication features have moved to
+ *     {@code spector-enterprise} module. Use
+ *     {@code com.spectrayan.spector.replication.NamespaceSnapshotSync} instead,
+ *     which supports tenant-scoped, sharded directory layouts and WAL HWM tracking.
+ *     This class will be removed in a future release.
  */
+@Deprecated(since = "1.1", forRemoval = true)
 public final class SnapshotManager {
 
     private static final Logger log = LoggerFactory.getLogger(SnapshotManager.class);

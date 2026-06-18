@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.StorageLayout;
+import com.spectrayan.spector.memory.migration.MigrationPipeline;
 
 /**
  * Manages namespace lifecycle — creation, discovery, and quota enforcement.
@@ -65,7 +66,11 @@ public class SpectorNamespaceManager {
     private static final Logger log = LoggerFactory.getLogger(SpectorNamespaceManager.class);
 
     private final Path basePath;
+    private final boolean sharded;
     private final ConcurrentHashMap<String, NamespaceContext> namespaces;
+
+    /** Optional migration pipeline — runs lazy migrations on namespace access. */
+    private volatile MigrationPipeline migrationPipeline;
 
     /**
      * Creates a namespace manager rooted at the given persistence path.
@@ -76,31 +81,98 @@ public class SpectorNamespaceManager {
      * @param basePath root persistence path
      */
     public SpectorNamespaceManager(Path basePath) {
+        this(basePath, false);
+    }
+
+    /**
+     * Creates a namespace manager with optional directory sharding.
+     *
+     * <p>When {@code sharded=true}, namespaces are stored under
+     * hash-sharded directories: {@code namespaces/XX/YY/id/}
+     * (65,536 buckets). Discovery scans the two-level shard structure.</p>
+     *
+     * @param basePath root persistence path
+     * @param sharded  if true, use hash-based directory sharding
+     */
+    public SpectorNamespaceManager(Path basePath, boolean sharded) {
         this.basePath = basePath;
+        this.sharded = sharded;
         this.namespaces = new ConcurrentHashMap<>();
 
         // Discover existing namespaces
         Path namespacesDir = StorageLayout.namespacesDir(basePath);
         if (Files.isDirectory(namespacesDir)) {
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(namespacesDir)) {
-                for (Path entry : stream) {
-                    if (!Files.isDirectory(entry)) continue;
-                    String nsId = entry.getFileName().toString();
-
-                    // Only recognize directories with namespace.json
-                    if (Files.exists(entry.resolve(StorageLayout.FILE_NAMESPACE))) {
-                        NamespaceConfig config = loadConfig(nsId, entry);
-                        namespaces.put(nsId, new NamespaceContext(config, entry));
-                        log.info("Discovered namespace: {}", nsId);
-                    }
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException("Failed to scan namespaces directory", e);
+            if (sharded) {
+                discoverShardedNamespaces(namespacesDir);
+            } else {
+                discoverFlatNamespaces(namespacesDir);
             }
         }
 
-        log.info("SpectorNamespaceManager initialized: {} namespaces at {}",
-                namespaces.size(), basePath);
+        log.info("SpectorNamespaceManager initialized: {} namespaces at {} (sharded={})",
+                namespaces.size(), basePath, sharded);
+    }
+
+    /**
+     * Discovers flat (unsharded) namespaces: {@code namespaces/id/namespace.json}
+     */
+    private void discoverFlatNamespaces(Path namespacesDir) {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(namespacesDir)) {
+            for (Path entry : stream) {
+                if (!Files.isDirectory(entry)) continue;
+                String nsId = entry.getFileName().toString();
+
+                // Only recognize directories with namespace.json
+                if (Files.exists(entry.resolve(StorageLayout.FILE_NAMESPACE))) {
+                    NamespaceConfig config = loadConfig(nsId, entry);
+                    namespaces.put(nsId, new NamespaceContext(config, entry));
+                    log.info("Discovered namespace: {}", nsId);
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to scan namespaces directory", e);
+        }
+    }
+
+    /**
+     * Discovers sharded namespaces: {@code namespaces/XX/YY/id/namespace.json}
+     * Scans the two-level shard directory structure (256 × 256 = 65,536 buckets).
+     */
+    private void discoverShardedNamespaces(Path namespacesDir) {
+        try (DirectoryStream<Path> l1Stream = Files.newDirectoryStream(namespacesDir)) {
+            for (Path l1 : l1Stream) {
+                if (!Files.isDirectory(l1)) continue;
+                // L1 bucket (2-char hex prefix)
+                String l1Name = l1.getFileName().toString();
+                if (l1Name.length() != StorageLayout.SHARD_HEX_DIGITS) continue;
+
+                try (DirectoryStream<Path> l2Stream = Files.newDirectoryStream(l1)) {
+                    for (Path l2 : l2Stream) {
+                        if (!Files.isDirectory(l2)) continue;
+                        // L2 bucket (2-char hex prefix)
+                        String l2Name = l2.getFileName().toString();
+                        if (l2Name.length() != StorageLayout.SHARD_HEX_DIGITS) continue;
+
+                        // Scan namespace dirs inside L2 bucket
+                        try (DirectoryStream<Path> nsStream = Files.newDirectoryStream(l2)) {
+                            for (Path nsDir : nsStream) {
+                                if (!Files.isDirectory(nsDir)) continue;
+                                String nsId = nsDir.getFileName().toString();
+
+                                if (Files.exists(nsDir.resolve(StorageLayout.FILE_NAMESPACE))) {
+                                    NamespaceConfig config = loadConfig(nsId, nsDir);
+                                    namespaces.put(nsId, new NamespaceContext(config, nsDir));
+                                    log.debug("Discovered sharded namespace: {} at {}/{}/{}",
+                                            nsId, l1Name, l2Name, nsId);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to scan sharded namespaces directory", e);
+        }
     }
 
     /**
@@ -119,7 +191,7 @@ public class SpectorNamespaceManager {
             throw new IllegalStateException("Namespace already exists: " + config.id());
         }
 
-        Path nsDir = StorageLayout.namespaceDir(basePath, config.id());
+        Path nsDir = resolveNamespacePath(config.id());
         try {
             Files.createDirectories(nsDir);
             Files.createDirectories(nsDir.resolve(StorageLayout.DIR_GLOBAL));
@@ -143,7 +215,11 @@ public class SpectorNamespaceManager {
      * @return the namespace context, or null
      */
     public NamespaceContext getNamespace(String namespaceId) {
-        return namespaces.get(namespaceId);
+        NamespaceContext ctx = namespaces.get(namespaceId);
+        if (ctx != null) {
+            migrateIfNeeded(ctx);
+        }
+        return ctx;
     }
 
     /**
@@ -157,7 +233,7 @@ public class SpectorNamespaceManager {
         if (existing != null) return existing;
 
         NamespaceConfig config = NamespaceConfig.unlimited(namespaceId);
-        Path nsDir = StorageLayout.namespaceDir(basePath, config.id());
+        Path nsDir = resolveNamespacePath(config.id());
         try {
             Files.createDirectories(nsDir);
             Files.createDirectories(nsDir.resolve(StorageLayout.DIR_GLOBAL));
@@ -171,6 +247,9 @@ public class SpectorNamespaceManager {
         NamespaceContext newCtx = new NamespaceContext(config, nsDir);
         NamespaceContext winner = namespaces.putIfAbsent(namespaceId, newCtx);
         if (winner != null) return winner; // another thread created it first
+
+        // Write manifest for new namespace
+        migrateIfNeeded(newCtx);
 
         log.info("Auto-created namespace: {}", namespaceId);
         return newCtx;
@@ -209,6 +288,50 @@ public class SpectorNamespaceManager {
      */
     public Path basePath() {
         return basePath;
+    }
+
+    /** Returns whether directory sharding is enabled. */
+    public boolean isSharded() {
+        return sharded;
+    }
+
+    /**
+     * Sets the migration pipeline for lazy schema migration.
+     *
+     * <p>When set, each namespace access ({@link #getNamespace},
+     * {@link #getOrCreateNamespace}) triggers a migration check.
+     * If the namespace's {@code manifest.json} is stale, pending
+     * migrations run before the namespace is returned.</p>
+     *
+     * @param pipeline the migration pipeline, or null to disable
+     */
+    public void setMigrationPipeline(MigrationPipeline pipeline) {
+        this.migrationPipeline = pipeline;
+        log.info("[Namespace] Migration pipeline {}",
+                pipeline != null ? "enabled (" + pipeline.migrationCount() + " migrations)" : "disabled");
+    }
+
+    /**
+     * Runs the migration pipeline on a namespace if configured.
+     */
+    private void migrateIfNeeded(NamespaceContext ctx) {
+        MigrationPipeline pipeline = this.migrationPipeline;
+        if (pipeline != null) {
+            pipeline.migrateIfNeeded(ctx.directory());
+        }
+    }
+
+    /**
+     * Resolves the namespace directory path, using sharding if enabled.
+     *
+     * @param namespaceId the namespace ID
+     * @return flat or sharded path
+     */
+    protected Path resolveNamespacePath(String namespaceId) {
+        if (sharded) {
+            return StorageLayout.namespaceDirSharded(basePath, namespaceId);
+        }
+        return StorageLayout.namespaceDir(basePath, namespaceId);
     }
 
     // ── Internal helpers ──
