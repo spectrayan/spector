@@ -53,7 +53,15 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * <h3>V2 Scope</h3>
  * <p>V2 implements in-process replication (single JVM, multiple memory stores).
  * Network transport (gRPC, HTTP) is deferred to V3.</p>
+ *
+ * @deprecated Since 1.1. Cross-agent replication has moved to {@code spector-enterprise}.
+ *     Use {@code com.spectrayan.spector.replication.WalReplicationLeader} /
+ *     {@code WalReplicationFollower} for multiplexed WAL streaming, and
+ *     {@code NamespaceSnapshotSync} for full namespace snapshot transfer (base backup).
+ *     The enterprise implementation supports tenant isolation, backpressure, mTLS,
+ *     and sharded directory layouts. This class will be removed in a future release.
  */
+@Deprecated(since = "1.1", forRemoval = true)
 public final class CloudSync {
 
     private static final Logger log = LoggerFactory.getLogger(CloudSync.class);

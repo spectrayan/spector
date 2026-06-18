@@ -281,10 +281,76 @@ public final class StorageLayout {
         return basePath.resolve(DIR_NAMESPACES);
     }
 
-    /** Resolves a specific namespace directory. */
+    /** Resolves a specific namespace directory (flat layout). */
     public static Path namespaceDir(Path basePath, String namespaceId) {
         return namespacesDir(basePath).resolve(namespaceId);
     }
+
+    // ── Sharded Namespace Resolvers ──
+
+    /** Number of hex characters per shard level (2 = 256 buckets per level). */
+    public static final int SHARD_HEX_DIGITS = 2;
+
+    /** Number of shard directory levels (2 levels × 256 = 65,536 buckets). */
+    public static final int SHARD_LEVELS = 2;
+
+    /**
+     * Resolves the sharded path for a namespace ID.
+     *
+     * <p>Uses the first 4 hex characters of SHA-256(namespaceId) as
+     * two directory levels: {@code namespaces/a3/f7/agent-alpha/}</p>
+     *
+     * @param basePath     root persistence path
+     * @param namespaceId  the namespace (tenant or user) identifier
+     * @return sharded path: basePath/namespaces/XX/YY/namespaceId/
+     */
+    public static Path namespaceDirSharded(Path basePath, String namespaceId) {
+        String hash = sha256Hex(namespaceId);
+        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
+        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
+        return namespacesDir(basePath).resolve(l1).resolve(l2).resolve(namespaceId);
+    }
+
+    /**
+     * Resolves a tenant-scoped namespace with sharding.
+     *
+     * <p>Shards on the tenantId, then nests the namespaceId beneath it:</p>
+     * <pre>
+     *   basePath/namespaces/XX/YY/tenantId/namespaceId/
+     * </pre>
+     *
+     * @param basePath     root persistence path
+     * @param tenantId     the tenant (org) identifier — sharded on this
+     * @param namespaceId  the namespace (user/agent) identifier within the tenant
+     * @return sharded tenant-scoped path
+     */
+    public static Path tenantNamespaceDirSharded(Path basePath, String tenantId, String namespaceId) {
+        String hash = sha256Hex(tenantId);
+        String l1 = hash.substring(0, SHARD_HEX_DIGITS);
+        String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
+        return namespacesDir(basePath).resolve(l1).resolve(l2).resolve(tenantId).resolve(namespaceId);
+    }
+
+    /**
+     * Computes the hex-encoded SHA-256 hash of the input string.
+     *
+     * @param input the string to hash
+     * @return lowercase hex string of the SHA-256 digest
+     */
+    static String sha256Hex(String input) {
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            var sb = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
+    }
+
 
     // ── Snapshot resolvers ──
 

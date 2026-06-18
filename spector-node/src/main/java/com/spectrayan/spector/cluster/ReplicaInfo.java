@@ -24,7 +24,11 @@ import java.time.Instant;
  * @param endpoint  network endpoint (host:port) of the replica node
  * @param state     current state of the replica
  * @param lastSyncTimestamp the timestamp of the last successful synchronization
+ * @deprecated Since 1.1. See {@code com.spectrayan.spector.replication.ReplicationState}
+ *     in {@code spector-enterprise} for namespace-level HWM tracking.
+ *     This record will be removed in a future release.
  */
+@Deprecated(since = "1.1", forRemoval = true)
 public record ReplicaInfo(
         String replicaId,
         String endpoint,

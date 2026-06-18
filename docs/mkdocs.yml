@@ -166,6 +166,7 @@ nav:
       - RAG Pipeline: architecture/rag-pipeline.md
       - MCP Integration: architecture/mcp-integration.md
       - Distributed Mode: architecture/distributed-mode.md
+      - Namespace Sharding: architecture/namespace-sharding.md
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
       - Test Framework & LLM Judge: architecture/test-framework.md

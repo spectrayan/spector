@@ -6,7 +6,7 @@
 
     <groupId>com.spectrayan</groupId>
     <artifactId>spector</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
 
     <name>Spector</name>
@@ -52,6 +52,7 @@
 
     <!-- ───────────────────────── Modules ───────────────────────── -->
     <modules>
+        <module>spector-bom</module>
         <module>spector-commons</module>
         <module>spector-core</module>
         <module>spector-config</module>
@@ -80,6 +81,10 @@
 
     <!-- ───────────────────────── Properties ───────────────────────── -->
     <properties>
+        <!-- CI-friendly version (single source of truth) -->
+        <revision>1.0.0-SNAPSHOT</revision>
+        <changelist>-SNAPSHOT</changelist>
+
         <!-- Java -->
         <java.version>25</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -117,6 +122,7 @@
         <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
         <jacoco-plugin.version>0.8.15</jacoco-plugin.version>
         <license-maven-plugin.version>5.0.0</license-maven-plugin.version>
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
 
         <!-- JaCoCo coverage threshold — default 0, modules raise as tests are added (target: 0.80) -->
         <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
@@ -137,113 +143,123 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-config</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-core</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-storage</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-index</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-query</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-engine</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-ingestion</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-rag</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-commons</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-embed-api</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-embed-ollama</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-test-support</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-gpu</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-cluster</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-client</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spring-ai-starter-vector-store-spector</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-mcp</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-memory</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-events</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-metrics</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-node</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-runtime</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-cli</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-bench</artifactId>
+                <version>${revision}</version>
             </dependency>
 
             <!-- ── Micrometer (Observability) ── -->
@@ -635,6 +651,29 @@
                         </execution>
                     </executions>
                 </plugin>
+
+                <!-- Flatten: resolve CI-friendly ${revision} in published POMs -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>${flatten-maven-plugin.version}</version>
+                    <configuration>
+                        <updatePomFile>true</updatePomFile>
+                        <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>flatten</id>
+                            <phase>process-resources</phase>
+                            <goals><goal>flatten</goal></goals>
+                        </execution>
+                        <execution>
+                            <id>flatten.clean</id>
+                            <phase>clean</phase>
+                            <goals><goal>clean</goal></goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -654,6 +693,10 @@
             <plugin>
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

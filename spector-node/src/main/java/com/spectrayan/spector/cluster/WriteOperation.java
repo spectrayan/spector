@@ -25,7 +25,12 @@ import java.time.Instant;
  * @param operationType  the type of operation (INSERT, UPDATE, DELETE)
  * @param payload        the serialized data payload (null for DELETE)
  * @param timestamp      when the write was acknowledged on the primary
+ * @deprecated Since 1.1. Enterprise replication uses
+ *     {@code com.spectrayan.spector.memory.sync.WalEvent} for streaming
+ *     replication via {@code WalReplicationLeader}/{@code WalReplicationFollower}.
+ *     This record will be removed in a future release.
  */
+@Deprecated(since = "1.1", forRemoval = true)
 public record WriteOperation(
         long sequenceNumber,
         String documentId,
