@@ -32,6 +32,7 @@ buildNumber.properties
 .mvn/maven.config
 .mvn/wrapper/maven-wrapper.jar
 .mvn
+.flattened-pom.xml
 
 # ──────────── Logs ────────────
 *.log

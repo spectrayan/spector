@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.spectrayan</groupId>
         <artifactId>spector</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>spector-dist</artifactId>
@@ -24,6 +24,9 @@
         <spector.module.name>com.spectrayan.spector.dist</spector.module.name>
         <!-- Packaging-only module — skip coverage enforcement -->
         <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
+        <!-- Distribution fat JAR — not published to Maven repos -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
     </properties>
 
     <dependencies>
@@ -31,28 +34,24 @@
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-mcp</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <!-- ── Ingestion pipeline (FileIngestionService, FileIngestionMain) ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-ingestion</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <!-- ── Spector Runtime (engine + memory) ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-runtime</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <!-- ── CLI (spectorctl — ingest, search, status commands) ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-cli</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <!-- ── Runtime: Ollama embedding provider ── -->
