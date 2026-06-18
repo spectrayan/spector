@@ -51,7 +51,17 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Writes replicated to all replicas within 2 seconds</li>
  * </ul>
  * </p>
+ *
+ * @deprecated Since 1.1. Shard-level replication has moved to {@code spector-enterprise}.
+ *     Use {@code com.spectrayan.spector.replication.WalReplicationLeader} /
+ *     {@code WalReplicationFollower} for multiplexed WAL streaming,
+ *     {@code NamespaceSnapshotSync} for full snapshot transfer, and
+ *     {@code ReplicationCoordinator} for lifecycle management (periodic snapshots,
+ *     lag detection, auto-reconnect). The enterprise implementation provides actual
+ *     network transport (TCP + mTLS), tenant isolation, and sharded directory support.
+ *     This class will be removed in a future release.
  */
+@Deprecated(since = "1.1", forRemoval = true)
 public class ReplicationManager implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(ReplicationManager.class.getName());

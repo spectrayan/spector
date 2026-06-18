@@ -17,7 +17,12 @@ package com.spectrayan.spector.cluster;
 
 /**
  * Represents the state of a replica in the replication group.
+ *
+ * @deprecated Since 1.1. Enterprise replication uses WAL HWM-based state tracking
+ *     via {@code com.spectrayan.spector.replication.ReplicationState}. This enum
+ *     will be removed in a future release.
  */
+@Deprecated(since = "1.1", forRemoval = true)
 public enum ReplicaState {
     /** Replica is fully synchronized and serving reads. */
     ACTIVE,

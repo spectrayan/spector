@@ -53,7 +53,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Immutable partitions are shipped exactly once per replica. Only the active
  * (mutable) partition requires WAL-based delta replication via the
  * {@link ReplicationManager}.</p>
+ *
+ * @deprecated Since 1.1. Partition/snapshot replication has moved to {@code spector-enterprise}.
+ *     Use {@code com.spectrayan.spector.replication.NamespaceSnapshotSync} which replicates
+ *     entire namespace directories (including all partitions, WAL, indexes, and graphs)
+ *     with GZIP-compressed TCP transfer and WAL HWM tracking. This class will be removed
+ *     in a future release.
  */
+@Deprecated(since = "1.1", forRemoval = true)
 public class PartitionReplicator {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionReplicator.class);
