@@ -630,6 +630,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return cognitiveTarget;
     }
 
+    /** Returns the embedding provider for reconsolidation/update operations. */
+    public EmbeddingProvider embeddingProvider() {
+        return embeddingProvider;
+    }
+
     // ══════════════════════════════════════════════════════════════
     // CORE API — remember / recall / forget / reflect
     // ══════════════════════════════════════════════════════════════
@@ -1369,7 +1374,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         int semanticCapacity = 10_000;
         int nodesPerPartition = 10_000;
         int proceduralCapacity = 1_000;
-        int surpriseWarmup = 20;
+        int surpriseWarmup = 10;
         double flashbulbThreshold = 3.0;
         float valenceLearningRate = 0.3f;
         float deduplicationRadius = 0.05f;

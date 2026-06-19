@@ -277,19 +277,28 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
      */
     @Override
     public void ingest(String id, String text, float[] vector) {
-        // Step 1b: Auto-extract synaptic tags from document ID and content
+        // Step 1b: Auto-extract synaptic tags + emotional context from content
         long tagStartNs = System.nanoTime();
-        String[] tags = tagExtractor.extract(id, text);
+        TagExtractionResult extraction = tagExtractor.extractWithContext(id, text);
+        String[] tags = extraction.tags();
         long tagMs = (System.nanoTime() - tagStartNs) / 1_000_000;
 
-        log.info("[Ingest] '{}' → {} tags in {}ms via {} [{}]",
+        log.info("[Ingest] '{}' → {} tags in {}ms via {} [{}]{}",
                 id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
                 tags.length, tagMs,
                 tagExtractor.getClass().getSimpleName(),
-                String.join(", ", tags));
+                String.join(", ", tags),
+                extraction.hasEmotionalContext()
+                        ? String.format(" (valence=%d, arousal=%d)", extraction.valence(), Byte.toUnsignedInt(extraction.arousal()))
+                        : "");
+
+        // Build IngestionHints from LLM emotional context (if available)
+        IngestionHints hints = extraction.hasEmotionalContext()
+                ? new IngestionHints(0f, 0f, 0f, extraction.valence(), extraction.arousal())
+                : null;
 
         ingestCognitive(id, text, vector, MemoryType.SEMANTIC,
-                tags, MemorySource.OBSERVED, (IngestionHints) null);
+                tags, MemorySource.OBSERVED, hints);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -537,6 +546,128 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         log.debug("Ingested '{}' as {} (importance={}, {} tags, hnswIdx={}, source={})",
                 id, type, importance, tags.length, storeIndex, source);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Migration entry point — preserves full cognitive state
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Migration-aware ingestion that preserves the original {@link CognitiveHeader}.
+     *
+     * <p>Used during dimension migration to re-ingest memories with new embeddings
+     * while preserving all cognitive metadata (importance, recall count, valence,
+     * arousal, storage strength, flags, timestamps). Bypasses:
+     * <ul>
+     *   <li>Surprise detection (step 3) — importance already computed</li>
+     *   <li>Flashbulb check (step 4) — pinned flag already set</li>
+     *   <li>ICNU fusion (step 3b) — importance already fused</li>
+     * </ul>
+     *
+     * <p>The dedup guard is <em>not</em> bypassed — caller must remove
+     * the old index entry before calling this method.</p>
+     *
+     * @param id             unique memory identifier (preserved from source)
+     * @param text           the memory content (preserved verbatim)
+     * @param vector         <em>new</em> embedding vector (re-embedded with new model)
+     * @param type           cognitive memory tier (preserved)
+     * @param tags           synaptic tag strings (preserved)
+     * @param source         provenance source (preserved)
+     * @param preservedHeader the original cognitive header to preserve
+     */
+    public void ingestCognitiveWithHeader(String id, String text, float[] vector,
+                                           MemoryType type, String[] tags,
+                                           MemorySource source,
+                                           CognitiveHeader preservedHeader) {
+        // Dedup guard — same as normal ingestion
+        if (index.locate(id) != null) {
+            log.debug("Migration: skipping duplicate '{}' — already indexed", id);
+            return;
+        }
+
+        // Step 2: Encode synaptic tags
+        long synapticTags = encodeTags(tags);
+
+        // Step 1c: L2-normalize vector
+        if (normalizeAtIngest) {
+            vector = l2Normalize(vector);
+        }
+
+        // Step 5: Quantize vector to INT8
+        byte[] quantized = quantizer.encode(vector);
+
+        // Step 6: Build header — preserve original fields, recompute vector-derived ones
+        float l2Norm = computeL2Norm(vector);
+        CognitiveHeader header = new CognitiveHeader(
+                preservedHeader.timestampMs(),       // ✅ original timestamp
+                synapticTags,                        // 🔄 re-encoded (same tags)
+                l2Norm,                              // 🔄 from new vector
+                preservedHeader.importance(),         // ✅ original importance
+                preservedHeader.agentRecallCount(),   // ✅ original recall count
+                (short) 0,                           // 🔄 centroidId recomputed
+                preservedHeader.valence(),            // ✅ original valence
+                preservedHeader.flags(),              // ✅ original flags
+                preservedHeader.arousal(),            // ✅ original arousal
+                preservedHeader.storageStrength()     // ✅ original storage strength
+        );
+
+        // Step 7: Route to tier store and write
+        long offset;
+        try {
+            offset = tierRouter.write(type, header, quantized);
+        } catch (SpectorMemoryTierFullException e) {
+            if (partitionRollCallback != null) {
+                log.info("Migration: tier {} full — rolling partition", type);
+                partitionRollCallback.run();
+                offset = tierRouter.write(type, header, quantized);
+            } else {
+                throw e;
+            }
+        }
+
+        // Step 7b: Add to HNSW index (SEMANTIC only)
+        int storeIndex = -1;
+        if (type == MemoryType.SEMANTIC && semanticIndex != null
+                && !semanticIndex.isReadOnly()) {
+            storeIndex = tierRouter.countFor(MemoryType.SEMANTIC) - 1;
+            semanticIndex.add(id, storeIndex, vector);
+        }
+
+        // Step 8: Register in ID index
+        index.register(id, new MemoryLocation(type, offset, storeIndex), text, source, tags);
+
+        // Step 9: WAL append
+        wal.appendRemember(id, encryptor.encryptPayload(quantized));
+
+        // Step 9a: BM25 text index
+        if (textDataStore != null) {
+            try {
+                String textToStore = text;
+                if (encryptor.isEnabled()) {
+                    byte[] encBytes = encryptor.encryptText(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    textToStore = java.util.Base64.getEncoder().encodeToString(encBytes);
+                }
+                textDataStore.write(id, type, textToStore);
+            } catch (RuntimeException e) {
+                log.warn("Migration: failed text.dat for '{}': {}", id, e.getMessage());
+            }
+        }
+        if (bm25Index != null && activePartitionIndex >= 0) {
+            try {
+                bm25Index.index(activePartitionIndex, id, text);
+            } catch (RuntimeException e) {
+                log.warn("Migration: failed BM25 index for '{}': {}", id, e.getMessage());
+            }
+        }
+
+        // Note: Hebbian, Temporal, Entity graph edges are NOT created here.
+        // They are bulk-imported separately by MigrationService after all
+        // memories are ingested, using the preserved edge data from the bundle.
+
+        log.info("Migration: ingested '{}' as {} (importance={}, recallCount={}, flags=0x{}, ts={})",
+                id, type, preservedHeader.importance(), preservedHeader.agentRecallCount(),
+                Integer.toHexString(preservedHeader.flags() & 0xFF),
+                preservedHeader.timestampMs());
     }
 
     /**

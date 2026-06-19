@@ -29,6 +29,8 @@ Rules:
 - Do NOT include any explanation, reasoning, or commentary.
 - Entity names should be concise but unambiguous.
 - Use the most specific type available; use OTHER only as a last resort.
+- Relation types MUST use SCREAMING_SNAKE_CASE with underscores between words
+  (e.g., DEPENDS_ON, WORKS_ON, PART_OF). Never use hyphens, spaces, or lowercase.
 - Maximum %d entities and %d relations.
 
 Text:

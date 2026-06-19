@@ -13,6 +13,7 @@ import com.linecorp.armeria.server.annotation.ExceptionHandler;
 import com.linecorp.armeria.server.annotation.Get;
 import com.linecorp.armeria.server.annotation.Param;
 import com.linecorp.armeria.server.annotation.Post;
+import com.linecorp.armeria.server.annotation.Put;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -166,7 +167,20 @@ public class MemoryEndpoint implements ApiModule {
                 for (int i = 0; i < result.chunksStored(); i++) {
                     taskService.reportChunkStored(task);
                 }
-                log.info("File ingested: {} (id={}) \u2192 {} chunks", originalName, documentId, result.chunksStored());
+
+                // Store filename metadata on each ingested chunk's index entry.
+                // Chunk IDs follow the convention: docId (single) or docId::chunk-N (chunked).
+                if (memoryService.memory() != null) {
+                    var index = memoryService.memory().admin().index();
+                    var meta = java.util.Map.of("fileName", originalName);
+                    // Apply to the parent doc ID and all chunk IDs
+                    index.putMetadata(documentId, meta);
+                    for (int ci = 0; ci < result.chunksStored(); ci++) {
+                        index.putMetadata(documentId + "::chunk-" + ci, meta);
+                    }
+                }
+
+                log.info("File ingested: {} (id={}) → {} chunks", originalName, documentId, result.chunksStored());
             } catch (Exception e) {
                 throw new RuntimeException("File ingestion failed for '" + originalName + "': " + e.getMessage(), e);
             }
@@ -397,6 +411,77 @@ public class MemoryEndpoint implements ApiModule {
         int clampedMax = Math.max(10, Math.min(500, maxNodes));
         var graph = memoryService.getGraphOverview(clampedMax);
         return HttpResponse.ofJson(graph);
+    }
+
+    // ── Update Memory ───────────────────────────────────────────
+
+    @Put("/{id}")
+    public HttpResponse updateMemory(@Param("id") String id, JsonNode body) {
+        var row = memoryService.getMemoryById(id);
+        if (row == null) {
+            return HttpResponse.of(HttpStatus.NOT_FOUND, MediaType.PLAIN_TEXT_UTF_8,
+                    "Memory not found: " + id);
+        }
+
+        String newText = body.has("text") ? body.get("text").asText() : null;
+        String[] newTags = null;
+        if (body.has("tags") && body.get("tags").isArray()) {
+            var tagsNode = body.get("tags");
+            newTags = new String[tagsNode.size()];
+            for (int i = 0; i < tagsNode.size(); i++) {
+                newTags[i] = tagsNode.get(i).asText();
+            }
+        }
+
+        // Reconsolidation: delegate to service for direct re-embed + index update
+        memoryService.updateMemoryInPlace(id, newText, newTags);
+
+        return HttpResponse.of(HttpStatus.OK, MediaType.JSON,
+                "{\"status\":\"reconsolidated\",\"id\":\"" + id + "\"}");
+    }
+
+    // ── Vector Embedding ────────────────────────────────────────
+
+    @Get("/{id}/vector")
+    public HttpResponse getVector(@Param("id") String id) {
+        var memory = memoryService.memory();
+        var admin = memory.admin();
+        var index = admin.index();
+        var loc = index.locate(id);
+        if (loc == null) {
+            return HttpResponse.of(HttpStatus.NOT_FOUND, MediaType.PLAIN_TEXT_UTF_8,
+                    "Memory not found: " + id);
+        }
+
+        var store = admin.tierRouter().get(loc.type());
+        if (!(store instanceof com.spectrayan.spector.memory.cortex.AbstractTierStore ats)) {
+            return HttpResponse.of(HttpStatus.INTERNAL_SERVER_ERROR, MediaType.PLAIN_TEXT_UTF_8,
+                    "Store not accessible for tier: " + loc.type());
+        }
+
+        var layout = ats.layout();
+        long vecOffset = layout.vectorOffset(loc.offset());
+        // dimension = stride - headerBytes; headerBytes = vectorOffset(0)
+        int headerSize = (int) layout.vectorOffset(0);
+        int dimension = layout.stride() - headerSize;
+        byte[] vecBytes = new byte[dimension];
+
+        // Read INT8 quantized vector from the memory segment
+        java.lang.foreign.MemorySegment.copy(
+                ats.segment(), java.lang.foreign.ValueLayout.JAVA_BYTE, vecOffset,
+                vecBytes, 0, dimension);
+
+        // Convert to int array for JSON
+        int[] values = new int[dimension];
+        for (int i = 0; i < dimension; i++) {
+            values[i] = vecBytes[i];  // signed INT8 (-128 to 127)
+        }
+
+        return HttpResponse.ofJson(Map.of(
+                "memoryId", id,
+                "dimension", dimension,
+                "values", values
+        ));
     }
 
     // ── Bulk Import Admin Endpoints ──────────────────────────────

@@ -205,6 +205,25 @@ public final class MemoryIndex {
     }
 
     /**
+     * Stores or merges metadata for a memory ID after registration.
+     *
+     * <p>Used by file ingestion to attach the source filename, URL, or
+     * other provenance info after the ingestion pipeline completes.
+     * Merges with any existing metadata (won't overwrite unrelated keys).</p>
+     *
+     * @param id       memory identifier (must already be registered)
+     * @param metadata key-value pairs to store (e.g., "fileName" → "readme.md")
+     */
+    public void putMetadata(String id, Map<String, String> metadata) {
+        if (metadata == null || metadata.isEmpty() || !locations.containsKey(id)) return;
+        metadataMap.merge(id, Map.copyOf(metadata), (existing, incoming) -> {
+            var merged = new java.util.HashMap<>(existing);
+            merged.putAll(incoming);
+            return Map.copyOf(merged);
+        });
+    }
+
+    /**
      * O(1) reverse-lookup: finds the memory ID stored at a given offset in a given tier.
      *
      * <p>Uses a dedicated reverse index ({@code ConcurrentHashMap<Long, String>})

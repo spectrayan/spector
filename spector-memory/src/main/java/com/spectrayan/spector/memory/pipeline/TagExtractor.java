@@ -51,6 +51,21 @@ public interface TagExtractor {
     String[] extract(String id, String text);
 
     /**
+     * Extracts tags and optional emotional context (valence/arousal) from content.
+     *
+     * <p>LLM-powered extractors override this to provide valence/arousal alongside
+     * tags in a single LLM call. Non-LLM extractors return tags-only with neutral
+     * emotional context.</p>
+     *
+     * @param id   the document or chunk ID
+     * @param text the text content of the chunk
+     * @return extraction result with tags and optional emotional context
+     */
+    default TagExtractionResult extractWithContext(String id, String text) {
+        return TagExtractionResult.tagsOnly(extract(id, text));
+    }
+
+    /**
      * A no-op extractor that returns empty tags (disables Bloom filter gating).
      */
     TagExtractor NONE = (id, text) -> new String[0];

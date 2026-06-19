@@ -72,7 +72,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
     private static final Pattern ENTITY_PATTERN = Pattern.compile(
             "^ENTITY:\\s*(.+?)\\s*\\|\\s*(\\w+)\\s*$", Pattern.MULTILINE);
     private static final Pattern RELATION_PATTERN = Pattern.compile(
-            "^RELATION:\\s*(.+?)\\s*\\|\\s*(\\w+)\\s*\\|\\s*(.+?)\\s*$", Pattern.MULTILINE);
+            "^RELATION:\\s*(.+?)\\s*\\|\\s*([\\w\\- ]+?)\\s*\\|\\s*(.+?)\\s*$", Pattern.MULTILINE);
 
     private final TextGenerationProvider generator;
     private final int maxEntities;
@@ -205,7 +205,9 @@ public final class LlmEntityExtractor implements EntityExtractor {
         int relationCount = 0;
         while (relationMatcher.find() && relationCount < maxRelations) {
             String source = relationMatcher.group(1).trim();
-            String relTypeStr = relationMatcher.group(2).trim().toUpperCase(Locale.ROOT);
+            String relTypeStr = relationMatcher.group(2).trim()
+                    .toUpperCase(Locale.ROOT)
+                    .replaceAll("[- ]+", "_");  // normalize hyphens/spaces → underscores
             String target = relationMatcher.group(3).trim();
 
             relations.add(new RelationTriple(source, relTypeStr, target));

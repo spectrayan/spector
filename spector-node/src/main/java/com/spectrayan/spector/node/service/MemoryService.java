@@ -125,6 +125,54 @@ public class MemoryService {
         return memory.remember(id, text, tier, source, hints, tags);
     }
 
+    /**
+     * Updates a memory in-place (reconsolidation) without chunking.
+     *
+     * <p>Directly re-embeds the text and writes to the cognitive store,
+     * bypassing the chunking pipeline in {@link #remember}. The index text,
+     * tags, and location are atomically updated.</p>
+     *
+     * @param id      existing memory ID
+     * @param newText updated text (null = keep existing)
+     * @param newTags updated tags (null = keep existing)
+     */
+    public void updateMemoryInPlace(String id, String newText, String[] newTags) {
+        var admin = memory.admin();
+        var index = admin.index();
+        var loc = index.locate(id);
+        if (loc == null) {
+            throw new IllegalArgumentException("Memory not found: " + id);
+        }
+
+        // Capture existing metadata before removing from index
+        String text = newText != null ? newText : index.text(id);
+        String[] tags = newTags != null ? newTags : index.tags(id);
+        var source = index.source(id);
+        var type = loc.type();
+
+        // Tombstone the old binary slot and remove from index
+        // This is required because ingestCognitive has a dedup guard that
+        // skips ingestion when index.locate(id) != null.
+        var tierRouter = admin.tierRouter();
+        var layout = tierRouter.layoutFor(loc.type());
+        var segment = tierRouter.segmentFor(loc.type());
+        if (layout != null && segment != null) {
+            layout.tombstone(segment, loc.offset());
+        }
+        index.remove(id);
+
+        // Get embedding provider from the concrete implementation
+        com.spectrayan.spector.memory.DefaultSpectorMemory dsm =
+                (com.spectrayan.spector.memory.DefaultSpectorMemory) memory;
+        float[] vector = dsm.embeddingProvider().embed(text).vector();
+
+        // Re-ingest: dedup guard passes (id removed), writes fresh record,
+        // register() creates new index entry with updated text/tags/offset
+        memory.target().ingestCognitive(id, text, vector, type, tags,
+                source != null ? source : MemorySource.OBSERVED,
+                (IngestionHints) null);
+    }
+
     /** Performs cognitive recall and emits a cortex query trace event. */
     public List<CognitiveResult> recall(String query, RecallOptions options) {
         long startNanos = System.nanoTime();
@@ -335,13 +383,21 @@ public class MemoryService {
                 boolean pinned = com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isPinned(flags);
                 boolean resolved = com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isResolved(flags);
                 boolean consolidated = com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isConsolidated(flags);
+                int arousal = Byte.toUnsignedInt(header.arousal());
+                var sourceModality = com.spectrayan.spector.memory.model.SourceModality.fromOrdinal(
+                        com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.sourceModalityOrdinal(flags));
+                String synapticTagsHex = "0x" + Long.toHexString(header.synapticTags());
+                Map<String, String> metadata = id != null ? index.metadata(id) : null;
+                if (metadata != null && metadata.isEmpty()) metadata = null;
 
                 allRows.add(new com.spectrayan.spector.node.api.dto.MemoryRowDto(
                         id != null ? id : "unknown-" + type.name() + "-" + i,
                         textPreview, type.name(), source.name(),
                         header.importance(), header.valence(),
                         header.timestampMs(), header.agentRecallCount(),
-                        tombstoned, pinned, resolved, consolidated, tags));
+                        tombstoned, pinned, resolved, consolidated, tags,
+                        arousal, sourceModality.name(), header.exactNorm(),
+                        header.storageStrength(), synapticTagsHex, metadata));
             }
         }
 

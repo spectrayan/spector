@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
+import com.spectrayan.spector.commons.ResourceUtils;
 import com.spectrayan.spector.embed.TextGenerationProvider;
 
 import org.slf4j.Logger;
@@ -54,20 +55,8 @@ public final class LlmTagExtractor implements TagExtractor {
 
     private static final int MAX_TAGS = 30;
 
-    private static final String PROMPT_TEMPLATE = """
-            Extract 10 to 15 highly specific contextual tags from the following text.
-
-            Tag Formatting Rules:
-            1. All tags must be in lowercase.
-            2. Multi-word tags must be hyphenated instead of using spaces.
-            3. Do not include spaces, symbols, punctuation, or special characters (hyphens are allowed per rule 2).
-            4. Every tag must be directly derived from the text. Do not invent or infer tags that are not present.
-            5. Return ONLY a comma-separated list of tags. No markdown, no explanations, no preamble.
-
-            Text to extract from:
-            %s
-
-            Tags:""";
+    /** Classpath path to the tag extraction prompt template. */
+    private static final String PROMPT_RESOURCE = "prompts/tag-extraction.txt";
 
     private final TextGenerationProvider generator;
     private final TagExtractor fallback;
@@ -94,14 +83,20 @@ public final class LlmTagExtractor implements TagExtractor {
 
     @Override
     public String[] extract(String id, String text) {
+        return extractWithContext(id, text).tags();
+    }
+
+    @Override
+    public TagExtractionResult extractWithContext(String id, String text) {
         if (generator == null || !generator.isAvailable()) {
             log.info("[TagExtract] LLM unavailable for '{}', using fallback", truncId(id));
-            return fallback.extract(id, text);
+            return TagExtractionResult.tagsOnly(fallback.extract(id, text));
         }
 
         long startNs = System.nanoTime();
         try {
-            String prompt = String.format(PROMPT_TEMPLATE, text != null ? text : id);
+            String promptTemplate = ResourceUtils.loadResource(PROMPT_RESOURCE);
+            String prompt = String.format(promptTemplate, text != null ? text : id);
             log.debug("[TagExtract] LLM prompt for '{}': {} chars", truncId(id), prompt.length());
 
             String response = generator.generate(prompt);
@@ -110,14 +105,36 @@ public final class LlmTagExtractor implements TagExtractor {
             if (response == null || response.isBlank()) {
                 log.info("[TagExtract] LLM returned empty for '{}' ({}ms), using fallback",
                         truncId(id), elapsedMs);
-                return fallback.extract(id, text);
+                return TagExtractionResult.tagsOnly(fallback.extract(id, text));
             }
 
             log.debug("[TagExtract] LLM raw response for '{}': '{}'", truncId(id),
                     response.length() > 200 ? response.substring(0, 200) + "..." : response);
 
+            // Parse structured response: TAGS: ..., VALENCE: ..., AROUSAL: ...
+            String tagLine = null;
+            byte valence = 0;
+            byte arousal = 0;
+
+            for (String line : response.split("\\n")) {
+                String trimmed = line.trim();
+                if (trimmed.toUpperCase(Locale.ROOT).startsWith("TAGS:")) {
+                    tagLine = trimmed.substring(5).trim();
+                } else if (trimmed.toUpperCase(Locale.ROOT).startsWith("VALENCE:")) {
+                    valence = parseSignedByte(trimmed.substring(8).trim());
+                } else if (trimmed.toUpperCase(Locale.ROOT).startsWith("AROUSAL:")) {
+                    arousal = parseUnsignedByte(trimmed.substring(8).trim());
+                }
+            }
+
+            // Fall back to treating entire response as comma-separated tags
+            // (backward compat with older prompt format / models that don't follow structure)
+            if (tagLine == null) {
+                tagLine = response;
+            }
+
             // Parse comma-separated tags
-            String[] tags = Arrays.stream(response.split("[,;\\n]"))
+            String[] tags = Arrays.stream(tagLine.split("[,;]"))
                     .map(String::trim)
                     .map(s -> s.toLowerCase(Locale.ROOT))
                     .map(s -> s.replaceAll("[^a-z0-9\\- ]", ""))
@@ -132,18 +149,38 @@ public final class LlmTagExtractor implements TagExtractor {
             if (tags.length == 0) {
                 log.info("[TagExtract] LLM tags parsed to empty for '{}' (raw='{}', {}ms), using fallback",
                         truncId(id), response.trim(), elapsedMs);
-                return fallback.extract(id, text);
+                return TagExtractionResult.tagsOnly(fallback.extract(id, text));
             }
 
-            log.info("[TagExtract] LLM extracted {} tags for '{}' in {}ms: [{}]",
-                    tags.length, truncId(id), elapsedMs, String.join(", ", tags));
-            return tags;
+            log.info("[TagExtract] LLM extracted {} tags for '{}' in {}ms: [{}] (valence={}, arousal={})",
+                    tags.length, truncId(id), elapsedMs, String.join(", ", tags), valence, Byte.toUnsignedInt(arousal));
+            return new TagExtractionResult(tags, valence, arousal);
 
         } catch (Exception e) {
             long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
             log.warn("[TagExtract] LLM failed for '{}' in {}ms: {}, using fallback",
                     truncId(id), elapsedMs, e.getMessage());
-            return fallback.extract(id, text);
+            return TagExtractionResult.tagsOnly(fallback.extract(id, text));
+        }
+    }
+
+    /** Parse a signed byte value from LLM output, clamping to [-128, 127]. */
+    private static byte parseSignedByte(String s) {
+        try {
+            int val = Integer.parseInt(s.replaceAll("[^\\-0-9]", ""));
+            return (byte) Math.clamp(val, -128, 127);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /** Parse an unsigned byte value from LLM output, clamping to [0, 255]. */
+    private static byte parseUnsignedByte(String s) {
+        try {
+            int val = Integer.parseInt(s.replaceAll("[^0-9]", ""));
+            return (byte) Math.clamp(val, 0, 255);
+        } catch (NumberFormatException e) {
+            return 0;
         }
     }
 
