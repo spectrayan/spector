@@ -49,6 +49,7 @@ import java.util.List;
  * self-relevance matching via cosine similarity in
  * {@link SalienceProfile#computeSelfRelevanceBoost}.</p>
  *
+ * @param about               free-text self-reflection / bio ("Tell about yourself")
  * @param occupation          occupation text (e.g., "Software Engineer")
  * @param education           educational background entries
  * @param nationality         nationality (e.g., "American")
@@ -62,12 +63,16 @@ import java.util.List;
  * @param aspirations         goals and aspirations (e.g., ["Start a business"])
  * @param communicationStyle  communication style archetype
  * @param modifiers           derived scoring modifiers (computed at save time)
+ * @param aboutEmbedding      pre-computed embedding of about/bio text
  * @param occupationEmbedding pre-computed embedding of occupation text
  * @param educationEmbedding  pre-computed embedding of education degrees (concatenated)
  * @param valuesEmbedding     pre-computed embedding of values (concatenated)
  * @param aspirationsEmbedding pre-computed embedding of aspirations (concatenated)
  */
 public record PersonaContext(
+        // Self-reflection
+        String about,
+
         // Identity
         String occupation,
         List<Education> education,
@@ -92,6 +97,7 @@ public record PersonaContext(
         PersonalityModifiers modifiers,
 
         // Pre-computed embeddings
+        float[] aboutEmbedding,
         float[] occupationEmbedding,
         float[] educationEmbedding,
         float[] valuesEmbedding,
@@ -120,6 +126,9 @@ public record PersonaContext(
         if (modifiers == null) modifiers = PersonalityModifiers.NEUTRAL;
 
         // Defensive copy of embeddings
+        if (aboutEmbedding != null) {
+            aboutEmbedding = Arrays.copyOf(aboutEmbedding, aboutEmbedding.length);
+        }
         if (occupationEmbedding != null) {
             occupationEmbedding = Arrays.copyOf(occupationEmbedding, occupationEmbedding.length);
         }
@@ -138,6 +147,7 @@ public record PersonaContext(
      * No persona set — produces no scoring effect (full backward compatibility).
      */
     public static final PersonaContext NONE = new PersonaContext(
+            null,
             null, List.of(), null, List.of(),
             CulturalIdentity.NONE,
             BigFiveTraits.NEUTRAL, EmotionalIntelligence.NEUTRAL,
@@ -145,7 +155,7 @@ public record PersonaContext(
             List.of(), List.of(), List.of(),
             null,
             PersonalityModifiers.NEUTRAL,
-            null, null, null, null);
+            null, null, null, null, null);
 
     /**
      * Returns true if this persona has any meaningful identity data.
@@ -153,7 +163,8 @@ public record PersonaContext(
      * is effectively absent.
      */
     public boolean isPresent() {
-        return (occupation != null && !occupation.isBlank())
+        return (about != null && !about.isBlank())
+                || (occupation != null && !occupation.isBlank())
                 || !education.isEmpty()
                 || culturalIdentity.isPresent()
                 || !bigFive.isNeutral()
@@ -168,7 +179,8 @@ public record PersonaContext(
      * for self-relevance matching.
      */
     public boolean hasEmbeddings() {
-        return (occupationEmbedding != null && occupationEmbedding.length > 0)
+        return (aboutEmbedding != null && aboutEmbedding.length > 0)
+                || (occupationEmbedding != null && occupationEmbedding.length > 0)
                 || (educationEmbedding != null && educationEmbedding.length > 0)
                 || (valuesEmbedding != null && valuesEmbedding.length > 0)
                 || (aspirationsEmbedding != null && aspirationsEmbedding.length > 0)
@@ -186,6 +198,7 @@ public record PersonaContext(
      * Builder for {@link PersonaContext}.
      */
     public static final class Builder {
+        private String about;
         private String occupation;
         private java.util.List<Education> education = new java.util.ArrayList<>();
         private String nationality;
@@ -199,10 +212,17 @@ public record PersonaContext(
         private java.util.List<String> aspirations = new java.util.ArrayList<>();
         private CommunicationStyle communicationStyle;
         private PersonalityModifiers modifiers;
+        private float[] aboutEmbedding;
         private float[] occupationEmbedding;
         private float[] educationEmbedding;
         private float[] valuesEmbedding;
         private float[] aspirationsEmbedding;
+
+        /** Sets the about/bio text. */
+        public Builder about(String about) {
+            this.about = about;
+            return this;
+        }
 
         /** Sets the occupation. */
         public Builder occupation(String occupation) {
@@ -306,6 +326,12 @@ public record PersonaContext(
             return this;
         }
 
+        /** Sets about/bio embedding. */
+        public Builder aboutEmbedding(float[] embedding) {
+            this.aboutEmbedding = embedding;
+            return this;
+        }
+
         /** Sets occupation embedding. */
         public Builder occupationEmbedding(float[] embedding) {
             this.occupationEmbedding = embedding;
@@ -342,13 +368,14 @@ public record PersonaContext(
                     : PersonalityModifiers.derive(bigFive, emotionalIntelligence, stressResponse);
 
             return new PersonaContext(
+                    about,
                     occupation, education, nationality, languages,
                     culturalIdentity,
                     bigFive, emotionalIntelligence, stressResponse,
                     values, fears, aspirations,
                     communicationStyle,
                     effectiveModifiers,
-                    occupationEmbedding, educationEmbedding,
+                    aboutEmbedding, occupationEmbedding, educationEmbedding,
                     valuesEmbedding, aspirationsEmbedding);
         }
     }
@@ -357,7 +384,8 @@ public record PersonaContext(
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof PersonaContext other)) return false;
-        return java.util.Objects.equals(occupation, other.occupation)
+        return java.util.Objects.equals(about, other.about)
+                && java.util.Objects.equals(occupation, other.occupation)
                 && java.util.Objects.equals(education, other.education)
                 && java.util.Objects.equals(nationality, other.nationality)
                 && java.util.Objects.equals(languages, other.languages)
@@ -370,6 +398,7 @@ public record PersonaContext(
                 && java.util.Objects.equals(aspirations, other.aspirations)
                 && communicationStyle == other.communicationStyle
                 && java.util.Objects.equals(modifiers, other.modifiers)
+                && Arrays.equals(aboutEmbedding, other.aboutEmbedding)
                 && Arrays.equals(occupationEmbedding, other.occupationEmbedding)
                 && Arrays.equals(educationEmbedding, other.educationEmbedding)
                 && Arrays.equals(valuesEmbedding, other.valuesEmbedding)
@@ -378,9 +407,10 @@ public record PersonaContext(
 
     @Override
     public int hashCode() {
-        int result = java.util.Objects.hash(occupation, education, nationality, languages,
+        int result = java.util.Objects.hash(about, occupation, education, nationality, languages,
                 culturalIdentity, bigFive, emotionalIntelligence, stressResponse,
                 values, fears, aspirations, communicationStyle, modifiers);
+        result = 31 * result + Arrays.hashCode(aboutEmbedding);
         result = 31 * result + Arrays.hashCode(occupationEmbedding);
         result = 31 * result + Arrays.hashCode(educationEmbedding);
         result = 31 * result + Arrays.hashCode(valuesEmbedding);
@@ -390,7 +420,8 @@ public record PersonaContext(
 
     @Override
     public String toString() {
-        return "PersonaContext[occupation=" + occupation
+        return "PersonaContext[about=" + (about != null ? about.length() + " chars" : "null")
+                + ", occupation=" + occupation
                 + ", education=" + education.size() + " entries"
                 + ", bigFive=" + (bigFive.isNeutral() ? "NEUTRAL" : bigFive)
                 + ", eq=" + (emotionalIntelligence.isNeutral() ? "NEUTRAL" : emotionalIntelligence)
