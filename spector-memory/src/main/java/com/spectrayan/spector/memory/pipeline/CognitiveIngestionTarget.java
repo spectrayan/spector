@@ -243,6 +243,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         return salienceProfile;
     }
 
+    /** Returns the configured tag extractor (LLM or content-based). */
+    public TagExtractor tagExtractor() {
+        return tagExtractor;
+    }
+
     /**
      * Legacy constructor — defaults normalizeAtIngest to {@code true}, no graph components.
      */
@@ -389,6 +394,17 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
+        // Step 3d: Persona self-relevance boost (mPFC self-reference analog)
+        if (salienceProfile.hasPersona()) {
+            float selfBoost = salienceProfile.computeSelfRelevanceBoost(vector);
+            if (selfBoost != 1.0f) {
+                float preBoost = importance;
+                importance = Math.clamp(importance * selfBoost, 0.05f, 10.0f);
+                log.debug("Persona self-relevance boost: id={}, pre={}, post={}, boost={}",
+                        id, preBoost, importance, selfBoost);
+            }
+        }
+
         // Step 4: Flashbulb check — extreme surprise gets full fidelity
         double zScore = surpriseDetector.stats().zScore(nearestDist);
         var flashbulb = flashbulbPolicy.evaluate(zScore);
@@ -400,8 +416,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Step 6: Build cognitive header (with emotional context from hints)
         float l2Norm = computeL2Norm(vector);
-        byte valence = (hints != null) ? hints.valence() : (byte) 0;
-        byte arousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
+        byte rawValence = (hints != null) ? hints.valence() : (byte) 0;
+        byte rawArousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
+        // Step 6a: Personality-modulated emotional encoding
+        byte valence = salienceProfile.modulateValence(rawValence);
+        byte arousal = salienceProfile.modulateArousal(rawArousal);
         CognitiveHeader header = new CognitiveHeader(
                 System.currentTimeMillis(), synapticTags, l2Norm, importance,
                 0, (short) 0, valence, flags, arousal, 1.0f);
@@ -753,6 +772,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
+        // Persona self-relevance boost (mPFC self-reference analog)
+        if (salienceProfile.hasPersona()) {
+            float selfBoost = salienceProfile.computeSelfRelevanceBoost(vector);
+            if (selfBoost != 1.0f) {
+                importance = Math.clamp(importance * selfBoost, 0.05f, 10.0f);
+            }
+        }
+
         // Step 4: Flashbulb check
         double zScore = surpriseDetector.stats().zScore(nearestDist);
         var flashbulb = flashbulbPolicy.evaluate(zScore);
@@ -770,8 +797,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Step 6: Build cognitive header (use override timestamp if provided)
         float l2Norm = computeL2Norm(vector);
-        byte valence = (hints != null) ? hints.valence() : (byte) 0;
-        byte arousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
+        byte rawValence = (hints != null) ? hints.valence() : (byte) 0;
+        byte rawArousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
+        // Personality-modulated emotional encoding
+        byte valence = salienceProfile.modulateValence(rawValence);
+        byte arousal = salienceProfile.modulateArousal(rawArousal);
         long timestampMs = context.effectiveTimestampMs();
         CognitiveHeader header = new CognitiveHeader(
                 timestampMs, synapticTags, l2Norm, importance,
