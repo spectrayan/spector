@@ -41,6 +41,12 @@ public class IngestionTaskService {
         this.nodeId = nodeId;
     }
 
+    /** Returns the event bus (exposed for subclass event publishing). */
+    protected SpectorEventBus eventBus() { return eventBus; }
+
+    /** Returns the node ID (exposed for subclass event publishing). */
+    protected String nodeId() { return nodeId; }
+
     /**
      * Submits an async task that runs the given work on a virtual thread.
      *
@@ -54,12 +60,15 @@ public class IngestionTaskService {
         tasks.put(task.taskId(), task);
         log.info("Task submitted: {} ({})", task.taskId(), task.description());
 
+        // Allow subclasses to wrap the work with context propagation (e.g., auth context)
+        Runnable wrappedWork = wrapWork(work);
+
         ConcurrentTasks.fireAndForget(() -> {
             try {
                 task.setRunning();
                 publishProgress(task);
 
-                work.run();
+                wrappedWork.run();
 
                 task.setCompleted();
                 publishCompletion(task);
@@ -73,6 +82,20 @@ public class IngestionTaskService {
                 scheduleCleanup(task.taskId());
             }
         });
+    }
+
+    /**
+     * Wraps the work Runnable with request-scoped context propagation.
+     *
+     * <p>Override in enterprise subclass to capture and restore
+     * authentication context, tenant context, etc. into the background
+     * virtual thread that executes the work.</p>
+     *
+     * @param work the original work to execute
+     * @return a Runnable that restores context before running work
+     */
+    protected Runnable wrapWork(Runnable work) {
+        return work;  // no-op in core — subclass overrides for context propagation
     }
 
     /**
@@ -91,10 +114,43 @@ public class IngestionTaskService {
         return tasks.get(taskId);
     }
 
+    /**
+     * Returns a task by ID only if it belongs to the given user.
+     *
+     * <p>In multi-tenant mode, prevents User A from accessing User B's task
+     * metadata (which contains filenames and ingestion progress).</p>
+     *
+     * @param taskId the task ID
+     * @param userId the requesting user's ID (null = no filtering)
+     * @return the task if it belongs to the user, or null
+     */
+    public IngestionTask getTaskForUser(String taskId, String userId) {
+        IngestionTask task = tasks.get(taskId);
+        if (task == null) return null;
+        if (userId == null || task.userId() == null) return task;
+        return userId.equals(task.userId()) ? task : null;
+    }
+
     /** Returns all active (non-terminal) tasks. */
     public List<IngestionTask> getActiveTasks() {
         return tasks.values().stream()
                 .filter(t -> !t.isTerminal())
+                .toList();
+    }
+
+    /**
+     * Returns active tasks scoped to a specific user.
+     *
+     * <p>In multi-tenant mode, ensures User A only sees their own tasks,
+     * preventing disclosure of filenames and ingestion activity.</p>
+     *
+     * @param userId the user ID to filter by (null = return all)
+     * @return tasks belonging to the given user
+     */
+    public List<IngestionTask> getActiveTasksForUser(String userId) {
+        return tasks.values().stream()
+                .filter(t -> !t.isTerminal())
+                .filter(t -> userId == null || t.userId() == null || userId.equals(t.userId()))
                 .toList();
     }
 
@@ -103,9 +159,23 @@ public class IngestionTaskService {
         return List.copyOf(tasks.values());
     }
 
+    /**
+     * Returns all tasks scoped to a specific user.
+     *
+     * @param userId the user ID to filter by (null = return all)
+     * @return tasks belonging to the given user
+     */
+    public List<IngestionTask> getAllTasksForUser(String userId) {
+        if (userId == null) return List.copyOf(tasks.values());
+        return tasks.values().stream()
+                .filter(t -> t.userId() == null || userId.equals(t.userId()))
+                .toList();
+    }
+
+
     // ── SSE Publishing ──────────────────────────────────────────────
 
-    private void publishProgress(IngestionTask task) {
+    protected void publishProgress(IngestionTask task) {
         eventBus.publish(new SpectorIngestionProgressEvent(
                 nodeId, Instant.now(),
                 task.taskId(), task.description(),
@@ -113,7 +183,7 @@ public class IngestionTaskService {
                 task.failures(), task.progressPercent()));
     }
 
-    private void publishCompletion(IngestionTask task) {
+    protected void publishCompletion(IngestionTask task) {
         eventBus.publish(new SpectorIngestionCompletedEvent(
                 nodeId, Instant.now(),
                 task.taskId(), task.description(),

@@ -26,6 +26,7 @@ public final class IngestionTask {
     private volatile TaskStatus status = TaskStatus.ACCEPTED;
     private volatile String errorMessage;
     private volatile Instant completedAt;
+    private volatile String userId;
 
     public IngestionTask(String taskId, String description, TaskType type) {
         this.taskId = taskId;
@@ -45,6 +46,18 @@ public final class IngestionTask {
     public TaskStatus status() { return status; }
     public String errorMessage() { return errorMessage; }
     public Instant completedAt() { return completedAt; }
+
+    /**
+     * Returns the user ID that owns this task (nullable in OSS mode).
+     * Used for multi-tenant isolation — ensures users only see their own tasks.
+     */
+    public String userId() { return userId; }
+
+    /**
+     * Sets the owning user ID. Called at task creation time from the enterprise
+     * layer after capturing the auth context.
+     */
+    public void setUserId(String userId) { this.userId = userId; }
 
     // ── Mutators (called by worker thread) ──
     public void setRunning() { this.status = TaskStatus.RUNNING; }

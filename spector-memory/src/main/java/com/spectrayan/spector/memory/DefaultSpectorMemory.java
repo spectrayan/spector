@@ -69,6 +69,7 @@ import com.spectrayan.spector.memory.model.WhyNotExplanation;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
 import com.spectrayan.spector.memory.pipeline.RecallPipeline;
@@ -782,16 +783,21 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         List<String> chunkTexts = chunks.stream().map(TextChunker.Chunk::text).toList();
         List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(chunkTexts, EmbedConfig.DEFAULT);
 
-        // Build per-chunk tags: caller tags + parent ID tag
+        // Provenance tags from the caller (e.g., "file-ingest", filename) — shared across chunks
         String parentTag = sanitizeTag(id);
-        String[] chunkTags;
+        String[] provenanceTags;
         if (tags != null && tags.length > 0) {
-            chunkTags = new String[tags.length + 1];
-            System.arraycopy(tags, 0, chunkTags, 0, tags.length);
-            chunkTags[tags.length] = parentTag;
+            provenanceTags = new String[tags.length + 1];
+            System.arraycopy(tags, 0, provenanceTags, 0, tags.length);
+            provenanceTags[tags.length] = parentTag;
         } else {
-            chunkTags = new String[]{ parentTag };
+            provenanceTags = new String[]{ parentTag };
         }
+
+        // Per-chunk tag extraction — each chunk gets its own content-derived tags
+        // merged with the shared provenance tags.
+        // Use the configured tag extractor (LLM when available, content-based fallback).
+        var chunkTagExtractor = cognitiveTarget.tagExtractor();
 
         int stored = 0;
         List<String> failures = new ArrayList<>();
@@ -805,6 +811,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 log.warn("[Remember] Embedding failed for chunk '{}': {}", chunk.chunkId(), embedding.error());
                 continue;
             }
+
+            // Extract content-specific tags from this chunk's text
+            String[] contentTags = chunkTagExtractor.extract(chunk.chunkId(), chunk.text());
+
+            // Merge provenance + per-chunk content tags (deduplicated)
+            var mergedSet = new java.util.LinkedHashSet<String>();
+            for (String pt : provenanceTags) mergedSet.add(pt);
+            for (String ct : contentTags) mergedSet.add(ct);
+            String[] chunkTags = mergedSet.toArray(String[]::new);
 
             try {
                 if (context != null) {

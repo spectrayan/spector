@@ -8,12 +8,34 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.events.LocalNotificationTransport;
+import com.spectrayan.spector.events.NotificationScope;
+import com.spectrayan.spector.events.NotificationTransport;
+import com.spectrayan.spector.events.SubscriberIdentity;
 
 /**
- * Thread-safe publish/subscribe event bus for Spector node events.
+ * Unified event bus for Spector — implements {@link NotificationTransport}.
  *
- * <p>Implements the Observer pattern. Any component can publish events,
- * and any number of subscribers can listen.</p>
+ * <p>Provides both the legacy {@code subscribe(Consumer)} API for internal domain
+ * event listeners and the new scope-aware {@code subscribe(SubscriberIdentity, Consumer)}
+ * API for client-facing notification delivery.</p>
+ *
+ * <h3>Architecture</h3>
+ * <pre>
+ *   eventBus.publish(event)
+ *       │
+ *       ├── Legacy subscribers  (subscribe(Consumer))  — receive ALL events, no scope filtering
+ *       │                                                (analytics CDC, metrics, audit)
+ *       │
+ *       └── Scoped subscribers  (subscribe(Identity, Consumer)) — receive only matching events
+ *                                                                  (SSE clients, per-user delivery)
+ * </pre>
+ *
+ * <h3>Transport Delegation</h3>
+ * <p>Scope-aware delivery is delegated to a pluggable {@link NotificationTransport}.
+ * By default, uses {@link LocalNotificationTransport} (in-memory, single-pod).
+ * In multi-pod deployments, inject a {@code RedisStreamTransport} for cross-pod
+ * fan-out via Redis Streams.</p>
  *
  * <h3>Dispatch Modes</h3>
  * <ul>
@@ -29,54 +51,69 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
  * <pre>{@code
  *   SpectorEventBus eventBus = new SpectorEventBus();
  *
- *   // Subscribe
- *   SpectorEventBus.Subscription sub = eventBus.subscribe(event -> {
- *       if (event instanceof SpectorSearchCompletedEvent e) {
- *           log.info("Search completed: {} results", e.resultCount());
- *       }
- *   });
+ *   // Legacy subscribe (all events, no filtering)
+ *   eventBus.subscribe(event -> { ... });
+ *
+ *   // Scoped subscribe (only matching events)
+ *   var identity = SubscriberIdentity.ofUser("user-1", "acme");
+ *   eventBus.subscribe(identity, event -> { ... });
  *
  *   // Publish
- *   eventBus.publish(new SpectorSearchCompletedEvent("node-1", Instant.now(), 5, 12L, "HYBRID"));
+ *   eventBus.publish(new SpectorSearchCompletedEvent(...));
  *
- *   // Unsubscribe
  *   sub.cancel();
  * }</pre>
  *
- * <h3>Thread Safety</h3>
- * <p>Uses {@link CopyOnWriteArrayList} for lock-free reads during event
- * dispatch. Suitable for high-throughput event publishing with infrequent
- * subscribe/unsubscribe operations.</p>
+ * @see NotificationTransport
+ * @see NotificationScope
  */
-public class SpectorEventBus {
+public class SpectorEventBus implements NotificationTransport<SpectorEvent> {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorEventBus.class);
 
     /** System property to enable async event dispatch on virtual threads. */
     private static final String ASYNC_PROP = "spector.events.async";
 
-    private final List<Consumer<SpectorEvent>> subscribers = new CopyOnWriteArrayList<>();
+    // Legacy subscribers — receive ALL events (no scope filtering)
+    private final List<Consumer<SpectorEvent>> legacySubscribers = new CopyOnWriteArrayList<>();
+
+    // Scope-aware transport for filtered delivery (SSE clients)
+    private final NotificationTransport<SpectorEvent> transport;
     private final boolean asyncMode;
 
+    /**
+     * Creates an event bus with the default {@link LocalNotificationTransport}.
+     */
     public SpectorEventBus() {
+        this(new LocalNotificationTransport<>(SpectorEvent::scope));
+    }
+
+    /**
+     * Creates an event bus with a custom notification transport.
+     *
+     * <p>Use this constructor to inject a distributed transport (Redis Streams,
+     * NATS) for multi-pod deployments.</p>
+     *
+     * @param transport the notification transport for scope-aware delivery
+     */
+    public SpectorEventBus(NotificationTransport<SpectorEvent> transport) {
+        this.transport = transport;
         this.asyncMode = Boolean.getBoolean(ASYNC_PROP);
         if (asyncMode) {
             log.info("Event bus initialized in ASYNC mode (virtual threads via ConcurrentTasks)");
         }
     }
 
+    // ── Publishing ──────────────────────────────────────────────────
+
     /**
-     * Publishes an event to all subscribers.
+     * Publishes an event to all subscribers (both legacy and scoped).
      *
-     * <p>In synchronous mode, exceptions thrown by individual subscribers are caught
-     * and logged to prevent one failing subscriber from blocking others.</p>
-     *
-     * <p>In async mode, each subscriber is dispatched via
-     * {@link ConcurrentTasks#fireAndForget(Runnable)} on its own virtual thread.
-     * This prevents slow SSE serialization from blocking the search pipeline.</p>
-     *
-     * @param event the event to publish
+     * <p>Legacy subscribers receive every event unconditionally. Scoped subscribers
+     * receive events only if their {@link SubscriberIdentity} matches the event's
+     * {@link NotificationScope}.</p>
      */
+    @Override
     public void publish(SpectorEvent event) {
         if (asyncMode) {
             publishAsync(event);
@@ -86,7 +123,8 @@ public class SpectorEventBus {
     }
 
     private void publishSync(SpectorEvent event) {
-        for (Consumer<SpectorEvent> subscriber : subscribers) {
+        // Deliver to legacy subscribers (all events, no filtering)
+        for (Consumer<SpectorEvent> subscriber : legacySubscribers) {
             try {
                 subscriber.accept(event);
             } catch (Exception e) {
@@ -94,31 +132,65 @@ public class SpectorEventBus {
                         event.eventType(), e.getMessage(), e);
             }
         }
+        // Deliver to scoped subscribers via transport
+        transport.publish(event);
     }
 
     private void publishAsync(SpectorEvent event) {
-        for (Consumer<SpectorEvent> subscriber : subscribers) {
+        for (Consumer<SpectorEvent> subscriber : legacySubscribers) {
             ConcurrentTasks.fireAndForget(() -> subscriber.accept(event));
         }
+        ConcurrentTasks.fireAndForget(() -> transport.publish(event));
+    }
+
+    // ── Scoped Subscribe (NotificationTransport SPI) ────────────────
+
+    /**
+     * Subscribes with scope-aware filtering via the notification transport.
+     *
+     * <p>The subscriber only receives events whose {@link NotificationScope}
+     * matches the provided {@link SubscriberIdentity}.</p>
+     */
+    @Override
+    public NotificationTransport.Subscription subscribe(SubscriberIdentity identity,
+                                                         Consumer<SpectorEvent> listener) {
+        return transport.subscribe(identity, listener);
     }
 
     /**
-     * Subscribes to all events.
+     * Subscribes to all events regardless of scope (broadcast listener).
+     *
+     * <p>Delegates to the transport's {@code subscribeAll} which bypasses
+     * scope matching.</p>
+     */
+    @Override
+    public NotificationTransport.Subscription subscribeAll(Consumer<SpectorEvent> listener) {
+        return transport.subscribeAll(listener);
+    }
+
+    // ── Legacy Subscribe (backward compatibility) ───────────────────
+
+    /**
+     * Subscribes to all events without scope filtering (legacy API).
+     *
+     * <p>Used by internal components (analytics CDC, metrics publishers, audit loggers)
+     * that need to observe every event regardless of scope. For client-facing
+     * subscriptions (SSE), use {@link #subscribe(SubscriberIdentity, Consumer)}.</p>
      *
      * @param subscriber the event handler
      * @return a subscription handle that can be cancelled
      */
     public Subscription subscribe(Consumer<SpectorEvent> subscriber) {
-        subscribers.add(subscriber);
-        log.debug("Event subscriber added (total: {})", subscribers.size());
+        legacySubscribers.add(subscriber);
+        log.debug("Legacy event subscriber added (total: {})", legacySubscribers.size());
         return () -> {
-            subscribers.remove(subscriber);
-            log.debug("Event subscriber removed (total: {})", subscribers.size());
+            legacySubscribers.remove(subscriber);
+            log.debug("Legacy event subscriber removed (total: {})", legacySubscribers.size());
         };
     }
 
     /**
-     * Subscribes to events of a specific type only.
+     * Subscribes to events of a specific type only (legacy API).
      *
      * @param eventType  the event class to filter for
      * @param subscriber the typed event handler
@@ -132,18 +204,41 @@ public class SpectorEventBus {
                 subscriber.accept((T) event);
             }
         };
-        subscribers.add(wrapped);
-        return () -> subscribers.remove(wrapped);
+        legacySubscribers.add(wrapped);
+        return () -> legacySubscribers.remove(wrapped);
     }
 
-    /** Returns the current subscriber count (for monitoring). */
+    // ── Introspection ───────────────────────────────────────────────
+
+    /** Returns the total subscriber count (legacy + scoped). */
+    @Override
     public int subscriberCount() {
-        return subscribers.size();
+        return legacySubscribers.size() + transport.subscriberCount();
+    }
+
+    /** Returns the legacy subscriber count only. */
+    public int legacySubscriberCount() {
+        return legacySubscribers.size();
     }
 
     /** Returns whether async dispatch mode is enabled. */
     public boolean isAsyncMode() {
         return asyncMode;
+    }
+
+    /** Returns the underlying notification transport. */
+    public NotificationTransport<SpectorEvent> transport() {
+        return transport;
+    }
+
+    @Override
+    public void close() {
+        legacySubscribers.clear();
+        try {
+            transport.close();
+        } catch (Exception e) {
+            log.warn("Error closing notification transport: {}", e.getMessage(), e);
+        }
     }
 
     /**

@@ -2,6 +2,8 @@ package com.spectrayan.spector.node.event;
 
 import java.time.Instant;
 
+import com.spectrayan.spector.events.NotificationScope;
+
 /**
  * Sealed base interface for all Spector node events.
  *
@@ -18,6 +20,12 @@ import java.time.Instant;
  *   <li><b>MCP</b>: Client connected, disconnected, tool executed</li>
  *   <li><b>Engine</b>: Index rebuilt, embedding provider changed</li>
  * </ul>
+ *
+ * <h3>Notification Scoping</h3>
+ * <p>Each event declares a {@link NotificationScope} via {@link #scope()} that
+ * determines which subscribers receive it. Override {@code scope()} in event
+ * records to restrict delivery — e.g., ingestion events return
+ * {@code NotificationScope.user(userId)} so only the initiating user sees them.</p>
  *
  * <h3>Usage</h3>
  * <pre>{@code
@@ -77,4 +85,36 @@ public sealed interface SpectorEvent permits
 
     /** Event type name (e.g., "search.completed"). Used in SSE {@code event:} field. */
     String eventType();
+
+    /**
+     * Notification scope — determines which subscribers receive this event.
+     *
+     * <p>Defaults to {@link NotificationScope#BROADCAST} (all subscribers).
+     * Override in event records to restrict delivery:</p>
+     * <ul>
+     *   <li>{@link NotificationScope.User} — ingestion progress, query traces</li>
+     *   <li>{@link NotificationScope.Tenant} — memory diagnostics, graph pulses</li>
+     *   <li>{@link NotificationScope.Global} — node health, cluster topology</li>
+     *   <li>{@link NotificationScope.Agent} — MCP tool execution results</li>
+     *   <li>{@link NotificationScope.Topic} — named channels (ops-alerts, etc.)</li>
+     * </ul>
+     *
+     * @return the notification scope for this event
+     * @see NotificationScope
+     */
+    default NotificationScope scope() { return NotificationScope.BROADCAST; }
+
+    /**
+     * Target user ID for user-scoped event delivery.
+     *
+     * @deprecated Use {@link #scope()} instead. This method is retained for
+     *             backward compatibility and delegates to the scope model:
+     *             returns the userId if scope is {@link NotificationScope.User},
+     *             otherwise null.
+     * @return the target user ID, or null for non-user-scoped events
+     */
+    @Deprecated(since = "1.5.0", forRemoval = true)
+    default String targetUserId() {
+        return scope() instanceof NotificationScope.User u ? u.userId() : null;
+    }
 }

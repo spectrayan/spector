@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
+import com.spectrayan.spector.memory.pipeline.TagExtractor;
 import com.spectrayan.spector.node.api.ApiModule;
 import com.spectrayan.spector.node.api.dto.FileMemoryRequest;
 import com.spectrayan.spector.node.api.dto.IntrospectRequest;
@@ -67,7 +67,7 @@ public class MemoryEndpoint implements ApiModule {
     private final MemoryService memoryService;
     private final IngestionHandler ingestionHandler; // nullable — only when runtime is present
     private final IngestionTaskService taskService;
-    private final ContentTagExtractor tagExtractor = new ContentTagExtractor();
+
 
     public MemoryEndpoint(MemoryService memoryService) {
         this(memoryService, null, new IngestionTaskService(
@@ -102,11 +102,14 @@ public class MemoryEndpoint implements ApiModule {
                     (byte) Math.clamp(arousal, 0, 255));
         }
 
-        // Auto-generate tags from text content if none were provided
+        // Auto-generate tags from text content if none were provided.
+        // Use the configured tag extractor (LLM when available, content-based fallback).
         String[] tags = request.tagsArray();
         if (tags.length == 0 && request.text() != null && !request.text().isBlank()) {
-            tags = tagExtractor.extract(request.id(), request.text());
-            log.info("Auto-generated {} tags for memory: [{}]", tags.length, String.join(", ", tags));
+            TagExtractor extractor = memoryService.memory().target().tagExtractor();
+            tags = extractor.extract(request.id(), request.text());
+            log.info("Auto-generated {} tags for memory via {}: [{}]",
+                    tags.length, extractor.getClass().getSimpleName(), String.join(", ", tags));
         }
 
         String effectiveId;
@@ -152,7 +155,8 @@ public class MemoryEndpoint implements ApiModule {
 
         String originalName = file.filename() != null ? file.filename() : "uploaded-file";
         Path tempFile = file.path();
-        log.info("File upload received: name={}, size={} bytes", originalName, tempFile.toFile().length());
+        long fileSize = tempFile.toFile().length();
+        log.info("File upload received: name={}, size={} bytes", originalName, fileSize);
 
         var tsidGen = new com.spectrayan.spector.memory.id.TsidGenerator();
         String documentId = tsidGen.generate();
@@ -160,27 +164,74 @@ public class MemoryEndpoint implements ApiModule {
         var task = new IngestionTask(
                 documentId, "Ingest: " + originalName, IngestionTask.TaskType.FILE_INGEST);
 
+        // Read file content on the request thread — Armeria cleans up multipart
+        // temp files after the response is sent, so the background thread may
+        // find the file already deleted.
+        final String content;
+        try {
+            content = java.nio.file.Files.readString(tempFile);
+        } catch (Exception e) {
+            return HttpResponse.of(HttpStatus.BAD_REQUEST, MediaType.PLAIN_TEXT_UTF_8,
+                    "Failed to read uploaded file: " + e.getMessage());
+        }
+        if (content.isBlank()) {
+            return HttpResponse.of(HttpStatus.BAD_REQUEST, MediaType.PLAIN_TEXT_UTF_8,
+                    "Uploaded file is empty");
+        }
+
+        // Detect content type from file extension
+        String contentType = detectContentType(originalName);
+
+        // Provenance tags only — per-chunk content tags are extracted by
+        // CognitiveIngestionTarget's built-in TagExtractor on each chunk's text,
+        // not from the full file. This ensures each chunk gets relevant tags.
+        String[] provenanceTags = new String[] { "file-ingest", originalName };
+        log.info("File provenance tags: {} for {}", java.util.Arrays.toString(provenanceTags), originalName);
+
+        // Build rich metadata via IngestionContext — flows through to
+        // index.register() so every chunk carries file-level metadata.
+        var ingestionContext = com.spectrayan.spector.memory.model.IngestionContext.builder()
+                .metadata("fileName", originalName)
+                .metadata("file_size_bytes", String.valueOf(fileSize))
+                .metadata("content_type", contentType)
+                .metadata("ingestion_timestamp", String.valueOf(System.currentTimeMillis()))
+                .sourceModality(com.spectrayan.spector.memory.model.SourceModality.TEXT)
+                .build();
+
         taskService.submit(task, () -> {
             try {
-                IngestionResult result = ingestionHandler.ingest(tempFile, documentId);
-                task.setTotalChunks(result.chunksStored());
-                for (int i = 0; i < result.chunksStored(); i++) {
-                    taskService.reportChunkStored(task);
-                }
+                MemoryType memTier = MemoryType.valueOf(tier);
+                MemorySource memSource = MemorySource.valueOf(source);
 
-                // Store filename metadata on each ingested chunk's index entry.
-                // Chunk IDs follow the convention: docId (single) or docId::chunk-N (chunked).
-                if (memoryService.memory() != null) {
-                    var index = memoryService.memory().admin().index();
-                    var meta = java.util.Map.of("fileName", originalName);
-                    // Apply to the parent doc ID and all chunk IDs
-                    index.putMetadata(documentId, meta);
-                    for (int ci = 0; ci < result.chunksStored(); ci++) {
-                        index.putMetadata(documentId + "::chunk-" + ci, meta);
+                // Use IngestionContext-based remember() which:
+                // 1. Routes through memory() → EnterpriseMemoryService.getActiveMemory()
+                //    for per-user namespace isolation
+                // 2. Passes metadata through to index.register() via the 6-arg overload
+                // 3. Lets CognitiveIngestionTarget extract per-chunk tags internally
+                memoryService.memory().remember(documentId, content, memTier, memSource,
+                        ingestionContext, provenanceTags).join();
+
+                // Count chunks stored (memory handles chunking internally)
+                int chunksStored = 1;
+                var memory = memoryService.memory();
+                if (memory != null) {
+                    var index = memory.admin().index();
+                    for (int ci = 0; ci < 1000; ci++) {
+                        if (index.locate(documentId + "::chunk-" + ci) != null) {
+                            chunksStored = ci + 1;
+                        } else {
+                            break;
+                        }
                     }
                 }
 
-                log.info("File ingested: {} (id={}) → {} chunks", originalName, documentId, result.chunksStored());
+                task.setTotalChunks(chunksStored);
+                for (int i = 0; i < chunksStored; i++) {
+                    taskService.reportChunkStored(task);
+                }
+
+                log.info("File ingested: {} (id={}) -> {} chunks, metadata={}", originalName,
+                        documentId, chunksStored, ingestionContext.metadata());
             } catch (Exception e) {
                 throw new RuntimeException("File ingestion failed for '" + originalName + "': " + e.getMessage(), e);
             }
@@ -548,5 +599,25 @@ public class MemoryEndpoint implements ApiModule {
                 "durationMs", task.durationMs(),
                 "startedAt", task.startedAt().toString()
         ));
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
+
+    /** Detects content type from file extension for metadata enrichment. */
+    private static String detectContentType(String fileName) {
+        if (fileName == null) return "application/octet-stream";
+        String lower = fileName.toLowerCase(java.util.Locale.ROOT);
+        if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "text/markdown";
+        if (lower.endsWith(".txt")) return "text/plain";
+        if (lower.endsWith(".json")) return "application/json";
+        if (lower.endsWith(".xml")) return "application/xml";
+        if (lower.endsWith(".html") || lower.endsWith(".htm")) return "text/html";
+        if (lower.endsWith(".csv")) return "text/csv";
+        if (lower.endsWith(".pdf")) return "application/pdf";
+        if (lower.endsWith(".java")) return "text/x-java-source";
+        if (lower.endsWith(".py")) return "text/x-python";
+        if (lower.endsWith(".js") || lower.endsWith(".ts")) return "text/javascript";
+        if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "text/yaml";
+        return "application/octet-stream";
     }
 }

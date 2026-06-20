@@ -55,9 +55,48 @@ public final class ContentTagExtractor implements TagExtractor {
     /** Maximum content-derived tags (path tags get priority). */
     private static final int MAX_CONTENT_TAGS = 5;
 
-    private static final Pattern SPLIT_PATTERN = Pattern.compile("[/\\\\._\\-:\\s]+");
-    private static final Pattern ALPHA_ONLY = Pattern.compile("[^a-z0-9]");
+    /**
+     * Splits path-style document IDs into segments.
+     * Does NOT split on hyphens — compound terms like "ha-scaling-replication"
+     * and "fault-tolerant" should remain intact as single tags.
+     */
+    private static final Pattern PATH_SPLIT_PATTERN = Pattern.compile("[/\\\\.:\\s]+");
+
+    /**
+     * Splits content text into word candidates.
+     * Splits on whitespace, commas, semicolons, pipes, and sentence-ending punctuation.
+     * Preserves hyphens and underscores within words (e.g., "fault-tolerant", "DATE_TIME").
+     */
+    private static final Pattern CONTENT_SPLIT_PATTERN = Pattern.compile("[\\s,;|()\\[\\]{}#*>]+");
+
+    /**
+     * Cleans tag text — keeps alphanumeric, hyphens, and underscores.
+     * Hyphens connect compound terms ("multi-tenant"), underscores connect
+     * entity/relationship types ("DATE_TIME", "WORKS_AT").
+     */
+    private static final Pattern TAG_CLEAN = Pattern.compile("[^a-z0-9_-]");
     private static final Pattern NUMERIC_ONLY = Pattern.compile("^\\d+$");
+    private static final Pattern LEADING_TRAILING_SEP = Pattern.compile("^[-_]+|[-_]+$");
+
+    /**
+     * Splits camelCase/PascalCase identifiers into hyphen-separated words.
+     * Examples:
+     *   WhatsAppTelegram  → Whats-App-Telegram  → whatsapp-telegram (after lowercase + clean)
+     *   profileAdaptorSuggest → profile-Adaptor-Suggest → profile-adaptor-suggest
+     *   CognitiveIngestionTarget → Cognitive-Ingestion-Target
+     *   BM25Index → BM25-Index
+     *
+     * Three patterns:
+     *   1. (lower)(Upper) → fooBar → foo-Bar
+     *   2. (Upper)(Upper+lower) → XMLParser → XML-Parser
+     *   3. (letter)(digit) or (digit)(letter) → BM25Index → BM25-Index
+     */
+    private static final Pattern CAMEL_CASE_SPLIT = Pattern.compile(
+            "(?<=[a-z])(?=[A-Z])"
+            + "|(?<=[A-Z])(?=[A-Z][a-z])"
+            + "|(?<=[a-zA-Z])(?=[0-9])"
+            + "|(?<=[0-9])(?=[a-zA-Z])"
+    );
 
     /** Strips chunk suffixes like "::chunk-3" or "#chunk-12" from document IDs. */
     private static final Pattern CHUNK_SUFFIX = Pattern.compile("(::chunk-\\d+|#chunk-\\d+)$");
@@ -115,7 +154,8 @@ public final class ContentTagExtractor implements TagExtractor {
     /**
      * Extracts tags from document ID path segments.
      * Strips chunk suffixes and file extensions before splitting.
-     * E.g., "stories/auth/login-flow.txt::chunk-2" → ["stories", "auth", "login", "flow"]
+     * Preserves hyphens in compound terms.
+     * E.g., "stories/auth/login-flow.txt::chunk-2" → ["stories", "auth", "login-flow"]
      */
     private void extractPathTags(String id, Set<String> tags) {
         if (id == null) return;
@@ -126,9 +166,10 @@ public final class ContentTagExtractor implements TagExtractor {
         // Strip file extension (e.g., ".md", ".txt") — not meaningful as a tag
         cleanId = FILE_EXTENSION.matcher(cleanId).replaceAll("");
 
-        String[] parts = SPLIT_PATTERN.split(cleanId);
+        String[] parts = PATH_SPLIT_PATTERN.split(cleanId);
         for (String part : parts) {
-            String clean = ALPHA_ONLY.matcher(part.toLowerCase(Locale.ROOT)).replaceAll("");
+            String clean = TAG_CLEAN.matcher(part.toLowerCase(Locale.ROOT)).replaceAll("");
+            clean = LEADING_TRAILING_SEP.matcher(clean).replaceAll(""); // trim leading/trailing - _
             // Skip pure-numeric tokens (chunk indices, temp file IDs, etc.)
             if (clean.length() > 2 && !STOP_WORDS.contains(clean) && !NUMERIC_ONLY.matcher(clean).matches()) {
                 tags.add(clean);
@@ -138,17 +179,23 @@ public final class ContentTagExtractor implements TagExtractor {
 
     /**
      * Extracts significant keywords from the beginning of the text content.
+     * Preserves hyphens in compound terms ("fault-tolerant", "multi-tenant")
+     * and underscores in identifiers ("DATE_TIME", "WORKS_AT").
      * Selects longer words first (typically more specific/meaningful).
      */
     private void extractContentTags(String text, Set<String> tags) {
         String prefix = text.length() > CONTENT_SCAN_CHARS
                 ? text.substring(0, CONTENT_SCAN_CHARS) : text;
 
-        String[] words = SPLIT_PATTERN.split(prefix.toLowerCase(Locale.ROOT));
+        String[] words = CONTENT_SPLIT_PATTERN.split(prefix.toLowerCase(Locale.ROOT));
         List<String> candidates = new ArrayList<>();
 
         for (String word : words) {
-            String clean = ALPHA_ONLY.matcher(word).replaceAll("");
+            // Split camelCase/PascalCase into hyphenated segments BEFORE lowercasing.
+            // e.g., "WhatsAppTelegram" → "Whats-App-Telegram" → "whats-app-telegram"
+            String split = CAMEL_CASE_SPLIT.matcher(word).replaceAll("-");
+            String clean = TAG_CLEAN.matcher(split.toLowerCase(Locale.ROOT)).replaceAll("");
+            clean = LEADING_TRAILING_SEP.matcher(clean).replaceAll(""); // trim leading/trailing - _
             // Skip pure-numeric tokens and stop words
             if (clean.length() > 4 && !STOP_WORDS.contains(clean) && !tags.contains(clean)
                     && !NUMERIC_ONLY.matcher(clean).matches()) {
