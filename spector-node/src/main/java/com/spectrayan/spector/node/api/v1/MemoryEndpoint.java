@@ -107,9 +107,19 @@ public class MemoryEndpoint implements ApiModule {
         String[] tags = request.tagsArray();
         if (tags.length == 0 && request.text() != null && !request.text().isBlank()) {
             TagExtractor extractor = memoryService.memory().target().tagExtractor();
-            tags = extractor.extract(request.id(), request.text());
-            log.info("Auto-generated {} tags for memory via {}: [{}]",
-                    tags.length, extractor.getClass().getSimpleName(), String.join(", ", tags));
+            com.spectrayan.spector.memory.pipeline.TagExtractionResult extractionResult = 
+                    extractor.extractWithContext(request.id(), request.text());
+            tags = extractionResult.tags();
+            log.info("Auto-generated {} tags for memory via {}: [{}] (valence={}, arousal={})",
+                    tags.length, extractor.getClass().getSimpleName(), String.join(", ", tags),
+                    extractionResult.valence(), Byte.toUnsignedInt(extractionResult.arousal()));
+            
+            if (hints == null && extractionResult.hasEmotionalContext()) {
+                hints = new IngestionHints(0f, 0f, 0f, extractionResult.valence(), extractionResult.arousal());
+            } else if (hints != null && hints.valence() == 0 && hints.effectiveArousal() == 0 && extractionResult.hasEmotionalContext()) {
+                hints = new IngestionHints(hints.interest(), hints.challenge(), hints.urgency(),
+                        extractionResult.valence(), extractionResult.arousal());
+            }
         }
 
         String effectiveId;
@@ -185,7 +195,7 @@ public class MemoryEndpoint implements ApiModule {
         // Provenance tags only — per-chunk content tags are extracted by
         // CognitiveIngestionTarget's built-in TagExtractor on each chunk's text,
         // not from the full file. This ensures each chunk gets relevant tags.
-        String[] provenanceTags = new String[] { "file-ingest", originalName };
+        String[] provenanceTags = new String[] { originalName };
         log.info("File provenance tags: {} for {}", java.util.Arrays.toString(provenanceTags), originalName);
 
         // Build rich metadata via IngestionContext — flows through to
@@ -365,6 +375,12 @@ public class MemoryEndpoint implements ApiModule {
     public HttpResponse status() {
         var status = memoryService.getStatus();
         return HttpResponse.ofJson(status);
+    }
+
+    @Get("/topology-stats")
+    public HttpResponse topologyStats() {
+        var stats = memoryService.getTopologyStats();
+        return HttpResponse.ofJson(stats);
     }
 
     // ── New endpoints (API parity with MCP tools) ───────────────────────

@@ -262,6 +262,105 @@ public class MemoryService {
         return new MemoryStatusDto(total, counts, hebbian, temporalLinks, entityNodes, entityEdges);
     }
 
+    /** Returns statistics of the entity types and relationship types extracted. */
+    public com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto getTopologyStats() {
+        var admin = memory().admin();
+        var entityGraph = admin.entityGraph();
+        if (entityGraph == null) {
+            return new com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto(java.util.List.of(), java.util.List.of());
+        }
+
+        int entityCount = entityGraph.entityCount();
+
+        // Accumulators for Entity Types
+        java.util.Map<String, java.util.Set<Integer>> entityNodesByType = new java.util.HashMap<>();
+        java.util.Map<String, java.util.Set<Integer>> entityMemoriesByType = new java.util.HashMap<>();
+        java.util.Map<String, Integer> entityEdgesByType = new java.util.HashMap<>();
+
+        // Accumulators for Relation Types
+        java.util.Map<String, Integer> relEdgesByType = new java.util.HashMap<>();
+        java.util.Map<String, java.util.Set<Integer>> relNodesByType = new java.util.HashMap<>();
+        java.util.Map<String, java.util.Set<Integer>> relMemoriesByType = new java.util.HashMap<>();
+
+        for (int eid = 0; eid < entityCount; eid++) {
+            String type = entityGraph.entityType(eid);
+            if (type == null || type.isBlank()) {
+                type = "OTHER";
+            }
+            type = type.toUpperCase(java.util.Locale.ROOT);
+
+            entityNodesByType.computeIfAbsent(type, k -> new java.util.HashSet<>()).add(eid);
+
+            int[] memRefs = entityGraph.memoriesForEntity(eid);
+            if (memRefs != null) {
+                var memSet = entityMemoriesByType.computeIfAbsent(type, k -> new java.util.HashSet<>());
+                for (int ref : memRefs) {
+                    memSet.add(ref);
+                }
+            }
+
+            var edges = entityGraph.edges(eid);
+            if (edges != null) {
+                for (var edge : edges) {
+                    int targetId = edge.targetEntityId();
+                    String relType = edge.relationType();
+                    if (relType == null || relType.isBlank()) {
+                        relType = "RELATED_TO";
+                    }
+                    relType = relType.toUpperCase(java.util.Locale.ROOT);
+
+                    // Count outbound edge for source entity's type
+                    entityEdgesByType.put(type, entityEdgesByType.getOrDefault(type, 0) + 1);
+
+                    // Relation type stats
+                    relEdgesByType.put(relType, relEdgesByType.getOrDefault(relType, 0) + 1);
+                    
+                    var relNodes = relNodesByType.computeIfAbsent(relType, k -> new java.util.HashSet<>());
+                    relNodes.add(eid);
+                    if (targetId >= 0 && targetId < entityCount) {
+                        relNodes.add(targetId);
+                    }
+
+                    var relMems = relMemoriesByType.computeIfAbsent(relType, k -> new java.util.HashSet<>());
+                    if (memRefs != null) {
+                        for (int ref : memRefs) {
+                            relMems.add(ref);
+                        }
+                    }
+                    if (targetId >= 0 && targetId < entityCount) {
+                        int[] targetMemRefs = entityGraph.memoriesForEntity(targetId);
+                        if (targetMemRefs != null) {
+                            for (int ref : targetMemRefs) {
+                                relMems.add(ref);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        java.util.List<com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto.EntityTypeStatsDto> entityTypesList = new java.util.ArrayList<>();
+        for (var entry : entityNodesByType.entrySet()) {
+            String type = entry.getKey();
+            int nodes = entry.getValue().size();
+            int memories = entityMemoriesByType.getOrDefault(type, java.util.Set.of()).size();
+            int edges = entityEdgesByType.getOrDefault(type, 0);
+            entityTypesList.add(new com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto.EntityTypeStatsDto(type, nodes, edges, memories));
+        }
+
+        java.util.List<com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto.RelationTypeStatsDto> relationTypesList = new java.util.ArrayList<>();
+        for (var entry : relEdgesByType.entrySet()) {
+            String type = entry.getKey();
+            int edges = entry.getValue();
+            int nodes = relNodesByType.getOrDefault(type, java.util.Set.of()).size();
+            int memories = relMemoriesByType.getOrDefault(type, java.util.Set.of()).size();
+            relationTypesList.add(new com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto.RelationTypeStatsDto(type, edges, nodes, memories));
+        }
+
+        return new com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto(entityTypesList, relationTypesList);
+    }
+
+
     /** Introspects the agent's knowledge about a topic. */
     public com.spectrayan.spector.memory.metamemory.MemoryInsight introspect(String topic) {
         return memory().introspect(topic);
@@ -509,7 +608,7 @@ public class MemoryService {
 
         // ── Entity graph ──
         var entityGraph = admin.entityGraph();
-        if (entityGraph != null && focalSlot < entityGraph.entityCount()) {
+        if (entityGraph != null) {
             // Find entities linked to this memory's slot
             var nameIndex = entityGraph.nameIndex();
             for (var entry : nameIndex.entrySet()) {
@@ -636,50 +735,51 @@ public class MemoryService {
         }
 
         // Entity graph edges between included nodes
-        // Use entity name matching against node text previews since
-        // MAX_MEMORY_REFS=4 on EntityGraph only stores the first 4 source memories
+        // Use slot-based lookup via memoriesForEntity() instead of text-preview
+        // substring matching, which missed most entities due to 120-char truncation.
         var entityGraph = admin.entityGraph();
         if (entityGraph != null) {
-            // Skip ubiquitous entity names that would create noise
             java.util.Set<String> skipNames = java.util.Set.of(
                     "jarvis", "mike", "mike thompson", "hey", "hey jarvis");
-            var nameIdx = entityGraph.nameIndex(); // name -> entityId
-            // For each entity, find which included nodes mention it in their text
-            java.util.Map<Integer, java.util.List<String>> entityToIncludedMems = new java.util.HashMap<>();
+            var nameIdx = entityGraph.nameIndex();
+            java.util.Set<String> entityEdgesSeen = new java.util.HashSet<>();
+
             for (var entry : nameIdx.entrySet()) {
-                String entityName = entry.getKey();  // already lowercase
+                String entityName = entry.getKey();
                 int eid = entry.getValue();
-                if (entityName.length() < 4 || skipNames.contains(entityName)) continue;
-                java.util.List<String> mentioningIds = new java.util.ArrayList<>();
-                for (var node : nodeMap.values()) {
-                    String preview = node.textPreview() != null ? node.textPreview().toLowerCase(java.util.Locale.ROOT) : "";
-                    if (preview.contains(entityName)) {
-                        mentioningIds.add(node.id());
+                if (entityName.length() < 2 || skipNames.contains(entityName)) continue;
+
+                // Get the memory slots linked to this entity
+                int[] memRefs = entityGraph.memoriesForEntity(eid);
+                if (memRefs.length < 2) continue; // need ≥2 memories to form edges
+
+                // Map slots to IDs and filter to only those in the sampled node set
+                java.util.List<String> includedMemIds = new java.util.ArrayList<>();
+                for (int memSlot : memRefs) {
+                    if (includedSlots.contains(memSlot)) {
+                        String memId = slotToId.get(memSlot);
+                        if (memId != null) {
+                            includedMemIds.add(memId);
+                        }
                     }
                 }
-                // Need 2+ mentions, but cap at 15 to avoid O(n²) explosion
-                if (mentioningIds.size() >= 2 && mentioningIds.size() <= 15) {
-                    entityToIncludedMems.put(eid, mentioningIds);
-                }
-            }
 
-            // Create edges between memories sharing the same entity
-            java.util.Set<String> entityEdgesSeen = new java.util.HashSet<>();
-            for (var entry : entityToIncludedMems.entrySet()) {
-                int eid = entry.getKey();
-                var mems = entry.getValue();
-                // Get relation type from the entity's edges
+                if (includedMemIds.size() < 2) continue;
+
+                // Get relation type from entity edges
                 var eEdges = entityGraph.edges(eid);
                 String relType = eEdges.isEmpty() ? "RELATED_TO" : eEdges.get(0).relationType();
-                for (int i = 0; i < mems.size(); i++) {
-                    for (int j = i + 1; j < mems.size(); j++) {
-                        String fromId = mems.get(i);
-                        String toId = mems.get(j);
+
+                // Create edges between included memories sharing this entity
+                for (int i = 0; i < includedMemIds.size(); i++) {
+                    for (int j = i + 1; j < includedMemIds.size(); j++) {
+                        String fromId = includedMemIds.get(i);
+                        String toId = includedMemIds.get(j);
                         if (fromId.compareTo(toId) > 0) { String tmp = fromId; fromId = toId; toId = tmp; }
                         String edgeKey = fromId + "|" + toId;
-                        if (entityEdgesSeen.add(edgeKey)) { // deduplicate
+                        if (entityEdgesSeen.add(edgeKey)) {
                             edges.add(new com.spectrayan.spector.node.api.dto.GraphEdgeDto(
-                                    fromId, toId, "ENTITY", relType, 1.0f));
+                                    fromId, toId, "ENTITY", entityName.toUpperCase(java.util.Locale.ROOT), 1.0f));
                         }
                     }
                 }
@@ -711,7 +811,7 @@ public class MemoryService {
         var index = admin.index();
         var loc = index.locate(id);
         if (loc == null) {
-            return new com.spectrayan.spector.node.api.dto.GraphNodeDto(id, "UNKNOWN", "", 0f, 0);
+            return new com.spectrayan.spector.node.api.dto.GraphNodeDto(id, "UNKNOWN", "", 0f, 0, 0L);
         }
 
         String text = index.text(id);
@@ -722,10 +822,10 @@ public class MemoryService {
         if (store instanceof com.spectrayan.spector.memory.cortex.AbstractTierStore ats) {
             var header = ats.layout().readHeader(ats.segment(), loc.offset());
             return new com.spectrayan.spector.node.api.dto.GraphNodeDto(
-                    id, loc.type().name(), preview, header.importance(), header.valence());
+                    id, loc.type().name(), preview, header.importance(), header.valence(), header.timestampMs());
         }
 
-        return new com.spectrayan.spector.node.api.dto.GraphNodeDto(id, loc.type().name(), preview, 0f, 0);
+        return new com.spectrayan.spector.node.api.dto.GraphNodeDto(id, loc.type().name(), preview, 0f, 0, 0L);
     }
 
     /**

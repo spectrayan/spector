@@ -551,9 +551,13 @@ RecallPipeline
 **Layer 2 — Entity-Relationship Graph:**
 
 - Off-heap entity store (64B/entity, 12B/edge), BFS traversal with typed edge filtering
+- **Unlimited entity→memory adjacency** via separate off-heap adjacency segment (8B/entry: memIdx + weight)
+- LTP reinforcement (+0.2 weight on re-mention), LTD decay (0.95× per reflection cycle, pruned below 0.2)
+- Fan-effect attenuation (1/√refCount) in recall scoring — ACT-R spreading activation dilution
+- Adjacency compaction (defragmentation) during reflection cycles
 - 21 entity types × 21 relation types (well-known seeds) + open-schema `TypeRegistry` for LLM-identified novel types
 - `EntityExtractor` SPI with `LlmEntityExtractor` (externalized prompt template) and `NoOpEntityExtractor`
-- Persistence via `EGPH` magic header with nameIndex reconstruction + separate TypeRegistry files
+- Persistence via `EGPH` magic header with nameIndex reconstruction + adjacency segment + separate TypeRegistry files
 
 **Layer 3 — Temporal Causal Chain:**
 
@@ -599,19 +603,22 @@ Strong statistical Hebbian associations are automatically promoted to explicit e
 
 ---
 
-### ✅ Entity Graph Decay + Node Merging {#entity-decay}
+### ✅ Entity Graph Decay + Node Merging + Adjacency Maintenance {#entity-decay}
 
 !!! success "Completed"
-    `decayRelations()`, `mergeSimilarEntities()`, and `levenshteinDistance()` implemented with off-heap optimizations.
+    `decayRelations()`, `mergeSimilarEntities()`, `decayAdjacencyWeights()`, `compactAdjacency()`, and `fanFactor()` implemented with off-heap optimizations.
 
-Entity graph edges now decay during consolidation, and near-duplicate entities are automatically merged.
+Entity graph edges now decay during consolidation, near-duplicate entities are automatically merged, and entity→memory adjacency links decay and compact.
 
 **Implementation:**
 
 - `EntityGraph.decayRelations(float factor)`: Multiplicative decay, prunes edges below threshold
 - `EntityGraph.mergeSimilarEntities(int maxEditDistance)`: Levenshtein-based fuzzy matching with `ThreadLocal` reusable int[] arrays (zero GC after warmup)
-- Integrated into `reflect()` cycle after cross-layer promotion
-- Decay/merge counts reported in `ReflectReport`
+- `EntityGraph.decayAdjacencyWeights(float factor, float threshold)`: LTD decay of entity→memory link weights, pruning weak associations
+- `EntityGraph.compactAdjacency()`: Defragments the adjacency segment, reclaiming dead blocks from pruned/grown entries
+- `EntityGraph.fanFactor(int entityId)`: Returns 1/√(refCount) for ACT-R spreading activation dilution in recall scoring
+- Integrated into `ReflectionOrchestrator` as Phase 5 (edge decay + merge), Phase 5b (adjacency LTD), Phase 5c (compaction)
+- Decay/merge/compaction counts reported in `ReflectReport`
 
 ---
 
@@ -834,7 +841,7 @@ RecallOptions.builder()
 | 21 | **Streamable HTTP transport** | Agentic AI | Medium |
 | 22 | **3-Layer Cognitive Graph** | Graph Memory | High |
 | 23 | **Cross-layer promotion** | Graph Memory | Medium |
-| 24 | **Entity graph decay + merging** | Graph Memory | Medium |
+| 24 | **Entity graph decay + merging + adjacency LTD** | Graph Memory | Medium |
 | 25 | **Graph scoring weights** | Graph Memory | Low |
 | 26 | **Temporal chain pruning** | Graph Memory | Low |
 | 27 | **SVASQ-4** | Compression | Medium |

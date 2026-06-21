@@ -462,7 +462,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 builder.semanticIndex, builder.tagExtractor, true,
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
-                memorySpladeIndex, builder.sparseEncodingProvider);
+                memorySpladeIndex, builder.sparseEncodingProvider,
+                builder.dataEncryptor);
 
         // ── Wire Salience Profile Provider ──
         if (builder.salienceProfileProvider != null) {
@@ -1435,6 +1436,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Salience profile provider (enterprise SPI)
         SalienceProfileProvider salienceProfileProvider;
 
+        // Data encryption SPI (NOOP in OSS — enterprise injects per-tenant encryptor)
+        DataEncryptor dataEncryptor = DataEncryptor.NOOP;
+
         // Multimodal attachment processing
         java.util.List<com.spectrayan.spector.ingestion.sensory.SensoryExtractor> sensoryExtractors = java.util.List.of();
         com.spectrayan.spector.ingestion.sensory.AssetStore assetStore;
@@ -1592,6 +1596,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         /** Sets the asset store for persisting original attachment files. */
         public Builder assetStore(com.spectrayan.spector.ingestion.sensory.AssetStore store) {
             this.assetStore = store;
+            return this;
+        }
+
+        /**
+         * Sets the data encryption provider for text.dat, WAL, and tag encryption.
+         *
+         * <p>Default: {@link DataEncryptor#NOOP} (no encryption, OSS mode).
+         * Enterprise callers inject a {@link DataEncryptor} implementation
+         * (e.g., {@code TenantDataEncryptor} or {@code ContextualDataEncryptor})
+         * to enable AES-256-GCM encryption of text content and WAL payloads,
+         * plus HMAC-SHA256 blind indexing for synaptic tags.</p>
+         *
+         * @param encryptor the data encryptor (null treated as NOOP)
+         * @return this builder
+         */
+        public Builder dataEncryptor(DataEncryptor encryptor) {
+            this.dataEncryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
             return this;
         }
 

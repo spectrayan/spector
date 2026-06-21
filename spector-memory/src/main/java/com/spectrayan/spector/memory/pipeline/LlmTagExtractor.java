@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * LLM-powered tag extractor that uses a {@link TextGenerationProvider}
@@ -53,7 +54,52 @@ public final class LlmTagExtractor implements TagExtractor {
 
     private static final Logger log = LoggerFactory.getLogger(LlmTagExtractor.class);
 
-    private static final int MAX_TAGS = 30;
+    private static final int MAX_TAGS = 15;
+    /** Max length for a single tag — anything longer is almost certainly prompt leakage. */
+    private static final int MAX_TAG_LENGTH = 50;
+
+    /**
+     * Blocklist of pronouns and generic words that should never become tags.
+     * Applied as a post-extraction safety net since LLMs sometimes ignore
+     * prompt instructions about this.
+     */
+    private static final Set<String> BLOCKED_TAGS = Set.of(
+            "i", "me", "my", "he", "him", "his", "she", "her", "hers",
+            "it", "its", "we", "us", "our", "they", "them", "their",
+            "you", "your", "this", "that", "these", "those",
+            "someone", "somebody", "something", "anyone", "anybody", "anything",
+            "everyone", "everybody", "everything", "nobody", "nothing",
+            "stuff", "things", "thing", "people", "person",
+            "who", "whom", "whose", "which", "what",
+            "the", "a", "an", "tag"
+    );
+
+    /**
+     * Substrings that indicate prompt leakage — if a tag contains any of these,
+     * the LLM is echoing its instructions instead of extracting from the text.
+     */
+    private static final Set<String> PROMPT_LEAK_FRAGMENTS = Set.of(
+            "hyphenated", "multi-word", "no-markdown", "derived-from",
+            "no-spaces", "no-symbols", "output-format", "lowercase",
+            "no-punctuation", "extract-tags", "directly-derived",
+            "except-hyphens", "multi-word-tags", "formatting-rules",
+            "tag-formatting", "emotional-tone", "no-explanations",
+            "tag1", "tag2", "tag3", "valence-number", "arousal-number",
+            "valence-score", "arousal-score", "sentiment-score", "intensity-score",
+            "extracted-tags", "comma-separated",
+            "valence", "arousal", "tagging-complete", "tag-extraction"
+    );
+
+    /**
+     * Patterns to extract valence/arousal values embedded in the tag stream.
+     * Models sometimes output: "cleanliness/valence-105/arousal-234" or
+     * "hairvalence-56arousal-192" — these patterns catch all variants:
+     * "valence-56", "valence:-56", "valence56", embedded mid-word.
+     */
+    private static final java.util.regex.Pattern EMBEDDED_VALENCE = java.util.regex.Pattern.compile(
+            "(?i)valence[:\\s-]*([-]?\\d{1,3})");
+    private static final java.util.regex.Pattern EMBEDDED_AROUSAL = java.util.regex.Pattern.compile(
+            "(?i)arousal[:\\s-]*([-]?\\d{1,3})");
 
     /** Classpath path to the tag extraction prompt template. */
     private static final String PROMPT_RESOURCE = "prompts/tag-extraction.txt";
@@ -96,8 +142,18 @@ public final class LlmTagExtractor implements TagExtractor {
         long startNs = System.nanoTime();
         try {
             String promptTemplate = ResourceUtils.loadResource(PROMPT_RESOURCE);
-            String prompt = String.format(promptTemplate, text != null ? text : id);
-            log.debug("[TagExtract] LLM prompt for '{}': {} chars", truncId(id), prompt.length());
+
+            // Prepare text: strip markdown formatting for small models
+            // (text is already chunked to configured size by TextChunker)
+            String cleanText = text != null ? stripMarkdown(text) : id;
+            if (cleanText.isBlank()) {
+                log.info("[TagExtract] Text empty after markdown stripping for '{}', using fallback", truncId(id));
+                return TagExtractionResult.tagsOnly(fallback.extract(id, text));
+            }
+
+            String prompt = String.format(promptTemplate, cleanText);
+            log.debug("[TagExtract] LLM prompt for '{}': {} chars (text: {} → {})",
+                    truncId(id), prompt.length(), text != null ? text.length() : 0, cleanText.length());
 
             String response = generator.generate(prompt);
             long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
@@ -108,8 +164,8 @@ public final class LlmTagExtractor implements TagExtractor {
                 return TagExtractionResult.tagsOnly(fallback.extract(id, text));
             }
 
-            log.debug("[TagExtract] LLM raw response for '{}': '{}'", truncId(id),
-                    response.length() > 200 ? response.substring(0, 200) + "..." : response);
+            log.info("[TagExtract] LLM raw response for '{}': '{}'", truncId(id),
+                    response.length() > 300 ? response.substring(0, 300) + "..." : response);
 
             // Parse structured response: TAGS: ..., VALENCE: ..., AROUSAL: ...
             String tagLine = null;
@@ -117,31 +173,89 @@ public final class LlmTagExtractor implements TagExtractor {
             byte arousal = 0;
 
             for (String line : response.split("\\n")) {
-                String trimmed = line.trim();
-                if (trimmed.toUpperCase(Locale.ROOT).startsWith("TAGS:")) {
-                    tagLine = trimmed.substring(5).trim();
-                } else if (trimmed.toUpperCase(Locale.ROOT).startsWith("VALENCE:")) {
-                    valence = parseSignedByte(trimmed.substring(8).trim());
-                } else if (trimmed.toUpperCase(Locale.ROOT).startsWith("AROUSAL:")) {
-                    arousal = parseUnsignedByte(trimmed.substring(8).trim());
+                // Remove all formatting chars that might wrap the label (like asterisks, underscores, backticks)
+                String cleaned = line.replace("*", "").replace("_", "-").replace("`", "").trim();
+                String upper = cleaned.toUpperCase(Locale.ROOT);
+
+                int tagsIdx = upper.indexOf("TAGS:");
+                if (tagsIdx >= 0) {
+                    tagLine = cleaned.substring(tagsIdx + 5).trim();
+                    continue;
+                }
+
+                int valenceIdx = upper.indexOf("VALENCE:");
+                if (valenceIdx >= 0) {
+                    valence = parseSignedByte(cleaned.substring(valenceIdx + 8).trim());
+                    continue;
+                }
+
+                int arousalIdx = upper.indexOf("AROUSAL:");
+                if (arousalIdx >= 0) {
+                    arousal = parseUnsignedByte(cleaned.substring(arousalIdx + 8).trim());
+                    continue;
                 }
             }
 
             // Fall back to treating entire response as comma-separated tags
             // (backward compat with older prompt format / models that don't follow structure)
             if (tagLine == null) {
-                tagLine = response;
+                // Check if the response uses slash-separated format (e.g., /tag1/tag2/tag3)
+                boolean hasSlashTags = response.contains("/") && response.chars().filter(c -> c == '/').count() >= 2;
+
+                if (hasSlashTags) {
+                    // Model produced slash-separated tags — normalize to comma-separated
+                    log.debug("[TagExtract] LLM response for '{}' uses slash-separated format, normalizing", truncId(id));
+                    tagLine = response.replace("/", ",");
+                } else if (!response.contains(",") && !response.contains(";") && response.length() > 100) {
+                    // Safety: if the response has no commas/semicolons/slashes and is very long,
+                    // the model likely echoed the prompt — fall back immediately
+                    log.warn("[TagExtract] LLM response for '{}' appears to be prompt echo ({}chars, no delimiters), using fallback. Response: {}",
+                            truncId(id), response.length(),
+                            response.length() > 300 ? response.substring(0, 300) + "..." : response);
+                    return TagExtractionResult.tagsOnly(fallback.extract(id, text));
+                } else {
+                    tagLine = response;
+                }
             }
 
-            // Parse comma-separated tags
+            // ── Smart extraction of valence/arousal embedded in the tag stream ──
+            // Models sometimes concatenate everything: "cleanliness/valence-105/arousal-234"
+            // which after slash→comma becomes "cleanliness,valence-105,arousal-234"
+            // or even merged: "cleanlinessvalence-105arousal-234"
+            // We extract valence/arousal values before splitting tags.
+            if (valence == 0) {
+                java.util.regex.Matcher valMatcher = EMBEDDED_VALENCE.matcher(tagLine);
+                if (valMatcher.find()) {
+                    valence = parseSignedByte(valMatcher.group(1));
+                    tagLine = valMatcher.replaceAll("");
+                    log.debug("[TagExtract] Extracted embedded valence={} from tag stream", valence);
+                }
+            }
+            if (arousal == 0) {
+                java.util.regex.Matcher arMatcher = EMBEDDED_AROUSAL.matcher(tagLine);
+                if (arMatcher.find()) {
+                    arousal = parseUnsignedByte(arMatcher.group(1));
+                    tagLine = arMatcher.replaceAll("");
+                    log.debug("[TagExtract] Extracted embedded arousal={} from tag stream", arousal);
+                }
+            }
+
+            // Also strip any "tagging-complete" or "taggingcomplete" fragments the model appends
+            tagLine = tagLine.replaceAll("(?i)tagging[- ]?complete", "");
+
+            // Parse comma-separated tags (slashes already normalized above)
             String[] tags = Arrays.stream(tagLine.split("[,;]"))
                     .map(String::trim)
                     .map(s -> s.toLowerCase(Locale.ROOT))
+                    .map(s -> s.replace('_', '-'))
                     .map(s -> s.replaceAll("[^a-z0-9\\- ]", ""))
                     .map(s -> s.replaceAll("\\s+", "-"))
                     .map(s -> s.replaceAll("-{2,}", "-"))
                     .map(s -> s.replaceAll("^-|-$", ""))
                     .filter(s -> !s.isBlank() && s.length() > 1)
+                    .filter(s -> s.length() <= MAX_TAG_LENGTH)
+                    .filter(s -> !BLOCKED_TAGS.contains(s))
+                    .filter(s -> !isPromptLeak(s))
                     .distinct()
                     .limit(MAX_TAGS)
                     .toArray(String[]::new);
@@ -189,5 +303,51 @@ public final class LlmTagExtractor implements TagExtractor {
         if (id == null)
             return "null";
         return id.length() > 60 ? "..." + id.substring(id.length() - 57) : id;
+    }
+
+    /** Returns true if a tag contains known prompt instruction fragments. */
+    private static boolean isPromptLeak(String tag) {
+        if (tag == null) return true;
+        if (tag.matches("tag\\d+")) return true;
+        for (String fragment : PROMPT_LEAK_FRAGMENTS) {
+            if (tag.contains(fragment)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Strips markdown formatting to produce clean plaintext for the LLM.
+     *
+     * <p>Removes headers, bold/italic, links, images, code fences, HTML tags,
+     * bullet markers, blockquotes, and horizontal rules. Collapses whitespace.</p>
+     */
+    public static String stripMarkdown(String md) {
+        if (md == null || md.isBlank()) return "";
+        String s = md;
+        // Remove code fences (```...```)
+        s = s.replaceAll("(?s)```[a-z]*\n.*?```", " ");
+        // Remove inline code (`...`)
+        s = s.replaceAll("`([^`]+)`", "$1");
+        // Remove images: ![alt](url)
+        s = s.replaceAll("!\\[([^]]*)]\\([^)]+\\)", "$1");
+        // Remove links: [text](url) → text
+        s = s.replaceAll("\\[([^]]*)]\\([^)]+\\)", "$1");
+        // Remove HTML tags
+        s = s.replaceAll("<[^>]+>", " ");
+        // Remove headers (# ... ######)
+        s = s.replaceAll("(?m)^#{1,6}\\s+", "");
+        // Remove bold/italic markers
+        s = s.replaceAll("\\*{1,3}([^*]+)\\*{1,3}", "$1");
+        s = s.replaceAll("_{1,3}([^_]+)_{1,3}", "$1");
+        // Remove blockquotes
+        s = s.replaceAll("(?m)^>+\\s*", "");
+        // Remove horizontal rules
+        s = s.replaceAll("(?m)^[-*_]{3,}$", "");
+        // Remove bullet/list markers
+        s = s.replaceAll("(?m)^\\s*[-*+]\\s+", "");
+        s = s.replaceAll("(?m)^\\s*\\d+\\.\\s+", "");
+        // Collapse whitespace
+        s = s.replaceAll("\\s+", " ").trim();
+        return s;
     }
 }

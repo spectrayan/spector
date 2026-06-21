@@ -160,9 +160,10 @@ Spector uses an **open-schema type registry** — unlike traditional NER systems
 
 ### How It's Used
 
-- **Ingestion**: The LLM extracts entities from text → entities are added to the graph → entities are linked to their source memory → relations are added between entities
-- **Recall**: Entities are extracted from the query → matched in the graph by name → 2-hop BFS traversal → memory references collected → added to result set with 0.25× attenuation per hop
-- **Consolidation**: Weak entity edges decay over reflection cycles. Similar entity names are merged via Levenshtein distance to handle NER typos (e.g., "kubernetes" / "kubernets")
+- **Ingestion**: The LLM extracts entities from text → entities are added to the graph → entities are linked to their source memory (with weighted adjacency) → relations are added between entities
+- **Recall**: Entities are extracted from the query → matched in the graph by name → 2-hop BFS traversal → memory references collected → added to result set with **0.25× attenuation per hop × fan factor** (1/√refCount, modeling ACT-R spreading activation dilution)
+- **Consolidation**: Entity–entity edges decay over reflection cycles. Entity→memory adjacency weights decay via LTD (Long-Term Depression, 0.95× per cycle, pruned below 0.2). Similar entity names are merged via Levenshtein distance. Fragmented adjacency blocks are compacted.
+- **Reinforcement (LTP)**: When a memory re-mentions an already-linked entity, the adjacency weight is reinforced by +0.2 (Long-Term Potentiation) instead of creating a duplicate link.
 
 ### Traversal
 
@@ -173,7 +174,27 @@ The entity graph supports typed BFS traversal with optional relation filtering:
 | `traverse(startEntity, filter, maxHops)` | BFS with optional relation type filter |
 | `collectMemories(startEntity, filter, maxHops)` | Collect all memory indices reachable within N hops |
 | `findEntity(name)` | Case-insensitive entity lookup |
-| `memoriesForEntity(entityId)` | Memory indices that reference an entity |
+| `memoriesForEntity(entityId)` | All memory indices linked to an entity (unlimited) |
+| `fanFactor(entityId)` | Returns 1/√(refCount) for spreading activation dilution |
+| `memoryRefWeight(entityId, adjIdx)` | Read individual adjacency link weight |
+| `decayAdjacencyWeights(factor, threshold)` | LTD decay: multiply all weights, prune below threshold |
+| `compactAdjacency()` | Defragment adjacency segment, reclaim dead blocks |
+
+### Off-Heap Layout
+
+Entity nodes use a **fixed 64-byte** cache-line-aligned layout with a **separate adjacency segment** for entity→memory links:
+
+```
+Entity Node (64B):
+  [type:4B][pad:4B][nameHash:8B]
+  [adjOffset:4B][adjCount:4B][adjCapacity:4B][pad:4B]  ← pointer into adjacency segment
+  [pad:4B][degree:4B][edgeStart:4B][pad:20B]
+
+Adjacency Entry (8B):
+  [memIdx:4B][weight:4B]    ← weighted link to a memory slot
+```
+
+This design allows **unlimited** entity→memory associations (no fixed cap), with amortized O(1) growth via block doubling. Each entity starts with 8 adjacency slots and grows as needed.
 
 ---
 
@@ -216,7 +237,7 @@ All graph components persist alongside memory data in DISK mode:
 |---|---|---|
 | HebbianGraph | `hebbian.graph` | Binary with chunked 64KB I/O |
 | CoActivationTracker | `coactivation.dat` | Pair table + edge table + hash→tag map |
-| EntityGraph | `entity.graph` | Entity segment + edge segment + name index |
+| EntityGraph | `entity.graph` | Entity segment + edge segment + adjacency segment + name index |
 | TemporalChain | `temporal.chain` | Raw linked-list segment |
 | TypeRegistry | `entity-types.reg` / `relation-types.reg` | Type name ↔ ID mappings |
 
@@ -228,7 +249,7 @@ All graph components persist alongside memory data in DISK mode:
 |---|---|---|---|
 | Hebbian (L1) | 164B | 16.4 MB | 164 MB |
 | CoActivation | ~1MB total | ~1 MB | ~1 MB |
-| Entity (L2) | ~64B + edges | ~8 MB | ~80 MB |
+| Entity (L2) | ~64B + edges + adj | ~8 MB | ~80 MB |
 | Temporal (L3) | 16B | 1.6 MB | 16 MB |
 | **Total** | | **~27 MB** | **~261 MB** |
 

@@ -333,9 +333,9 @@ For each seed result, the temporal chain follows forward (3 hops) and backward (
 
 ### Step 5e: Entity Graph Traversal
 
-Entities are extracted from the query text, then looked up in the `EntityGraph`. For each matched entity, a 2-hop BFS with typed edge filtering discovers related entities. Their linked memories are added with **0.25× attenuation per hop**.
+Entities are extracted from the query text, then looked up in the `EntityGraph`. For each matched entity, a 2-hop BFS with typed edge filtering discovers related entities. Their linked memories are added with **0.25× attenuation per hop**, further scaled by the entity's **fan factor** (1/√refCount) — modeling ACT-R spreading activation dilution. High-fan entities (linked to many memories) produce weaker per-link boosts.
 
-**Example:** Query mentions "Alice" → Entity "Alice" → MANAGES → "Project Alpha" → memories mentioning "Project Alpha" are added.
+**Example:** Query mentions "Alice" → Entity "Alice" → MANAGES → "Project Alpha" → memories mentioning "Project Alpha" are added. If "Alice" is linked to 100 memories, her fan factor is 0.1 — preventing ubiquitous entities from flooding the result set.
 
 !!! tip "Graceful Degradation"
     Each graph step is **additive and independently optional**. If a graph component is null (not configured), empty, or throws a `RuntimeException`, the step is a no-op. The system degrades gracefully to vector-only recall. Zero risk of regression.

@@ -475,6 +475,27 @@ public final class HebbianGraph implements AutoCloseable {
         }
     }
 
+    /**
+     * Resets all Hebbian edges by zero-filling the off-heap segment.
+     *
+     * <p>Unlike {@link #close()}, this does NOT release the arena. The graph
+     * remains usable for new edges after the reset. Used by privacy wipe.</p>
+     *
+     * @return total edges that existed before reset
+     */
+    public int reset() {
+        graphLock.lock();
+        try {
+            int edgesBefore = totalEdges();
+            segment.fill((byte) 0);
+            lastActivityMs = System.currentTimeMillis();
+            log.info("HebbianGraph reset: {} edges cleared, capacity={}", edgesBefore, capacity);
+            return edgesBefore;
+        } finally {
+            graphLock.unlock();
+        }
+    }
+
     @Override
     public void close() {
         log.info("HebbianGraph closing (capacity={})", capacity);

@@ -15,32 +15,23 @@ package com.spectrayan.spector.memory.graph;
 /**
  * A typed relation between two entities extracted from memory text.
  *
+ * <p><b>Open-schema types:</b> The relation type is a free-form string,
+ * not constrained to the well-known {@link RelationType} enum values. Any
+ * type string is accepted and auto-registered in the {@link TypeRegistry}
+ * at graph population time.</p>
+ *
  * @param targetEntityName name of the target entity (will be resolved to ID during graph population)
- * @param relationType     the relation type enum value
+ * @param relationType     the relation type string (e.g., "MANAGES", "AUTHORED" — open-schema)
  */
 public record EntityRelation(
         String targetEntityName,
-        RelationType relationType
+        String relationType
 ) {
     /**
-     * Creates a relation from a type name string, falling back to {@link RelationType#RELATED_TO}.
-     */
-    public EntityRelation(String targetEntityName, String relationTypeName) {
-        this(targetEntityName, parseRelationType(relationTypeName));
-    }
-
-    /**
-     * Returns the relation type name as a string (for graph storage compatibility).
+     * Returns the relation type name as an uppercase string for graph storage.
      */
     public String relationTypeName() {
-        return relationType.name();
-    }
-
-    private static RelationType parseRelationType(String name) {
-        try {
-            return RelationType.valueOf(name);
-        } catch (IllegalArgumentException e) {
-            return RelationType.RELATED_TO;
-        }
+        return relationType != null && !relationType.isBlank()
+                ? relationType.trim().toUpperCase(java.util.Locale.ROOT) : "RELATED_TO";
     }
 }

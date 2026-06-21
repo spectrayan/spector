@@ -1,22 +1,8 @@
-Extract 10 to 15 highly specific contextual tags from the following text.
-Also assess the emotional tone of the content.
+Extract 10-15 topic tags from the text. Output ONLY tags, one per line starting with /.
+Rules: lowercase, hyphen-separated, no pronouns, no generic words.
+After all tags, add two final lines:
+/valence:<number from -128 to 127>
+/arousal:<number from 0 to 255>
+Valence = emotional tone (negative=bad, positive=good). Arousal = intensity (0=calm, 255=extreme).
 
-Tag Formatting Rules:
-1. All tags must be in lowercase.
-2. Multi-word tags must be hyphenated instead of using spaces (e.g., machine-learning, not machine_learning).
-3. Do not include spaces, symbols, punctuation, or special characters (hyphens are allowed per rule 2).
-4. Every tag must be directly derived from the text. Do not invent or infer tags that are not present.
-
-Emotional Assessment:
-- VALENCE: Rate the emotional tone from -128 (extremely negative, e.g. critical failure, outage, death) through 0 (neutral, factual, documentation) to +127 (extremely positive, e.g. success, celebration, breakthrough).
-- AROUSAL: Rate the emotional intensity from 0 (calm, routine, mundane) to 255 (extreme urgency, crisis, excitement).
-
-Output Format (EXACTLY as shown, no markdown, no explanations):
-TAGS: tag1, tag2, tag3, ...
-VALENCE: <number>
-AROUSAL: <number>
-
-Text to extract from:
 %s
-
-Output:

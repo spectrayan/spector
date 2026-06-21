@@ -13,10 +13,20 @@
 package com.spectrayan.spector.memory.graph;
 
 /**
- * Entity types for the knowledge graph.
+ * Well-known entity types for the knowledge graph.
  *
  * <p>Entities extracted from memory text are classified into these categories
  * to enable typed traversal and filtering in the entity-relationship graph.</p>
+ *
+ * @deprecated Since 1.1.0. Entity types are now open-schema strings managed by
+ * {@link TypeRegistry}. The extraction layer ({@link ExtractedEntity}) accepts
+ * any type string, allowing domain-specific types (e.g., VEHICLE, RECIPE,
+ * MEDICAL_CONDITION) without code changes. This enum is retained only for:
+ * <ul>
+ *   <li>{@link #SEED} — pre-seeding well-known types in {@link TypeRegistry}</li>
+ *   <li>{@link #fromOrdinal(int)} — migrating V1 persisted EntityGraph files</li>
+ * </ul>
+ * New code should use plain {@code String} type names instead of this enum.
  *
  * <h3>Category Groups</h3>
  * <ul>
@@ -29,6 +39,7 @@ package com.spectrayan.spector.memory.graph;
  *   <li><b>Catch-all:</b> OTHER</li>
  * </ul>
  */
+@Deprecated(since = "1.1.0", forRemoval = false)
 public enum EntityType {
 
     // ── People & Organizations ──

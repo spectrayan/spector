@@ -169,6 +169,7 @@ public final class ContentTagExtractor implements TagExtractor {
         String[] parts = PATH_SPLIT_PATTERN.split(cleanId);
         for (String part : parts) {
             String clean = TAG_CLEAN.matcher(part.toLowerCase(Locale.ROOT)).replaceAll("");
+            clean = clean.replace('_', '-'); // normalize underscores to hyphens
             clean = LEADING_TRAILING_SEP.matcher(clean).replaceAll(""); // trim leading/trailing - _
             // Skip pure-numeric tokens (chunk indices, temp file IDs, etc.)
             if (clean.length() > 2 && !STOP_WORDS.contains(clean) && !NUMERIC_ONLY.matcher(clean).matches()) {
@@ -195,6 +196,7 @@ public final class ContentTagExtractor implements TagExtractor {
             // e.g., "WhatsAppTelegram" → "Whats-App-Telegram" → "whats-app-telegram"
             String split = CAMEL_CASE_SPLIT.matcher(word).replaceAll("-");
             String clean = TAG_CLEAN.matcher(split.toLowerCase(Locale.ROOT)).replaceAll("");
+            clean = clean.replace('_', '-'); // normalize underscores to hyphens
             clean = LEADING_TRAILING_SEP.matcher(clean).replaceAll(""); // trim leading/trailing - _
             // Skip pure-numeric tokens and stop words
             if (clean.length() > 4 && !STOP_WORDS.contains(clean) && !tags.contains(clean)
