@@ -59,7 +59,7 @@ class TelemetryBusTest {
         @Test
         @DisplayName("subscriber receives published events")
         void subscriberReceivesEvent() {
-            List<TelemetryEvent> received = new ArrayList<>();
+            List<SpectorTelemetryEvent> received = new ArrayList<>();
             bus.subscribe(received::add);
 
             var event = new SimdKernelTelemetry("cosine", 16, 1000, 5000);
@@ -71,8 +71,8 @@ class TelemetryBusTest {
         @Test
         @DisplayName("multiple subscribers all receive the same event")
         void multipleSubscribersReceiveEvent() {
-            List<TelemetryEvent> received1 = new ArrayList<>();
-            List<TelemetryEvent> received2 = new ArrayList<>();
+            List<SpectorTelemetryEvent> received1 = new ArrayList<>();
+            List<SpectorTelemetryEvent> received2 = new ArrayList<>();
             bus.subscribe(received1::add);
             bus.subscribe(received2::add);
 
@@ -106,7 +106,7 @@ class TelemetryBusTest {
         @Test
         @DisplayName("events are received in publish order")
         void eventsReceivedInOrder() {
-            List<TelemetryEvent> received = new ArrayList<>();
+            List<SpectorTelemetryEvent> received = new ArrayList<>();
             bus.subscribe(received::add);
 
             var e1 = new SimdKernelTelemetry("cosine", 16, 100, 1000);
@@ -131,7 +131,7 @@ class TelemetryBusTest {
         @Test
         @DisplayName("cancelled subscription stops receiving events")
         void cancelledSubscriptionStopsReceiving() {
-            List<TelemetryEvent> received = new ArrayList<>();
+            List<SpectorTelemetryEvent> received = new ArrayList<>();
             var subscription = bus.subscribe(received::add);
 
             bus.publish(new SimdKernelTelemetry("cosine", 16, 1, 100));
@@ -145,8 +145,8 @@ class TelemetryBusTest {
         @Test
         @DisplayName("cancelling one subscription does not affect others")
         void cancelOneDoesNotAffectOthers() {
-            List<TelemetryEvent> kept = new ArrayList<>();
-            List<TelemetryEvent> cancelled = new ArrayList<>();
+            List<SpectorTelemetryEvent> kept = new ArrayList<>();
+            List<SpectorTelemetryEvent> cancelled = new ArrayList<>();
 
             bus.subscribe(kept::add);
             var sub = bus.subscribe(cancelled::add);
@@ -180,7 +180,7 @@ class TelemetryBusTest {
         @Test
         @DisplayName("exception in one subscriber does not block others")
         void exceptionIsolation() {
-            List<TelemetryEvent> received = new ArrayList<>();
+            List<SpectorTelemetryEvent> received = new ArrayList<>();
 
             // Subscriber that throws
             bus.subscribe(e -> { throw new RuntimeException("boom"); });
@@ -230,7 +230,7 @@ class TelemetryBusTest {
         @Test
         @DisplayName("publish after close delivers to no one")
         void publishAfterClose() {
-            List<TelemetryEvent> received = new ArrayList<>();
+            List<SpectorTelemetryEvent> received = new ArrayList<>();
             bus.subscribe(received::add);
             bus.close();
 
@@ -260,7 +260,7 @@ class TelemetryBusTest {
         void concurrentPublishes() throws InterruptedException {
             int threadCount = 8;
             int eventsPerThread = 100;
-            CopyOnWriteArrayList<TelemetryEvent> received = new CopyOnWriteArrayList<>();
+            CopyOnWriteArrayList<SpectorTelemetryEvent> received = new CopyOnWriteArrayList<>();
             bus.subscribe(received::add);
 
             CountDownLatch latch = new CountDownLatch(threadCount);
@@ -319,12 +319,12 @@ class TelemetryBusTest {
         @Test
         @DisplayName("bus handles all event types in the sealed hierarchy")
         void allEventTypesDelivered() {
-            List<TelemetryEvent> received = new ArrayList<>();
+            List<SpectorTelemetryEvent> received = new ArrayList<>();
             bus.subscribe(received::add);
 
-            TelemetryEvent simd = new SimdKernelTelemetry("cos", 16, 100, 500);
-            TelemetryEvent graph = new GraphPulseTelemetry(10, 20, 3, 1000);
-            TelemetryEvent query = new QueryTraceTelemetry(
+            SpectorTelemetryEvent simd = new SimdKernelTelemetry("cos", 16, 100, 500);
+            SpectorTelemetryEvent graph = new GraphPulseTelemetry(10, 20, 3, 1000);
+            SpectorTelemetryEvent query = new QueryTraceTelemetry(
                     "test", "BALANCED", 100, 90, 80, 70, 60, 50, 10, 5000);
 
             bus.publish(simd);

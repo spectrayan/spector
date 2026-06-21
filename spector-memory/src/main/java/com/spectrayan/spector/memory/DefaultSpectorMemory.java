@@ -69,6 +69,7 @@ import com.spectrayan.spector.memory.model.WhyNotExplanation;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pipeline.ContentTagExtractor;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
 import com.spectrayan.spector.memory.pipeline.RecallPipeline;
@@ -461,7 +462,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 builder.semanticIndex, builder.tagExtractor, true,
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
-                memorySpladeIndex, builder.sparseEncodingProvider);
+                memorySpladeIndex, builder.sparseEncodingProvider,
+                builder.dataEncryptor);
 
         // ── Wire Salience Profile Provider ──
         if (builder.salienceProfileProvider != null) {
@@ -630,6 +632,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return cognitiveTarget;
     }
 
+    /** Returns the embedding provider for reconsolidation/update operations. */
+    public EmbeddingProvider embeddingProvider() {
+        return embeddingProvider;
+    }
+
     // ══════════════════════════════════════════════════════════════
     // CORE API — remember / recall / forget / reflect
     // ══════════════════════════════════════════════════════════════
@@ -777,16 +784,21 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         List<String> chunkTexts = chunks.stream().map(TextChunker.Chunk::text).toList();
         List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(chunkTexts, EmbedConfig.DEFAULT);
 
-        // Build per-chunk tags: caller tags + parent ID tag
+        // Provenance tags from the caller (e.g., "file-ingest", filename) — shared across chunks
         String parentTag = sanitizeTag(id);
-        String[] chunkTags;
+        String[] provenanceTags;
         if (tags != null && tags.length > 0) {
-            chunkTags = new String[tags.length + 1];
-            System.arraycopy(tags, 0, chunkTags, 0, tags.length);
-            chunkTags[tags.length] = parentTag;
+            provenanceTags = new String[tags.length + 1];
+            System.arraycopy(tags, 0, provenanceTags, 0, tags.length);
+            provenanceTags[tags.length] = parentTag;
         } else {
-            chunkTags = new String[]{ parentTag };
+            provenanceTags = new String[]{ parentTag };
         }
+
+        // Per-chunk tag extraction — each chunk gets its own content-derived tags
+        // merged with the shared provenance tags.
+        // Use the configured tag extractor (LLM when available, content-based fallback).
+        var chunkTagExtractor = cognitiveTarget.tagExtractor();
 
         int stored = 0;
         List<String> failures = new ArrayList<>();
@@ -800,6 +812,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 log.warn("[Remember] Embedding failed for chunk '{}': {}", chunk.chunkId(), embedding.error());
                 continue;
             }
+
+            // Extract content-specific tags from this chunk's text
+            String[] contentTags = chunkTagExtractor.extract(chunk.chunkId(), chunk.text());
+
+            // Merge provenance + per-chunk content tags (deduplicated)
+            var mergedSet = new java.util.LinkedHashSet<String>();
+            for (String pt : provenanceTags) mergedSet.add(pt);
+            for (String ct : contentTags) mergedSet.add(ct);
+            String[] chunkTags = mergedSet.toArray(String[]::new);
 
             try {
                 if (context != null) {
@@ -1369,7 +1390,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         int semanticCapacity = 10_000;
         int nodesPerPartition = 10_000;
         int proceduralCapacity = 1_000;
-        int surpriseWarmup = 20;
+        int surpriseWarmup = 10;
         double flashbulbThreshold = 3.0;
         float valenceLearningRate = 0.3f;
         float deduplicationRadius = 0.05f;
@@ -1414,6 +1435,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         // Salience profile provider (enterprise SPI)
         SalienceProfileProvider salienceProfileProvider;
+
+        // Data encryption SPI (NOOP in OSS — enterprise injects per-tenant encryptor)
+        DataEncryptor dataEncryptor = DataEncryptor.NOOP;
 
         // Multimodal attachment processing
         java.util.List<com.spectrayan.spector.ingestion.sensory.SensoryExtractor> sensoryExtractors = java.util.List.of();
@@ -1572,6 +1596,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         /** Sets the asset store for persisting original attachment files. */
         public Builder assetStore(com.spectrayan.spector.ingestion.sensory.AssetStore store) {
             this.assetStore = store;
+            return this;
+        }
+
+        /**
+         * Sets the data encryption provider for text.dat, WAL, and tag encryption.
+         *
+         * <p>Default: {@link DataEncryptor#NOOP} (no encryption, OSS mode).
+         * Enterprise callers inject a {@link DataEncryptor} implementation
+         * (e.g., {@code TenantDataEncryptor} or {@code ContextualDataEncryptor})
+         * to enable AES-256-GCM encryption of text content and WAL payloads,
+         * plus HMAC-SHA256 blind indexing for synaptic tags.</p>
+         *
+         * @param encryptor the data encryptor (null treated as NOOP)
+         * @return this builder
+         */
+        public Builder dataEncryptor(DataEncryptor encryptor) {
+            this.dataEncryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
             return this;
         }
 

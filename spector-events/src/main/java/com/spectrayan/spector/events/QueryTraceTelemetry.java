@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
+
 /**
  * Query trace telemetry — emitted after each search with per-phase
  * record survival counts for the scoring funnel.
@@ -29,6 +31,7 @@ package com.spectrayan.spector.events;
  * @param afterVector      records remaining after vector distance filter
  * @param finalTopK        final result count
  * @param latencyMicros    end-to-end search latency in microseconds
+ * @param timestamp        when the event occurred
  */
 public record QueryTraceTelemetry(
         String queryText,
@@ -40,5 +43,18 @@ public record QueryTraceTelemetry(
         int afterDecay,
         int afterVector,
         int finalTopK,
-        long latencyMicros
-) implements TelemetryEvent {}
+        long latencyMicros,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public QueryTraceTelemetry(String queryText, String cognitiveProfile,
+                                int totalRecords, int afterTombstone,
+                                int afterTagGate, int afterValence,
+                                int afterDecay, int afterVector,
+                                int finalTopK, long latencyMicros) {
+        this(queryText, cognitiveProfile, totalRecords, afterTombstone,
+                afterTagGate, afterValence, afterDecay, afterVector,
+                finalTopK, latencyMicros, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.query.trace"; }
+}

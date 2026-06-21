@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -23,11 +24,19 @@ import java.util.List;
  *
  * @param points          projected 3D points for stored vectors
  * @param queryProjection projected 3D coordinates of the query vector (nullable)
+ * @param timestamp       when the event occurred
  */
 public record EmbeddingProjectionTelemetry(
         List<ProjectedPoint> points,
-        float[] queryProjection
-) implements TelemetryEvent {
+        float[] queryProjection,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public EmbeddingProjectionTelemetry(List<ProjectedPoint> points,
+                                         float[] queryProjection) {
+        this(points, queryProjection, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.embedding.projection"; }
 
     /**
      * A single vector projected into 3D space.

@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
+
 /**
  * Graph spreading activation telemetry — emitted per-query from the
  * 3-layer cognitive graph (Hebbian, Temporal, Entity).
@@ -23,10 +25,19 @@ package com.spectrayan.spector.events;
  * @param edgesTraversed  number of edges traversed
  * @param maxDepth        maximum activation depth reached
  * @param durationNanos   elapsed time in nanoseconds
+ * @param timestamp       when the event occurred
  */
 public record GraphPulseTelemetry(
         int nodesVisited,
         int edgesTraversed,
         int maxDepth,
-        long durationNanos
-) implements TelemetryEvent {}
+        long durationNanos,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public GraphPulseTelemetry(int nodesVisited, int edgesTraversed,
+                                int maxDepth, long durationNanos) {
+        this(nodesVisited, edgesTraversed, maxDepth, durationNanos, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.graph.pulse"; }
+}

@@ -127,15 +127,88 @@ class EntityGraphTest {
     }
 
     @Test
-    void maxMemoryRefsEnforced() {
+    void unlimitedMemoryRefsAllowed() {
         int alice = graph.addEntity("Alice", "PERSON");
 
-        for (int i = 0; i < EntityGraph.MAX_MEMORY_REFS + 5; i++) {
+        // Link 20 memories — far beyond the old MAX_MEMORY_REFS=4 limit
+        for (int i = 0; i < 20; i++) {
             graph.linkEntityToMemory(alice, i);
         }
 
         int[] memories = graph.memoriesForEntity(alice);
-        assertThat(memories).hasSize(EntityGraph.MAX_MEMORY_REFS);
+        assertThat(memories).hasSize(20);
+        for (int i = 0; i < 20; i++) {
+            assertThat(memories[i]).isEqualTo(i);
+        }
+    }
+
+    @Test
+    void duplicateLinkReinforcesWeight() {
+        int alice = graph.addEntity("Alice", "PERSON");
+
+        graph.linkEntityToMemory(alice, 42);
+        assertThat(graph.memoryRefWeight(alice, 0)).isEqualTo(1.0f);
+
+        // Re-mention: should reinforce, not add duplicate
+        graph.linkEntityToMemory(alice, 42);
+        int[] memories = graph.memoriesForEntity(alice);
+        assertThat(memories).hasSize(1); // still just one entry
+        assertThat(graph.memoryRefWeight(alice, 0)).isEqualTo(1.2f); // +0.2 LTP
+    }
+
+    @Test
+    void fanFactorScalesWithRefCount() {
+        int alice = graph.addEntity("Alice", "PERSON");
+
+        // 0 refs → factor 1.0 (clamped from NaN)
+        assertThat(graph.fanFactor(alice)).isEqualTo(1.0f);
+
+        // 1 ref → factor 1.0
+        graph.linkEntityToMemory(alice, 0);
+        assertThat(graph.fanFactor(alice)).isEqualTo(1.0f);
+
+        // 4 refs → factor 0.5 (1/√4)
+        for (int i = 1; i < 4; i++) graph.linkEntityToMemory(alice, i);
+        assertThat(graph.fanFactor(alice)).isCloseTo(0.5f, org.assertj.core.data.Offset.offset(0.01f));
+
+        // 16 refs → factor 0.25 (1/√16)
+        for (int i = 4; i < 16; i++) graph.linkEntityToMemory(alice, i);
+        assertThat(graph.fanFactor(alice)).isCloseTo(0.25f, org.assertj.core.data.Offset.offset(0.01f));
+    }
+
+    @Test
+    void adjacencyDecayPrunesWeakLinks() {
+        int alice = graph.addEntity("Alice", "PERSON");
+        graph.linkEntityToMemory(alice, 10);
+        graph.linkEntityToMemory(alice, 20);
+
+        // Repeatedly decay until weight drops below threshold
+        for (int i = 0; i < 100; i++) {
+            graph.decayAdjacencyWeights(0.95f, 0.2f);
+        }
+
+        // After ~100 cycles of 5% decay, weight ≈ 1.0 × 0.95^100 ≈ 0.006 → pruned
+        assertThat(graph.memoriesForEntity(alice)).isEmpty();
+    }
+
+    @Test
+    void adjacencyCompaction() {
+        int alice = graph.addEntity("Alice", "PERSON");
+        int bob = graph.addEntity("Bob", "PERSON");
+
+        // Link enough to trigger block growth for alice
+        for (int i = 0; i < 20; i++) graph.linkEntityToMemory(alice, i);
+        for (int i = 100; i < 105; i++) graph.linkEntityToMemory(bob, i);
+
+        int hwmBefore = graph.adjHighWaterMark();
+        long reclaimed = graph.compactAdjacency();
+
+        // Compaction should reclaim fragmented space from alice's old block
+        assertThat(graph.adjHighWaterMark()).isLessThanOrEqualTo(hwmBefore);
+
+        // Data integrity preserved
+        assertThat(graph.memoriesForEntity(alice)).hasSize(20);
+        assertThat(graph.memoriesForEntity(bob)).hasSize(5);
     }
 
     @Test
@@ -236,5 +309,33 @@ class EntityGraphTest {
 
         var snapshot = graph.nameIndex();
         assertThat(snapshot).containsKeys("alice", "bob");
+    }
+
+    @Test
+    void nonContiguousRelationAddingDoesNotCorruptEdges() {
+        int alice = graph.addEntity("Alice", "PERSON");
+        int bob = graph.addEntity("Bob", "PERSON");
+        int charlie = graph.addEntity("Charlie", "PERSON");
+
+        // Alice -> Bob
+        graph.addRelation(alice, bob, "WORKS_WITH");
+        // Bob -> Charlie
+        graph.addRelation(bob, charlie, "MANAGES");
+        // Alice -> Charlie (Interleaved addition: Alice already has an edge, Bob was added next)
+        graph.addRelation(alice, charlie, "KNOWS");
+
+        // Verify Alice's edges (should be relocated and contiguous)
+        var aliceEdges = graph.edges(alice);
+        assertThat(aliceEdges).hasSize(2);
+        assertThat(aliceEdges.get(0).targetEntityId()).isEqualTo(bob);
+        assertThat(aliceEdges.get(0).relationType()).isEqualTo("WORKS_WITH");
+        assertThat(aliceEdges.get(1).targetEntityId()).isEqualTo(charlie);
+        assertThat(aliceEdges.get(1).relationType()).isEqualTo("KNOWS");
+
+        // Verify Bob's edges (should remain intact)
+        var bobEdges = graph.edges(bob);
+        assertThat(bobEdges).hasSize(1);
+        assertThat(bobEdges.get(0).targetEntityId()).isEqualTo(charlie);
+        assertThat(bobEdges.get(0).relationType()).isEqualTo("MANAGES");
     }
 }

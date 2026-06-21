@@ -1,12 +1,19 @@
 package com.spectrayan.spector.node.event;
 
 import java.time.Instant;
+import java.util.Map;
+
+import com.spectrayan.spector.events.NotificationScope;
+import com.spectrayan.spector.events.SpectorEvent;
 
 /**
- * Sealed base interface for all Spector node events.
+ * Sealed sub-hierarchy for all Spector node domain events.
  *
- * <p>Follows Spring/Redis naming convention: {@code Spector[Domain][Action]Event}.
- * Events are published via {@link SpectorEventBus} and consumed by subscribers
+ * <p>Extends the product-level {@link SpectorEvent} marker with node-specific
+ * fields ({@link #nodeId()}). Follows Spring/Redis naming convention:
+ * {@code Spector[Domain][Action]Event}.</p>
+ *
+ * <p>Events are published via {@link SpectorEventBus} and consumed by subscribers
  * (SSE clients, metrics collectors, audit loggers, etc.).</p>
  *
  * <h3>Event Categories</h3>
@@ -19,6 +26,12 @@ import java.time.Instant;
  *   <li><b>Engine</b>: Index rebuilt, embedding provider changed</li>
  * </ul>
  *
+ * <h3>Notification Scoping</h3>
+ * <p>Each event declares a {@link NotificationScope} via {@link #scope()} that
+ * determines which subscribers receive it. Override {@code scope()} in event
+ * records to restrict delivery — e.g., ingestion events return
+ * {@code NotificationScope.user(userId)} so only the initiating user sees them.</p>
+ *
  * <h3>Usage</h3>
  * <pre>{@code
  *   eventBus.publish(new SpectorSearchCompletedEvent("node-1", 5, 12L, "HYBRID"));
@@ -30,8 +43,11 @@ import java.time.Instant;
  *       }
  *   });
  * }</pre>
+ *
+ * @see SpectorEvent
+ * @see SpectorEventBus
  */
-public sealed interface SpectorEvent permits
+public sealed interface SpectorNodeEvent extends SpectorEvent permits
         // ── Lifecycle ──
         SpectorNodeStartedEvent,
         SpectorNodeStoppingEvent,
@@ -69,12 +85,37 @@ public sealed interface SpectorEvent permits
         SpectorCortexClusterTopologyEvent,
         SpectorCortexEmbeddingProjectionEvent {
 
-    /** Timestamp when the event occurred. */
-    Instant timestamp();
-
     /** Node ID that originated the event. */
     String nodeId();
 
-    /** Event type name (e.g., "search.completed"). Used in SSE {@code event:} field. */
-    String eventType();
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Node events carry the node ID in context under
+     * {@link SpectorEvent.ContextKeys#NODE}.</p>
+     */
+    @Override
+    default Map<String, String> context() {
+        return Map.of(SpectorEvent.ContextKeys.NODE, nodeId());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    default NotificationScope scope() { return NotificationScope.BROADCAST; }
+
+    /**
+     * Target user ID for user-scoped event delivery.
+     *
+     * @deprecated Use {@link #scope()} instead. This method is retained for
+     *             backward compatibility and delegates to the scope model:
+     *             returns the userId if scope is {@link NotificationScope.User},
+     *             otherwise null.
+     * @return the target user ID, or null for non-user-scoped events
+     */
+    @Deprecated(since = "1.5.0", forRemoval = true)
+    default String targetUserId() {
+        return scope() instanceof NotificationScope.User u ? u.userId() : null;
+    }
 }

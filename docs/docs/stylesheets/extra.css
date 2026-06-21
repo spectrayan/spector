@@ -8,27 +8,24 @@
   display: block;
 }
 
-/* Fix mermaid diagrams on dark theme */
-[data-md-color-scheme="slate"] .mermaid {
-  --md-mermaid-font-family: var(--md-text-font-family, _);
-}
+/* ═══════════════════════════════════════════════════════════════
+   Dark mode (slate) — Override inline mermaid style directives
+   to ensure all diagrams are readable on dark backgrounds.
+   Uses !important to beat inline styles from `style` directives.
+   ═══════════════════════════════════════════════════════════════ */
 
 /* ── Dark mode: Node shapes ── */
-/* Override inline styles from mermaid `style` directives */
 [data-md-color-scheme="slate"] .mermaid .node rect,
 [data-md-color-scheme="slate"] .mermaid .node polygon,
 [data-md-color-scheme="slate"] .mermaid .node circle,
 [data-md-color-scheme="slate"] .mermaid .node path {
   fill: #313244 !important;
-  stroke: #6c6c8a !important;
+  stroke: #585b70 !important;
 }
 
 /* ── Dark mode: Node text ── */
-[data-md-color-scheme="slate"] .mermaid .node .label,
 [data-md-color-scheme="slate"] .mermaid .nodeLabel,
-[data-md-color-scheme="slate"] .mermaid .label,
-[data-md-color-scheme="slate"] .mermaid span,
-[data-md-color-scheme="slate"] .mermaid p {
+[data-md-color-scheme="slate"] .mermaid .label {
   color: #cdd6f4 !important;
   fill: #cdd6f4 !important;
 }
@@ -50,7 +47,6 @@
 }
 
 /* ── Dark mode: Cluster/subgraph backgrounds ── */
-/* These override hardcoded fill colors from `style SubgraphName fill:...` */
 [data-md-color-scheme="slate"] .mermaid .cluster rect {
   fill: #1e1e2e !important;
   stroke: #45475a !important;
@@ -65,7 +61,7 @@
 /* ── Dark mode: Sequence diagrams ── */
 [data-md-color-scheme="slate"] .mermaid .actor {
   fill: #313244 !important;
-  stroke: #6c6c8a !important;
+  stroke: #585b70 !important;
 }
 
 [data-md-color-scheme="slate"] .mermaid text.actor,
@@ -108,7 +104,7 @@
 /* ── Dark mode: Label containers (used by styled nodes) ── */
 [data-md-color-scheme="slate"] .mermaid .label-container {
   fill: #313244 !important;
-  stroke: #6c6c8a !important;
+  stroke: #585b70 !important;
 }
 
 /* ── Dark mode: Arrowheads ── */
@@ -118,3 +114,103 @@
   stroke: #89b4fa !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Light mode (default) — Ensure inline dark fills don't make
+   diagrams invisible. Override node fills to a soft, readable
+   background while keeping text dark.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Light mode: Node shapes ── */
+[data-md-color-scheme="default"] .mermaid .node rect,
+[data-md-color-scheme="default"] .mermaid .node polygon,
+[data-md-color-scheme="default"] .mermaid .node circle,
+[data-md-color-scheme="default"] .mermaid .node path {
+  fill: #e8eaf0 !important;
+  stroke: #9ca3af !important;
+}
+
+/* ── Light mode: Node text ── */
+[data-md-color-scheme="default"] .mermaid .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .label {
+  color: #1e293b !important;
+  fill: #1e293b !important;
+}
+
+/* ── Light mode: Edge labels ── */
+[data-md-color-scheme="default"] .mermaid .edgeLabel {
+  background-color: #ffffff !important;
+  color: #374151 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .edgeLabel rect {
+  fill: #ffffff !important;
+  opacity: 0.9;
+}
+
+/* ── Light mode: Cluster/subgraph backgrounds ── */
+[data-md-color-scheme="default"] .mermaid .cluster rect {
+  fill: #f1f5f9 !important;
+  stroke: #cbd5e1 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .cluster span,
+[data-md-color-scheme="default"] .mermaid .cluster .nodeLabel {
+  color: #475569 !important;
+  fill: #475569 !important;
+}
+
+/* ── Light mode: Sequence diagrams ── */
+[data-md-color-scheme="default"] .mermaid .actor {
+  fill: #e0e7ff !important;
+  stroke: #6366f1 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid text.actor,
+[data-md-color-scheme="default"] .mermaid .actor-man text {
+  fill: #1e293b !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .messageLine0,
+[data-md-color-scheme="default"] .mermaid .messageLine1 {
+  stroke: #6366f1 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .messageText {
+  fill: #1e293b !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .loopText,
+[data-md-color-scheme="default"] .mermaid .loopText > tspan {
+  fill: #475569 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .loopLine {
+  stroke: #cbd5e1 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .note {
+  fill: #fef3c7 !important;
+  stroke: #f59e0b !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .noteText {
+  fill: #1e293b !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .activation {
+  fill: #e0e7ff !important;
+  stroke: #6366f1 !important;
+}
+
+/* ── Light mode: Label containers ── */
+[data-md-color-scheme="default"] .mermaid .label-container {
+  fill: #e8eaf0 !important;
+  stroke: #9ca3af !important;
+}
+
+/* ── Light mode: Arrowheads ── */
+[data-md-color-scheme="default"] .mermaid .marker,
+[data-md-color-scheme="default"] .mermaid #arrowhead path {
+  fill: #6366f1 !important;
+  stroke: #6366f1 !important;
+}

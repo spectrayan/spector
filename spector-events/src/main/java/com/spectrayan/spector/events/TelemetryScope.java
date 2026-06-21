@@ -16,7 +16,7 @@
 package com.spectrayan.spector.events;
 
 /**
- * {@link ScopedValue}-based carrier for the {@link TelemetryBus}.
+ * {@link ScopedValue}-based carrier for the telemetry {@link EventBus}.
  *
  * <p>Allows telemetry events to be published from anywhere in the call stack
  * without constructor injection. The bus is bound at the top of a request
@@ -25,9 +25,9 @@ package com.spectrayan.spector.events;
  *
  * <h3>How it works</h3>
  * <ol>
- *   <li>{@code SpectorNode} creates a {@link TelemetryBus} instance</li>
+ *   <li>{@code SpectorNode} creates an {@link EventBus EventBus&lt;SpectorTelemetryEvent&gt;} instance</li>
  *   <li>{@code SearchService} binds it via
- *       {@code ScopedValue.callWhere(TelemetryScope.BUS, bus, () -> ...)}</li>
+ *       {@code ScopedValue.where(TelemetryScope.BUS, bus).call(() -> ...)}</li>
  *   <li>Internal code calls {@code TelemetryScope.publish(new SimdKernelTelemetry(...))}
  *       — if a bus is bound, the event is delivered; otherwise it's a no-op</li>
  * </ol>
@@ -41,13 +41,13 @@ package com.spectrayan.spector.events;
  * <p>{@code ScopedValue.isBound()} is approximately 1ns on modern JVMs —
  * comparable to the {@code volatile} read in the old static-holder pattern.</p>
  *
- * @see TelemetryBus
- * @see TelemetryEvent
+ * @see EventBus
+ * @see SpectorTelemetryEvent
  */
 public final class TelemetryScope {
 
-    /** The scoped telemetry bus — bound per request call stack. */
-    public static final ScopedValue<TelemetryBus> BUS = ScopedValue.newInstance();
+    /** The scoped telemetry event bus — bound per request call stack. */
+    public static final ScopedValue<EventBus<SpectorTelemetryEvent>> BUS = ScopedValue.newInstance();
 
     private TelemetryScope() {}
 
@@ -58,8 +58,9 @@ public final class TelemetryScope {
      * (e.g., in unit tests or non-instrumented code paths), this is a no-op.</p>
      *
      * @param event the telemetry event to publish
+     * @see SpectorTelemetryEvent
      */
-    public static void publish(TelemetryEvent event) {
+    public static void publish(SpectorTelemetryEvent event) {
         if (BUS.isBound()) {
             BUS.get().publish(event);
         }

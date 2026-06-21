@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
+
 /**
  * Memory snapshot telemetry — emitted before and after reflect()
  * consolidation. Used by the memory diff view to show before/after
@@ -30,6 +32,7 @@ package com.spectrayan.spector.events;
  * @param tombstoneCount   number of tombstoned memories
  * @param coActivationPairs co-activation pair count
  * @param stdpEdges        STDP-strengthened edge count
+ * @param timestamp        when the event occurred
  */
 public record MemorySnapshotTelemetry(
         String phase,
@@ -41,5 +44,18 @@ public record MemorySnapshotTelemetry(
         long offHeapBytes,
         int tombstoneCount,
         int coActivationPairs,
-        int stdpEdges
-) implements TelemetryEvent {}
+        int stdpEdges,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public MemorySnapshotTelemetry(String phase, String reflectCycleId,
+                                    int hebbianEdgeCount, int temporalLinkCount,
+                                    int entityNodeCount, int entityEdgeCount,
+                                    long offHeapBytes, int tombstoneCount,
+                                    int coActivationPairs, int stdpEdges) {
+        this(phase, reflectCycleId, hebbianEdgeCount, temporalLinkCount,
+                entityNodeCount, entityEdgeCount, offHeapBytes, tombstoneCount,
+                coActivationPairs, stdpEdges, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.memory.snapshot"; }
+}

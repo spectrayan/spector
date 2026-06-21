@@ -53,13 +53,13 @@ class LlmEntityExtractorTest {
 
         assertThat(entities).hasSize(2);
         assertThat(entities.get(0).name()).isEqualTo("Alice");
-        assertThat(entities.get(0).type()).isEqualTo(EntityType.PERSON);
+        assertThat(entities.get(0).type()).isEqualTo("PERSON");
         assertThat(entities.get(0).relations()).hasSize(1);
-        assertThat(entities.get(0).relations().get(0).relationType()).isEqualTo(RelationType.MANAGES);
+        assertThat(entities.get(0).relations().get(0).relationType()).isEqualTo("MANAGES");
         assertThat(entities.get(0).relations().get(0).targetEntityName()).isEqualTo("Project Alpha");
 
         assertThat(entities.get(1).name()).isEqualTo("Project Alpha");
-        assertThat(entities.get(1).type()).isEqualTo(EntityType.PROJECT);
+        assertThat(entities.get(1).type()).isEqualTo("PROJECT");
     }
 
     @Test
@@ -138,7 +138,7 @@ class LlmEntityExtractorTest {
     }
 
     @Test
-    void parsesUnknownEntityType() {
+    void preservesNovelEntityType() {
         String response = "ENTITY: Widget | GADGET\n";
 
         TextGenerationProvider mockProvider = new TextGenerationProvider() {
@@ -160,7 +160,9 @@ class LlmEntityExtractorTest {
         List<ExtractedEntity> entities = extractor.extract("test", "text");
 
         assertThat(entities).hasSize(1);
-        assertThat(entities.get(0).type()).isEqualTo(EntityType.OTHER);
+        // Open-schema: novel types are preserved, NOT collapsed to OTHER
+        assertThat(entities.get(0).type()).isEqualTo("GADGET");
+        assertThat(entities.get(0).typeName()).isEqualTo("GADGET");
     }
 
     @Test
@@ -223,5 +225,125 @@ class LlmEntityExtractorTest {
         // Alice should have 2 relations
         var alice = entities.get(0);
         assertThat(alice.relations()).hasSize(2);
+    }
+
+    @Test
+    void normalizesHyphenatedRelationType() {
+        String response = """
+                ENTITY: Service A | TECHNOLOGY
+                ENTITY: Library B | TECHNOLOGY
+                RELATION: Service A | DEPENDS-ON | Library B
+                """;
+
+        TextGenerationProvider mockProvider = new TextGenerationProvider() {
+            @Override
+            public String generate(String prompt) { return response; }
+            @Override
+            public boolean isAvailable() { return true; }
+            @Override
+            public String modelName() { return "test-mock"; }
+        };
+
+        LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
+        List<ExtractedEntity> entities = extractor.extract("test", "text");
+
+        assertThat(entities).hasSize(2);
+        var serviceA = entities.get(0);
+        assertThat(serviceA.relations()).hasSize(1);
+        assertThat(serviceA.relations().get(0).relationType()).isEqualTo("DEPENDS_ON");
+    }
+
+    @Test
+    void normalizesSpaceSeparatedRelationType() {
+        String response = """
+                ENTITY: Alice | PERSON
+                ENTITY: Project X | PROJECT
+                RELATION: Alice | WORKS ON | Project X
+                """;
+
+        TextGenerationProvider mockProvider = new TextGenerationProvider() {
+            @Override
+            public String generate(String prompt) { return response; }
+            @Override
+            public boolean isAvailable() { return true; }
+            @Override
+            public String modelName() { return "test-mock"; }
+        };
+
+        LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
+        List<ExtractedEntity> entities = extractor.extract("test", "text");
+
+        assertThat(entities).hasSize(2);
+        var alice = entities.get(0);
+        assertThat(alice.relations()).hasSize(1);
+        assertThat(alice.relations().get(0).relationType()).isEqualTo("WORKS_ON");
+    }
+
+    @Test
+    void normalizesMixedSeparatorsInRelationType() {
+        String response = """
+                ENTITY: Module A | TECHNOLOGY
+                ENTITY: Module B | TECHNOLOGY
+                ENTITY: Module C | TECHNOLOGY
+                RELATION: Module A | PART_OF | Module B
+                RELATION: Module B | DEPENDS-ON | Module C
+                """;
+
+        TextGenerationProvider mockProvider = new TextGenerationProvider() {
+            @Override
+            public String generate(String prompt) { return response; }
+            @Override
+            public boolean isAvailable() { return true; }
+            @Override
+            public String modelName() { return "test-mock"; }
+        };
+
+        LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
+        List<ExtractedEntity> entities = extractor.extract("test", "text");
+
+        assertThat(entities).hasSize(3);
+        // Module A: PART_OF (already correct)
+        assertThat(entities.get(0).relations()).hasSize(1);
+        assertThat(entities.get(0).relations().get(0).relationType()).isEqualTo("PART_OF");
+        // Module B: DEPENDS-ON → normalized to DEPENDS_ON
+        assertThat(entities.get(1).relations()).hasSize(1);
+        assertThat(entities.get(1).relations().get(0).relationType()).isEqualTo("DEPENDS_ON");
+    }
+
+    @Test
+    void handlesSwappedRelationFormat() {
+        // Some small models output: RELATION: REL_TYPE | entity1 | entity2
+        // instead of the expected:  RELATION: entity1 | REL_TYPE | entity2
+        String response = """
+                ENTITY: Punam | PERSON
+                ENTITY: Bharat | PERSON
+                RELATION: DEPENDS_ON | Punam | Bharat
+                RELATION: ASSIGNED_TO | Bharat | Punam
+                """;
+
+        TextGenerationProvider mockProvider = new TextGenerationProvider() {
+            @Override
+            public String generate(String prompt) { return response; }
+            @Override
+            public boolean isAvailable() { return true; }
+            @Override
+            public String modelName() { return "test-mock"; }
+        };
+
+        LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
+        List<ExtractedEntity> entities = extractor.extract("test", "text");
+
+        assertThat(entities).hasSize(2);
+        // Punam should be the source of DEPENDS_ON (after swap detection)
+        var punam = entities.get(0);
+        assertThat(punam.relations()).hasSize(1);
+        assertThat(punam.relations().get(0).relationType()).isEqualTo("DEPENDS_ON");
+        assertThat(punam.relations().get(0).targetEntityName()).isEqualTo("Bharat");
+
+        // Bharat should be the source of ASSIGNED_TO (after swap detection)
+        var bharat = entities.get(1);
+        assertThat(bharat.relations()).hasSize(1);
+        assertThat(bharat.relations().get(0).relationType()).isEqualTo("ASSIGNED_TO");
+        assertThat(bharat.relations().get(0).targetEntityName()).isEqualTo("Punam");
     }
 }

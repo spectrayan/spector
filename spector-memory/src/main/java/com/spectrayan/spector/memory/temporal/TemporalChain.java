@@ -380,6 +380,23 @@ public final class TemporalChain implements AutoCloseable {
         }
     }
 
+    /**
+     * Resets all temporal links by re-initializing all nodes to NO_LINK.
+     *
+     * <p>Unlike {@link #close()}, this does NOT release the arena. The chain
+     * remains usable for new links after the reset. Used by privacy wipe.</p>
+     */
+    public void reset() {
+        for (int i = 0; i < capacity; i++) {
+            long offset = (long) i * NODE_BYTES;
+            segment.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+            segment.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+            segment.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+            segment.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
+        }
+        log.info("TemporalChain reset: capacity={}", capacity);
+    }
+
     @Override
     public void close() {
         log.info("TemporalChain closing (capacity={})", capacity);

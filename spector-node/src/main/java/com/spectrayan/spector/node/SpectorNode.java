@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.spectrayan.spector.node;
 
 import java.time.Instant;
@@ -95,7 +110,7 @@ public class SpectorNode implements AutoCloseable {
     private MemoryService memoryService; // nullable — only when memory subsystem is present
     private IngestionTaskService taskService; // nullable — only when memory subsystem is present
     private CortexMetricsPublisher cortexPublisher; // nullable
-    private TelemetryBus telemetryBus; // nullable
+    private EventBus<SpectorTelemetryEvent> telemetryBus; // nullable
     private SpectorRuntime runtime; // nullable — set when created from runtime
     private SpectorMcpServer mcpServer; // nullable — MCP SSE server
     private ArmeriaMcpTransport mcpTransport; // nullable
@@ -171,8 +186,8 @@ public class SpectorNode implements AutoCloseable {
      * Blocks until the server is fully started.</p>
      */
     public void start() {
-        // ── Create TelemetryBus (must be first — passed to services) ──
-        telemetryBus = new TelemetryBus();
+        // ── Create telemetry EventBus (must be first — passed to services) ──
+        telemetryBus = EventBus.broadcast();
         telemetryBus.subscribe(this::convertAndPublish);
 
         // ── Build service facades ──
@@ -299,11 +314,11 @@ public class SpectorNode implements AutoCloseable {
     }
 
     /**
-     * Converts lightweight {@link TelemetryEvent} records from the telemetry bus
-     * into full {@link SpectorEvent} records (adding nodeId + timestamp) and
+     * Converts lightweight {@link SpectorTelemetryEvent} records from the telemetry bus
+     * into full {@code SpectorNodeEvent} records (adding nodeId + timestamp) and
      * publishes them to the SSE event bus.
      */
-    private void convertAndPublish(TelemetryEvent event) {
+    private void convertAndPublish(SpectorTelemetryEvent event) {
         String nid = nodeConfig.nodeId();
         Instant now = Instant.now();
 

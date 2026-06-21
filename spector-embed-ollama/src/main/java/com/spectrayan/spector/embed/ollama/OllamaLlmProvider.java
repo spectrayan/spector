@@ -242,6 +242,8 @@ public class OllamaLlmProvider implements TextGenerationProvider {
         body.put("model", model);
         body.put("prompt", prompt);
         body.put("stream", false);
+        body.put("think", false); // Disable thinking output for reasoning models (e.g. DeepSeek R1)
+        //body.put("system", "You are a precise, objective cognitive processing utility. Output only the requested format exactly as specified, without any chat, persona, or preamble.");
 
         // Ollama options mapping
         Map<String, Object> ollamaOptions = new LinkedHashMap<>();

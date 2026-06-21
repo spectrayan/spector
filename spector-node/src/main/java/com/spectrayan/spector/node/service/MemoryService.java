@@ -76,7 +76,7 @@ public class MemoryService {
         eventBus.publish(captureSnapshot("pre-reflect", reflectCycleId));
 
         // ── Run consolidation ──
-        ReflectReport report = memory.reflect();
+        ReflectReport report = memory().reflect();
 
         // ── Post-reflect snapshot ──
         eventBus.publish(captureSnapshot("post-reflect", reflectCycleId));
@@ -101,7 +101,7 @@ public class MemoryService {
      * are exposed by SpectorMemory.</p>
      */
     private SpectorCortexMemorySnapshotEvent captureSnapshot(String phase, String reflectCycleId) {
-        int totalCount = memory.totalMemories();
+        int totalCount = memory().totalMemories();
         return new SpectorCortexMemorySnapshotEvent(
                 nodeId, Instant.now(),
                 phase, reflectCycleId,
@@ -122,13 +122,61 @@ public class MemoryService {
     public CompletableFuture<Void> remember(String id, String text, MemoryType tier,
                                            MemorySource source, IngestionHints hints,
                                            String... tags) {
-        return memory.remember(id, text, tier, source, hints, tags);
+        return memory().remember(id, text, tier, source, hints, tags);
+    }
+
+    /**
+     * Updates a memory in-place (reconsolidation) without chunking.
+     *
+     * <p>Directly re-embeds the text and writes to the cognitive store,
+     * bypassing the chunking pipeline in {@link #remember}. The index text,
+     * tags, and location are atomically updated.</p>
+     *
+     * @param id      existing memory ID
+     * @param newText updated text (null = keep existing)
+     * @param newTags updated tags (null = keep existing)
+     */
+    public void updateMemoryInPlace(String id, String newText, String[] newTags) {
+        var admin = memory().admin();
+        var index = admin.index();
+        var loc = index.locate(id);
+        if (loc == null) {
+            throw new IllegalArgumentException("Memory not found: " + id);
+        }
+
+        // Capture existing metadata before removing from index
+        String text = newText != null ? newText : index.text(id);
+        String[] tags = newTags != null ? newTags : index.tags(id);
+        var source = index.source(id);
+        var type = loc.type();
+
+        // Tombstone the old binary slot and remove from index
+        // This is required because ingestCognitive has a dedup guard that
+        // skips ingestion when index.locate(id) != null.
+        var tierRouter = admin.tierRouter();
+        var layout = tierRouter.layoutFor(loc.type());
+        var segment = tierRouter.segmentFor(loc.type());
+        if (layout != null && segment != null) {
+            layout.tombstone(segment, loc.offset());
+        }
+        index.remove(id);
+
+        // Get embedding provider from the concrete implementation
+        com.spectrayan.spector.memory.DefaultSpectorMemory dsm =
+                (com.spectrayan.spector.memory.DefaultSpectorMemory) memory();
+        float[] vector = dsm.embeddingProvider().embed(text).vector();
+
+        // Re-ingest: dedup guard passes (id removed), writes fresh record,
+        // register() creates new index entry with updated text/tags/offset
+        memory().target().ingestCognitive(id, text, vector, type, tags,
+                source != null ? source : MemorySource.OBSERVED,
+                (IngestionHints) null);
     }
 
     /** Performs cognitive recall and emits a cortex query trace event. */
     public List<CognitiveResult> recall(String query, RecallOptions options) {
         long startNanos = System.nanoTime();
-        List<CognitiveResult> results = memory.recall(query, options);
+        List<CognitiveResult> results = memory().recall(query, options);
         long latencyMicros = (System.nanoTime() - startNanos) / 1_000;
 
         // Emit cortex.query.trace SSE event — drives dashboard/graph particles
@@ -138,11 +186,11 @@ public class MemoryService {
                 query,
                 "default",
                 0,                              // synapticTagMask
-                memory.totalMemories(),         // totalRecords
-                memory.totalMemories(),         // afterTombstone (no filter breakdown available)
-                memory.totalMemories(),         // afterTagGate
-                memory.totalMemories(),         // afterValence
-                memory.totalMemories(),         // afterDecay
+                memory().totalMemories(),         // totalRecords
+                memory().totalMemories(),         // afterTombstone (no filter breakdown available)
+                memory().totalMemories(),         // afterTagGate
+                memory().totalMemories(),         // afterValence
+                memory().totalMemories(),         // afterDecay
                 resultCount,                    // afterVectorDistance
                 resultCount,                    // finalTopK
                 Math.max(1, resultCount / 2),   // hebbianActivated (estimated)
@@ -156,56 +204,56 @@ public class MemoryService {
 
     /** Tombstones a memory by ID. */
     public void forget(String id) {
-        memory.forget(id);
+        memory().forget(id);
     }
 
     /** Reports outcome feedback for a memory. */
     public void reinforce(String id, byte valence) {
-        memory.reinforce(id, valence);
+        memory().reinforce(id, valence);
     }
 
     /** Suppresses a memory from future recall. */
     public void suppress(String id, String reason) {
         if (reason != null && !reason.isBlank()) {
-            memory.suppress(id, reason);
+            memory().suppress(id, reason);
         } else {
-            memory.suppress(id);
+            memory().suppress(id);
         }
     }
 
     /** Unsuppresses a memory. */
     public void unsuppress(String id) {
-        memory.unsuppress(id);
+        memory().unsuppress(id);
     }
 
     /** Marks a memory as resolved. */
     public void markResolved(String id) {
-        memory.markResolved(id);
+        memory().markResolved(id);
     }
 
     /** Marks a memory as unresolved. */
     public void markUnresolved(String id) {
-        memory.markUnresolved(id);
+        memory().markUnresolved(id);
     }
 
     /** Returns comprehensive stats and status of the cognitive memory system. */
     public MemoryStatusDto getStatus() {
-        int total = memory.totalMemories();
+        int total = memory().totalMemories();
         var counts = Map.of(
-                "WORKING", memory.memoryCount(MemoryType.WORKING),
-                "EPISODIC", memory.memoryCount(MemoryType.EPISODIC),
-                "SEMANTIC", memory.memoryCount(MemoryType.SEMANTIC),
-                "PROCEDURAL", memory.memoryCount(MemoryType.PROCEDURAL)
+                "WORKING", memory().memoryCount(MemoryType.WORKING),
+                "EPISODIC", memory().memoryCount(MemoryType.EPISODIC),
+                "SEMANTIC", memory().memoryCount(MemoryType.SEMANTIC),
+                "PROCEDURAL", memory().memoryCount(MemoryType.PROCEDURAL)
         );
-        int hebbian = memory.hebbianGraph() != null ? memory.hebbianGraph().totalEdges() : 0;
-        int entityNodes = memory.entityGraph() != null ? memory.entityGraph().entityCount() : 0;
-        int entityEdges = memory.entityGraph() != null ? memory.entityGraph().edgeCount() : 0;
+        int hebbian = memory().hebbianGraph() != null ? memory().hebbianGraph().totalEdges() : 0;
+        int entityNodes = memory().entityGraph() != null ? memory().entityGraph().entityCount() : 0;
+        int entityEdges = memory().entityGraph() != null ? memory().entityGraph().edgeCount() : 0;
 
         int temporalLinks = 0;
-        if (memory.temporalChain() != null) {
-            int cap = memory.temporalChain().capacity();
+        if (memory().temporalChain() != null) {
+            int cap = memory().temporalChain().capacity();
             for (int i = 0; i < cap; i++) {
-                if (memory.temporalChain().isLinked(i)) {
+                if (memory().temporalChain().isLinked(i)) {
                     temporalLinks++;
                 }
             }
@@ -214,26 +262,125 @@ public class MemoryService {
         return new MemoryStatusDto(total, counts, hebbian, temporalLinks, entityNodes, entityEdges);
     }
 
+    /** Returns statistics of the entity types and relationship types extracted. */
+    public com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto getTopologyStats() {
+        var admin = memory().admin();
+        var entityGraph = admin.entityGraph();
+        if (entityGraph == null) {
+            return new com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto(java.util.List.of(), java.util.List.of());
+        }
+
+        int entityCount = entityGraph.entityCount();
+
+        // Accumulators for Entity Types
+        java.util.Map<String, java.util.Set<Integer>> entityNodesByType = new java.util.HashMap<>();
+        java.util.Map<String, java.util.Set<Integer>> entityMemoriesByType = new java.util.HashMap<>();
+        java.util.Map<String, Integer> entityEdgesByType = new java.util.HashMap<>();
+
+        // Accumulators for Relation Types
+        java.util.Map<String, Integer> relEdgesByType = new java.util.HashMap<>();
+        java.util.Map<String, java.util.Set<Integer>> relNodesByType = new java.util.HashMap<>();
+        java.util.Map<String, java.util.Set<Integer>> relMemoriesByType = new java.util.HashMap<>();
+
+        for (int eid = 0; eid < entityCount; eid++) {
+            String type = entityGraph.entityType(eid);
+            if (type == null || type.isBlank()) {
+                type = "OTHER";
+            }
+            type = type.toUpperCase(java.util.Locale.ROOT);
+
+            entityNodesByType.computeIfAbsent(type, k -> new java.util.HashSet<>()).add(eid);
+
+            int[] memRefs = entityGraph.memoriesForEntity(eid);
+            if (memRefs != null) {
+                var memSet = entityMemoriesByType.computeIfAbsent(type, k -> new java.util.HashSet<>());
+                for (int ref : memRefs) {
+                    memSet.add(ref);
+                }
+            }
+
+            var edges = entityGraph.edges(eid);
+            if (edges != null) {
+                for (var edge : edges) {
+                    int targetId = edge.targetEntityId();
+                    String relType = edge.relationType();
+                    if (relType == null || relType.isBlank()) {
+                        relType = "RELATED_TO";
+                    }
+                    relType = relType.toUpperCase(java.util.Locale.ROOT);
+
+                    // Count outbound edge for source entity's type
+                    entityEdgesByType.put(type, entityEdgesByType.getOrDefault(type, 0) + 1);
+
+                    // Relation type stats
+                    relEdgesByType.put(relType, relEdgesByType.getOrDefault(relType, 0) + 1);
+                    
+                    var relNodes = relNodesByType.computeIfAbsent(relType, k -> new java.util.HashSet<>());
+                    relNodes.add(eid);
+                    if (targetId >= 0 && targetId < entityCount) {
+                        relNodes.add(targetId);
+                    }
+
+                    var relMems = relMemoriesByType.computeIfAbsent(relType, k -> new java.util.HashSet<>());
+                    if (memRefs != null) {
+                        for (int ref : memRefs) {
+                            relMems.add(ref);
+                        }
+                    }
+                    if (targetId >= 0 && targetId < entityCount) {
+                        int[] targetMemRefs = entityGraph.memoriesForEntity(targetId);
+                        if (targetMemRefs != null) {
+                            for (int ref : targetMemRefs) {
+                                relMems.add(ref);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        java.util.List<com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto.EntityTypeStatsDto> entityTypesList = new java.util.ArrayList<>();
+        for (var entry : entityNodesByType.entrySet()) {
+            String type = entry.getKey();
+            int nodes = entry.getValue().size();
+            int memories = entityMemoriesByType.getOrDefault(type, java.util.Set.of()).size();
+            int edges = entityEdgesByType.getOrDefault(type, 0);
+            entityTypesList.add(new com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto.EntityTypeStatsDto(type, nodes, edges, memories));
+        }
+
+        java.util.List<com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto.RelationTypeStatsDto> relationTypesList = new java.util.ArrayList<>();
+        for (var entry : relEdgesByType.entrySet()) {
+            String type = entry.getKey();
+            int edges = entry.getValue();
+            int nodes = relNodesByType.getOrDefault(type, java.util.Set.of()).size();
+            int memories = relMemoriesByType.getOrDefault(type, java.util.Set.of()).size();
+            relationTypesList.add(new com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto.RelationTypeStatsDto(type, edges, nodes, memories));
+        }
+
+        return new com.spectrayan.spector.node.api.dto.MemoryTopologyStatsDto(entityTypesList, relationTypesList);
+    }
+
+
     /** Introspects the agent's knowledge about a topic. */
     public com.spectrayan.spector.memory.metamemory.MemoryInsight introspect(String topic) {
-        return memory.introspect(topic);
+        return memory().introspect(topic);
     }
 
     /** Schedules a prospective memory reminder. */
     public com.spectrayan.spector.memory.prospective.Reminder scheduleReminder(
             String text, java.time.Duration delay, String... tags) {
-        return memory.scheduleReminder(text, delay, tags);
+        return memory().scheduleReminder(text, delay, tags);
     }
 
     /** Stores a note in working memory scratchpad. */
     public java.util.concurrent.CompletableFuture<Void> scratchpad(String text) {
-        return memory.scratchpad(text);
+        return memory().scratchpad(text);
     }
 
     /** Explains why a specific memory was not returned for a query. */
     public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(
             String memoryId, String query, RecallOptions options) {
-        return memory.whyNot(memoryId, query, options);
+        return memory().whyNot(memoryId, query, options);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -263,7 +410,7 @@ public class MemoryService {
      * @return a MemoryRowDto with full text, or null if not found
      */
     public com.spectrayan.spector.node.api.dto.MemoryRowDto getMemoryById(String memoryId) {
-        var admin = memory.admin();
+        var admin = memory().admin();
         var index = admin.index();
         var loc = index.locate(memoryId);
         if (loc == null) return null;
@@ -298,7 +445,7 @@ public class MemoryService {
     public com.spectrayan.spector.node.api.dto.MemoryTableDto getMemoryTable(
             int page, int pageSize, String tierFilter, boolean showTombstoned) {
 
-        var admin = memory.admin();
+        var admin = memory().admin();
         var tierRouter = admin.tierRouter();
         var index = admin.index();
 
@@ -335,13 +482,21 @@ public class MemoryService {
                 boolean pinned = com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isPinned(flags);
                 boolean resolved = com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isResolved(flags);
                 boolean consolidated = com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isConsolidated(flags);
+                int arousal = Byte.toUnsignedInt(header.arousal());
+                var sourceModality = com.spectrayan.spector.memory.model.SourceModality.fromOrdinal(
+                        com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.sourceModalityOrdinal(flags));
+                String synapticTagsHex = "0x" + Long.toHexString(header.synapticTags());
+                Map<String, String> metadata = id != null ? index.metadata(id) : null;
+                if (metadata != null && metadata.isEmpty()) metadata = null;
 
                 allRows.add(new com.spectrayan.spector.node.api.dto.MemoryRowDto(
                         id != null ? id : "unknown-" + type.name() + "-" + i,
                         textPreview, type.name(), source.name(),
                         header.importance(), header.valence(),
                         header.timestampMs(), header.agentRecallCount(),
-                        tombstoned, pinned, resolved, consolidated, tags));
+                        tombstoned, pinned, resolved, consolidated, tags,
+                        arousal, sourceModality.name(), header.exactNorm(),
+                        header.storageStrength(), synapticTagsHex, metadata));
             }
         }
 
@@ -373,7 +528,7 @@ public class MemoryService {
      * @return compaction result, or null if no compaction needed
      */
     public com.spectrayan.spector.memory.sync.CompactionResult vacuum(MemoryType tier) {
-        return memory.admin().vacuum(tier);
+        return memory().admin().vacuum(tier);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -392,7 +547,7 @@ public class MemoryService {
      * @return graph DTO with nodes and edges, or null if memory not found
      */
     public com.spectrayan.spector.node.api.dto.MemoryGraphDto getMemoryGraph(String memoryId, int depth) {
-        var admin = memory.admin();
+        var admin = memory().admin();
         var index = admin.index();
         var loc = index.locate(memoryId);
         if (loc == null) return null;
@@ -453,7 +608,7 @@ public class MemoryService {
 
         // ── Entity graph ──
         var entityGraph = admin.entityGraph();
-        if (entityGraph != null && focalSlot < entityGraph.entityCount()) {
+        if (entityGraph != null) {
             // Find entities linked to this memory's slot
             var nameIndex = entityGraph.nameIndex();
             for (var entry : nameIndex.entrySet()) {
@@ -503,7 +658,7 @@ public class MemoryService {
      * @return graph DTO with sampled nodes and edges
      */
     public com.spectrayan.spector.node.api.dto.MemoryGraphDto getGraphOverview(int maxNodes) {
-        var admin = memory.admin();
+        var admin = memory().admin();
 
         // Build slot mappings
         java.util.Map<Integer, String> slotToId = new java.util.LinkedHashMap<>();
@@ -580,50 +735,51 @@ public class MemoryService {
         }
 
         // Entity graph edges between included nodes
-        // Use entity name matching against node text previews since
-        // MAX_MEMORY_REFS=4 on EntityGraph only stores the first 4 source memories
+        // Use slot-based lookup via memoriesForEntity() instead of text-preview
+        // substring matching, which missed most entities due to 120-char truncation.
         var entityGraph = admin.entityGraph();
         if (entityGraph != null) {
-            // Skip ubiquitous entity names that would create noise
             java.util.Set<String> skipNames = java.util.Set.of(
                     "jarvis", "mike", "mike thompson", "hey", "hey jarvis");
-            var nameIdx = entityGraph.nameIndex(); // name -> entityId
-            // For each entity, find which included nodes mention it in their text
-            java.util.Map<Integer, java.util.List<String>> entityToIncludedMems = new java.util.HashMap<>();
+            var nameIdx = entityGraph.nameIndex();
+            java.util.Set<String> entityEdgesSeen = new java.util.HashSet<>();
+
             for (var entry : nameIdx.entrySet()) {
-                String entityName = entry.getKey();  // already lowercase
+                String entityName = entry.getKey();
                 int eid = entry.getValue();
-                if (entityName.length() < 4 || skipNames.contains(entityName)) continue;
-                java.util.List<String> mentioningIds = new java.util.ArrayList<>();
-                for (var node : nodeMap.values()) {
-                    String preview = node.textPreview() != null ? node.textPreview().toLowerCase(java.util.Locale.ROOT) : "";
-                    if (preview.contains(entityName)) {
-                        mentioningIds.add(node.id());
+                if (entityName.length() < 2 || skipNames.contains(entityName)) continue;
+
+                // Get the memory slots linked to this entity
+                int[] memRefs = entityGraph.memoriesForEntity(eid);
+                if (memRefs.length < 2) continue; // need ≥2 memories to form edges
+
+                // Map slots to IDs and filter to only those in the sampled node set
+                java.util.List<String> includedMemIds = new java.util.ArrayList<>();
+                for (int memSlot : memRefs) {
+                    if (includedSlots.contains(memSlot)) {
+                        String memId = slotToId.get(memSlot);
+                        if (memId != null) {
+                            includedMemIds.add(memId);
+                        }
                     }
                 }
-                // Need 2+ mentions, but cap at 15 to avoid O(n²) explosion
-                if (mentioningIds.size() >= 2 && mentioningIds.size() <= 15) {
-                    entityToIncludedMems.put(eid, mentioningIds);
-                }
-            }
 
-            // Create edges between memories sharing the same entity
-            java.util.Set<String> entityEdgesSeen = new java.util.HashSet<>();
-            for (var entry : entityToIncludedMems.entrySet()) {
-                int eid = entry.getKey();
-                var mems = entry.getValue();
-                // Get relation type from the entity's edges
+                if (includedMemIds.size() < 2) continue;
+
+                // Get relation type from entity edges
                 var eEdges = entityGraph.edges(eid);
                 String relType = eEdges.isEmpty() ? "RELATED_TO" : eEdges.get(0).relationType();
-                for (int i = 0; i < mems.size(); i++) {
-                    for (int j = i + 1; j < mems.size(); j++) {
-                        String fromId = mems.get(i);
-                        String toId = mems.get(j);
+
+                // Create edges between included memories sharing this entity
+                for (int i = 0; i < includedMemIds.size(); i++) {
+                    for (int j = i + 1; j < includedMemIds.size(); j++) {
+                        String fromId = includedMemIds.get(i);
+                        String toId = includedMemIds.get(j);
                         if (fromId.compareTo(toId) > 0) { String tmp = fromId; fromId = toId; toId = tmp; }
                         String edgeKey = fromId + "|" + toId;
-                        if (entityEdgesSeen.add(edgeKey)) { // deduplicate
+                        if (entityEdgesSeen.add(edgeKey)) {
                             edges.add(new com.spectrayan.spector.node.api.dto.GraphEdgeDto(
-                                    fromId, toId, "ENTITY", relType, 1.0f));
+                                    fromId, toId, "ENTITY", entityName.toUpperCase(java.util.Locale.ROOT), 1.0f));
                         }
                     }
                 }
@@ -655,7 +811,7 @@ public class MemoryService {
         var index = admin.index();
         var loc = index.locate(id);
         if (loc == null) {
-            return new com.spectrayan.spector.node.api.dto.GraphNodeDto(id, "UNKNOWN", "", 0f, 0);
+            return new com.spectrayan.spector.node.api.dto.GraphNodeDto(id, "UNKNOWN", "", 0f, 0, 0L);
         }
 
         String text = index.text(id);
@@ -666,10 +822,10 @@ public class MemoryService {
         if (store instanceof com.spectrayan.spector.memory.cortex.AbstractTierStore ats) {
             var header = ats.layout().readHeader(ats.segment(), loc.offset());
             return new com.spectrayan.spector.node.api.dto.GraphNodeDto(
-                    id, loc.type().name(), preview, header.importance(), header.valence());
+                    id, loc.type().name(), preview, header.importance(), header.valence(), header.timestampMs());
         }
 
-        return new com.spectrayan.spector.node.api.dto.GraphNodeDto(id, loc.type().name(), preview, 0f, 0);
+        return new com.spectrayan.spector.node.api.dto.GraphNodeDto(id, loc.type().name(), preview, 0f, 0, 0L);
     }
 
     /**
@@ -719,14 +875,14 @@ public class MemoryService {
      * @return import result counts
      */
     public Map<String, Integer> bulkImportHebbianEdges(List<Map<String, Object>> edges) {
-        var hebbianGraph = memory.hebbianGraph();
+        var hebbianGraph = memory().hebbianGraph();
         if (hebbianGraph == null) {
             return Map.of("loaded", 0, "skipped", edges.size(), "error", 0);
         }
 
         java.util.Map<Integer, String> slotToId = new java.util.LinkedHashMap<>();
         java.util.Map<String, Integer> idToSlot = new java.util.LinkedHashMap<>();
-        buildSlotMappings(memory.admin(), slotToId, idToSlot);
+        buildSlotMappings(memory().admin(), slotToId, idToSlot);
 
         int loaded = 0, skipped = 0;
         for (var edge : edges) {
@@ -757,7 +913,7 @@ public class MemoryService {
      * @return import result counts
      */
     public Map<String, Integer> bulkImportTemporalChains(List<Map<String, Object>> chains) {
-        var temporalChain = memory.temporalChain();
+        var temporalChain = memory().temporalChain();
         if (temporalChain == null) {
             int total = chains.stream()
                     .mapToInt(c -> ((List<?>) c.getOrDefault("orderedMemoryIds", List.of())).size())
@@ -767,7 +923,7 @@ public class MemoryService {
 
         java.util.Map<Integer, String> slotToId = new java.util.LinkedHashMap<>();
         java.util.Map<String, Integer> idToSlot = new java.util.LinkedHashMap<>();
-        buildSlotMappings(memory.admin(), slotToId, idToSlot);
+        buildSlotMappings(memory().admin(), slotToId, idToSlot);
 
         int linkedCount = 0, skipped = 0;
 
@@ -805,14 +961,14 @@ public class MemoryService {
      * @return import result counts
      */
     public Map<String, Integer> bulkImportEntityRelations(List<Map<String, Object>> relations) {
-        var entityGraph = memory.entityGraph();
+        var entityGraph = memory().entityGraph();
         if (entityGraph == null) {
             return Map.of("loaded", 0, "skipped", relations.size(), "entities", 0);
         }
 
         java.util.Map<Integer, String> slotToId = new java.util.LinkedHashMap<>();
         java.util.Map<String, Integer> idToSlot = new java.util.LinkedHashMap<>();
-        buildSlotMappings(memory.admin(), slotToId, idToSlot);
+        buildSlotMappings(memory().admin(), slotToId, idToSlot);
 
         int relationsLoaded = 0;
 

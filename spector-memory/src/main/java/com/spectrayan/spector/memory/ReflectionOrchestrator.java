@@ -64,6 +64,12 @@ final class ReflectionOrchestrator {
     /** Entity edge pruning threshold (edges below this weight are removed). */
     private static final float ENTITY_PRUNE_THRESHOLD = 0.5f;
 
+    /** Entity→memory adjacency decay factor per cycle (5% decay — LTD). */
+    private static final float ENTITY_ADJ_DECAY_FACTOR = 0.95f;
+
+    /** Entity→memory adjacency pruning threshold (links below this are removed). */
+    private static final float ENTITY_ADJ_PRUNE_THRESHOLD = 0.2f;
+
     /** Levenshtein distance threshold for merging near-duplicate entities. */
     private static final int ENTITY_MERGE_DISTANCE = 2;
 
@@ -114,8 +120,14 @@ final class ReflectionOrchestrator {
         // Phase 4: Cross-layer promotion (Hebbian → Entity)
         promoteCrossLayer();
 
-        // Phase 5: Entity graph maintenance
+        // Phase 5: Entity graph maintenance (edge decay + entity merge)
         maintainEntityGraph();
+
+        // Phase 5b: Entity→memory adjacency LTD decay
+        decayEntityAdjacency();
+
+        // Phase 5c: Adjacency compaction (defragmentation)
+        compactEntityAdjacency();
 
         // Append WAL event
         wal.append(WalEvent.EventType.REFLECT, "system", null);
@@ -237,6 +249,35 @@ final class ReflectionOrchestrator {
             }
         } catch (RuntimeException e) {
             log.warn("Entity graph maintenance failed: {}", e.getMessage());
+        }
+    }
+
+    // ── Phase 5b: Entity→Memory Adjacency LTD Decay ──
+
+    private void decayEntityAdjacency() {
+        if (entityGraph == null || entityGraph.entityCount() == 0) return;
+        try {
+            int pruned = entityGraph.decayAdjacencyWeights(
+                    ENTITY_ADJ_DECAY_FACTOR, ENTITY_ADJ_PRUNE_THRESHOLD);
+            if (pruned > 0) {
+                log.info("Reflect: LTD decayed entity→memory adjacency, pruned {} weak links", pruned);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Entity adjacency decay failed: {}", e.getMessage());
+        }
+    }
+
+    // ── Phase 5c: Adjacency Compaction (Defragmentation) ──
+
+    private void compactEntityAdjacency() {
+        if (entityGraph == null || entityGraph.entityCount() == 0) return;
+        try {
+            long reclaimed = entityGraph.compactAdjacency();
+            if (reclaimed > 0) {
+                log.info("Reflect: adjacency compaction reclaimed {}KB", reclaimed / 1024);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Entity adjacency compaction failed: {}", e.getMessage());
         }
     }
 }

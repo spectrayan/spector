@@ -18,22 +18,24 @@ package com.spectrayan.spector.events;
 /**
  * Sealed base interface for all lightweight telemetry events.
  *
- * <p>These are <em>raw telemetry data</em> — they do NOT carry node identity
- * or timestamps. The node layer ({@code SpectorNode}) adds those when
- * converting to {@code SpectorEvent} records for SSE transport.</p>
+ * <p>These are <em>raw telemetry data</em> — performance metrics, diagnostic
+ * snapshots, and cluster state observations. They carry timestamps and event
+ * types as required by {@link SpectorEvent}, enabling transport to Kafka,
+ * MQTT, or any external telemetry pipeline.</p>
  *
  * <h3>Design Rationale</h3>
  * <ul>
- *   <li>Lightweight records — no allocations beyond the record itself</li>
+ *   <li>Lightweight records — minimal allocations beyond the record itself</li>
  *   <li>Sealed — exhaustive pattern matching in subscribers</li>
  *   <li>Transport-agnostic — no dependency on SSE, Armeria, or web frameworks</li>
- *   <li>Instance-scoped via {@link TelemetryBus} — HA-safe, no global state</li>
+ *   <li>Instance-scoped via {@link EventBus} — HA-safe, no global state</li>
  * </ul>
  *
- * @see TelemetryBus
+ * @see EventBus
  * @see TelemetryScope
+ * @see SpectorEvent
  */
-public sealed interface TelemetryEvent permits
+public sealed interface SpectorTelemetryEvent extends SpectorEvent permits
         SimdKernelTelemetry,
         GraphPulseTelemetry,
         GpuKernelTelemetry,

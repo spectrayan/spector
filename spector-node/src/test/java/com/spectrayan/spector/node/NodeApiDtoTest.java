@@ -126,7 +126,7 @@ class NodeApiDtoTest {
     @DisplayName("Graph DTOs")
     class GraphDtoTests {
         @Test void graphNodeDto() {
-            var dto = new GraphNodeDto("mem-1", "SEMANTIC", "HNSW algo...", 7.5f, 3);
+            var dto = new GraphNodeDto("mem-1", "SEMANTIC", "HNSW algo...", 7.5f, 3, System.currentTimeMillis());
             assertThat(dto.id()).isEqualTo("mem-1");
             assertThat(dto.tier()).isEqualTo("SEMANTIC");
         }
@@ -140,7 +140,7 @@ class NodeApiDtoTest {
         }
 
         @Test void memoryGraphDto() {
-            var node = new GraphNodeDto("m-1", "SEMANTIC", "text", 5f, 0);
+            var node = new GraphNodeDto("m-1", "SEMANTIC", "text", 5f, 0, 0L);
             var edge = new GraphEdgeDto("m-1", "m-2", "TEMPORAL", "sequence", 1.0f);
             var dto = new MemoryGraphDto("m-1", List.of(node), List.of(edge));
             assertThat(dto.memoryId()).isEqualTo("m-1");

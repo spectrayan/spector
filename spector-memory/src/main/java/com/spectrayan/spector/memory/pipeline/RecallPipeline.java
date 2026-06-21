@@ -642,8 +642,13 @@ public final class RecallPipeline {
                             if (memId != null && !existingIds.contains(memId)) {
                                 // Co-fusion: compute actual similarity
                                 float neighborSim = computeNeighborSimilarity(memId, queryVector);
+                                // Fan-effect attenuation (ACT-R spreading activation dilution):
+                                // entities linked to many memories produce weaker per-link boosts
+                                float fanAttenuation = entityGraph.fanFactor(entityId);
                                 float entityScore = neighborSim
-                                        + allResults.getFirst().score() * graphScoringPolicy.entityHopAttenuation();
+                                        + allResults.getFirst().score()
+                                          * graphScoringPolicy.entityHopAttenuation()
+                                          * fanAttenuation;
 
                                 String text = index.text(memId);
                                 MemorySource source = index.source(memId);

@@ -154,6 +154,12 @@ public final class StorageLayout {
     /** Intra-partition entity knowledge graph. */
     public static final String FILE_ENTITY = "entity.graph";
 
+    /** Entity type registry (String ↔ int mapping for entity types). */
+    public static final String FILE_ENTITY_TYPES = "entity-types.treg";
+
+    /** Relation type registry (String ↔ int mapping for relation types). */
+    public static final String FILE_RELATION_TYPES = "relation-types.treg";
+
     // ═══════════════════════════════════════════════════════════════
     // Cross-Partition Files (inside DIR_CROSS)
     // ═══════════════════════════════════════════════════════════════
@@ -503,6 +509,16 @@ public final class StorageLayout {
     /** Resolves the entity.graph file within a partition. */
     public static Path entityGraph(Path partitionDir) {
         return partitionDir.resolve(FILE_ENTITY);
+    }
+
+    /** Resolves the entity-types.treg file within a partition. */
+    public static Path entityTypes(Path partitionDir) {
+        return partitionDir.resolve(FILE_ENTITY_TYPES);
+    }
+
+    /** Resolves the relation-types.treg file within a partition. */
+    public static Path relationTypes(Path partitionDir) {
+        return partitionDir.resolve(FILE_RELATION_TYPES);
     }
 
     // ── Cross-partition file resolvers ──

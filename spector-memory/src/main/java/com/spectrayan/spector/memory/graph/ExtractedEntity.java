@@ -20,48 +20,32 @@ import java.util.List;
  * <p>Returned by {@link EntityExtractor} during ingestion. The entity name
  * is case-insensitive (normalized during graph population).</p>
  *
+ * <p><b>Open-schema types:</b> The type field is a free-form string, not
+ * constrained to the well-known {@link EntityType} enum values. Any type
+ * string is accepted and auto-registered in the {@link TypeRegistry} at
+ * graph population time. This allows domain-specific types (e.g., VEHICLE,
+ * RECIPE, MEDICAL_CONDITION) to flow through without being collapsed to OTHER.</p>
+ *
  * @param name      entity name (e.g., "Alice", "Project Alpha")
- * @param type      entity type enum value
+ * @param type      entity type string (e.g., "PERSON", "VEHICLE" — open-schema)
  * @param relations typed edges to other entities mentioned in the same text
  */
 public record ExtractedEntity(
         String name,
-        EntityType type,
+        String type,
         List<EntityRelation> relations
 ) {
     /**
      * Creates an entity with no relations.
      */
-    public ExtractedEntity(String name, EntityType type) {
+    public ExtractedEntity(String name, String type) {
         this(name, type, List.of());
     }
 
     /**
-     * Creates an entity from a type name string, falling back to {@link EntityType#OTHER}.
-     */
-    public ExtractedEntity(String name, String typeName, List<EntityRelation> relations) {
-        this(name, parseType(typeName), relations);
-    }
-
-    /**
-     * Creates an entity from a type name string with no relations.
-     */
-    public ExtractedEntity(String name, String typeName) {
-        this(name, parseType(typeName), List.of());
-    }
-
-    /**
-     * Returns the entity type name as a string (for graph storage compatibility).
+     * Returns the entity type name as an uppercase string for graph storage.
      */
     public String typeName() {
-        return type.name();
-    }
-
-    private static EntityType parseType(String typeName) {
-        try {
-            return EntityType.valueOf(typeName);
-        } catch (IllegalArgumentException e) {
-            return EntityType.OTHER;
-        }
+        return type != null && !type.isBlank() ? type.trim().toUpperCase(java.util.Locale.ROOT) : "OTHER";
     }
 }

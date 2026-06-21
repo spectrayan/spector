@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.spectrayan.spector.node.service;
 
 import java.time.Instant;
@@ -8,7 +23,8 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.cluster.ClusterCoordinator;
 import com.spectrayan.spector.config.CortexTelemetryConfig;
 import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.events.TelemetryBus;
+import com.spectrayan.spector.events.EventBus;
+import com.spectrayan.spector.events.SpectorTelemetryEvent;
 import com.spectrayan.spector.events.TelemetryScope;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.node.api.dto.SearchRequest;
@@ -50,12 +66,12 @@ public class SearchService {
     private final SpectorEventBus eventBus;
     private final String nodeId;
     private final CortexTelemetryConfig cortexConfig;
-    private final TelemetryBus telemetryBus; // nullable
+    private final EventBus<SpectorTelemetryEvent> telemetryBus; // nullable
 
     public SearchService(SpectorEngine engine, ClusterCoordinator coordinator,
                          SpectorEventBus eventBus, String nodeId,
                          CortexTelemetryConfig cortexConfig,
-                         TelemetryBus telemetryBus) {
+                         EventBus<SpectorTelemetryEvent> telemetryBus) {
         this.engine = engine;
         this.coordinator = coordinator;
         this.eventBus = eventBus;
@@ -79,7 +95,7 @@ public class SearchService {
         SearchQuery query = request.toQuery();
 
         try {
-            // Bind TelemetryBus via ScopedValue so all sub-components can publish telemetry
+            // Bind telemetry EventBus via ScopedValue so all sub-components can publish telemetry
             SearchResponse response = (telemetryBus != null)
                     ? ScopedValue.where(TelemetryScope.BUS, telemetryBus)
                             .call(() -> executeSearch(query))

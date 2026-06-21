@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
+
 /**
  * GPU (CUDA) kernel execution telemetry — emitted per kernel launch
  * from {@code CudaKernelLauncher}.
@@ -29,6 +31,7 @@ package com.spectrayan.spector.events;
  * @param blockDimY           block dimension Y
  * @param blockDimZ           block dimension Z
  * @param memoryTransferBytes total host↔device memory transfer in bytes
+ * @param timestamp           when the event occurred
  */
 public record GpuKernelTelemetry(
         int streamIndex,
@@ -36,5 +39,18 @@ public record GpuKernelTelemetry(
         long durationNanos,
         int gridDimX, int gridDimY, int gridDimZ,
         int blockDimX, int blockDimY, int blockDimZ,
-        long memoryTransferBytes
-) implements TelemetryEvent {}
+        long memoryTransferBytes,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public GpuKernelTelemetry(int streamIndex, String kernelName, long durationNanos,
+                               int gridDimX, int gridDimY, int gridDimZ,
+                               int blockDimX, int blockDimY, int blockDimZ,
+                               long memoryTransferBytes) {
+        this(streamIndex, kernelName, durationNanos,
+                gridDimX, gridDimY, gridDimZ,
+                blockDimX, blockDimY, blockDimZ,
+                memoryTransferBytes, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.gpu.kernel"; }
+}

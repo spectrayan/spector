@@ -13,10 +13,20 @@
 package com.spectrayan.spector.memory.graph;
 
 /**
- * Relation types for edges in the entity-relationship graph.
+ * Well-known relation types for edges in the entity-relationship graph.
  *
  * <p>Each edge between two entities carries a typed relation that enables
  * directed traversal and semantic filtering during recall.</p>
+ *
+ * @deprecated Since 1.1.0. Relation types are now open-schema strings managed by
+ * {@link TypeRegistry}. The extraction layer ({@link EntityRelation}) accepts
+ * any type string, allowing domain-specific relation types (e.g., DIAGNOSED_WITH,
+ * INGREDIENT_OF, ENROLLED_IN) without code changes. This enum is retained only for:
+ * <ul>
+ *   <li>{@link #SEED} — pre-seeding well-known types in {@link TypeRegistry}</li>
+ *   <li>{@link #fromOrdinal(int)} — migrating V1 persisted EntityGraph files</li>
+ * </ul>
+ * New code should use plain {@code String} type names instead of this enum.
  *
  * <h3>Category Groups</h3>
  * <ul>
@@ -28,6 +38,7 @@ package com.spectrayan.spector.memory.graph;
  *   <li><b>Catch-all:</b> RELATED_TO, OTHER</li>
  * </ul>
  */
+@Deprecated(since = "1.1.0", forRemoval = false)
 public enum RelationType {
 
     // ── People & Roles ──

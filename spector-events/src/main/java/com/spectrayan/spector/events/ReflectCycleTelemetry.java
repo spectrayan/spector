@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
+
 /**
  * Reflect cycle telemetry — emitted after memory consolidation.
  *
@@ -22,10 +24,19 @@ package com.spectrayan.spector.events;
  * @param hebbianEdgesRemoved number of Hebbian edges removed (below threshold)
  * @param decayFactor         the decay factor applied
  * @param durationMs          total reflect duration in milliseconds
+ * @param timestamp           when the event occurred
  */
 public record ReflectCycleTelemetry(
         int hebbianEdgesDecayed,
         int hebbianEdgesRemoved,
         double decayFactor,
-        long durationMs
-) implements TelemetryEvent {}
+        long durationMs,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public ReflectCycleTelemetry(int hebbianEdgesDecayed, int hebbianEdgesRemoved,
+                                  double decayFactor, long durationMs) {
+        this(hebbianEdgesDecayed, hebbianEdgesRemoved, decayFactor, durationMs, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.reflect.cycle"; }
+}

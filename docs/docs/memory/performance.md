@@ -49,7 +49,7 @@ flowchart LR
     DEQUANT --> L2["Fused multiply-add<br/><i>accumulate squared diff</i>"]
     L2 --> RESULT["L2 distance<br/><b>2.2 µs/768-dim</b>"]
 
-    style READ fill:#2d3436,color:#dfe6e9
+    style READ fill:#4a6fa5,color:white
     style L2 fill:#0984e3,color:white
     style RESULT fill:#00b894,color:white
 ```

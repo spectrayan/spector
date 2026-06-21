@@ -138,6 +138,8 @@ nav:
           - "Focus Mode": memory/focus-mode.md
           - "Explorer — Lateral Retrieval": memory/lateral-retrieval.md
           - "Importance Fusion (ICNU)": memory/importance-fusion.md
+      - "Salience & Importance":
+          - "Salience & Persona Profiles": memory/salience-importance.md
       - Biological Systems:
           - Overview: memory/biological-systems.md
           - "Cortex — Tier Stores": memory/cortex.md
@@ -166,6 +168,7 @@ nav:
       - RAG Pipeline: architecture/rag-pipeline.md
       - MCP Integration: architecture/mcp-integration.md
       - Distributed Mode: architecture/distributed-mode.md
+      - Event Notifications: architecture/event-notifications.md
       - Namespace Sharding: architecture/namespace-sharding.md
       - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
@@ -173,7 +176,6 @@ nav:
       - JDK API Status: getting-started/jdk-api-status.md
       - Security & Data:
           - "Encryption at Rest": architecture/encryption-at-rest.md
-          - "Salience & Importance": architecture/salience-importance.md
       - Deep Dives:
           - ANN Search Primer: deep-dives/ann-search-primer.md
           - HNSW Explained: deep-dives/hnsw-explained.md
@@ -214,6 +216,5 @@ extra_css:
   - stylesheets/extra.css
 
 extra_javascript:
-  - javascripts/mermaid-init.js
   - javascripts/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js

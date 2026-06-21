@@ -105,7 +105,7 @@ class NodeDtoEventTest {
             assertThat(e.nodeId()).isEqualTo("node-1");
             assertThat(e.port()).isEqualTo(8080);
             assertThat(e.mode()).isEqualTo("standalone");
-            assertThat(e).isInstanceOf(SpectorEvent.class);
+            assertThat(e).isInstanceOf(SpectorNodeEvent.class);
         }
 
         @Test @DisplayName("SpectorNodeStoppingEvent")
@@ -213,7 +213,7 @@ class NodeDtoEventTest {
         @Test @DisplayName("subscribe and publish")
         void subscribeAndPublish() {
             var bus = new SpectorEventBus();
-            var events = new java.util.ArrayList<SpectorEvent>();
+            var events = new java.util.ArrayList<SpectorNodeEvent>();
             bus.subscribe(SpectorNodeStartedEvent.class, events::add);
             bus.publish(new SpectorNodeStartedEvent("n1", NOW, 8080, "standalone"));
             assertThat(events).hasSize(1);
@@ -222,7 +222,7 @@ class NodeDtoEventTest {
         @Test @DisplayName("cancel stops delivery")
         void cancelSubscription() {
             var bus = new SpectorEventBus();
-            var events = new java.util.ArrayList<SpectorEvent>();
+            var events = new java.util.ArrayList<SpectorNodeEvent>();
             var sub = bus.subscribe(SpectorNodeStartedEvent.class, events::add);
             sub.cancel();
             bus.publish(new SpectorNodeStartedEvent("n1", NOW, 8080, "standalone"));
@@ -232,7 +232,7 @@ class NodeDtoEventTest {
         @Test @DisplayName("different event types are isolated")
         void typeIsolation() {
             var bus = new SpectorEventBus();
-            var events = new java.util.ArrayList<SpectorEvent>();
+            var events = new java.util.ArrayList<SpectorNodeEvent>();
             bus.subscribe(SpectorNodeStartedEvent.class, events::add);
             bus.publish(new SpectorDocumentIngestedEvent("n1", NOW, "doc", false));
             assertThat(events).isEmpty();
