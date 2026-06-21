@@ -47,8 +47,9 @@ class SpectorTelemetryEventTest {
         @Test
         @DisplayName("record equality")
         void recordEquality() {
-            var a = new SimdKernelTelemetry("cosine", 16, 1000, 5000);
-            var b = new SimdKernelTelemetry("cosine", 16, 1000, 5000);
+            var ts = java.time.Instant.now();
+            var a = new SimdKernelTelemetry("cosine", 16, 1000, 5000, ts);
+            var b = new SimdKernelTelemetry("cosine", 16, 1000, 5000, ts);
             assertThat(a).isEqualTo(b);
             assertThat(a.hashCode()).isEqualTo(b.hashCode());
         }
