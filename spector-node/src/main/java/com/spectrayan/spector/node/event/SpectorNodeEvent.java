@@ -1,14 +1,19 @@
 package com.spectrayan.spector.node.event;
 
 import java.time.Instant;
+import java.util.Map;
 
 import com.spectrayan.spector.events.NotificationScope;
+import com.spectrayan.spector.events.SpectorEvent;
 
 /**
- * Sealed base interface for all Spector node events.
+ * Sealed sub-hierarchy for all Spector node domain events.
  *
- * <p>Follows Spring/Redis naming convention: {@code Spector[Domain][Action]Event}.
- * Events are published via {@link SpectorEventBus} and consumed by subscribers
+ * <p>Extends the product-level {@link SpectorEvent} marker with node-specific
+ * fields ({@link #nodeId()}). Follows Spring/Redis naming convention:
+ * {@code Spector[Domain][Action]Event}.</p>
+ *
+ * <p>Events are published via {@link SpectorEventBus} and consumed by subscribers
  * (SSE clients, metrics collectors, audit loggers, etc.).</p>
  *
  * <h3>Event Categories</h3>
@@ -38,8 +43,11 @@ import com.spectrayan.spector.events.NotificationScope;
  *       }
  *   });
  * }</pre>
+ *
+ * @see SpectorEvent
+ * @see SpectorEventBus
  */
-public sealed interface SpectorEvent permits
+public sealed interface SpectorNodeEvent extends SpectorEvent permits
         // ── Lifecycle ──
         SpectorNodeStartedEvent,
         SpectorNodeStoppingEvent,
@@ -77,31 +85,24 @@ public sealed interface SpectorEvent permits
         SpectorCortexClusterTopologyEvent,
         SpectorCortexEmbeddingProjectionEvent {
 
-    /** Timestamp when the event occurred. */
-    Instant timestamp();
-
     /** Node ID that originated the event. */
     String nodeId();
 
-    /** Event type name (e.g., "search.completed"). Used in SSE {@code event:} field. */
-    String eventType();
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Node events carry the node ID in context under
+     * {@link SpectorEvent.ContextKeys#NODE}.</p>
+     */
+    @Override
+    default Map<String, String> context() {
+        return Map.of(SpectorEvent.ContextKeys.NODE, nodeId());
+    }
 
     /**
-     * Notification scope — determines which subscribers receive this event.
-     *
-     * <p>Defaults to {@link NotificationScope#BROADCAST} (all subscribers).
-     * Override in event records to restrict delivery:</p>
-     * <ul>
-     *   <li>{@link NotificationScope.User} — ingestion progress, query traces</li>
-     *   <li>{@link NotificationScope.Tenant} — memory diagnostics, graph pulses</li>
-     *   <li>{@link NotificationScope.Global} — node health, cluster topology</li>
-     *   <li>{@link NotificationScope.Agent} — MCP tool execution results</li>
-     *   <li>{@link NotificationScope.Topic} — named channels (ops-alerts, etc.)</li>
-     * </ul>
-     *
-     * @return the notification scope for this event
-     * @see NotificationScope
+     * {@inheritDoc}
      */
+    @Override
     default NotificationScope scope() { return NotificationScope.BROADCAST; }
 
     /**

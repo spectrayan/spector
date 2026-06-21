@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.spectrayan.spector.node.api.v1;
 
 import java.time.Duration;
@@ -15,7 +30,7 @@ import com.linecorp.armeria.server.annotation.ProducesEventStream;
 import com.spectrayan.spector.events.NotificationTransport;
 import com.spectrayan.spector.events.SubscriberIdentity;
 import com.spectrayan.spector.node.api.ApiModule;
-import com.spectrayan.spector.node.event.SpectorEvent;
+import com.spectrayan.spector.node.event.SpectorNodeEvent;
 import com.spectrayan.spector.node.event.SpectorEventBus;
 import com.spectrayan.spector.node.exception.ApiExceptionHandler;
 
@@ -154,7 +169,7 @@ public class EventStreamEndpoint implements ApiModule {
         return Set.of(filter.toLowerCase().split(","));
     }
 
-    private static boolean matchesFilter(SpectorEvent event, Set<String> categories) {
+    private static boolean matchesFilter(SpectorNodeEvent event, Set<String> categories) {
         String eventType = event.eventType(); // e.g., "search.completed"
         String category = eventType.contains(".")
                 ? eventType.substring(0, eventType.indexOf('.'))

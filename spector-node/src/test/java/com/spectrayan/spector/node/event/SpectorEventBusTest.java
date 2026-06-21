@@ -34,7 +34,7 @@ class SpectorEventBusTest {
     @Test
     @DisplayName("subscriber receives published event")
     void subscriberReceivesEvent() {
-        var received = new AtomicReference<SpectorEvent>();
+        var received = new AtomicReference<SpectorNodeEvent>();
         bus.subscribe(received::set);
 
         var event = new SpectorSearchCompletedEvent("node-1", Instant.now(), 5, 12L, "HYBRID");

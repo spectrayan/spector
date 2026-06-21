@@ -25,7 +25,7 @@ import com.spectrayan.spector.node.api.dto.IngestRequest;
 import com.spectrayan.spector.node.event.SpectorBulkIngestCompletedEvent;
 import com.spectrayan.spector.node.event.SpectorDocumentDeletedEvent;
 import com.spectrayan.spector.node.event.SpectorDocumentIngestedEvent;
-import com.spectrayan.spector.node.event.SpectorEvent;
+import com.spectrayan.spector.node.event.SpectorNodeEvent;
 import com.spectrayan.spector.node.event.SpectorEventBus;
 import com.spectrayan.spector.commons.error.SpectorApiException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -41,7 +41,7 @@ class IngestServiceTest {
     @Mock private SpectorEngine engine;
     @Mock private SpectorConfig config;
     private SpectorEventBus eventBus;
-    private List<SpectorEvent> publishedEvents;
+    private List<SpectorNodeEvent> publishedEvents;
 
     private IngestService service;
     private IngestService serviceWithCluster;
