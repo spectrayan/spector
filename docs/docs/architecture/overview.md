@@ -81,14 +81,14 @@ graph TB
 
     gpu -.->|optional| simd
 
-    style Clients fill:#1a1a2e,stroke:#e94560,color:#fff
-    style Transport fill:#16213e,stroke:#0f3460,color:#fff
-    style Engine fill:#0f3460,stroke:#533483,color:#fff
-    style Platform fill:#533483,stroke:#e94560,color:#fff
-    style Observe fill:#1a1a2e,stroke:#533483,color:#fff
-    style Search fill:#16213e,stroke:#0f3460,color:#fff
-    style Memory fill:#16213e,stroke:#0f3460,color:#fff
-    style Ingest fill:#16213e,stroke:#0f3460,color:#fff
+    style Clients fill:#5b6abf,stroke:#e94560,color:#fff
+    style Transport fill:#4a6fa5,stroke:#3b82f6,color:#fff
+    style Engine fill:#3b82f6,stroke:#7c3aed,color:#fff
+    style Platform fill:#7c3aed,stroke:#e94560,color:#fff
+    style Observe fill:#5b6abf,stroke:#7c3aed,color:#fff
+    style Search fill:#4a6fa5,stroke:#3b82f6,color:#fff
+    style Memory fill:#4a6fa5,stroke:#3b82f6,color:#fff
+    style Ingest fill:#4a6fa5,stroke:#3b82f6,color:#fff
 ```
 
 ### Deployment Modes
@@ -109,9 +109,9 @@ graph LR
         coord --> s1 & s2 & s3
     end
 
-    style Embedded fill:#16213e,stroke:#0f3460,color:#fff
-    style Standalone fill:#0f3460,stroke:#533483,color:#fff
-    style Distributed fill:#533483,stroke:#e94560,color:#fff
+    style Embedded fill:#4a6fa5,stroke:#3b82f6,color:#fff
+    style Standalone fill:#3b82f6,stroke:#7c3aed,color:#fff
+    style Distributed fill:#7c3aed,stroke:#e94560,color:#fff
 ```
 
 ---
@@ -174,11 +174,11 @@ graph TB
     handler --> Engine & Mem
     Engine & Mem --> runtime --> simd --> panama
 
-    style Agents fill:#1a1a2e,stroke:#e94560,color:#fff
-    style MCP fill:#16213e,stroke:#0f3460,color:#fff
-    style Engine fill:#0f3460,stroke:#533483,color:#fff
-    style Mem fill:#533483,stroke:#e94560,color:#fff
-    style Core fill:#1a1a2e,stroke:#e94560,color:#fff
+    style Agents fill:#5b6abf,stroke:#e94560,color:#fff
+    style MCP fill:#4a6fa5,stroke:#3b82f6,color:#fff
+    style Engine fill:#3b82f6,stroke:#7c3aed,color:#fff
+    style Mem fill:#7c3aed,stroke:#e94560,color:#fff
+    style Core fill:#5b6abf,stroke:#e94560,color:#fff
 ```
 
 ### Agent Interaction Flow

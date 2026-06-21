@@ -11,21 +11,39 @@ The `CognitiveScorer` is the performance-critical inner loop of Spector Memory. 
 
 ## Why Fused Scoring?
 
-### The Truncation Trap
+### The Fundamental Problem
 
-In a standard vector database, you:
+AI memory recall must combine **semantic similarity**, **temporal decay**, **emotional valence**, and **importance** into a single ranking decision. No existing database category can do this natively:
 
-1. Retrieve the top-K nearest vectors by L2 distance
-2. **Then** apply business logic (importance, time, tags) in Java
+=== "SQL / NoSQL Databases"
+    Traditional databases store data in B-tree pages or document collections. When you need cognitive scoring:
 
-This **fails catastrophically** for AI memory:
+    1. **Cache-line destruction**: A 64-byte cognitive header (importance, valence, arousal, tags, timestamps) fits in one CPU cache line. In PostgreSQL or MongoDB, these fields are scattered across variable-width rows and pages — each field access causes a cache miss.
+    2. **Serialization overhead**: Every row must be deserialized from the storage engine's wire format into application objects, creating GC pressure that cripples microsecond-scale workloads.
+    3. **Inexpressible scoring**: The fused cognitive formula — combining power-law temporal decay, Bloom filter tag gating, and SIMD vector distance — cannot be expressed in SQL or aggregation pipelines. You're forced into UDFs (slow) or pulling all candidates into application code (defeats the purpose of the database).
+    4. **Mutation overhead**: Cognitive memory requires constant micro-updates (recall count increments, valence adjustments, habituation tracking). In SQL, each update triggers WAL write amplification and row locking. Spector performs these as lock-free hardware-level atomic swaps.
 
-!!! danger "The Problem"
-    If an AI agent asks *"What is the user's core preference?"*, the most important memory might be 6 months old and slightly less semantically similar than a useless conversation from 5 minutes ago. If you pull the top-100 nearest vectors and *then* sort by importance, the vital 6-month-old memory was already **dropped at step 1**.
+=== "Standard Vector Databases"
+    Vector databases (Pinecone, Weaviate, Qdrant, Milvus, pgvector) solve semantic similarity but fail at cognitive recall:
+
+    1. **Retrieve** the top-K nearest vectors by L2/cosine distance
+    2. **Then** apply business logic (importance, time, tags) in the application layer
+
+    !!! danger "The Truncation Trap"
+        If an AI agent asks *"What is the user's core preference?"*, the most important memory might be 6 months old and slightly less semantically similar than a useless conversation from 5 minutes ago. If you pull the top-100 nearest vectors and *then* sort by importance, the vital 6-month-old memory was already **dropped at step 1** — irreversibly lost before your application code ever sees it.
+
+    This is not a minor inconvenience — it's a **fundamental architectural limitation**. No amount of post-processing can recover candidates that were eliminated during retrieval.
+
+=== "AI Memory Wrappers (Mem0, Zep, Letta)"
+    Memory wrapper systems add a thin layer over existing databases. They inherit all the database limitations above and add more:
+
+    1. **Network hop tax**: Every recall crosses a network boundary (REST API → database), adding 1–5ms of latency to a operation that should take 0.13ms.
+    2. **JSON serialization**: Memories are serialized to JSON for transport, creating allocation pressure and GC pauses.
+    3. **No hardware co-design**: These systems cannot exploit CPU cache-line alignment, SIMD vector instructions, or off-heap memory — they operate one abstraction layer too high.
 
 ### The Fix: Fuse Everything
 
-Spector fuses temporal decay and importance directly into the scoring loop:
+Spector fuses temporal decay and importance directly into the scoring loop — **every memory is evaluated against all signals simultaneously**, in a single cache-friendly off-heap scan:
 
 $$\text{Similarity} = \frac{1}{1 + \text{L2\_Distance}(q, x)}$$
 
@@ -63,10 +81,10 @@ flowchart TD
     P6["Phase 6: Fused Cognitive Score<br/><i>~7 cycles — α·sim + β·imp·decay</i>"]
     P6 --> HEAP(["Insert into min-heap (top-K)"])
 
-    style P1 fill:#2d3436,color:#dfe6e9,stroke:#636e72
-    style P2 fill:#2d3436,color:#dfe6e9,stroke:#636e72
-    style P3 fill:#2d3436,color:#dfe6e9,stroke:#636e72
-    style P4 fill:#2d3436,color:#dfe6e9,stroke:#636e72
+    style P1 fill:#4a6fa5,color:white,stroke:#375985
+    style P2 fill:#4a6fa5,color:white,stroke:#375985
+    style P3 fill:#4a6fa5,color:white,stroke:#375985
+    style P4 fill:#4a6fa5,color:white,stroke:#375985
     style P5 fill:#0984e3,color:white
     style P6 fill:#00b894,color:white
     style SKIP fill:#d63031,color:white
@@ -211,7 +229,7 @@ flowchart LR
     SIMD --> SIM["Convert to similarity<br/><i>sim = 1 / (1 + L2)</i>"]
     SIM --> NEXT(["→ Phase 6"])
 
-    style READ fill:#2d3436,color:#dfe6e9
+    style READ fill:#4a6fa5,color:white
     style SIMD fill:#0984e3,color:white
     style NEXT fill:#00b894,color:white
 ```

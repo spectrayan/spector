@@ -80,6 +80,9 @@ var results = memory.recall("happy family memories",
 
 **What happens:** `RECALLING` filters to valence ≥ +10, so only positive memories surface. The wedding (valence=+120, high arousal) will score highest because importance × decay resistance is maximized. The coffee preference (low importance, no family tag) is invisible.
 
+!!! tip "Personalize with Salience Profiles"
+    Configure a [salience profile](salience-importance.md) with `"family"` as a `CRITICAL` interest and `"meeting notes"` as an `IGNORE` disinterest. All family-related memories will automatically receive 2× importance boost at ingestion time — no need to set high arousal manually on every entry.
+
 ---
 
 ## Use Case 2: Coding Agent — Debugging a Production Issue
@@ -441,11 +444,64 @@ DefaultSpectorMemory.builder()
 
 ---
 
+## Use Case 9: Enterprise Multi-Tenant — Per-User Namespace Isolation
+
+**Scenario:** A healthcare SaaS platform deploys Spector for multiple hospital tenants. Each tenant has multiple users (doctors, nurses, admins) with completely isolated memory stores and different salience profiles.
+
+### Architecture
+
+Each user gets a physically separate namespace with its own files, encryption keys, and memory instance:
+
+```
+/data/namespaces/
+├── tenant-hospital-a/
+│   ├── dr-smith/          ← Own .mem, text.dat, WAL, DEK
+│   ├── dr-jones/          ← Completely separate files
+│   └── shared-knowledge/  ← Team-wide reference data
+├── tenant-hospital-b/
+│   └── ...                ← Different encryption keys entirely
+```
+
+### Tenant Salience Profile
+
+The tenant admin configures org-wide importance rules:
+
+```json
+{
+  "interests": [
+    { "topic": "patient safety", "level": "CRITICAL" },
+    { "topic": "HIPAA compliance", "level": "HIGH" }
+  ],
+  "disinterests": [
+    { "topic": "administrative overhead", "level": "LOW" }
+  ],
+  "persona": {
+    "valenceBias": -20,
+    "arousalSensitivity": 1.5
+  },
+  "policy": "ADDITIVE_TOPICS"
+}
+```
+
+Individual doctors can add their own specialty interests (e.g., "cardiology" for Dr. Smith) which merge additively with the tenant profile. The tenant's `CRITICAL` interest in "patient safety" is locked and cannot be overridden.
+
+**What happens:** When Dr. Smith ingests a new patient case note mentioning a medication interaction, the note receives:
+
+1. **Base importance** from novelty detection (surprise detector)
+2. **2× boost** from tenant's "patient safety" CRITICAL interest
+3. **Pessimistic valence bias** (-20) amplifies the negative signal (potential adverse reaction)
+4. All stored in Dr. Smith's private namespace with Dr. Smith's DEK
+
+Dr. Jones querying the same hospital's Spector instance **cannot see Dr. Smith's memories** — separate files, separate keys, separate mmap segments.
+
+---
+
 ## What's Next
 
 - [Cognitive Profiles](cognitive-profiles.md) — Deep dive on all 12 profiles with biological analogs
+- [Salience & Persona Profiles](salience-importance.md) — Personalized importance with persona-based modulation
 - [Scoring Pipeline](scoring-pipeline.md) — The 6-phase SIMD scoring engine
 - [Hebbian Association](hebbian.md) — Co-activation learning and spreading activation
 - [Lateral Retrieval](lateral-retrieval.md) — Cross-domain dual-heap mechanics
+- [Encryption at Rest](../architecture/encryption-at-rest.md) — Per-tenant/per-user encryption architecture
 - [API Reference](api-reference.md) — Full Java API documentation
-

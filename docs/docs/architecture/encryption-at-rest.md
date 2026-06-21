@@ -21,6 +21,8 @@ Spector stores sensitive cognitive memory data — conversations, documents, kno
 |---|---|---|---|---|
 | **Tier 0** | WAL payloads | AES-256-GCM (per-tenant key) | Application layer | ~1µs per event |
 | **Tier 1** | Raw text (`text.dat`) | AES-256-GCM (per-tenant key) | Application layer | Zero on search |
+| **Tier 1b** | Entity graph name index | AES-256-GCM (per-tenant key) | Application layer | On save/load only |
+| **Tier 1c** | Salience profiles | AES-256-GCM (per-tenant key) | Application layer | On save/load only |
 | **Tier 2** | Synaptic tags | HMAC-SHA256 blind indexing | Application layer | Zero (same Bloom comparison) |
 | **Tier 3** | Vector embeddings (`.mem`) | LUKS / BitLocker / EBS | OS / Infrastructure | <1% with AES-NI |
 
@@ -133,17 +135,19 @@ graph TB
 
 ```mermaid
 graph TD
-    KEK["Root KEK<br/>(KMS-managed, never leaves secure boundary)"]
+    KEK["Root KEK\n(KMS-managed, never leaves secure boundary)"]
 
-    KEK --> DEK_A["Tenant 'hospital-a' DEK<br/>(AES-256, wrapped by KEK)"]
-    KEK --> DEK_B["Tenant 'hospital-b' DEK<br/>(AES-256, wrapped by KEK)"]
-    KEK --> DEK_SYS["System DEK<br/>(for global data)"]
+    KEK --> DEK_A["Tenant 'hospital-a' DEK\n(AES-256, wrapped by KEK)"]
+    KEK --> DEK_B["Tenant 'hospital-b' DEK\n(AES-256, wrapped by KEK)"]
+    KEK --> DEK_SYS["System DEK\n(for global data)"]
 
     DEK_A --> TEXT_A["Encrypts text.dat"]
     DEK_A --> WAL_A["Encrypts WAL payloads"]
     DEK_A --> HMAC_A["HMAC key for blind tags"]
+    DEK_A --> ENTITY_A["Encrypts EntityGraph name index"]
+    DEK_A --> SAL_A["Encrypts salience profiles"]
 
-    BYOK["BYOK Override<br/>(user-provided key via header)"]
+    BYOK["BYOK Override\n(user-provided key via header)"]
     BYOK -.->|replaces DEK for request| TEXT_A
 
     style KEK fill:#1a73e8,color:white
@@ -399,6 +403,16 @@ When a tenant's DEK must be rotated (e.g., after a suspected compromise):
 2. Run the offline migration tool on the tenant's partition
 3. Update `tenant.json` with the new wrapped DEK and incremented `dekVersion`
 
+### Per-Tenant DEK Rotation API
+
+Enterprise deployments expose a REST endpoint for programmatic key management:
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/v1/enterprise/encryption/tenant/{tenantId}/keys` | `GET` | List active DEKs for a tenant |
+| `/api/v1/enterprise/encryption/tenant/{tenantId}/keys/rotate` | `POST` | Generate new DEK and schedule re-encryption |
+| `/api/v1/enterprise/encryption/tenant/{tenantId}/keys/status` | `GET` | Check re-encryption progress |
+
 ---
 
 ## Threat Model
@@ -412,6 +426,8 @@ When a tenant's DEK must be rotated (e.g., after a suspected compromise):
 | Cross-tenant data leak | Filesystem isolation + per-tenant DEKs | :material-check: |
 | Cross-user data leak | Per-namespace DEKs + separate mmap segments | :material-check: |
 | Operator accessing user data | BYOK — user's key never stored | :material-check: |
+| Entity graph name leakage | AES-256-GCM encrypted name index | :material-check: |
+| Salience profile leakage | AES-256-GCM encrypted profile storage | :material-check: |
 | Vector embedding inversion | Infrastructure encryption + quantization noise | :material-alert: Defense-in-depth |
 | Swap file leakage | Encrypted swap + memory pinning (`mlock`) | :material-alert: Operator config |
 | Key compromise blast radius | Per-tenant/per-user DEKs limit exposure | :material-check: |
