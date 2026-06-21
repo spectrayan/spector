@@ -24,11 +24,11 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for all {@link TelemetryEvent} record types — construction, equality,
+ * Tests for all {@link SpectorTelemetryEvent} record types — construction, equality,
  * sealed hierarchy compliance, and accessor correctness.
  */
-@DisplayName("TelemetryEvent Records")
-class TelemetryEventTest {
+@DisplayName("SpectorTelemetryEvent Records")
+class SpectorTelemetryEventTest {
 
     @Nested
     @DisplayName("SimdKernelTelemetry")
@@ -54,10 +54,10 @@ class TelemetryEventTest {
         }
 
         @Test
-        @DisplayName("implements TelemetryEvent")
+        @DisplayName("implements SpectorTelemetryEvent")
         void implementsSealedInterface() {
-            TelemetryEvent event = new SimdKernelTelemetry("dot", 8, 1, 100);
-            assertThat(event).isInstanceOf(TelemetryEvent.class);
+            SpectorTelemetryEvent event = new SimdKernelTelemetry("dot", 8, 1, 100);
+            assertThat(event).isInstanceOf(SpectorTelemetryEvent.class);
         }
 
         @Test
@@ -286,10 +286,10 @@ class TelemetryEventTest {
         }
 
         @Test
-        @DisplayName("implements TelemetryEvent")
+        @DisplayName("implements SpectorTelemetryEvent")
         void implementsInterface() {
-            TelemetryEvent event = new GpuKernelTelemetry(0, "test", 100, 1, 1, 1, 1, 1, 1, 0);
-            assertThat(event).isInstanceOf(TelemetryEvent.class);
+            SpectorTelemetryEvent event = new GpuKernelTelemetry(0, "test", 100, 1, 1, 1, 1, 1, 1, 0);
+            assertThat(event).isInstanceOf(SpectorTelemetryEvent.class);
             assertThat(event).isInstanceOf(GpuKernelTelemetry.class);
         }
     }
@@ -299,7 +299,7 @@ class TelemetryEventTest {
     @Test
     @DisplayName("sealed hierarchy has exactly 9 permitted types")
     void sealedHierarchyCompleteness() {
-        Class<?>[] permitted = TelemetryEvent.class.getPermittedSubclasses();
+        Class<?>[] permitted = SpectorTelemetryEvent.class.getPermittedSubclasses();
         assertThat(permitted).hasSize(9);
         assertThat(permitted).extracting(Class::getSimpleName).containsExactlyInAnyOrder(
                 "SimdKernelTelemetry",

@@ -47,7 +47,7 @@ class TelemetryScopeTest {
     @Test
     @DisplayName("isActive returns true when bus is bound via ScopedValue")
     void isActiveReturnsTrueWhenBound() throws Exception {
-        TelemetryBus bus = new TelemetryBus();
+        EventBus<SpectorTelemetryEvent> bus = EventBus.broadcast();
         boolean active = ScopedValue.where(TelemetryScope.BUS, bus)
                 .call(TelemetryScope::isActive);
         assertThat(active).isTrue();
@@ -57,8 +57,8 @@ class TelemetryScopeTest {
     @Test
     @DisplayName("publish delivers event when bus is bound")
     void publishDeliversWhenBound() throws Exception {
-        TelemetryBus bus = new TelemetryBus();
-        List<TelemetryEvent> received = new ArrayList<>();
+        EventBus<SpectorTelemetryEvent> bus = EventBus.broadcast();
+        List<SpectorTelemetryEvent> received = new ArrayList<>();
         bus.subscribe(received::add);
 
         var event = new SimdKernelTelemetry("cosine", 16, 1000, 5000);
@@ -73,7 +73,7 @@ class TelemetryScopeTest {
     @Test
     @DisplayName("bus is not bound after ScopedValue scope exits")
     void busUnboundAfterScopeExits() throws Exception {
-        TelemetryBus bus = new TelemetryBus();
+        EventBus<SpectorTelemetryEvent> bus = EventBus.broadcast();
         boolean activeDuring = ScopedValue.where(TelemetryScope.BUS, bus)
                 .call(TelemetryScope::isActive);
         assertThat(activeDuring).isTrue();
@@ -86,10 +86,10 @@ class TelemetryScopeTest {
     @Test
     @DisplayName("nested scopes use innermost bus")
     void nestedScopesUseInnermostBus() throws Exception {
-        TelemetryBus outerBus = new TelemetryBus();
-        TelemetryBus innerBus = new TelemetryBus();
-        List<TelemetryEvent> outerReceived = new ArrayList<>();
-        List<TelemetryEvent> innerReceived = new ArrayList<>();
+        EventBus<SpectorTelemetryEvent> outerBus = EventBus.broadcast();
+        EventBus<SpectorTelemetryEvent> innerBus = EventBus.broadcast();
+        List<SpectorTelemetryEvent> outerReceived = new ArrayList<>();
+        List<SpectorTelemetryEvent> innerReceived = new ArrayList<>();
         outerBus.subscribe(outerReceived::add);
         innerBus.subscribe(innerReceived::add);
 

@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
+
 /**
  * Memory diagnostic telemetry — periodic health snapshot of the
  * memory subsystem (JVM heap, off-heap, page faults, tier counts).
@@ -37,6 +39,7 @@ package com.spectrayan.spector.events;
  * @param entityEdges      entity graph edge count
  * @param coActivationPairs co-activation pair count
  * @param stdpEdges        STDP edge count
+ * @param timestamp        when the event occurred
  */
 public record MemoryDiagnosticTelemetry(
         long offHeapAllocated,
@@ -56,5 +59,24 @@ public record MemoryDiagnosticTelemetry(
         int entityNodes,
         int entityEdges,
         int coActivationPairs,
-        int stdpEdges
-) implements TelemetryEvent {}
+        int stdpEdges,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public MemoryDiagnosticTelemetry(long offHeapAllocated, long pinnedBytes,
+                                      long jvmHeapUsed, long jvmHeapMax,
+                                      long gpuAllocated, long gpuFree,
+                                      long softPageFaults, long hardPageFaults,
+                                      int workingCount, int episodicCount,
+                                      int semanticCount, int proceduralCount,
+                                      int hebbianEdges, int temporalLinks,
+                                      int entityNodes, int entityEdges,
+                                      int coActivationPairs, int stdpEdges) {
+        this(offHeapAllocated, pinnedBytes, jvmHeapUsed, jvmHeapMax,
+                gpuAllocated, gpuFree, softPageFaults, hardPageFaults,
+                workingCount, episodicCount, semanticCount, proceduralCount,
+                hebbianEdges, temporalLinks, entityNodes, entityEdges,
+                coActivationPairs, stdpEdges, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.memory.diagnostic"; }
+}

@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.sync;
 
+import com.spectrayan.spector.events.EventBus;
 import com.spectrayan.spector.memory.StorageLayout;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
@@ -25,6 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Map;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -94,6 +97,22 @@ public final class CheckpointDaemon {
     private final CoActivationTracker coActivationTracker; // nullable
     private final Path partitionDir;                   // nullable — active partition dir for graph saves
     private final Path basePath;                       // nullable — persistence root for coactivation
+
+    // ── Event Bus (replaces CheckpointListener) ──
+    private volatile EventBus<SpectorLifecycleEvent> eventBus;
+    private volatile Map<String, String> eventContext = Map.of();
+
+    /**
+     * @deprecated Since 2.0.0. Use {@link #setEventBus(EventBus)} instead.
+     *             Retained for backward compatibility during migration.
+     */
+    @Deprecated(since = "2.0.0", forRemoval = true)
+    @FunctionalInterface
+    public interface CheckpointListener {
+        void onCheckpointComplete(long hwm);
+    }
+    @Deprecated(since = "2.0.0", forRemoval = true)
+    private volatile CheckpointListener checkpointListener;
 
     /**
      * Creates a checkpoint daemon with full graph persistence.
@@ -197,6 +216,7 @@ public final class CheckpointDaemon {
             long elapsed = (System.nanoTime() - start) / 1_000_000;
             log.info("Checkpoint complete: hwm=0, index={} entries, elapsed={}ms",
                     index != null ? index.size() : 0, elapsed);
+            fireCheckpointListener(0);
             return;
         }
 
@@ -206,9 +226,77 @@ public final class CheckpointDaemon {
         // Step 7: Truncate WAL events ≤ HWM
         wal.truncateBefore(hwm);
 
+        // Step 8: Notify replication layer (enterprise)
+        fireCheckpointListener(hwm);
+
         long elapsed = (System.nanoTime() - start) / 1_000_000;
         log.info("Checkpoint complete: hwm={}, index={} entries, elapsed={}ms",
                 hwm, index != null ? index.size() : 0, elapsed);
+    }
+
+    /**
+     * Sets the lifecycle event bus for publishing checkpoint events.
+     *
+     * <p>The event bus replaces the deprecated {@link CheckpointListener}.
+     * After each successful checkpoint, a {@link CheckpointCompletedEvent}
+     * is published to the bus, enabling event-driven replication, backups,
+     * and analytics in enterprise mode.</p>
+     *
+     * @param eventBus the lifecycle event bus (nullable to unset)
+     */
+    public void setEventBus(EventBus<SpectorLifecycleEvent> eventBus) {
+        this.eventBus = eventBus;
+    }
+
+    /**
+     * Sets the context attributes included in checkpoint events.
+     *
+     * <p>The context carries generic identity metadata (see
+     * {@link com.spectrayan.spector.events.SpectorEvent.ContextKeys}).
+     * Core (OSS) mode sets the instance path; enterprise mode adds
+     * tenant and namespace identifiers.</p>
+     *
+     * @param context the event context attributes
+     */
+    public void setEventContext(Map<String, String> context) {
+        this.eventContext = context != null ? Map.copyOf(context) : Map.of();
+    }
+
+    /**
+     * @deprecated Since 2.0.0. Use {@link #setEventBus(EventBus)} instead.
+     */
+    @Deprecated(since = "2.0.0", forRemoval = true)
+    public void setCheckpointListener(CheckpointListener listener) {
+        this.checkpointListener = listener;
+    }
+
+    /**
+     * Publishes a checkpoint completion event and fires the legacy listener.
+     */
+    private void fireCheckpointListener(long hwm) {
+        // New: publish to EventBus
+        EventBus<SpectorLifecycleEvent> bus = this.eventBus;
+        if (bus != null) {
+            try {
+                long elapsed = 0; // will be set by caller in future refactor
+                bus.publish(new CheckpointCompletedEvent(
+                        eventContext, hwm,
+                        index != null ? index.size() : 0,
+                        elapsed, Instant.now()));
+            } catch (Exception e) {
+                log.warn("Checkpoint event publish failed (hwm={}): {}", hwm, e.getMessage());
+            }
+        }
+        // Legacy: fire deprecated listener
+        @SuppressWarnings("deprecation")
+        CheckpointListener listener = this.checkpointListener;
+        if (listener != null) {
+            try {
+                listener.onCheckpointComplete(hwm);
+            } catch (Exception e) {
+                log.warn("Checkpoint listener failed (hwm={}): {}", hwm, e.getMessage());
+            }
+        }
     }
 
     /**

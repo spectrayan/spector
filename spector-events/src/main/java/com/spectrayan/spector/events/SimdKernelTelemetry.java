@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
+
 /**
  * SIMD kernel execution telemetry — emitted per-query from SIMD-accelerated
  * distance computation kernels.
@@ -23,10 +25,19 @@ package com.spectrayan.spector.events;
  * @param laneWidth        SIMD lane width in floats (4, 8, 16)
  * @param vectorsProcessed number of vectors processed in this invocation
  * @param durationNanos    elapsed time in nanoseconds
+ * @param timestamp        when the event occurred
  */
 public record SimdKernelTelemetry(
         String kernelName,
         int laneWidth,
         int vectorsProcessed,
-        long durationNanos
-) implements TelemetryEvent {}
+        long durationNanos,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public SimdKernelTelemetry(String kernelName, int laneWidth,
+                                int vectorsProcessed, long durationNanos) {
+        this(kernelName, laneWidth, vectorsProcessed, durationNanos, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.simd.kernel"; }
+}

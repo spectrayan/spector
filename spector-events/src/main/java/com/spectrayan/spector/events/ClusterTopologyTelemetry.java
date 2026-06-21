@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.events;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -22,11 +23,19 @@ import java.util.List;
  *
  * @param nodes            list of node state snapshots
  * @param replicationLinks pairs of node IDs with replication links
+ * @param timestamp        when the event occurred
  */
 public record ClusterTopologyTelemetry(
         List<ClusterNodeSnapshot> nodes,
-        List<String[]> replicationLinks
-) implements TelemetryEvent {
+        List<String[]> replicationLinks,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public ClusterTopologyTelemetry(List<ClusterNodeSnapshot> nodes,
+                                     List<String[]> replicationLinks) {
+        this(nodes, replicationLinks, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.cluster.topology"; }
 
     /**
      * State snapshot of a single cluster node.

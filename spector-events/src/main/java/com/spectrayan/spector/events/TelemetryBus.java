@@ -28,32 +28,22 @@ import org.slf4j.LoggerFactory;
  * independent — safe for HA deployments where multiple {@code SpectorNode}
  * instances run in the same JVM.</p>
  *
- * <h3>Thread Safety</h3>
- * <p>{@link CopyOnWriteArrayList} provides lock-free reads (the common case —
- * events are published far more often than subscribers are added). Writes
- * (subscribe/unsubscribe) are rare and synchronized internally by COWAL.</p>
+ * @deprecated Since 2.0.0. Use {@link EventBus EventBus&lt;SpectorTelemetryEvent&gt;}
+ *             directly. This class is retained for backward compatibility and will
+ *             delegate to the generic {@link EventBus} in a future release. The
+ *             generic EventBus supports scope-aware delivery, multiple transports,
+ *             and type-filtered subscriptions — features that this class lacks.
  *
- * <h3>Usage</h3>
- * <pre>{@code
- *   TelemetryBus bus = new TelemetryBus();
- *   bus.subscribe(event -> {
- *       switch (event) {
- *           case SimdKernelTelemetry e -> recordSimdTimer(e);
- *           case GraphPulseTelemetry e -> recordGraphTimer(e);
- *           default -> {}
- *       }
- *   });
- *   bus.publish(new SimdKernelTelemetry("cosine", 16, 50000, 230_000));
- * }</pre>
- *
+ * @see EventBus
  * @see TelemetryScope
- * @see TelemetryEvent
+ * @see SpectorTelemetryEvent
  */
+@Deprecated(since = "2.0.0", forRemoval = false)
 public final class TelemetryBus implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TelemetryBus.class);
 
-    private final CopyOnWriteArrayList<Consumer<TelemetryEvent>> subscribers =
+    private final CopyOnWriteArrayList<Consumer<SpectorTelemetryEvent>> subscribers =
             new CopyOnWriteArrayList<>();
 
     /**
@@ -64,8 +54,8 @@ public final class TelemetryBus implements AutoCloseable {
      *
      * @param event the telemetry event to publish
      */
-    public void publish(TelemetryEvent event) {
-        for (Consumer<TelemetryEvent> subscriber : subscribers) {
+    public void publish(SpectorTelemetryEvent event) {
+        for (Consumer<SpectorTelemetryEvent> subscriber : subscribers) {
             try {
                 subscriber.accept(event);
             } catch (Exception e) {
@@ -80,7 +70,7 @@ public final class TelemetryBus implements AutoCloseable {
      * @param subscriber the event consumer
      * @return a subscription handle for cancellation
      */
-    public Subscription subscribe(Consumer<TelemetryEvent> subscriber) {
+    public Subscription subscribe(Consumer<SpectorTelemetryEvent> subscriber) {
         subscribers.add(subscriber);
         return () -> subscribers.remove(subscriber);
     }
@@ -90,8 +80,9 @@ public final class TelemetryBus implements AutoCloseable {
      */
     @Override
     public void close() {
+        int count = subscribers.size();
         subscribers.clear();
-        log.debug("TelemetryBus closed ({} subscribers removed)", subscribers.size());
+        log.debug("TelemetryBus closed ({} subscribers removed)", count);
     }
 
     /** Returns the current subscriber count (for diagnostics). */
