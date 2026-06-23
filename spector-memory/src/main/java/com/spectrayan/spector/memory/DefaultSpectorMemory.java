@@ -204,6 +204,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ── Chunking for remember() ──
     private final TextChunker chunker;
     private final ParallelEmbeddingPipeline parallelPipeline;
+    private final EmbedConfig embedConfig;
 
     // ── Multimodal Attachment Processing ──
     private final com.spectrayan.spector.memory.pipeline.AttachmentProcessor attachmentProcessor;
@@ -223,6 +224,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         EmbeddingProvider embeddingProvider = builder.embeddingProvider;
         this.embeddingProvider = embeddingProvider;
         this.parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider);
+        this.embedConfig = new EmbedConfig(builder.embedBatchSize, 3);
 
         boolean isDisk = persistenceMode == MemoryPersistenceMode.DISK;
 
@@ -780,9 +782,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             return;
         }
 
-        // Parallel-embed all chunks
+        // Parallel-embed all chunks (batch size from config)
         List<String> chunkTexts = chunks.stream().map(TextChunker.Chunk::text).toList();
-        List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(chunkTexts, EmbedConfig.DEFAULT);
+        List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(chunkTexts, embedConfig);
 
         // Provenance tags from the caller (e.g., "file-ingest", filename) — shared across chunks
         String parentTag = sanitizeTag(id);
@@ -1262,6 +1264,45 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     // ══════════════════════════════════════════════════════════════
+    // SALIENCE PROFILE — runtime personality & interest configuration
+    // ══════════════════════════════════════════════════════════════
+
+    @Override
+    public void setSalienceProfile(SalienceProfile profile) {
+        cognitiveTarget.setSalienceProfile(profile);
+        log.info("Salience profile updated: interests={}, disinterests={}, persona={}, icnuOverride={}",
+                profile != null ? profile.interests().size() : 0,
+                profile != null ? profile.disinterests().size() : 0,
+                profile != null && profile.hasPersona(),
+                profile != null && profile.hasIcnuOverride());
+    }
+
+    @Override
+    public SalienceProfile salienceProfile() {
+        return cognitiveTarget.salienceProfile();
+    }
+
+    @Override
+    public float computeTopicBoost(String text) {
+        if (text == null || text.isBlank()) return 1.0f;
+        SalienceProfile profile = cognitiveTarget.salienceProfile();
+        if (profile == null || !profile.hasInterests()) return 1.0f;
+
+        float[] embedding = embeddingProvider.embed(text).vector();
+        return profile.computeTopicBoost(embedding);
+    }
+
+    @Override
+    public float computeSelfRelevanceBoost(String text) {
+        if (text == null || text.isBlank()) return 1.0f;
+        SalienceProfile profile = cognitiveTarget.salienceProfile();
+        if (profile == null || !profile.hasPersona()) return 1.0f;
+
+        float[] embedding = embeddingProvider.embed(text).vector();
+        return profile.computeSelfRelevanceBoost(embedding);
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // ADMIN INTERFACE
     // ══════════════════════════════════════════════════════════════
 
@@ -1433,6 +1474,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Chunking for remember() — default aligned with ingestion pipeline (2500 chars, 200 overlap)
         TextChunker chunker = new TextChunker(2500, 200);
 
+        // Embedding pipeline batch size (default: 32, matching EmbedConfig.DEFAULT)
+        int embedBatchSize = 32;
+
         // Salience profile provider (enterprise SPI)
         SalienceProfileProvider salienceProfileProvider;
 
@@ -1454,6 +1498,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         /** Sets the text chunker for remember() auto-chunking (default: TextChunker(2500, 200)). */
         public Builder chunker(TextChunker chunker) { this.chunker = chunker; return this; }
+
+        /** Sets the embedding batch size for parallel chunk embedding (default: 32). */
+        public Builder embedBatchSize(int size) { this.embedBatchSize = size; return this; }
 
         public Builder workingCapacity(int c) { this.workingCapacity = c; return this; }
         public Builder episodicPartitionCapacity(int c) { this.episodicPartitionCapacity = c; return this; }

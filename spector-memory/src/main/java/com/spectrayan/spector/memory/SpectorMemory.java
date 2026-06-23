@@ -413,6 +413,55 @@ public interface SpectorMemory extends AutoCloseable {
     int memoryCount(MemoryType type);
 
     // ══════════════════════════════════════════════════════════════
+    // SALIENCE PROFILE — runtime personality & interest configuration
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Sets the active salience profile (thread-safe hot-swap).
+     *
+     * <p>The salience profile controls importance modulation based on user
+     * interests, disinterests, and persona context. Changes take effect
+     * immediately for subsequent ingestions and recall queries.</p>
+     *
+     * @param profile the salience profile to activate (null resets to NEUTRAL)
+     * @see com.spectrayan.spector.memory.model.SalienceProfile
+     */
+    void setSalienceProfile(com.spectrayan.spector.memory.model.SalienceProfile profile);
+
+    /**
+     * Returns the currently active salience profile.
+     *
+     * @return the effective salience profile (never null — NEUTRAL if unset)
+     */
+    com.spectrayan.spector.memory.model.SalienceProfile salienceProfile();
+
+    /**
+     * Computes the topic boost a memory text would receive under the current
+     * salience profile <em>without</em> ingesting.
+     *
+     * <p>This is a read-only, side-effect-free preview operation. The text is
+     * embedded and compared against all interest/disinterest domains in the
+     * active profile.</p>
+     *
+     * @param text the memory text to evaluate
+     * @return the multiplicative topic boost (1.0 = no effect)
+     */
+    float computeTopicBoost(String text);
+
+    /**
+     * Computes the self-relevance boost a memory text would receive under the
+     * current salience profile's persona context <em>without</em> ingesting.
+     *
+     * <p>The text embedding is compared against persona embeddings (occupation,
+     * education, values, aspirations, cultural identity). The boost is capped
+     * at ±15% per {@link com.spectrayan.spector.memory.model.PersonalityModifiers}.</p>
+     *
+     * @param text the memory text to evaluate
+     * @return the multiplicative self-relevance boost in [0.85, 1.15]
+     */
+    float computeSelfRelevanceBoost(String text);
+
+    // ══════════════════════════════════════════════════════════════
     // ADMIN INTERFACE
     // ══════════════════════════════════════════════════════════════
 

@@ -399,6 +399,28 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override public TemporalChain temporalChain() { return delegate.temporalChain(); }
     @Override public EntityGraph entityGraph() { return delegate.entityGraph(); }
 
+    // ── Salience Profile (pass-through) ──
+
+    @Override
+    public void setSalienceProfile(com.spectrayan.spector.memory.model.SalienceProfile profile) {
+        delegate.setSalienceProfile(profile);
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.model.SalienceProfile salienceProfile() {
+        return delegate.salienceProfile();
+    }
+
+    @Override
+    public float computeTopicBoost(String text) {
+        return delegate.computeTopicBoost(text);
+    }
+
+    @Override
+    public float computeSelfRelevanceBoost(String text) {
+        return delegate.computeSelfRelevanceBoost(text);
+    }
+
     // ── Lifecycle ──
 
     @Override
