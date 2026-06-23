@@ -137,22 +137,27 @@ public class SpectorAutoConfiguration {
                 .semanticCapacity(memoryProps.getCapacity())
                 .hebbianGraphCapacity(memoryProps.getCapacity())
                 .temporalChainCapacity(memoryProps.getCapacity())
-                .entityGraphCapacity(memoryProps.getCapacity());
+                .entityGraphCapacity(memoryProps.getCapacity())
+                .embedBatchSize(props.getEmbedding().getBatchSize());
 
         if (memoryProps.getPersistencePath() != null) {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));
         }
 
         // ── SPLADE + ColBERT providers (auto-created from embedding provider) ──
-        builder.sparseEncodingProvider(
-                new com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider(embedder));
-        builder.tokenEmbeddingProvider(
-                new com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider(embedder));
+        if (memoryProps.isSpladeEnabled()) {
+            builder.sparseEncodingProvider(
+                    new com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider(embedder));
+        }
+        if (memoryProps.isColbertEnabled()) {
+            builder.tokenEmbeddingProvider(
+                    new com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider(embedder));
+        }
 
         SpectorMemory raw = builder.build();
-        log.info("SpectorMemory auto-configured: dims={}, persistence={}, path={}, entity=enabled, SPLADE=enabled, ColBERT=enabled",
+        log.info("SpectorMemory auto-configured: dims={}, persistence={}, path={}, entity=enabled, SPLADE={}, ColBERT={}",
                 memoryProps.getDimensions(), memoryProps.getPersistenceMode(),
-                memoryProps.getPersistencePath());
+                memoryProps.getPersistencePath(), memoryProps.isSpladeEnabled(), memoryProps.isColbertEnabled());
 
         MeterRegistry registry = registryProvider.getIfAvailable();
         if (registry != null && props.getMetrics().isEnabled()) {

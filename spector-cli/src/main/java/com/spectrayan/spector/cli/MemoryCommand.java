@@ -46,7 +46,8 @@ import java.util.Map;
                 MemoryCommand.ReminderSubcommand.class,
                 MemoryCommand.ScratchpadSubcommand.class,
                 MemoryCommand.WhyNotSubcommand.class,
-                MemoryCommand.ReflectSubcommand.class
+                MemoryCommand.ReflectSubcommand.class,
+                MemoryCommand.SalienceSubcommand.class
         }
 )
 public class MemoryCommand extends BaseCommand {
@@ -497,4 +498,195 @@ public class MemoryCommand extends BaseCommand {
             }
         }
     }
+
+    // ── Salience Profile Management ─────────────────────────────────
+
+    @Command(name = "salience", description = "Manage the active salience profile (interests, persona, ICNU weights).",
+            mixinStandardHelpOptions = true,
+            subcommands = {
+                    MemoryCommand.SalienceGetSubcommand.class,
+                    MemoryCommand.SalienceComputeSubcommand.class,
+                    MemoryCommand.SalienceAddInterestSubcommand.class,
+                    MemoryCommand.SalienceSetPersonaSubcommand.class
+            })
+    static class SalienceSubcommand extends BaseCommand {
+        @Override
+        public void run() {
+            spec.commandLine().usage(out());
+        }
+    }
+
+    @Command(name = "get", description = "Show the current active salience profile.", mixinStandardHelpOptions = true)
+    static class SalienceGetSubcommand extends BaseCommand {
+        @Override
+        @SuppressWarnings("unchecked")
+        public void run() {
+            try (SpectorClient client = createClient()) {
+                Map<String, Object> response = client.getSalienceProfile();
+                if (isJson()) {
+                    OutputFormatter.printJson(out(), response);
+                } else {
+                    String status = String.valueOf(response.get("status"));
+                    if ("neutral".equals(status)) {
+                        out().println("🧠 Salience Profile: NEUTRAL (no personalization active)");
+                        out().println("Use 'salience add-interest' or 'salience set-persona' to configure.");
+                    } else {
+                        out().println("🧠 Active Salience Profile");
+                        out().println();
+                        List<Map<String, Object>> interests = (List<Map<String, Object>>) response.get("interests");
+                        if (interests != null && !interests.isEmpty()) {
+                            out().println("Interests:");
+                            for (var i : interests) {
+                                out().println("  • " + i.get("topic") + " → " + i.get("level")
+                                        + " (" + i.get("multiplier") + "×)");
+                            }
+                        }
+                        List<Map<String, Object>> disinterests = (List<Map<String, Object>>) response.get("disinterests");
+                        if (disinterests != null && !disinterests.isEmpty()) {
+                            out().println("Disinterests:");
+                            for (var d : disinterests) {
+                                out().println("  • " + d.get("topic") + " → " + d.get("level")
+                                        + " (" + d.get("multiplier") + "×)");
+                            }
+                        }
+                        out().println();
+                        out().println("Persona: " + response.get("hasPersona"));
+                        out().println("ICNU Override: " + response.get("hasIcnuOverride"));
+                    }
+                }
+            } catch (SpectorConnectionException e) {
+                handleConnectionError(e);
+            } catch (SpectorClientException e) {
+                err().println("Error: " + e.getMessage());
+            }
+        }
+    }
+
+    @Command(name = "compute", description = "Compute salience boost for a text without ingesting.", mixinStandardHelpOptions = true)
+    static class SalienceComputeSubcommand extends BaseCommand {
+        @CommandLine.Parameters(index = "0", description = "Text to compute boost for.")
+        private String text;
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public void run() {
+            try (SpectorClient client = createClient()) {
+                Map<String, Object> req = new HashMap<>();
+                req.put("text", text);
+                Map<String, Object> response = client.computeSalienceBoost(req);
+                if (isJson()) {
+                    OutputFormatter.printJson(out(), response);
+                } else {
+                    out().println("🔍 Salience Boost Preview");
+                    out().println();
+                    String[][] entries = {
+                            {"Text", String.valueOf(response.get("text"))},
+                            {"Topic Boost", String.format("%.4f", ((Number) response.get("topicBoost")).floatValue())},
+                            {"Self-Relevance", String.format("%.4f", ((Number) response.get("selfRelevanceBoost")).floatValue())},
+                            {"Combined", String.format("%.4f", ((Number) response.get("combinedBoost")).floatValue())}
+                    };
+                    OutputFormatter.printKeyValue(out(), entries);
+                }
+            } catch (SpectorConnectionException e) {
+                handleConnectionError(e);
+            } catch (SpectorClientException e) {
+                err().println("Error: " + e.getMessage());
+            }
+        }
+    }
+
+    @Command(name = "add-interest", description = "Add an interest or disinterest to the salience profile.", mixinStandardHelpOptions = true)
+    static class SalienceAddInterestSubcommand extends BaseCommand {
+        @CommandLine.Parameters(index = "0", description = "Interest topic in natural language.")
+        private String topic;
+
+        @CommandLine.Option(names = {"--level"}, description = "Interest level: CRITICAL, HIGH, MEDIUM, LOW, IGNORE.", defaultValue = "HIGH")
+        private String level;
+
+        @CommandLine.Option(names = {"--disinterest"}, description = "Add as disinterest (dampener) instead of interest.")
+        private boolean disinterest;
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public void run() {
+            try (SpectorClient client = createClient()) {
+                Map<String, Object> req = new HashMap<>();
+                req.put("topic", topic);
+                req.put("level", level);
+                Map<String, Object> response = disinterest
+                        ? client.addDisinterest(req)
+                        : client.addInterest(req);
+                if (isJson()) {
+                    OutputFormatter.printJson(out(), response);
+                } else {
+                    String label = disinterest ? "Disinterest" : "Interest";
+                    out().println("✅ " + label + " added: \"" + topic + "\" → " + level);
+                }
+            } catch (SpectorConnectionException e) {
+                handleConnectionError(e);
+            } catch (SpectorClientException e) {
+                err().println("Error: " + e.getMessage());
+            }
+        }
+    }
+
+    @Command(name = "set-persona", description = "Set persona context (personality, occupation) on the salience profile.", mixinStandardHelpOptions = true)
+    static class SalienceSetPersonaSubcommand extends BaseCommand {
+        @CommandLine.Option(names = {"--occupation"}, description = "Occupation text.")
+        private String occupation;
+
+        @CommandLine.Option(names = {"--about"}, description = "Self-description/bio text.")
+        private String about;
+
+        @CommandLine.Option(names = {"--openness"}, description = "Big Five Openness (0-100).", defaultValue = "50")
+        private int openness;
+
+        @CommandLine.Option(names = {"--conscientiousness"}, description = "Big Five Conscientiousness (0-100).", defaultValue = "50")
+        private int conscientiousness;
+
+        @CommandLine.Option(names = {"--extraversion"}, description = "Big Five Extraversion (0-100).", defaultValue = "50")
+        private int extraversion;
+
+        @CommandLine.Option(names = {"--agreeableness"}, description = "Big Five Agreeableness (0-100).", defaultValue = "50")
+        private int agreeableness;
+
+        @CommandLine.Option(names = {"--neuroticism"}, description = "Big Five Neuroticism (0-100).", defaultValue = "50")
+        private int neuroticism;
+
+        @CommandLine.Option(names = {"--stress"}, description = "Stress response: ADAPTIVE, FIGHT, FLIGHT, FREEZE, FAWN.", defaultValue = "ADAPTIVE")
+        private String stress;
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public void run() {
+            try (SpectorClient client = createClient()) {
+                Map<String, Object> req = new HashMap<>();
+                if (occupation != null) req.put("occupation", occupation);
+                if (about != null) req.put("about", about);
+                req.put("bigFive", Map.of(
+                        "openness", openness,
+                        "conscientiousness", conscientiousness,
+                        "extraversion", extraversion,
+                        "agreeableness", agreeableness,
+                        "neuroticism", neuroticism));
+                req.put("stressResponse", stress);
+
+                Map<String, Object> response = client.setPersonaContext(req);
+                if (isJson()) {
+                    OutputFormatter.printJson(out(), response);
+                } else {
+                    out().println("✅ Persona set successfully.");
+                    if (occupation != null) out().println("Occupation: " + occupation);
+                    out().println("BigFive: O=" + openness + " C=" + conscientiousness
+                            + " E=" + extraversion + " A=" + agreeableness + " N=" + neuroticism);
+                    out().println("Stress: " + stress);
+                }
+            } catch (SpectorConnectionException e) {
+                handleConnectionError(e);
+            } catch (SpectorClientException e) {
+                err().println("Error: " + e.getMessage());
+            }
+        }
+    }
 }
+

@@ -27,6 +27,8 @@ import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.embed.SparseEncodingProvider;
+import com.spectrayan.spector.embed.TokenEmbeddingProvider;
 import com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider;
 import com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider;
 import com.spectrayan.spector.config.SpectorConfig;
@@ -78,6 +80,10 @@ public final class SpectorRuntime implements AutoCloseable {
     private final SpectorMode mode;
     private final TextChunker sharedChunker;  // nullable — shared by memory + ingestion pipeline
 
+    // Shared provider singletons (nullable) — reused across all tenants in Enterprise
+    private final SparseEncodingProvider sparseEncodingProvider;
+    private final TokenEmbeddingProvider tokenEmbeddingProvider;
+
     // Lazily created services — double-checked locking for thread safety.
     // The volatile + synchronized pattern ensures exactly-once initialization
     // even under concurrent access from multiple threads.
@@ -88,12 +94,16 @@ public final class SpectorRuntime implements AutoCloseable {
 
     private SpectorRuntime(SpectorEngine engine, SpectorMemory memory,
                            SpectorProperties properties, SpectorMode mode,
-                           TextChunker sharedChunker) {
+                           TextChunker sharedChunker,
+                           SparseEncodingProvider sparseEncodingProvider,
+                           TokenEmbeddingProvider tokenEmbeddingProvider) {
         this.engine = engine;
         this.memory = memory;
         this.properties = properties;
         this.mode = mode;
         this.sharedChunker = sharedChunker;
+        this.sparseEncodingProvider = sparseEncodingProvider;
+        this.tokenEmbeddingProvider = tokenEmbeddingProvider;
     }
 
     // ─────────────── Factory ───────────────
@@ -162,6 +172,10 @@ public final class SpectorRuntime implements AutoCloseable {
         log.info("[Runtime] TextChunker: chunkSize={}, overlap={}",
                 ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
 
+        // ── Shared SPLADE + ColBERT provider singletons (set if memory is enabled) ──
+        SparseEncodingProvider sharedSpladeProvider = null;
+        TokenEmbeddingProvider sharedColbertProvider = null;
+
         if (memoryEnabled) {
             var memoryBuilder = DefaultSpectorMemory.builder()
                     .dimensions(engineConfig.dimensions())
@@ -196,13 +210,22 @@ public final class SpectorRuntime implements AutoCloseable {
                 log.info("[Runtime] Entity extraction: NONE (no TextGenerationProvider)");
             }
 
-            // ── SPLADE + ColBERT providers (auto-created from embedding provider) ──
-            var sparseProvider = new OllamaSparseEncodingProvider(embedder);
-            var tokenProvider = new OllamaTokenEmbeddingProvider(embedder);
-            memoryBuilder.sparseEncodingProvider(sparseProvider)
-                    .tokenEmbeddingProvider(tokenProvider);
-            log.info("[Runtime] SPLADE provider: {}", sparseProvider.modelName());
-            log.info("[Runtime] ColBERT provider: {}", tokenProvider.modelName());
+            // ── SPLADE + ColBERT providers (shared singletons) ──
+
+            if (memoryConfig.spladeEnabled()) {
+                sharedSpladeProvider = new OllamaSparseEncodingProvider(embedder);
+                memoryBuilder.sparseEncodingProvider(sharedSpladeProvider);
+                log.info("[Runtime] SPLADE provider: {}", sharedSpladeProvider.modelName());
+            } else {
+                log.info("[Runtime] SPLADE sparse indexing is disabled via configuration");
+            }
+            if (memoryConfig.colbertEnabled()) {
+                sharedColbertProvider = new OllamaTokenEmbeddingProvider(embedder);
+                memoryBuilder.tokenEmbeddingProvider(sharedColbertProvider);
+                log.info("[Runtime] ColBERT provider: {}", sharedColbertProvider.modelName());
+            } else {
+                log.info("[Runtime] ColBERT reranking is disabled via configuration");
+            }
 
             // ── Create HNSW index for memory's semantic recall ──
             // Without this, SemanticRecallStrategy falls back to header-only scoring
@@ -238,19 +261,25 @@ public final class SpectorRuntime implements AutoCloseable {
                 default -> log.info("[Runtime] Tag extractor: content (keyword-based)");
             }
 
+            // ── Embedding batch size from config ──
+            var embedConfigDefaults = SpectorConfigFactory.embeddingDefaults(props);
+            memoryBuilder.embedBatchSize(embedConfigDefaults.batchSize());
+            log.info("[Runtime] Embedding batch size: {}", embedConfigDefaults.batchSize());
+
             memory = memoryBuilder.build();
             log.info("[Runtime] Memory: persistence={}, path={}",
                     memoryConfig.persistenceMode(), memoryConfig.persistencePath());
         }
 
-        return new SpectorRuntime(engine, memory, props, mode, textChunker);
+        return new SpectorRuntime(engine, memory, props, mode, textChunker,
+                sharedSpladeProvider, sharedColbertProvider);
     }
 
     /**
      * Creates a runtime with engine only (no memory).
      */
     public static SpectorRuntime engineOnly(SpectorEngine engine, SpectorProperties props) {
-        return new SpectorRuntime(engine, null, props, SpectorMode.SEARCH, null);
+        return new SpectorRuntime(engine, null, props, SpectorMode.SEARCH, null, null, null);
     }
 
     // ─────────────── Service Accessors ───────────────
@@ -293,11 +322,16 @@ public final class SpectorRuntime implements AutoCloseable {
                                     ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
 
                     // Build unified pipeline from config
+                    var embedDefaults = SpectorConfigFactory.embeddingDefaults(properties);
+                    var embedConfig = new com.spectrayan.spector.embed.EmbedConfig(
+                            embedDefaults.batchSize(), embedDefaults.maxRetries());
+
                     var pipeline = com.spectrayan.spector.ingestion.IngestionPipeline.builder()
                             .target(target)
                             .embeddingProvider(engine.embeddingProvider())
                             .chunking(chunker)
                             .chunkThreshold(ingestionConfig.chunkSize())
+                            .embedConfig(embedConfig)
                             .build();
 
                     svc = new IngestionHandler(pipeline, engine, memory, mode);
@@ -349,6 +383,26 @@ public final class SpectorRuntime implements AutoCloseable {
 
     /** Returns the global operating mode. */
     public SpectorMode mode() { return mode; }
+
+    /**
+     * Returns the shared SPLADE sparse encoding provider, or empty if disabled.
+     *
+     * <p>Enterprise callers should reuse this singleton instead of creating
+     * per-tenant instances — the provider is stateless and thread-safe.</p>
+     */
+    public java.util.Optional<SparseEncodingProvider> sparseEncodingProvider() {
+        return java.util.Optional.ofNullable(sparseEncodingProvider);
+    }
+
+    /**
+     * Returns the shared ColBERT token embedding provider, or empty if disabled.
+     *
+     * <p>Enterprise callers should reuse this singleton instead of creating
+     * per-tenant instances — the provider is stateless and thread-safe.</p>
+     */
+    public java.util.Optional<TokenEmbeddingProvider> tokenEmbeddingProvider() {
+        return java.util.Optional.ofNullable(tokenEmbeddingProvider);
+    }
 
     // ─────────────── Lifecycle ───────────────
 

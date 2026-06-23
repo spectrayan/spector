@@ -91,6 +91,9 @@ public class SpectorConfigProperties {
         private int dimensions = 768;
         private int capacity = 100_000;
 
+        private boolean spladeEnabled = true;
+        private boolean colbertEnabled = true;
+
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public String getPersistenceMode() { return persistenceMode; }
@@ -101,6 +104,10 @@ public class SpectorConfigProperties {
         public void setDimensions(int dimensions) { this.dimensions = dimensions; }
         public int getCapacity() { return capacity; }
         public void setCapacity(int capacity) { this.capacity = capacity; }
+        public boolean isSpladeEnabled() { return spladeEnabled; }
+        public void setSpladeEnabled(boolean spladeEnabled) { this.spladeEnabled = spladeEnabled; }
+        public boolean isColbertEnabled() { return colbertEnabled; }
+        public void setColbertEnabled(boolean colbertEnabled) { this.colbertEnabled = colbertEnabled; }
     }
 
     // ─────────────── Metrics ───────────────
@@ -117,11 +124,17 @@ public class SpectorConfigProperties {
     public static class Embedding {
         private String model = "nomic-embed-text";
         private String baseUrl = "http://localhost:11434";
+        private int batchSize = 32;
+        private int maxConcurrent = 0;
 
         public String getModel() { return model; }
         public void setModel(String model) { this.model = model; }
         public String getBaseUrl() { return baseUrl; }
         public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+        public int getBatchSize() { return batchSize; }
+        public void setBatchSize(int batchSize) { this.batchSize = batchSize; }
+        public int getMaxConcurrent() { return maxConcurrent; }
+        public void setMaxConcurrent(int maxConcurrent) { this.maxConcurrent = maxConcurrent; }
     }
 
     /**
