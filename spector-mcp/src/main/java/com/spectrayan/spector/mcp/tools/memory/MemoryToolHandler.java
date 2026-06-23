@@ -17,6 +17,7 @@ package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -31,13 +32,37 @@ import io.modelcontextprotocol.spec.McpSchema;
  * {@link SpectorMemory} (for cognitive operations). Subclasses implement
  * {@link #executeMemory(SpectorMemory, SpectorEngine, Map)} instead of
  * the standard {@code execute()} method.</p>
+ *
+ * <h3>Memory Resolution</h3>
+ * <p>The memory instance is resolved per-request via a {@code Supplier<SpectorMemory>}
+ * (the "memory resolver"). In standalone/OSS mode, this returns the single shared
+ * memory instance. In enterprise mode, the supplier reads {@code AuthContextHolder}
+ * and routes to the authenticated user's tenant-isolated memory workspace.</p>
  */
 public abstract class MemoryToolHandler extends McpToolHandler {
 
-    private final SpectorMemory memory;
+    private final Supplier<SpectorMemory> memoryResolver;
 
+    /**
+     * Constructs a handler with a fixed memory instance (standalone/OSS mode).
+     *
+     * @param memory the cognitive memory instance (may be null if not configured)
+     */
     protected MemoryToolHandler(SpectorMemory memory) {
-        this.memory = memory;
+        this.memoryResolver = memory != null ? () -> memory : () -> null;
+    }
+
+    /**
+     * Constructs a handler with a per-request memory resolver (enterprise mode).
+     *
+     * <p>The resolver is invoked on every tool call, allowing the enterprise layer
+     * to route to the authenticated user's tenant-scoped memory workspace via
+     * {@code AuthContextHolder}.</p>
+     *
+     * @param memoryResolver supplier that resolves the active memory per request
+     */
+    protected MemoryToolHandler(Supplier<SpectorMemory> memoryResolver) {
+        this.memoryResolver = memoryResolver != null ? memoryResolver : () -> null;
     }
 
     /**
@@ -55,6 +80,7 @@ public abstract class MemoryToolHandler extends McpToolHandler {
     @Override
     public final McpSchema.CallToolResult execute(SpectorEngine engine,
                                                     Map<String, Object> args) throws Exception {
+        SpectorMemory memory = memoryResolver.get();
         if (memory == null) {
             return errorResult("SpectorMemory is not configured. Start the server with --memory-enabled.");
         }

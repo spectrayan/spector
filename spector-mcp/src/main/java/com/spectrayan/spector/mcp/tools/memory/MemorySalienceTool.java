@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import com.spectrayan.spector.commons.security.SpectorScopes;
 import com.spectrayan.spector.engine.SpectorEngine;
@@ -58,6 +59,11 @@ public final class MemorySalienceTool extends MemoryToolHandler {
 
     public MemorySalienceTool(SpectorMemory memory) {
         super(memory);
+    }
+
+    /** Enterprise constructor: resolves memory per-request for tenant isolation. */
+    public MemorySalienceTool(Supplier<SpectorMemory> memoryResolver) {
+        super(memoryResolver);
     }
 
     @Override public String name() { return "memory_salience"; }

@@ -17,6 +17,7 @@ package com.spectrayan.spector.mcp.tools;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import com.spectrayan.spector.config.SpectorMode;
 import com.spectrayan.spector.engine.SpectorEngine;
@@ -190,6 +191,61 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryExportTool(memory));
             handlers.add(new MemoryBrowseTool(memory));
             handlers.add(new MemorySalienceTool(memory));
+        }
+
+        return handlers.stream()
+                .map(handler -> handler.toToolSpecification(runtime.engine(), runtime))
+                .toList();
+    }
+
+    /**
+     * Creates mode-aware tool specifications with an enterprise memory resolver.
+     *
+     * <p>Same as {@link #createAll(SpectorRuntime, String)} but uses the provided
+     * {@code memoryResolver} instead of the runtime's fixed memory instance.
+     * The resolver is invoked per-request, allowing the enterprise layer to
+     * route to tenant-isolated memory workspaces via {@code AuthContextHolder}.</p>
+     *
+     * @param runtime        the Spector runtime (engine + optional memory)
+     * @param serverVersion  the server version string
+     * @param memoryResolver per-request memory resolver for tenant isolation
+     * @return list of MCP tool specifications filtered by mode
+     */
+    public static List<McpServerFeatures.SyncToolSpecification> createAll(
+            SpectorRuntime runtime, String serverVersion,
+            Supplier<SpectorMemory> memoryResolver) {
+        SpectorMode mode = runtime.mode();
+
+        var handlers = new ArrayList<McpToolHandler>();
+
+        // Engine tools — registered when engine is enabled
+        if (mode.engineEnabled()) {
+            handlers.add(new EngineSearchTool());
+            handlers.add(new EngineHybridSearchTool());
+            handlers.add(new EngineRagTool());
+            handlers.add(new EngineIngestTool());
+            handlers.add(new EngineDeleteTool());
+            handlers.add(new EngineStatusTool(serverVersion));
+        }
+
+        // Memory tools — use resolver for per-request tenant-scoped routing
+        if (mode.memoryEnabled() && memoryResolver != null) {
+            handlers.add(new MemoryRememberTool(memoryResolver));
+            handlers.add(new MemoryScratchpadTool(memoryResolver));
+            handlers.add(new MemoryRecallTool(memoryResolver));
+            handlers.add(new MemoryReinforceTool(memoryResolver));
+            handlers.add(new MemoryForgetTool(memoryResolver));
+            handlers.add(new MemoryStatusTool(memoryResolver));
+            handlers.add(new MemoryIntrospectTool(memoryResolver));
+            handlers.add(new MemorySuppressTool(memoryResolver));
+            handlers.add(new MemoryResolveTool(memoryResolver));
+            handlers.add(new MemoryReminderTool(memoryResolver));
+            handlers.add(new MemoryWhyNotTool(memoryResolver));
+            handlers.add(new MemoryComputeImportanceTool(memoryResolver));
+            handlers.add(new MemoryInspectTool(memoryResolver));
+            handlers.add(new MemoryExportTool(memoryResolver));
+            handlers.add(new MemoryBrowseTool(memoryResolver));
+            handlers.add(new MemorySalienceTool(memoryResolver));
         }
 
         return handlers.stream()
