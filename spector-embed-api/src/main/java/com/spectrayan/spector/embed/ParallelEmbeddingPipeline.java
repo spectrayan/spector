@@ -95,33 +95,49 @@ public class ParallelEmbeddingPipeline {
         List<List<String>> batches = partition(texts, batchSize);
         int numBatches = batches.size();
 
-        // Build tasks — each batch is a Callable that never throws
-        // (processBatch handles errors internally)
-        List<Callable<List<PipelineEmbeddingResult>>> tasks = new ArrayList<>(numBatches);
-        for (int batchIdx = 0; batchIdx < numBatches; batchIdx++) {
-            final List<String> batch = batches.get(batchIdx);
-            final int startIndex = batchIdx * batchSize;
-            final int retries = maxRetries;
-            tasks.add(() -> processBatch(batch, startIndex, retries));
-        }
+        // Sequential mode: when there's only 1 batch, or the system property
+        // spector.embedding.sequential=true is set, skip fork-join overhead
+        // and process batches in a simple loop. This is the safest mode for
+        // single-GPU Ollama deployments.
+        boolean sequential = numBatches == 1
+                || Boolean.getBoolean("spector.embedding.sequential");
 
-        // Execute all batches in parallel
         List<List<PipelineEmbeddingResult>> batchResults;
-        try {
-            batchResults = ConcurrentTasks.forkJoinAll(tasks);
-        } catch (ConcurrentExecutionException | InterruptedException e) {
-            // Should not happen since processBatch handles errors internally,
-            // but handle defensively
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
+
+        if (sequential) {
+            batchResults = new ArrayList<>(numBatches);
+            for (int batchIdx = 0; batchIdx < numBatches; batchIdx++) {
+                batchResults.add(processBatch(batches.get(batchIdx),
+                        batchIdx * batchSize, maxRetries));
             }
-            // Fall back to failure results for all chunks
-            List<PipelineEmbeddingResult> failureResults = new ArrayList<>(totalChunks);
-            for (int i = 0; i < totalChunks; i++) {
-                failureResults.add(PipelineEmbeddingResult.failure(i,
-                        "Unexpected concurrent error: " + e.getMessage()));
+        } else {
+            // Build tasks — each batch is a Callable that never throws
+            // (processBatch handles errors internally)
+            List<Callable<List<PipelineEmbeddingResult>>> tasks = new ArrayList<>(numBatches);
+            for (int batchIdx = 0; batchIdx < numBatches; batchIdx++) {
+                final List<String> batch = batches.get(batchIdx);
+                final int startIndex = batchIdx * batchSize;
+                final int retries = maxRetries;
+                tasks.add(() -> processBatch(batch, startIndex, retries));
             }
-            return failureResults;
+
+            // Execute all batches in parallel
+            try {
+                batchResults = ConcurrentTasks.forkJoinAll(tasks);
+            } catch (ConcurrentExecutionException | InterruptedException e) {
+                // Should not happen since processBatch handles errors internally,
+                // but handle defensively
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                // Fall back to failure results for all chunks
+                List<PipelineEmbeddingResult> failureResults = new ArrayList<>(totalChunks);
+                for (int i = 0; i < totalChunks; i++) {
+                    failureResults.add(PipelineEmbeddingResult.failure(i,
+                            "Unexpected concurrent error: " + e.getMessage()));
+                }
+                return failureResults;
+            }
         }
 
         // Flatten batch results into a single ordered list

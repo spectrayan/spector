@@ -50,7 +50,7 @@ class OllamaEmbeddingProviderTest {
     @Test
     void customConfig() {
         var config = new EmbeddingConfig("mxbai-embed-large", "http://gpu-server:11434",
-                Duration.ofSeconds(60), 16);
+                Duration.ofSeconds(60), 16, 0);
         var provider = new OllamaEmbeddingProvider(config);
         assertThat(provider.modelName()).isEqualTo("mxbai-embed-large");
         assertThat(provider.config().baseUrl()).isEqualTo("http://gpu-server:11434");
