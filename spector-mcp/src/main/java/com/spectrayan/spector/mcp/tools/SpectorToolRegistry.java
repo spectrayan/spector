@@ -45,6 +45,7 @@ import com.spectrayan.spector.mcp.tools.memory.MemoryComputeImportanceTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryInspectTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryExportTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryBrowseTool;
+import com.spectrayan.spector.mcp.tools.memory.MemorySalienceTool;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
 
@@ -110,6 +111,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryInspectTool(memory));
             handlers.add(new MemoryExportTool(memory));
             handlers.add(new MemoryBrowseTool(memory));
+            handlers.add(new MemorySalienceTool(memory));
         }
 
         return List.copyOf(handlers);
@@ -187,6 +189,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryInspectTool(memory));
             handlers.add(new MemoryExportTool(memory));
             handlers.add(new MemoryBrowseTool(memory));
+            handlers.add(new MemorySalienceTool(memory));
         }
 
         return handlers.stream()
