@@ -47,6 +47,7 @@ import java.util.List;
  * @param lifeContext            current life situation description (50–2000 characters)
  * @param personalityTraits      personality trait descriptors (3–10 entries)
  * @param companionRelationship  description of relationship with AI companion (50–500 characters)
+ * @param salienceProfile        optional salience profile parsed from persona.json (null if absent)
  */
 public record PersonaDef(
         String name,
@@ -55,5 +56,19 @@ public record PersonaDef(
         List<String> interests,
         String lifeContext,
         List<String> personalityTraits,
-        String companionRelationship
-) {}
+        String companionRelationship,
+        com.spectrayan.spector.memory.model.SalienceProfile salienceProfile
+) {
+    /** Backward-compatible constructor — no salience profile. */
+    public PersonaDef(String name, int age, String occupation, List<String> interests,
+                      String lifeContext, List<String> personalityTraits,
+                      String companionRelationship) {
+        this(name, age, occupation, interests, lifeContext, personalityTraits,
+                companionRelationship, null);
+    }
+
+    /** Returns true if this persona has a salience profile configured. */
+    public boolean hasSalienceProfile() {
+        return salienceProfile != null && !salienceProfile.isNeutral();
+    }
+}

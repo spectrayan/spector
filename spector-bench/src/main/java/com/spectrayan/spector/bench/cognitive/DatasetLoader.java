@@ -428,9 +428,23 @@ public final class DatasetLoader {
             temporalHint = temporalHintNode.asText();
         }
 
+        // Parse optional textSearchMode (null = harness default HYBRID)
+        com.spectrayan.spector.memory.model.TextSearchMode textSearchMode = null;
+        JsonNode textSearchModeNode = node.get("textSearchMode");
+        if (textSearchModeNode != null && !textSearchModeNode.isNull()) {
+            try {
+                textSearchMode = com.spectrayan.spector.memory.model.TextSearchMode.valueOf(
+                        textSearchModeNode.asText());
+            } catch (IllegalArgumentException e) {
+                log.warn("Query line {} in {}: unknown textSearchMode '{}', using default HYBRID",
+                        lineNumber, file, textSearchModeNode.asText());
+            }
+        }
+
         return new BenchmarkQuery(
                 id, text, cognitiveProfile, synapticFilterTags,
-                minValence, maxValence, expectedSubsystem, temporalHint
+                minValence, maxValence, expectedSubsystem, temporalHint,
+                null, textSearchMode
         );
     }
 
@@ -701,8 +715,19 @@ public final class DatasetLoader {
                 throw new DatasetValidationException(violations);
             }
 
+            // ── Parse salienceProfile (optional — enriched dataset format) ──
+            com.spectrayan.spector.memory.model.SalienceProfile salienceProfile = null;
+            JsonNode salienceNode = node.get("salienceProfile");
+            if (salienceNode != null && !salienceNode.isNull()) {
+                salienceProfile = parseSalienceProfile(salienceNode, node.get("personaContext"));
+                log.info("SalienceProfile parsed for '{}': interests={}, disinterests={}",
+                        name,
+                        salienceProfile.interests().size(),
+                        salienceProfile.disinterests().size());
+            }
+
             return new PersonaDef(name, age, occupation, interests, lifeContext,
-                    personalityTraits, companionRelationship);
+                    personalityTraits, companionRelationship, salienceProfile);
 
         } catch (DatasetValidationException e) {
             throw e;
@@ -713,5 +738,119 @@ public final class DatasetLoader {
             throw new DatasetParseException(
                     "Failed to parse persona file %s: %s".formatted(personaFile, e.getMessage()), e);
         }
+    }
+
+    /**
+     * Parses a {@code salienceProfile} JSON node into a {@link com.spectrayan.spector.memory.model.SalienceProfile}.
+     *
+     * <p>Handles interests, disinterests, ICNU weights, flashbulb threshold,
+     * recency weight, similarity threshold, and optional persona context.</p>
+     */
+    private com.spectrayan.spector.memory.model.SalienceProfile parseSalienceProfile(
+            JsonNode salienceNode, JsonNode personaContextNode) {
+        var builder = com.spectrayan.spector.memory.model.SalienceProfile.builder();
+
+        // Parse interests
+        JsonNode interestsArr = salienceNode.get("interests");
+        if (interestsArr != null && interestsArr.isArray()) {
+            for (JsonNode interestNode : interestsArr) {
+                String topic = interestNode.get("topic").asText();
+                String levelStr = interestNode.get("level").asText();
+                com.spectrayan.spector.memory.model.InterestLevel level;
+                try {
+                    level = com.spectrayan.spector.memory.model.InterestLevel.valueOf(levelStr);
+                } catch (IllegalArgumentException e) {
+                    level = com.spectrayan.spector.memory.model.InterestLevel.MEDIUM;
+                }
+                builder.interest(topic, level);
+            }
+        }
+
+        // Parse disinterests
+        JsonNode disinterestsArr = salienceNode.get("disinterests");
+        if (disinterestsArr != null && disinterestsArr.isArray()) {
+            for (JsonNode disNode : disinterestsArr) {
+                String topic = disNode.get("topic").asText();
+                String levelStr = disNode.get("level").asText();
+                com.spectrayan.spector.memory.model.InterestLevel level;
+                try {
+                    level = com.spectrayan.spector.memory.model.InterestLevel.valueOf(levelStr);
+                } catch (IllegalArgumentException e) {
+                    level = com.spectrayan.spector.memory.model.InterestLevel.LOW;
+                }
+                builder.disinterest(topic, level);
+            }
+        }
+
+        // Parse ICNU weights
+        JsonNode icnuNode = salienceNode.get("icnuWeights");
+        if (icnuNode != null && !icnuNode.isNull()) {
+            builder.icnuWeights(new com.spectrayan.spector.memory.neurodivergent.IcnuWeights(
+                    (float) icnuNode.path("interest").asDouble(0.25),
+                    (float) icnuNode.path("challenge").asDouble(0.15),
+                    (float) icnuNode.path("novelty").asDouble(0.35),
+                    (float) icnuNode.path("urgency").asDouble(0.25)));
+        }
+
+        // Parse scalar config
+        if (salienceNode.has("flashbulbThreshold")) {
+            builder.flashbulbThreshold((float) salienceNode.get("flashbulbThreshold").asDouble(3.0));
+        }
+        if (salienceNode.has("recencyWeight")) {
+            builder.recencyWeight((float) salienceNode.get("recencyWeight").asDouble(1.0));
+        }
+        if (salienceNode.has("similarityThreshold")) {
+            builder.similarityThreshold((float) salienceNode.get("similarityThreshold").asDouble(0.5));
+        }
+
+        // Parse persona context
+        if (personaContextNode != null && !personaContextNode.isNull()) {
+            var pBuilder = com.spectrayan.spector.memory.model.PersonaContext.builder();
+
+            if (personaContextNode.has("about")) pBuilder.about(personaContextNode.get("about").asText());
+            if (personaContextNode.has("occupation")) pBuilder.occupation(personaContextNode.get("occupation").asText());
+
+            JsonNode bigFiveNode = personaContextNode.get("bigFive");
+            if (bigFiveNode != null && !bigFiveNode.isNull()) {
+                pBuilder.bigFive(new com.spectrayan.spector.memory.model.BigFiveTraits(
+                        (float) bigFiveNode.path("openness").asDouble(50),
+                        (float) bigFiveNode.path("conscientiousness").asDouble(50),
+                        (float) bigFiveNode.path("extraversion").asDouble(50),
+                        (float) bigFiveNode.path("agreeableness").asDouble(50),
+                        (float) bigFiveNode.path("neuroticism").asDouble(50)));
+            }
+
+            JsonNode eqNode = personaContextNode.get("emotionalIntelligence");
+            if (eqNode != null && !eqNode.isNull()) {
+                pBuilder.emotionalIntelligence(new com.spectrayan.spector.memory.model.EmotionalIntelligence(
+                        eqNode.path("selfAwareness").asInt(50),
+                        eqNode.path("selfRegulation").asInt(50),
+                        eqNode.path("motivation").asInt(50),
+                        eqNode.path("empathy").asInt(50),
+                        eqNode.path("socialSkills").asInt(50)));
+            }
+
+            if (personaContextNode.has("stressResponse")) {
+                try {
+                    pBuilder.stressResponse(com.spectrayan.spector.memory.model.StressResponse.valueOf(
+                            personaContextNode.get("stressResponse").asText().toUpperCase()));
+                } catch (IllegalArgumentException e) {
+                    pBuilder.stressResponse(com.spectrayan.spector.memory.model.StressResponse.ADAPTIVE);
+                }
+            }
+
+            if (personaContextNode.has("communicationStyle")) {
+                try {
+                    pBuilder.communicationStyle(com.spectrayan.spector.memory.model.CommunicationStyle.valueOf(
+                            personaContextNode.get("communicationStyle").asText().toUpperCase()));
+                } catch (IllegalArgumentException e) {
+                    // skip — not critical
+                }
+            }
+
+            builder.persona(pBuilder.build());
+        }
+
+        return builder.build();
     }
 }

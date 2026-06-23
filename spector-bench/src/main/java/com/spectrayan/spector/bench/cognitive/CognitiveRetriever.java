@@ -24,6 +24,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoringMode;
+import com.spectrayan.spector.memory.model.TextSearchMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 
 /**
@@ -140,6 +141,11 @@ public final class CognitiveRetriever {
             builder.entityHints(query.entityHints());
         }
 
+        // Apply text search mode from query (null = harness default HYBRID)
+        if (query.textSearchMode() != null) {
+            builder.textSearchMode(query.textSearchMode());
+        }
+
         return builder.build();
     }
 
@@ -238,6 +244,11 @@ public final class CognitiveRetriever {
         // Entity hints still useful for candidate discovery even in SIMILARITY mode
         if (query.entityHints() != null && !query.entityHints().isEmpty()) {
             builder.entityHints(query.entityHints());
+        }
+
+        // Apply text search mode from query (null = harness default HYBRID)
+        if (query.textSearchMode() != null) {
+            builder.textSearchMode(query.textSearchMode());
         }
 
         return builder.build();

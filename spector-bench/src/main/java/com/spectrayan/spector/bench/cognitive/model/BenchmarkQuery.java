@@ -18,6 +18,7 @@ package com.spectrayan.spector.bench.cognitive.model;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.TextSearchMode;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 
 /**
@@ -25,10 +26,11 @@ import com.spectrayan.spector.memory.graph.ExtractedEntity;
  *
  * <p>Maps directly to one line in {@code queries.jsonl}. Contains the query text,
  * cognitive profile selection, synaptic filter tags, optional valence constraints,
- * the expected contributing subsystem, an optional temporal hint, and optional
- * pre-extracted entity hints for entity graph traversal — providing
- * all parameters the benchmark harness needs to exercise specific Spector Memory
- * subsystems.</p>
+ * the expected contributing subsystem, an optional temporal hint, optional
+ * pre-extracted entity hints for entity graph traversal, and an optional
+ * {@link TextSearchMode} hint to control which retrieval stack layers are active —
+ * providing all parameters the benchmark harness needs to exercise specific
+ * Spector Memory subsystems.</p>
  *
  * <h3>Field Constraints</h3>
  * <ul>
@@ -42,6 +44,8 @@ import com.spectrayan.spector.memory.graph.ExtractedEntity;
  *       VALENCE_FILTER, IMPORTANCE_DECAY, HEBBIAN_GRAPH, TEMPORAL_CHAIN, ENTITY_GRAPH</li>
  *   <li>{@code temporalHint} — one of: RECENT, OLD, or null</li>
  *   <li>{@code entityHints} — pre-extracted entities for graph traversal (nullable)</li>
+ *   <li>{@code textSearchMode} — one of the 8 {@link TextSearchMode} values, or null
+ *       for the harness default (HYBRID)</li>
  * </ul>
  *
  * @param id                  unique identifier for this query
@@ -53,6 +57,7 @@ import com.spectrayan.spector.memory.graph.ExtractedEntity;
  * @param expectedSubsystem   the subsystem expected to contribute most to correct retrieval
  * @param temporalHint        optional temporal bias hint (RECENT, OLD, or null)
  * @param entityHints         pre-extracted entities for entity graph traversal (nullable)
+ * @param textSearchMode      optional retrieval stack mode override (nullable = harness default)
  */
 public record BenchmarkQuery(
         String id,
@@ -63,13 +68,24 @@ public record BenchmarkQuery(
         Byte maxValence,
         String expectedSubsystem,
         String temporalHint,
-        List<ExtractedEntity> entityHints
+        List<ExtractedEntity> entityHints,
+        TextSearchMode textSearchMode
 ) {
-    /** Backward-compatible constructor — no entity hints. */
+    /** Backward-compatible constructor — no entity hints or text search mode. */
     public BenchmarkQuery(String id, String text, CognitiveProfile cognitiveProfile,
                           List<String> synapticFilterTags, Byte minValence, Byte maxValence,
                           String expectedSubsystem, String temporalHint) {
         this(id, text, cognitiveProfile, synapticFilterTags, minValence, maxValence,
-                expectedSubsystem, temporalHint, null);
+                expectedSubsystem, temporalHint, null, null);
+    }
+
+    /** Backward-compatible constructor — no text search mode. */
+    public BenchmarkQuery(String id, String text, CognitiveProfile cognitiveProfile,
+                          List<String> synapticFilterTags, Byte minValence, Byte maxValence,
+                          String expectedSubsystem, String temporalHint,
+                          List<ExtractedEntity> entityHints) {
+        this(id, text, cognitiveProfile, synapticFilterTags, minValence, maxValence,
+                expectedSubsystem, temporalHint, entityHints, null);
     }
 }
+
