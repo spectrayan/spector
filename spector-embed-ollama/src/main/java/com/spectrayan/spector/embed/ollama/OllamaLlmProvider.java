@@ -153,20 +153,16 @@ public class OllamaLlmProvider implements TextGenerationProvider {
         long startNanos = System.nanoTime();
 
         // Acquire the semaphore — block until it's our turn.
-        // Use timeout.multipliedBy(2) as the acquire deadline so we don't
-        // wait forever if other calls are pathologically slow.
-        boolean acquired;
+        // Use blocking acquire() instead of tryAcquire() because during bulk
+        // ingestion, many chunks queue here (depth can reach 40+). Each call
+        // takes ~2-3s, so the total queue drain time can exceed any fixed timeout.
+        // The per-request HTTP timeout protects against hung Ollama; the FIFO
+        // semaphore ensures every caller gets through in order.
         try {
-            acquired = llmGate.tryAcquire(timeout.toMillis() * 2,
-                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            llmGate.acquire();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new GenerationException("Interrupted while waiting for LLM gate", e);
-        }
-        if (!acquired) {
-            throw new GenerationException(
-                    "LLM gate acquire timed out — Ollama is likely overloaded (queue depth: "
-                    + llmGate.getQueueLength() + ")");
         }
 
         try {

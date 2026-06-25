@@ -256,6 +256,56 @@ public class SpectorClient implements AutoCloseable {
         return post("/api/v1/memory/reflect", Map.of(), Map.class);
     }
 
+    // ─────────────── Salience Profile Methods ───────────────
+
+    /**
+     * Gets the active salience profile.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getSalienceProfile() {
+        return get("/api/v1/memory/salience", Map.class);
+    }
+
+    /**
+     * Sets the active salience profile.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> setSalienceProfile(Map<String, Object> profile) {
+        return post("/api/v1/memory/salience", profile, Map.class);
+    }
+
+    /**
+     * Computes salience boost for a given text without ingesting.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> computeSalienceBoost(Map<String, Object> request) {
+        return post("/api/v1/memory/salience/compute", request, Map.class);
+    }
+
+    /**
+     * Adds an interest to the active salience profile.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> addInterest(Map<String, Object> request) {
+        return post("/api/v1/memory/salience/interest", request, Map.class);
+    }
+
+    /**
+     * Adds a disinterest to the active salience profile.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> addDisinterest(Map<String, Object> request) {
+        return post("/api/v1/memory/salience/disinterest", request, Map.class);
+    }
+
+    /**
+     * Sets persona context on the active salience profile.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> setPersonaContext(Map<String, Object> request) {
+        return post("/api/v1/memory/salience/persona", request, Map.class);
+    }
+
     @Override
     public void close() {
         // HttpClient does not require explicit close in Java 21+

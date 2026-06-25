@@ -70,6 +70,7 @@ public class IngestionPipeline {
     private final IngestionTarget target;
     private final EmbeddingProvider embeddingProvider; // nullable for pre-embedded mode
     private final ParallelEmbeddingPipeline parallelPipeline; // nullable
+    private final EmbedConfig embedConfig;              // configurable batch size
     private final TextChunker chunker;   // nullable (no chunking if absent)
     private final int chunkThreshold;    // auto-chunk if content length exceeds this
 
@@ -82,6 +83,7 @@ public class IngestionPipeline {
         // Initialize parallel embedding pipeline if provider is available
         this.parallelPipeline = builder.embeddingProvider != null
                 ? new ParallelEmbeddingPipeline(builder.embeddingProvider) : null;
+        this.embedConfig = builder.embedConfig;
 
         log.info("IngestionPipeline created: chunker={}, chunkThreshold={}, hasEmbedder={}, target={}",
                 chunker != null ? chunker.getClass().getSimpleName() : "none",
@@ -217,8 +219,8 @@ public class IngestionPipeline {
         var chunks = chunker.chunk(id, content);
         List<String> texts = chunks.stream().map(TextChunker.Chunk::text).toList();
 
-        // Parallel embedding using virtual threads
-        List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(texts, EmbedConfig.DEFAULT);
+        // Parallel embedding using virtual threads (batch size from config)
+        List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(texts, embedConfig);
 
         List<String> failures = new ArrayList<>();
         int stored = 0;
@@ -283,6 +285,7 @@ public class IngestionPipeline {
         private EmbeddingProvider embeddingProvider;
         private TextChunker chunker;
         private int chunkThreshold = 800;
+        private EmbedConfig embedConfig = EmbedConfig.DEFAULT;
 
         private Builder() {}
 
@@ -318,6 +321,16 @@ public class IngestionPipeline {
          */
         public Builder chunkThreshold(int threshold) {
             this.chunkThreshold = threshold;
+            return this;
+        }
+
+        /**
+         * Sets the embedding pipeline configuration (batch size, retries).
+         *
+         * @param config embedding pipeline config (default: EmbedConfig.DEFAULT)
+         */
+        public Builder embedConfig(EmbedConfig config) {
+            this.embedConfig = config != null ? config : EmbedConfig.DEFAULT;
             return this;
         }
 

@@ -153,6 +153,16 @@ public final class BenchmarkSetup implements AutoCloseable {
                 dataset.hebbianEdges().size(), dataset.temporalChains().size(),
                 dataset.entityRelations().size());
 
+        // Wire salience profile from persona.json if present
+        if (dataset.persona() != null && dataset.persona().hasSalienceProfile()) {
+            memory.setSalienceProfile(dataset.persona().salienceProfile());
+            log.info("Salience profile applied from persona '{}': interests={}, disinterests={}, persona={}",
+                    dataset.persona().name(),
+                    dataset.persona().salienceProfile().interests().size(),
+                    dataset.persona().salienceProfile().disinterests().size(),
+                    dataset.persona().salienceProfile().hasPersona());
+        }
+
         return memory;
     }
 

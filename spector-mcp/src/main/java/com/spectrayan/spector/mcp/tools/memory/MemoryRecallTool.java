@@ -17,6 +17,7 @@ package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 import java.util.List;
 
@@ -45,6 +46,11 @@ public final class MemoryRecallTool extends MemoryToolHandler {
 
     public MemoryRecallTool(SpectorMemory memory) {
         super(memory);
+    }
+
+    /** Enterprise constructor: resolves memory per-request for tenant isolation. */
+    public MemoryRecallTool(Supplier<SpectorMemory> memoryResolver) {
+        super(memoryResolver);
     }
 
     @Override public String name() { return "memory_recall"; }
@@ -168,12 +174,6 @@ public final class MemoryRecallTool extends MemoryToolHandler {
         ConfidenceBand confidence = ConfidenceBand.classify(results);
         sb.append("🧠 Recalled ").append(results.size()).append(" memories (")
                 .append(elapsedMs).append("ms) — Confidence: ").append(confidence);
-
-        // Log namespace if specified
-        String namespace = optionalString(args, "namespace", "");
-        if (!namespace.isEmpty()) {
-            sb.append(" [ns: ").append(namespace).append("]");
-        }
         sb.append("\n\n");
 
         for (int i = 0; i < results.size(); i++) {

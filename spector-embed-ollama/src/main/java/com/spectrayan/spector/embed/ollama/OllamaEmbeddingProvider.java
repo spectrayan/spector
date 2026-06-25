@@ -32,6 +32,7 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 
 /**
  * Embedding provider backed by a local <a href="https://ollama.com">Ollama</a> server.
@@ -68,6 +69,13 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
     private volatile int cachedDimensions = -1;
 
     /**
+     * Concurrency limiter for Ollama HTTP calls.
+     * When maxConcurrent > 0, limits parallel requests to prevent Ollama overload.
+     * Null when maxConcurrent = 0 (unlimited).
+     */
+    private final Semaphore concurrencyLimiter;
+
+    /**
      * Creates a provider with the given configuration.
      *
      * @param config embedding configuration
@@ -78,6 +86,13 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
                 .connectTimeout(config.timeout())
                 .build();
         this.embedUri = URI.create(config.baseUrl() + "/api/embed");
+        this.concurrencyLimiter = config.maxConcurrent() > 0
+                ? new Semaphore(config.maxConcurrent())
+                : null;
+        if (concurrencyLimiter != null) {
+            System.getLogger(getClass().getName()).log(System.Logger.Level.INFO,
+                    "Ollama concurrency limiter: maxConcurrent={0}", config.maxConcurrent());
+        }
     }
 
     /**
@@ -99,12 +114,43 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         return new OllamaEmbeddingProvider(EmbeddingConfig.OLLAMA_DEFAULT);
     }
 
+    private String getCacheKey(String text) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            return String.valueOf(text.hashCode());
+        }
+    }
+
     @Override
     public EmbeddingResult embed(String text) {
         if (text == null || text.isBlank()) {
             throw new SpectorEmbeddingException(ErrorCode.EMBEDDING_REQUEST_FAILED, "text must not be null or blank");
         }
 
+        String cacheKey = getCacheKey(text);
+        java.nio.file.Path cacheDir = java.nio.file.Path.of("embedding-cache", config.model().replace(":", "_"));
+        java.nio.file.Path cacheFile = cacheDir.resolve(cacheKey + ".json");
+
+        if (java.nio.file.Files.exists(cacheFile)) {
+            try {
+                float[] vector = MAPPER.readValue(java.nio.file.Files.readString(cacheFile), float[].class);
+                cachedDimensions = vector.length;
+                return new EmbeddingResult(vector, -1, config.model());
+            } catch (Exception e) {
+                // Ignore cache read failures, fall through to fetch from Ollama
+            }
+        }
+
+        acquireConcurrencyPermit();
         try {
             String requestBody = MAPPER.writeValueAsString(Map.of(
                     "model", config.model(),
@@ -125,7 +171,16 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
                         + ": " + response.body());
             }
 
-            return parseEmbedResponse(response.body());
+            EmbeddingResult result = parseEmbedResponse(response.body());
+
+            try {
+                java.nio.file.Files.createDirectories(cacheDir);
+                java.nio.file.Files.writeString(cacheFile, MAPPER.writeValueAsString(result.vector()));
+            } catch (Exception e) {
+                // Ignore cache write failures
+            }
+
+            return result;
         } catch (SpectorEmbeddingException e) {
             throw e;
         } catch (java.net.http.HttpTimeoutException e) {
@@ -137,6 +192,8 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
             throw new SpectorEmbeddingException(ErrorCode.EMBEDDING_REQUEST_FAILED, e, "Embedding request interrupted");
         } catch (Exception e) {
             throw new SpectorEmbeddingException(ErrorCode.EMBEDDING_REQUEST_FAILED, e, "Ollama: " + e.getMessage());
+        } finally {
+            releaseConcurrencyPermit();
         }
     }
 
@@ -145,6 +202,7 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         if (texts == null || texts.isEmpty()) return List.of();
 
         // Ollama /api/embed supports array input natively
+        acquireConcurrencyPermit();
         try {
             String requestBody = MAPPER.writeValueAsString(Map.of(
                     "model", config.model(),
@@ -177,6 +235,8 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
             throw new SpectorEmbeddingException(ErrorCode.EMBEDDING_REQUEST_FAILED, e, "batch embedding interrupted");
         } catch (Exception e) {
             throw new SpectorEmbeddingException(ErrorCode.EMBEDDING_REQUEST_FAILED, e, "Ollama batch: " + e.getMessage());
+        } finally {
+            releaseConcurrencyPermit();
         }
     }
 
@@ -287,5 +347,25 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
 
         // Trim to exact size
         return idx == buf.length ? buf : java.util.Arrays.copyOf(buf, idx);
+    }
+
+    // ─────────────── Concurrency Control ───────────────
+
+    private void acquireConcurrencyPermit() {
+        if (concurrencyLimiter != null) {
+            try {
+                concurrencyLimiter.acquire();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new SpectorEmbeddingException(ErrorCode.EMBEDDING_REQUEST_FAILED, e,
+                        "Interrupted waiting for Ollama concurrency permit");
+            }
+        }
+    }
+
+    private void releaseConcurrencyPermit() {
+        if (concurrencyLimiter != null) {
+            concurrencyLimiter.release();
+        }
     }
 }

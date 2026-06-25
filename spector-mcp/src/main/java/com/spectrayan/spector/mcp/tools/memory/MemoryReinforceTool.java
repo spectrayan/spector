@@ -17,6 +17,7 @@ package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 
 import com.spectrayan.spector.engine.SpectorEngine;
@@ -35,6 +36,11 @@ public final class MemoryReinforceTool extends MemoryToolHandler {
 
     public MemoryReinforceTool(SpectorMemory memory) {
         super(memory);
+    }
+
+    /** Enterprise constructor: resolves memory per-request for tenant isolation. */
+    public MemoryReinforceTool(Supplier<SpectorMemory> memoryResolver) {
+        super(memoryResolver);
     }
 
     @Override public String name() { return "memory_reinforce"; }

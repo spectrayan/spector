@@ -20,10 +20,13 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.engine.SpectorEngine;
+import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.mcp.prompts.SpectorPromptProvider;
 import com.spectrayan.spector.mcp.resources.SpectorResourceProvider;
 import com.spectrayan.spector.mcp.tools.SpectorToolRegistry;
+
+import java.util.function.Supplier;
 
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
@@ -128,6 +131,42 @@ public class SpectorMcpServer {
                 .build();
 
         log.info("[Spector MCP] Server initialized with {} tools, {} resources, {} prompts",
+                toolSpecs.size(), resources.size(), prompts.size());
+
+        return mcpServer;
+    }
+
+    /**
+     * Builds an MCP server with enterprise memory resolver for tenant isolation.
+     *
+     * <p>Instead of using the runtime's fixed memory instance, tool handlers
+     * are constructed with the provided {@code memoryResolver} which resolves
+     * the active memory per-request. In enterprise mode, this reads
+     * {@code AuthContextHolder} to route to the tenant's isolated workspace.</p>
+     *
+     * @param transportProvider the transport to bind to
+     * @param memoryResolver    per-request memory resolver for tenant isolation
+     * @return the built MCP server
+     */
+    public McpSyncServer buildMcpServer(McpServerTransportProvider transportProvider,
+                                        Supplier<SpectorMemory> memoryResolver) {
+        var toolSpecs  = SpectorToolRegistry.createAll(runtime, SERVER_VERSION, memoryResolver);
+        var resources  = SpectorResourceProvider.create(engine, SERVER_VERSION);
+        var prompts    = SpectorPromptProvider.create(engine);
+
+        mcpServer = McpServer.sync(transportProvider)
+                .serverInfo(SERVER_NAME, SERVER_VERSION)
+                .capabilities(McpSchema.ServerCapabilities.builder()
+                        .tools(true)
+                        .resources(false, false)
+                        .prompts(false)
+                        .build())
+                .tools(toolSpecs)
+                .resources(resources)
+                .prompts(prompts)
+                .build();
+
+        log.info("[Spector MCP] Server initialized (tenant-aware) with {} tools, {} resources, {} prompts",
                 toolSpecs.size(), resources.size(), prompts.size());
 
         return mcpServer;

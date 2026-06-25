@@ -18,6 +18,7 @@ package com.spectrayan.spector.mcp.tools.memory;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 
 import io.modelcontextprotocol.spec.McpSchema;
@@ -38,6 +39,11 @@ public final class MemoryReminderTool extends MemoryToolHandler {
 
     public MemoryReminderTool(SpectorMemory memory) {
         super(memory);
+    }
+
+    /** Enterprise constructor: resolves memory per-request for tenant isolation. */
+    public MemoryReminderTool(Supplier<SpectorMemory> memoryResolver) {
+        super(memoryResolver);
     }
 
     @Override public String name() { return "memory_reminder"; }

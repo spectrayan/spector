@@ -61,6 +61,9 @@ spector:
     timeout: 30s
     batch-size: 32
     max-retries: 3
+    # Maximum concurrent embedding HTTP calls (0 = unlimited).
+    # Set to a low value (e.g. 2) for local Ollama to prevent timeouts.
+    max-concurrent: 0
 
   # ─── Text Chunking ───
   chunking:
@@ -107,6 +110,14 @@ spector:
     tag-extractor: content
     # Ollama model for LLM tag extraction (only used when tag-extractor=llm)
     tag-extractor-model: ""
+    # Text search mode (FULL_STACK, HYBRID, VECTOR_ONLY, BM25_ONLY, SPLADE_ONLY, SPLADE_VECTOR, COLBERT)
+    text-search-mode: HYBRID
+    # Enable SPLADE learned sparse retrieval
+    splade-enabled: true
+    # Enable ColBERT token-level reranking
+    colbert-enabled: true
+    # Enable BM25 keyword search
+    bm25-enabled: true
 
   # ─── File Ingestion ───
   ingestion:

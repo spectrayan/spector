@@ -17,6 +17,7 @@ package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 
 import io.modelcontextprotocol.spec.McpSchema;
@@ -36,6 +37,11 @@ public final class MemorySuppressTool extends MemoryToolHandler {
 
     public MemorySuppressTool(SpectorMemory memory) {
         super(memory);
+    }
+
+    /** Enterprise constructor: resolves memory per-request for tenant isolation. */
+    public MemorySuppressTool(Supplier<SpectorMemory> memoryResolver) {
+        super(memoryResolver);
     }
 
     @Override public String name() { return "memory_suppress"; }

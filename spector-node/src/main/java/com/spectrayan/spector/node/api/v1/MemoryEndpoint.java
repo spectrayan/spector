@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.spectrayan.spector.node.api.v1;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -615,6 +630,249 @@ public class MemoryEndpoint implements ApiModule {
                 "durationMs", task.durationMs(),
                 "startedAt", task.startedAt().toString()
         ));
+    }
+
+    // ── Salience Profile Endpoints ────────────────────────────────
+
+    @Get("/salience")
+    public HttpResponse getSalienceProfile() {
+        var profile = memoryService.memory().salienceProfile();
+        if (profile == null || profile.isNeutral()) {
+            return HttpResponse.ofJson(Map.of(
+                    "status", "neutral",
+                    "message", "No salience profile active"));
+        }
+
+        var interests = profile.interests().stream()
+                .map(d -> Map.of("topic", d.topic(), "level", d.level().name(),
+                        "multiplier", d.level().multiplier()))
+                .toList();
+        var disinterests = profile.disinterests().stream()
+                .map(d -> Map.of("topic", d.topic(), "level", d.level().name(),
+                        "multiplier", d.level().multiplier()))
+                .toList();
+
+        var result = new java.util.LinkedHashMap<String, Object>();
+        result.put("status", "active");
+        result.put("interests", interests);
+        result.put("disinterests", disinterests);
+        result.put("hasIcnuOverride", profile.hasIcnuOverride());
+        result.put("hasPersona", profile.hasPersona());
+        result.put("flashbulbThreshold", profile.flashbulbThreshold());
+        result.put("recencyWeight", profile.recencyWeight());
+        result.put("similarityThreshold", profile.similarityThreshold());
+
+        if (profile.hasIcnuOverride()) {
+            result.put("icnuWeights", Map.of(
+                    "interest", profile.icnuWeights().interest(),
+                    "challenge", profile.icnuWeights().challenge(),
+                    "novelty", profile.icnuWeights().novelty(),
+                    "urgency", profile.icnuWeights().urgency()));
+        }
+        if (profile.hasPersona()) {
+            var p = profile.persona();
+            var persona = new java.util.LinkedHashMap<String, Object>();
+            if (p.occupation() != null) persona.put("occupation", p.occupation());
+            if (!p.bigFive().isNeutral()) {
+                persona.put("bigFive", Map.of(
+                        "openness", p.bigFive().openness(),
+                        "conscientiousness", p.bigFive().conscientiousness(),
+                        "extraversion", p.bigFive().extraversion(),
+                        "agreeableness", p.bigFive().agreeableness(),
+                        "neuroticism", p.bigFive().neuroticism()));
+            }
+            persona.put("stressResponse", p.stressResponse().name());
+            persona.put("hasEmbeddings", p.hasEmbeddings());
+            result.put("persona", persona);
+        }
+        return HttpResponse.ofJson(result);
+    }
+
+    @Post("/salience")
+    public HttpResponse setSalienceProfile(JsonNode body) {
+        var builder = com.spectrayan.spector.memory.model.SalienceProfile.builder();
+
+        // Parse interests
+        if (body.has("interests") && body.get("interests").isArray()) {
+            for (var node : body.get("interests")) {
+                String topic = node.has("topic") ? node.get("topic").asText() : "";
+                String level = node.has("level") ? node.get("level").asText() : "HIGH";
+                if (!topic.isBlank()) {
+                    builder.interest(topic,
+                            com.spectrayan.spector.memory.model.InterestLevel.valueOf(level.toUpperCase()));
+                }
+            }
+        }
+
+        // Parse disinterests
+        if (body.has("disinterests") && body.get("disinterests").isArray()) {
+            for (var node : body.get("disinterests")) {
+                String topic = node.has("topic") ? node.get("topic").asText() : "";
+                String level = node.has("level") ? node.get("level").asText() : "LOW";
+                if (!topic.isBlank()) {
+                    builder.disinterest(topic,
+                            com.spectrayan.spector.memory.model.InterestLevel.valueOf(level.toUpperCase()));
+                }
+            }
+        }
+
+        // Parse ICNU weights
+        if (body.has("icnuWeights")) {
+            var w = body.get("icnuWeights");
+            builder.icnuWeights(new com.spectrayan.spector.memory.neurodivergent.IcnuWeights(
+                    (float) w.path("interest").asDouble(0.25),
+                    (float) w.path("challenge").asDouble(0.15),
+                    (float) w.path("novelty").asDouble(0.35),
+                    (float) w.path("urgency").asDouble(0.25)));
+        }
+
+        // Parse persona
+        if (body.has("persona")) {
+            var pNode = body.get("persona");
+            var pBuilder = com.spectrayan.spector.memory.model.PersonaContext.builder();
+            if (pNode.has("occupation")) pBuilder.occupation(pNode.get("occupation").asText());
+            if (pNode.has("about")) pBuilder.about(pNode.get("about").asText());
+            if (pNode.has("bigFive")) {
+                var bf = pNode.get("bigFive");
+                pBuilder.bigFive(new com.spectrayan.spector.memory.model.BigFiveTraits(
+                        (float) bf.path("openness").asDouble(50),
+                        (float) bf.path("conscientiousness").asDouble(50),
+                        (float) bf.path("extraversion").asDouble(50),
+                        (float) bf.path("agreeableness").asDouble(50),
+                        (float) bf.path("neuroticism").asDouble(50)));
+            }
+            if (pNode.has("stressResponse")) {
+                pBuilder.stressResponse(com.spectrayan.spector.memory.model.StressResponse.valueOf(
+                        pNode.get("stressResponse").asText().toUpperCase()));
+            }
+            builder.persona(pBuilder.build());
+        }
+
+        var profile = builder.build();
+        memoryService.memory().setSalienceProfile(profile);
+
+        return HttpResponse.ofJson(Map.of(
+                "status", "success",
+                "interests", profile.interests().size(),
+                "disinterests", profile.disinterests().size(),
+                "hasPersona", profile.hasPersona(),
+                "hasIcnuOverride", profile.hasIcnuOverride()));
+    }
+
+    @Post("/salience/compute")
+    public HttpResponse computeSalienceBoost(JsonNode body) {
+        String text = body.has("text") ? body.get("text").asText() : "";
+        if (text.isBlank()) {
+            return HttpResponse.of(HttpStatus.BAD_REQUEST, MediaType.PLAIN_TEXT_UTF_8,
+                    "\"text\" field is required");
+        }
+
+        float topicBoost = memoryService.memory().computeTopicBoost(text);
+        float selfBoost = memoryService.memory().computeSelfRelevanceBoost(text);
+
+        return HttpResponse.ofJson(Map.of(
+                "text", text.length() > 100 ? text.substring(0, 100) + "..." : text,
+                "topicBoost", topicBoost,
+                "selfRelevanceBoost", selfBoost,
+                "combinedBoost", topicBoost * selfBoost));
+    }
+
+    @Post("/salience/interest")
+    public HttpResponse addInterest(JsonNode body) {
+        return modifyInterest(body, true);
+    }
+
+    @Post("/salience/disinterest")
+    public HttpResponse addDisinterest(JsonNode body) {
+        return modifyInterest(body, false);
+    }
+
+    @Post("/salience/persona")
+    public HttpResponse setPersona(JsonNode body) {
+        var pBuilder = com.spectrayan.spector.memory.model.PersonaContext.builder();
+        if (body.has("occupation")) pBuilder.occupation(body.get("occupation").asText());
+        if (body.has("about")) pBuilder.about(body.get("about").asText());
+        if (body.has("bigFive")) {
+            var bf = body.get("bigFive");
+            pBuilder.bigFive(new com.spectrayan.spector.memory.model.BigFiveTraits(
+                    (float) bf.path("openness").asDouble(50),
+                    (float) bf.path("conscientiousness").asDouble(50),
+                    (float) bf.path("extraversion").asDouble(50),
+                    (float) bf.path("agreeableness").asDouble(50),
+                    (float) bf.path("neuroticism").asDouble(50)));
+        }
+        if (body.has("stressResponse")) {
+            pBuilder.stressResponse(com.spectrayan.spector.memory.model.StressResponse.valueOf(
+                    body.get("stressResponse").asText().toUpperCase()));
+        }
+        var persona = pBuilder.build();
+
+        // Rebuild profile with persona
+        var current = memoryService.memory().salienceProfile();
+        var builder = com.spectrayan.spector.memory.model.SalienceProfile.builder();
+        for (var d : current.interests()) builder.interest(d);
+        for (var d : current.disinterests()) builder.disinterest(d);
+        if (current.hasIcnuOverride()) builder.icnuWeights(current.icnuWeights());
+        builder.flashbulbThreshold(current.flashbulbThreshold());
+        builder.recencyWeight(current.recencyWeight());
+        builder.similarityThreshold(current.similarityThreshold());
+        builder.persona(persona);
+
+        memoryService.memory().setSalienceProfile(builder.build());
+
+        return HttpResponse.ofJson(Map.of(
+                "status", "success",
+                "occupation", persona.occupation() != null ? persona.occupation() : "",
+                "bigFive", Map.of(
+                        "openness", persona.bigFive().openness(),
+                        "conscientiousness", persona.bigFive().conscientiousness(),
+                        "extraversion", persona.bigFive().extraversion(),
+                        "agreeableness", persona.bigFive().agreeableness(),
+                        "neuroticism", persona.bigFive().neuroticism()),
+                "stressResponse", persona.stressResponse().name()));
+    }
+
+    private HttpResponse modifyInterest(JsonNode body, boolean isInterest) {
+        String topic = body.has("topic") ? body.get("topic").asText() : "";
+        String level = body.has("level") ? body.get("level").asText() : "HIGH";
+        if (topic.isBlank()) {
+            return HttpResponse.of(HttpStatus.BAD_REQUEST, MediaType.PLAIN_TEXT_UTF_8,
+                    "\"topic\" field is required");
+        }
+
+        com.spectrayan.spector.memory.model.InterestLevel interestLevel;
+        try {
+            interestLevel = com.spectrayan.spector.memory.model.InterestLevel.valueOf(level.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return HttpResponse.of(HttpStatus.BAD_REQUEST, MediaType.PLAIN_TEXT_UTF_8,
+                    "Invalid level: " + level + ". Valid: CRITICAL, HIGH, MEDIUM, LOW, IGNORE");
+        }
+
+        var current = memoryService.memory().salienceProfile();
+        var builder = com.spectrayan.spector.memory.model.SalienceProfile.builder();
+        for (var d : current.interests()) builder.interest(d);
+        for (var d : current.disinterests()) builder.disinterest(d);
+        if (current.hasIcnuOverride()) builder.icnuWeights(current.icnuWeights());
+        if (current.hasPersona()) builder.persona(current.persona());
+        builder.flashbulbThreshold(current.flashbulbThreshold());
+        builder.recencyWeight(current.recencyWeight());
+        builder.similarityThreshold(current.similarityThreshold());
+
+        if (isInterest) {
+            builder.interest(topic, interestLevel);
+        } else {
+            builder.disinterest(topic, interestLevel);
+        }
+
+        memoryService.memory().setSalienceProfile(builder.build());
+
+        String label = isInterest ? "interest" : "disinterest";
+        return HttpResponse.ofJson(Map.of(
+                "status", "success",
+                "action", "added_" + label,
+                "topic", topic,
+                "level", interestLevel.name(),
+                "multiplier", interestLevel.multiplier()));
     }
 
     // ── Helpers ───────────────────────────────────────────────────

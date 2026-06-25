@@ -17,6 +17,7 @@ package com.spectrayan.spector.mcp.tools.memory;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 
 import io.modelcontextprotocol.spec.McpSchema;
@@ -46,6 +47,11 @@ public final class MemoryRememberTool extends MemoryToolHandler {
 
     public MemoryRememberTool(SpectorMemory memory) {
         super(memory);
+    }
+
+    /** Enterprise constructor: resolves memory per-request for tenant isolation. */
+    public MemoryRememberTool(Supplier<SpectorMemory> memoryResolver) {
+        super(memoryResolver);
     }
 
     @Override public String name() { return "memory_remember"; }
@@ -197,12 +203,6 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         if (autoId) sb.append(" (auto-generated TSID)");
         if (tags.length > 0) sb.append(" with ").append(tags.length).append(" tags");
         sb.append(" (source=").append(source).append(")");
-
-        // Log namespace if specified
-        String namespace = optionalString(args, "namespace", "");
-        if (!namespace.isEmpty()) {
-            sb.append(" [ns: ").append(namespace).append("]");
-        }
 
         if (hints != null) {
             sb.append("\n📊 ICNU: I=").append(interest).append(", C=").append(challenge)

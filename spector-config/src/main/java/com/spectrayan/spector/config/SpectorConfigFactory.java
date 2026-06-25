@@ -158,15 +158,16 @@ public final class SpectorConfigFactory {
     /**
      * Default values for the embedding provider.
      *
-     * @param model      embedding model name
-     * @param baseUrl    API base URL
-     * @param timeout    HTTP request timeout
-     * @param batchSize  maximum texts per batch request
-     * @param maxRetries maximum retry attempts
+     * @param model         embedding model name
+     * @param baseUrl       API base URL
+     * @param timeout       HTTP request timeout
+     * @param batchSize     maximum texts per batch request
+     * @param maxRetries    maximum retry attempts
+     * @param maxConcurrent maximum concurrent embedding HTTP calls (0 = unlimited)
      */
     public record EmbeddingDefaults(
             String model, String baseUrl, Duration timeout,
-            int batchSize, int maxRetries
+            int batchSize, int maxRetries, int maxConcurrent
     ) {}
 
     /**
@@ -178,7 +179,8 @@ public final class SpectorConfigFactory {
                 props.getString("spector.embedding.base-url", "http://localhost:11434"),
                 props.getDuration("spector.embedding.timeout", Duration.ofSeconds(30)),
                 props.getInt("spector.embedding.batch-size", 32),
-                props.getInt("spector.embedding.max-retries", 3)
+                props.getInt("spector.embedding.max-retries", 3),
+                props.getInt("spector.embedding.max-concurrent", 0)
         );
     }
 
