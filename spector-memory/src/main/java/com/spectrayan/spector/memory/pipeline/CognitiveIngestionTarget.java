@@ -132,6 +132,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final AtomicInteger lastIngestedMemoryIdx = new AtomicInteger(-1);
     private volatile int currentSessionId = 0;
 
+    // ── Post-ingest index synchronization stage ──
+    private final PostIngestSync postIngestSync;
+
     // ── Partition rolling callback (nullable) ──
     private volatile Runnable partitionRollCallback;
 
@@ -209,6 +212,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.spladeProvider = spladeProvider;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.salienceProfile = SalienceProfile.NEUTRAL;
+        this.postIngestSync = new PostIngestSync(
+                tierRouter, index, wal, semanticIndex,
+                hebbianGraph, temporalChain, entityExtractor, entityGraph,
+                bm25Index, textDataStore, activePartitionIndex,
+                spladeIndex, spladeProvider, this.encryptor);
     }
 
     /**
@@ -217,6 +225,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
      */
     public void updateTierRouter(TierRouter newRouter) {
         this.tierRouter = newRouter;
+        this.postIngestSync.updateTierRouter(newRouter);
     }
 
     /**
@@ -441,127 +450,22 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
-        // Step 7b: Add to HNSW index for semantic recall.
-        // Memory owns its vectors in tier .mem files (dir-level partitioning).
-        // The HNSW index uses the tier's semantic record offset as the store index.
-        int storeIndex = -1;
-        if (type == MemoryType.SEMANTIC && semanticIndex != null
-                && !semanticIndex.isReadOnly()) {
-            storeIndex = tierRouter.countFor(MemoryType.SEMANTIC) - 1;
-            semanticIndex.add(id, storeIndex, vector);
-        }
+        // Steps 7b-9a: Index synchronization (HNSW, ID index, WAL, BM25, SPLADE)
+        var syncParams = new PostIngestSync.SyncParams(
+                id, text, vector, quantized, type, tags, source, offset);
+        int storeIndex = postIngestSync.syncIndexes(syncParams);
 
-        // Step 8: Register in ID index
-        index.register(id, new MemoryLocation(type, offset, storeIndex), text, source, tags);
-
-        // Step 9: WAL append (encrypt payload when encryption is active)
-        wal.appendRemember(id, encryptor.encryptPayload(quantized));
-
-        // Step 9a: Index text for BM25 hybrid search (encrypt text in text.dat)
-        if (textDataStore != null) {
-            try {
-                String textToStore = text;
-                if (encryptor.isEnabled()) {
-                    // Store encrypted text — BM25 indexes plaintext in-memory separately
-                    byte[] encBytes = encryptor.encryptText(text.getBytes(StandardCharsets.UTF_8));
-                    textToStore = java.util.Base64.getEncoder().encodeToString(encBytes);
-                }
-                textDataStore.write(id, type, textToStore);
-            } catch (RuntimeException e) {
-                log.warn("Failed to write text.dat entry for '{}': {}", id, e.getMessage());
-            }
-        }
-        if (bm25Index != null && activePartitionIndex >= 0) {
-            try {
-                bm25Index.index(activePartitionIndex, id, text);
-            } catch (RuntimeException e) {
-                log.warn("Failed to index '{}' in BM25: {}", id, e.getMessage());
-            }
-        }
-
-        // Step 9a-splade: SPLADE sparse index (if provider available)
-        if (spladeIndex != null && spladeProvider != null && activePartitionIndex >= 0) {
-            try {
-                SparseEncodingResult sparse = spladeProvider.encode(text);
-                spladeIndex.index(activePartitionIndex, id, sparse.weights());
-            } catch (RuntimeException e) {
-                log.warn("Failed SPLADE index for '{}': {}", id, e.getMessage());
-            }
-        }
-
-        // Step 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
-        // Capture previous memory index ONCE — shared by both subsystems.
-        // (Previously, step 9b set lastIngestedMemoryIdx to memoryIdx,
-        //  then step 9c re-read it and always saw memoryIdx → always -1 → no links.)
-        int memoryIdx = index.size() - 1; // approximate index of this memory
+        // Steps 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
+        int memoryIdx = index.size() - 1;
         if (hebbianGraph != null && hebbianGraph.isNewSession()) {
             currentSessionId++;
             lastIngestedMemoryIdx.set(-1);
         }
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
-
-        // Step 9b: Hebbian edge strengthening
-        if (hebbianGraph != null && previousIdx >= 0 && previousIdx != memoryIdx) {
-            try {
-                hebbianGraph.strengthen(memoryIdx, previousIdx, 1.0f);
-            } catch (RuntimeException e) {
-                SpectorHebbianException ex = new SpectorHebbianException("edge strengthening", e);
-                log.warn(ex.getMessage());
-            }
-        }
-
-        // Step 9c: Temporal chain linking (session-local sequence)
-        if (temporalChain != null && previousIdx >= 0 && previousIdx != memoryIdx) {
-            try {
-                temporalChain.link(memoryIdx, previousIdx, currentSessionId);
-            } catch (RuntimeException e) {
-                SpectorTemporalChainException ex = new SpectorTemporalChainException("linking", e);
-                log.warn(ex.getMessage());
-            }
-        }
+        postIngestSync.syncGraphEdges(memoryIdx, previousIdx, currentSessionId);
 
         // Step 9d: Entity extraction and graph population
-        if (entityExtractor != null && entityGraph != null && entityExtractor.isAvailable()) {
-            try {
-                List<ExtractedEntity> entities = entityExtractor.extract(id, text);
-                int entitiesAdded = 0;
-                int relationsAdded = 0;
-                for (ExtractedEntity entity : entities) {
-                    int eid = entityGraph.addEntity(entity.name(), entity.typeName());
-                    if (eid >= 0) {
-                        entityGraph.linkEntityToMemory(eid, memoryIdx);
-                        entitiesAdded++;
-
-                        // Add relations
-                        for (EntityRelation rel : entity.relations()) {
-                            int targetEid = entityGraph.findEntity(rel.targetEntityName());
-                            if (targetEid < 0) {
-                                // Target not yet in graph — add it as OTHER
-                                targetEid = entityGraph.addEntity(
-                                        rel.targetEntityName(),
-                                        "OTHER");
-                            }
-                            if (targetEid >= 0) {
-                                entityGraph.addRelation(eid, targetEid, rel.relationTypeName());
-                                relationsAdded++;
-                            }
-                        }
-                    }
-                }
-                if (entitiesAdded > 0) {
-                    log.info("[Ingest] '{}' → {} entities, {} relations added to EntityGraph",
-                            id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
-                            entitiesAdded, relationsAdded);
-                }
-            } catch (RuntimeException e) {
-                SpectorEntityGraphException ex = new SpectorEntityGraphException("extraction", e);
-                log.warn(ex.getMessage());
-            }
-        } else if (entityGraph != null) {
-            log.debug("[Ingest] '{}' entity extraction skipped: extractor={}, available={}",
-                    id, entityExtractor != null ? entityExtractor.getClass().getSimpleName() : "null",
-                    entityExtractor != null && entityExtractor.isAvailable());
-        }
+        postIngestSync.syncEntityExtraction(id, text, memoryIdx);
 
         log.debug("Ingested '{}' as {} (importance={}, {} tags, hnswIdx={}, source={})",
                 id, type, importance, tags.length, storeIndex, source);
@@ -644,40 +548,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
-        // Step 7b: Add to HNSW index (SEMANTIC only)
-        int storeIndex = -1;
-        if (type == MemoryType.SEMANTIC && semanticIndex != null
-                && !semanticIndex.isReadOnly()) {
-            storeIndex = tierRouter.countFor(MemoryType.SEMANTIC) - 1;
-            semanticIndex.add(id, storeIndex, vector);
-        }
-
-        // Step 8: Register in ID index
-        index.register(id, new MemoryLocation(type, offset, storeIndex), text, source, tags);
-
-        // Step 9: WAL append
-        wal.appendRemember(id, encryptor.encryptPayload(quantized));
-
-        // Step 9a: BM25 text index
-        if (textDataStore != null) {
-            try {
-                String textToStore = text;
-                if (encryptor.isEnabled()) {
-                    byte[] encBytes = encryptor.encryptText(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                    textToStore = java.util.Base64.getEncoder().encodeToString(encBytes);
-                }
-                textDataStore.write(id, type, textToStore);
-            } catch (RuntimeException e) {
-                log.warn("Migration: failed text.dat for '{}': {}", id, e.getMessage());
-            }
-        }
-        if (bm25Index != null && activePartitionIndex >= 0) {
-            try {
-                bm25Index.index(activePartitionIndex, id, text);
-            } catch (RuntimeException e) {
-                log.warn("Migration: failed BM25 index for '{}': {}", id, e.getMessage());
-            }
-        }
+        // Steps 7b-9a: Index synchronization (HNSW, ID index, WAL, BM25, SPLADE)
+        var syncParams = new PostIngestSync.SyncParams(
+                id, text, vector, quantized, type, tags, source, offset);
+        postIngestSync.syncIndexes(syncParams);
 
         // Note: Hebbian, Temporal, Entity graph edges are NOT created here.
         // They are bulk-imported separately by MigrationService after all
@@ -820,158 +694,36 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
-        // Step 7b: HNSW index
-        int storeIndex = -1;
-        if (type == MemoryType.SEMANTIC && semanticIndex != null
-                && !semanticIndex.isReadOnly()) {
-            storeIndex = tierRouter.countFor(MemoryType.SEMANTIC) - 1;
-            semanticIndex.add(id, storeIndex, vector);
-        }
-
-        // Step 8: Register in ID index (with metadata for multimodal memories)
+        // Steps 7b-9a: Index synchronization (HNSW, ID index, WAL, BM25, SPLADE)
         java.util.Map<String, String> metadata = context.hasMetadata() ? context.metadata() : null;
-        index.register(id, new MemoryLocation(type, offset, storeIndex), text, source, tags, metadata);
+        var syncParams = new PostIngestSync.SyncParams(
+                id, text, vector, quantized, type, tags, source, offset, metadata);
+        int storeIndex = postIngestSync.syncIndexes(syncParams);
 
-        // Step 9: WAL append (encrypt payload when encryption is active)
-        wal.appendRemember(id, encryptor.encryptPayload(quantized));
-
-        // Step 9a: BM25 text index (encrypt text in text.dat)
-        if (textDataStore != null) {
-            try {
-                String textToStore = text;
-                if (encryptor.isEnabled()) {
-                    byte[] encBytes = encryptor.encryptText(text.getBytes(StandardCharsets.UTF_8));
-                    textToStore = java.util.Base64.getEncoder().encodeToString(encBytes);
-                }
-                textDataStore.write(id, type, textToStore);
-            } catch (RuntimeException e) { log.warn("Failed to write text.dat for '{}': {}", id, e.getMessage()); }
-        }
-        if (bm25Index != null && activePartitionIndex >= 0) {
-            try { bm25Index.index(activePartitionIndex, id, text); }
-            catch (RuntimeException e) { log.warn("Failed BM25 index for '{}': {}", id, e.getMessage()); }
-        }
-
-        // Step 9a-splade: SPLADE sparse index (if provider available)
-        if (spladeIndex != null && spladeProvider != null && activePartitionIndex >= 0) {
-            try {
-                SparseEncodingResult sparse = spladeProvider.encode(text);
-                spladeIndex.index(activePartitionIndex, id, sparse.weights());
-            } catch (RuntimeException e) {
-                log.warn("Failed SPLADE index for '{}': {}", id, e.getMessage());
-            }
-        }
-
-        // Step 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
-        // Capture previous memory index ONCE — shared by both subsystems.
+        // Steps 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
         int memoryIdx = index.size() - 1;
         if (hebbianGraph != null && hebbianGraph.isNewSession()) {
             currentSessionId++;
             lastIngestedMemoryIdx.set(-1);
         }
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
-
-        // Step 9b: Hebbian edge strengthening
-        if (hebbianGraph != null && previousIdx >= 0 && previousIdx != memoryIdx) {
-            try {
-                hebbianGraph.strengthen(memoryIdx, previousIdx, 1.0f);
-            } catch (RuntimeException e) {
-                log.warn(new SpectorHebbianException("edge strengthening", e).getMessage());
-            }
-        }
+        postIngestSync.syncGraphEdges(memoryIdx, previousIdx, currentSessionId);
 
         // Step 9b-ext: Pre-computed Hebbian edges from IngestionContext
-        if (context.hasHebbianEdges() && hebbianGraph != null) {
-            for (var edgeHint : context.hebbianEdges()) {
-                try {
-                    MemoryLocation targetLoc = index.locate(edgeHint.targetMemoryId());
-                    if (targetLoc != null) {
-                        int targetIdx = targetLoc.partitionIndex() >= 0
-                                ? targetLoc.partitionIndex()
-                                : (int) (targetLoc.offset() / 164);
-                        hebbianGraph.strengthen(memoryIdx, targetIdx, edgeHint.weight());
-                    }
-                } catch (RuntimeException e) {
-                    log.warn("Failed to apply Hebbian edge hint {} → {}: {}",
-                            id, edgeHint.targetMemoryId(), e.getMessage());
-                }
-            }
-        }
-
-        // Step 9c: Temporal chain linking (automatic session-based)
-        if (temporalChain != null && previousIdx >= 0 && previousIdx != memoryIdx) {
-            try {
-                temporalChain.link(memoryIdx, previousIdx, currentSessionId);
-            } catch (RuntimeException e) {
-                log.warn(new SpectorTemporalChainException("linking", e).getMessage());
-            }
+        if (context.hasHebbianEdges()) {
+            postIngestSync.syncHebbianEdgeHints(memoryIdx, id, context.hebbianEdges());
         }
 
         // Step 9c-ext: Pre-computed temporal links from IngestionContext
-        if (context.hasTemporalLinks() && temporalChain != null) {
-            for (var linkHint : context.temporalLinks()) {
-                try {
-                    MemoryLocation predLoc = index.locate(linkHint.predecessorMemoryId());
-                    if (predLoc != null) {
-                        int predIdx = predLoc.partitionIndex() >= 0
-                                ? predLoc.partitionIndex()
-                                : (int) (predLoc.offset() / 164);
-                        temporalChain.link(memoryIdx, predIdx, linkHint.sessionId());
-                    }
-                } catch (RuntimeException e) {
-                    log.warn("Failed to apply temporal link hint {} → {}: {}",
-                            id, linkHint.predecessorMemoryId(), e.getMessage());
-                }
-            }
+        if (context.hasTemporalLinks()) {
+            postIngestSync.syncTemporalLinkHints(memoryIdx, id, context.temporalLinks());
         }
 
         // Step 9d: Entity extraction and graph population
-        // Pre-extracted entities from IngestionContext take precedence over EntityExtractor
-        if (context.hasEntities() && entityGraph != null) {
-            try {
-                for (ExtractedEntity entity : context.entities()) {
-                    int eid = entityGraph.addEntity(entity.name(), entity.typeName());
-                    if (eid >= 0) {
-                        entityGraph.linkEntityToMemory(eid, memoryIdx);
-                        for (EntityRelation rel : entity.relations()) {
-                            int targetEid = entityGraph.findEntity(rel.targetEntityName());
-                            if (targetEid < 0) {
-                                targetEid = entityGraph.addEntity(
-                                        rel.targetEntityName(),
-                                        "OTHER");
-                            }
-                            if (targetEid >= 0) {
-                                entityGraph.addRelation(eid, targetEid, rel.relationTypeName());
-                            }
-                        }
-                    }
-                }
-            } catch (RuntimeException e) {
-                log.warn(new SpectorEntityGraphException("pre-extracted entity population", e).getMessage());
-            }
-        } else if (entityExtractor != null && entityGraph != null && entityExtractor.isAvailable()) {
-            // Fall back to EntityExtractor SPI
-            try {
-                List<ExtractedEntity> entities = entityExtractor.extract(id, text);
-                for (ExtractedEntity entity : entities) {
-                    int eid = entityGraph.addEntity(entity.name(), entity.typeName());
-                    if (eid >= 0) {
-                        entityGraph.linkEntityToMemory(eid, memoryIdx);
-                        for (EntityRelation rel : entity.relations()) {
-                            int targetEid = entityGraph.findEntity(rel.targetEntityName());
-                            if (targetEid < 0) {
-                                targetEid = entityGraph.addEntity(
-                                        rel.targetEntityName(),
-                                        "OTHER");
-                            }
-                            if (targetEid >= 0) {
-                                entityGraph.addRelation(eid, targetEid, rel.relationTypeName());
-                            }
-                        }
-                    }
-                }
-            } catch (RuntimeException e) {
-                log.warn(new SpectorEntityGraphException("extraction", e).getMessage());
-            }
+        if (context.hasEntities()) {
+            postIngestSync.syncPreExtractedEntities(context.entities(), memoryIdx, id);
+        } else {
+            postIngestSync.syncEntityExtraction(id, text, memoryIdx);
         }
 
         log.debug("Ingested '{}' as {} with IngestionContext (importance={}, {} tags, entities={}, hebbianEdges={}, temporalLinks={})",

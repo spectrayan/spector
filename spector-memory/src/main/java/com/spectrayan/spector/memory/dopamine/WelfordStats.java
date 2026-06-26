@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.dopamine;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.DoubleAdder;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Welford's online algorithm for computing running mean and standard deviation.
@@ -34,8 +35,8 @@ public final class WelfordStats {
     private volatile double mean = 0.0;
     private volatile double m2 = 0.0;
 
-    // Lock for update atomicity (cheap — updates are infrequent relative to reads)
-    private final Object lock = new Object();
+    // Lock for update atomicity (ReentrantLock avoids virtual thread pinning — ADR-005)
+    private final ReentrantLock lock = new ReentrantLock();
 
     /**
      * Incorporates a new sample into the running statistics.
@@ -43,12 +44,15 @@ public final class WelfordStats {
      * @param value the new observation
      */
     public void update(double value) {
-        synchronized (lock) {
+        lock.lock();
+        try {
             long n = count.incrementAndGet();
             double delta = value - mean;
             mean += delta / n;
             double delta2 = value - mean;
             m2 += delta * delta2;
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -95,10 +99,13 @@ public final class WelfordStats {
      * Resets all statistics.
      */
     public void reset() {
-        synchronized (lock) {
+        lock.lock();
+        try {
             count.set(0);
             mean = 0.0;
             m2 = 0.0;
+        } finally {
+            lock.unlock();
         }
     }
 }

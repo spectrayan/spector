@@ -18,7 +18,8 @@ import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Builder for recall query configuration.
@@ -115,6 +116,48 @@ public record RecallOptions(
     public static Builder builder() {
         return new Builder();
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // Composed sub-record accessors — progressive migration API
+    // ══════════════════════════════════════════════════════════════
+
+    /** Returns filter parameters as a composed {@link FilterOptions}. */
+    public FilterOptions filter() {
+        return new FilterOptions(synapticTagMask, minImportance, memoryTypes, minValence, maxValence);
+    }
+
+    /** Returns scoring parameters as a composed {@link ScoringOptions}. */
+    public ScoringOptions scoring() {
+        return new ScoringOptions(alpha, beta, tagRelevanceBoost, semanticCandidateMultiplier,
+                strictnessCoefficient, queryValence, enableValenceAlignment, twoFactorConfig, scoringMode);
+    }
+
+    /** Returns text search parameters as a composed {@link TextSearchOptions}. */
+    public TextSearchOptions textSearch() {
+        return new TextSearchOptions(gamma, enableTextSearch, textSearchMode);
+    }
+
+    /** Returns neurodivergent parameters as a composed {@link NeurodivergentOptions}. */
+    public NeurodivergentOptions nd() {
+        return new NeurodivergentOptions(hyperfocusMask, hyperfocusBoost,
+                lateralMode, lateralDistanceThreshold, lateralMaxResults, lateralMinTagOverlap);
+    }
+
+    /** Returns graph expansion parameters as a composed {@link GraphOptions}. */
+    public GraphOptions graph() {
+        return new GraphOptions(entityHints, graphExpansionThreshold);
+    }
+
+    /** Returns temporal parameters as a composed {@link TemporalOptions}. */
+    public TemporalOptions temporal() {
+        return new TemporalOptions(minTimestamp, maxTimestamp, replayTimestamp, maxReplayEvents);
+    }
+
+    /** Returns reranker parameters as a composed {@link RerankerOptions}. */
+    public RerankerOptions reranker() {
+        return new RerankerOptions(enableReranker, rerankerDepth);
+    }
+
 
     /**
      * Builder for {@link RecallOptions}.
@@ -617,7 +660,7 @@ public record RecallOptions(
     // Validation — detect conflicting parameter combinations
     // ══════════════════════════════════════════════════════════════
 
-    private static final Logger VALIDATION_LOG = Logger.getLogger(RecallOptions.class.getName());
+    private static final Logger VALIDATION_LOG = LoggerFactory.getLogger(RecallOptions.class);
 
     /**
      * Validates this options instance for conflicting parameter combinations.
@@ -648,7 +691,7 @@ public record RecallOptions(
                     + " is contradictory — lateral finds distant matches, high strictness rejects them. "
                     + "Consider using one or the other.";
             warnings.add(msg);
-            VALIDATION_LOG.warning(msg);
+            VALIDATION_LOG.warn(msg);
         }
 
         // 2. hyperfocusMask + lateralMode are contradictory
@@ -656,7 +699,7 @@ public record RecallOptions(
             String msg = "hyperfocusMask is set + lateralMode=true — hyperfocus narrows attention "
                     + "to a specific topic, lateral mode broadens it. Consider using one or the other.";
             warnings.add(msg);
-            VALIDATION_LOG.warning(msg);
+            VALIDATION_LOG.warn(msg);
         }
 
         // 3. α + β should sum to ~1.0
@@ -665,7 +708,7 @@ public record RecallOptions(
             String msg = "alpha (" + alpha + ") + beta (" + beta + ") = " + sum
                     + " — scoring weights don't sum to 1.0. Scores may be unnormalized.";
             warnings.add(msg);
-            VALIDATION_LOG.warning(msg);
+            VALIDATION_LOG.warn(msg);
         }
 
         // 4. gamma out of useful range
@@ -673,7 +716,7 @@ public record RecallOptions(
             String msg = "gamma (" + gamma + ") is outside the useful range [0.0, 2.0]. "
                     + "BM25 scoring may produce unexpected results.";
             warnings.add(msg);
-            VALIDATION_LOG.warning(msg);
+            VALIDATION_LOG.warn(msg);
         }
 
         // 5. REPLAY mode requires replayTimestamp
@@ -681,7 +724,7 @@ public record RecallOptions(
             String msg = "recallMode=REPLAY requires replayTimestamp to be set. "
                     + "Use RecallOptions.builder().replayTimestamp(Instant.parse(...)).build()";
             warnings.add(msg);
-            VALIDATION_LOG.warning(msg);
+            VALIDATION_LOG.warn(msg);
         }
 
         return warnings;
@@ -701,7 +744,7 @@ public record RecallOptions(
         try {
             return CognitiveProfile.valueOf(profileName.strip().toUpperCase());
         } catch (IllegalArgumentException e) {
-            VALIDATION_LOG.warning("Unknown CognitiveProfile: '" + profileName
+            VALIDATION_LOG.warn("Unknown CognitiveProfile: '" + profileName
                     + "'. Available: " + java.util.Arrays.toString(CognitiveProfile.values()));
             return null;
         }
