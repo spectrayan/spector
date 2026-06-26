@@ -104,7 +104,7 @@ public class HeartbeatMembershipService implements MembershipService {
     private final List<MembershipChangeListener> listeners;
 
     /** Lock for membership change operations. */
-    private final Object membershipLock = new Object();
+    private final java.util.concurrent.locks.ReentrantLock membershipLock = new java.util.concurrent.locks.ReentrantLock();
 
     /**
      * Creates a HeartbeatMembershipService with default configuration.
@@ -211,7 +211,8 @@ public class HeartbeatMembershipService implements MembershipService {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "Node ID");
         }
 
-        synchronized (membershipLock) {
+        membershipLock.lock();
+        try {
             NodeInfo info = nodes.get(nodeId);
             if (info == null) {
                 throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "nodeId", nodeId);
@@ -230,6 +231,8 @@ public class HeartbeatMembershipService implements MembershipService {
             // Trigger rebalancing asynchronously (within 5 seconds)
             triggerRebalanceAsync();
             notifyListeners(nodeId, NodeStatus.UNAVAILABLE);
+        } finally {
+            membershipLock.unlock();
         }
     }
 
@@ -331,7 +334,8 @@ public class HeartbeatMembershipService implements MembershipService {
         Instant now = Instant.now();
         boolean wasUnavailable = info.status() == NodeStatus.UNAVAILABLE;
 
-        synchronized (membershipLock) {
+        membershipLock.lock();
+        try {
             NodeInfo updated = new NodeInfo(info.nodeId(), info.endpoint(), NodeStatus.ACTIVE, now);
             nodes.put(nodeId, updated);
 
@@ -340,6 +344,8 @@ public class HeartbeatMembershipService implements MembershipService {
                 triggerRebalanceAsync();
                 notifyListeners(nodeId, NodeStatus.ACTIVE);
             }
+        } finally {
+            membershipLock.unlock();
         }
     }
 
@@ -388,7 +394,8 @@ public class HeartbeatMembershipService implements MembershipService {
      * Performs the actual node registration (may throw to simulate communication failures).
      */
     private void doRegisterNode(String nodeId, String endpoint) {
-        synchronized (membershipLock) {
+        membershipLock.lock();
+        try {
             NodeInfo existing = nodes.get(nodeId);
             Instant now = Instant.now();
 
@@ -406,6 +413,8 @@ public class HeartbeatMembershipService implements MembershipService {
             // Trigger rebalancing within 5 seconds of registration
             triggerRebalanceAsync();
             notifyListeners(nodeId, NodeStatus.ACTIVE);
+        } finally {
+            membershipLock.unlock();
         }
     }
 
@@ -422,7 +431,8 @@ public class HeartbeatMembershipService implements MembershipService {
             NodeInfo info = entry.getValue();
 
             if (info.status() == NodeStatus.ACTIVE && info.lastHeartbeat().isBefore(threshold)) {
-                synchronized (membershipLock) {
+                membershipLock.lock();
+                try {
                     // Double-check under lock
                     NodeInfo current = nodes.get(nodeId);
                     if (current != null && current.status() == NodeStatus.ACTIVE
@@ -436,6 +446,8 @@ public class HeartbeatMembershipService implements MembershipService {
                         triggerRebalanceAsync();
                         notifyListeners(nodeId, NodeStatus.UNAVAILABLE);
                     }
+                } finally {
+                    membershipLock.unlock();
                 }
             }
         }
