@@ -154,6 +154,9 @@ public final class StorageLayout {
     /** Intra-partition entity knowledge graph. */
     public static final String FILE_ENTITY = "entity.graph";
 
+    /** BM25 inverted index binary file. */
+    public static final String FILE_BM25 = "bm25.bidx";
+
     /** Entity type registry (String ↔ int mapping for entity types). */
     public static final String FILE_ENTITY_TYPES = "entity-types.treg";
 
@@ -494,6 +497,11 @@ public final class StorageLayout {
     /** Resolves the index.midx file within a partition. */
     public static Path indexMidx(Path partitionDir) {
         return partitionDir.resolve(FILE_INDEX);
+    }
+
+    /** Resolves the bm25.bidx file within a partition. */
+    public static Path bm25Bidx(Path partitionDir) {
+        return partitionDir.resolve(FILE_BM25);
     }
 
     /** Resolves the hebbian.graph file within a partition. */

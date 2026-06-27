@@ -24,6 +24,7 @@ import com.spectrayan.spector.embed.PipelineEmbeddingResult;
 import com.spectrayan.spector.embed.SparseEncodingProvider;
 import com.spectrayan.spector.embed.TextGenerationProvider;
 import com.spectrayan.spector.embed.TokenEmbeddingProvider;
+import com.spectrayan.spector.index.BM25Index;
 import com.spectrayan.spector.index.ColBERTReranker;
 import com.spectrayan.spector.index.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
@@ -200,6 +201,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ── Shutdown Hook (auto-registered for DISK mode) ──
     private final Thread shutdownHook;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+
+    // ── BM25 Binary Persistence (P1: save on close for instant next startup) ──
+    private final MemoryBM25Index bm25Index;
 
     // ── Chunking for remember() ──
     private final TextChunker chunker;
@@ -421,21 +425,32 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
             textDataStore = new TextDataStore(StorageLayout.textDat(resolvedPartitionDir));
             // Call readAll() to establish the mmap'd segment for off-heap text reads.
-            // The returned text entries are used for BM25 rebuild below.
             var textEntries = textDataStore.readAll();
             // P0: wire TextDataStore into MemoryIndex for off-heap text() resolution
             index.setTextDataStore(textDataStore);
+
+            // P1: Try loading pre-built BM25 binary index (instant load vs O(n) rebuild)
+            java.nio.file.Path bm25Path = StorageLayout.bm25Bidx(resolvedPartitionDir);
+            BM25Index loadedBm25 = BM25Index.load(bm25Path);
             bm25Index = new MemoryBM25Index(1);
-            Map<String, String> allTexts = new java.util.HashMap<>();
-            for (var entry : index.locationMap().entrySet()) {
-                String text = index.text(entry.getKey());
-                if (text != null && !text.isEmpty()) {
-                    allTexts.put(entry.getKey(), text);
+            if (loadedBm25 != null) {
+                bm25Index.setPartition(0, loadedBm25);
+                log.info("BM25 loaded from binary index: {} docs", loadedBm25.size());
+            } else {
+                // Fall back to expensive rebuild from text data
+                Map<String, String> allTexts = new java.util.HashMap<>();
+                for (var entry : index.locationMap().entrySet()) {
+                    String text = index.text(entry.getKey());
+                    if (text != null && !text.isEmpty()) {
+                        allTexts.put(entry.getKey(), text);
+                    }
                 }
-            }
-            if (!allTexts.isEmpty()) {
-                bm25Index.rebuildPartition(0, allTexts);
-                log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
+                if (!allTexts.isEmpty()) {
+                    bm25Index.rebuildPartition(0, allTexts);
+                    log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
+                    // Save the rebuilt index for instant load on next startup
+                    bm25Index.partition(0).save(bm25Path);
+                }
             }
             activePartitionIndex = 0;
         } else {
@@ -443,6 +458,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             textDataStore = null;
             activePartitionIndex = 0;
         }
+        this.bm25Index = bm25Index;
 
         // ── SPLADE Index (auto-created when provider is configured) ──
         com.spectrayan.spector.memory.cortex.MemorySpladeIndex memorySpladeIndex = null;
@@ -1401,6 +1417,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 checkpointDaemon.checkpoint();
             } catch (Exception e) {
                 log.warn("Final checkpoint on close failed: {}", e.getMessage());
+            }
+        }
+
+        // Save BM25 binary index for instant load on next startup
+        if (persistenceMode == MemoryPersistenceMode.DISK
+                && partitionManager.activePartitionDir() != null
+                && bm25Index != null && bm25Index.totalDocuments() > 0) {
+            try {
+                bm25Index.partition(0).save(
+                        StorageLayout.bm25Bidx(partitionManager.activePartitionDir()));
+            } catch (Exception e) {
+                log.warn("Failed to save BM25 index on close: {}", e.getMessage());
             }
         }
 
