@@ -86,12 +86,14 @@ public final class NativeOsMemory {
         }
 
         try {
-            int result = (int) MADVISE_HANDLE.invokeExact(segment.address(), segment.byteSize(), advice);
+            // The downcall handle expects (MemorySegment, long, int) per the FunctionDescriptor.
+            // Pass the segment directly — ValueLayout.ADDRESS maps to MemorySegment in Java 22+.
+            int result = (int) MADVISE_HANDLE.invokeExact(segment, segment.byteSize(), advice);
             if (result == 0) {
-                log.debug("madvise: Successfully applied advice {} on segment at address {} ({} bytes)", advice, segment.address(), segment.byteSize());
+                log.debug("madvise: Successfully applied advice {} on segment ({} bytes)", advice, segment.byteSize());
                 return true;
             } else {
-                log.warn("madvise: Failed with code {} for advice {} on segment at address {}", result, advice, segment.address());
+                log.warn("madvise: Failed with code {} for advice {} on segment ({} bytes)", result, advice, segment.byteSize());
                 return false;
             }
         } catch (Throwable t) {
