@@ -420,6 +420,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         int activePartitionIndex;
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
             textDataStore = new TextDataStore(StorageLayout.textDat(resolvedPartitionDir));
+            // Call readAll() to establish the mmap'd segment for off-heap text reads.
+            // The returned text entries are used for BM25 rebuild below.
+            var textEntries = textDataStore.readAll();
+            // P0: wire TextDataStore into MemoryIndex for off-heap text() resolution
+            index.setTextDataStore(textDataStore);
             bm25Index = new MemoryBM25Index(1);
             Map<String, String> allTexts = new java.util.HashMap<>();
             for (var entry : index.locationMap().entrySet()) {

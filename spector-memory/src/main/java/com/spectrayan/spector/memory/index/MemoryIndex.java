@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.index;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.cortex.TextDataStore;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 
@@ -113,6 +114,9 @@ public final class MemoryIndex {
     // ── Reverse index: (type, offset) → id  [O(1) lookup for recall result assembly] ──
     private final ConcurrentHashMap<Long, String> reverseIndex = new ConcurrentHashMap<>();
 
+    // ── Off-heap text data store: enables zero-copy text reads from mmap'd text.dat ──
+    private volatile TextDataStore textDataStore;
+
     // ── Inverted tag index: tag → Set<memId>  [O(1) tag-based lookup for browse()] ──
     private final ConcurrentHashMap<String, java.util.Set<String>> tagToIds = new ConcurrentHashMap<>();
 
@@ -157,7 +161,11 @@ public final class MemoryIndex {
                           MemorySource source, String[] tagArray,
                           Map<String, String> metadata) {
         locations.put(id, location);
-        texts.put(id, text);
+        // P0 off-heap optimization: skip heap text storage when text.dat position is known.
+        // text() will read directly from the mmap'd segment via TextDataStore.readTextDirect().
+        if (!location.hasTextPosition()) {
+            texts.put(id, text);
+        }
         sources.put(id, source);
         tags.put(id, tagArray);
 
@@ -219,8 +227,21 @@ public final class MemoryIndex {
 
     /**
      * Returns the raw text for a memory ID, or empty string if not found.
+     *
+     * <p>Resolution order (P0 off-heap optimization):</p>
+     * <ol>
+     *   <li>Off-heap: read from mmap'd text.dat via {@link TextDataStore#readTextDirect}</li>
+     *   <li>Heap: fall back to the {@code texts} HashMap (V1/V2 indexes, WAL replay)</li>
+     * </ol>
      */
     public String text(String id) {
+        // Try off-heap first: check if we have a text.dat position and a live TextDataStore
+        MemoryLocation loc = locations.get(id);
+        if (loc != null && loc.hasTextPosition() && textDataStore != null) {
+            String offHeapText = textDataStore.readTextDirect(loc.textOffset(), loc.textLength());
+            if (offHeapText != null) return offHeapText;
+        }
+        // Fall back to heap HashMap (V1/V2 indexes, WAL replay, in-memory mode)
         return texts.getOrDefault(id, "");
     }
 
@@ -336,11 +357,24 @@ public final class MemoryIndex {
 
     /**
      * Returns the text for a memory stored at a given offset.
-     * O(1) via reverse index.
+     * O(1) via reverse index. Uses off-heap resolution when available.
      */
     public String findTextByOffset(MemoryType type, long offset) {
         String id = findIdByOffset(type, offset);
-        return id != null ? texts.get(id) : null;
+        return id != null ? text(id) : null;
+    }
+
+    /**
+     * Sets the TextDataStore for off-heap text resolution.
+     *
+     * <p>When set, {@link #text(String)} will read text directly from the mmap'd
+     * text.dat segment instead of the heap HashMap, eliminating ~40MB heap per
+     * 100K memories.</p>
+     *
+     * @param store the TextDataStore (nullable — disables off-heap resolution)
+     */
+    public void setTextDataStore(TextDataStore store) {
+        this.textDataStore = store;
     }
 
     /**
@@ -382,8 +416,8 @@ public final class MemoryIndex {
         Map<String, String> result = new java.util.HashMap<>();
         for (Map.Entry<String, MemoryLocation> entry : locations.entrySet()) {
             if (entry.getValue().partitionIndex() == partitionIndex) {
-                String text = texts.get(entry.getKey());
-                if (text != null) {
+                String text = text(entry.getKey());
+                if (text != null && !text.isEmpty()) {
                     result.put(entry.getKey(), text);
                 }
             }
@@ -491,7 +525,7 @@ public final class MemoryIndex {
             for (Map.Entry<String, MemoryLocation> entry : locations.entrySet()) {
                 String id = entry.getKey();
                 MemoryLocation loc = entry.getValue();
-                String text = texts.getOrDefault(id, "");
+                String text = text(id);
                 MemorySource source = sources.getOrDefault(id, MemorySource.OBSERVED);
                 String[] tagArray = tags.getOrDefault(id, new String[0]);
                 Map<String, String> meta = metadataMap.getOrDefault(id, Map.of());
