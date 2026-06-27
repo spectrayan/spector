@@ -68,7 +68,8 @@ public final class MemoryRememberTool extends MemoryToolHandler {
                 + "Set 'interest', 'challenge', 'urgency' (0.0-1.0) for importance tuning. "
                 + "Set 'valence' for emotional memories (-128=very negative, +127=very positive). "
                 + "Set 'arousal' for intensity (0=calm, 255=extreme). "
-                + "Tags help with contextual recall (e.g., 'preferences', 'architecture').";
+                + "Tags help with contextual recall (e.g., 'preferences', 'architecture'). "
+                + "Use 'workspace_id' + 'agent_id' to store in a shared workspace.";
     }
 
     @Override
@@ -106,6 +107,13 @@ public final class MemoryRememberTool extends MemoryToolHandler {
                         + "'source_uri' (asset path/URL), "
                         + "plus any custom key-value pairs. Example: "
                         + "{\"modality\":\"IMAGE\",\"source_uri\":\"file:///photo.jpg\"}", "")
+                .optionalString("workspace_id",
+                        "Shared workspace ID for multi-agent storage. When set, the memory is "
+                        + "stored in the workspace's shared pool. Requires 'agent_id' for RBAC. "
+                        + "Leave empty for personal memory.", "")
+                .optionalString("agent_id",
+                        "Agent identity for workspace RBAC. Required when 'workspace_id' is set. "
+                        + "The agent must have write access to the workspace.", "")
                 .build();
     }
 

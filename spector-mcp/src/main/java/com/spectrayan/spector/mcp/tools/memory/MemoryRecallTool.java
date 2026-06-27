@@ -27,6 +27,9 @@ import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
+
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -63,7 +66,9 @@ public final class MemoryRecallTool extends MemoryToolHandler {
                 + "(Working, Episodic, Semantic, Procedural). Returns results with full provenance: "
                 + "confidence, age, importance, valence, source, and decay factors. "
                 + "Use 'profile' for preset scoring modes (e.g., DEBUGGING, EXPLORING, HYPERFOCUS). "
-                + "Use synaptic_filter for contextual pre-filtering (e.g., 'debugging,database').";
+                + "Use synaptic_filter for contextual pre-filtering (e.g., 'debugging,database'). "
+                + "Use 'point_in_time' for temporal queries (e.g., 'what did I know on March 15?'). "
+                + "Use 'workspace_id' + 'agent_id' for multi-agent shared memory.";
     }
 
     @Override
@@ -103,6 +108,17 @@ public final class MemoryRecallTool extends MemoryToolHandler {
                 .optionalString("namespace",
                         "Memory namespace to query. Isolates agent/user memory spaces. "
                         + "Leave empty for default namespace.", "")
+                .optionalString("point_in_time",
+                        "ISO-8601 timestamp for temporal recall. Only memories created BEFORE this "
+                        + "time will be returned. Enables 'what did I know on date X?' queries. "
+                        + "Example: '2026-03-15T00:00:00Z'. Leave empty for current time.", "")
+                .optionalString("workspace_id",
+                        "Shared workspace ID for multi-agent recall. When set, recall is scoped "
+                        + "to the workspace's shared memory pool. Requires 'agent_id' for RBAC. "
+                        + "Leave empty for personal memory.", "")
+                .optionalString("agent_id",
+                        "Agent identity for workspace RBAC. Required when 'workspace_id' is set. "
+                        + "The agent must have read access to the workspace.", "")
                 .build();
     }
 
@@ -157,6 +173,17 @@ public final class MemoryRecallTool extends MemoryToolHandler {
             builder.scoringMode(ScoringMode.valueOf(scoringStr.strip().toUpperCase()));
         } catch (IllegalArgumentException e) {
             // Invalid mode name — fall back to COGNITIVE
+        }
+
+        // Parse point-in-time temporal gating
+        String pointInTime = optionalString(args, "point_in_time", "");
+        if (!pointInTime.isBlank()) {
+            try {
+                long maxTs = Instant.parse(pointInTime.strip()).toEpochMilli();
+                builder.maxTimestamp(maxTs);
+            } catch (DateTimeParseException e) {
+                // Invalid timestamp — ignore, use current time
+            }
         }
 
         RecallOptions options = builder.build();
