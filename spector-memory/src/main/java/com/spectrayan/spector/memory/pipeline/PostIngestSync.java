@@ -138,6 +138,9 @@ final class PostIngestSync {
     /**
      * Executes post-ingest synchronization (Steps 7b-9a).
      *
+     * <p>Write order is deliberate: text.dat is written FIRST so the byte position
+     * can be captured and stored in MemoryLocation for off-heap random access.</p>
+     *
      * @param params sync parameters
      * @return the HNSW store index (-1 if not indexed)
      */
@@ -150,20 +153,25 @@ final class PostIngestSync {
             semanticIndex.add(params.id(), storeIndex, params.vector());
         }
 
-        // Step 8: Register in ID index
+        // Step 9a (moved earlier): Write text.dat FIRST to capture byte position
+        var textPos = syncTextIndex(params.id(), params.text(), params.type());
+
+        // Step 8: Register in ID index (with text.dat byte offsets for off-heap reads)
+        long textOffset = (textPos != null) ? textPos.textOffset() : -1L;
+        int textLength = (textPos != null) ? textPos.textLength() : -1;
+        var location = new MemoryLocation(params.type(), params.offset(), storeIndex,
+                textOffset, textLength);
+
         if (params.metadata() != null) {
-            index.register(params.id(), new MemoryLocation(params.type(), params.offset(), storeIndex),
+            index.register(params.id(), location,
                     params.text(), params.source(), params.tags(), params.metadata());
         } else {
-            index.register(params.id(), new MemoryLocation(params.type(), params.offset(), storeIndex),
+            index.register(params.id(), location,
                     params.text(), params.source(), params.tags());
         }
 
         // Step 9: WAL append (encrypt payload when encryption is active)
         wal.appendRemember(params.id(), encryptor.encryptPayload(params.quantized()));
-
-        // Step 9a: Index text for BM25 hybrid search (encrypt text in text.dat)
-        syncTextIndex(params.id(), params.text(), params.type());
 
         // Step 9a-splade: SPLADE sparse index (if provider available)
         syncSpladeIndex(params.id(), params.text());
@@ -287,7 +295,9 @@ final class PostIngestSync {
     // PRIVATE HELPERS
     // ══════════════════════════════════════════════════════════════
 
-    private void syncTextIndex(String id, String text, MemoryType type) {
+    private com.spectrayan.spector.memory.cortex.TextDataStore.TextPosition syncTextIndex(
+            String id, String text, MemoryType type) {
+        com.spectrayan.spector.memory.cortex.TextDataStore.TextPosition pos = null;
         if (textDataStore != null) {
             try {
                 String textToStore = text;
@@ -295,7 +305,7 @@ final class PostIngestSync {
                     byte[] encBytes = encryptor.encryptText(text.getBytes(StandardCharsets.UTF_8));
                     textToStore = java.util.Base64.getEncoder().encodeToString(encBytes);
                 }
-                textDataStore.write(id, type, textToStore);
+                pos = textDataStore.write(id, type, textToStore);
             } catch (RuntimeException e) {
                 log.warn("Failed to write text.dat entry for '{}': {}", id, e.getMessage());
             }
@@ -307,6 +317,7 @@ final class PostIngestSync {
                 log.warn("Failed to index '{}' in BM25: {}", id, e.getMessage());
             }
         }
+        return pos;
     }
 
     private void syncSpladeIndex(String id, String text) {

@@ -1115,40 +1115,33 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public List<CognitiveRecord> browse(String... tags) {
         if (tags == null || tags.length == 0) return List.of();
 
-        // Pre-compute query tags as a lowercase Set (O(1) lookup)
-        var queryTagSet = new java.util.HashSet<String>(tags.length);
-        for (String tag : tags) queryTagSet.add(tag.toLowerCase());
+        // O(1) inverted tag index lookup — intersects tag sets for AND semantics
+        var matchingIds = index.idsByAllTags(tags);
+        if (matchingIds.isEmpty()) return List.of();
 
-        var results = new java.util.ArrayList<CognitiveRecord>();
+        var results = new java.util.ArrayList<CognitiveRecord>(matchingIds.size());
 
-        for (var entry : index.locationMap().entrySet()) {
-            String memId = entry.getKey();
-            String[] memTags = index.tags(memId);
-            if (memTags.length < tags.length) continue; // fast-path: can't match if fewer tags
+        for (String memId : matchingIds) {
+            MemoryLocation loc = index.locate(memId);
+            if (loc == null) continue;
 
-            // AND semantics: memory must contain all requested tags
-            var memTagSet = new java.util.HashSet<String>(memTags.length);
-            for (String memTag : memTags) memTagSet.add(memTag.toLowerCase());
+            MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
+            CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
 
-            if (memTagSet.containsAll(queryTagSet)) {
-                MemoryLocation loc = entry.getValue();
-                MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
-                CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
-
-                if (segment != null && layout != null) {
-                    var header = layout.readHeader(segment, loc.offset());
-                    if (!SynapticHeaderConstants.isTombstoned(header.flags())) {
-                        int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
-                        results.add(new CognitiveRecord(
-                                memId, index.text(memId), loc.type(),
-                                index.source(memId), memTags,
-                                header.timestampMs(), header.synapticTags(), header.exactNorm(),
-                                header.importance(), header.agentRecallCount(), spectorRecallCount,
-                                header.centroidId(), header.valence(), header.arousal(),
-                                header.storageStrength(), header.flags(),
-                                null, // no vector for browse (use inspect for full detail)
-                                loc.partitionIndex(), loc.offset()));
-                    }
+            if (segment != null && layout != null) {
+                var header = layout.readHeader(segment, loc.offset());
+                if (!SynapticHeaderConstants.isTombstoned(header.flags())) {
+                    int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
+                    String[] memTags = index.tags(memId);
+                    results.add(new CognitiveRecord(
+                            memId, index.text(memId), loc.type(),
+                            index.source(memId), memTags,
+                            header.timestampMs(), header.synapticTags(), header.exactNorm(),
+                            header.importance(), header.agentRecallCount(), spectorRecallCount,
+                            header.centroidId(), header.valence(), header.arousal(),
+                            header.storageStrength(), header.flags(),
+                            null, // no vector for browse (use inspect for full detail)
+                            loc.partitionIndex(), loc.offset()));
                 }
             }
         }

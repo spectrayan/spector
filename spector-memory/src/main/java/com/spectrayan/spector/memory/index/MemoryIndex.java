@@ -61,9 +61,11 @@ public final class MemoryIndex {
     /** File magic: "MIDX" in ASCII. */
     private static final int INDEX_MAGIC = 0x4D494458;
 
-    /** File format version. */
-    private static final int INDEX_VERSION = 2;
-    /** V1 format (no metadata) — still loadable for backward compatibility. */
+    /** File format version — V3 adds textOffset + textLength for off-heap text reads. */
+    private static final int INDEX_VERSION = 3;
+    /** V2 format (metadata, no text offsets) — still loadable. */
+    private static final int INDEX_VERSION_V2 = 2;
+    /** V1 format (no metadata, no text offsets) — still loadable. */
     private static final int INDEX_VERSION_V1 = 1;
 
     /** File header: 4B magic + 4B version + 4B count + 4B reserved = 16 bytes. */
@@ -72,11 +74,32 @@ public final class MemoryIndex {
     /**
      * Tracks where a memory is physically stored.
      *
+     * <p>Links three storage layers via the same memory ID:</p>
+     * <ul>
+     *   <li>{@code offset} — byte position in the tier's {@code .mem} file (cognitive header + vector)</li>
+     *   <li>{@code textOffset} / {@code textLength} — byte position in {@code text.dat} (raw text)</li>
+     *   <li>{@code partitionIndex} — partition number (episodic only, -1 otherwise)</li>
+     * </ul>
+     *
      * @param type            cognitive tier
-     * @param offset          byte offset within the tier's segment
+     * @param offset          byte offset within the tier's segment (.mem file)
      * @param partitionIndex  partition index (episodic only, -1 otherwise)
+     * @param textOffset      byte offset of the raw text entry in text.dat (-1 if unknown)
+     * @param textLength      byte length of the UTF-8 encoded text in text.dat (-1 if unknown)
      */
-    public record MemoryLocation(MemoryType type, long offset, int partitionIndex) {}
+    public record MemoryLocation(MemoryType type, long offset, int partitionIndex,
+                                  long textOffset, int textLength) {
+
+        /** Compact constructor for sites without text position (WAL replay, migration). */
+        public MemoryLocation(MemoryType type, long offset, int partitionIndex) {
+            this(type, offset, partitionIndex, -1L, -1);
+        }
+
+        /** Returns true if this location has a valid text.dat offset for direct off-heap reads. */
+        public boolean hasTextPosition() {
+            return textOffset >= 0 && textLength >= 0;
+        }
+    }
 
     // ── Forward index: id → metadata ──
     private final ConcurrentHashMap<String, MemoryLocation> locations = new ConcurrentHashMap<>();
@@ -89,6 +112,9 @@ public final class MemoryIndex {
 
     // ── Reverse index: (type, offset) → id  [O(1) lookup for recall result assembly] ──
     private final ConcurrentHashMap<Long, String> reverseIndex = new ConcurrentHashMap<>();
+
+    // ── Inverted tag index: tag → Set<memId>  [O(1) tag-based lookup for browse()] ──
+    private final ConcurrentHashMap<String, java.util.Set<String>> tagToIds = new ConcurrentHashMap<>();
 
     /**
      * Computes the reverse-index key from a memory type and byte offset.
@@ -142,6 +168,15 @@ public final class MemoryIndex {
 
         // O(1) reverse index
         reverseIndex.put(reverseKey(location.type(), location.offset()), id);
+
+        // O(1) inverted tag index — tag → Set<memId>
+        if (tagArray != null) {
+            for (String tag : tagArray) {
+                String normalizedTag = tag.toLowerCase();
+                tagToIds.computeIfAbsent(normalizedTag, _ -> java.util.Collections.newSetFromMap(new ConcurrentHashMap<>()))
+                        .add(id);
+            }
+        }
     }
 
     /**
@@ -151,12 +186,26 @@ public final class MemoryIndex {
         MemoryLocation loc = locations.remove(id);
         texts.remove(id);
         sources.remove(id);
-        tags.remove(id);
+        String[] removedTags = tags.remove(id);
         metadataMap.remove(id);
 
         // Clean reverse index
         if (loc != null) {
             reverseIndex.remove(reverseKey(loc.type(), loc.offset()));
+        }
+
+        // Clean inverted tag index
+        if (removedTags != null) {
+            for (String tag : removedTags) {
+                String normalizedTag = tag.toLowerCase();
+                var idSet = tagToIds.get(normalizedTag);
+                if (idSet != null) {
+                    idSet.remove(id);
+                    if (idSet.isEmpty()) {
+                        tagToIds.remove(normalizedTag, idSet);
+                    }
+                }
+            }
         }
     }
 
@@ -190,6 +239,54 @@ public final class MemoryIndex {
      */
     public String[] tags(String id) {
         return tags.getOrDefault(id, EMPTY_TAGS);
+    }
+
+    /**
+     * Returns the set of memory IDs that have the given tag — O(1) lookup.
+     *
+     * <p>Uses the inverted tag index for constant-time retrieval.
+     * Returns an empty set if no memories have the specified tag.</p>
+     *
+     * @param tag the tag to look up (case-insensitive)
+     * @return unmodifiable set of memory IDs with this tag
+     */
+    public java.util.Set<String> idsByTag(String tag) {
+        var ids = tagToIds.get(tag.toLowerCase());
+        return ids != null ? java.util.Collections.unmodifiableSet(ids) : java.util.Set.of();
+    }
+
+    /**
+     * Returns memory IDs matching ALL specified tags (AND semantics) — O(k) where k = smallest tag set.
+     *
+     * <p>Intersects the ID sets from the inverted index. Starts with the smallest set
+     * for optimal intersection performance.</p>
+     *
+     * @param queryTags tags to match (AND semantics)
+     * @return set of memory IDs that contain all specified tags
+     */
+    public java.util.Set<String> idsByAllTags(String... queryTags) {
+        if (queryTags == null || queryTags.length == 0) return java.util.Set.of();
+
+        // Find the smallest set to start intersection
+        java.util.Set<String> smallest = null;
+        for (String tag : queryTags) {
+            var ids = tagToIds.get(tag.toLowerCase());
+            if (ids == null || ids.isEmpty()) return java.util.Set.of(); // no match possible
+            if (smallest == null || ids.size() < smallest.size()) {
+                smallest = ids;
+            }
+        }
+
+        // Intersect with remaining tag sets
+        var result = new java.util.HashSet<>(smallest);
+        for (String tag : queryTags) {
+            var ids = tagToIds.get(tag.toLowerCase());
+            if (ids != smallest) {
+                result.retainAll(ids);
+                if (result.isEmpty()) return java.util.Set.of();
+            }
+        }
+        return java.util.Collections.unmodifiableSet(result);
     }
 
     /** Shared empty metadata map — avoids allocation on cache miss. */
@@ -321,8 +418,9 @@ public final class MemoryIndex {
         // Remove old reverse entry
         reverseIndex.remove(reverseKey(oldLoc.type(), oldLoc.offset()));
 
-        // Update forward index with new offset
-        MemoryLocation newLoc = new MemoryLocation(oldLoc.type(), newOffset, oldLoc.partitionIndex());
+        // Update forward index with new .mem offset (text.dat position unchanged)
+        MemoryLocation newLoc = new MemoryLocation(oldLoc.type(), newOffset, oldLoc.partitionIndex(),
+                oldLoc.textOffset(), oldLoc.textLength());
         locations.put(id, newLoc);
 
         // Add new reverse entry
@@ -446,17 +544,18 @@ public final class MemoryIndex {
                         Integer.toHexString(magic), Integer.toHexString(INDEX_MAGIC));
                 return index;
             }
-            if (version != INDEX_VERSION && version != INDEX_VERSION_V1) {
-                log.warn("Unsupported MemoryIndex version: {} (expected {} or {}), starting fresh",
-                        version, INDEX_VERSION, INDEX_VERSION_V1);
+            if (version != INDEX_VERSION && version != INDEX_VERSION_V2 && version != INDEX_VERSION_V1) {
+                log.warn("Unsupported MemoryIndex version: {} (expected {}, {}, or {}), starting fresh",
+                        version, INDEX_VERSION, INDEX_VERSION_V2, INDEX_VERSION_V1);
                 return index;
             }
 
-            boolean hasMetadata = (version >= INDEX_VERSION);
+            boolean hasMetadata = (version >= INDEX_VERSION_V2);
+            boolean hasTextPosition = (version >= INDEX_VERSION);
 
             // Read entries
             for (int i = 0; i < entryCount; i++) {
-                readEntry(ch, index, hasMetadata);
+                readEntry(ch, index, hasMetadata, hasTextPosition);
             }
 
             log.info("MemoryIndex loaded: {} entries from {}", index.size(), filePath);
@@ -536,15 +635,23 @@ public final class MemoryIndex {
             buf.put(metaValBytes[j]);
         }
 
+        // V3: Text position in text.dat (for off-heap reads)
+        ByteBuffer textPosBuf = ByteBuffer.allocate(8 + 4);
+        textPosBuf.putLong(loc.textOffset());
+        textPosBuf.putInt(loc.textLength());
+        textPosBuf.flip();
+
         buf.flip();
         ch.write(buf);
+        ch.write(textPosBuf);
     }
 
-    private static void readEntry(FileChannel ch, MemoryIndex index, boolean hasMetadata) throws IOException {
+    private static void readEntry(FileChannel ch, MemoryIndex index,
+                                    boolean hasMetadata, boolean hasTextPosition) throws IOException {
         // ID
         String id = readString(ch);
 
-        // Location
+        // Location (base: type + offset + partitionIndex)
         ByteBuffer locBuf = ByteBuffer.allocate(4 + 8 + 4);
         ch.read(locBuf);
         locBuf.flip();
@@ -552,7 +659,6 @@ public final class MemoryIndex {
         long offset = locBuf.getLong();
         int partitionIndex = locBuf.getInt();
         MemoryType type = MemoryType.values()[typeOrd];
-        MemoryLocation loc = new MemoryLocation(type, offset, partitionIndex);
 
         // Text
         String text = readString(ch);
@@ -591,6 +697,18 @@ public final class MemoryIndex {
             }
         }
 
+        // V3: Text position in text.dat
+        long textOffset = -1L;
+        int textLength = -1;
+        if (hasTextPosition) {
+            ByteBuffer tpBuf = ByteBuffer.allocate(8 + 4);
+            ch.read(tpBuf);
+            tpBuf.flip();
+            textOffset = tpBuf.getLong();
+            textLength = tpBuf.getInt();
+        }
+
+        MemoryLocation loc = new MemoryLocation(type, offset, partitionIndex, textOffset, textLength);
         index.register(id, loc, text, source, tagArray, metadata);
     }
 
