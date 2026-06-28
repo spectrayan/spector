@@ -44,7 +44,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * <h3>Thread Safety</h3>
  * <ul>
  *   <li>Concurrent reads are safe (shared arena).</li>
- *   <li>Writes are serialized via {@code synchronized} on write path only.</li>
+ *   <li>Writes are serialized via {@link java.util.concurrent.locks.ReentrantLock}.</li>
  * </ul>
  */
 public class InMemoryVectorStore implements VectorStore {

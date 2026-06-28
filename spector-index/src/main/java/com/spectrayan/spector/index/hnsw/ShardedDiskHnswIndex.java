@@ -36,6 +36,8 @@ import java.util.List;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * Read-only HNSW index backed by multiple memory-mapped shard files.
  *
@@ -209,27 +211,35 @@ public class ShardedDiskHnswIndex implements VectorIndex {
     @Override
     public SimilarityFunction similarityFunction() { return similarityFunction; }
 
+    // Lock for lifecycle operations (ReentrantLock avoids virtual thread pinning — ADR-005)
+    private final ReentrantLock lifecycleLock = new ReentrantLock();
+
     @Override
-    public synchronized void close() {
-        if (!closed) {
-            closed = true;
-            for (Thread t : warmupThreads) {
-                try {
-                    t.interrupt();
-                    t.join(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+    public void close() {
+        lifecycleLock.lock();
+        try {
+            if (!closed) {
+                closed = true;
+                for (Thread t : warmupThreads) {
+                    try {
+                        t.interrupt();
+                        t.join(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
                 }
-            }
-            warmupThreads.clear();
-            for (Shard shard : shards) {
-                try {
-                    shard.close();
-                } catch (IOException e) {
-                    log.warn("Error closing shard {}", shard.filePath(), e);
+                warmupThreads.clear();
+                for (Shard shard : shards) {
+                    try {
+                        shard.close();
+                    } catch (IOException e) {
+                        log.warn("Error closing shard {}", shard.filePath(), e);
+                    }
                 }
+                log.info("ShardedDiskHnswIndex closed: {} shards, dir={}", shards.length, shardDir);
             }
-            log.info("ShardedDiskHnswIndex closed: {} shards, dir={}", shards.length, shardDir);
+        } finally {
+            lifecycleLock.unlock();
         }
     }
 
@@ -266,23 +276,28 @@ public class ShardedDiskHnswIndex implements VectorIndex {
      * @param gracePeriodMs threshold of inactivity in milliseconds
      * @return true if any shards were evicted
      */
-    public synchronized boolean unloadIdle(long gracePeriodMs) {
-        if (closed) return false;
-        long idleMs = System.currentTimeMillis() - lastAccessed;
-        if (idleMs < gracePeriodMs) return false;
+    public boolean unloadIdle(long gracePeriodMs) {
+        lifecycleLock.lock();
+        try {
+            if (closed) return false;
+            long idleMs = System.currentTimeMillis() - lastAccessed;
+            if (idleMs < gracePeriodMs) return false;
 
-        boolean evicted = false;
-        for (Shard shard : shards) {
-            if (shard.segment().isMapped()) {
-                com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(shard.segment());
-                shard.segment().unload();
-                evicted = true;
+            boolean evicted = false;
+            for (Shard shard : shards) {
+                if (shard.segment().isMapped()) {
+                    com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(shard.segment());
+                    shard.segment().unload();
+                    evicted = true;
+                }
             }
+            if (evicted) {
+                log.info("ShardedDiskHnswIndex idle-evicted all shards (idle for {} ms)", idleMs);
+            }
+            return evicted;
+        } finally {
+            lifecycleLock.unlock();
         }
-        if (evicted) {
-            log.info("ShardedDiskHnswIndex idle-evicted all shards (idle for {} ms)", idleMs);
-        }
-        return evicted;
     }
 
     // ─────────────── Accessors ───────────────

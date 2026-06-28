@@ -448,4 +448,223 @@ public class BM25Index implements KeywordIndex {
             }
         }
     }
+
+    // ─────────────── Binary Persistence (bm25.bidx) ───────────────
+
+    /** Magic bytes for the BM25 binary index file format. */
+    private static final int MAGIC = 0x42494458; // "BIDX"
+    private static final int FORMAT_VERSION = 1;
+
+    /**
+     * Saves the current BM25 index to a binary file ({@code bm25.bidx}).
+     *
+     * <p>File format (VERSION 1):</p>
+     * <pre>
+     *   Header:  [4B magic "BIDX"] [4B version] [4B totalDocs] [4B termCount] [8B totalDocLength]
+     *   DocIds:  [4B count] { [4B idLen] [N idBytes] } × count
+     *   DocLens: [4B count] [4B × count docLengths]
+     *   Terms:   [4B termCount] { [4B termLen] [N termBytes] [4B postingsSize]
+     *                              { [4B docIdx] [4B termFreq] }* }
+     * </pre>
+     *
+     * @param filePath path to write (parent directories created if needed)
+     */
+    public void save(java.nio.file.Path filePath) {
+        rwLock.readLock().lock();
+        try {
+            java.nio.file.Path parent = filePath.getParent();
+            if (parent != null) {
+                java.nio.file.Files.createDirectories(parent);
+            }
+
+            try (var ch = java.nio.channels.FileChannel.open(filePath,
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.WRITE,
+                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING)) {
+
+                // ── Header: 24 bytes ──
+                java.nio.ByteBuffer header = java.nio.ByteBuffer.allocate(24);
+                header.putInt(MAGIC);
+                header.putInt(FORMAT_VERSION);
+                header.putInt(totalDocs);
+                header.putInt(invertedIndex.size());
+                header.putLong(totalDocLength);
+                header.flip();
+                ch.write(header);
+
+                // ── DocIds ──
+                int docCount = docIds.size();
+                java.nio.ByteBuffer docCountBuf = java.nio.ByteBuffer.allocate(4);
+                docCountBuf.putInt(docCount);
+                docCountBuf.flip();
+                ch.write(docCountBuf);
+                for (String id : docIds) {
+                    byte[] idBytes = id.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    java.nio.ByteBuffer idBuf = java.nio.ByteBuffer.allocate(4 + idBytes.length);
+                    idBuf.putInt(idBytes.length);
+                    idBuf.put(idBytes);
+                    idBuf.flip();
+                    ch.write(idBuf);
+                }
+
+                // ── DocLengths ──
+                java.nio.ByteBuffer docLenHeader = java.nio.ByteBuffer.allocate(4 + docCount * 4);
+                docLenHeader.putInt(docCount);
+                for (int i = 0; i < docCount; i++) {
+                    docLenHeader.putInt(docLengthsArray[i]);
+                }
+                docLenHeader.flip();
+                ch.write(docLenHeader);
+
+                // ── Terms + Postings ──
+                java.nio.ByteBuffer termCountBuf = java.nio.ByteBuffer.allocate(4);
+                termCountBuf.putInt(invertedIndex.size());
+                termCountBuf.flip();
+                ch.write(termCountBuf);
+                for (var entry : invertedIndex.entrySet()) {
+                    byte[] termBytes = entry.getKey().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    PostingList pl = entry.getValue();
+                    // term header: termLen + termBytes + postingsSize
+                    java.nio.ByteBuffer termBuf = java.nio.ByteBuffer.allocate(
+                            4 + termBytes.length + 4 + pl.size * 8);
+                    termBuf.putInt(termBytes.length);
+                    termBuf.put(termBytes);
+                    termBuf.putInt(pl.size);
+                    for (int i = 0; i < pl.size; i++) {
+                        termBuf.putInt(pl.docIndices[i]);
+                        termBuf.putInt(pl.termFrequencies[i]);
+                    }
+                    termBuf.flip();
+                    ch.write(termBuf);
+                }
+
+                ch.force(true);
+                log.info("BM25 index saved: {} docs, {} terms → {}",
+                        totalDocs, invertedIndex.size(), filePath);
+            }
+        } catch (java.io.IOException e) {
+            log.error("Failed to save BM25 index to {}", filePath, e);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Loads a BM25 index from a binary file ({@code bm25.bidx}).
+     *
+     * @param filePath path to the binary index file
+     * @return the loaded BM25Index, or null if the file doesn't exist or is invalid
+     */
+    public static BM25Index load(java.nio.file.Path filePath) {
+        if (!java.nio.file.Files.exists(filePath)) {
+            return null;
+        }
+
+        try (var ch = java.nio.channels.FileChannel.open(filePath,
+                java.nio.file.StandardOpenOption.READ)) {
+
+            // ── Header ──
+            java.nio.ByteBuffer header = java.nio.ByteBuffer.allocate(24);
+            ch.read(header);
+            header.flip();
+            int magic = header.getInt();
+            if (magic != MAGIC) {
+                log.warn("Invalid BM25 index magic: expected 0x{}, got 0x{}",
+                        Integer.toHexString(MAGIC), Integer.toHexString(magic));
+                return null;
+            }
+            int version = header.getInt();
+            if (version != FORMAT_VERSION) {
+                log.warn("Unsupported BM25 index version: {}", version);
+                return null;
+            }
+            int savedTotalDocs = header.getInt();
+            int termCount = header.getInt();
+            long savedTotalDocLength = header.getLong();
+
+            BM25Index idx = new BM25Index();
+
+            // ── DocIds ──
+            java.nio.ByteBuffer docCountBuf = java.nio.ByteBuffer.allocate(4);
+            ch.read(docCountBuf);
+            docCountBuf.flip();
+            int docCount = docCountBuf.getInt();
+            for (int i = 0; i < docCount; i++) {
+                java.nio.ByteBuffer lenBuf = java.nio.ByteBuffer.allocate(4);
+                ch.read(lenBuf);
+                lenBuf.flip();
+                int idLen = lenBuf.getInt();
+                java.nio.ByteBuffer idBuf = java.nio.ByteBuffer.allocate(idLen);
+                ch.read(idBuf);
+                idBuf.flip();
+                String id = new String(idBuf.array(), 0, idLen, java.nio.charset.StandardCharsets.UTF_8);
+                idx.docIds.add(id);
+                idx.docIdToIndex.put(id, i);
+            }
+
+            // ── DocLengths ──
+            java.nio.ByteBuffer docLenHeader = java.nio.ByteBuffer.allocate(4);
+            ch.read(docLenHeader);
+            docLenHeader.flip();
+            int docLenCount = docLenHeader.getInt();
+            if (docLenCount > idx.docLengthsCapacity) {
+                idx.docLengthsCapacity = docLenCount;
+                idx.docLengthsArray = new int[docLenCount];
+            }
+            if (docLenCount > 0) {
+                java.nio.ByteBuffer lensBuf = java.nio.ByteBuffer.allocate(docLenCount * 4);
+                ch.read(lensBuf);
+                lensBuf.flip();
+                for (int i = 0; i < docLenCount; i++) {
+                    idx.docLengthsArray[i] = lensBuf.getInt();
+                }
+            }
+
+            // ── Terms + Postings ──
+            java.nio.ByteBuffer termCountBuf2 = java.nio.ByteBuffer.allocate(4);
+            ch.read(termCountBuf2);
+            termCountBuf2.flip();
+            int savedTermCount = termCountBuf2.getInt();
+            for (int t = 0; t < savedTermCount; t++) {
+                java.nio.ByteBuffer termLenBuf = java.nio.ByteBuffer.allocate(4);
+                ch.read(termLenBuf);
+                termLenBuf.flip();
+                int termLen = termLenBuf.getInt();
+
+                java.nio.ByteBuffer termBuf = java.nio.ByteBuffer.allocate(termLen);
+                ch.read(termBuf);
+                termBuf.flip();
+                String term = new String(termBuf.array(), 0, termLen, java.nio.charset.StandardCharsets.UTF_8);
+
+                java.nio.ByteBuffer postCountBuf = java.nio.ByteBuffer.allocate(4);
+                ch.read(postCountBuf);
+                postCountBuf.flip();
+                int postingsSize = postCountBuf.getInt();
+
+                PostingList pl = new PostingList(Math.max(postingsSize, 16));
+                if (postingsSize > 0) {
+                    java.nio.ByteBuffer postBuf = java.nio.ByteBuffer.allocate(postingsSize * 8);
+                    ch.read(postBuf);
+                    postBuf.flip();
+                    for (int p = 0; p < postingsSize; p++) {
+                        pl.add(postBuf.getInt(), postBuf.getInt());
+                    }
+                }
+                idx.invertedIndex.put(term, pl);
+            }
+
+            // ── Restore computed state ──
+            idx.totalDocs = savedTotalDocs;
+            idx.totalDocLength = savedTotalDocLength;
+            idx.avgDocLength = savedTotalDocs > 0 ? (double) savedTotalDocLength / savedTotalDocs : 0;
+
+            log.info("BM25 index loaded: {} docs, {} terms ← {}",
+                    savedTotalDocs, savedTermCount, filePath);
+            return idx;
+
+        } catch (java.io.IOException e) {
+            log.error("Failed to load BM25 index from {}", filePath, e);
+            return null;
+        }
+    }
 }

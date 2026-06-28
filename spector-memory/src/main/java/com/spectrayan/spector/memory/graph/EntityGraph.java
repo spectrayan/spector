@@ -86,11 +86,7 @@ public final class EntityGraph implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(EntityGraph.class);
 
-    /** File magic: "EGPH" in ASCII. */
-    private static final int FILE_MAGIC = 0x45475048;
-    /** File format version. */
-    private static final int FILE_VERSION = 1;
-    private static final int FILE_HEADER_BYTES = 24; // magic + version + entityCap + edgeCap + entityCount + edgeCount
+
 
     /** Default adjacency slots allocated per entity on first link. */
     static final int DEFAULT_ADJ_PER_ENTITY = 8;
@@ -191,6 +187,22 @@ public final class EntityGraph implements AutoCloseable {
     public EntityGraph(int entityCapacity) {
         this(entityCapacity, entityCapacity * MAX_DEGREE);
     }
+
+    /**
+     * Package-private factory for constructing a graph from pre-loaded segments.
+     * Used by {@link EntityGraphSerializer#load}.
+     */
+    static EntityGraph fromLoaded(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
+                                  Arena arena, MemorySegment entitySegment, MemorySegment edgeSegment,
+                                  MemorySegment adjacencySegment, int adjSegmentCapacity, int adjHighWaterMark,
+                                  ConcurrentHashMap<String, Integer> nameIndex,
+                                  TypeRegistry entityTypeRegistry, TypeRegistry relationTypeRegistry) {
+        return new EntityGraph(entityCapacity, edgeCapacity, entityCount, edgeCount,
+                arena, entitySegment, edgeSegment, adjacencySegment,
+                adjSegmentCapacity, adjHighWaterMark, nameIndex,
+                entityTypeRegistry, relationTypeRegistry);
+    }
+
 
     /**
      * Private constructor for loading from pre-existing segments.
@@ -1021,7 +1033,7 @@ public final class EntityGraph implements AutoCloseable {
     public record TraversalResult(int entityId, int hopDistance) {}
 
     // ══════════════════════════════════════════════════════════════
-    // PERSISTENCE: save / load
+    // PERSISTENCE: save / load (delegated to EntityGraphSerializer)
     // ══════════════════════════════════════════════════════════════
 
     /**
@@ -1036,118 +1048,11 @@ public final class EntityGraph implements AutoCloseable {
     /**
      * Saves the graph to a binary file with optional name index encryption.
      *
-     * <p>When a non-null, enabled {@link DataEncryptor} is provided, the name
-     * index section is encrypted as a single AES-256-GCM blob. A 1-byte flag
-     * precedes the name index data: {@code 0x00} = plaintext, {@code 0x01} = encrypted.
-     * This ensures backward compatibility — files saved without encryption can
-     * still be loaded by newer code that expects the flag.</p>
-     *
      * @param filePath  path to write
      * @param encryptor optional encryptor for name index (null = no encryption)
      */
     public void save(Path filePath, DataEncryptor encryptor) {
-        Path parent = filePath.getParent();
-        if (parent != null) {
-            try {
-                Files.createDirectories(parent);
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("EntityGraph", parent, e);
-            }
-        }
-
-        try (FileChannel ch = FileChannel.open(filePath,
-                StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                StandardOpenOption.TRUNCATE_EXISTING)) {
-
-            // Header: magic + version + entityCap + edgeCap + entityCount + edgeCount
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            header.putInt(FILE_MAGIC);
-            header.putInt(FILE_VERSION);
-            header.putInt(entityCapacity);
-            header.putInt(edgeCapacity);
-            header.putInt(entityCount);
-            header.putInt(edgeCount);
-            header.flip();
-            ch.write(header);
-
-            // Write entity segment
-            writeSegment(ch, entitySegment, (long) ENTITY_NODE_BYTES * entityCapacity);
-
-            // Write edge segment
-            writeSegment(ch, edgeSegment, (long) EDGE_BYTES * edgeCapacity);
-
-            // Write adjacency segment header: [adjSegmentCapacity:4B][adjHighWaterMark:4B]
-            ByteBuffer adjHeader = ByteBuffer.allocate(8);
-            adjHeader.putInt(adjSegmentCapacity);
-            adjHeader.putInt(adjHighWaterMark);
-            adjHeader.flip();
-            ch.write(adjHeader);
-
-            // Write adjacency segment data (only up to high water mark)
-            if (adjHighWaterMark > 0) {
-                writeSegment(ch, adjacencySegment, (long) ADJ_ENTRY_BYTES * adjHighWaterMark);
-            }
-
-            // Write name index (on-heap → serialized, optionally encrypted)
-            boolean encrypt = encryptor != null && encryptor.isEnabled();
-
-            // Serialize name index to a byte array first
-            java.io.ByteArrayOutputStream nameStream = new java.io.ByteArrayOutputStream();
-            java.nio.ByteBuffer nameCountBuf = ByteBuffer.allocate(4);
-            nameCountBuf.putInt(nameIndex.size());
-            nameCountBuf.flip();
-            nameStream.write(nameCountBuf.array());
-
-            for (Map.Entry<String, Integer> entry : nameIndex.entrySet()) {
-                byte[] nameBytes = entry.getKey().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                ByteBuffer entryBuf = ByteBuffer.allocate(4 + nameBytes.length + 4);
-                entryBuf.putInt(nameBytes.length);
-                entryBuf.put(nameBytes);
-                entryBuf.putInt(entry.getValue());
-                entryBuf.flip();
-                nameStream.write(entryBuf.array());
-            }
-
-            byte[] nameIndexBytes = nameStream.toByteArray();
-
-            // Write encryption flag: 0x00 = plaintext, 0x01 = encrypted
-            ByteBuffer flagBuf = ByteBuffer.allocate(1);
-            flagBuf.put(encrypt ? (byte) 0x01 : (byte) 0x00);
-            flagBuf.flip();
-            ch.write(flagBuf);
-
-            if (encrypt) {
-                byte[] encrypted = encryptor.encryptText(nameIndexBytes);
-                // Write encrypted blob length + blob
-                ByteBuffer blobLenBuf = ByteBuffer.allocate(4);
-                blobLenBuf.putInt(encrypted.length);
-                blobLenBuf.flip();
-                ch.write(blobLenBuf);
-                ch.write(ByteBuffer.wrap(encrypted));
-                log.info("EntityGraph name index encrypted: {} names, {} plaintext bytes → {} encrypted bytes",
-                        nameIndex.size(), nameIndexBytes.length, encrypted.length);
-            } else {
-                // Write plaintext name index directly
-                ch.write(ByteBuffer.wrap(nameIndexBytes));
-            }
-
-            ch.force(true);
-            log.info("EntityGraph saved: entities={}, edges={}, adjEntries={}, nameIndexEncrypted={} → {}",
-                    entityCount, edgeCount, adjHighWaterMark, encrypt, filePath);
-
-        } catch (IOException e) {
-            throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
-        }
-
-        // Persist TypeRegistries alongside the graph file
-        if (parent != null) {
-            try {
-                entityTypeRegistry.save(StorageLayout.entityTypes(parent));
-                relationTypeRegistry.save(StorageLayout.relationTypes(parent));
-            } catch (IOException e) {
-                log.error("Failed to save TypeRegistries alongside EntityGraph: {}", e.getMessage());
-            }
-        }
+        EntityGraphSerializer.save(this, filePath, encryptor);
     }
 
     /**
@@ -1159,7 +1064,7 @@ public final class EntityGraph implements AutoCloseable {
      * @return an EntityGraph (loaded or new)
      */
     public static EntityGraph load(Path filePath, int defaultEntityCap, int defaultEdgeCap) {
-        return load(filePath, defaultEntityCap, defaultEdgeCap, null);
+        return EntityGraphSerializer.load(filePath, defaultEntityCap, defaultEdgeCap, null);
     }
 
     /**
@@ -1173,223 +1078,20 @@ public final class EntityGraph implements AutoCloseable {
      */
     public static EntityGraph load(Path filePath, int defaultEntityCap, int defaultEdgeCap,
                                     DataEncryptor encryptor) {
-        if (filePath == null || !Files.exists(filePath)) {
-            log.info("EntityGraph file not found, creating fresh: {}", filePath);
-            return new EntityGraph(defaultEntityCap, defaultEdgeCap);
-        }
-
-        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            long fileSize = ch.size();
-            if (fileSize < FILE_HEADER_BYTES) {
-                log.warn("EntityGraph file too small ({}B), creating fresh", fileSize);
-                return new EntityGraph(defaultEntityCap, defaultEdgeCap);
-            }
-
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            ch.read(header);
-            header.flip();
-
-            int magic = header.getInt();
-            int version = header.getInt();
-            int entityCap = header.getInt();
-            int edgeCap = header.getInt();
-            int entCount = header.getInt();
-            int edgCount = header.getInt();
-
-            if (magic != FILE_MAGIC || version != FILE_VERSION) {
-                log.warn("Incompatible EntityGraph file (magic={}, version={}), creating fresh",
-                        Integer.toHexString(magic), version);
-                return new EntityGraph(defaultEntityCap, defaultEdgeCap);
-            }
-
-            // Validate file has enough data for the segments declared in the header
-            long minExpectedBytes = FILE_HEADER_BYTES
-                    + (long) ENTITY_NODE_BYTES * entityCap
-                    + (long) EDGE_BYTES * edgeCap
-                    + 8; // adjacency header (adjCap + adjHwm)
-            if (fileSize < minExpectedBytes) {
-                log.warn("EntityGraph file truncated ({}B < expected {}B), creating fresh",
-                        fileSize, minExpectedBytes);
-                return new EntityGraph(defaultEntityCap, defaultEdgeCap);
-            }
-
-            Arena arena = Arena.ofShared();
-
-            // Read entity segment
-            long entityBytes = (long) ENTITY_NODE_BYTES * entityCap;
-            MemorySegment entSeg = arena.allocate(entityBytes);
-            readSegment(ch, entSeg, entityBytes);
-
-            // Read edge segment
-            long edgeBytes = (long) EDGE_BYTES * edgeCap;
-            MemorySegment edgSeg = arena.allocate(edgeBytes);
-            readSegment(ch, edgSeg, edgeBytes);
-
-            // Read adjacency header
-            ByteBuffer adjHeaderBuf = ByteBuffer.allocate(8);
-            ch.read(adjHeaderBuf);
-            adjHeaderBuf.flip();
-            int adjCap = adjHeaderBuf.getInt();
-            int adjHwm = adjHeaderBuf.getInt();
-
-            // Read adjacency segment
-            MemorySegment adjSeg = arena.allocate((long) ADJ_ENTRY_BYTES * adjCap);
-            adjSeg.fill((byte) 0);
-            if (adjHwm > 0) {
-                readSegment(ch, adjSeg, (long) ADJ_ENTRY_BYTES * adjHwm);
-            }
-
-            // Read name index (with encryption flag detection)
-            ConcurrentHashMap<String, Integer> names = readNameIndex(ch, encryptor);
-
-            // Load TypeRegistries — use persisted files if available, else seed from defaults
-            Path graphParent = filePath.getParent();
-            TypeRegistry entityTypes = TypeRegistry.load(
-                    StorageLayout.entityTypes(graphParent),
-                    "entity-type", EntityType.SEED);
-            TypeRegistry relationTypes = TypeRegistry.load(
-                    StorageLayout.relationTypes(graphParent),
-                    "relation-type", RelationType.SEED);
-
-            EntityGraph graph = new EntityGraph(entityCap, edgeCap, entCount, edgCount,
-                    arena, entSeg, edgSeg, adjSeg, adjCap, adjHwm, names,
-                    entityTypes, relationTypes);
-            graph.dataEncryptor = encryptor;  // Preserve for subsequent saves
-            log.info("EntityGraph loaded: entities={}, edges={}, adjEntries={}, encryptor={} from {}",
-                    entCount, edgCount, adjHwm,
-                    encryptor != null && encryptor.isEnabled() ? "enabled" : "none", filePath);
-            return graph;
-
-        } catch (Exception e) {
-            log.error("Failed to load EntityGraph, creating fresh: {}", e.getMessage());
-            return new EntityGraph(defaultEntityCap, defaultEdgeCap);
-        }
+        return EntityGraphSerializer.load(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
     }
 
-    /**
-     * Reads the name index from a file channel.
-     */
-    /**
-     * Reads the name index from a file channel, handling both encrypted and plaintext formats.
-     *
-     * <p>Detects the encryption flag byte: {@code 0x01} = encrypted (read blob, decrypt, parse),
-     * {@code 0x00} = plaintext (parse inline). For backward compatibility with files saved before
-     * the encryption flag was added, if the first byte looks like a valid name count (not 0x00 or 0x01),
-     * it falls back to legacy parsing.</p>
-     */
-    private static ConcurrentHashMap<String, Integer> readNameIndex(
-            FileChannel ch, DataEncryptor encryptor) throws IOException {
-        // Read the encryption flag byte
-        ByteBuffer flagBuf = ByteBuffer.allocate(1);
-        ch.read(flagBuf);
-        flagBuf.flip();
-        byte flag = flagBuf.get();
+    // ── Package-private accessors for EntityGraphSerializer ──
 
-        if (flag == 0x01) {
-            // Encrypted name index — read blob length + blob, decrypt, parse
-            ByteBuffer blobLenBuf = ByteBuffer.allocate(4);
-            ch.read(blobLenBuf);
-            blobLenBuf.flip();
-            int blobLen = blobLenBuf.getInt();
-
-            ByteBuffer blobBuf = ByteBuffer.allocate(blobLen);
-            ch.read(blobBuf);
-            blobBuf.flip();
-            byte[] encrypted = new byte[blobLen];
-            blobBuf.get(encrypted);
-
-            if (encryptor == null || !encryptor.isEnabled()) {
-                log.error("EntityGraph name index is encrypted but no encryptor available — names will be empty");
-                return new ConcurrentHashMap<>();
-            }
-
-            byte[] decrypted = encryptor.decryptText(encrypted);
-            return parseNameIndexBytes(decrypted);
-
-        } else if (flag == 0x00) {
-            // Plaintext name index with flag — parse from channel
-            return readNameIndexFromChannel(ch);
-
-        } else {
-            // Legacy format (no flag byte) — the byte we read is actually part of the
-            // name count int. Seek back 1 byte and read the full name count.
-            ch.position(ch.position() - 1);
-            return readNameIndexFromChannel(ch);
-        }
-    }
-
-    /** Reads a plaintext name index from the current file channel position. */
-    private static ConcurrentHashMap<String, Integer> readNameIndexFromChannel(
-            FileChannel ch) throws IOException {
-        ConcurrentHashMap<String, Integer> names = new ConcurrentHashMap<>();
-        ByteBuffer countBuf = ByteBuffer.allocate(4);
-        ch.read(countBuf);
-        countBuf.flip();
-        int nameCount = countBuf.getInt();
-
-        for (int i = 0; i < nameCount; i++) {
-            ByteBuffer lenBuf = ByteBuffer.allocate(4);
-            ch.read(lenBuf);
-            lenBuf.flip();
-            int len = lenBuf.getInt();
-
-            ByteBuffer nameBuf = ByteBuffer.allocate(len);
-            ch.read(nameBuf);
-            nameBuf.flip();
-            String name = new String(nameBuf.array(), 0, len, java.nio.charset.StandardCharsets.UTF_8);
-
-            ByteBuffer idBuf = ByteBuffer.allocate(4);
-            ch.read(idBuf);
-            idBuf.flip();
-            int id = idBuf.getInt();
-
-            names.put(name, id);
-        }
-        return names;
-    }
-
-    /** Parses a name index from a decrypted byte array. */
-    private static ConcurrentHashMap<String, Integer> parseNameIndexBytes(byte[] data) {
-        ConcurrentHashMap<String, Integer> names = new ConcurrentHashMap<>();
-        ByteBuffer buf = ByteBuffer.wrap(data);
-        int nameCount = buf.getInt();
-
-        for (int i = 0; i < nameCount; i++) {
-            int len = buf.getInt();
-            byte[] nameBytes = new byte[len];
-            buf.get(nameBytes);
-            String name = new String(nameBytes, java.nio.charset.StandardCharsets.UTF_8);
-            int id = buf.getInt();
-            names.put(name, id);
-        }
-        return names;
-    }
-
-    private static void writeSegment(FileChannel ch, MemorySegment seg, long totalBytes)
-            throws IOException {
-        long written = 0;
-        int chunkSize = 64 * 1024;
-        while (written < totalBytes) {
-            int toWrite = (int) Math.min(chunkSize, totalBytes - written);
-            ByteBuffer buf = seg.asSlice(written, toWrite).asByteBuffer().asReadOnlyBuffer();
-            ch.write(buf);
-            written += toWrite;
-        }
-    }
-
-    private static void readSegment(FileChannel ch, MemorySegment seg, long totalBytes)
-            throws IOException {
-        long read = 0;
-        int chunkSize = 64 * 1024;
-        while (read < totalBytes) {
-            int toRead = (int) Math.min(chunkSize, totalBytes - read);
-            ByteBuffer buf = ByteBuffer.allocate(toRead);
-            ch.read(buf);
-            buf.flip();
-            MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, seg, read, toRead);
-            read += toRead;
-        }
-    }
+    int entityCapacity() { return entityCapacity; }
+    int edgeCapacity() { return edgeCapacity; }
+    MemorySegment entitySegment() { return entitySegment; }
+    MemorySegment edgeSegment() { return edgeSegment; }
+    MemorySegment adjacencySegment() { return adjacencySegment; }
+    int adjSegmentCapacity() { return adjSegmentCapacity; }
+    ConcurrentHashMap<String, Integer> nameIndexInternal() { return nameIndex; }
+    TypeRegistry entityTypeRegistry() { return entityTypeRegistry; }
+    TypeRegistry relationTypeRegistry() { return relationTypeRegistry; }
 
     /**
      * Resets all entities, edges, and adjacency data by zero-filling segments.

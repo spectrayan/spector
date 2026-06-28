@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.error;
 
-import com.spectrayan.spector.commons.error.*;
+import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * Exception thrown when graph persistence (save/load) fails.

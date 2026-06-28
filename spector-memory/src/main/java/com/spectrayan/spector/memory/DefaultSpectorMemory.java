@@ -24,6 +24,7 @@ import com.spectrayan.spector.embed.PipelineEmbeddingResult;
 import com.spectrayan.spector.embed.SparseEncodingProvider;
 import com.spectrayan.spector.embed.TextGenerationProvider;
 import com.spectrayan.spector.embed.TokenEmbeddingProvider;
+import com.spectrayan.spector.index.BM25Index;
 import com.spectrayan.spector.index.ColBERTReranker;
 import com.spectrayan.spector.index.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
@@ -200,6 +201,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ── Shutdown Hook (auto-registered for DISK mode) ──
     private final Thread shutdownHook;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+
+    // ── BM25 Binary Persistence (P1: save on close for instant next startup) ──
+    private final MemoryBM25Index bm25Index;
 
     // ── Chunking for remember() ──
     private final TextChunker chunker;
@@ -420,17 +424,33 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         int activePartitionIndex;
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
             textDataStore = new TextDataStore(StorageLayout.textDat(resolvedPartitionDir));
+            // Call readAll() to establish the mmap'd segment for off-heap text reads.
+            var textEntries = textDataStore.readAll();
+            // P0: wire TextDataStore into MemoryIndex for off-heap text() resolution
+            index.setTextDataStore(textDataStore);
+
+            // P1: Try loading pre-built BM25 binary index (instant load vs O(n) rebuild)
+            java.nio.file.Path bm25Path = StorageLayout.bm25Bidx(resolvedPartitionDir);
+            BM25Index loadedBm25 = BM25Index.load(bm25Path);
             bm25Index = new MemoryBM25Index(1);
-            Map<String, String> allTexts = new java.util.HashMap<>();
-            for (var entry : index.locationMap().entrySet()) {
-                String text = index.text(entry.getKey());
-                if (text != null && !text.isEmpty()) {
-                    allTexts.put(entry.getKey(), text);
+            if (loadedBm25 != null) {
+                bm25Index.setPartition(0, loadedBm25);
+                log.info("BM25 loaded from binary index: {} docs", loadedBm25.size());
+            } else {
+                // Fall back to expensive rebuild from text data
+                Map<String, String> allTexts = new java.util.HashMap<>();
+                for (var entry : index.locationMap().entrySet()) {
+                    String text = index.text(entry.getKey());
+                    if (text != null && !text.isEmpty()) {
+                        allTexts.put(entry.getKey(), text);
+                    }
                 }
-            }
-            if (!allTexts.isEmpty()) {
-                bm25Index.rebuildPartition(0, allTexts);
-                log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
+                if (!allTexts.isEmpty()) {
+                    bm25Index.rebuildPartition(0, allTexts);
+                    log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
+                    // Save the rebuilt index for instant load on next startup
+                    bm25Index.partition(0).save(bm25Path);
+                }
             }
             activePartitionIndex = 0;
         } else {
@@ -438,6 +458,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             textDataStore = null;
             activePartitionIndex = 0;
         }
+        this.bm25Index = bm25Index;
 
         // ── SPLADE Index (auto-created when provider is configured) ──
         com.spectrayan.spector.memory.cortex.MemorySpladeIndex memorySpladeIndex = null;
@@ -1115,40 +1136,33 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public List<CognitiveRecord> browse(String... tags) {
         if (tags == null || tags.length == 0) return List.of();
 
-        // Pre-compute query tags as a lowercase Set (O(1) lookup)
-        var queryTagSet = new java.util.HashSet<String>(tags.length);
-        for (String tag : tags) queryTagSet.add(tag.toLowerCase());
+        // O(1) inverted tag index lookup — intersects tag sets for AND semantics
+        var matchingIds = index.idsByAllTags(tags);
+        if (matchingIds.isEmpty()) return List.of();
 
-        var results = new java.util.ArrayList<CognitiveRecord>();
+        var results = new java.util.ArrayList<CognitiveRecord>(matchingIds.size());
 
-        for (var entry : index.locationMap().entrySet()) {
-            String memId = entry.getKey();
-            String[] memTags = index.tags(memId);
-            if (memTags.length < tags.length) continue; // fast-path: can't match if fewer tags
+        for (String memId : matchingIds) {
+            MemoryLocation loc = index.locate(memId);
+            if (loc == null) continue;
 
-            // AND semantics: memory must contain all requested tags
-            var memTagSet = new java.util.HashSet<String>(memTags.length);
-            for (String memTag : memTags) memTagSet.add(memTag.toLowerCase());
+            MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
+            CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
 
-            if (memTagSet.containsAll(queryTagSet)) {
-                MemoryLocation loc = entry.getValue();
-                MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
-                CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
-
-                if (segment != null && layout != null) {
-                    var header = layout.readHeader(segment, loc.offset());
-                    if (!SynapticHeaderConstants.isTombstoned(header.flags())) {
-                        int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
-                        results.add(new CognitiveRecord(
-                                memId, index.text(memId), loc.type(),
-                                index.source(memId), memTags,
-                                header.timestampMs(), header.synapticTags(), header.exactNorm(),
-                                header.importance(), header.agentRecallCount(), spectorRecallCount,
-                                header.centroidId(), header.valence(), header.arousal(),
-                                header.storageStrength(), header.flags(),
-                                null, // no vector for browse (use inspect for full detail)
-                                loc.partitionIndex(), loc.offset()));
-                    }
+            if (segment != null && layout != null) {
+                var header = layout.readHeader(segment, loc.offset());
+                if (!SynapticHeaderConstants.isTombstoned(header.flags())) {
+                    int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
+                    String[] memTags = index.tags(memId);
+                    results.add(new CognitiveRecord(
+                            memId, index.text(memId), loc.type(),
+                            index.source(memId), memTags,
+                            header.timestampMs(), header.synapticTags(), header.exactNorm(),
+                            header.importance(), header.agentRecallCount(), spectorRecallCount,
+                            header.centroidId(), header.valence(), header.arousal(),
+                            header.storageStrength(), header.flags(),
+                            null, // no vector for browse (use inspect for full detail)
+                            loc.partitionIndex(), loc.offset()));
                 }
             }
         }
@@ -1403,6 +1417,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 checkpointDaemon.checkpoint();
             } catch (Exception e) {
                 log.warn("Final checkpoint on close failed: {}", e.getMessage());
+            }
+        }
+
+        // Save BM25 binary index for instant load on next startup
+        if (persistenceMode == MemoryPersistenceMode.DISK
+                && partitionManager.activePartitionDir() != null
+                && bm25Index != null && bm25Index.totalDocuments() > 0) {
+            try {
+                bm25Index.partition(0).save(
+                        StorageLayout.bm25Bidx(partitionManager.activePartitionDir()));
+            } catch (Exception e) {
+                log.warn("Failed to save BM25 index on close: {}", e.getMessage());
             }
         }
 

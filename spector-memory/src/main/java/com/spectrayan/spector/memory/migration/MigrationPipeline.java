@@ -19,7 +19,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,8 +70,8 @@ public class MigrationPipeline {
     /** Target version to migrate to. */
     private final SchemaVersion targetVersion;
 
-    /** Lock objects per namespace path to prevent concurrent migration. */
-    private final Map<String, Object> migrationLocks = new WeakHashMap<>();
+    /** Lock objects per namespace path to prevent concurrent migration (ADR-005: no synchronized). */
+    private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.locks.ReentrantLock> migrationLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Creates a migration pipeline with the given migrations targeting CURRENT.
@@ -91,7 +95,7 @@ public class MigrationPipeline {
     }
 
     /**
-     * Checks if a namespace needs migration and runs pending steps if so.
+     * Migrates the namespace if its schema version is older than the target.
      *
      * <p>This is the main entry point, called on namespace load. It is
      * idempotent and thread-safe per namespace.</p>
@@ -106,14 +110,12 @@ public class MigrationPipeline {
             return false;
         }
 
-        // Synchronize on namespace path to prevent concurrent migration
-        Object lock;
-        synchronized (migrationLocks) {
-            lock = migrationLocks.computeIfAbsent(
-                    namespaceDir.toAbsolutePath().toString(), k -> new Object());
-        }
+        // Per-namespace lock to prevent concurrent migration
+        java.util.concurrent.locks.ReentrantLock lock = migrationLocks.computeIfAbsent(
+                namespaceDir.toAbsolutePath().toString(), k -> new java.util.concurrent.locks.ReentrantLock());
 
-        synchronized (lock) {
+        lock.lock();
+        try {
             // Re-read inside lock (another thread may have migrated)
             currentVersion = readSchemaVersion(namespaceDir);
             if (!currentVersion.needsMigration(targetVersion)) {
@@ -121,6 +123,8 @@ public class MigrationPipeline {
             }
 
             return executeMigrationChain(namespaceDir, currentVersion);
+        } finally {
+            lock.unlock();
         }
     }
 

@@ -196,6 +196,21 @@ public final class MemoryBM25Index implements AutoCloseable {
     }
 
     /**
+     * Replaces a partition's BM25 index with a pre-built instance.
+     *
+     * <p>Used when loading from a persisted binary index file ({@code bm25.bidx})
+     * to avoid the expensive O(n) rebuild from text.dat on startup.</p>
+     *
+     * @param partitionIndex the partition to replace
+     * @param index          the pre-built BM25Index to install
+     */
+    public void setPartition(int partitionIndex, BM25Index index) {
+        ensurePartition(partitionIndex);
+        partitions.set(partitionIndex, index);
+        log.debug("Set BM25 partition {} with {} documents", partitionIndex, index.size());
+    }
+
+    /**
      * Adds a new empty partition (called when a partition rolls).
      *
      * @return the index of the newly added partition

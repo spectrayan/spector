@@ -575,33 +575,41 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
 
     // ─────────────── Calibration ───────────────
 
+    // Lock for calibration exclusion (ReentrantLock avoids virtual thread pinning — ADR-005)
+    private final java.util.concurrent.locks.ReentrantLock calibrationLock = new java.util.concurrent.locks.ReentrantLock();
+
     /**
      * Auto-calibrates the INT8 scalar quantizer from buffered vectors, builds the
      * strategy, allocates the off-heap segment, and retroactively encodes all buffered
      * vectors.
      */
-    private synchronized void calibrate() {
-        if (strategy != null) return; // already calibrated (concurrent trigger)
-        float[][] sample = Arrays.copyOf(calibrationBuffer, calibrationCount);
-        ScalarQuantizer sq = ScalarQuantizer.calibrate(sample, dimensions);
-        this.quantizer = sq;
+    private void calibrate() {
+        calibrationLock.lock();
+        try {
+            if (strategy != null) return; // already calibrated (concurrent trigger)
+            float[][] sample = Arrays.copyOf(calibrationBuffer, calibrationCount);
+            ScalarQuantizer sq = ScalarQuantizer.calibrate(sample, dimensions);
+            this.quantizer = sq;
 
-        this.strategy = QuantizationStrategyFactory.create(
-                QuantizationType.SCALAR_INT8, sq, null, null, null, similarityFunction);
-        allocateStorageSegment(capacity, strategy.bytesPerVector());
+            this.strategy = QuantizationStrategyFactory.create(
+                    QuantizationType.SCALAR_INT8, sq, null, null, null, similarityFunction);
+            allocateStorageSegment(capacity, strategy.bytesPerVector());
 
-        log.info("QuantizedHnswIndex INT8 auto-calibrated from {} sample vectors", calibrationCount);
+            log.info("QuantizedHnswIndex INT8 auto-calibrated from {} sample vectors", calibrationCount);
 
-        // Retroactively encode all buffered vectors
-        for (int i = 0; i < nodeCount; i++) {
-            if (floatVectors[i] != null) {
-                long offset = (long) i * strategy.bytesPerVector();
-                strategy.encode(floatVectors[i], storageSegment, offset);
+            // Retroactively encode all buffered vectors
+            for (int i = 0; i < nodeCount; i++) {
+                if (floatVectors[i] != null) {
+                    long offset = (long) i * strategy.bytesPerVector();
+                    strategy.encode(floatVectors[i], storageSegment, offset);
+                }
             }
-        }
 
-        calibrationBuffer = null;
-        calibrationCount = 0;
+            calibrationBuffer = null;
+            calibrationCount = 0;
+        } finally {
+            calibrationLock.unlock();
+        }
     }
 
     /**
@@ -611,29 +619,34 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      * <p>Uses {@link SvasqCalibrator#calibrate(float[][], int, int, long)} to avoid
      * the previous {@code Arrays.copyOf} + {@code Arrays.asList} wrapper.
      */
-    private synchronized void calibrateSvasq() {
-        if (strategy != null) return; // already calibrated
-        SvasqParams vParams = SvasqCalibrator.calibrate(
-                calibrationBuffer, calibrationCount, dimensions, svasqSeed);
-        SvasqEncoder enc = new SvasqEncoder(vParams);
-        this.svasqEncoder = enc;
+    private void calibrateSvasq() {
+        calibrationLock.lock();
+        try {
+            if (strategy != null) return; // already calibrated
+            SvasqParams vParams = SvasqCalibrator.calibrate(
+                    calibrationBuffer, calibrationCount, dimensions, svasqSeed);
+            SvasqEncoder enc = new SvasqEncoder(vParams);
+            this.svasqEncoder = enc;
 
-        this.strategy = new SvasqStrategy(enc, similarityFunction);
-        allocateStorageSegment(capacity, strategy.bytesPerVector());
+            this.strategy = new SvasqStrategy(enc, similarityFunction);
+            allocateStorageSegment(capacity, strategy.bytesPerVector());
 
-        log.info("QuantizedHnswIndex SVASQ auto-calibrated: {} sample vectors, paddedDim={}, bpv={}",
-                calibrationCount, vParams.paddedDim(), strategy.bytesPerVector());
+            log.info("QuantizedHnswIndex SVASQ auto-calibrated: {} sample vectors, paddedDim={}, bpv={}",
+                    calibrationCount, vParams.paddedDim(), strategy.bytesPerVector());
 
-        // Retroactively encode all vectors inserted before calibration
-        for (int i = 0; i < nodeCount; i++) {
-            if (floatVectors[i] != null) {
-                long offset = (long) i * strategy.bytesPerVector();
-                strategy.encode(floatVectors[i], storageSegment, offset);
+            // Retroactively encode all vectors inserted before calibration
+            for (int i = 0; i < nodeCount; i++) {
+                if (floatVectors[i] != null) {
+                    long offset = (long) i * strategy.bytesPerVector();
+                    strategy.encode(floatVectors[i], storageSegment, offset);
+                }
             }
-        }
 
-        calibrationBuffer = null;
-        calibrationCount = 0;
+            calibrationBuffer = null;
+            calibrationCount = 0;
+        } finally {
+            calibrationLock.unlock();
+        }
     }
 
     /**
@@ -643,29 +656,34 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      * <p>Uses {@link SvasqCalibrator#calibrate4bit} with tighter clipping (2.5σ) for optimal
      * use of the 15 available INT4 quantization levels.</p>
      */
-    private synchronized void calibrateSvasq4() {
-        if (strategy != null) return;
-        SvasqParams vParams = SvasqCalibrator.calibrate4bit(
-                calibrationBuffer, calibrationCount, dimensions, svasqSeed);
-        Svasq4Encoder enc = new Svasq4Encoder(vParams);
-        this.svasq4Encoder = enc;
+    private void calibrateSvasq4() {
+        calibrationLock.lock();
+        try {
+            if (strategy != null) return;
+            SvasqParams vParams = SvasqCalibrator.calibrate4bit(
+                    calibrationBuffer, calibrationCount, dimensions, svasqSeed);
+            Svasq4Encoder enc = new Svasq4Encoder(vParams);
+            this.svasq4Encoder = enc;
 
-        this.strategy = new Svasq4Strategy(enc, similarityFunction);
-        allocateStorageSegment(capacity, strategy.bytesPerVector());
+            this.strategy = new Svasq4Strategy(enc, similarityFunction);
+            allocateStorageSegment(capacity, strategy.bytesPerVector());
 
-        log.info("QuantizedHnswIndex SVASQ-4 auto-calibrated: {} sample vectors, paddedDim={}, bpv={}",
-                calibrationCount, vParams.paddedDim(), strategy.bytesPerVector());
+            log.info("QuantizedHnswIndex SVASQ-4 auto-calibrated: {} sample vectors, paddedDim={}, bpv={}",
+                    calibrationCount, vParams.paddedDim(), strategy.bytesPerVector());
 
-        // Retroactively encode all vectors inserted before calibration
-        for (int i = 0; i < nodeCount; i++) {
-            if (floatVectors[i] != null) {
-                long offset = (long) i * strategy.bytesPerVector();
-                strategy.encode(floatVectors[i], storageSegment, offset);
+            // Retroactively encode all vectors inserted before calibration
+            for (int i = 0; i < nodeCount; i++) {
+                if (floatVectors[i] != null) {
+                    long offset = (long) i * strategy.bytesPerVector();
+                    strategy.encode(floatVectors[i], storageSegment, offset);
+                }
             }
-        }
 
-        calibrationBuffer = null;
-        calibrationCount = 0;
+            calibrationBuffer = null;
+            calibrationCount = 0;
+        } finally {
+            calibrationLock.unlock();
+        }
     }
 
     private void allocateStorageSegment(int capacity, int bpv) {

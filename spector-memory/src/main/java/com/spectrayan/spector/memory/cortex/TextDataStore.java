@@ -101,6 +101,9 @@ public final class TextDataStore implements AutoCloseable {
     /** Arena managing the mapped segment lifecycle. */
     private Arena mapArena;
 
+    /** Populated during readAll() — maps memoryId → text byte position for backfill. */
+    private final java.util.Map<String, TextPosition> textPositionMap = new java.util.LinkedHashMap<>();
+
     /**
      * Creates a TextDataStore for the given file path.
      *
@@ -131,7 +134,15 @@ public final class TextDataStore implements AutoCloseable {
     public record TextEntry(String id, MemoryType tier, String text) {}
 
     /**
-     * Appends a single text entry to the file.
+     * Position of a text entry within text.dat for off-heap random-access reads.
+     *
+     * @param textOffset byte offset of the text content in text.dat (after entry header)
+     * @param textLength byte length of the UTF-8 encoded text
+     */
+    public record TextPosition(long textOffset, int textLength) {}
+
+    /**
+     * Appends a single text entry to the file and returns its byte position.
      *
      * <p>If the file doesn't exist, creates it with a fresh header.
      * If the file exists, appends the entry and updates the header count.</p>
@@ -139,10 +150,15 @@ public final class TextDataStore implements AutoCloseable {
      * @param id   memory identifier
      * @param tier the cognitive tier
      * @param text the raw text content
+     * @return the byte position of the text within text.dat for direct off-heap reads
      */
-    public void write(String id, MemoryType tier, String text) {
+    public TextPosition write(String id, MemoryType tier, String text) {
         try {
             boolean isNew = !Files.exists(file);
+            byte[] idBytes = id.getBytes(StandardCharsets.UTF_8);
+            byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
+
+            long textOffset;
 
             if (isNew) {
                 // Create new file with header + first entry
@@ -150,29 +166,33 @@ public final class TextDataStore implements AutoCloseable {
                         StandardOpenOption.CREATE_NEW,
                         StandardOpenOption.WRITE)) {
                     writeHeader(ch, 0);
-                    writeEntry(ch, id, tier, text);
+                    // Text offset = header + tier(1) + idLen(4) + id + textLen(4)
+                    textOffset = HEADER_BYTES + 1 + 4 + idBytes.length + 4;
+                    writeEntry(ch, idBytes, tier, textBytes);
                 }
             } else {
                 // Append to existing file
                 try (FileChannel ch = FileChannel.open(file,
                         StandardOpenOption.WRITE)) {
-                    ch.position(ch.size());
-                    writeEntry(ch, id, tier, text);
+                    long entryStart = ch.size();
+                    ch.position(entryStart);
+                    // Text offset = entryStart + tier(1) + idLen(4) + id + textLen(4)
+                    textOffset = entryStart + 1 + 4 + idBytes.length + 4;
+                    writeEntry(ch, idBytes, tier, textBytes);
                 }
             }
 
             entryCount++;
             updateHeaderCount();
 
+            return new TextPosition(textOffset, textBytes.length);
+
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write text entry: " + id, e);
         }
     }
 
-    private void writeEntry(FileChannel ch, String id, MemoryType tier, String text) throws IOException {
-        byte[] idBytes = id.getBytes(StandardCharsets.UTF_8);
-        byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
-
+    private void writeEntry(FileChannel ch, byte[] idBytes, MemoryType tier, byte[] textBytes) throws IOException {
         int entrySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
         ByteBuffer buf = ByteBuffer.allocate(entrySize);
         buf.put((byte) tier.ordinal());
@@ -182,6 +202,23 @@ public final class TextDataStore implements AutoCloseable {
         buf.put(textBytes);
         buf.flip();
         ch.write(buf);
+    }
+
+    /**
+     * Reads text directly from the mmap'd segment at the given offset — zero-copy, off-heap.
+     *
+     * <p>Requires that {@link #readAll()} has been called first to establish the mmap'd segment.
+     * Falls back to null if the segment is not mapped or the position is invalid.</p>
+     *
+     * @param textOffset byte offset of the text in text.dat
+     * @param textLength byte length of the UTF-8 text
+     * @return the text string, or null if the mmap'd segment is unavailable
+     */
+    public String readTextDirect(long textOffset, int textLength) {
+        MemorySegment seg = this.mappedSegment;
+        if (seg == null || textOffset < 0 || textLength < 0) return null;
+        if (textOffset + textLength > seg.byteSize()) return null;
+        return decodeUtf8FromSegment(seg, textOffset, textLength);
     }
 
     /**
@@ -262,6 +299,7 @@ public final class TextDataStore implements AutoCloseable {
                 pos += idLen;
 
                 int textLen = mappedSegment.get(BE_INT, pos);
+                long textDataPos = pos + 4; // byte offset where actual text bytes start
                 pos += 4;
 
                 if (textLen < 0 || textLen > 10_000_000 || pos + textLen > fileSize) {
@@ -275,6 +313,7 @@ public final class TextDataStore implements AutoCloseable {
 
                 MemoryType tier = MemoryType.values()[tierOrd];
                 entries.put(id, new TextEntry(id, tier, text));
+                textPositionMap.put(id, new TextPosition(textDataPos, textLen));
             }
 
             this.entryCount = entries.size();
@@ -290,6 +329,18 @@ public final class TextDataStore implements AutoCloseable {
 
         log.debug("Loaded {} text entries from {} (mmap'd off-heap)", entries.size(), file);
         return entries;
+    }
+
+    /**
+     * Returns text positions collected during {@link #readAll()}.
+     *
+     * <p>Maps memoryId → (textOffset, textLength) within text.dat. Used during
+     * startup to backfill MemoryLocation text positions for V1/V2 indexes.</p>
+     *
+     * @return unmodifiable map of text positions, empty if readAll() not called
+     */
+    public java.util.Map<String, TextPosition> textPositions() {
+        return java.util.Collections.unmodifiableMap(textPositionMap);
     }
 
     /**

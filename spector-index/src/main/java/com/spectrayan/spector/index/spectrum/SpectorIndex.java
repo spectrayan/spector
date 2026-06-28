@@ -193,7 +193,8 @@ public final class SpectorIndex implements VectorIndex {
         this.residualScratch = ThreadLocal.withInitial(() -> new float[dimensions]);
     }
 
-    // ─────────────── Training ───────────────
+    // Lock for training exclusion (ReentrantLock avoids virtual thread pinning — ADR-005)
+    private final ReentrantLock trainLock = new ReentrantLock();
 
     /**
      * Trains the index by running K-Means++ on the provided representative vectors.
@@ -205,28 +206,33 @@ public final class SpectorIndex implements VectorIndex {
      * @throws SpectorValidationException    if already trained
      * @throws SpectorValidationException if the training set is smaller than nCentroids
      */
-    public synchronized void train(float[][] trainingVectors) {
-        if (trained) throw new SpectorInternalException(ErrorCode.INVARIANT_VIOLATED, "Index already trained");
-        int n = trainingVectors.length;
-        int k = config.nCentroids();
-        if (n < k) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Training requires at least " + k + " vectors (nCentroids), got " + n);
+    public void train(float[][] trainingVectors) {
+        trainLock.lock();
+        try {
+            if (trained) throw new SpectorInternalException(ErrorCode.INVARIANT_VIOLATED, "Index already trained");
+            int n = trainingVectors.length;
+            int k = config.nCentroids();
+            if (n < k) {
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Training requires at least " + k + " vectors (nCentroids), got " + n);
+            }
+
+            log.info("SpectorIndex training: {} samples, nCentroids={}", n, k);
+            long t0 = System.nanoTime();
+
+            this.centroids = KMeans.train(trainingVectors, k, config.kMeansIterations(), 42L);
+            log.debug("K-Means converged");
+
+            this.shards = new SpectorShard[k];
+            for (int i = 0; i < k; i++) {
+                shards[i] = new SpectorShard(dimensions, config, centroids[i]);
+            }
+
+            this.trained = true;
+            long ms = (System.nanoTime() - t0) / 1_000_000;
+            log.info("SpectorIndex training complete in {}ms", ms);
+        } finally {
+            trainLock.unlock();
         }
-
-        log.info("SpectorIndex training: {} samples, nCentroids={}", n, k);
-        long t0 = System.nanoTime();
-
-        this.centroids = KMeans.train(trainingVectors, k, config.kMeansIterations(), 42L);
-        log.debug("K-Means converged");
-
-        this.shards = new SpectorShard[k];
-        for (int i = 0; i < k; i++) {
-            shards[i] = new SpectorShard(dimensions, config, centroids[i]);
-        }
-
-        this.trained = true;
-        long ms = (System.nanoTime() - t0) / 1_000_000;
-        log.info("SpectorIndex training complete in {}ms", ms);
     }
 
     // ─────────────── VectorIndex ───────────────

@@ -64,7 +64,7 @@ final class PartitionManager {
 
     private volatile TierRouter tierRouter;
     private volatile Path activePartitionDir;
-    private final Object partitionRollLock = new Object();
+    private final java.util.concurrent.locks.ReentrantLock partitionRollLock = new java.util.concurrent.locks.ReentrantLock();
 
     PartitionManager(Path basePath,
                      int quantizedVecBytes,
@@ -146,7 +146,8 @@ final class PartitionManager {
      * see a consistent swap.</p>
      */
     void rollPartition() {
-        synchronized (partitionRollLock) {
+        partitionRollLock.lock();
+        try {
             if (basePath == null) {
                 log.warn("Cannot roll partition — no basePath (IN_MEMORY mode)");
                 return;
@@ -206,6 +207,8 @@ final class PartitionManager {
                 throw new SpectorServerException(ErrorCode.INTERNAL_ERROR,
                         "Failed to roll partition: " + e.getMessage(), e);
             }
+        } finally {
+            partitionRollLock.unlock();
         }
     }
 

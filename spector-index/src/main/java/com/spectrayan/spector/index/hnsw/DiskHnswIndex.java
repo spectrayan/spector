@@ -33,6 +33,8 @@ import java.util.BitSet;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * Read-only HNSW index backed by a memory-mapped file.
  *
@@ -158,30 +160,38 @@ public class DiskHnswIndex implements VectorIndex {
     @Override
     public SimilarityFunction similarityFunction() { return similarityFunction; }
 
+    // Lock for lifecycle operations (ReentrantLock avoids virtual thread pinning — ADR-005)
+    private final ReentrantLock lifecycleLock = new ReentrantLock();
+
     @Override
-    public synchronized void close() {
-        if (!closed) {
-            closed = true;
-            if (warmupThread != null) {
+    public void close() {
+        lifecycleLock.lock();
+        try {
+            if (!closed) {
+                closed = true;
+                if (warmupThread != null) {
+                    try {
+                        warmupThread.interrupt();
+                        warmupThread.join(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
                 try {
-                    warmupThread.interrupt();
-                    warmupThread.join(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                    if (segment.isMapped()) {
+                        com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(segment);
+                        segment.unload();
+                    }
+                    arena.close();
+                    channel.close();
+                    raf.close();
+                    log.info("DiskHnswIndex closed: {}", filePath);
+                } catch (IOException e) {
+                    log.warn("Error closing DiskHnswIndex", e);
                 }
             }
-            try {
-                if (segment.isMapped()) {
-                    com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(segment);
-                    segment.unload();
-                }
-                arena.close();
-                channel.close();
-                raf.close();
-                log.info("DiskHnswIndex closed: {}", filePath);
-            } catch (IOException e) {
-                log.warn("Error closing DiskHnswIndex", e);
-            }
+        } finally {
+            lifecycleLock.unlock();
         }
     }
 
@@ -216,19 +226,24 @@ public class DiskHnswIndex implements VectorIndex {
      * @param gracePeriodMs threshold of inactivity in milliseconds
      * @return true if successfully evicted, false if segment is active or not mapped
      */
-    public synchronized boolean unloadIdle(long gracePeriodMs) {
-        if (!closed && segment.isMapped()) {
-            long idleMs = System.currentTimeMillis() - lastAccessed;
-            if (idleMs >= gracePeriodMs) {
-                com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(segment);
-                segment.unload();
-                // Advise kernel to immediately release the physical pages back to the system
-                com.spectrayan.spector.commons.concurrent.NativeOsMemory.advise(segment, com.spectrayan.spector.commons.concurrent.NativeOsMemory.MADV_DONTNEED);
-                log.info("DiskHnswIndex idle-evicted: file={} (idle for {} ms)", filePath, idleMs);
-                return true;
+    public boolean unloadIdle(long gracePeriodMs) {
+        lifecycleLock.lock();
+        try {
+            if (!closed && segment.isMapped()) {
+                long idleMs = System.currentTimeMillis() - lastAccessed;
+                if (idleMs >= gracePeriodMs) {
+                    com.spectrayan.spector.commons.concurrent.MemoryPinning.unlock(segment);
+                    segment.unload();
+                    // Advise kernel to immediately release the physical pages back to the system
+                    com.spectrayan.spector.commons.concurrent.NativeOsMemory.advise(segment, com.spectrayan.spector.commons.concurrent.NativeOsMemory.MADV_DONTNEED);
+                    log.info("DiskHnswIndex idle-evicted: file={} (idle for {} ms)", filePath, idleMs);
+                    return true;
+                }
             }
+            return false;
+        } finally {
+            lifecycleLock.unlock();
         }
-        return false;
     }
 
     /** Returns the file path. */

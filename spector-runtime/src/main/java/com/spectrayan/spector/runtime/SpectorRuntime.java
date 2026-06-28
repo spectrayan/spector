@@ -85,12 +85,12 @@ public final class SpectorRuntime implements AutoCloseable {
     private final TokenEmbeddingProvider tokenEmbeddingProvider;
 
     // Lazily created services — double-checked locking for thread safety.
-    // The volatile + synchronized pattern ensures exactly-once initialization
-    // even under concurrent access from multiple threads.
+    // The volatile + ReentrantLock pattern ensures exactly-once initialization
+    // even under concurrent access from virtual threads (ADR-005: no synchronized).
     private volatile SearchHandler searchService;
     private volatile IngestionHandler ingestionService;
     private volatile MemoryHandler memoryService;
-    private final Object serviceLock = new Object();
+    private final java.util.concurrent.locks.ReentrantLock serviceLock = new java.util.concurrent.locks.ReentrantLock();
 
     private SpectorRuntime(SpectorEngine engine, SpectorMemory memory,
                            SpectorProperties properties, SpectorMode mode,
@@ -288,12 +288,15 @@ public final class SpectorRuntime implements AutoCloseable {
     public SearchHandler search() {
         SearchHandler svc = searchService; // volatile read
         if (svc == null) {
-            synchronized (serviceLock) {
+            serviceLock.lock();
+            try {
                 svc = searchService;
                 if (svc == null) {
                     svc = new SearchHandler(engine, memory, mode);
                     searchService = svc; // volatile write
                 }
+            } finally {
+                serviceLock.unlock();
             }
         }
         return svc;
@@ -303,7 +306,8 @@ public final class SpectorRuntime implements AutoCloseable {
     public IngestionHandler ingestion() {
         IngestionHandler svc = ingestionService; // volatile read
         if (svc == null) {
-            synchronized (serviceLock) {
+            serviceLock.lock();
+            try {
                 svc = ingestionService;
                 if (svc == null) {
                     var ingestionConfig = SpectorConfigFactory.ingestionDefaults(properties);
@@ -337,6 +341,8 @@ public final class SpectorRuntime implements AutoCloseable {
                     svc = new IngestionHandler(pipeline, engine, memory, mode);
                     ingestionService = svc; // volatile write
                 }
+            } finally {
+                serviceLock.unlock();
             }
         }
         return svc;
@@ -356,12 +362,15 @@ public final class SpectorRuntime implements AutoCloseable {
         }
         MemoryHandler svc = memoryService; // volatile read
         if (svc == null) {
-            synchronized (serviceLock) {
+            serviceLock.lock();
+            try {
                 svc = memoryService;
                 if (svc == null) {
                     svc = new MemoryHandler(memory);
                     memoryService = svc; // volatile write
                 }
+            } finally {
+                serviceLock.unlock();
             }
         }
         return java.util.Optional.of(svc);

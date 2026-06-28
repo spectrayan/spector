@@ -14,12 +14,9 @@ package com.spectrayan.spector.memory.pipeline;
 
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
-import com.spectrayan.spector.events.GraphPulseTelemetry;
-import com.spectrayan.spector.events.TelemetryScope;
 
-import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
-import com.spectrayan.spector.memory.error.SpectorHebbianException;
-import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
+
+
 import com.spectrayan.spector.memory.model.RecallTrace;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
@@ -141,6 +138,7 @@ public final class RecallPipeline {
     private final SemanticRecallStrategy semanticRecallStrategy; // nullable
     private final CoActivationTracker coActivationTracker; // nullable — for STDP causal boost
     private final GraphScoringPolicy graphScoringPolicy;
+    private final GraphExpansionStage graphExpansionStage;
 
     private final List<RecallListener> listeners = new ArrayList<>();
 
@@ -171,21 +169,14 @@ public final class RecallPipeline {
     private static final int RETRIEVAL_MODE_CACHE_MAX = 2000;
     private RecallOptions lastRecallOptions; // for detecting hyperfocus mode
 
-    // ── Semantic Satiation: Anti-looping LRU cache ──
-    // Bounded LRU of last N result IDs. Any result that appears in this
+    // ── Semantic Satiation: Anti-looping cache ──
+    // Bounded cache of last N result IDs. Any result that appears in this
     // hot cache gets a 0.5× penalty, breaking exact-query loops.
-    // Wrapped with Collections.synchronizedMap() because accessOrder=true
-    // mutates the internal linked list on every get(), making unsynchronized
-    // concurrent access unsafe (carrier pinning risk with virtual threads).
+    // Uses ConcurrentHashMap to avoid virtual thread pinning (ADR-005).
+    // Size-bounded via eviction on put — acceptable for a 10-entry cache.
     private static final int SATIATION_CACHE_SIZE = 10;
     private static final float SATIATION_PENALTY = 0.5f;
-    private final Map<String, Long> satiationCache =
-            Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) {
-                    return size() > SATIATION_CACHE_SIZE;
-                }
-            });
+    private final ConcurrentHashMap<String, Long> satiationCache = new ConcurrentHashMap<>(16);
 
     /**
      * Creates a recall pipeline with all required subsystems.
@@ -296,6 +287,12 @@ public final class RecallPipeline {
         this.spladeIndex = spladeIndex;
         this.spladeProvider = spladeProvider;
         this.colbertReranker = colbertReranker;
+
+        // ── Delegate graph expansion to focused stage class ──
+        this.graphExpansionStage = new GraphExpansionStage(
+                hebbianGraph, temporalChain, entityGraph, entityExtractor,
+                this.graphScoringPolicy, index, tierRouter,
+                calibrationMins, calibrationScales);
     }
 
     /**
@@ -482,217 +479,8 @@ public final class RecallPipeline {
         }
         } // end cognitiveScoring
 
-        // Build existingIds ONCE for graph expansion steps 5c/5d/5e
-        // (previously rebuilt 3 times — eliminated 2 redundant full-list scans)
-        boolean hasGraphSubsystems = hebbianGraph != null || temporalChain != null
-                || (entityGraph != null && (entityExtractor != null && entityExtractor.isAvailable()
-                        || !options.entityHints().isEmpty()));
-        boolean needsGraphExpansion = cognitiveScoring && hasGraphSubsystems && !allResults.isEmpty();
-
-        // ── Similarity-gated expansion ──
-        // When the best direct result already has high similarity, graph expansion
-        // adds noise that dilutes precision. Skip expansion when direct matches are strong.
-        float maxDirectSimilarity = 0f;
-        if (needsGraphExpansion) {
-            for (CognitiveResult r : allResults) {
-                if (r.hasBreakdown()) {
-                    maxDirectSimilarity = Math.max(maxDirectSimilarity, r.breakdown().similarity());
-                }
-            }
-            float expansionThreshold = options.graphExpansionThreshold();
-            if (maxDirectSimilarity >= expansionThreshold) {
-                log.debug("Graph expansion skipped: maxDirectSimilarity={} >= threshold={}",
-                        maxDirectSimilarity, expansionThreshold);
-                needsGraphExpansion = false;
-            }
-        }
-
-        Set<String> existingIds = needsGraphExpansion ? new HashSet<>(allResults.size()) : null;
-        if (existingIds != null) {
-            for (CognitiveResult r : allResults) {
-                if (r.id() != null) existingIds.add(r.id());
-            }
-        }
-
-        // Cross-layer dedup: track best score per graph-expanded candidate
-        // across Hebbian (5c), Temporal (5d), and Entity (5e) layers.
-        Map<String, CognitiveResult> graphCandidates = needsGraphExpansion ? new HashMap<>() : null;
-
-        // ── Graph telemetry tracking ──
-        // NOTE: Manual nanoTime is intentional here. This times a *sub-phase* of recall
-        // (graph expansion only). The overall recall() is already timed by MeteredSpectorMemory's
-        // Micrometer Timer. We can't add a Micrometer timer here because spector-memory does
-        // not depend on Micrometer — that coupling lives in the spector-metrics decorator layer.
-        long graphStartNanos = needsGraphExpansion && TelemetryScope.isActive() ? System.nanoTime() : 0;
-        int graphNodesVisited = 0;
-        int graphEdgesTraversed = 0;
-        int graphMaxDepth = 0;
-
-        // Step 5c: Hebbian spreading activation — follow memory-to-memory associations
-        // Co-fusion: compute actual L2 distance for each neighbor so scores are
-        // similarity-grounded instead of fabricated.
-        if (hebbianGraph != null && existingIds != null) {
-            try {
-                // Use top 3 results as seeds for spreading activation
-                int seeds = Math.min(3, allResults.size());
-                for (int s = 0; s < seeds; s++) {
-                    CognitiveResult seed = allResults.get(s);
-                    // Find the memory index for this result
-                    MemoryIndex.MemoryLocation loc = index.locate(seed.id());
-                    if (loc == null) continue;
-
-                    int memIdx = offsetToRecordIndex(loc);
-                    var activated = hebbianGraph.activateNeighbors(memIdx, graphScoringPolicy.hebbianMaxDepth());
-                    graphEdgesTraversed += activated.size();
-                    graphMaxDepth = Math.max(graphMaxDepth, graphScoringPolicy.hebbianMaxDepth());
-                    for (var edge : activated) {
-                        graphNodesVisited++;
-                        // Find the memory at this graph index
-                        String neighborId = findMemoryByApproximateIndex(edge.neighborIndex());
-                        if (neighborId != null && !existingIds.contains(neighborId)) {
-                            // Co-fusion: compute actual similarity against query vector
-                            float neighborSim = computeNeighborSimilarity(neighborId, queryVector);
-                            // Saturate edge weight to prevent single co-occurrences from over-boosting
-                            float saturatedWeight = Math.min(edge.weight() / 5.0f, 1.0f);
-                            float graphScore = neighborSim
-                                    + seed.score() * saturatedWeight * graphScoringPolicy.hebbianBoostFactor();
-
-                            String text = index.text(neighborId);
-                            MemorySource source = index.source(neighborId);
-                            String[] tags = index.tags(neighborId);
-                            java.util.Map<String, String> nMeta = index.metadata(neighborId);
-                            SourceModality nModality = nMeta != null
-                                    ? SourceModality.fromName(nMeta.get(SourceModality.METADATA_KEY))
-                                    : SourceModality.TEXT;
-                            CognitiveResult candidate = new CognitiveResult(
-                                    neighborId, text, graphScore, seed.importance(), 0f,
-                                    (short) 0, (byte) 0, seed.memoryType(), source,
-                                    tags, 1.0f, 1.0f, RetrievalMode.STANDARD, null, null,
-                                    nModality, nMeta);
-                            // Cross-layer dedup: keep best score
-                            graphCandidates.merge(neighborId, candidate,
-                                    (a, b) -> a.score() >= b.score() ? a : b);
-                        }
-                    }
-                }
-            } catch (RuntimeException e) {
-                SpectorHebbianException ex = new SpectorHebbianException("spreading activation", e);
-                log.debug(ex.getMessage());
-            }
-        }
-
-        // Step 5d: Temporal chain extension — follow session-linked sequences
-        // Co-fusion: compute actual similarity for chain-linked neighbors.
-        if (temporalChain != null && existingIds != null) {
-            try {
-                int seeds = Math.min(3, allResults.size());
-                for (int s = 0; s < seeds; s++) {
-                    CognitiveResult seed = allResults.get(s);
-                    MemoryIndex.MemoryLocation loc = index.locate(seed.id());
-                    if (loc == null) continue;
-
-                    int memIdx = offsetToRecordIndex(loc);
-                    // Follow forward and backward
-                    for (int chainIdx : temporalChain.followForward(memIdx, graphScoringPolicy.temporalMaxHops())) {
-                        addChainResultCoFusion(chainIdx, seed, existingIds, graphCandidates,
-                                queryVector, graphScoringPolicy.temporalForwardFactor());
-                    }
-                    for (int chainIdx : temporalChain.followBackward(memIdx, graphScoringPolicy.temporalMaxHops())) {
-                        addChainResultCoFusion(chainIdx, seed, existingIds, graphCandidates,
-                                queryVector, graphScoringPolicy.temporalBackwardFactor());
-                    }
-                }
-            } catch (RuntimeException e) {
-                SpectorTemporalChainException ex = new SpectorTemporalChainException("chain extension", e);
-                log.debug(ex.getMessage());
-            }
-        }
-
-        // Step 5e: Entity graph traversal — multi-hop knowledge discovery
-        // Co-fusion: compute actual similarity for entity-linked memories.
-        // Pre-extracted entityHints from RecallOptions take precedence over EntityExtractor
-        if (entityGraph != null && existingIds != null) {
-            List<ExtractedEntity> queryEntities = null;
-
-            // Priority 1: Pre-extracted entity hints from RecallOptions
-            if (!options.entityHints().isEmpty()) {
-                queryEntities = options.entityHints();
-            }
-            // Priority 2: Live EntityExtractor SPI
-            else if (entityExtractor != null && entityExtractor.isAvailable()) {
-                try {
-                    queryEntities = entityExtractor.extract("query", queryText);
-                } catch (RuntimeException e) {
-                    SpectorEntityGraphException ex = new SpectorEntityGraphException("entity extraction", e);
-                    log.debug(ex.getMessage());
-                }
-            }
-
-            if (queryEntities != null && !queryEntities.isEmpty()) {
-                try {
-                    for (var entity : queryEntities) {
-                        int entityId = entityGraph.findEntity(entity.name());
-                        if (entityId < 0) continue;
-
-                        // Collect memories reachable within N hops
-                        Set<Integer> reachableMemories = entityGraph.collectMemories(
-                                entityId, null, graphScoringPolicy.entityMaxHops());
-                        for (int memIdx : reachableMemories) {
-                            String memId = findMemoryByApproximateIndex(memIdx);
-                            if (memId != null && !existingIds.contains(memId)) {
-                                // Co-fusion: compute actual similarity
-                                float neighborSim = computeNeighborSimilarity(memId, queryVector);
-                                // Fan-effect attenuation (ACT-R spreading activation dilution):
-                                // entities linked to many memories produce weaker per-link boosts
-                                float fanAttenuation = entityGraph.fanFactor(entityId);
-                                float entityScore = neighborSim
-                                        + allResults.getFirst().score()
-                                          * graphScoringPolicy.entityHopAttenuation()
-                                          * fanAttenuation;
-
-                                String text = index.text(memId);
-                                MemorySource source = index.source(memId);
-                                String[] tags = index.tags(memId);
-                                java.util.Map<String, String> eMeta = index.metadata(memId);
-                                SourceModality eModality = eMeta != null
-                                        ? SourceModality.fromName(eMeta.get(SourceModality.METADATA_KEY))
-                                        : SourceModality.TEXT;
-                                CognitiveResult candidate = new CognitiveResult(
-                                        memId, text, entityScore, 0.5f, 0f,
-                                        (short) 0, (byte) 0, MemoryType.SEMANTIC, source,
-                                        tags, 1.0f, 1.0f, RetrievalMode.STANDARD, null, null,
-                                        eModality, eMeta);
-                                // Cross-layer dedup: keep best score
-                                graphCandidates.merge(memId, candidate,
-                                        (a, b) -> a.score() >= b.score() ? a : b);
-                            }
-                        }
-                    }
-                } catch (RuntimeException e) {
-                    SpectorEntityGraphException ex = new SpectorEntityGraphException("graph traversal", e);
-                    log.debug(ex.getMessage());
-                }
-            }
-        }
-
-        // Add deduplicated graph candidates to results
-        if (graphCandidates != null && !graphCandidates.isEmpty()) {
-            allResults.addAll(graphCandidates.values());
-            // Mark their IDs as existing (for any downstream processing)
-            for (String id : graphCandidates.keySet()) {
-                existingIds.add(id);
-            }
-            log.debug("Graph expansion added {} candidates (from {} layers)",
-                    graphCandidates.size(), 
-                    (hebbianGraph != null ? 1 : 0) + (temporalChain != null ? 1 : 0) + (entityGraph != null ? 1 : 0));
-        }
-
-        // ── Report graph telemetry (if enabled) ──
-        if (graphStartNanos > 0) {
-            long graphElapsed = System.nanoTime() - graphStartNanos;
-            TelemetryScope.publish(new GraphPulseTelemetry(
-                    graphNodesVisited, graphEdgesTraversed, graphMaxDepth, graphElapsed));
-        }
+        // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
+        graphExpansionStage.expand(allResults, queryVector, options);
 
         // Step 6: Sort by score descending, limit to topK
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
@@ -793,11 +581,27 @@ public final class RecallPipeline {
                 }
             }
 
-            // Step 8b: Update semantic satiation LRU cache
+            // Step 8b: Update semantic satiation cache (bounded via eviction — ADR-005)
             long nowForSatiation = System.currentTimeMillis();
             for (CognitiveResult r : allResults) {
                 if (r.id() != null) {
                     satiationCache.put(r.id(), nowForSatiation);
+                }
+            }
+            // Evict oldest entries when cache exceeds bound
+            while (satiationCache.size() > SATIATION_CACHE_SIZE) {
+                String oldest = null;
+                long oldestTs = Long.MAX_VALUE;
+                for (var e : satiationCache.entrySet()) {
+                    if (e.getValue() < oldestTs) {
+                        oldestTs = e.getValue();
+                        oldest = e.getKey();
+                    }
+                }
+                if (oldest != null) {
+                    satiationCache.remove(oldest, oldestTs);
+                } else {
+                    break;
                 }
             }
         } else {
@@ -1254,108 +1058,7 @@ public final class RecallPipeline {
         return recentRetrievalModes.get(memoryId);
     }
 
-    // ── Graph helper methods ──
 
-    /**
-     * Converts a MemoryLocation's byte offset to a record index.
-     *
-     * <p>Accounts for the metadata header on persistent tier stores.
-     * Replaces the previous hardcoded divisor (164) which was fragile
-     * if vector dimensions (and thus stride) ever changed.</p>
-     */
-    private int offsetToRecordIndex(MemoryIndex.MemoryLocation loc) {
-        int stride = tierRouter.layoutFor(loc.type()).stride();
-        TierStore store = tierRouter.get(loc.type());
-        long dataOffset = (store instanceof AbstractTierStore ats && ats.isPersistent())
-                ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
-        return (int) ((loc.offset() - dataOffset) / stride);
-    }
-
-    /**
-     * Finds a memory ID by approximate index. Uses the reverse index
-     * to search across all tiers.
-     */
-    private String findMemoryByApproximateIndex(int approxIdx) {
-        // Try each tier's typical record size to reverse-map
-        for (MemoryType type : MemoryType.values()) {
-            var layout = tierRouter.layoutFor(type);
-            if (layout == null) continue;
-            TierStore store = tierRouter.get(type);
-            long dataOffset = (store instanceof AbstractTierStore ats && ats.isPersistent())
-                    ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
-            long offset = dataOffset + (long) approxIdx * layout.stride();
-            String id = index.findIdByOffset(type, offset);
-            if (id != null) return id;
-        }
-        return null;
-    }
-
-    /**
-     * Adds a temporal chain result using co-fusion scoring (actual similarity + seed boost).
-     *
-     * <p>Replaces the old addChainResult that used fabricated scores.
-     * Computes actual L2 distance to the query vector so chain-expanded
-     * results have similarity-grounded scores.</p>
-     */
-    private void addChainResultCoFusion(int chainIdx, CognitiveResult seed,
-                                         Set<String> existingIds,
-                                         Map<String, CognitiveResult> graphCandidates,
-                                         float[] queryVector, float attenuation) {
-        String chainId = findMemoryByApproximateIndex(chainIdx);
-        if (chainId != null && !existingIds.contains(chainId)) {
-            // Co-fusion: compute actual similarity against query vector
-            float neighborSim = computeNeighborSimilarity(chainId, queryVector);
-            float chainScore = neighborSim + seed.score() * attenuation * 0.2f;
-
-            String text = index.text(chainId);
-            MemorySource source = index.source(chainId);
-            String[] tags = index.tags(chainId);
-            java.util.Map<String, String> cMeta = index.metadata(chainId);
-            SourceModality cModality = cMeta != null
-                    ? SourceModality.fromName(cMeta.get(SourceModality.METADATA_KEY))
-                    : SourceModality.TEXT;
-            CognitiveResult candidate = new CognitiveResult(
-                    chainId, text, chainScore, seed.importance(), 0f,
-                    (short) 0, (byte) 0, seed.memoryType(), source,
-                    tags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
-                    cModality, cMeta);
-            // Cross-layer dedup: keep best score
-            graphCandidates.merge(chainId, candidate,
-                    (a, b) -> a.score() >= b.score() ? a : b);
-        }
-    }
-
-    /**
-     * Computes actual cosine-derived similarity for a graph-expanded neighbor
-     * against the query vector.
-     *
-     * <p>This grounds graph-expanded scores in real similarity instead of
-     * fabricating them from the seed's score alone. Cost: ~200 cycles per
-     * candidate (one L2 distance computation). With typical graph expansion
-     * producing 50-200 candidates, total overhead is ~10-40μs — negligible.</p>
-     *
-     * @param memoryId    the memory ID to compute similarity for
-     * @param queryVector the query embedding vector
-     * @return similarity score in [0.0, 1.0] (higher = more similar), or 0.0 on error
-     */
-    private float computeNeighborSimilarity(String memoryId, float[] queryVector) {
-        try {
-            MemoryIndex.MemoryLocation loc = index.locate(memoryId);
-            if (loc == null) return 0f;
-
-            MemorySegment seg = tierRouter.segmentFor(loc.type());
-            if (seg == null) return 0f;
-
-            CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
-            float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-                    queryVector, seg, layout.vectorOffset(loc.offset()),
-                    calibrationMins, calibrationScales, layout.quantizedVecBytes());
-            return 1.0f / (1.0f + l2dist);
-        } catch (RuntimeException e) {
-            log.trace("Failed to compute neighbor similarity for '{}': {}", memoryId, e.getMessage());
-            return 0f;
-        }
-    }
 
     // ══════════════════════════════════════════════════════════════
     // WAL REPLAY — Point-in-Time Recall
