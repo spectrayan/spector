@@ -425,10 +425,19 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);
                 Path v2Entity = resolvedPartitionDir != null
                         ? StorageLayout.entityGraph(resolvedPartitionDir) : null;
-                Path loadFrom = java.nio.file.Files.exists(runtimeEntity) ? runtimeEntity
-                        : (v2Entity != null && java.nio.file.Files.exists(v2Entity)) ? v2Entity
-                        : legacyEntity;
-                this.entityGraph = EntityGraph.load(loadFrom, entityCap, edgeCap);
+
+                if (java.nio.file.Files.exists(runtimeEntity)) {
+                    // Runtime path exists — use mmap constructor (EGMM) or load (EGPH legacy)
+                    this.entityGraph = EntityGraph.load(runtimeEntity, entityCap, edgeCap);
+                } else if (v2Entity != null && java.nio.file.Files.exists(v2Entity)) {
+                    // V2 legacy path — load as heap (EGPH), will be saved as mmap on next checkpoint
+                    this.entityGraph = EntityGraph.load(v2Entity, entityCap, edgeCap);
+                } else if (java.nio.file.Files.exists(legacyEntity)) {
+                    this.entityGraph = EntityGraph.load(legacyEntity, entityCap, edgeCap);
+                } else {
+                    // No existing file — create fresh mmap-backed graph at runtime path
+                    this.entityGraph = new EntityGraph(runtimeEntity, entityCap, edgeCap);
+                }
             } else {
                 this.entityGraph = new EntityGraph(entityCap, edgeCap);
             }

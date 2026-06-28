@@ -142,13 +142,39 @@ final class EntityGraphSerializer {
 
         // Persist TypeRegistries alongside the graph file
         if (parent != null) {
-            try {
-                graph.entityTypeRegistry().save(StorageLayout.entityTypes(parent));
-                graph.relationTypeRegistry().save(StorageLayout.relationTypes(parent));
-            } catch (IOException e) {
-                log.error("Failed to save TypeRegistries alongside EntityGraph: {}", e.getMessage());
-            }
+            saveRegistries(graph, parent);
         }
+    }
+
+    /**
+     * Saves only the nameIndex and TypeRegistries as sidecar files.
+     * Used by mmap-backed EntityGraph where segments are already on disk.
+     */
+    static void saveNameIndexAndRegistries(EntityGraph graph, Path filePath, DataEncryptor encryptor) {
+        Path parent = filePath.getParent();
+        if (parent == null) return;
+
+        // Write nameIndex as sidecar file: entity-names.idx
+        Path nameIndexPath = parent.resolve("entity-names.idx");
+        try {
+            Files.createDirectories(parent);
+        } catch (IOException e) {
+            throw new SpectorGraphPersistenceException("EntityGraph", parent, e);
+        }
+
+        boolean encrypt = encryptor != null && encryptor.isEnabled();
+        try (FileChannel ch = FileChannel.open(nameIndexPath,
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+            writeNameIndex(ch, graph.nameIndexInternal(), encrypt, encryptor);
+            ch.force(true);
+            log.info("EntityGraph name index saved: {} names, encrypted={} → {}",
+                    graph.nameIndexInternal().size(), encrypt, nameIndexPath);
+        } catch (IOException e) {
+            throw new SpectorGraphPersistenceException("EntityGraph", nameIndexPath, e);
+        }
+
+        saveRegistries(graph, parent);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -170,6 +196,48 @@ final class EntityGraphSerializer {
             log.info("EntityGraph file not found, creating fresh: {}", filePath);
             return new EntityGraph(defaultEntityCap, defaultEdgeCap);
         }
+
+        // Peek at magic to determine format: EGMM (mmap) vs EGPH (serialized)
+        try (FileChannel peekCh = FileChannel.open(filePath, StandardOpenOption.READ)) {
+            if (peekCh.size() < 4) {
+                log.warn("EntityGraph file too small ({}B), creating fresh", peekCh.size());
+                return new EntityGraph(defaultEntityCap, defaultEdgeCap);
+            }
+            ByteBuffer magicBuf = ByteBuffer.allocate(4);
+            peekCh.read(magicBuf);
+            magicBuf.flip();
+            int magic = magicBuf.getInt();
+
+            if (magic == 0x45474D4D) { // EGMM — mmap format
+                peekCh.close();
+                EntityGraph graph = new EntityGraph(filePath, defaultEntityCap, defaultEdgeCap);
+                // Load nameIndex from sidecar file
+                Path nameIndexPath = filePath.getParent() != null
+                        ? filePath.getParent().resolve("entity-names.idx") : null;
+                if (nameIndexPath != null && Files.exists(nameIndexPath)) {
+                    try (FileChannel nameCh = FileChannel.open(nameIndexPath, StandardOpenOption.READ)) {
+                        ConcurrentHashMap<String, Integer> names = readNameIndex(nameCh, encryptor);
+                        graph.nameIndexInternal().putAll(names);
+                        log.info("EntityGraph name index loaded: {} names from {}",
+                                names.size(), nameIndexPath);
+                    }
+                }
+                graph.setDataEncryptor(encryptor);
+                return graph;
+            }
+        } catch (Exception e) {
+            log.error("Failed to peek EntityGraph file: {}", e.getMessage());
+        }
+
+        // Fall through to EGPH (legacy serialized) format
+        return loadLegacy(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
+    }
+
+    /**
+     * Loads a graph from the legacy EGPH binary format (heap-allocated segments).
+     */
+    private static EntityGraph loadLegacy(Path filePath, int defaultEntityCap, int defaultEdgeCap,
+                                          DataEncryptor encryptor) {
 
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
             long fileSize = ch.size();
@@ -248,7 +316,7 @@ final class EntityGraphSerializer {
                     arena, entSeg, edgSeg, adjSeg, adjCap, adjHwm, names,
                     entityTypes, relationTypes);
             graph.setDataEncryptor(encryptor);
-            log.info("EntityGraph loaded: entities={}, edges={}, adjEntries={}, encryptor={} from {}",
+            log.info("EntityGraph loaded (legacy EGPH): entities={}, edges={}, adjEntries={}, encryptor={} from {}",
                     entCount, edgCount, adjHwm,
                     encryptor != null && encryptor.isEnabled() ? "enabled" : "none", filePath);
             return graph;
@@ -400,9 +468,14 @@ final class EntityGraphSerializer {
         return names;
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // SEGMENT I/O HELPERS
-    // ══════════════════════════════════════════════════════════════
+    private static void saveRegistries(EntityGraph graph, Path parent) {
+        try {
+            graph.entityTypeRegistry().save(StorageLayout.entityTypes(parent));
+            graph.relationTypeRegistry().save(StorageLayout.relationTypes(parent));
+        } catch (IOException e) {
+            log.error("Failed to save TypeRegistries alongside EntityGraph: {}", e.getMessage());
+        }
+    }
 
     private static void writeSegment(FileChannel ch, MemorySegment seg, long totalBytes)
             throws IOException {
