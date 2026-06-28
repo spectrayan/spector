@@ -62,8 +62,20 @@ public final class MemoryIndex {
     /** File magic: "MIDX" in ASCII. */
     private static final int INDEX_MAGIC = 0x4D494458;
 
-    /** File format version — V3 adds textOffset + textLength for off-heap text reads. */
-    private static final int INDEX_VERSION = 3;
+    /**
+     * File format version — V4 drops inline text (resolved from text.dat via textOffset/textLength).
+     *
+     * <p>Version history:</p>
+     * <ul>
+     *   <li>V1 — base format (id, location, text, source, tags)</li>
+     *   <li>V2 — adds multimodal metadata map</li>
+     *   <li>V3 — adds textOffset + textLength for off-heap text.dat reads</li>
+     *   <li>V4 — drops inline text body (text resolved via text.dat mmap). ~78% size reduction.</li>
+     * </ul>
+     */
+    private static final int INDEX_VERSION = 4;
+    /** V3 format (inline text + text offsets) — still loadable. */
+    private static final int INDEX_VERSION_V3 = 3;
     /** V2 format (metadata, no text offsets) — still loadable. */
     private static final int INDEX_VERSION_V2 = 2;
     /** V1 format (no metadata, no text offsets) — still loadable. */
@@ -483,19 +495,21 @@ public final class MemoryIndex {
     /**
      * Saves the entire index to a binary file.
      *
-     * <h3>File Format (V2)</h3>
+     * <h3>Binary Format (V4 — inline text omitted)</h3>
      * <pre>
-     *   [4B magic: "MIDX"]  [4B version: 2]  [4B entry_count]  [4B reserved]
-     *   For each entry:
+     *   [16B header: MIDX magic + version(4) + count + reserved]
+     *   per-entry:
      *     [4B id_len] [N id_bytes]
-     *     [4B type_ordinal] [8B offset] [4B partition_index]
-     *     [4B text_len] [N text_bytes]
-     *     [4B source_ordinal]
+     *     [4B type_ord] [8B offset] [4B partition_index]
+     *     [4B text_len] [N text_bytes]        ← V4: 0 when text.dat offset available; inline fallback otherwise
+     *     [4B source_ord]
      *     [4B tag_count] { [4B tag_len] [N tag_bytes] }*
      *     [4B metadata_count] { [4B key_len] [N key_bytes] [4B val_len] [N val_bytes] }*
+     *     [8B textOffset] [4B textLength]      ← position in text.dat for off-heap resolution
      * </pre>
      *
-     * <p>V1 files (no metadata section) are still loadable for backward compatibility.</p>
+     * <p>V1/V2/V3 files (with inline text) are still loadable for backward compatibility.
+     * On save, V4 always writes text_len=0 since text is resolved from text.dat.</p>
      *
      * @param filePath path to write the index file
      */
@@ -579,18 +593,20 @@ public final class MemoryIndex {
                         Integer.toHexString(magic), Integer.toHexString(INDEX_MAGIC));
                 return index;
             }
-            if (version != INDEX_VERSION && version != INDEX_VERSION_V2 && version != INDEX_VERSION_V1) {
-                log.warn("Unsupported MemoryIndex version: {} (expected {}, {}, or {}), starting fresh",
-                        version, INDEX_VERSION, INDEX_VERSION_V2, INDEX_VERSION_V1);
+            if (version != INDEX_VERSION && version != INDEX_VERSION_V3
+                    && version != INDEX_VERSION_V2 && version != INDEX_VERSION_V1) {
+                log.warn("Unsupported MemoryIndex version: {} (expected {}, {}, {}, or {}), starting fresh",
+                        version, INDEX_VERSION, INDEX_VERSION_V3, INDEX_VERSION_V2, INDEX_VERSION_V1);
                 return index;
             }
 
             boolean hasMetadata = (version >= INDEX_VERSION_V2);
-            boolean hasTextPosition = (version >= INDEX_VERSION);
+            boolean hasTextPosition = (version >= INDEX_VERSION_V3);
+            boolean hasInlineText = (version < INDEX_VERSION); // V4+ drops inline text
 
             // Read entries
             for (int i = 0; i < entryCount; i++) {
-                readEntry(ch, index, hasMetadata, hasTextPosition);
+                readEntry(ch, index, hasMetadata, hasTextPosition, hasInlineText);
             }
 
             log.info("MemoryIndex loaded: {} entries from {}", index.size(), filePath);
@@ -608,12 +624,18 @@ public final class MemoryIndex {
                              String text, MemorySource source, String[] tagArray,
                              Map<String, String> metadata) throws IOException {
         byte[] idBytes = id.getBytes(StandardCharsets.UTF_8);
-        byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
+
+        // V4 optimization: skip inline text when text.dat offset is available.
+        // Entries without text.dat position (WAL replay, in-memory, V1/V2 migration)
+        // still write inline text as fallback for lossless round-trip.
+        boolean writeInlineText = !loc.hasTextPosition();
+        byte[] textBytes = writeInlineText ? text.getBytes(StandardCharsets.UTF_8) : null;
+        int textBytesLen = writeInlineText ? textBytes.length : 0;
 
         // Calculate total size for this entry
         int size = 4 + idBytes.length      // id
                 + 4 + 8 + 4               // location (type + offset + partitionIndex)
-                + 4 + textBytes.length     // text
+                + 4 + textBytesLen         // text (0 if off-heap available)
                 + 4                        // source
                 + 4;                       // tag count
 
@@ -647,9 +669,11 @@ public final class MemoryIndex {
         buf.putLong(loc.offset());
         buf.putInt(loc.partitionIndex());
 
-        // Text
-        buf.putInt(textBytes.length);
-        buf.put(textBytes);
+        // Text — V4: zero-length if text.dat offset available; inline fallback otherwise
+        buf.putInt(textBytesLen);
+        if (writeInlineText && textBytesLen > 0) {
+            buf.put(textBytes);
+        }
 
         // Source
         buf.putInt(source.ordinal());
@@ -682,7 +706,8 @@ public final class MemoryIndex {
     }
 
     private static void readEntry(FileChannel ch, MemoryIndex index,
-                                    boolean hasMetadata, boolean hasTextPosition) throws IOException {
+                                    boolean hasMetadata, boolean hasTextPosition,
+                                    boolean hasInlineText) throws IOException {
         // ID
         String id = readString(ch);
 
@@ -695,7 +720,7 @@ public final class MemoryIndex {
         int partitionIndex = locBuf.getInt();
         MemoryType type = MemoryType.values()[typeOrd];
 
-        // Text
+        // Text — V4: always zero-length (resolved from text.dat); V1-V3: read inline text
         String text = readString(ch);
 
         // Source
