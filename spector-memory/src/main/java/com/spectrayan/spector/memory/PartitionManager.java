@@ -189,8 +189,8 @@ final class PartitionManager {
                 // Preserve working memory (global, not partitioned)
                 WorkingMemoryStore workingStore = tierRouter.working();
 
-                // Flush index + graphs to the OLD partition before rolling
-                flushToPartition(this.activePartitionDir);
+                // Flush index + graphs to runtime/ before rolling
+                flushGlobalState();
 
                 // Atomic swap
                 this.tierRouter = new TierRouter(workingStore, newEpisodic,
@@ -213,26 +213,27 @@ final class PartitionManager {
     }
 
     /**
-     * Flushes index and graphs to the given partition directory.
+     * Flushes index and graphs to the runtime/ directory (V3 layout).
+     *
+     * <p>Called before a partition roll to ensure global structures are
+     * persisted. Entity graph flush is included (was missing in V2).</p>
      */
-    private void flushToPartition(Path partitionDir) {
-        if (partitionDir == null) return;
+    private void flushGlobalState() {
         try {
-            index.save(StorageLayout.indexMidx(partitionDir));
-            log.info("Flushed MemoryIndex to rolling partition: {}",
-                    partitionDir.getFileName());
+            index.save(StorageLayout.indexMidxRuntime(basePath));
+            log.info("Flushed MemoryIndex to runtime/ during partition roll");
         } catch (Exception e) {
             log.error("Failed to flush MemoryIndex during partition roll: {}",
                     e.getMessage(), e);
         }
         try {
-            hebbianGraph.save(StorageLayout.hebbianGraph(partitionDir));
+            hebbianGraph.save(StorageLayout.hebbianGraphRuntime(basePath));
         } catch (Exception e) {
             log.error("Failed to flush HebbianGraph during partition roll: {}",
                     e.getMessage(), e);
         }
         try {
-            temporalChain.save(StorageLayout.temporalChain(partitionDir));
+            temporalChain.save(StorageLayout.temporalChainRuntime(basePath));
         } catch (Exception e) {
             log.error("Failed to flush TemporalChain during partition roll: {}",
                     e.getMessage(), e);

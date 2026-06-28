@@ -194,9 +194,8 @@ public class SpectorNamespaceManager {
         Path nsDir = resolveNamespacePath(config.id());
         try {
             Files.createDirectories(nsDir);
-            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_GLOBAL));
+            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_RUNTIME));
             Files.createDirectories(nsDir.resolve(StorageLayout.DIR_PARTITIONS));
-            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_CROSS));
             writeConfig(config, nsDir.resolve(StorageLayout.FILE_NAMESPACE));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create namespace: " + config.id(), e);
@@ -236,9 +235,8 @@ public class SpectorNamespaceManager {
         Path nsDir = resolveNamespacePath(config.id());
         try {
             Files.createDirectories(nsDir);
-            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_GLOBAL));
+            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_RUNTIME));
             Files.createDirectories(nsDir.resolve(StorageLayout.DIR_PARTITIONS));
-            Files.createDirectories(nsDir.resolve(StorageLayout.DIR_CROSS));
             writeConfig(config, nsDir.resolve(StorageLayout.FILE_NAMESPACE));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to create namespace: " + namespaceId, e);
@@ -400,13 +398,18 @@ public class SpectorNamespaceManager {
         /** Root directory for this namespace's data. */
         public Path directory() { return directory; }
 
-        /** Path to global/ within this namespace. */
+        /** Path to runtime/ within this namespace (V3 layout). */
+        public Path runtimeDir() { return directory.resolve(StorageLayout.DIR_RUNTIME); }
+
+        /** @deprecated Use {@link #runtimeDir()}. Kept for migration. */
+        @Deprecated(forRemoval = true)
         public Path globalDir() { return directory.resolve(StorageLayout.DIR_GLOBAL); }
 
         /** Path to partitions/ within this namespace. */
         public Path partitionsDir() { return directory.resolve(StorageLayout.DIR_PARTITIONS); }
 
-        /** Path to cross/ within this namespace. */
+        /** @deprecated V3 layout eliminates cross/. */
+        @Deprecated(forRemoval = true)
         public Path crossDir() { return directory.resolve(StorageLayout.DIR_CROSS); }
     }
 }

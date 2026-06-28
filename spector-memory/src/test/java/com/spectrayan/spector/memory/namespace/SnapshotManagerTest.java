@@ -46,7 +46,7 @@ class SnapshotManagerTest {
     void createSnapshot_copies_namespace_data() throws IOException {
         // Create a namespace with some data
         var ctx = nsManager.createNamespace(NamespaceConfig.unlimited("test-ns"));
-        Files.writeString(ctx.globalDir().resolve("data.json"), "{\"key\": \"value\"}");
+        Files.writeString(ctx.runtimeDir().resolve("data.json"), "{\"key\": \"value\"}");
         Files.createDirectories(ctx.partitionsDir().resolve("000_12345"));
         Files.writeString(ctx.partitionsDir().resolve("000_12345").resolve("semantic.mem"), "binary-data");
 
@@ -64,7 +64,7 @@ class SnapshotManagerTest {
         assertThat(Files.exists(snapDir.resolve(StorageLayout.FILE_SNAPSHOT))).isTrue();
 
         // Verify data was copied
-        assertThat(Files.readString(snapDir.resolve(StorageLayout.DIR_GLOBAL).resolve("data.json")))
+        assertThat(Files.readString(snapDir.resolve(StorageLayout.DIR_RUNTIME).resolve("data.json")))
                 .isEqualTo("{\"key\": \"value\"}");
     }
 
@@ -89,25 +89,25 @@ class SnapshotManagerTest {
     void restoreSnapshot_replaces_namespace_data() throws IOException {
         // Create namespace with original data
         var ctx = nsManager.createNamespace(NamespaceConfig.unlimited("test-ns"));
-        Files.writeString(ctx.globalDir().resolve("state.txt"), "original");
+        Files.writeString(ctx.runtimeDir().resolve("state.txt"), "original");
 
         // Snapshot
         snapshotManager.createSnapshot("test-ns", "checkpoint");
 
         // Modify namespace data
-        Files.writeString(ctx.globalDir().resolve("state.txt"), "modified");
-        Files.writeString(ctx.globalDir().resolve("new-file.txt"), "new");
+        Files.writeString(ctx.runtimeDir().resolve("state.txt"), "modified");
+        Files.writeString(ctx.runtimeDir().resolve("new-file.txt"), "new");
 
         // Verify modification
-        assertThat(Files.readString(ctx.globalDir().resolve("state.txt"))).isEqualTo("modified");
+        assertThat(Files.readString(ctx.runtimeDir().resolve("state.txt"))).isEqualTo("modified");
 
         // Restore from snapshot
         snapshotManager.restoreSnapshot("test-ns", "checkpoint");
 
         // Verify restored data
-        assertThat(Files.readString(ctx.globalDir().resolve("state.txt"))).isEqualTo("original");
+        assertThat(Files.readString(ctx.runtimeDir().resolve("state.txt"))).isEqualTo("original");
         // new-file.txt should be gone (restore clears the directory first)
-        assertThat(Files.exists(ctx.globalDir().resolve("new-file.txt"))).isFalse();
+        assertThat(Files.exists(ctx.runtimeDir().resolve("new-file.txt"))).isFalse();
     }
 
     @Test

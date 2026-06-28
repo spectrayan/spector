@@ -190,15 +190,15 @@ public final class CheckpointDaemon {
             }
         }
 
-        // Step 3: Persist cognitive graphs to partition directory
-        if (partitionDir != null) {
+        // Step 3: Persist cognitive graphs to runtime/ directory (V3 layout)
+        if (basePath != null) {
             saveGraph("HebbianGraph", () ->
-                    hebbianGraph.save(StorageLayout.hebbianGraph(partitionDir)));
+                    hebbianGraph.save(StorageLayout.hebbianGraphRuntime(basePath)));
             saveGraph("TemporalChain", () ->
-                    temporalChain.save(StorageLayout.temporalChain(partitionDir)));
+                    temporalChain.save(StorageLayout.temporalChainRuntime(basePath)));
             if (entityGraph != null) {
                 saveGraph("EntityGraph", () ->
-                        entityGraph.save(StorageLayout.entityGraph(partitionDir)));
+                        entityGraph.save(StorageLayout.entityGraphRuntime(basePath)));
             }
         }
 

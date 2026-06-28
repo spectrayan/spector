@@ -100,6 +100,16 @@ public final class EntityGraph implements AutoCloseable {
     /** Maximum edges per entity. */
     public static final int MAX_DEGREE = 32;
 
+    /** Maximum adjacency entries per entity (for mmap pre-allocation). */
+    static final int MAX_ADJ_PER_ENTITY = 64;
+
+    // ── mmap File Header (32 bytes) ──
+    private static final int MMAP_MAGIC = 0x45474D4D; // "EGMM"
+    private static final int MMAP_VERSION = 1;
+    private static final int MMAP_HEADER_BYTES = 32;
+    // Header layout: [magic:4B][version:4B][entityCap:4B][edgeCap:4B]
+    //                [entityCount:4B][edgeCount:4B][adjCap:4B][adjHwm:4B]
+
     // ── Entity Node Layout (64 bytes, 8-byte aligned — V2) ──
     static final int ENTITY_NODE_BYTES = 64;
     private static final long ENT_OFF_TYPE = 0;             // 4B (entity type id)
@@ -141,6 +151,13 @@ public final class EntityGraph implements AutoCloseable {
     private final ConcurrentHashMap<String, Integer> nameIndex = new ConcurrentHashMap<>();
     private final ReentrantLock graphLock = new ReentrantLock();
 
+    /** True when segments are backed by mmap'd files (DISK mode). */
+    private final boolean fileBacked;
+    /** The underlying FileChannel for mmap mode (null for heap mode). */
+    private final FileChannel mappedChannel;
+    /** Path to the mmap file (null for heap mode). */
+    private final Path mmapFilePath;
+
     /** Optional encryptor for name index persistence (set by enterprise layer). */
     private volatile DataEncryptor dataEncryptor;
 
@@ -169,14 +186,167 @@ public final class EntityGraph implements AutoCloseable {
         entitySegment.fill((byte) 0);
         edgeSegment.fill((byte) 0);
         adjacencySegment.fill((byte) 0);
+        this.fileBacked = false;
+        this.mappedChannel = null;
+        this.mmapFilePath = null;
         this.entityTypeRegistry = TypeRegistry.seeded("entity-type", EntityType.SEED);
         this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
 
-        log.info("EntityGraph initialized: entities={}, edges={}, adjSlots={}, memory={}KB",
+        log.info("EntityGraph initialized (heap): entities={}, edges={}, adjSlots={}, memory={}KB",
                 entityCapacity, edgeCapacity, adjSegmentCapacity,
                 ((long) ENTITY_NODE_BYTES * entityCapacity
                         + (long) EDGE_BYTES * edgeCapacity
                         + (long) ADJ_ENTRY_BYTES * adjSegmentCapacity) / 1024);
+    }
+
+    /**
+     * Creates or opens a file-backed (mmap) entity graph.
+     *
+     * <p>Uses a single contiguous mmap file with layout:
+     * <pre>
+     *   [Header: 32B][EntitySegment][EdgeSegment][AdjacencySegment]
+     * </pre>
+     * Adjacency is pre-allocated at {@code entityCapacity × MAX_ADJ_PER_ENTITY}
+     * to avoid dynamic resize. With mmap, the OS only pages in accessed 4KB
+     * blocks — unused capacity costs zero physical RAM.</p>
+     *
+     * <p>The nameIndex (on-heap ConcurrentHashMap) is NOT stored in the mmap
+     * file — it is serialized separately by {@link EntityGraphSerializer}.</p>
+     *
+     * @param filePath       path to the graph file
+     * @param entityCapacity maximum number of entities
+     * @param edgeCapacity   maximum number of edges
+     */
+    public EntityGraph(Path filePath, int entityCapacity, int edgeCapacity) {
+        Path parent = filePath.getParent();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException e) {
+                throw new SpectorGraphPersistenceException("EntityGraph", parent, e);
+            }
+        }
+
+        this.mmapFilePath = filePath;
+        int adjCap = entityCapacity * MAX_ADJ_PER_ENTITY;
+        long entityBytes = (long) ENTITY_NODE_BYTES * entityCapacity;
+        long edgeBytes = (long) EDGE_BYTES * edgeCapacity;
+        long adjBytes = (long) ADJ_ENTRY_BYTES * adjCap;
+        boolean isNew = !Files.exists(filePath);
+
+        try {
+            FileChannel ch = FileChannel.open(filePath,
+                    StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+            this.mappedChannel = ch;
+
+            if (isNew || ch.size() < MMAP_HEADER_BYTES) {
+                // Brand new file — write header
+                ByteBuffer header = ByteBuffer.allocate(MMAP_HEADER_BYTES);
+                header.putInt(MMAP_MAGIC);
+                header.putInt(MMAP_VERSION);
+                header.putInt(entityCapacity);
+                header.putInt(edgeCapacity);
+                header.putInt(0); // entityCount
+                header.putInt(0); // edgeCount
+                header.putInt(adjCap);
+                header.putInt(0); // adjHighWaterMark
+                header.flip();
+                ch.position(0);
+                ch.write(header);
+
+                long totalBytes = MMAP_HEADER_BYTES + entityBytes + edgeBytes + adjBytes;
+                if (ch.size() < totalBytes) {
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                }
+                ch.force(true);
+                this.entityCapacity = entityCapacity;
+                this.edgeCapacity = edgeCapacity;
+                this.entityCount = 0;
+                this.edgeCount = 0;
+                this.adjSegmentCapacity = adjCap;
+                this.adjHighWaterMark = 0;
+            } else {
+                // Existing file — read header
+                ByteBuffer header = ByteBuffer.allocate(MMAP_HEADER_BYTES);
+                ch.position(0);
+                ch.read(header);
+                header.flip();
+                int magic = header.getInt();
+                int version = header.getInt();
+                int fileEntityCap = header.getInt();
+                int fileEdgeCap = header.getInt();
+                int fileEntityCount = header.getInt();
+                int fileEdgeCount = header.getInt();
+                int fileAdjCap = header.getInt();
+                int fileAdjHwm = header.getInt();
+
+                if (magic != MMAP_MAGIC || version != MMAP_VERSION) {
+                    log.warn("Invalid EntityGraph mmap file, reinitializing: {}", filePath);
+                    ch.truncate(0);
+                    ByteBuffer newHeader = ByteBuffer.allocate(MMAP_HEADER_BYTES);
+                    newHeader.putInt(MMAP_MAGIC);
+                    newHeader.putInt(MMAP_VERSION);
+                    newHeader.putInt(entityCapacity);
+                    newHeader.putInt(edgeCapacity);
+                    newHeader.putInt(0);
+                    newHeader.putInt(0);
+                    newHeader.putInt(adjCap);
+                    newHeader.putInt(0);
+                    newHeader.flip();
+                    ch.position(0);
+                    ch.write(newHeader);
+                    long totalBytes = MMAP_HEADER_BYTES + entityBytes + edgeBytes + adjBytes;
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                    ch.force(true);
+                    this.entityCapacity = entityCapacity;
+                    this.edgeCapacity = edgeCapacity;
+                    this.entityCount = 0;
+                    this.edgeCount = 0;
+                    this.adjSegmentCapacity = adjCap;
+                    this.adjHighWaterMark = 0;
+                } else {
+                    this.entityCapacity = fileEntityCap;
+                    this.edgeCapacity = fileEdgeCap;
+                    this.entityCount = fileEntityCount;
+                    this.edgeCount = fileEdgeCount;
+                    this.adjSegmentCapacity = fileAdjCap;
+                    this.adjHighWaterMark = fileAdjHwm;
+                    entityBytes = (long) ENTITY_NODE_BYTES * fileEntityCap;
+                    edgeBytes = (long) EDGE_BYTES * fileEdgeCap;
+                    adjBytes = (long) ADJ_ENTRY_BYTES * fileAdjCap;
+                }
+            }
+
+            // mmap the three regions after the header
+            this.arena = Arena.ofShared();
+            long offset = MMAP_HEADER_BYTES;
+            this.entitySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, entityBytes, arena);
+            offset += entityBytes;
+            this.edgeSegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, edgeBytes, arena);
+            offset += edgeBytes;
+            this.adjacencySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, adjBytes, arena);
+            this.fileBacked = true;
+
+            // Load TypeRegistries from sidecar files if present
+            if (parent != null) {
+                this.entityTypeRegistry = TypeRegistry.load(
+                        StorageLayout.entityTypes(parent), "entity-type", EntityType.SEED);
+                this.relationTypeRegistry = TypeRegistry.load(
+                        StorageLayout.relationTypes(parent), "relation-type", RelationType.SEED);
+            } else {
+                this.entityTypeRegistry = TypeRegistry.seeded("entity-type", EntityType.SEED);
+                this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
+            }
+
+            log.info("EntityGraph initialized (mmap): entities={}/{}, edges={}/{}, adjSlots={}, file={}",
+                    this.entityCount, this.entityCapacity, this.edgeCount, this.edgeCapacity,
+                    this.adjSegmentCapacity, filePath.getFileName());
+
+        } catch (IOException e) {
+            throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
+        }
     }
 
     /**
@@ -223,6 +393,9 @@ public final class EntityGraph implements AutoCloseable {
         this.adjSegmentCapacity = adjSegmentCapacity;
         this.adjHighWaterMark = adjHighWaterMark;
         this.nameIndex.putAll(nameIndex);
+        this.fileBacked = false;
+        this.mappedChannel = null;
+        this.mmapFilePath = null;
         this.entityTypeRegistry = entityTypeRegistry;
         this.relationTypeRegistry = relationTypeRegistry;
     }
@@ -431,6 +604,14 @@ public final class EntityGraph implements AutoCloseable {
      */
     private void ensureAdjSegmentCapacity(int requiredEntries) {
         if (requiredEntries <= adjSegmentCapacity) return;
+        if (fileBacked) {
+            // mmap mode: pre-allocated at max capacity, should never need to grow.
+            // If this triggers, MAX_ADJ_PER_ENTITY needs increasing.
+            throw new IllegalStateException(
+                    "EntityGraph mmap adjacency segment exhausted: required=" + requiredEntries
+                    + ", capacity=" + adjSegmentCapacity
+                    + ". Increase MAX_ADJ_PER_ENTITY (currently " + MAX_ADJ_PER_ENTITY + ")");
+        }
         int newCapacity = Math.max(adjSegmentCapacity * 2, requiredEntries);
         MemorySegment newSeg = arena.allocate((long) ADJ_ENTRY_BYTES * newCapacity);
         newSeg.fill((byte) 0);
@@ -1048,10 +1229,48 @@ public final class EntityGraph implements AutoCloseable {
     /**
      * Saves the graph to a binary file with optional name index encryption.
      *
+     * <p>For mmap-backed graphs: flushes dirty pages via {@code force()},
+     * updates the header with current counts, and serializes the nameIndex
+     * as a sidecar file. The segments themselves are already on disk.</p>
+     *
      * @param filePath  path to write
      * @param encryptor optional encryptor for name index (null = no encryption)
      */
     public void save(Path filePath, DataEncryptor encryptor) {
+        if (fileBacked) {
+            try {
+                // Update header with current counts
+                ByteBuffer header = ByteBuffer.allocate(MMAP_HEADER_BYTES);
+                header.putInt(MMAP_MAGIC);
+                header.putInt(MMAP_VERSION);
+                header.putInt(entityCapacity);
+                header.putInt(edgeCapacity);
+                header.putInt(entityCount);
+                header.putInt(edgeCount);
+                header.putInt(adjSegmentCapacity);
+                header.putInt(adjHighWaterMark);
+                header.flip();
+                mappedChannel.position(0);
+                mappedChannel.write(header);
+
+                // Force-flush all segments
+                entitySegment.force();
+                edgeSegment.force();
+                adjacencySegment.force();
+                mappedChannel.force(true);
+
+                // Serialize nameIndex + TypeRegistries (sidecar files)
+                EntityGraphSerializer.saveNameIndexAndRegistries(this, filePath, encryptor);
+
+                log.info("EntityGraph flushed (mmap): entities={}/{}, edges={}, adjHwm={}",
+                        entityCount, entityCapacity, edgeCount, adjHighWaterMark);
+            } catch (IOException e) {
+                throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
+            }
+            return;
+        }
+
+        // Heap-backed: full serialization
         EntityGraphSerializer.save(this, filePath, encryptor);
     }
 
@@ -1119,8 +1338,25 @@ public final class EntityGraph implements AutoCloseable {
 
     @Override
     public void close() {
-        log.info("EntityGraph closing (entities={}, edges={}, adjEntries={})",
-                entityCount, edgeCount, adjHighWaterMark);
+        log.info("EntityGraph closing (entities={}, edges={}, adjEntries={}, fileBacked={})",
+                entityCount, edgeCount, adjHighWaterMark, fileBacked);
+        if (fileBacked && mappedChannel != null) {
+            try {
+                entitySegment.force();
+                edgeSegment.force();
+                adjacencySegment.force();
+                mappedChannel.force(true);
+                mappedChannel.close();
+            } catch (IOException e) {
+                log.warn("Error closing EntityGraph mmap channel: {}", e.getMessage());
+            }
+        }
         arena.close();
     }
+
+    /** Returns true if this graph is backed by mmap'd files. */
+    boolean isFileBacked() { return fileBacked; }
+
+    /** Returns the mmap file path (null for heap mode). */
+    Path mmapFilePath() { return mmapFilePath; }
 }
