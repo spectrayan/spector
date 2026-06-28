@@ -67,7 +67,7 @@ public final class ColocatedPartition {
     private volatile int proceduralCount;
 
     /**
-     * Creates or opens a colocated partition at the given directory.
+     * Creates or opens a colocated partition at the given directory (no encryption).
      *
      * @param seqNo            zero-based partition sequence number
      * @param createdEpochSecs creation time as Unix epoch seconds
@@ -75,11 +75,25 @@ public final class ColocatedPartition {
      * @param frozen           true if this partition is read-only
      */
     public ColocatedPartition(int seqNo, long createdEpochSecs, Path directory, boolean frozen) {
+        this(seqNo, createdEpochSecs, directory, frozen, null);
+    }
+
+    /**
+     * Creates or opens a colocated partition with encryption support.
+     *
+     * @param seqNo            zero-based partition sequence number
+     * @param createdEpochSecs creation time as Unix epoch seconds
+     * @param directory        path to the partition directory
+     * @param frozen           true if this partition is read-only
+     * @param encryptor        data encryptor for text-at-rest (null → NOOP)
+     */
+    public ColocatedPartition(int seqNo, long createdEpochSecs, Path directory, boolean frozen,
+                              com.spectrayan.spector.memory.DataEncryptor encryptor) {
         this.seqNo = seqNo;
         this.createdEpochSecs = createdEpochSecs;
         this.directory = directory;
         this.frozen = frozen;
-        this.textStore = TextDataStore.forPartition(directory);
+        this.textStore = TextDataStore.forPartition(directory, encryptor);
 
         // Ensure directory exists
         try {

@@ -423,7 +423,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         TextDataStore textDataStore;
         int activePartitionIndex;
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            textDataStore = new TextDataStore(StorageLayout.textDat(resolvedPartitionDir));
+            textDataStore = new TextDataStore(StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
             // Call readAll() to establish the mmap'd segment for off-heap text reads.
             var textEntries = textDataStore.readAll();
             // P0: wire TextDataStore into MemoryIndex for off-heap text() resolution

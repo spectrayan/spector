@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.StorageLayout;
 
@@ -93,6 +94,7 @@ public final class TextDataStore implements AutoCloseable {
             ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
     private final Path file;
+    private final DataEncryptor encryptor;
     private int entryCount;
 
     /** Off-heap mapped segment for zero-copy reads (null until readAll() or mmap()). */
@@ -105,12 +107,26 @@ public final class TextDataStore implements AutoCloseable {
     private final java.util.Map<String, TextPosition> textPositionMap = new java.util.LinkedHashMap<>();
 
     /**
-     * Creates a TextDataStore for the given file path.
+     * Creates a TextDataStore for the given file path (no encryption).
      *
      * @param file path to the text.dat file (may or may not exist yet)
      */
     public TextDataStore(Path file) {
+        this(file, DataEncryptor.NOOP);
+    }
+
+    /**
+     * Creates a TextDataStore with encryption support.
+     *
+     * <p>When a non-NOOP encryptor is provided, text is decrypted on read
+     * (both {@link #readAll()} and {@link #readTextDirect}).</p>
+     *
+     * @param file      path to the text.dat file
+     * @param encryptor data encryptor for text-at-rest (null → NOOP)
+     */
+    public TextDataStore(Path file, DataEncryptor encryptor) {
         this.file = file;
+        this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.entryCount = 0;
     }
 
@@ -122,6 +138,17 @@ public final class TextDataStore implements AutoCloseable {
      */
     public static TextDataStore forPartition(Path partitionDir) {
         return new TextDataStore(StorageLayout.textDat(partitionDir));
+    }
+
+    /**
+     * Factory for a partition directory with encryption support.
+     *
+     * @param partitionDir the partition directory
+     * @param encryptor    data encryptor (null → NOOP)
+     * @return a new TextDataStore instance
+     */
+    public static TextDataStore forPartition(Path partitionDir, DataEncryptor encryptor) {
+        return new TextDataStore(StorageLayout.textDat(partitionDir), encryptor);
     }
 
     /**
@@ -218,7 +245,8 @@ public final class TextDataStore implements AutoCloseable {
         MemorySegment seg = this.mappedSegment;
         if (seg == null || textOffset < 0 || textLength < 0) return null;
         if (textOffset + textLength > seg.byteSize()) return null;
-        return decodeUtf8FromSegment(seg, textOffset, textLength);
+        String raw = decodeUtf8FromSegment(seg, textOffset, textLength);
+        return decryptIfNeeded(raw);
     }
 
     /**
@@ -308,8 +336,11 @@ public final class TextDataStore implements AutoCloseable {
                 }
 
                 // Decode text directly from mapped segment — zero heap copy
-                String text = decodeUtf8FromSegment(mappedSegment, pos, textLen);
+                String rawText = decodeUtf8FromSegment(mappedSegment, pos, textLen);
                 pos += textLen;
+
+                // Decrypt if encryption is active (text was Base64-encoded ciphertext)
+                String text = decryptIfNeeded(rawText);
 
                 MemoryType tier = MemoryType.values()[tierOrd];
                 entries.put(id, new TextEntry(id, tier, text));
@@ -422,6 +453,33 @@ public final class TextDataStore implements AutoCloseable {
     }
 
     // ── Internal helpers ──
+
+    /**
+     * Decrypts text if encryption is active and the text appears to be Base64-encoded ciphertext.
+     *
+     * <p>During ingestion, {@link PostIngestSync} encrypts text via
+     * {@code DataEncryptor.encryptText()} and Base64-encodes the result before writing
+     * to text.dat. This method reverses that process on the read path.</p>
+     *
+     * @param raw the raw text from text.dat (plaintext or Base64-encoded ciphertext)
+     * @return decrypted plaintext, or the original string if encryption is not active
+     */
+    private String decryptIfNeeded(String raw) {
+        if (!encryptor.isEnabled() || raw == null || raw.isEmpty()) {
+            return raw;
+        }
+        try {
+            byte[] decoded = java.util.Base64.getDecoder().decode(raw);
+            byte[] decrypted = encryptor.decryptText(decoded);
+            return new String(decrypted, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            // Not Base64 — return as-is (pre-encryption data or plaintext)
+            return raw;
+        } catch (RuntimeException e) {
+            log.warn("Failed to decrypt text entry (wrong key?): {}", e.getMessage());
+            return raw;  // Return encrypted text rather than crash
+        }
+    }
 
     /**
      * Decodes a UTF-8 string directly from a MemorySegment without intermediate byte[] copy.
