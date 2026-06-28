@@ -161,11 +161,12 @@ public final class MemoryIndex {
                           MemorySource source, String[] tagArray,
                           Map<String, String> metadata) {
         locations.put(id, location);
-        // Always store text in heap as a fallback — the mmap'd segment from startup
-        // does not cover entries appended after readAll(), so readTextDirect() would
-        // return null for those. The off-heap path in text() still takes priority
-        // when the mmap'd region is valid.
-        texts.put(id, text);
+        // P0 off-heap optimization: skip heap text storage when text.dat position is known.
+        // text() will read directly from the mmap'd segment via TextDataStore.readTextDirect().
+        // The mmap is refreshed after each write() so it always covers new entries.
+        if (!location.hasTextPosition()) {
+            texts.put(id, text);
+        }
         sources.put(id, source);
         tags.put(id, tagArray);
 

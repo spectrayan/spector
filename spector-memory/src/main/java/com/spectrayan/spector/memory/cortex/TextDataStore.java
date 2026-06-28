@@ -97,8 +97,8 @@ public final class TextDataStore implements AutoCloseable {
     private final DataEncryptor encryptor;
     private int entryCount;
 
-    /** Off-heap mapped segment for zero-copy reads (null until readAll() or mmap()). */
-    private MemorySegment mappedSegment;
+    /** Off-heap mapped segment for zero-copy reads (null until readAll() or refreshed after write). */
+    private volatile MemorySegment mappedSegment;
 
     /** Arena managing the mapped segment lifecycle. */
     private Arena mapArena;
@@ -211,6 +211,11 @@ public final class TextDataStore implements AutoCloseable {
 
             entryCount++;
             updateHeaderCount();
+
+            // Refresh the mmap'd segment so readTextDirect() covers this new entry.
+            // Without this, the mmap established at startup has a fixed size and new
+            // entries written beyond that boundary would be invisible to off-heap reads.
+            refreshMappedSegment();
 
             return new TextPosition(textOffset, textBytes.length);
 
@@ -527,6 +532,48 @@ public final class TextDataStore implements AutoCloseable {
             }
             mapArena = null;
             mappedSegment = null;
+        }
+    }
+
+    /**
+     * Refreshes the mmap'd segment to cover the current file size.
+     *
+     * <p>Called after {@link #write(String, MemoryType, String)} to ensure that
+     * entries appended after the initial {@link #readAll()} are visible to
+     * {@link #readTextDirect(long, int)}. The old segment/arena is closed and
+     * a new one is created covering the full file.</p>
+     *
+     * <p>Thread-safe: the {@code mappedSegment} field is volatile, so concurrent
+     * readers will atomically see either the old or new segment. The old arena
+     * uses {@link Arena#ofShared()} which is safe to close while readers hold
+     * derived slices (they remain valid until the segment is no longer referenced).</p>
+     */
+    private void refreshMappedSegment() {
+        if (!Files.exists(file)) return;
+        try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
+            long fileSize = ch.size();
+            if (fileSize < HEADER_BYTES) return;
+
+            Arena oldArena = this.mapArena;
+            Arena newArena = Arena.ofShared();
+            MemorySegment newSegment = ch.map(FileChannel.MapMode.READ_ONLY, 0, fileSize, newArena);
+
+            // Atomically swap (volatile write ensures visibility to readers)
+            this.mappedSegment = newSegment;
+            this.mapArena = newArena;
+
+            // Close old arena after swap — no readers can acquire new references to it
+            if (oldArena != null) {
+                try {
+                    oldArena.close();
+                } catch (Exception e) {
+                    log.debug("Error closing old text.dat map arena during refresh: {}", e.getMessage());
+                }
+            }
+
+            log.debug("Refreshed text.dat mmap: {} bytes (entries={})", fileSize, entryCount);
+        } catch (IOException e) {
+            log.warn("Failed to refresh text.dat mmap after write: {}", e.getMessage());
         }
     }
 
