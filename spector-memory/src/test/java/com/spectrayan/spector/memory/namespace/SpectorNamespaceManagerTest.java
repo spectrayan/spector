@@ -51,9 +51,8 @@ class SpectorNamespaceManagerTest {
         var ctx = manager.createNamespace(config);
 
         assertThat(Files.isDirectory(ctx.directory())).isTrue();
-        assertThat(Files.isDirectory(ctx.globalDir())).isTrue();
+        assertThat(Files.isDirectory(ctx.runtimeDir())).isTrue();
         assertThat(Files.isDirectory(ctx.partitionsDir())).isTrue();
-        assertThat(Files.isDirectory(ctx.crossDir())).isTrue();
         assertThat(Files.exists(ctx.directory().resolve(StorageLayout.FILE_NAMESPACE))).isTrue();
     }
 

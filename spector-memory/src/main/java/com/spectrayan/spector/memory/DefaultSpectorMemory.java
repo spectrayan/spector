@@ -274,7 +274,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         Path resolvedPartitionDir = null;
         if (isDisk && basePath != null) {
             try {
-                java.nio.file.Files.createDirectories(StorageLayout.globalDir(basePath));
+                java.nio.file.Files.createDirectories(StorageLayout.runtimeDir(basePath));
                 java.nio.file.Files.createDirectories(StorageLayout.partitionsDir(basePath));
                 resolvedPartitionDir = PartitionManager.discoverOrCreatePartition(basePath);
                 log.info("Active partition: {}", resolvedPartitionDir.getFileName());
@@ -315,14 +315,19 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
 
         // ── Memory Index ──
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            Path partitionIndex = StorageLayout.indexMidx(resolvedPartitionDir);
+        if (isDisk && basePath != null) {
+            Path runtimeIndex = StorageLayout.indexMidxRuntime(basePath);
             Path legacyIndex = StorageLayout.legacyIndex(basePath);
-            if (java.nio.file.Files.exists(partitionIndex)) {
-                this.index = MemoryIndex.load(partitionIndex);
+            // V3: load from runtime/, fallback to V2 partition location, then legacy
+            if (java.nio.file.Files.exists(runtimeIndex)) {
+                this.index = MemoryIndex.load(runtimeIndex);
+            } else if (resolvedPartitionDir != null
+                    && java.nio.file.Files.exists(StorageLayout.indexMidx(resolvedPartitionDir))) {
+                this.index = MemoryIndex.load(StorageLayout.indexMidx(resolvedPartitionDir));
+                log.info("Loaded V2 index from partition — will save to runtime/ on next close");
             } else if (java.nio.file.Files.exists(legacyIndex)) {
                 this.index = MemoryIndex.load(legacyIndex);
-                log.info("Loaded legacy memory-index.mem — will save to partition on next close");
+                log.info("Loaded legacy memory-index.mem — will save to runtime/ on next close");
             } else {
                 this.index = new MemoryIndex();
             }
@@ -368,22 +373,31 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         int graphCapacity = builder.hebbianGraphCapacity > 0
                 ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
 
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            Path partGraph = StorageLayout.hebbianGraph(resolvedPartitionDir);
+        if (isDisk && basePath != null) {
+            Path runtimeGraph = StorageLayout.hebbianGraphRuntime(basePath);
+            // Fallback: V2 partition location, then legacy flat
             Path legacyGraph = basePath.resolve(StorageLayout.FILE_HEBBIAN);
-            this.hebbianGraph = HebbianGraph.load(
-                    java.nio.file.Files.exists(partGraph) ? partGraph : legacyGraph, graphCapacity);
+            Path v2Graph = resolvedPartitionDir != null
+                    ? StorageLayout.hebbianGraph(resolvedPartitionDir) : null;
+            Path loadFrom = java.nio.file.Files.exists(runtimeGraph) ? runtimeGraph
+                    : (v2Graph != null && java.nio.file.Files.exists(v2Graph)) ? v2Graph
+                    : legacyGraph;
+            this.hebbianGraph = HebbianGraph.load(loadFrom, graphCapacity);
         } else {
             this.hebbianGraph = new HebbianGraph(graphCapacity);
         }
 
         int temporalCapacity = builder.temporalChainCapacity > 0
                 ? builder.temporalChainCapacity : graphCapacity;
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            Path partChain = StorageLayout.temporalChain(resolvedPartitionDir);
+        if (isDisk && basePath != null) {
+            Path runtimeChain = StorageLayout.temporalChainRuntime(basePath);
             Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
-            this.temporalChain = TemporalChain.load(
-                    java.nio.file.Files.exists(partChain) ? partChain : legacyChain, temporalCapacity);
+            Path v2Chain = resolvedPartitionDir != null
+                    ? StorageLayout.temporalChain(resolvedPartitionDir) : null;
+            Path loadFrom = java.nio.file.Files.exists(runtimeChain) ? runtimeChain
+                    : (v2Chain != null && java.nio.file.Files.exists(v2Chain)) ? v2Chain
+                    : legacyChain;
+            this.temporalChain = TemporalChain.load(loadFrom, temporalCapacity);
         } else {
             this.temporalChain = new TemporalChain(temporalCapacity);
         }
@@ -406,11 +420,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (entityEnabled) {
             int entityCap = builder.entityGraphCapacity;
             int edgeCap = entityCap * EntityGraph.MAX_DEGREE;
-            if (isDisk && basePath != null && resolvedPartitionDir != null) {
-                Path partEntity = StorageLayout.entityGraph(resolvedPartitionDir);
+            if (isDisk && basePath != null) {
+                Path runtimeEntity = StorageLayout.entityGraphRuntime(basePath);
                 Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);
-                this.entityGraph = EntityGraph.load(
-                        java.nio.file.Files.exists(partEntity) ? partEntity : legacyEntity, entityCap, edgeCap);
+                Path v2Entity = resolvedPartitionDir != null
+                        ? StorageLayout.entityGraph(resolvedPartitionDir) : null;
+                Path loadFrom = java.nio.file.Files.exists(runtimeEntity) ? runtimeEntity
+                        : (v2Entity != null && java.nio.file.Files.exists(v2Entity)) ? v2Entity
+                        : legacyEntity;
+                this.entityGraph = EntityGraph.load(loadFrom, entityCap, edgeCap);
             } else {
                 this.entityGraph = new EntityGraph(entityCap, edgeCap);
             }
@@ -430,7 +448,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             index.setTextDataStore(textDataStore);
 
             // P1: Try loading pre-built BM25 binary index (instant load vs O(n) rebuild)
-            java.nio.file.Path bm25Path = StorageLayout.bm25Bidx(resolvedPartitionDir);
+            java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
+            // Fallback: V2 partition location
+            if (!java.nio.file.Files.exists(bm25Path) && resolvedPartitionDir != null) {
+                java.nio.file.Path v2Bm25 = StorageLayout.bm25Bidx(resolvedPartitionDir);
+                if (java.nio.file.Files.exists(v2Bm25)) bm25Path = v2Bm25;
+            }
             BM25Index loadedBm25 = BM25Index.load(bm25Path);
             bm25Index = new MemoryBM25Index(1);
             if (loadedBm25 != null) {

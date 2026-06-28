@@ -37,7 +37,11 @@ class StorageLayoutTest {
     @DisplayName("directory resolvers")
     class DirectoryTests {
 
-        @Test void globalDir() {
+        @Test void runtimeDir() {
+            assertThat(StorageLayout.runtimeDir(BASE)).isEqualTo(BASE.resolve("runtime"));
+        }
+
+        @Test void globalDir_deprecated() {
             assertThat(StorageLayout.globalDir(BASE)).isEqualTo(BASE.resolve("global"));
         }
 
@@ -45,12 +49,12 @@ class StorageLayoutTest {
             assertThat(StorageLayout.partitionsDir(BASE)).isEqualTo(BASE.resolve("partitions"));
         }
 
-        @Test void crossDir() {
+        @Test void crossDir_deprecated() {
             assertThat(StorageLayout.crossDir(BASE)).isEqualTo(BASE.resolve("cross"));
         }
 
         @Test void walDir() {
-            assertThat(StorageLayout.walDir(BASE)).isEqualTo(BASE.resolve("global").resolve("wal"));
+            assertThat(StorageLayout.walDir(BASE)).isEqualTo(BASE.resolve("wal"));
         }
 
         @Test void namespacesDir() {
@@ -76,15 +80,31 @@ class StorageLayoutTest {
         }
 
         @Test void workingMem() {
-            assertThat(StorageLayout.workingMem(BASE)).isEqualTo(BASE.resolve("global/working.mem"));
+            assertThat(StorageLayout.workingMem(BASE)).isEqualTo(BASE.resolve("runtime/working.mem"));
         }
 
         @Test void coactivationTracker() {
-            assertThat(StorageLayout.coactivationTracker(BASE)).isEqualTo(BASE.resolve("global/coactivation.tracker"));
+            assertThat(StorageLayout.coactivationTracker(BASE)).isEqualTo(BASE.resolve("runtime/coactivation.tracker"));
         }
 
         @Test void checkpointMeta() {
-            assertThat(StorageLayout.checkpointMeta(BASE)).isEqualTo(BASE.resolve("global/checkpoint.meta"));
+            assertThat(StorageLayout.checkpointMeta(BASE)).isEqualTo(BASE.resolve("runtime/checkpoint.meta"));
+        }
+
+        @Test void indexMidxRuntime() {
+            assertThat(StorageLayout.indexMidxRuntime(BASE)).isEqualTo(BASE.resolve("runtime/index.midx"));
+        }
+
+        @Test void hebbianGraphRuntime() {
+            assertThat(StorageLayout.hebbianGraphRuntime(BASE)).isEqualTo(BASE.resolve("runtime/hebbian.graph"));
+        }
+
+        @Test void temporalChainRuntime() {
+            assertThat(StorageLayout.temporalChainRuntime(BASE)).isEqualTo(BASE.resolve("runtime/temporal.chain"));
+        }
+
+        @Test void entityGraphRuntime() {
+            assertThat(StorageLayout.entityGraphRuntime(BASE)).isEqualTo(BASE.resolve("runtime/entity.graph"));
         }
     }
 
@@ -187,7 +207,7 @@ class StorageLayoutTest {
 
         @Test void walFile() {
             assertThat(StorageLayout.walFile(BASE, 1))
-                    .isEqualTo(BASE.resolve("global/wal/wal-000001.bin"));
+                    .isEqualTo(BASE.resolve("wal/wal-000001.bin"));
         }
     }
 

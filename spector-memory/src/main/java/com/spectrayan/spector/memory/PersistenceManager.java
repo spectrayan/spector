@@ -32,10 +32,11 @@ import java.nio.file.Path;
  * <p>Encapsulates the save-ordering logic that ensures data is flushed in the
  * correct dependency order before subsystem resources are released:</p>
  * <ol>
- *   <li><b>MemoryIndex</b> — partition-local or legacy path</li>
- *   <li><b>HebbianGraph</b> — partition or global save dir</li>
- *   <li><b>TemporalChain</b> — partition or global save dir</li>
- *   <li><b>EntityGraph</b> — partition or global save dir (if enabled)</li>
+ *   <li><b>MemoryIndex</b> — runtime/ directory (V3 layout)</li>
+ *   <li><b>HebbianGraph</b> — runtime/ directory</li>
+ *   <li><b>TemporalChain</b> — runtime/ directory</li>
+ *   <li><b>EntityGraph</b> — runtime/ directory (if enabled)</li>
+ *   <li><b>CoActivationTracker</b> — runtime/ directory</li>
  *   <li><b>CoActivationTracker</b> — always global</li>
  * </ol>
  *
@@ -75,26 +76,25 @@ final class PersistenceManager {
 
         // ── Phase 1: Persist to disk (DISK mode only) ──
         if (persistenceMode == MemoryPersistenceMode.DISK && persistencePath != null) {
-            Path saveDir = activePartitionDir != null ? activePartitionDir : persistencePath;
 
-            // 1. MemoryIndex: partition-local or legacy path
-            saveIndex(index, activePartitionDir, persistencePath);
+            // 1. MemoryIndex: runtime/ (V3 layout)
+            saveIndex(index, persistencePath);
 
-            // 2. HebbianGraph
+            // 2. HebbianGraph: runtime/
             saveSubsystem("HebbianGraph", () ->
-                    hebbianGraph.save(StorageLayout.hebbianGraph(saveDir)));
+                    hebbianGraph.save(StorageLayout.hebbianGraphRuntime(persistencePath)));
 
-            // 3. TemporalChain
+            // 3. TemporalChain: runtime/
             saveSubsystem("TemporalChain", () ->
-                    temporalChain.save(StorageLayout.temporalChain(saveDir)));
+                    temporalChain.save(StorageLayout.temporalChainRuntime(persistencePath)));
 
-            // 4. EntityGraph (if enabled)
+            // 4. EntityGraph: runtime/ (if enabled)
             if (entityGraph != null) {
                 saveSubsystem("EntityGraph", () ->
-                        entityGraph.save(StorageLayout.entityGraph(saveDir)));
+                        entityGraph.save(StorageLayout.entityGraphRuntime(persistencePath)));
             }
 
-            // 5. CoActivationTracker (always global)
+            // 5. CoActivationTracker: runtime/
             saveSubsystem("CoActivationTracker", () ->
                     coActivationTracker.save(
                             StorageLayout.coactivationTracker(persistencePath)));
@@ -109,13 +109,9 @@ final class PersistenceManager {
         if (entityGraph != null) entityGraph.close();
     }
 
-    private static void saveIndex(MemoryIndex index,
-                                  Path activePartitionDir,
-                                  Path persistencePath) {
+    private static void saveIndex(MemoryIndex index, Path persistencePath) {
         try {
-            Path indexPath = activePartitionDir != null
-                    ? StorageLayout.indexMidx(activePartitionDir)
-                    : persistencePath.resolve(StorageLayout.LEGACY_FILE_INDEX);
+            Path indexPath = StorageLayout.indexMidxRuntime(persistencePath);
             index.save(indexPath);
         } catch (Exception e) {
             log.error("Failed to save MemoryIndex on close: {}", e.getMessage(), e);

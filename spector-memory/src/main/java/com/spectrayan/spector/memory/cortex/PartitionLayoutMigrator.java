@@ -101,7 +101,8 @@ public final class PartitionLayoutMigrator {
     public static boolean needsMigration(Path basePath) {
         if (basePath == null || !Files.isDirectory(basePath)) return false;
 
-        // If global/ directory exists, already migrated
+        // If runtime/ (V3) or global/ (V2) directory exists, already migrated from legacy
+        if (Files.isDirectory(StorageLayout.runtimeDir(basePath))) return false;
         if (Files.isDirectory(StorageLayout.globalDir(basePath))) return false;
 
         // Check for legacy markers
@@ -126,15 +127,13 @@ public final class PartitionLayoutMigrator {
         long startMs = System.currentTimeMillis();
 
         try {
-            // 1. Create new directory structure
-            Path globalDir = StorageLayout.globalDir(basePath);
+            // 1. Create new directory structure (V3 layout: runtime/, not global/)
+            Path runtimeDir = StorageLayout.runtimeDir(basePath);
             Path partitionsDir = StorageLayout.partitionsDir(basePath);
-            Path crossDir = StorageLayout.crossDir(basePath);
             Path walDir = StorageLayout.walDir(basePath);
 
-            Files.createDirectories(globalDir);
+            Files.createDirectories(runtimeDir);
             Files.createDirectories(partitionsDir);
-            Files.createDirectories(crossDir);
             Files.createDirectories(walDir);
 
             // 2. Create initial partition directory
@@ -148,13 +147,13 @@ public final class PartitionLayoutMigrator {
 
             // 3. Move global files
             moveIfExists(basePath.resolve(StorageLayout.FILE_WORKING),
-                    globalDir.resolve(StorageLayout.FILE_WORKING), migrated, skipped);
+                    runtimeDir.resolve(StorageLayout.FILE_WORKING), migrated, skipped);
             moveIfExists(basePath.resolve(StorageLayout.FILE_COACTIVATION),
-                    globalDir.resolve(StorageLayout.FILE_COACTIVATION), migrated, skipped);
+                    runtimeDir.resolve(StorageLayout.FILE_COACTIVATION), migrated, skipped);
 
-            // Move legacy WAL directory
+            // Move legacy WAL directory (only if different from V3 location)
             Path legacyWal = basePath.resolve(StorageLayout.DIR_WAL);
-            if (Files.isDirectory(legacyWal)) {
+            if (Files.isDirectory(legacyWal) && !legacyWal.equals(walDir)) {
                 // Move all WAL files to new location
                 try (var stream = Files.list(legacyWal)) {
                     stream.forEach(walFile -> {
@@ -171,6 +170,8 @@ public final class PartitionLayoutMigrator {
                 // Remove empty legacy WAL directory
                 Files.deleteIfExists(legacyWal);
                 migrated.add(StorageLayout.DIR_WAL + " (directory)");
+            } else if (Files.isDirectory(legacyWal)) {
+                log.debug("WAL directory already at V3 location: {}", walDir);
             }
 
             // 4. Move tier files to initial partition
@@ -181,9 +182,9 @@ public final class PartitionLayoutMigrator {
             moveIfExists(basePath.resolve(StorageLayout.FILE_TEXT),
                     partitionDir.resolve(StorageLayout.FILE_TEXT), migrated, skipped);
 
-            // Move legacy memory-index.mem → partition/index.midx
+            // Move legacy memory-index.mem → runtime/index.midx (V3 layout)
             moveIfExists(basePath.resolve(StorageLayout.LEGACY_FILE_INDEX),
-                    partitionDir.resolve(StorageLayout.FILE_INDEX), migrated, skipped);
+                    runtimeDir.resolve(StorageLayout.FILE_INDEX), migrated, skipped);
 
             // Handle episodic: if legacy episodic/ dir exists, move first partition
             Path legacyEpisodic = basePath.resolve(StorageLayout.LEGACY_DIR_EPISODIC);
@@ -242,13 +243,13 @@ public final class PartitionLayoutMigrator {
                 deleteIfEmpty(legacySemantic);
             }
 
-            // 5. Move graph files to initial partition
+            // 5. Move graph files to runtime/ (V3 layout: global structures, not per-partition)
             moveIfExists(basePath.resolve(StorageLayout.FILE_HEBBIAN),
-                    partitionDir.resolve(StorageLayout.FILE_HEBBIAN), migrated, skipped);
+                    runtimeDir.resolve(StorageLayout.FILE_HEBBIAN), migrated, skipped);
             moveIfExists(basePath.resolve(StorageLayout.FILE_TEMPORAL),
-                    partitionDir.resolve(StorageLayout.FILE_TEMPORAL), migrated, skipped);
+                    runtimeDir.resolve(StorageLayout.FILE_TEMPORAL), migrated, skipped);
             moveIfExists(basePath.resolve(StorageLayout.FILE_ENTITY),
-                    partitionDir.resolve(StorageLayout.FILE_ENTITY), migrated, skipped);
+                    runtimeDir.resolve(StorageLayout.FILE_ENTITY), migrated, skipped);
 
             // 6. Write manifest
             writeManifest(basePath);

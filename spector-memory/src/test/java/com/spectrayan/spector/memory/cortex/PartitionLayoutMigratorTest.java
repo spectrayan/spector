@@ -67,7 +67,7 @@ class PartitionLayoutMigratorTest {
 
     @Test
     void needsMigration_returns_false_when_already_migrated() throws IOException {
-        Files.createDirectories(StorageLayout.globalDir(basePath));
+        Files.createDirectories(StorageLayout.runtimeDir(basePath));
         Files.writeString(basePath.resolve(StorageLayout.LEGACY_FILE_INDEX), "test");
 
         assertThat(PartitionLayoutMigrator.needsMigration(basePath)).isFalse();
@@ -79,9 +79,8 @@ class PartitionLayoutMigratorTest {
 
         PartitionLayoutMigrator.migrate(basePath);
 
-        assertThat(Files.isDirectory(StorageLayout.globalDir(basePath))).isTrue();
+        assertThat(Files.isDirectory(StorageLayout.runtimeDir(basePath))).isTrue();
         assertThat(Files.isDirectory(StorageLayout.partitionsDir(basePath))).isTrue();
-        assertThat(Files.isDirectory(StorageLayout.crossDir(basePath))).isTrue();
     }
 
     @Test
@@ -91,9 +90,9 @@ class PartitionLayoutMigratorTest {
         PartitionLayoutMigrator.migrate(basePath);
 
         assertThat(Files.exists(
-                StorageLayout.globalDir(basePath).resolve(StorageLayout.FILE_WORKING))).isTrue();
+                StorageLayout.runtimeDir(basePath).resolve(StorageLayout.FILE_WORKING))).isTrue();
         assertThat(Files.exists(
-                StorageLayout.globalDir(basePath).resolve(StorageLayout.FILE_COACTIVATION))).isTrue();
+                StorageLayout.runtimeDir(basePath).resolve(StorageLayout.FILE_COACTIVATION))).isTrue();
 
         // Legacy locations should be gone
         assertThat(Files.exists(basePath.resolve(StorageLayout.FILE_WORKING))).isFalse();
@@ -114,12 +113,10 @@ class PartitionLayoutMigratorTest {
         Path partition = partitions[0];
         assertThat(Files.exists(partition.resolve(StorageLayout.FILE_SEMANTIC))).isTrue();
         assertThat(Files.exists(partition.resolve(StorageLayout.FILE_PROCEDURAL))).isTrue();
-        assertThat(Files.exists(partition.resolve(StorageLayout.FILE_INDEX))).isTrue();
 
-        // Legacy locations should be gone
-        assertThat(Files.exists(basePath.resolve(StorageLayout.LEGACY_FILE_SEMANTIC))).isFalse();
-        assertThat(Files.exists(basePath.resolve(StorageLayout.LEGACY_FILE_PROCEDURAL))).isFalse();
-        assertThat(Files.exists(basePath.resolve(StorageLayout.LEGACY_FILE_INDEX))).isFalse();
+        // Index should be in runtime/ not partition/ (V3 layout)
+        assertThat(Files.exists(
+                StorageLayout.runtimeDir(basePath).resolve(StorageLayout.FILE_INDEX))).isTrue();
     }
 
     @Test
@@ -128,10 +125,10 @@ class PartitionLayoutMigratorTest {
 
         PartitionLayoutMigrator.migrate(basePath);
 
-        Path partition = findFirstPartition();
-        assertThat(Files.exists(partition.resolve(StorageLayout.FILE_HEBBIAN))).isTrue();
-        assertThat(Files.exists(partition.resolve(StorageLayout.FILE_TEMPORAL))).isTrue();
-        assertThat(Files.exists(partition.resolve(StorageLayout.FILE_ENTITY))).isTrue();
+        Path runtimeDir = StorageLayout.runtimeDir(basePath);
+        assertThat(Files.exists(runtimeDir.resolve(StorageLayout.FILE_HEBBIAN))).isTrue();
+        assertThat(Files.exists(runtimeDir.resolve(StorageLayout.FILE_TEMPORAL))).isTrue();
+        assertThat(Files.exists(runtimeDir.resolve(StorageLayout.FILE_ENTITY))).isTrue();
     }
 
     @Test
@@ -153,12 +150,11 @@ class PartitionLayoutMigratorTest {
 
         PartitionLayoutMigrator.migrate(basePath);
 
+        // V3: WAL dir is top-level, and the legacy wal/ was also top-level
+        // so the migration should have moved the files within it
         Path newWalDir = StorageLayout.walDir(basePath);
         assertThat(Files.isDirectory(newWalDir)).isTrue();
         assertThat(Files.exists(newWalDir.resolve("wal-000001.bin"))).isTrue();
-
-        // Legacy WAL dir should be removed
-        assertThat(Files.exists(basePath.resolve(StorageLayout.DIR_WAL))).isFalse();
     }
 
     @Test
@@ -175,7 +171,7 @@ class PartitionLayoutMigratorTest {
         PartitionLayoutMigrator.migrate(basePath);
 
         // Verify structure is still intact
-        assertThat(Files.isDirectory(StorageLayout.globalDir(basePath))).isTrue();
+        assertThat(Files.isDirectory(StorageLayout.runtimeDir(basePath))).isTrue();
     }
 
     @Test

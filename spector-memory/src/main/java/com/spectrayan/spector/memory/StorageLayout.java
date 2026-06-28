@@ -24,30 +24,30 @@ import java.util.regex.Pattern;
  * anywhere else in the codebase. The user only needs to configure a single
  * {@code persistence-path} — this class resolves everything beneath it.</p>
  *
- * <h3>Directory Structure</h3>
+ * <h3>Directory Structure (V3)</h3>
  * <pre>
  * persistence-path/
  * ├── manifest.json
- * ├── global/
+ * ├── runtime/
  * │   ├── working.mem
  * │   ├── coactivation.tracker
- * │   └── wal/
- * │       └── wal-000001.bin
+ * │   ├── index.midx
+ * │   ├── hebbian.graph
+ * │   ├── temporal.chain
+ * │   ├── entity.graph
+ * │   ├── entity-types.treg
+ * │   ├── relation-types.treg
+ * │   └── bm25.bidx
+ * ├── wal/
+ * │   └── wal-000001.bin
  * ├── partitions/
  * │   ├── 000_1717430400/
  * │   │   ├── semantic.mem
  * │   │   ├── episodic.mem
  * │   │   ├── procedural.mem
- * │   │   ├── text.dat
- * │   │   ├── index.midx
- * │   │   ├── hebbian.graph
- * │   │   ├── temporal.chain
- * │   │   └── entity.graph
+ * │   │   └── text.dat
  * │   └── 001_1719849600/
  * │       └── ...
- * └── cross/
- *     ├── hebbian-cross.graph
- *     └── entity-cross.graph
  * </pre>
  *
  * <h3>With Namespaces</h3>
@@ -58,9 +58,8 @@ import java.util.regex.Pattern;
  * └── namespaces/
  *     └── agent-alpha/
  *         ├── namespace.json
- *         ├── global/
+ *         ├── runtime/
  *         ├── partitions/
- *         └── cross/
  * </pre>
  *
  * <h3>Snapshots</h3>
@@ -70,9 +69,8 @@ import java.util.regex.Pattern;
  *     └── {namespace-id}/
  *         └── {snapshot-id}/
  *             ├── snapshot.json
- *             ├── global/
+ *             ├── runtime/
  *             ├── partitions/
- *             └── cross/
  * </pre>
  *
  * @see DefaultSpectorMemory.Builder#persistence(Path)
@@ -85,16 +83,21 @@ public final class StorageLayout {
     // Top-Level Directories
     // ═══════════════════════════════════════════════════════════════
 
-    /** Directory for global (non-partitioned) data. */
+    /** Directory for runtime (non-partitioned) state — V3 name for global structures. */
+    public static final String DIR_RUNTIME = "runtime";
+
+    /** @deprecated Use {@link #DIR_RUNTIME}. Kept for V2 migration detection. */
+    @Deprecated(forRemoval = true)
     public static final String DIR_GLOBAL = "global";
 
     /** Directory containing colocated partition subdirectories. */
     public static final String DIR_PARTITIONS = "partitions";
 
-    /** Directory for cross-partition graph edges. */
+    /** @deprecated V3 layout eliminates cross-partition directory. Kept for migration. */
+    @Deprecated(forRemoval = true)
     public static final String DIR_CROSS = "cross";
 
-    /** Directory for WAL segments (inside global/). */
+    /** Directory for WAL segments (top-level in V3, was inside global/ in V2). */
     public static final String DIR_WAL = "wal";
 
     /** Directory for namespace directories (multi-tenant mode). */
@@ -142,35 +145,37 @@ public final class StorageLayout {
     /** Raw text content for all tiers in this partition. */
     public static final String FILE_TEXT = "text.dat";
 
-    /** Partition-local memory index (id → location, source, tags). */
+    /** Global memory index (id → location, source, tags). Stored in runtime/ (V3). */
     public static final String FILE_INDEX = "index.midx";
 
-    /** Intra-partition Hebbian co-activation edges. */
+    /** Global Hebbian co-activation edges. Stored in runtime/ (V3). */
     public static final String FILE_HEBBIAN = "hebbian.graph";
 
-    /** Intra-partition temporal sequence links. */
+    /** Global temporal sequence links. Stored in runtime/ (V3). */
     public static final String FILE_TEMPORAL = "temporal.chain";
 
-    /** Intra-partition entity knowledge graph. */
+    /** Global entity knowledge graph. Stored in runtime/ (V3). */
     public static final String FILE_ENTITY = "entity.graph";
 
-    /** BM25 inverted index binary file. */
+    /** BM25 inverted index binary file. Stored in runtime/ (V3). */
     public static final String FILE_BM25 = "bm25.bidx";
 
-    /** Entity type registry (String ↔ int mapping for entity types). */
+    /** Entity type registry (String ↔ int mapping for entity types). Stored in runtime/ (V3). */
     public static final String FILE_ENTITY_TYPES = "entity-types.treg";
 
-    /** Relation type registry (String ↔ int mapping for relation types). */
+    /** Relation type registry (String ↔ int mapping for relation types). Stored in runtime/ (V3). */
     public static final String FILE_RELATION_TYPES = "relation-types.treg";
 
     // ═══════════════════════════════════════════════════════════════
-    // Cross-Partition Files (inside DIR_CROSS)
+    // Cross-Partition Files — DEPRECATED (V3 eliminates cross/)
     // ═══════════════════════════════════════════════════════════════
 
-    /** Cross-partition Hebbian edges (memories in different partitions). */
+    /** @deprecated V3 layout eliminates cross-partition graphs. */
+    @Deprecated(forRemoval = true)
     public static final String FILE_HEBBIAN_CROSS = "hebbian-cross.graph";
 
-    /** Cross-partition entity relations (entities spanning partitions). */
+    /** @deprecated V3 layout eliminates cross-partition graphs. */
+    @Deprecated(forRemoval = true)
     public static final String FILE_ENTITY_CROSS = "entity-cross.graph";
 
     // ═══════════════════════════════════════════════════════════════
@@ -265,7 +270,16 @@ public final class StorageLayout {
     // Path Resolvers — single point of path construction
     // ═══════════════════════════════════════════════════════════════
 
-    /** Resolves the global directory from the base persistence path. */
+    /** Resolves the runtime directory (V3) from the base persistence path. */
+    public static Path runtimeDir(Path basePath) {
+        return basePath.resolve(DIR_RUNTIME);
+    }
+
+    /**
+     * Resolves the global directory from the base persistence path.
+     * @deprecated Use {@link #runtimeDir(Path)}. Kept for V2 migration detection.
+     */
+    @Deprecated(forRemoval = true)
     public static Path globalDir(Path basePath) {
         return basePath.resolve(DIR_GLOBAL);
     }
@@ -275,13 +289,23 @@ public final class StorageLayout {
         return basePath.resolve(DIR_PARTITIONS);
     }
 
-    /** Resolves the cross-partition directory from the base persistence path. */
+    /**
+     * Resolves the cross-partition directory from the base persistence path.
+     * @deprecated V3 layout eliminates cross-partition directory.
+     */
+    @Deprecated(forRemoval = true)
     public static Path crossDir(Path basePath) {
         return basePath.resolve(DIR_CROSS);
     }
 
-    /** Resolves the WAL directory from the base persistence path. */
+    /** Resolves the WAL directory — top-level in V3, was inside global/ in V2. */
     public static Path walDir(Path basePath) {
+        return basePath.resolve(DIR_WAL);
+    }
+
+    /** @deprecated V2 WAL path (inside global/). Use {@link #walDir(Path)} for V3. */
+    @Deprecated(forRemoval = true)
+    public static Path walDirV2(Path basePath) {
         return globalDir(basePath).resolve(DIR_WAL);
     }
 
@@ -380,26 +404,63 @@ public final class StorageLayout {
         return snapshotsDir(basePath).resolve(namespaceId).resolve(snapshotId);
     }
 
-    // ── Global file resolvers ──
+    // ── Runtime file resolvers (V3 — global structures in runtime/) ──
 
     /** Resolves the manifest file path. */
     public static Path manifest(Path basePath) {
         return basePath.resolve(FILE_MANIFEST);
     }
 
-    /** Resolves the working memory file path. */
+    /** Resolves the working memory file path (in runtime/). */
     public static Path workingMem(Path basePath) {
-        return globalDir(basePath).resolve(FILE_WORKING);
+        return runtimeDir(basePath).resolve(FILE_WORKING);
     }
 
-    /** Resolves the co-activation tracker file path. */
+    /** Resolves the co-activation tracker file path (in runtime/). */
     public static Path coactivationTracker(Path basePath) {
-        return globalDir(basePath).resolve(FILE_COACTIVATION);
+        return runtimeDir(basePath).resolve(FILE_COACTIVATION);
     }
 
-    /** Resolves the checkpoint metadata file path. */
+    /** Resolves the checkpoint metadata file path (in runtime/). */
     public static Path checkpointMeta(Path basePath) {
-        return globalDir(basePath).resolve(FILE_CHECKPOINT_META);
+        return runtimeDir(basePath).resolve(FILE_CHECKPOINT_META);
+    }
+
+    // ── Global structure resolvers (V3 — in runtime/, not partition/) ──
+
+    /** Resolves the index.midx file path (in runtime/). */
+    public static Path indexMidxRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_INDEX);
+    }
+
+    /** Resolves the hebbian.graph file path (in runtime/). */
+    public static Path hebbianGraphRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_HEBBIAN);
+    }
+
+    /** Resolves the temporal.chain file path (in runtime/). */
+    public static Path temporalChainRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_TEMPORAL);
+    }
+
+    /** Resolves the entity.graph file path (in runtime/). */
+    public static Path entityGraphRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_ENTITY);
+    }
+
+    /** Resolves the entity-types.treg file path (in runtime/). */
+    public static Path entityTypesRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_ENTITY_TYPES);
+    }
+
+    /** Resolves the relation-types.treg file path (in runtime/). */
+    public static Path relationTypesRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_RELATION_TYPES);
+    }
+
+    /** Resolves the bm25.bidx file path (in runtime/). */
+    public static Path bm25BidxRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_BM25);
     }
 
     // ── Partition resolvers ──
@@ -467,7 +528,7 @@ public final class StorageLayout {
         }
     }
 
-    // ── Partition file resolvers ──
+    // ── Partition file resolvers (V3: only .mem + text.dat remain per-partition) ──
 
     /** Resolves a file within a partition directory. */
     public static Path partitionFile(Path partitionDir, String fileName) {
@@ -494,51 +555,104 @@ public final class StorageLayout {
         return partitionDir.resolve(FILE_TEXT);
     }
 
-    /** Resolves the index.midx file within a partition. */
+    /**
+     * Resolves the index.midx file within a partition.
+     * @deprecated V3: use {@link #indexMidxRuntime(Path)} with basePath instead.
+     */
+    @Deprecated(forRemoval = true)
     public static Path indexMidx(Path partitionDir) {
         return partitionDir.resolve(FILE_INDEX);
     }
 
-    /** Resolves the bm25.bidx file within a partition. */
+    /**
+     * Resolves the bm25.bidx file within a partition.
+     * @deprecated V3: use {@link #bm25BidxRuntime(Path)} with basePath instead.
+     */
+    @Deprecated(forRemoval = true)
     public static Path bm25Bidx(Path partitionDir) {
         return partitionDir.resolve(FILE_BM25);
     }
 
-    /** Resolves the hebbian.graph file within a partition. */
+    /**
+     * Resolves the hebbian.graph file within a partition.
+     * @deprecated V3: use {@link #hebbianGraphRuntime(Path)} with basePath instead.
+     */
+    @Deprecated(forRemoval = true)
     public static Path hebbianGraph(Path partitionDir) {
         return partitionDir.resolve(FILE_HEBBIAN);
     }
 
-    /** Resolves the temporal.chain file within a partition. */
+    /**
+     * Resolves the temporal.chain file within a partition.
+     * @deprecated V3: use {@link #temporalChainRuntime(Path)} with basePath instead.
+     */
+    @Deprecated(forRemoval = true)
     public static Path temporalChain(Path partitionDir) {
         return partitionDir.resolve(FILE_TEMPORAL);
     }
 
-    /** Resolves the entity.graph file within a partition. */
+    /**
+     * Resolves the entity.graph file within a partition.
+     * @deprecated V3: use {@link #entityGraphRuntime(Path)} with basePath instead.
+     */
+    @Deprecated(forRemoval = true)
     public static Path entityGraph(Path partitionDir) {
         return partitionDir.resolve(FILE_ENTITY);
     }
 
-    /** Resolves the entity-types.treg file within a partition. */
+    /**
+     * Resolves the entity-types.treg file within a partition.
+     * @deprecated V3: use {@link #entityTypesRuntime(Path)} with basePath instead.
+     */
+    @Deprecated(forRemoval = true)
     public static Path entityTypes(Path partitionDir) {
         return partitionDir.resolve(FILE_ENTITY_TYPES);
     }
 
-    /** Resolves the relation-types.treg file within a partition. */
+    /**
+     * Resolves the relation-types.treg file within a partition.
+     * @deprecated V3: use {@link #relationTypesRuntime(Path)} with basePath instead.
+     */
+    @Deprecated(forRemoval = true)
     public static Path relationTypes(Path partitionDir) {
         return partitionDir.resolve(FILE_RELATION_TYPES);
     }
 
-    // ── Cross-partition file resolvers ──
+    // ── Cross-partition file resolvers — DEPRECATED ──
 
-    /** Resolves the cross-partition Hebbian graph. */
+    /**
+     * Resolves the cross-partition Hebbian graph.
+     * @deprecated V3 layout eliminates cross-partition graphs.
+     */
+    @Deprecated(forRemoval = true)
     public static Path hebbianCrossGraph(Path basePath) {
         return crossDir(basePath).resolve(FILE_HEBBIAN_CROSS);
     }
 
-    /** Resolves the cross-partition entity graph. */
+    /**
+     * Resolves the cross-partition entity graph.
+     * @deprecated V3 layout eliminates cross-partition graphs.
+     */
+    @Deprecated(forRemoval = true)
     public static Path entityCrossGraph(Path basePath) {
         return crossDir(basePath).resolve(FILE_ENTITY_CROSS);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Layout Version Detection
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Detects the storage layout version for a given base path.
+     *
+     * @param basePath the persistence root
+     * @return 3 if runtime/ exists, 2 if global/ exists, 1 for legacy flat layout
+     */
+    public static int detectLayoutVersion(Path basePath) {
+        if (java.nio.file.Files.isDirectory(runtimeDir(basePath))) return 3;
+        if (java.nio.file.Files.isDirectory(globalDir(basePath))) return 2;
+        if (java.nio.file.Files.exists(basePath.resolve(LEGACY_FILE_INDEX))) return 1;
+        return 3; // new installation defaults to V3
     }
 
     // ── WAL resolvers ──
