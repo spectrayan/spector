@@ -70,9 +70,11 @@ public final class TemporalChain implements AutoCloseable {
     private final Arena arena;
     private final MemorySegment segment;
     private final int capacity;
+    private final FileChannel mappedChannel;
+    private final boolean fileBacked;
 
     /**
-     * Creates a new temporal chain.
+     * Creates a heap-allocated temporal chain (in-memory mode).
      *
      * @param capacity maximum number of nodes (memories)
      */
@@ -80,6 +82,8 @@ public final class TemporalChain implements AutoCloseable {
         this.capacity = capacity;
         this.arena = Arena.ofShared();
         this.segment = arena.allocate((long) NODE_BYTES * capacity);
+        this.mappedChannel = null;
+        this.fileBacked = false;
         // Initialize all prev/next to NO_LINK (-1)
         for (int i = 0; i < capacity; i++) {
             long offset = (long) i * NODE_BYTES;
@@ -88,17 +92,102 @@ public final class TemporalChain implements AutoCloseable {
             segment.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
         }
 
-        log.info("TemporalChain initialized: capacity={}, memory={}KB",
+        log.info("TemporalChain initialized (heap): capacity={}, memory={}KB",
                 capacity, (long) NODE_BYTES * capacity / 1024);
     }
 
     /**
-     * Private constructor for loading from a pre-existing segment.
+     * Creates or opens a file-backed (mmap) temporal chain.
+     *
+     * @param filePath path to the chain file
+     * @param capacity maximum number of nodes (used only for new files)
      */
-    private TemporalChain(int capacity, Arena arena, MemorySegment segment) {
+    public TemporalChain(Path filePath, int capacity) {
+        Path parent = filePath.getParent();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException e) {
+                throw new SpectorGraphPersistenceException("TemporalChain", parent, e);
+            }
+        }
+
+        long dataBytes = (long) NODE_BYTES * capacity;
+        boolean isNew = !Files.exists(filePath);
+
+        try {
+            FileChannel ch = FileChannel.open(filePath,
+                    StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+            this.mappedChannel = ch;
+
+            if (isNew || ch.size() < FILE_HEADER_BYTES) {
+                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
+                header.putInt(FILE_MAGIC);
+                header.putInt(FILE_VERSION);
+                header.putInt(capacity);
+                header.putInt(0);
+                header.flip();
+                ch.position(0);
+                ch.write(header);
+                long totalBytes = FILE_HEADER_BYTES + dataBytes;
+                if (ch.size() < totalBytes) {
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                }
+                ch.force(true);
+                this.capacity = capacity;
+            } else {
+                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
+                ch.position(0);
+                ch.read(header);
+                header.flip();
+                int magic = header.getInt();
+                int version = header.getInt();
+                int fileCapacity = header.getInt();
+                header.getInt();
+
+                if (magic != FILE_MAGIC || (version != FILE_VERSION && version != 1)) {
+                    log.warn("Invalid TemporalChain file, reinitializing: {}", filePath);
+                    ch.truncate(0);
+                    ByteBuffer newHeader = ByteBuffer.allocate(FILE_HEADER_BYTES);
+                    newHeader.putInt(FILE_MAGIC);
+                    newHeader.putInt(FILE_VERSION);
+                    newHeader.putInt(capacity);
+                    newHeader.putInt(0);
+                    newHeader.flip();
+                    ch.position(0);
+                    ch.write(newHeader);
+                    long totalBytes = FILE_HEADER_BYTES + dataBytes;
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                    ch.force(true);
+                    this.capacity = capacity;
+                } else {
+                    this.capacity = fileCapacity;
+                    dataBytes = (long) NODE_BYTES * fileCapacity;
+                }
+            }
+
+            this.arena = Arena.ofShared();
+            this.segment = ch.map(FileChannel.MapMode.READ_WRITE, FILE_HEADER_BYTES,
+                    dataBytes, arena);
+            this.fileBacked = true;
+
+            log.info("TemporalChain initialized (mmap): capacity={}, file={}",
+                    this.capacity, filePath.getFileName());
+
+        } catch (IOException e) {
+            throw new SpectorGraphPersistenceException("TemporalChain", filePath, e);
+        }
+    }
+
+    private TemporalChain(int capacity, Arena arena, MemorySegment segment,
+                           FileChannel mappedChannel, boolean fileBacked) {
         this.capacity = capacity;
         this.arena = arena;
         this.segment = segment;
+        this.mappedChannel = mappedChannel;
+        this.fileBacked = fileBacked;
     }
 
     /**
@@ -277,6 +366,18 @@ public final class TemporalChain implements AutoCloseable {
      * @param filePath path to write
      */
     public void save(Path filePath) {
+        if (fileBacked) {
+            try {
+                segment.force();
+                if (mappedChannel != null) mappedChannel.force(true);
+                log.info("TemporalChain flushed (mmap): capacity={}", capacity);
+            } catch (IOException e) {
+                throw new SpectorGraphPersistenceException("TemporalChain", filePath, e);
+            }
+            return;
+        }
+
+        // Heap-backed: serialize to file
         Path parent = filePath.getParent();
         if (parent != null) {
             try {
@@ -310,72 +411,24 @@ public final class TemporalChain implements AutoCloseable {
             }
 
             ch.force(true);
-            log.info("TemporalChain saved: capacity={} → {}", capacity, filePath);
+            log.info("TemporalChain saved (heap→file): capacity={} → {}", capacity, filePath);
 
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("TemporalChain", filePath, e);
         }
     }
 
-    /**
-     * Loads a chain from a binary file, or returns a new empty chain.
-     *
-     * @param filePath        path to the chain file
-     * @param defaultCapacity capacity to use if file doesn't exist
-     * @return a TemporalChain (loaded or new)
-     */
     public static TemporalChain load(Path filePath, int defaultCapacity) {
         if (filePath == null || !Files.exists(filePath)) {
             log.info("TemporalChain file not found, creating fresh: {}", filePath);
             return new TemporalChain(defaultCapacity);
         }
 
-        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            long fileSize = ch.size();
-            if (fileSize < FILE_HEADER_BYTES) {
-                log.warn("TemporalChain file too small, creating fresh");
-                return new TemporalChain(defaultCapacity);
-            }
-
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            ch.read(header);
-            header.flip();
-
-            int magic = header.getInt();
-            int version = header.getInt();
-            int capacity = header.getInt();
-            header.getInt();
-
-            if (magic != FILE_MAGIC || (version != FILE_VERSION && version != 1)) {
-                log.warn("Invalid TemporalChain file (magic={}, version={}), creating fresh", magic, version);
-                return new TemporalChain(defaultCapacity);
-            }
-
-            long expectedBytes = (long) NODE_BYTES * capacity;
-            if (fileSize < FILE_HEADER_BYTES + expectedBytes) {
-                log.warn("TemporalChain file truncated, creating fresh");
-                return new TemporalChain(defaultCapacity);
-            }
-
-            Arena arena = Arena.ofShared();
-            MemorySegment seg = arena.allocate(expectedBytes);
-            long read = 0;
-            int chunkSize = 64 * 1024;
-            while (read < expectedBytes) {
-                int toRead = (int) Math.min(chunkSize, expectedBytes - read);
-                ByteBuffer buf = ByteBuffer.allocate(toRead);
-                ch.read(buf);
-                buf.flip();
-                MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, seg, read, toRead);
-                read += toRead;
-            }
-
-            TemporalChain chain = new TemporalChain(capacity, arena, seg);
-            log.info("TemporalChain loaded: capacity={} from {}", capacity, filePath);
-            return chain;
-
-        } catch (IOException e) {
-            log.error("Failed to load TemporalChain, creating fresh: {}", e.getMessage());
+        try {
+            return new TemporalChain(filePath, defaultCapacity);
+        } catch (Exception e) {
+            log.error("Failed to mmap TemporalChain from {}, creating fresh: {}",
+                    filePath, e.getMessage());
             return new TemporalChain(defaultCapacity);
         }
     }
@@ -399,7 +452,15 @@ public final class TemporalChain implements AutoCloseable {
 
     @Override
     public void close() {
-        log.info("TemporalChain closing (capacity={})", capacity);
+        log.info("TemporalChain closing (capacity={}, fileBacked={})", capacity, fileBacked);
+        if (fileBacked && mappedChannel != null) {
+            try {
+                segment.force();
+                mappedChannel.close();
+            } catch (IOException e) {
+                log.warn("Failed to close TemporalChain channel: {}", e.getMessage());
+            }
+        }
         arena.close();
     }
 }

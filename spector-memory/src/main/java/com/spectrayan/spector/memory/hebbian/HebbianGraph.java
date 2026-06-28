@@ -72,9 +72,16 @@ public final class HebbianGraph implements AutoCloseable {
     private final Arena arena;
     private final MemorySegment segment;
     private final int capacity;
+    /** The file channel for mmap'd graphs (null for in-memory). */
+    private final FileChannel mappedChannel;
+    /** True if this graph is backed by an mmap'd file (vs. heap allocation). */
+    private final boolean fileBacked;
 
     /**
-     * Creates a Hebbian graph.
+     * Creates a heap-allocated Hebbian graph (in-memory mode, no file backing).
+     *
+     * <p>Use this for testing, IN_MEMORY persistence mode, or transient graphs.
+     * Use {@link #HebbianGraph(Path, int)} for production disk-backed graphs.</p>
      *
      * @param capacity maximum number of nodes (memories)
      */
@@ -82,20 +89,117 @@ public final class HebbianGraph implements AutoCloseable {
         this.capacity = capacity;
         this.arena = Arena.ofShared();
         this.segment = arena.allocate((long) NODE_BYTES * capacity);
+        this.mappedChannel = null;
+        this.fileBacked = false;
         // Zero-initialize (all degrees start at 0)
         segment.fill((byte) 0);
 
-        log.info("HebbianGraph initialized: capacity={}, memory={}KB",
+        log.info("HebbianGraph initialized (heap): capacity={}, memory={}KB",
                 capacity, (long) NODE_BYTES * capacity / 1024);
     }
 
     /**
-     * Private constructor for loading from a pre-existing segment (deserialization).
+     * Creates or opens a file-backed (mmap) Hebbian graph.
+     *
+     * <p>If the file exists, it is mapped directly — no data copy needed.
+     * If the file doesn't exist, a new file is created, pre-allocated, and
+     * zero-filled. All writes go directly to the mmap'd segment and are
+     * lazily flushed to disk by the OS. Call {@link #save(Path)} to force
+     * a sync.</p>
+     *
+     * @param filePath path to the graph file
+     * @param capacity maximum number of nodes (used only for new files)
      */
-    private HebbianGraph(int capacity, Arena arena, MemorySegment segment) {
+    public HebbianGraph(Path filePath, int capacity) {
+        Path parent = filePath.getParent();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException e) {
+                throw new SpectorGraphPersistenceException("HebbianGraph", parent, e);
+            }
+        }
+
+        long dataBytes = (long) NODE_BYTES * capacity;
+        boolean isNew = !Files.exists(filePath);
+
+        try {
+            FileChannel ch = FileChannel.open(filePath,
+                    StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+            this.mappedChannel = ch;
+
+            if (isNew || ch.size() < FILE_HEADER_BYTES) {
+                // Brand new file — write header with requested capacity
+                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
+                header.putInt(FILE_MAGIC);
+                header.putInt(FILE_VERSION);
+                header.putInt(capacity);
+                header.putInt(0);
+                header.flip();
+                ch.position(0);
+                ch.write(header);
+
+                long totalBytes = FILE_HEADER_BYTES + dataBytes;
+                if (ch.size() < totalBytes) {
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                }
+                ch.force(true);
+                this.capacity = capacity;
+            } else {
+                // Existing file — read capacity from header
+                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
+                ch.position(0);
+                ch.read(header);
+                header.flip();
+                int magic = header.getInt();
+                int version = header.getInt();
+                int fileCapacity = header.getInt();
+                header.getInt(); // reserved
+
+                if (magic != FILE_MAGIC || version != FILE_VERSION) {
+                    log.warn("Invalid HebbianGraph file, reinitializing: {}", filePath);
+                    ch.truncate(0);
+                    ByteBuffer newHeader = ByteBuffer.allocate(FILE_HEADER_BYTES);
+                    newHeader.putInt(FILE_MAGIC);
+                    newHeader.putInt(FILE_VERSION);
+                    newHeader.putInt(capacity);
+                    newHeader.putInt(0);
+                    newHeader.flip();
+                    ch.position(0);
+                    ch.write(newHeader);
+                    long totalBytes = FILE_HEADER_BYTES + dataBytes;
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                    ch.force(true);
+                    this.capacity = capacity;
+                } else {
+                    this.capacity = fileCapacity;
+                    dataBytes = (long) NODE_BYTES * fileCapacity;
+                }
+            }
+
+            // mmap the data portion (after header)
+            this.arena = Arena.ofShared();
+            this.segment = ch.map(FileChannel.MapMode.READ_WRITE, FILE_HEADER_BYTES,
+                    dataBytes, arena);
+            this.fileBacked = true;
+
+            log.info("HebbianGraph initialized (mmap): capacity={}, file={}, memory={}KB",
+                    this.capacity, filePath.getFileName(), dataBytes / 1024);
+
+        } catch (IOException e) {
+            throw new SpectorGraphPersistenceException("HebbianGraph", filePath, e);
+        }
+    }
+
+    private HebbianGraph(int capacity, Arena arena, MemorySegment segment,
+                          FileChannel mappedChannel, boolean fileBacked) {
         this.capacity = capacity;
         this.arena = arena;
         this.segment = segment;
+        this.mappedChannel = mappedChannel;
+        this.fileBacked = fileBacked;
     }
 
     /**
@@ -359,6 +463,20 @@ public final class HebbianGraph implements AutoCloseable {
      * @param filePath path to write the graph file
      */
     public void save(Path filePath) {
+        // mmap-backed: force flush dirty pages to disk
+        if (fileBacked) {
+            try {
+                segment.force();
+                if (mappedChannel != null) mappedChannel.force(true);
+                log.info("HebbianGraph flushed (mmap): capacity={}, edges={}",
+                        capacity, totalEdges());
+            } catch (IOException e) {
+                throw new SpectorGraphPersistenceException("HebbianGraph", filePath, e);
+            }
+            return;
+        }
+
+        // Heap-backed: serialize to file
         Path parent = filePath.getParent();
         if (parent != null) {
             try {
@@ -394,7 +512,7 @@ public final class HebbianGraph implements AutoCloseable {
             }
 
             ch.force(true);
-            log.info("HebbianGraph saved: capacity={}, edges={} → {}",
+            log.info("HebbianGraph saved (heap→file): capacity={}, edges={} → {}",
                     capacity, totalEdges(), filePath);
 
         } catch (IOException e) {
@@ -416,60 +534,11 @@ public final class HebbianGraph implements AutoCloseable {
             return new HebbianGraph(defaultCapacity);
         }
 
-        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            long fileSize = ch.size();
-            if (fileSize < FILE_HEADER_BYTES) {
-                log.warn("HebbianGraph file too small ({}B), creating fresh", fileSize);
-                return new HebbianGraph(defaultCapacity);
-            }
-
-            // Read file header
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            ch.read(header);
-            header.flip();
-
-            int magic = header.getInt();
-            int version = header.getInt();
-            int capacity = header.getInt();
-            header.getInt(); // reserved
-
-            if (magic != FILE_MAGIC) {
-                log.warn("Invalid HebbianGraph magic: 0x{}, creating fresh",
-                        Integer.toHexString(magic));
-                return new HebbianGraph(defaultCapacity);
-            }
-            if (version != FILE_VERSION) {
-                log.warn("Unsupported HebbianGraph version: {}, creating fresh", version);
-                return new HebbianGraph(defaultCapacity);
-            }
-
-            long expectedBytes = (long) NODE_BYTES * capacity;
-            if (fileSize < FILE_HEADER_BYTES + expectedBytes) {
-                log.warn("HebbianGraph file truncated, creating fresh");
-                return new HebbianGraph(defaultCapacity);
-            }
-
-            // Read segment data
-            Arena arena = Arena.ofShared();
-            MemorySegment seg = arena.allocate(expectedBytes);
-            long read = 0;
-            int chunkSize = 64 * 1024;
-            while (read < expectedBytes) {
-                int toRead = (int) Math.min(chunkSize, expectedBytes - read);
-                ByteBuffer buf = ByteBuffer.allocate(toRead);
-                ch.read(buf);
-                buf.flip();
-                MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, seg, read, toRead);
-                read += toRead;
-            }
-
-            HebbianGraph graph = new HebbianGraph(capacity, arena, seg);
-            log.info("HebbianGraph loaded: capacity={}, edges={} from {}",
-                    capacity, graph.totalEdges(), filePath);
-            return graph;
-
-        } catch (IOException e) {
-            log.error("Failed to load HebbianGraph from {}, creating fresh: {}",
+        // Use mmap-backed load: open the file and map directly
+        try {
+            return new HebbianGraph(filePath, defaultCapacity);
+        } catch (Exception e) {
+            log.error("Failed to mmap HebbianGraph from {}, creating fresh: {}",
                     filePath, e.getMessage());
             return new HebbianGraph(defaultCapacity);
         }
@@ -498,7 +567,15 @@ public final class HebbianGraph implements AutoCloseable {
 
     @Override
     public void close() {
-        log.info("HebbianGraph closing (capacity={})", capacity);
+        log.info("HebbianGraph closing (capacity={}, fileBacked={})", capacity, fileBacked);
+        if (fileBacked && mappedChannel != null) {
+            try {
+                segment.force();
+                mappedChannel.close();
+            } catch (IOException e) {
+                log.warn("Failed to close HebbianGraph channel: {}", e.getMessage());
+            }
+        }
         arena.close();
     }
 }
