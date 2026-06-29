@@ -1,0 +1,52 @@
+# Spector CODEOWNERS
+# Automatically assigns reviewers when PRs touch specific modules.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default — catch-all
+* @sbharatjoshi
+
+# Foundation Layer
+/spector-commons/ @sbharatjoshi
+/spector-config/ @sbharatjoshi
+/spector-events/ @sbharatjoshi
+/spector-metrics/ @sbharatjoshi
+
+# Core Engine
+/spector-core/ @sbharatjoshi
+/spector-engine/ @sbharatjoshi
+/spector-memory/ @sbharatjoshi
+/spector-index/ @sbharatjoshi
+/spector-query/ @sbharatjoshi
+
+# Intelligence Layer
+/spector-embed-api/ @sbharatjoshi
+/spector-embed-ollama/ @sbharatjoshi
+/spector-gpu/ @sbharatjoshi
+/spector-rag/ @sbharatjoshi
+
+# Integration Layer
+/spector-mcp/ @sbharatjoshi
+/spector-spring/ @sbharatjoshi
+/spector-client/ @sbharatjoshi
+/spector-cli/ @sbharatjoshi
+
+# Storage & Runtime
+/spector-storage/ @sbharatjoshi
+/spector-runtime/ @sbharatjoshi
+/spector-node/ @sbharatjoshi
+/spector-ingestion/ @sbharatjoshi
+
+# Build & Distribution
+/spector-bom/ @sbharatjoshi
+/spector-dist/ @sbharatjoshi
+/spector-bench/ @sbharatjoshi
+
+# CI/CD & Infrastructure
+/.github/ @sbharatjoshi
+/deploy/ @sbharatjoshi
+/Dockerfile @sbharatjoshi
+/docker-compose.yml @sbharatjoshi
+
+# Documentation
+/docs/ @sbharatjoshi
+*.md @sbharatjoshi
