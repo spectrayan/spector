@@ -414,6 +414,15 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             }
         }
 
+        // Step 3e: Agent expertise relevance boost (pre-computed from AgentSoul)
+        if (salienceProfile.hasAgentRelevanceBoost()) {
+            float agentBoost = salienceProfile.agentRelevanceBoost();
+            float preBoost = importance;
+            importance = Math.clamp(importance * agentBoost, 0.05f, 10.0f);
+            log.debug("Agent relevance boost: id={}, pre={}, post={}, boost={}",
+                    id, preBoost, importance, agentBoost);
+        }
+
         // Step 4: Flashbulb check — extreme surprise gets full fidelity
         double zScore = surpriseDetector.stats().zScore(nearestDist);
         var flashbulb = flashbulbPolicy.evaluate(zScore);
@@ -652,6 +661,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             if (selfBoost != 1.0f) {
                 importance = Math.clamp(importance * selfBoost, 0.05f, 10.0f);
             }
+        }
+
+        // Agent expertise relevance boost (pre-computed from AgentSoul)
+        if (salienceProfile.hasAgentRelevanceBoost()) {
+            importance = Math.clamp(importance * salienceProfile.agentRelevanceBoost(), 0.05f, 10.0f);
         }
 
         // Step 4: Flashbulb check

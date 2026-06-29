@@ -57,17 +57,25 @@ import java.util.List;
  *   // importance *= 1.64
  * }</pre>
  *
- * @param interests           topics to boost (semantic, embedding-based matching)
- * @param disinterests        topics to suppress (semantic, embedding-based matching)
- * @param icnuWeights         custom ICNU fusion weights (null = use system default)
- * @param alpha               similarity weight override (null = use profile default)
- * @param beta                importance weight override (null = use profile default)
- * @param defaultProfile      preferred cognitive profile (null = BALANCED)
- * @param flashbulbThreshold  z-score threshold for flashbulb memory (default: 3.0)
- * @param recencyWeight       recency preference multiplier (default: 1.0)
- * @param similarityThreshold minimum cosine similarity for interest matching (default: 0.5)
- * @param persona             biographical/personality context for self-relevance scoring
- *                            (null = no persona, no scoring effect)
+ * @param interests              topics to boost (semantic, embedding-based matching)
+ * @param disinterests           topics to suppress (semantic, embedding-based matching)
+ * @param icnuWeights            custom ICNU fusion weights (null = use system default)
+ * @param alpha                  similarity weight override (null = use profile default)
+ * @param beta                   importance weight override (null = use profile default)
+ * @param defaultProfile         preferred cognitive profile (null = BALANCED)
+ * @param flashbulbThreshold     z-score threshold for flashbulb memory (default: 3.0)
+ * @param recencyWeight          recency preference multiplier (default: 1.0)
+ * @param similarityThreshold    minimum cosine similarity for interest matching (default: 0.5)
+ * @param persona                biographical/personality context for self-relevance scoring
+ *                               (null = no persona, no scoring effect)
+ * @param agentRelevanceBoost    pre-computed multiplicative boost from agent expertise matching.
+ *                               Set by the enterprise layer's {@code AgentRelevanceScorer}
+ *                               based on cosine similarity between the agent's expertise/purpose
+ *                               embeddings and the memory embedding. OSS users can set this
+ *                               directly. Range: [1.0, 1.8]. Default: 1.0 (no effect).
+ *                               <p><b>Biological Analog:</b> Professional expertise network —
+ *                               a doctor's brain automatically gives higher salience to medical
+ *                               information. The agent's expertise domains act the same way.</p>
  */
 public record SalienceProfile(
         List<InterestDomain> interests,
@@ -79,7 +87,8 @@ public record SalienceProfile(
         float flashbulbThreshold,
         float recencyWeight,
         float similarityThreshold,
-        PersonaContext persona
+        PersonaContext persona,
+        float agentRelevanceBoost
 ) {
 
     /** Default similarity threshold for interest matching. */
@@ -88,10 +97,17 @@ public record SalienceProfile(
     /** Default flashbulb z-score threshold. */
     public static final float DEFAULT_FLASHBULB_THRESHOLD = 3.0f;
 
+    /** Default agent relevance boost (no effect). */
+    public static final float DEFAULT_AGENT_RELEVANCE_BOOST = 1.0f;
+
+    /** Maximum agent relevance boost (expertise ceiling). */
+    public static final float MAX_AGENT_RELEVANCE_BOOST = 1.8f;
+
     /** Neutral profile — no effect on scoring. */
     public static final SalienceProfile NEUTRAL = new SalienceProfile(
             List.of(), List.of(), null, null, null, null,
-            DEFAULT_FLASHBULB_THRESHOLD, 1.0f, DEFAULT_SIMILARITY_THRESHOLD, null);
+            DEFAULT_FLASHBULB_THRESHOLD, 1.0f, DEFAULT_SIMILARITY_THRESHOLD, null,
+            DEFAULT_AGENT_RELEVANCE_BOOST);
 
     /**
      * Compact constructor — enforces immutability.
@@ -220,6 +236,13 @@ public record SalienceProfile(
     }
 
     /**
+     * Returns true if an agent relevance boost is active (> 1.0).
+     */
+    public boolean hasAgentRelevanceBoost() {
+        return agentRelevanceBoost > DEFAULT_AGENT_RELEVANCE_BOOST;
+    }
+
+    /**
      * Returns true if this profile is effectively neutral (no effect).
      */
     public boolean isNeutral() {
@@ -227,6 +250,7 @@ public record SalienceProfile(
                 && !hasIcnuOverride()
                 && !hasScoringOverride()
                 && !hasPersona()
+                && !hasAgentRelevanceBoost()
                 && defaultProfile == null
                 && flashbulbThreshold == DEFAULT_FLASHBULB_THRESHOLD
                 && recencyWeight == 1.0f;
@@ -407,6 +431,7 @@ public record SalienceProfile(
         private float recencyWeight = 1.0f;
         private float similarityThreshold = DEFAULT_SIMILARITY_THRESHOLD;
         private PersonaContext persona;
+        private float agentRelevanceBoost = DEFAULT_AGENT_RELEVANCE_BOOST;
 
         /** Adds an interest domain. */
         public Builder interest(InterestDomain domain) {
@@ -488,11 +513,29 @@ public record SalienceProfile(
             return this;
         }
 
+        /**
+         * Sets the agent expertise relevance boost.
+         *
+         * <p>This is a pre-computed multiplicative factor that boosts importance
+         * of memories matching the agent's expertise domains. The enterprise layer
+         * computes this from {@code AgentRelevanceScorer} using cosine similarity
+         * between agent soul embeddings and memory embeddings. OSS users can
+         * set this directly.</p>
+         *
+         * @param boost multiplicative boost in [1.0, 1.8] (clamped)
+         */
+        public Builder agentRelevanceBoost(float boost) {
+            this.agentRelevanceBoost = Math.clamp(boost,
+                    DEFAULT_AGENT_RELEVANCE_BOOST, MAX_AGENT_RELEVANCE_BOOST);
+            return this;
+        }
+
         /** Builds an immutable SalienceProfile. */
         public SalienceProfile build() {
             return new SalienceProfile(interests, disinterests, icnuWeights,
                     alpha, beta, defaultProfile, flashbulbThreshold,
-                    recencyWeight, similarityThreshold, persona);
+                    recencyWeight, similarityThreshold, persona,
+                    agentRelevanceBoost);
         }
     }
 }

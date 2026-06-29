@@ -120,6 +120,11 @@ public final class MemorySalienceTool extends MemoryToolHandler {
                         "ICNU Novelty weight (0.0-1.0) for set operation.", "")
                 .optionalString("icnu_urgency",
                         "ICNU Urgency weight (0.0-1.0) for set operation.", "")
+                .optionalString("agent_relevance_boost",
+                        "Agent expertise relevance boost (1.0-1.8). "
+                        + "Pre-computed scalar from agent soul expertise matching. "
+                        + "Default 1.0 (no effect). Set higher to boost memories "
+                        + "matching the agent's domain expertise.", "")
                 .build();
     }
 
@@ -195,6 +200,12 @@ public final class MemorySalienceTool extends MemoryToolHandler {
                 .append(", recency=").append(profile.recencyWeight())
                 .append(", simThreshold=").append(profile.similarityThreshold());
 
+        if (profile.hasAgentRelevanceBoost()) {
+            sb.append("\nAgent Relevance Boost: ")
+                    .append(String.format("%.2f×", profile.agentRelevanceBoost()))
+                    .append(" (expertise match active)");
+        }
+
         return textResult(sb.toString());
     }
 
@@ -214,11 +225,20 @@ public final class MemorySalienceTool extends MemoryToolHandler {
                     icnuU >= 0 ? icnuU : 0.25f));
         }
 
+        // Parse agent relevance boost if provided
+        float agentBoost = optionalFloat(args, "agent_relevance_boost", -1f);
+        if (agentBoost > 0) {
+            builder.agentRelevanceBoost(agentBoost);
+        }
+
         SalienceProfile profile = builder.build();
         memory.setSalienceProfile(profile);
 
         return textResult("✅ Salience profile set successfully."
-                + (profile.hasIcnuOverride() ? " ICNU weights overridden." : ""));
+                + (profile.hasIcnuOverride() ? " ICNU weights overridden." : "")
+                + (profile.hasAgentRelevanceBoost()
+                        ? " Agent relevance boost: " + String.format("%.2f×", profile.agentRelevanceBoost())
+                        : ""));
     }
 
     private McpSchema.CallToolResult handleComputeBoost(SpectorMemory memory, Map<String, Object> args) {
@@ -229,7 +249,9 @@ public final class MemorySalienceTool extends MemoryToolHandler {
 
         float topicBoost = memory.computeTopicBoost(text);
         float selfBoost = memory.computeSelfRelevanceBoost(text);
-        float combinedBoost = topicBoost * selfBoost;
+        float agentBoost = memory.salienceProfile() != null
+                ? memory.salienceProfile().agentRelevanceBoost() : 1.0f;
+        float combinedBoost = topicBoost * selfBoost * agentBoost;
 
         var sb = new StringBuilder();
         sb.append("🔍 Salience Boost Preview\n\n");
@@ -244,6 +266,11 @@ public final class MemorySalienceTool extends MemoryToolHandler {
         if (selfBoost > 1.0f) sb.append(" ⬆ (persona match)");
         else if (selfBoost < 1.0f) sb.append(" ⬇ (persona mismatch)");
         else sb.append(" — (no persona)");
+        sb.append("\n");
+
+        sb.append("Agent Relevance:      ").append(String.format("%.4f", agentBoost));
+        if (agentBoost > 1.0f) sb.append(" ⬆ (expertise match)");
+        else sb.append(" — (no agent boost)");
         sb.append("\n");
 
         sb.append("Combined Boost:       ").append(String.format("%.4f", combinedBoost)).append("\n");

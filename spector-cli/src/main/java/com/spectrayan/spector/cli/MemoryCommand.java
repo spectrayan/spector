@@ -552,6 +552,10 @@ public class MemoryCommand extends BaseCommand {
                         out().println();
                         out().println("Persona: " + response.get("hasPersona"));
                         out().println("ICNU Override: " + response.get("hasIcnuOverride"));
+                        Object agentBoost = response.get("agentRelevanceBoost");
+                        if (agentBoost != null && !agentBoost.equals(1.0) && !agentBoost.equals(1)) {
+                            out().println("Agent Relevance Boost: " + agentBoost + "×");
+                        }
                     }
                 }
             } catch (SpectorConnectionException e) {
