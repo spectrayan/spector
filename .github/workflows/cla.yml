@@ -27,14 +27,11 @@ jobs:
         uses: contributor-assistant/github-action@v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_TOKEN }}
         with:
           path-to-signatures: '.github/cla-signatures.json'
           path-to-document: 'https://github.com/spectrayan/spector/blob/main/CLA.md'
           branch: 'main'
           allowlist: 'sbharatjoshi,dependabot[bot],github-actions[bot]'
-          remote-organization-name: 'spectrayan'
-          remote-repository-name: 'spector'
           custom-notsigned-prcomment: |
             Thank you for your contribution! Before we can review this PR, we need you to sign our Contributor License Agreement (CLA).
 
