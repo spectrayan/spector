@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
+import com.spectrayan.spector.memory.graph.EdgeImportance;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -54,20 +55,46 @@ public final class HebbianGraph implements AutoCloseable {
     /** File magic: "HGPH" in ASCII. */
     private static final int FILE_MAGIC = 0x48475048;
 
-    /** File format version. */
-    private static final int FILE_VERSION = 1;
+    /** File format version (v2: widened edges with metadata). */
+    private static final int FILE_VERSION = 2;
 
-    /** File header: 4B magic + 4B version + 4B capacity + 4B reserved = 16 bytes. */
+    /** V1 file format edge bytes — for migration. */
+    private static final int V1_EDGE_BYTES = 8;
+
+    /** File header: 4B magic + 4B version + 4B capacity + 4B maxDegree = 16 bytes. */
     private static final int FILE_HEADER_BYTES = 16;
 
-    /** Maximum number of Hebbian neighbors per memory. */
-    public static final int MAX_DEGREE = 20;
+    /** Default maximum number of Hebbian neighbors per memory (configurable). */
+    public static final int DEFAULT_MAX_DEGREE = 24;
 
-    /** Bytes per edge: 4B (neighbor index) + 4B (weight as float). */
-    private static final int EDGE_BYTES = 8;
+    /**
+     * Bytes per edge (V2): 4B neighbor + 4B weight + 2B lastCycle + 1B bridgeScore + 1B flags.
+     *
+     * <p>The 4B metadata field is packed as:</p>
+     * <pre>
+     *   [0-1] lastCycle  (short, unsigned: 0-65535 cycle counter)
+     *   [2]   bridgeScore (byte, unsigned: 0-255)
+     *   [3]   flags       (byte: reserved for future use)
+     * </pre>
+     */
+    private static final int EDGE_BYTES = 12;
+    private static final int EDGE_OFF_NEIGHBOR = 0;
+    private static final int EDGE_OFF_WEIGHT = 4;
+    private static final int EDGE_OFF_LAST_CYCLE = 8;
+    private static final int EDGE_OFF_BRIDGE_SCORE = 10;
+    private static final int EDGE_OFF_EDGE_FLAGS = 11;
 
-    /** Bytes per node: 4B (degree) + MAX_DEGREE * EDGE_BYTES. */
-    static final int NODE_BYTES = 4 + MAX_DEGREE * EDGE_BYTES;
+    /** Maximum degree for this instance (configurable via constructor). */
+    private final int maxDegree;
+
+    /** Bytes per node: 4B (degree) + maxDegree * EDGE_BYTES. */
+    private final int nodeBytesPerNode;
+
+    /** Reflection cycle counter — incremented by decayEdges(). */
+    private int currentCycle;
+
+    /** Edge importance scorer (configurable weights). */
+    private final EdgeImportance edgeImportance;
 
     private final Arena arena;
     private final MemorySegment segment;
@@ -78,24 +105,35 @@ public final class HebbianGraph implements AutoCloseable {
     private final boolean fileBacked;
 
     /**
-     * Creates a heap-allocated Hebbian graph (in-memory mode, no file backing).
-     *
-     * <p>Use this for testing, IN_MEMORY persistence mode, or transient graphs.
-     * Use {@link #HebbianGraph(Path, int)} for production disk-backed graphs.</p>
+     * Creates a heap-allocated Hebbian graph with default max degree.
      *
      * @param capacity maximum number of nodes (memories)
      */
     public HebbianGraph(int capacity) {
+        this(capacity, DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+    }
+
+    /**
+     * Creates a heap-allocated Hebbian graph with configurable max degree.
+     *
+     * @param capacity      maximum number of nodes (memories)
+     * @param maxDegree     maximum edges per node
+     * @param edgeImportance edge importance scorer
+     */
+    public HebbianGraph(int capacity, int maxDegree, EdgeImportance edgeImportance) {
         this.capacity = capacity;
+        this.maxDegree = maxDegree;
+        this.edgeImportance = edgeImportance;
+        this.nodeBytesPerNode = 4 + maxDegree * EDGE_BYTES;
+        this.currentCycle = 0;
         this.arena = Arena.ofShared();
-        this.segment = arena.allocate((long) NODE_BYTES * capacity);
+        this.segment = arena.allocate((long) nodeBytesPerNode * capacity);
         this.mappedChannel = null;
         this.fileBacked = false;
-        // Zero-initialize (all degrees start at 0)
         segment.fill((byte) 0);
 
-        log.info("HebbianGraph initialized (heap): capacity={}, memory={}KB",
-                capacity, (long) NODE_BYTES * capacity / 1024);
+        log.info("HebbianGraph initialized (heap): capacity={}, maxDegree={}, memory={}KB",
+                capacity, maxDegree, (long) nodeBytesPerNode * capacity / 1024);
     }
 
     /**
@@ -103,14 +141,30 @@ public final class HebbianGraph implements AutoCloseable {
      *
      * <p>If the file exists, it is mapped directly — no data copy needed.
      * If the file doesn't exist, a new file is created, pre-allocated, and
-     * zero-filled. All writes go directly to the mmap'd segment and are
-     * lazily flushed to disk by the OS. Call {@link #save(Path)} to force
-     * a sync.</p>
+     * zero-filled. V1 files (EDGE_BYTES=8) are detected and re-initialized
+     * as V2 (one-way migration — old data is lost).</p>
      *
      * @param filePath path to the graph file
      * @param capacity maximum number of nodes (used only for new files)
      */
     public HebbianGraph(Path filePath, int capacity) {
+        this(filePath, capacity, DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+    }
+
+    /**
+     * Creates or opens a file-backed (mmap) Hebbian graph with configurable degree.
+     *
+     * @param filePath       path to the graph file
+     * @param capacity       maximum number of nodes (used only for new files)
+     * @param maxDegree      maximum edges per node
+     * @param edgeImportance edge importance scorer
+     */
+    public HebbianGraph(Path filePath, int capacity, int maxDegree, EdgeImportance edgeImportance) {
+        this.maxDegree = maxDegree;
+        this.edgeImportance = edgeImportance;
+        this.nodeBytesPerNode = 4 + maxDegree * EDGE_BYTES;
+        this.currentCycle = 0;
+
         Path parent = filePath.getParent();
         if (parent != null) {
             try {
@@ -120,7 +174,7 @@ public final class HebbianGraph implements AutoCloseable {
             }
         }
 
-        long dataBytes = (long) NODE_BYTES * capacity;
+        long dataBytes = (long) nodeBytesPerNode * capacity;
         boolean isNew = !Files.exists(filePath);
 
         try {
@@ -129,16 +183,8 @@ public final class HebbianGraph implements AutoCloseable {
             this.mappedChannel = ch;
 
             if (isNew || ch.size() < FILE_HEADER_BYTES) {
-                // Brand new file — write header with requested capacity
-                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-                header.putInt(FILE_MAGIC);
-                header.putInt(FILE_VERSION);
-                header.putInt(capacity);
-                header.putInt(0);
-                header.flip();
-                ch.position(0);
-                ch.write(header);
-
+                // Brand new file — write V2 header
+                writeNewHeader(ch, capacity, maxDegree);
                 long totalBytes = FILE_HEADER_BYTES + dataBytes;
                 if (ch.size() < totalBytes) {
                     ch.position(totalBytes - 1);
@@ -147,7 +193,7 @@ public final class HebbianGraph implements AutoCloseable {
                 ch.force(true);
                 this.capacity = capacity;
             } else {
-                // Existing file — read capacity from header
+                // Existing file — read header
                 ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
                 ch.position(0);
                 ch.read(header);
@@ -155,27 +201,31 @@ public final class HebbianGraph implements AutoCloseable {
                 int magic = header.getInt();
                 int version = header.getInt();
                 int fileCapacity = header.getInt();
-                header.getInt(); // reserved
+                int fileDegree = header.getInt();
 
-                if (magic != FILE_MAGIC || version != FILE_VERSION) {
-                    log.warn("Invalid HebbianGraph file, reinitializing: {}", filePath);
+                if (magic != FILE_MAGIC) {
+                    log.warn("Invalid HebbianGraph file (bad magic), reinitializing: {}", filePath);
                     ch.truncate(0);
-                    ByteBuffer newHeader = ByteBuffer.allocate(FILE_HEADER_BYTES);
-                    newHeader.putInt(FILE_MAGIC);
-                    newHeader.putInt(FILE_VERSION);
-                    newHeader.putInt(capacity);
-                    newHeader.putInt(0);
-                    newHeader.flip();
-                    ch.position(0);
-                    ch.write(newHeader);
+                    writeNewHeader(ch, capacity, maxDegree);
                     long totalBytes = FILE_HEADER_BYTES + dataBytes;
                     ch.position(totalBytes - 1);
                     ch.write(ByteBuffer.wrap(new byte[]{0}));
                     ch.force(true);
                     this.capacity = capacity;
+                } else if (version < FILE_VERSION) {
+                    // V1 → V2 one-way migration: reinitialize with wider format
+                    log.warn("Migrating HebbianGraph v{} → v{} (one-way): {}", version, FILE_VERSION, filePath);
+                    ch.truncate(0);
+                    writeNewHeader(ch, fileCapacity, maxDegree);
+                    long totalBytes = FILE_HEADER_BYTES + (long) nodeBytesPerNode * fileCapacity;
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                    ch.force(true);
+                    this.capacity = fileCapacity;
+                    dataBytes = (long) nodeBytesPerNode * fileCapacity;
                 } else {
                     this.capacity = fileCapacity;
-                    dataBytes = (long) NODE_BYTES * fileCapacity;
+                    dataBytes = (long) nodeBytesPerNode * fileCapacity;
                 }
             }
 
@@ -185,17 +235,33 @@ public final class HebbianGraph implements AutoCloseable {
                     dataBytes, arena);
             this.fileBacked = true;
 
-            log.info("HebbianGraph initialized (mmap): capacity={}, file={}, memory={}KB",
-                    this.capacity, filePath.getFileName(), dataBytes / 1024);
+            log.info("HebbianGraph initialized (mmap): capacity={}, maxDegree={}, version={}, file={}, memory={}KB",
+                    this.capacity, maxDegree, FILE_VERSION, filePath.getFileName(), dataBytes / 1024);
 
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("HebbianGraph", filePath, e);
         }
     }
 
-    private HebbianGraph(int capacity, Arena arena, MemorySegment segment,
+    private static void writeNewHeader(FileChannel ch, int capacity, int maxDegree) throws IOException {
+        ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
+        header.putInt(FILE_MAGIC);
+        header.putInt(FILE_VERSION);
+        header.putInt(capacity);
+        header.putInt(maxDegree);
+        header.flip();
+        ch.position(0);
+        ch.write(header);
+    }
+
+    private HebbianGraph(int capacity, int maxDegree, EdgeImportance edgeImportance,
+                          Arena arena, MemorySegment segment,
                           FileChannel mappedChannel, boolean fileBacked) {
         this.capacity = capacity;
+        this.maxDegree = maxDegree;
+        this.edgeImportance = edgeImportance;
+        this.nodeBytesPerNode = 4 + maxDegree * EDGE_BYTES;
+        this.currentCycle = 0;
         this.arena = arena;
         this.segment = segment;
         this.mappedChannel = mappedChannel;
@@ -238,7 +304,7 @@ public final class HebbianGraph implements AutoCloseable {
      */
     public List<HebbianEdge> neighbors(int node) {
         if (node < 0 || node >= capacity) return List.of();
-        long nodeOffset = (long) node * NODE_BYTES;
+        long nodeOffset = (long) node * nodeBytesPerNode;
         int degree = segment.get(ValueLayout.JAVA_INT, nodeOffset);
 
         List<HebbianEdge> edges = new ArrayList<>(degree);
@@ -258,7 +324,7 @@ public final class HebbianGraph implements AutoCloseable {
      */
     public int degree(int node) {
         if (node < 0 || node >= capacity) return 0;
-        return segment.get(ValueLayout.JAVA_INT, (long) node * NODE_BYTES);
+        return segment.get(ValueLayout.JAVA_INT, (long) node * nodeBytesPerNode);
     }
 
     /**
@@ -273,50 +339,74 @@ public final class HebbianGraph implements AutoCloseable {
     }
 
     private void addOrUpdateEdge(int from, int to, float weightDelta) {
-        long nodeOffset = (long) from * NODE_BYTES;
+        long nodeOffset = (long) from * nodeBytesPerNode;
         int degree = segment.get(ValueLayout.JAVA_INT, nodeOffset);
 
         // Check if edge already exists
         for (int i = 0; i < degree; i++) {
             long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
-            int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset);
+            int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR);
             if (neighbor == to) {
-                // Strengthen existing edge
-                float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + 4);
-                segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + 4, weight + weightDelta);
+                // Strengthen existing edge — update weight and recency
+                float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
+                segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, weight + weightDelta);
+                segment.set(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE, (short) currentCycle);
                 return;
             }
         }
 
         // Add new edge (if room)
-        if (degree < MAX_DEGREE) {
+        if (degree < maxDegree) {
             long edgeOffset = nodeOffset + 4 + (long) degree * EDGE_BYTES;
-            segment.set(ValueLayout.JAVA_INT, edgeOffset, to);
-            segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + 4, weightDelta);
+            segment.set(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR, to);
+            segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, weightDelta);
+            segment.set(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE, (short) currentCycle);
+            segment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE, (byte) 0);
+            segment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_EDGE_FLAGS, (byte) 0);
             segment.set(ValueLayout.JAVA_INT, nodeOffset, degree + 1);
         } else {
-            // Replace weakest edge if new weight exceeds it
-            replaceWeakest(nodeOffset, degree, to, weightDelta);
+            // Evict lowest-importance edge if new edge scores higher
+            replaceLowestImportance(from, nodeOffset, degree, to, weightDelta);
         }
     }
 
-    private void replaceWeakest(long nodeOffset, int degree, int newNeighbor, float newWeight) {
-        float minWeight = Float.MAX_VALUE;
+    /**
+     * Replaces the lowest-importance edge with a new edge, if the new edge
+     * would score higher. Uses the neuroscience-informed EdgeImportance scorer.
+     */
+    private void replaceLowestImportance(int fromNode, long nodeOffset, int degree,
+                                          int newNeighbor, float newWeight) {
+        float minScore = Float.MAX_VALUE;
         int minIndex = -1;
 
         for (int i = 0; i < degree; i++) {
             long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
-            float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + 4);
-            if (weight < minWeight) {
-                minWeight = weight;
+            float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
+            short lastCycle = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
+            byte bridgeScore = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
+
+            // Use structural-only scoring (no header reads during hot-path insertion)
+            float score = edgeImportance.scoreStructural(
+                    weight, currentCycle, Short.toUnsignedInt(lastCycle),
+                    Byte.toUnsignedInt(bridgeScore), 0);
+
+            if (score < minScore) {
+                minScore = score;
                 minIndex = i;
             }
         }
 
-        if (newWeight > minWeight && minIndex >= 0) {
+        // New edge must score higher than the weakest existing edge
+        float newScore = edgeImportance.scoreStructural(
+                newWeight, currentCycle, currentCycle, 0, 0);
+
+        if (newScore > minScore && minIndex >= 0) {
             long edgeOffset = nodeOffset + 4 + (long) minIndex * EDGE_BYTES;
-            segment.set(ValueLayout.JAVA_INT, edgeOffset, newNeighbor);
-            segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + 4, newWeight);
+            segment.set(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR, newNeighbor);
+            segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, newWeight);
+            segment.set(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE, (short) currentCycle);
+            segment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE, (byte) 0);
+            segment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_EDGE_FLAGS, (byte) 0);
         }
     }
 
@@ -371,11 +461,12 @@ public final class HebbianGraph implements AutoCloseable {
     public int decayEdges(float decayFactor) {
         graphLock.lock();
         try {
+            currentCycle++;
             int removed = 0;
-            float removalThreshold = 0.01f; // edges below this are effectively dead
+            float removalThreshold = 0.01f;
 
             for (int node = 0; node < capacity; node++) {
-                long nodeOffset = (long) node * NODE_BYTES;
+                long nodeOffset = (long) node * nodeBytesPerNode;
                 int degree = segment.get(ValueLayout.JAVA_INT, nodeOffset);
                 int newDegree = 0;
 
@@ -388,11 +479,18 @@ public final class HebbianGraph implements AutoCloseable {
                         // Keep edge — compact if needed
                         if (newDegree != i) {
                             long newOffset = nodeOffset + 4 + (long) newDegree * EDGE_BYTES;
-                            int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset);
-                            segment.set(ValueLayout.JAVA_INT, newOffset, neighbor);
-                            segment.set(ValueLayout.JAVA_FLOAT, newOffset + 4, decayed);
+                            // Copy full 12-byte edge (neighbor + weight + metadata)
+                            int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR);
+                            short lastCyc = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
+                            byte bridge = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
+                            byte eFlags = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_EDGE_FLAGS);
+                            segment.set(ValueLayout.JAVA_INT, newOffset + EDGE_OFF_NEIGHBOR, neighbor);
+                            segment.set(ValueLayout.JAVA_FLOAT, newOffset + EDGE_OFF_WEIGHT, decayed);
+                            segment.set(ValueLayout.JAVA_SHORT, newOffset + EDGE_OFF_LAST_CYCLE, lastCyc);
+                            segment.set(ValueLayout.JAVA_BYTE, newOffset + EDGE_OFF_BRIDGE_SCORE, bridge);
+                            segment.set(ValueLayout.JAVA_BYTE, newOffset + EDGE_OFF_EDGE_FLAGS, eFlags);
                         } else {
-                            segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + 4, decayed);
+                            segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, decayed);
                         }
                         newDegree++;
                     } else {
@@ -454,10 +552,10 @@ public final class HebbianGraph implements AutoCloseable {
     /**
      * Saves the graph to a binary file.
      *
-     * <h3>File Format</h3>
+     * <h3>File Format (V2)</h3>
      * <pre>
-     *   [4B magic: "HGPH"]  [4B version: 1]  [4B capacity]  [4B reserved]
-     *   [raw segment bytes: capacity × NODE_BYTES]
+     *   [4B magic: "HGPH"]  [4B version: 2]  [4B capacity]  [4B maxDegree]
+     *   [raw segment bytes: capacity × nodeBytesPerNode]
      * </pre>
      *
      * @param filePath path to write the graph file
@@ -495,12 +593,12 @@ public final class HebbianGraph implements AutoCloseable {
             header.putInt(FILE_MAGIC);
             header.putInt(FILE_VERSION);
             header.putInt(capacity);
-            header.putInt(0); // reserved
+            header.putInt(maxDegree);
             header.flip();
             ch.write(header);
 
             // Write raw segment bytes in chunks
-            long totalBytes = (long) NODE_BYTES * capacity;
+            long totalBytes = (long) nodeBytesPerNode * capacity;
             long written = 0;
             int chunkSize = 64 * 1024; // 64KB chunks
             while (written < totalBytes) {
