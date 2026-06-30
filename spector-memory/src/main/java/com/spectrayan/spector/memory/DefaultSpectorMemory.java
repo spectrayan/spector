@@ -419,7 +419,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         boolean entityEnabled = builder.entityExtractionMode != EntityExtractionMode.NONE;
         if (entityEnabled) {
             int entityCap = builder.entityGraphCapacity;
-            int edgeCap = entityCap * EntityGraph.MAX_DEGREE;
+            int edgeCap = entityCap * EntityGraph.DEFAULT_MAX_DEGREE;
             if (isDisk && basePath != null) {
                 Path runtimeEntity = StorageLayout.entityGraphRuntime(basePath);
                 Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);

@@ -97,15 +97,17 @@ public final class EntityGraph implements AutoCloseable {
     /** Initial weight for a new entity→memory link. */
     private static final float INITIAL_LINK_WEIGHT = 1.0f;
 
-    /** Maximum edges per entity. */
-    public static final int MAX_DEGREE = 32;
+    /** Default maximum edges per entity (configurable). */
+    public static final int DEFAULT_MAX_DEGREE = 48;
 
     /** Maximum adjacency entries per entity (for mmap pre-allocation). */
     static final int MAX_ADJ_PER_ENTITY = 64;
 
     // ── mmap File Header (32 bytes) ──
     private static final int MMAP_MAGIC = 0x45474D4D; // "EGMM"
-    private static final int MMAP_VERSION = 1;
+    private static final int MMAP_VERSION = 2;
+    /** V1 edge bytes — for migration detection. */
+    private static final int V1_EDGE_BYTES = 12;
     private static final int MMAP_HEADER_BYTES = 32;
     // Header layout: [magic:4B][version:4B][entityCap:4B][edgeCap:4B]
     //                [entityCount:4B][edgeCount:4B][adjCap:4B][adjHwm:4B]
@@ -125,11 +127,25 @@ public final class EntityGraph implements AutoCloseable {
     // pad: 20B to reach 64B
 
 
-    // ── Entity Edge Layout (12 bytes) ──
-    static final int EDGE_BYTES = 12;
-    private static final long EDGE_OFF_TARGET = 0;       // 4B
-    private static final long EDGE_OFF_REL_TYPE = 4;     // 4B
-    private static final long EDGE_OFF_WEIGHT = 8;       // 4B (float)
+    /**
+     * Entity Edge Layout (16 bytes, V2).
+     *
+     * <pre>
+     *   [0-3]   target      (4B int: target entity ID)
+     *   [4-7]   relType     (4B int: relation type ID)
+     *   [8-11]  weight      (4B float)
+     *   [12-13] lastCycle   (2B short, unsigned: 0-65535)
+     *   [14]    bridgeScore (1B unsigned: 0-255)
+     *   [15]    flags       (1B reserved)
+     * </pre>
+     */
+    static final int EDGE_BYTES = 16;
+    private static final long EDGE_OFF_TARGET = 0;        // 4B
+    private static final long EDGE_OFF_REL_TYPE = 4;      // 4B
+    private static final long EDGE_OFF_WEIGHT = 8;        // 4B (float)
+    private static final long EDGE_OFF_LAST_CYCLE = 12;   // 2B (short)
+    private static final long EDGE_OFF_BRIDGE_SCORE = 14; // 1B
+    private static final long EDGE_OFF_EDGE_FLAGS = 15;   // 1B
 
     // ── Adjacency Entry Layout (8 bytes) ──
     static final int ADJ_ENTRY_BYTES = 8;
@@ -166,15 +182,39 @@ public final class EntityGraph implements AutoCloseable {
     /** Open-schema relation type registry (String ↔ int). */
     private final TypeRegistry relationTypeRegistry;
 
+    /** Maximum edges per entity (configurable via constructor). */
+    private final int maxDegree;
+
+    /** Reflection cycle counter — incremented externally. */
+    private int currentCycle;
+
+    /** Edge importance scorer (configurable weights). */
+    private final EdgeImportance edgeImportance;
+
     /**
-     * Creates a new entity graph.
+     * Creates a new entity graph with default max degree.
      *
      * @param entityCapacity maximum number of entities
-     * @param edgeCapacity   maximum number of edges (default: entityCapacity × MAX_DEGREE)
+     * @param edgeCapacity   maximum number of edges
      */
     public EntityGraph(int entityCapacity, int edgeCapacity) {
+        this(entityCapacity, edgeCapacity, DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+    }
+
+    /**
+     * Creates a new entity graph with configurable max degree.
+     *
+     * @param entityCapacity maximum number of entities
+     * @param edgeCapacity   maximum number of edges
+     * @param maxDegree      maximum edges per entity
+     * @param edgeImportance edge importance scorer
+     */
+    public EntityGraph(int entityCapacity, int edgeCapacity, int maxDegree, EdgeImportance edgeImportance) {
         this.entityCapacity = entityCapacity;
         this.edgeCapacity = edgeCapacity;
+        this.maxDegree = maxDegree;
+        this.edgeImportance = edgeImportance;
+        this.currentCycle = 0;
         this.entityCount = 0;
         this.edgeCount = 0;
         this.arena = Arena.ofShared();
@@ -192,32 +232,41 @@ public final class EntityGraph implements AutoCloseable {
         this.entityTypeRegistry = TypeRegistry.seeded("entity-type", EntityType.SEED);
         this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
 
-        log.info("EntityGraph initialized (heap): entities={}, edges={}, adjSlots={}, memory={}KB",
-                entityCapacity, edgeCapacity, adjSegmentCapacity,
+        log.info("EntityGraph initialized (heap): entities={}, edges={}, maxDegree={}, adjSlots={}, memory={}KB",
+                entityCapacity, edgeCapacity, maxDegree, adjSegmentCapacity,
                 ((long) ENTITY_NODE_BYTES * entityCapacity
                         + (long) EDGE_BYTES * edgeCapacity
                         + (long) ADJ_ENTRY_BYTES * adjSegmentCapacity) / 1024);
     }
 
     /**
-     * Creates or opens a file-backed (mmap) entity graph.
+     * Creates or opens a file-backed (mmap) entity graph with default max degree.
+     */
+    public EntityGraph(Path filePath, int entityCapacity, int edgeCapacity) {
+        this(filePath, entityCapacity, edgeCapacity, DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+    }
+
+    /**
+     * Creates or opens a file-backed (mmap) entity graph with configurable max degree.
      *
      * <p>Uses a single contiguous mmap file with layout:
      * <pre>
      *   [Header: 32B][EntitySegment][EdgeSegment][AdjacencySegment]
      * </pre>
-     * Adjacency is pre-allocated at {@code entityCapacity × MAX_ADJ_PER_ENTITY}
-     * to avoid dynamic resize. With mmap, the OS only pages in accessed 4KB
-     * blocks — unused capacity costs zero physical RAM.</p>
-     *
-     * <p>The nameIndex (on-heap ConcurrentHashMap) is NOT stored in the mmap
-     * file — it is serialized separately by {@link EntityGraphSerializer}.</p>
+     * V1 files (EDGE_BYTES=12) are detected and re-initialized as V2 (one-way migration).</p>
      *
      * @param filePath       path to the graph file
      * @param entityCapacity maximum number of entities
      * @param edgeCapacity   maximum number of edges
+     * @param maxDegree      maximum edges per entity
+     * @param edgeImportance edge importance scorer
      */
-    public EntityGraph(Path filePath, int entityCapacity, int edgeCapacity) {
+    public EntityGraph(Path filePath, int entityCapacity, int edgeCapacity,
+                       int maxDegree, EdgeImportance edgeImportance) {
+        this.maxDegree = maxDegree;
+        this.edgeImportance = edgeImportance;
+        this.currentCycle = 0;
+
         Path parent = filePath.getParent();
         if (parent != null) {
             try {
@@ -240,19 +289,8 @@ public final class EntityGraph implements AutoCloseable {
             this.mappedChannel = ch;
 
             if (isNew || ch.size() < MMAP_HEADER_BYTES) {
-                // Brand new file — write header
-                ByteBuffer header = ByteBuffer.allocate(MMAP_HEADER_BYTES);
-                header.putInt(MMAP_MAGIC);
-                header.putInt(MMAP_VERSION);
-                header.putInt(entityCapacity);
-                header.putInt(edgeCapacity);
-                header.putInt(0); // entityCount
-                header.putInt(0); // edgeCount
-                header.putInt(adjCap);
-                header.putInt(0); // adjHighWaterMark
-                header.flip();
-                ch.position(0);
-                ch.write(header);
+                // Brand new file — write V2 header
+                writeNewMmapHeader(ch, entityCapacity, edgeCapacity, adjCap);
 
                 long totalBytes = MMAP_HEADER_BYTES + entityBytes + edgeBytes + adjBytes;
                 if (ch.size() < totalBytes) {
@@ -281,21 +319,10 @@ public final class EntityGraph implements AutoCloseable {
                 int fileAdjCap = header.getInt();
                 int fileAdjHwm = header.getInt();
 
-                if (magic != MMAP_MAGIC || version != MMAP_VERSION) {
-                    log.warn("Invalid EntityGraph mmap file, reinitializing: {}", filePath);
+                if (magic != MMAP_MAGIC) {
+                    log.warn("Invalid EntityGraph mmap file (bad magic), reinitializing: {}", filePath);
                     ch.truncate(0);
-                    ByteBuffer newHeader = ByteBuffer.allocate(MMAP_HEADER_BYTES);
-                    newHeader.putInt(MMAP_MAGIC);
-                    newHeader.putInt(MMAP_VERSION);
-                    newHeader.putInt(entityCapacity);
-                    newHeader.putInt(edgeCapacity);
-                    newHeader.putInt(0);
-                    newHeader.putInt(0);
-                    newHeader.putInt(adjCap);
-                    newHeader.putInt(0);
-                    newHeader.flip();
-                    ch.position(0);
-                    ch.write(newHeader);
+                    writeNewMmapHeader(ch, entityCapacity, edgeCapacity, adjCap);
                     long totalBytes = MMAP_HEADER_BYTES + entityBytes + edgeBytes + adjBytes;
                     ch.position(totalBytes - 1);
                     ch.write(ByteBuffer.wrap(new byte[]{0}));
@@ -305,6 +332,24 @@ public final class EntityGraph implements AutoCloseable {
                     this.entityCount = 0;
                     this.edgeCount = 0;
                     this.adjSegmentCapacity = adjCap;
+                    this.adjHighWaterMark = 0;
+                } else if (version < MMAP_VERSION) {
+                    // V1 → V2 one-way migration: reinitialize with wider edges
+                    log.warn("Migrating EntityGraph v{} → v{} (one-way): {}", version, MMAP_VERSION, filePath);
+                    ch.truncate(0);
+                    writeNewMmapHeader(ch, fileEntityCap, fileEdgeCap, fileAdjCap);
+                    entityBytes = (long) ENTITY_NODE_BYTES * fileEntityCap;
+                    edgeBytes = (long) EDGE_BYTES * fileEdgeCap;
+                    adjBytes = (long) ADJ_ENTRY_BYTES * fileAdjCap;
+                    long totalBytes = MMAP_HEADER_BYTES + entityBytes + edgeBytes + adjBytes;
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                    ch.force(true);
+                    this.entityCapacity = fileEntityCap;
+                    this.edgeCapacity = fileEdgeCap;
+                    this.entityCount = 0;
+                    this.edgeCount = 0;
+                    this.adjSegmentCapacity = fileAdjCap;
                     this.adjHighWaterMark = 0;
                 } else {
                     this.entityCapacity = fileEntityCap;
@@ -340,13 +385,28 @@ public final class EntityGraph implements AutoCloseable {
                 this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
             }
 
-            log.info("EntityGraph initialized (mmap): entities={}/{}, edges={}/{}, adjSlots={}, file={}",
+            log.info("EntityGraph initialized (mmap): entities={}/{}, edges={}/{}, maxDegree={}, version={}, file={}",
                     this.entityCount, this.entityCapacity, this.edgeCount, this.edgeCapacity,
-                    this.adjSegmentCapacity, filePath.getFileName());
+                    maxDegree, MMAP_VERSION, filePath.getFileName());
 
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
         }
+    }
+
+    private static void writeNewMmapHeader(FileChannel ch, int entityCap, int edgeCap, int adjCap) throws IOException {
+        ByteBuffer header = ByteBuffer.allocate(MMAP_HEADER_BYTES);
+        header.putInt(MMAP_MAGIC);
+        header.putInt(MMAP_VERSION);
+        header.putInt(entityCap);
+        header.putInt(edgeCap);
+        header.putInt(0); // entityCount
+        header.putInt(0); // edgeCount
+        header.putInt(adjCap);
+        header.putInt(0); // adjHighWaterMark
+        header.flip();
+        ch.position(0);
+        ch.write(header);
     }
 
     /**
@@ -355,7 +415,7 @@ public final class EntityGraph implements AutoCloseable {
      * @param entityCapacity maximum number of entities
      */
     public EntityGraph(int entityCapacity) {
-        this(entityCapacity, entityCapacity * MAX_DEGREE);
+        this(entityCapacity, entityCapacity * DEFAULT_MAX_DEGREE);
     }
 
     /**
@@ -386,6 +446,9 @@ public final class EntityGraph implements AutoCloseable {
         this.edgeCapacity = edgeCapacity;
         this.entityCount = entityCount;
         this.edgeCount = edgeCount;
+        this.maxDegree = DEFAULT_MAX_DEGREE;
+        this.edgeImportance = EdgeImportance.DEFAULT;
+        this.currentCycle = 0;
         this.arena = arena;
         this.entitySegment = entitySegment;
         this.edgeSegment = edgeSegment;
@@ -459,24 +522,25 @@ public final class EntityGraph implements AutoCloseable {
         int degree = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_DEGREE);
         int edgeStart = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_EDGE_START);
 
-        // Check if relation already exists (strengthen weight)
+        // Check if relation already exists (strengthen weight + update recency)
         if (edgeStart >= 0) {
             for (int i = 0; i < degree; i++) {
                 long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
                 int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
                 int relType = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE);
                 if (target == toEntity && relType == typeId) {
-                    // Strengthen existing edge
+                    // Strengthen existing edge and update recency
                     float weight = edgeSegment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
                     edgeSegment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, weight + 1.0f);
+                    edgeSegment.set(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE, (short) currentCycle);
                     return;
                 }
             }
         }
 
-        // Add new edge
-        if (degree >= MAX_DEGREE) {
-            log.trace("Entity {} at max degree ({}), rejecting edge to {}", fromEntity, MAX_DEGREE, toEntity);
+        // Add new edge — evict lowest-importance if at capacity
+        if (degree >= maxDegree) {
+            evictLowestImportanceEdge(fromEntity, entityOffset, edgeStart, degree, toEntity, typeId);
             return;
         }
 
@@ -514,11 +578,65 @@ public final class EntityGraph implements AutoCloseable {
         edgeSegment.set(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET, toEntity);
         edgeSegment.set(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE, typeId);
         edgeSegment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, 1.0f);
+        edgeSegment.set(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE, (short) currentCycle);
+        edgeSegment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE, (byte) 0);
+        edgeSegment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_EDGE_FLAGS, (byte) 0);
 
         entitySegment.set(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_DEGREE, degree + 1);
         edgeCount = edgeIdx + 1;
         } finally {
             graphLock.unlock();
+        }
+    }
+
+    /**
+     * Evicts the lowest-importance edge from an entity at max degree, replacing
+     * it with a new edge if the new edge would score higher.
+     *
+     * <p>Called instead of the old silent rejection. Uses structural-only scoring
+     * (no synaptic header reads) for hot-path performance.</p>
+     */
+    private void evictLowestImportanceEdge(int fromEntity, long entityOffset,
+                                            int edgeStart, int degree,
+                                            int newTarget, int newTypeId) {
+        if (edgeStart < 0) return;
+
+        float minScore = Float.MAX_VALUE;
+        int minIndex = -1;
+
+        for (int i = 0; i < degree; i++) {
+            long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
+            float weight = edgeSegment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
+            short lastCyc = edgeSegment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
+            byte bridge = edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
+
+            float score = edgeImportance.scoreStructural(
+                    weight, currentCycle, Short.toUnsignedInt(lastCyc),
+                    Byte.toUnsignedInt(bridge), 0);
+
+            if (score < minScore) {
+                minScore = score;
+                minIndex = i;
+            }
+        }
+
+        // New edge score (fresh edge: weight=1.0, recency=now, no bridge)
+        float newScore = edgeImportance.scoreStructural(1.0f, currentCycle, currentCycle, 0, 0);
+
+        if (newScore > minScore && minIndex >= 0) {
+            long evictOffset = (long) (edgeStart + minIndex) * EDGE_BYTES;
+            edgeSegment.set(ValueLayout.JAVA_INT, evictOffset + EDGE_OFF_TARGET, newTarget);
+            edgeSegment.set(ValueLayout.JAVA_INT, evictOffset + EDGE_OFF_REL_TYPE, newTypeId);
+            edgeSegment.set(ValueLayout.JAVA_FLOAT, evictOffset + EDGE_OFF_WEIGHT, 1.0f);
+            edgeSegment.set(ValueLayout.JAVA_SHORT, evictOffset + EDGE_OFF_LAST_CYCLE, (short) currentCycle);
+            edgeSegment.set(ValueLayout.JAVA_BYTE, evictOffset + EDGE_OFF_BRIDGE_SCORE, (byte) 0);
+            edgeSegment.set(ValueLayout.JAVA_BYTE, evictOffset + EDGE_OFF_EDGE_FLAGS, (byte) 0);
+
+            log.trace("Entity {} evicted edge at slot {} (score={}) for new edge to {} (score={})",
+                    fromEntity, minIndex, minScore, newTarget, newScore);
+        } else {
+            log.trace("Entity {} at max degree: new edge to {} (score={}) too weak to evict (min={})",
+                    fromEntity, newTarget, newScore, minScore);
         }
     }
 
