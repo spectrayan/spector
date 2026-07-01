@@ -70,14 +70,14 @@ class HebbianGraphTest {
     @Test
     void maxDegreeEnforced() {
         // Fill node 0 to MAX_DEGREE
-        for (int i = 1; i <= HebbianGraph.MAX_DEGREE; i++) {
+        for (int i = 1; i <= HebbianGraph.DEFAULT_MAX_DEGREE; i++) {
             graph.strengthen(0, i, 1.0f);
         }
-        assertThat(graph.degree(0)).isEqualTo(HebbianGraph.MAX_DEGREE);
+        assertThat(graph.degree(0)).isEqualTo(HebbianGraph.DEFAULT_MAX_DEGREE);
 
         // Adding one more with higher weight should replace weakest
-        graph.strengthen(0, HebbianGraph.MAX_DEGREE + 1, 10.0f);
-        assertThat(graph.degree(0)).isEqualTo(HebbianGraph.MAX_DEGREE);
+        graph.strengthen(0, HebbianGraph.DEFAULT_MAX_DEGREE + 1, 10.0f);
+        assertThat(graph.degree(0)).isEqualTo(HebbianGraph.DEFAULT_MAX_DEGREE);
 
         // The new strong edge should be present
         var neighbors = graph.neighbors(0);

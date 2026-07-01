@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
+
 import java.time.Duration;
 
 /**
@@ -22,25 +24,38 @@ import java.time.Duration;
  * @param compactedPartitions number of partitions that were rebuilt after tombstone threshold
  * @param temporalPrunedCount number of temporal chain nodes pruned (older than retention period)
  * @param duration            total time taken for the reflection cycle
+ * @param graphHealth         optional graph health metrics snapshot (may be {@code null})
  */
 public record ReflectReport(
         int consolidatedCount,
         int tombstonedCount,
         int compactedPartitions,
         int temporalPrunedCount,
-        Duration duration
+        Duration duration,
+        GraphHealthMetrics graphHealth
 ) {
+
+    /**
+     * Convenience constructor without graph health metrics (backward compatible).
+     */
+    public ReflectReport(int consolidatedCount, int tombstonedCount,
+                         int compactedPartitions, int temporalPrunedCount,
+                         Duration duration) {
+        this(consolidatedCount, tombstonedCount, compactedPartitions,
+                temporalPrunedCount, duration, null);
+    }
 
     /**
      * Returns true if any work was done during this reflection cycle.
      */
     public boolean hadActivity() {
         return consolidatedCount > 0 || tombstonedCount > 0
-                || compactedPartitions > 0 || temporalPrunedCount > 0;
+                || compactedPartitions > 0 || temporalPrunedCount > 0
+                || (graphHealth != null && graphHealth.totalEdgesDecayed() > 0);
     }
 
     /**
      * Empty report — no work done.
      */
-    public static final ReflectReport EMPTY = new ReflectReport(0, 0, 0, 0, Duration.ZERO);
+    public static final ReflectReport EMPTY = new ReflectReport(0, 0, 0, 0, Duration.ZERO, null);
 }
