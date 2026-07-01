@@ -132,6 +132,11 @@ public final class MemoryIndex {
     // ── Inverted tag index: tag → Set<memId>  [O(1) tag-based lookup for browse()] ──
     private final ConcurrentHashMap<String, java.util.Set<String>> tagToIds = new ConcurrentHashMap<>();
 
+    // ── Insertion-order tracking: position → id  [maps graph node indices to memory IDs] ──
+    // HebbianGraph, EntityGraph, and TemporalChain use `index.size() - 1` as the node index
+    // at ingestion time, so this list preserves that exact ordering for slot ↔ id mapping.
+    private final java.util.List<String> orderedIds = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
     /**
      * Computes the reverse-index key from a memory type and byte offset.
      *
@@ -190,6 +195,11 @@ public final class MemoryIndex {
         // O(1) reverse index
         reverseIndex.put(reverseKey(location.type(), location.offset()), id);
 
+        // Insertion-order tracking (graph slot index = orderedIds position)
+        if (!orderedIds.contains(id)) {
+            orderedIds.add(id);
+        }
+
         // O(1) inverted tag index — tag → Set<memId>
         if (tagArray != null) {
             for (String tag : tagArray) {
@@ -206,6 +216,7 @@ public final class MemoryIndex {
     public void remove(String id) {
         MemoryLocation loc = locations.remove(id);
         texts.remove(id);
+        orderedIds.remove(id);
         sources.remove(id);
         String[] removedTags = tags.remove(id);
         metadataMap.remove(id);
@@ -414,6 +425,26 @@ public final class MemoryIndex {
      */
     public ConcurrentHashMap<String, MemoryLocation> locationMap() {
         return locations;
+    }
+
+    /**
+     * Returns the graph-slot ordinal mapping: slot index → memory ID.
+     *
+     * <p>HebbianGraph, EntityGraph, and TemporalChain all use {@code index.size() - 1}
+     * at ingestion time as their node index. This method exposes the same insertion-order
+     * mapping so management APIs can translate between slot indices and memory IDs.</p>
+     *
+     * @return bidirectional maps: slotToId (index → memoryId) and idToSlot (memoryId → index)
+     */
+    public void buildGraphSlotMappings(java.util.Map<Integer, String> slotToId,
+                                        java.util.Map<String, Integer> idToSlot) {
+        synchronized (orderedIds) {
+            for (int i = 0; i < orderedIds.size(); i++) {
+                String id = orderedIds.get(i);
+                slotToId.put(i, id);
+                idToSlot.put(id, i);
+            }
+        }
     }
 
     /**

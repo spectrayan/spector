@@ -15,8 +15,10 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
 import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
 // RelationType enum replaced by open-schema strings via TypeRegistry
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.SynapticDecayModulator;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -105,14 +107,17 @@ final class ReflectionOrchestrator {
     ReflectReport reflect(TierRouter tierRouter, MemoryIndex index) {
         log.info("Manual reflection triggered");
 
+        // Create metrics collector for this cycle
+        var graphMetrics = new GraphHealthMetrics();
+
         // Phase 1: REM cycle — episodic → semantic consolidation
         var semanticTarget = tierRouter.semantic();
         ReflectReport daemonReport = reflectDaemon.runCycle(
                 tierRouter.episodic(), semanticTarget,
                 offset -> index.findTextByOffset(MemoryType.EPISODIC, offset));
 
-        // Phase 2: Hebbian decay (synaptic homeostasis)
-        decayHebbianEdges();
+        // Phase 2: Hebbian decay (synaptic homeostasis, arousal-modulated)
+        decayHebbianEdges(tierRouter, graphMetrics);
 
         // Phase 3: Temporal chain pruning
         int temporalPruned = pruneTemporalChain();
@@ -121,7 +126,7 @@ final class ReflectionOrchestrator {
         promoteCrossLayer();
 
         // Phase 5: Entity graph maintenance (edge decay + entity merge)
-        maintainEntityGraph();
+        maintainEntityGraph(graphMetrics);
 
         // Phase 5b: Entity→memory adjacency LTD decay
         decayEntityAdjacency();
@@ -129,24 +134,39 @@ final class ReflectionOrchestrator {
         // Phase 5c: Adjacency compaction (defragmentation)
         compactEntityAdjacency();
 
+        // Log graph health summary
+        if (graphMetrics.totalEdgesDecayed() > 0 || graphMetrics.totalEdgesSurviving() > 0) {
+            log.info("Reflect: graph health — {}", graphMetrics);
+        }
+
         // Append WAL event
         wal.append(WalEvent.EventType.REFLECT, "system", null);
 
         // Overlay temporal pruning count onto the daemon's report
         return new ReflectReport(
                 daemonReport.consolidatedCount(), daemonReport.tombstonedCount(),
-                daemonReport.compactedPartitions(), temporalPruned, daemonReport.duration());
+                daemonReport.compactedPartitions(), temporalPruned,
+                daemonReport.duration(), graphMetrics);
     }
 
     // ── Phase 2: Hebbian Decay ──
 
-    private void decayHebbianEdges() {
+    private void decayHebbianEdges(TierRouter tierRouter, GraphHealthMetrics metrics) {
         try {
-            int decayed = hebbianGraph.decayEdges(HEBBIAN_DECAY_FACTOR);
+            // Wire arousal-modulated decay: read synaptic importance/arousal before decay
+            hebbianGraph.setDecayModulator(
+                    new SynapticDecayModulator(tierRouter, hebbianGraph.capacity()));
+
+            int decayed = hebbianGraph.decayEdges(HEBBIAN_DECAY_FACTOR, metrics);
+
+            // Clear modulator — snapshot is no longer valid after decay
+            hebbianGraph.setDecayModulator(null);
+
             if (decayed > 0) {
-                log.info("Reflect: Hebbian graph decayed {} weak edges", decayed);
+                log.info("Reflect: Hebbian graph decayed {} weak edges (arousal-modulated)", decayed);
             }
         } catch (RuntimeException e) {
+            hebbianGraph.setDecayModulator(null); // clean up on failure
             SpectorGraphDecayException ex = new SpectorGraphDecayException("Hebbian edge decay", e);
             log.warn(ex.getMessage());
         }
@@ -236,10 +256,11 @@ final class ReflectionOrchestrator {
 
     // ── Phase 5: Entity Graph Maintenance ──
 
-    private void maintainEntityGraph() {
+    private void maintainEntityGraph(GraphHealthMetrics metrics) {
         if (entityGraph == null || entityGraph.entityCount() == 0) return;
         try {
-            int entityDecayed = entityGraph.decayEdges(ENTITY_DECAY_FACTOR, ENTITY_PRUNE_THRESHOLD);
+            int entityDecayed = entityGraph.decayEdges(
+                    ENTITY_DECAY_FACTOR, ENTITY_PRUNE_THRESHOLD, metrics);
             if (entityDecayed > 0) {
                 log.info("Reflect: entity graph decayed {} weak edges", entityDecayed);
             }

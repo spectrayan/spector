@@ -874,7 +874,8 @@ public final class EntityGraph implements AutoCloseable {
 
             String relType = relationTypeRegistry.nameOf(relTypeId);
 
-            result.add(new EntityEdge(target, relType, weight));
+            result.add(new EntityEdge(target, relType, weight,
+                    Byte.toUnsignedInt(edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE))));
         }
         return result;
     }
@@ -968,8 +969,24 @@ public final class EntityGraph implements AutoCloseable {
      * @return number of edges pruned
      */
     public int decayEdges(float decayFactor, float minWeight) {
+        return decayEdges(decayFactor, minWeight, null);
+    }
+
+    /**
+     * Decays entity edge weights, collecting health metrics for observability.
+     *
+     * <p>Same as {@link #decayEdges(float, float)} but populates the supplied
+     * {@link GraphHealthMetrics} with per-edge statistics during the cycle.</p>
+     *
+     * @param decayFactor multiplicative factor (e.g., 0.9 = 10% decay per cycle)
+     * @param minWeight   edges with weight below this after decay are pruned
+     * @param metrics     optional metrics collector (may be {@code null})
+     * @return number of edges pruned
+     */
+    public int decayEdges(float decayFactor, float minWeight, GraphHealthMetrics metrics) {
         graphLock.lock();
         try {
+        currentCycle++;
         int pruned = 0;
         for (int e = 0; e < entityCount; e++) {
             long entOffset = (long) e * ENTITY_NODE_BYTES;
@@ -984,30 +1001,107 @@ public final class EntityGraph implements AutoCloseable {
                 float decayed = weight * decayFactor;
 
                 if (decayed >= minWeight) {
-                    // Keep edge: compact if needed
+                    // Keep edge: compact if needed (copy all 16 bytes including metadata)
+                    byte bridge;
                     if (newDegree < i) {
                         long destOffset = (long) (edgeStart + newDegree) * EDGE_BYTES;
                         int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
                         int relType = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE);
+                        short lastCyc = edgeSegment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
+                        bridge = edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
+                        byte flags = edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_EDGE_FLAGS);
                         edgeSegment.set(ValueLayout.JAVA_INT, destOffset + EDGE_OFF_TARGET, target);
                         edgeSegment.set(ValueLayout.JAVA_INT, destOffset + EDGE_OFF_REL_TYPE, relType);
                         edgeSegment.set(ValueLayout.JAVA_FLOAT, destOffset + EDGE_OFF_WEIGHT, decayed);
+                        edgeSegment.set(ValueLayout.JAVA_SHORT, destOffset + EDGE_OFF_LAST_CYCLE, lastCyc);
+                        edgeSegment.set(ValueLayout.JAVA_BYTE, destOffset + EDGE_OFF_BRIDGE_SCORE, bridge);
+                        edgeSegment.set(ValueLayout.JAVA_BYTE, destOffset + EDGE_OFF_EDGE_FLAGS, flags);
                     } else {
                         edgeSegment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, decayed);
+                        bridge = edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
                     }
                     newDegree++;
+
+                    // Record metrics for surviving edge
+                    if (metrics != null) {
+                        metrics.recordEntitySurvivor(Byte.toUnsignedInt(bridge));
+                    }
                 } else {
                     pruned++;
+                    if (metrics != null) {
+                        metrics.recordEntityDecay();
+                    }
                 }
             }
             entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_DEGREE, newDegree);
         }
+
+        // Phase 2: Recompute bridge scores for all surviving edges
+        updateEntityBridgeScores();
+
         if (pruned > 0) {
-            log.info("EntityGraph decayed edges: {} pruned below threshold {}", pruned, minWeight);
+            log.info("EntityGraph decayed edges: {} pruned below threshold {}, cycle={}",
+                    pruned, minWeight, currentCycle);
         }
         return pruned;
         } finally {
             graphLock.unlock();
+        }
+    }
+
+
+    /**
+     * Recomputes bridge scores for all entity edges.
+     *
+     * <p>Called during {@link #decayEdges} after compaction. Uses the
+     * {@link BridgeDetector} neighbor overlap heuristic.</p>
+     *
+     * <p><b>Cost:</b> O(E × MAX_DEGREE²) where E = entityCount.</p>
+     */
+    private void updateEntityBridgeScores() {
+        // Pre-extract neighbor arrays for all entities
+        int[][] neighborArrays = new int[entityCount][];
+        int[] degrees = new int[entityCount];
+
+        for (int e = 0; e < entityCount; e++) {
+            long entOffset = (long) e * ENTITY_NODE_BYTES;
+            int degree = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_DEGREE);
+            int edgeStart = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_EDGE_START);
+            degrees[e] = degree;
+            if (degree > 0 && edgeStart >= 0) {
+                int[] neighbors = new int[degree];
+                for (int i = 0; i < degree; i++) {
+                    long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
+                    neighbors[i] = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
+                }
+                neighborArrays[e] = neighbors;
+            }
+        }
+
+        // Compute and store bridge scores
+        for (int e = 0; e < entityCount; e++) {
+            int degree = degrees[e];
+            if (degree == 0) continue;
+            long entOffset = (long) e * ENTITY_NODE_BYTES;
+            int edgeStart = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_EDGE_START);
+            if (edgeStart < 0) continue;
+
+            for (int i = 0; i < degree; i++) {
+                long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
+                int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
+
+                int shared = 0;
+                int targetDegree = 0;
+                if (target >= 0 && target < entityCount && neighborArrays[target] != null) {
+                    targetDegree = degrees[target];
+                    shared = BridgeDetector.countSharedNeighbors(
+                            neighborArrays[e], degree,
+                            neighborArrays[target], targetDegree);
+                }
+
+                int bridgeScore = BridgeDetector.computeBridgeScore(shared, degree, targetDegree);
+                edgeSegment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE, (byte) bridgeScore);
+            }
         }
     }
 
@@ -1321,7 +1415,13 @@ public final class EntityGraph implements AutoCloseable {
      * allocation. With specialized generics, {@code List<EntityEdge>} would store
      * flat values instead of boxed pointers.</p>
      */
-    public record EntityEdge(int targetEntityId, String relationType, float weight) {}
+    public record EntityEdge(int targetEntityId, String relationType, float weight, int bridgeScore) {
+
+        /** Backward-compatible constructor (bridgeScore defaults to 0). */
+        public EntityEdge(int targetEntityId, String relationType, float weight) {
+            this(targetEntityId, relationType, weight, 0);
+        }
+    }
 
     /**
      * A BFS traversal result.

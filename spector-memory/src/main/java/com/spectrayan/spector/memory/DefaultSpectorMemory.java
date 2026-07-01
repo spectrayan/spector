@@ -382,9 +382,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             Path loadFrom = java.nio.file.Files.exists(runtimeGraph) ? runtimeGraph
                     : (v2Graph != null && java.nio.file.Files.exists(v2Graph)) ? v2Graph
                     : legacyGraph;
-            this.hebbianGraph = HebbianGraph.load(loadFrom, graphCapacity);
+            this.hebbianGraph = HebbianGraph.load(loadFrom, graphCapacity,
+                    builder.hebbianMaxDegree, builder.edgeImportance);
         } else {
-            this.hebbianGraph = new HebbianGraph(graphCapacity);
+            this.hebbianGraph = new HebbianGraph(graphCapacity,
+                    builder.hebbianMaxDegree, builder.edgeImportance);
         }
 
         int temporalCapacity = builder.temporalChainCapacity > 0
@@ -419,7 +421,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         boolean entityEnabled = builder.entityExtractionMode != EntityExtractionMode.NONE;
         if (entityEnabled) {
             int entityCap = builder.entityGraphCapacity;
-            int edgeCap = entityCap * EntityGraph.DEFAULT_MAX_DEGREE;
+            int edgeCap = entityCap * builder.entityMaxDegree;
             if (isDisk && basePath != null) {
                 Path runtimeEntity = StorageLayout.entityGraphRuntime(basePath);
                 Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);
@@ -436,10 +438,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     this.entityGraph = EntityGraph.load(legacyEntity, entityCap, edgeCap);
                 } else {
                     // No existing file — create fresh mmap-backed graph at runtime path
-                    this.entityGraph = new EntityGraph(runtimeEntity, entityCap, edgeCap);
+                    this.entityGraph = new EntityGraph(runtimeEntity, entityCap, edgeCap,
+                            builder.entityMaxDegree, builder.edgeImportance);
                 }
             } else {
-                this.entityGraph = new EntityGraph(entityCap, edgeCap);
+                this.entityGraph = new EntityGraph(entityCap, edgeCap,
+                        builder.entityMaxDegree, builder.edgeImportance);
             }
         } else {
             this.entityGraph = null;
@@ -1518,6 +1522,12 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
                 = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
 
+        // Edge importance configuration
+        com.spectrayan.spector.memory.graph.EdgeImportance edgeImportance
+                = com.spectrayan.spector.memory.graph.EdgeImportance.DEFAULT;
+        int hebbianMaxDegree = com.spectrayan.spector.memory.hebbian.HebbianGraph.DEFAULT_MAX_DEGREE;
+        int entityMaxDegree = com.spectrayan.spector.memory.graph.EntityGraph.DEFAULT_MAX_DEGREE;
+
         // ID generation strategy
         IdStrategy idStrategy = IdStrategy.TSID;
         MemoryIdGenerator idGenerator;
@@ -1635,6 +1645,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         /** Two-Factor Memory (Bjork & Bjork) configuration (default: TwoFactorConfig.DEFAULT). */
         public Builder twoFactorConfig(com.spectrayan.spector.memory.synapse.TwoFactorConfig config) { this.twoFactorConfig = config; return this; }
+
+        /** Edge importance scorer with configurable signal weights (default: EdgeImportance.DEFAULT). */
+        public Builder edgeImportance(com.spectrayan.spector.memory.graph.EdgeImportance importance) { this.edgeImportance = importance; return this; }
+
+        /** Maximum edges per node in the Hebbian graph (default: 24). */
+        public Builder hebbianMaxDegree(int maxDegree) { this.hebbianMaxDegree = maxDegree; return this; }
+
+        /** Maximum edges per entity in the entity graph (default: 48). */
+        public Builder entityMaxDegree(int maxDegree) { this.entityMaxDegree = maxDegree; return this; }
 
         /**
          * Parses a cognitive profile config from a YAML string value.

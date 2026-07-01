@@ -364,6 +364,11 @@ public final class TextDataStore implements AutoCloseable {
         }
 
         log.debug("Loaded {} text entries from {} (mmap'd off-heap)", entries.size(), file);
+        int failures = decryptFailCount.getAndSet(0);
+        if (failures > 0) {
+            log.warn("text.dat: {} of {} entries failed decryption (wrong key or legacy data): {}",
+                    failures, entries.size(), file);
+        }
         return entries;
     }
 
@@ -469,6 +474,9 @@ public final class TextDataStore implements AutoCloseable {
      * @param raw the raw text from text.dat (plaintext or Base64-encoded ciphertext)
      * @return decrypted plaintext, or the original string if encryption is not active
      */
+    private final java.util.concurrent.atomic.AtomicInteger decryptFailCount =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     private String decryptIfNeeded(String raw) {
         if (!encryptor.isEnabled() || raw == null || raw.isEmpty()) {
             return raw;
@@ -481,7 +489,8 @@ public final class TextDataStore implements AutoCloseable {
             // Not Base64 — return as-is (pre-encryption data or plaintext)
             return raw;
         } catch (RuntimeException e) {
-            log.warn("Failed to decrypt text entry (wrong key?): {}", e.getMessage());
+            decryptFailCount.incrementAndGet();
+            log.debug("Failed to decrypt text entry (wrong key?): {}", e.getMessage());
             return raw;  // Return encrypted text rather than crash
         }
     }

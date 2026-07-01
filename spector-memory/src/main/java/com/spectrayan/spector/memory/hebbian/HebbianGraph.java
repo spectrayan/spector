@@ -18,7 +18,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
+import com.spectrayan.spector.memory.graph.BridgeDetector;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
+import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -95,6 +97,27 @@ public final class HebbianGraph implements AutoCloseable {
 
     /** Edge importance scorer (configurable weights). */
     private final EdgeImportance edgeImportance;
+
+    /**
+     * Optional per-node decay modulator — allows the cortex layer to inject
+     * synaptic importance/arousal signals without HebbianGraph knowing the header layout.
+     *
+     * <p>Returns a multiplier in [0.5, 2.0] applied to the decay factor per node.
+     * Values > 1.0 = slower decay (high importance), < 1.0 = faster decay (low importance).
+     * Null means uniform decay (no modulation).</p>
+     */
+    @FunctionalInterface
+    public interface DecayModulator {
+        /**
+         * Returns a decay rate modifier for the given memory node.
+         *
+         * @param nodeIndex memory slot index
+         * @return multiplier applied to decay factor (e.g., 1.2 = 20% slower decay)
+         */
+        float modulateDecay(int nodeIndex);
+    }
+
+    private volatile DecayModulator decayModulator;
 
     private final Arena arena;
     private final MemorySegment segment;
@@ -213,16 +236,77 @@ public final class HebbianGraph implements AutoCloseable {
                     ch.force(true);
                     this.capacity = capacity;
                 } else if (version < FILE_VERSION) {
-                    // V1 → V2 one-way migration: reinitialize with wider format
-                    log.warn("Migrating HebbianGraph v{} → v{} (one-way): {}", version, FILE_VERSION, filePath);
+                    // V1 → V2 data-preserving migration: widen 8B edges → 12B edges
+                    int v1MaxDegree = fileDegree > 0 ? fileDegree : 20; // V1 default was 20
+                    int v1EdgeBytes = V1_EDGE_BYTES; // 8B: 4B neighbor + 4B weight
+                    int v1NodeBytes = 4 + v1MaxDegree * v1EdgeBytes;
+                    long v1DataBytes = (long) v1NodeBytes * fileCapacity;
+
+                    log.warn("Migrating HebbianGraph v{} → v{} (data-preserving): {} " +
+                                    "(capacity={}, v1Degree={}, v1NodeBytes={})",
+                            version, FILE_VERSION, filePath,
+                            fileCapacity, v1MaxDegree, v1NodeBytes);
+
+                    // Phase 1: Read all V1 edge data into heap buffer
+                    ByteBuffer v1Data = ByteBuffer.allocate((int) Math.min(v1DataBytes, ch.size() - FILE_HEADER_BYTES));
+                    ch.position(FILE_HEADER_BYTES);
+                    ch.read(v1Data);
+                    v1Data.flip();
+
+                    // Phase 2: Reinitialize file with V2 header and layout
+                    int v2MaxDegree = Math.max(maxDegree, v1MaxDegree);
+                    int v2NodeBytes = 4 + v2MaxDegree * EDGE_BYTES; // 12B per edge
+                    long v2DataBytes = (long) v2NodeBytes * fileCapacity;
                     ch.truncate(0);
-                    writeNewHeader(ch, fileCapacity, maxDegree);
-                    long totalBytes = FILE_HEADER_BYTES + (long) nodeBytesPerNode * fileCapacity;
+                    writeNewHeader(ch, fileCapacity, v2MaxDegree);
+                    long totalBytes = FILE_HEADER_BYTES + v2DataBytes;
                     ch.position(totalBytes - 1);
                     ch.write(ByteBuffer.wrap(new byte[]{0}));
                     ch.force(true);
+
+                    // Phase 3: Copy V1 edges into V2 layout
+                    // Map the data section for direct writes
+                    var migrateArena = Arena.ofConfined();
+                    var v2Segment = ch.map(FileChannel.MapMode.READ_WRITE,
+                            FILE_HEADER_BYTES, v2DataBytes, migrateArena);
+
+                    int migratedEdges = 0;
+                    for (int node = 0; node < fileCapacity; node++) {
+                        int v1NodeOffset = node * v1NodeBytes;
+                        if (v1NodeOffset + 4 > v1Data.limit()) break;
+                        int degree = v1Data.getInt(v1NodeOffset);
+                        if (degree <= 0 || degree > v1MaxDegree) {
+                            // Invalid degree — skip this node
+                            continue;
+                        }
+
+                        long v2NodeOffset = (long) node * v2NodeBytes;
+                        v2Segment.set(ValueLayout.JAVA_INT, v2NodeOffset, degree);
+
+                        for (int e = 0; e < degree; e++) {
+                            int v1EdgeOff = v1NodeOffset + 4 + e * v1EdgeBytes;
+                            if (v1EdgeOff + v1EdgeBytes > v1Data.limit()) break;
+
+                            int neighbor = v1Data.getInt(v1EdgeOff);
+                            float weight = v1Data.getFloat(v1EdgeOff + 4);
+
+                            long v2EdgeOff = v2NodeOffset + 4 + (long) e * EDGE_BYTES;
+                            v2Segment.set(ValueLayout.JAVA_INT, v2EdgeOff + EDGE_OFF_NEIGHBOR, neighbor);
+                            v2Segment.set(ValueLayout.JAVA_FLOAT, v2EdgeOff + EDGE_OFF_WEIGHT, weight);
+                            v2Segment.set(ValueLayout.JAVA_SHORT, v2EdgeOff + EDGE_OFF_LAST_CYCLE, (short) 0);
+                            v2Segment.set(ValueLayout.JAVA_BYTE, v2EdgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) 0);
+                            v2Segment.set(ValueLayout.JAVA_BYTE, v2EdgeOff + EDGE_OFF_EDGE_FLAGS, (byte) 0);
+                            migratedEdges++;
+                        }
+                    }
+                    migrateArena.close();
+                    ch.force(true);
+
                     this.capacity = fileCapacity;
-                    dataBytes = (long) nodeBytesPerNode * fileCapacity;
+                    dataBytes = v2DataBytes;
+                    log.info("HebbianGraph migration complete: {} edges migrated, " +
+                                    "v2NodeBytes={}, v2MaxDegree={}",
+                            migratedEdges, v2NodeBytes, v2MaxDegree);
                 } else {
                     this.capacity = fileCapacity;
                     dataBytes = (long) nodeBytesPerNode * fileCapacity;
@@ -312,7 +396,8 @@ public final class HebbianGraph implements AutoCloseable {
             long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
             int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset);
             float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + 4);
-            edges.add(new HebbianEdge(neighbor, weight));
+            int bridge = Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE));
+            edges.add(new HebbianEdge(neighbor, weight, bridge));
         }
 
         edges.sort((a, b) -> Float.compare(b.weight(), a.weight()));
@@ -421,7 +506,25 @@ public final class HebbianGraph implements AutoCloseable {
      * @param neighborIndex index of the connected memory
      * @param weight        association strength
      */
-    public record HebbianEdge(int neighborIndex, float weight) {}
+    public record HebbianEdge(int neighborIndex, float weight, int bridgeScore) {
+
+        /** Backward-compatible constructor (bridgeScore defaults to 0). */
+        public HebbianEdge(int neighborIndex, float weight) {
+            this(neighborIndex, weight, 0);
+        }
+    }
+
+    /**
+     * Sets the per-node decay modulator for arousal-modulated edge decay.
+     *
+     * <p>Typical usage: the cortex layer reads synaptic header importance/arousal
+     * for each memory and returns a modifier that slows decay for important memories.</p>
+     *
+     * @param modulator per-node modifier (null = uniform decay)
+     */
+    public void setDecayModulator(DecayModulator modulator) {
+        this.decayModulator = modulator;
+    }
 
     // ── V3: Edge Decay + Session Boundaries + Spreading Activation ──
 
@@ -455,34 +558,74 @@ public final class HebbianGraph implements AutoCloseable {
      * <p>Unused associations weaken over time — edges that are never re-strengthened
      * eventually drop to zero and get replaced by new associations.</p>
      *
-     * @param decayFactor multiplier (e.g., 0.9 = 10% decay per cycle)
+     * <p><b>Arousal-modulated decay:</b> If a {@link DecayModulator} is set via
+     * {@link #setDecayModulator}, the decay factor is adjusted per-node. High-importance
+     * or high-arousal memories receive a modulator &gt; 1.0 (slower decay), while
+     * low-importance memories receive &lt; 1.0 (faster decay). This models the
+     * amygdala's role in protecting emotionally-charged synaptic pathways.</p>
+     *
+     * @param decayFactor base multiplier (e.g., 0.9 = 10% decay per cycle)
      * @return number of edges that dropped below threshold and were removed
      */
     public int decayEdges(float decayFactor) {
+        return decayEdges(decayFactor, null);
+    }
+
+    /**
+     * Decays all edge weights, collecting health metrics for observability.
+     *
+     * <p>Same as {@link #decayEdges(float)} but populates the supplied
+     * {@link GraphHealthMetrics} with per-edge statistics during the cycle.</p>
+     *
+     * @param decayFactor base multiplier (e.g., 0.9 = 10% decay per cycle)
+     * @param metrics     optional metrics collector (may be {@code null})
+     * @return number of edges that dropped below threshold and were removed
+     */
+    public int decayEdges(float decayFactor, GraphHealthMetrics metrics) {
         graphLock.lock();
         try {
             currentCycle++;
             int removed = 0;
             float removalThreshold = 0.01f;
+            DecayModulator mod = this.decayModulator; // snapshot volatile
+            int activeNodes = 0;
 
             for (int node = 0; node < capacity; node++) {
                 long nodeOffset = (long) node * nodeBytesPerNode;
                 int degree = segment.get(ValueLayout.JAVA_INT, nodeOffset);
                 int newDegree = 0;
 
+                // Per-node arousal-modulated decay factor
+                float effectiveDecay = decayFactor;
+                boolean arousalModulated = false;
+                if (mod != null) {
+                    float multiplier = mod.modulateDecay(node);
+                    // Clamp to [0.5, 2.0] to prevent runaway protection or destruction
+                    multiplier = Math.clamp(multiplier, 0.5f, 2.0f);
+                    if (multiplier != 1.0f) {
+                        arousalModulated = true;
+                    }
+                    // Higher multiplier → closer to 1.0 → slower decay
+                    effectiveDecay = 1.0f - (1.0f - decayFactor) / multiplier;
+                    // Clamp result to valid range
+                    effectiveDecay = Math.clamp(effectiveDecay, 0.5f, 0.999f);
+                }
+
                 for (int i = 0; i < degree; i++) {
                     long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
                     float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + 4);
-                    float decayed = weight * decayFactor;
+                    float decayed = weight * effectiveDecay;
 
                     if (decayed >= removalThreshold) {
                         // Keep edge — compact if needed
+                        short lastCyc;
+                        byte bridge;
                         if (newDegree != i) {
                             long newOffset = nodeOffset + 4 + (long) newDegree * EDGE_BYTES;
                             // Copy full 12-byte edge (neighbor + weight + metadata)
                             int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR);
-                            short lastCyc = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
-                            byte bridge = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
+                            lastCyc = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
+                            bridge = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
                             byte eFlags = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_EDGE_FLAGS);
                             segment.set(ValueLayout.JAVA_INT, newOffset + EDGE_OFF_NEIGHBOR, neighbor);
                             segment.set(ValueLayout.JAVA_FLOAT, newOffset + EDGE_OFF_WEIGHT, decayed);
@@ -491,23 +634,162 @@ public final class HebbianGraph implements AutoCloseable {
                             segment.set(ValueLayout.JAVA_BYTE, newOffset + EDGE_OFF_EDGE_FLAGS, eFlags);
                         } else {
                             segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, decayed);
+                            lastCyc = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
+                            bridge = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
                         }
                         newDegree++;
+
+                        // Record metrics for surviving edge
+                        if (metrics != null) {
+                            int edgeAge = (currentCycle - Short.toUnsignedInt(lastCyc)) & 0xFFFF;
+                            metrics.recordHebbianSurvivor(
+                                    Byte.toUnsignedInt(bridge), edgeAge);
+                            if (arousalModulated) {
+                                metrics.recordHebbianArousalModulation();
+                            }
+                        }
                     } else {
                         removed++;
+                        if (metrics != null) {
+                            metrics.recordHebbianDecay();
+                        }
                     }
                 }
 
                 segment.set(ValueLayout.JAVA_INT, nodeOffset, newDegree);
+                if (newDegree > 0) activeNodes++;
+            }
+
+            // Phase 2: Update bridge scores for all surviving edges
+            updateBridgeScores();
+
+            // Phase 3: Compute fragmentation (connected components via Union-Find)
+            if (metrics != null) {
+                int components = countConnectedComponents();
+                metrics.setHebbianFragmentation(components, activeNodes);
             }
 
             if (removed > 0) {
-                log.debug("Hebbian edge decay: {} edges removed (factor={})", removed, decayFactor);
+                log.debug("Hebbian edge decay: {} edges removed (factor={}, modulated={}), cycle={}",
+                        removed, decayFactor, mod != null, currentCycle);
             }
             return removed;
         } finally {
             graphLock.unlock();
         }
+    }
+
+    /**
+     * Recomputes bridge scores for all edges in the graph.
+     *
+     * <p>Called during {@link #decayEdges} after compaction. Uses the
+     * {@link BridgeDetector} neighbor overlap heuristic to identify edges
+     * that serve as critical bridges between otherwise-disconnected neighborhoods.</p>
+     *
+     * <p><b>Cost:</b> O(N × MAX_DEGREE²) — acceptable during ReflectDaemon cycles
+     * (every few seconds), never on the hot recall path.</p>
+     */
+    private void updateBridgeScores() {
+        // Pre-extract neighbor arrays for all active nodes (avoids re-reading)
+        int[][] neighborArrays = new int[capacity][];
+        int[] degrees = new int[capacity];
+
+        for (int node = 0; node < capacity; node++) {
+            long nodeOffset = (long) node * nodeBytesPerNode;
+            int degree = segment.get(ValueLayout.JAVA_INT, nodeOffset);
+            degrees[node] = degree;
+            if (degree > 0) {
+                int[] neighbors = new int[degree];
+                for (int i = 0; i < degree; i++) {
+                    long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
+                    neighbors[i] = segment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR);
+                }
+                neighborArrays[node] = neighbors;
+            }
+        }
+
+        // Compute and store bridge scores
+        for (int node = 0; node < capacity; node++) {
+            int degree = degrees[node];
+            if (degree == 0) continue;
+            long nodeOffset = (long) node * nodeBytesPerNode;
+
+            for (int i = 0; i < degree; i++) {
+                long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
+                int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR);
+
+                int shared = 0;
+                int neighborDegree = 0;
+                if (neighbor >= 0 && neighbor < capacity && neighborArrays[neighbor] != null) {
+                    neighborDegree = degrees[neighbor];
+                    shared = BridgeDetector.countSharedNeighbors(
+                            neighborArrays[node], degree,
+                            neighborArrays[neighbor], neighborDegree);
+                }
+
+                int bridgeScore = BridgeDetector.computeBridgeScore(shared, degree, neighborDegree);
+                segment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE, (byte) bridgeScore);
+            }
+        }
+    }
+
+    /**
+     * Counts connected components in the Hebbian graph using Union-Find.
+     *
+     * <p>Only considers nodes with degree &gt; 0 (non-isolated nodes).
+     * Uses path compression and union-by-rank for O(N × α(N)) performance.</p>
+     *
+     * @return number of distinct connected components among active nodes
+     */
+    private int countConnectedComponents() {
+        // Union-Find parent array: parent[i] = i means root
+        int[] parent = new int[capacity];
+        int[] rank = new int[capacity];
+        for (int i = 0; i < capacity; i++) parent[i] = i;
+
+        for (int node = 0; node < capacity; node++) {
+            long nodeOffset = (long) node * nodeBytesPerNode;
+            int degree = segment.get(ValueLayout.JAVA_INT, nodeOffset);
+            for (int i = 0; i < degree; i++) {
+                long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
+                int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR);
+                if (neighbor >= 0 && neighbor < capacity) {
+                    union(parent, rank, node, neighbor);
+                }
+            }
+        }
+
+        // Count distinct roots among non-isolated nodes
+        boolean[] seen = new boolean[capacity];
+        int components = 0;
+        for (int node = 0; node < capacity; node++) {
+            long nodeOffset = (long) node * nodeBytesPerNode;
+            int degree = segment.get(ValueLayout.JAVA_INT, nodeOffset);
+            if (degree > 0) {
+                int root = find(parent, node);
+                if (!seen[root]) {
+                    seen[root] = true;
+                    components++;
+                }
+            }
+        }
+        return components;
+    }
+
+    private static int find(int[] parent, int x) {
+        while (parent[x] != x) {
+            parent[x] = parent[parent[x]]; // path compression
+            x = parent[x];
+        }
+        return x;
+    }
+
+    private static void union(int[] parent, int[] rank, int a, int b) {
+        int ra = find(parent, a), rb = find(parent, b);
+        if (ra == rb) return;
+        if (rank[ra] < rank[rb]) { parent[ra] = rb; }
+        else if (rank[ra] > rank[rb]) { parent[rb] = ra; }
+        else { parent[rb] = ra; rank[ra]++; }
     }
 
     /**
@@ -627,18 +909,31 @@ public final class HebbianGraph implements AutoCloseable {
      * @return a HebbianGraph (loaded or new)
      */
     public static HebbianGraph load(Path filePath, int defaultCapacity) {
+        return load(filePath, defaultCapacity, DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+    }
+
+    /**
+     * Loads or creates a HebbianGraph with configurable max degree and importance scorer.
+     *
+     * @param filePath         path to graph file (null = heap-only)
+     * @param defaultCapacity  capacity to use if file doesn't exist
+     * @param maxDegree        maximum edges per node
+     * @param edgeImportance   edge importance scorer
+     * @return a HebbianGraph (loaded or new)
+     */
+    public static HebbianGraph load(Path filePath, int defaultCapacity,
+                                     int maxDegree, EdgeImportance edgeImportance) {
         if (filePath == null || !Files.exists(filePath)) {
             log.info("HebbianGraph file not found, creating fresh: {}", filePath);
-            return new HebbianGraph(defaultCapacity);
+            return new HebbianGraph(defaultCapacity, maxDegree, edgeImportance);
         }
 
-        // Use mmap-backed load: open the file and map directly
         try {
-            return new HebbianGraph(filePath, defaultCapacity);
+            return new HebbianGraph(filePath, defaultCapacity, maxDegree, edgeImportance);
         } catch (Exception e) {
             log.error("Failed to mmap HebbianGraph from {}, creating fresh: {}",
                     filePath, e.getMessage());
-            return new HebbianGraph(defaultCapacity);
+            return new HebbianGraph(defaultCapacity, maxDegree, edgeImportance);
         }
     }
 
