@@ -86,6 +86,18 @@ public final class HebbianGraph implements AutoCloseable {
     private static final int EDGE_OFF_BRIDGE_SCORE = 10;
     private static final int EDGE_OFF_EDGE_FLAGS = 11;
 
+    /**
+     * Minimum bridge score (unsigned 0-255) required to protect an edge from
+     * eviction during decay. Edges below the weight threshold but with a bridge
+     * score ≥ this value have their weight floored at the removal threshold
+     * instead of being evicted.
+     *
+     * <p>Default 224 (~top 12% of Q4) — protects only the most critical bridges
+     * without blocking healthy pruning. The P0 baseline showed 95.7% of edges in
+     * Q4 (192+), so using 192 would be too aggressive.</p>
+     */
+    static final int BRIDGE_PROTECTION_THRESHOLD = 224;
+
     /** Maximum degree for this instance (configurable via constructor). */
     private final int maxDegree;
 
@@ -616,34 +628,52 @@ public final class HebbianGraph implements AutoCloseable {
                     float weight = segment.get(ValueLayout.JAVA_FLOAT, edgeOffset + 4);
                     float decayed = weight * effectiveDecay;
 
+                    // Read bridge score from previous cycle (always needed for eviction decision)
+                    byte bridgeRaw = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
+                    int bridgeUnsigned = Byte.toUnsignedInt(bridgeRaw);
+
+                    boolean keep;
+                    boolean bridgeProtected = false;
                     if (decayed >= removalThreshold) {
+                        keep = true;
+                    } else if (bridgeUnsigned >= BRIDGE_PROTECTION_THRESHOLD) {
+                        // Bridge protection: edge is structurally critical — floor weight
+                        // instead of evicting. The edge continues to age and can be
+                        // evicted if its bridge score drops in a future cycle.
+                        decayed = removalThreshold;
+                        keep = true;
+                        bridgeProtected = true;
+                    } else {
+                        keep = false;
+                    }
+
+                    if (keep) {
                         // Keep edge — compact if needed
                         short lastCyc;
-                        byte bridge;
                         if (newDegree != i) {
                             long newOffset = nodeOffset + 4 + (long) newDegree * EDGE_BYTES;
                             // Copy full 12-byte edge (neighbor + weight + metadata)
                             int neighbor = segment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_NEIGHBOR);
                             lastCyc = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
-                            bridge = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
                             byte eFlags = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_EDGE_FLAGS);
                             segment.set(ValueLayout.JAVA_INT, newOffset + EDGE_OFF_NEIGHBOR, neighbor);
                             segment.set(ValueLayout.JAVA_FLOAT, newOffset + EDGE_OFF_WEIGHT, decayed);
                             segment.set(ValueLayout.JAVA_SHORT, newOffset + EDGE_OFF_LAST_CYCLE, lastCyc);
-                            segment.set(ValueLayout.JAVA_BYTE, newOffset + EDGE_OFF_BRIDGE_SCORE, bridge);
+                            segment.set(ValueLayout.JAVA_BYTE, newOffset + EDGE_OFF_BRIDGE_SCORE, bridgeRaw);
                             segment.set(ValueLayout.JAVA_BYTE, newOffset + EDGE_OFF_EDGE_FLAGS, eFlags);
                         } else {
                             segment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, decayed);
                             lastCyc = segment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
-                            bridge = segment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
                         }
                         newDegree++;
 
                         // Record metrics for surviving edge
                         if (metrics != null) {
                             int edgeAge = (currentCycle - Short.toUnsignedInt(lastCyc)) & 0xFFFF;
-                            metrics.recordHebbianSurvivor(
-                                    Byte.toUnsignedInt(bridge), edgeAge);
+                            metrics.recordHebbianSurvivor(bridgeUnsigned, edgeAge);
+                            if (bridgeProtected) {
+                                metrics.recordHebbianBridgeProtection();
+                            }
                             if (arousalModulated) {
                                 metrics.recordHebbianArousalModulation();
                             }

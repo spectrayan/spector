@@ -100,6 +100,34 @@ public final class GraphHealthMetrics {
     /** Number of non-isolated nodes in the Hebbian graph. */
     private int hebbianActiveNodes;
 
+    // ── Entity Hierarchy Depth ──
+
+    /** Maximum BFS depth observed across all entity pairs. */
+    private int entityMaxDepth;
+
+    /** Sum of BFS depths for computing average. */
+    private long entityDepthSum;
+
+    /** Count of entity pairs with measured depth (for average). */
+    private int entityDepthCount;
+
+    /** Depth distribution: entities reachable within 1 hop. */
+    private int depthBucket1;
+
+    /** Depth distribution: entities reachable at 2 hops. */
+    private int depthBucket2;
+
+    /** Depth distribution: entities reachable at 3 hops. */
+    private int depthBucket3;
+
+    /** Depth distribution: entities reachable at 4+ hops. */
+    private int depthBucket4Plus;
+
+    // ── Cross-Capture (STC) Metrics ──
+
+    /** Entity edges boosted by STC cross-capture from strong Hebbian edges. */
+    private int crossCapturedEdges;
+
     // ═══════════════════════════════════════════════════════════
     // Increment Methods (called during decay)
     // ═══════════════════════════════════════════════════════════
@@ -144,6 +172,9 @@ public final class GraphHealthMetrics {
         this.hebbianActiveNodes = activeNodes;
     }
 
+    /** Records an entity edge boosted by STC cross-capture. */
+    public void recordCrossCapture() { crossCapturedEdges++; }
+
     // ═══════════════════════════════════════════════════════════
     // Query Methods (called after decay for reporting)
     // ═══════════════════════════════════════════════════════════
@@ -156,6 +187,7 @@ public final class GraphHealthMetrics {
     public int entityEdgesDecayed()      { return entityEdgesDecayed; }
     public int entityBridgeProtected()   { return entityBridgeProtected; }
     public int entityEdgesSurviving()    { return entityEdgesSurviving; }
+    public int crossCapturedEdges()      { return crossCapturedEdges; }
 
     /** Total edges decayed across both graphs. */
     public int totalEdgesDecayed()       { return hebbianEdgesDecayed + entityEdgesDecayed; }
@@ -193,6 +225,34 @@ public final class GraphHealthMetrics {
                 : 0f;
     }
 
+    public int entityMaxDepth()       { return entityMaxDepth; }
+    public int depthBucket1()         { return depthBucket1; }
+    public int depthBucket2()         { return depthBucket2; }
+    public int depthBucket3()         { return depthBucket3; }
+    public int depthBucket4Plus()     { return depthBucket4Plus; }
+
+    /** Average BFS depth across all entity pairs, or 0 if none measured. */
+    public float averageEntityDepth() {
+        return entityDepthCount > 0 ? (float) entityDepthSum / entityDepthCount : 0f;
+    }
+
+    /**
+     * Records a BFS depth measurement from entity hierarchy analysis.
+     *
+     * @param depth the hop distance between two entities (1+)
+     */
+    public void recordEntityDepth(int depth) {
+        entityDepthSum += depth;
+        entityDepthCount++;
+        if (depth > entityMaxDepth) entityMaxDepth = depth;
+        switch (depth) {
+            case 1 -> depthBucket1++;
+            case 2 -> depthBucket2++;
+            case 3 -> depthBucket3++;
+            default -> { if (depth >= 4) depthBucket4Plus++; }
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════
     // Internal Helpers
     // ═══════════════════════════════════════════════════════════
@@ -226,6 +286,10 @@ public final class GraphHealthMetrics {
                 + ", maxAge=" + edgeAgeMax
                 + ", avgImportance=" + String.format("%.3f", averageImportanceScore())
                 + ", fragmentation=" + String.format("%.3f", fragmentationRatio())
+                + ", entityDepth[max=" + entityMaxDepth
+                + ", avg=" + String.format("%.1f", averageEntityDepth())
+                + ", 1h=" + depthBucket1 + ", 2h=" + depthBucket2
+                + ", 3h=" + depthBucket3 + ", 4h+=" + depthBucket4Plus + "]"
                 + '}';
     }
 }
