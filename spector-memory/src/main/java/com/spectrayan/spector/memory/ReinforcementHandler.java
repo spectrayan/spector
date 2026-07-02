@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.TierRouter;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
@@ -60,14 +60,14 @@ final class ReinforcementHandler {
     private static final Logger log = LoggerFactory.getLogger(ReinforcementHandler.class);
 
     private final ValenceTracker valenceTracker;
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final LateralEvaluator lateralEvaluator;
     private final RecallPipeline recallPipeline;
     private final MemoryWal wal;
     private final TwoFactorConfig twoFactorConfig;
 
     ReinforcementHandler(ValenceTracker valenceTracker,
-                         HebbianGraph hebbianGraph,
+                         HebbianGraphBase hebbianGraph,
                          LateralEvaluator lateralEvaluator,
                          RecallPipeline recallPipeline,
                          MemoryWal wal,

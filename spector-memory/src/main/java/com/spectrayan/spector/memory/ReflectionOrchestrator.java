@@ -16,8 +16,9 @@ import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
+import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 // RelationType enum replaced by open-schema strings via TypeRegistry
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.SynapticDecayModulator;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -102,22 +103,25 @@ final class ReflectionOrchestrator {
     private static final float TEMPORAL_IMPORTANCE_THRESHOLD = 1.0f;
 
     private final ReflectDaemon reflectDaemon;
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
+    private final HyperEntityGraph hyperEntityGraph;
     private final MemoryWal wal;
     private final int temporalRetentionDays;
 
     ReflectionOrchestrator(ReflectDaemon reflectDaemon,
-                           HebbianGraph hebbianGraph,
+                           HebbianGraphBase hebbianGraph,
                            TemporalChain temporalChain,
                            EntityGraph entityGraph,
+                           HyperEntityGraph hyperEntityGraph,
                            MemoryWal wal,
                            int temporalRetentionDays) {
         this.reflectDaemon = reflectDaemon;
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.hyperEntityGraph = hyperEntityGraph;
         this.wal = wal;
         this.temporalRetentionDays = temporalRetentionDays;
     }
@@ -162,6 +166,9 @@ final class ReflectionOrchestrator {
 
         // Phase 5c: Adjacency compaction (defragmentation)
         compactEntityAdjacency();
+
+        // Phase 5d: HyperEntityGraph decay (hyperedge weight homeostasis)
+        decayHyperEntityGraph();
 
         // Log graph health summary
         if (graphMetrics.totalEdgesDecayed() > 0 || graphMetrics.totalEdgesSurviving() > 0) {
@@ -432,6 +439,20 @@ final class ReflectionOrchestrator {
             }
         } catch (RuntimeException e) {
             log.warn("Entity adjacency compaction failed: {}", e.getMessage());
+        }
+    }
+
+    // ── Phase 5d: HyperEntityGraph Decay ──
+
+    private void decayHyperEntityGraph() {
+        if (hyperEntityGraph == null) return;
+        try {
+            int evicted = hyperEntityGraph.decayHyperedges(ENTITY_DECAY_FACTOR, ENTITY_PRUNE_THRESHOLD);
+            if (evicted > 0) {
+                log.info("Reflect: HyperEntityGraph decayed {} weak hyperedges", evicted);
+            }
+        } catch (RuntimeException e) {
+            log.warn("HyperEntityGraph decay failed: {}", e.getMessage());
         }
     }
 }

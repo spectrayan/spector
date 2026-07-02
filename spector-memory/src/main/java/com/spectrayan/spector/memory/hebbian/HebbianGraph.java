@@ -56,7 +56,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *     for backward compatibility during migration.
  */
 @Deprecated(since = "1.0.0", forRemoval = false)
-public final class HebbianGraph implements AutoCloseable {
+public final class HebbianGraph implements HebbianGraphBase {
 
     private static final Logger log = LoggerFactory.getLogger(HebbianGraph.class);
 
@@ -1026,6 +1026,11 @@ public final class HebbianGraph implements AutoCloseable {
         } finally {
             graphLock.unlock();
         }
+    }
+
+    @Override
+    public long memoryUsageBytes() {
+        return (long) nodeBytesPerNode * capacity;
     }
 
     @Override

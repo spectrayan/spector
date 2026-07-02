@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.ProceduralMemoryStore;
 import com.spectrayan.spector.memory.cortex.SemanticMemoryStore;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
@@ -58,7 +58,7 @@ final class PartitionManager {
     private final int episodicPartitionCapacity;
     private final int proceduralCapacity;
     private final MemoryIndex index;
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final CognitiveIngestionTarget cognitiveTarget;
 
@@ -74,7 +74,7 @@ final class PartitionManager {
                      TierRouter initialRouter,
                      Path initialPartitionDir,
                      MemoryIndex index,
-                     HebbianGraph hebbianGraph,
+                     HebbianGraphBase hebbianGraph,
                      TemporalChain temporalChain,
                      CognitiveIngestionTarget cognitiveTarget) {
         this.basePath = basePath;

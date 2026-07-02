@@ -89,7 +89,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @see HebbianGraph
  */
-public final class HebbianGraphCsr implements AutoCloseable {
+public final class HebbianGraphCsr implements HebbianGraphBase {
 
     private static final Logger log = LoggerFactory.getLogger(HebbianGraphCsr.class);
 

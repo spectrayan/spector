@@ -21,6 +21,7 @@ import java.util.List;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
 
@@ -55,7 +56,7 @@ public final class GraphSnapshotCollector {
         int hebbianMaxDegree = 0;
         long hebbianDegreeSum = 0;
 
-        HebbianGraph hg = memory.hebbianGraph();
+        HebbianGraphBase hg = memory.hebbianGraph();
         if (hg != null) {
             hebbianCapacity = hg.capacity();
             hebbianTotalEdges = hg.totalEdges();

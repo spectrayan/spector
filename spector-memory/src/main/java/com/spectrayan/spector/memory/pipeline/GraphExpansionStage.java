@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode;
@@ -70,7 +70,7 @@ final class GraphExpansionStage {
     private static final Logger log = LoggerFactory.getLogger(GraphExpansionStage.class);
 
     // ── Dependencies (all nullable — graceful degradation) ──
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
     private final EntityExtractor entityExtractor;
@@ -80,7 +80,7 @@ final class GraphExpansionStage {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
 
-    GraphExpansionStage(HebbianGraph hebbianGraph,
+    GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChain temporalChain,
                         EntityGraph entityGraph,
                         EntityExtractor entityExtractor,

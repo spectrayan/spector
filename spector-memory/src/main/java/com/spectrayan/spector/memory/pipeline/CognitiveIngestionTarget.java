@@ -25,9 +25,10 @@ import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.graph.EntityRelation;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
@@ -108,10 +109,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final boolean normalizeAtIngest;
 
     // ── Graph components (all nullable — graceful degradation) ──
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityExtractor entityExtractor;
     private final EntityGraph entityGraph;
+    private final HyperEntityGraph hyperEntityGraph;
 
     // ── BM25 Text Search (nullable — graceful degradation) ──
     private final MemoryBM25Index bm25Index;
@@ -149,10 +151,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
                                      boolean normalizeAtIngest,
-                                     HebbianGraph hebbianGraph,
+                                     HebbianGraphBase hebbianGraph,
                                      TemporalChain temporalChain,
                                      EntityExtractor entityExtractor,
                                      EntityGraph entityGraph,
+                                     HyperEntityGraph hyperEntityGraph,
                                      MemoryBM25Index bm25Index,
                                      TextDataStore textDataStore,
                                      int activePartitionIndex,
@@ -162,6 +165,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, normalizeAtIngest,
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
+                hyperEntityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
                 spladeIndex, spladeProvider, DataEncryptor.NOOP);
     }
@@ -180,10 +184,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor,
                                      boolean normalizeAtIngest,
-                                     HebbianGraph hebbianGraph,
+                                     HebbianGraphBase hebbianGraph,
                                      TemporalChain temporalChain,
                                      EntityExtractor entityExtractor,
                                      EntityGraph entityGraph,
+                                     HyperEntityGraph hyperEntityGraph,
                                      MemoryBM25Index bm25Index,
                                      TextDataStore textDataStore,
                                      int activePartitionIndex,
@@ -205,6 +210,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.temporalChain = temporalChain;
         this.entityExtractor = entityExtractor;
         this.entityGraph = entityGraph;
+        this.hyperEntityGraph = hyperEntityGraph;
         this.bm25Index = bm25Index;
         this.textDataStore = textDataStore;
         this.activePartitionIndex = activePartitionIndex;
@@ -216,7 +222,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 tierRouter, index, wal, semanticIndex,
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
-                spladeIndex, spladeProvider, this.encryptor);
+                spladeIndex, spladeProvider, this.encryptor, hyperEntityGraph);
     }
 
     /**
@@ -273,7 +279,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this(quantizer, surpriseDetector, flashbulbPolicy, tierRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, true,
-                null, null, null, null,
+                null, null, null, null, null,
                 null, null, -1,
                 null, null);
     }

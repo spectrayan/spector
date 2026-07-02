@@ -23,6 +23,7 @@ import java.util.Set;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
 
@@ -110,7 +111,7 @@ public enum ContributingSubsystem {
     public static Set<ContributingSubsystem> detect(
             String memoryId,
             Set<String> baselineTop10,
-            HebbianGraph hebbian,
+            HebbianGraphBase hebbian,
             TemporalChain temporal,
             EntityGraph entity,
             ScoreBreakdown breakdown,
@@ -174,7 +175,7 @@ public enum ContributingSubsystem {
      * via Hebbian spreading activation within {@value #HEBBIAN_MAX_HOPS} hops.
      */
     private static boolean isHebbianReachable(int targetSlot, Set<String> baselineTop10,
-                                               HebbianGraph hebbian, Map<String, Integer> idToSlot) {
+                                               HebbianGraphBase hebbian, Map<String, Integer> idToSlot) {
         for (String baselineId : baselineTop10) {
             Integer seedSlot = idToSlot.get(baselineId);
             if (seedSlot == null) continue;
