@@ -162,24 +162,35 @@ public final class GraphHealthReportGenerator {
         sb.append("\n");
 
         // ── Section 4.5: Entity Hierarchy Depth ──
-        sb.append("## 4.5. Entity Hierarchy Depth (Final Cycle)\n\n");
-        sb.append("| Scale | Max Depth | Avg Depth | 1-Hop | 2-Hop | 3-Hop | 4+-Hop | ");
-        sb.append("Deep (3+)% |\n");
-        sb.append("|:---|:---|:---|:---|:---|:---|:---|:---|\n");
-        for (ScalePointData sp : scalePoints) {
-            if (sp.cycles().isEmpty()) continue;
-            CycleDataPoint last = sp.cycles().getLast();
-            GraphHealthMetrics m = last.report().graphHealth();
-            if (m == null) continue;
-            int total = m.depthBucket1() + m.depthBucket2() + m.depthBucket3() + m.depthBucket4Plus();
-            float deepPct = total > 0
-                    ? (float) (m.depthBucket3() + m.depthBucket4Plus()) / total * 100f : 0f;
-            sb.append(String.format("| %s | %d | %.1f | %d | %d | %d | %d | %.1f%% |\n",
-                    sp.scaleLabel(), m.entityMaxDepth(), m.averageEntityDepth(),
-                    m.depthBucket1(), m.depthBucket2(), m.depthBucket3(), m.depthBucket4Plus(),
-                    deepPct));
+        // Note: depth recording requires EntityGraph BFS traversal during reflection.
+        // If no depth data was recorded, we skip this section.
+        boolean hasDepthData = scalePoints.stream()
+                .flatMap(sp -> sp.cycles().stream())
+                .map(c -> c.report().graphHealth())
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(m -> m.depthBucket1() + m.depthBucket2()
+                        + m.depthBucket3() + m.depthBucket4Plus() > 0);
+
+        if (hasDepthData) {
+            sb.append("## 4.5. Entity Hierarchy Depth (Final Cycle)\n\n");
+            sb.append("| Scale | Max Depth | Avg Depth | 1-Hop | 2-Hop | 3-Hop | 4+-Hop | ");
+            sb.append("Deep (3+)% |\n");
+            sb.append("|:---|:---|:---|:---|:---|:---|:---|:---|\n");
+            for (ScalePointData sp : scalePoints) {
+                if (sp.cycles().isEmpty()) continue;
+                CycleDataPoint last = sp.cycles().getLast();
+                GraphHealthMetrics m = last.report().graphHealth();
+                if (m == null) continue;
+                int total = m.depthBucket1() + m.depthBucket2() + m.depthBucket3() + m.depthBucket4Plus();
+                float deepPct = total > 0
+                        ? (float) (m.depthBucket3() + m.depthBucket4Plus()) / total * 100f : 0f;
+                sb.append(String.format("| %s | %d | %.1f | %d | %d | %d | %d | %.1f%% |\n",
+                        sp.scaleLabel(), m.entityMaxDepth(), m.averageEntityDepth(),
+                        m.depthBucket1(), m.depthBucket2(), m.depthBucket3(), m.depthBucket4Plus(),
+                        deepPct));
+            }
+            sb.append("\n");
         }
-        sb.append("\n");
 
         // ── Section 5: Entity Explosion Assessment ──
         sb.append("## 5. Entity Explosion Assessment\n\n");

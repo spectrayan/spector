@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Off-heap adjacency list for full Hebbian graph associations (V2).
+ * Off-heap adjacency list for full Hebbian graph associations (V2 — fixed-width layout).
  *
  * <h3>Biological Analog: Cortical Network Wiring</h3>
  * <p>In the cortex, neurons form complex networks where activating one node
@@ -49,7 +49,13 @@ import java.util.concurrent.locks.ReentrantLock;
  *   <li>Enables spreading activation: "if you recalled A, also consider B and C"</li>
  *   <li>Persistence: save/load via raw segment serialization to file</li>
  * </ul>
+ *
+ * @deprecated Use {@link HebbianGraphCsr} instead. The CSR layout reduces memory
+ *     by ~90% for sparse graphs (observed avg degree ~2.0). V2 files are automatically
+ *     migrated to CSR V3 by {@link HebbianGraphCsr#load}. This class is retained
+ *     for backward compatibility during migration.
  */
+@Deprecated(since = "1.0.0", forRemoval = false)
 public final class HebbianGraph implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(HebbianGraph.class);
@@ -712,15 +718,20 @@ public final class HebbianGraph implements AutoCloseable {
     /**
      * Recomputes bridge scores for all edges in the graph.
      *
-     * <p>Called during {@link #decayEdges} after compaction. Uses the
-     * {@link BridgeDetector} neighbor overlap heuristic to identify edges
-     * that serve as critical bridges between otherwise-disconnected neighborhoods.</p>
+     * <p>Called during {@link #decayEdges} after compaction. Uses a dual-mode
+     * strategy:</p>
+     * <ol>
+     *   <li><b>Primary:</b> Wilson's Algorithm spanning tree sampling — captures
+     *       transitive bridges that neighbor overlap misses. Budget: 500ms.</li>
+     *   <li><b>Fallback:</b> Neighbor overlap heuristic — fast O(N × degree²)
+     *       when spanning tree exceeds budget (large/fragmented graphs).</li>
+     * </ol>
      *
-     * <p><b>Cost:</b> O(N × MAX_DEGREE²) — acceptable during ReflectDaemon cycles
-     * (every few seconds), never on the hot recall path.</p>
+     * <p><b>Cost:</b> Spanning tree: O(K × N), K=15. Heuristic fallback:
+     * O(N × MAX_DEGREE²). Both are acceptable during ReflectDaemon cycles.</p>
      */
     private void updateBridgeScores() {
-        // Pre-extract neighbor arrays for all active nodes (avoids re-reading)
+        // Pre-extract neighbor arrays for all active nodes (shared by both algorithms)
         int[][] neighborArrays = new int[capacity][];
         int[] degrees = new int[capacity];
 
@@ -738,7 +749,36 @@ public final class HebbianGraph implements AutoCloseable {
             }
         }
 
-        // Compute and store bridge scores
+        // Try spanning tree sampling (primary algorithm)
+        int[][] spanningTreeScores = BridgeDetector.computeBridgeScoresSpanningTree(
+                neighborArrays, capacity,
+                BridgeDetector.DEFAULT_SAMPLE_COUNT,
+                BridgeDetector.DEFAULT_BUDGET_MS);
+
+        if (spanningTreeScores != null) {
+            // Apply spanning tree scores
+            for (int node = 0; node < capacity; node++) {
+                int degree = degrees[node];
+                if (degree == 0) continue;
+                long nodeOffset = (long) node * nodeBytesPerNode;
+                for (int i = 0; i < degree; i++) {
+                    long edgeOffset = nodeOffset + 4 + (long) i * EDGE_BYTES;
+                    int score = spanningTreeScores[node] != null && i < spanningTreeScores[node].length
+                            ? spanningTreeScores[node][i] : 128;
+                    segment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE, (byte) score);
+                }
+            }
+        } else {
+            // Fallback: neighbor overlap heuristic (original algorithm)
+            updateBridgeScoresHeuristic(neighborArrays, degrees);
+        }
+    }
+
+    /**
+     * Fallback heuristic bridge scoring using neighbor overlap.
+     * Used when spanning tree sampling exceeds its time budget.
+     */
+    private void updateBridgeScoresHeuristic(int[][] neighborArrays, int[] degrees) {
         for (int node = 0; node < capacity; node++) {
             int degree = degrees[node];
             if (degree == 0) continue;
