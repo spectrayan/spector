@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Agent management REST API.
@@ -91,16 +90,9 @@ public class AgentController {
     /** List all available tools. */
     @GetMapping("/tools")
     public ResponseEntity<Map<String, Object>> listTools() {
-        Set<String> names = toolRegistry.names();
-        List<Map<String, Object>> toolDetails = names.stream()
-                .map(name -> toolRegistry.get(name).map(tool -> Map.<String, Object>of(
-                        "name", tool.name(),
-                        "description", tool.description(),
-                        "parameters", tool.parameterSchema()
-                )).orElse(Map.of()))
-                .toList();
+        var toolDetails = toolRegistry.toFunctionDefinitions();
         return ResponseEntity.ok(Map.of(
-                "count", names.size(),
+                "count", toolDetails.size(),
                 "tools", toolDetails
         ));
     }

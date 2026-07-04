@@ -23,6 +23,17 @@ import java.util.Map;
  * <p>Tools are discovered via Spring component scan and registered in the
  * {@link ToolRegistry}. Each tool has a name, description, and parameter schema
  * that gets exposed to the LLM for function calling.</p>
+ *
+ * <h3>Spring AI Alignment</h3>
+ * <p>This interface is designed to align with Spring AI's {@code ToolCallback} pattern.
+ * The {@link ToolRegistry} bridges these tools to LangGraph4j-Spring AI's tool
+ * execution framework, making them automatically available to agentic graphs.</p>
+ *
+ * <h3>Spector Extensions</h3>
+ * <ul>
+ *   <li>{@link #isWriteTool()} — marks tools requiring supervised execution (approval)</li>
+ *   <li>{@link #category()} — groups tools in the UI for better organization</li>
+ * </ul>
  */
 public interface AgentTool {
 
@@ -42,4 +53,43 @@ public interface AgentTool {
      * @return tool execution result as a string
      */
     String execute(Map<String, Object> arguments);
+
+    /**
+     * Whether this tool performs write/mutation operations.
+     *
+     * <p>Write tools require explicit user approval before execution in supervised
+     * mode (e.g., file writes, shell commands, memory mutations).</p>
+     *
+     * @return {@code true} if the tool mutates state; {@code false} for read-only tools
+     */
+    default boolean isWriteTool() {
+        return false;
+    }
+
+    /**
+     * Category for UI grouping and filtering.
+     *
+     * @return the tool category
+     */
+    default ToolCategory category() {
+        return ToolCategory.GENERAL;
+    }
+
+    /**
+     * Categories for organizing tools in the UI and marketplace.
+     */
+    enum ToolCategory {
+        /** General-purpose tools (time, search). */
+        GENERAL,
+        /** Memory operations (recall, remember, reinforce). */
+        MEMORY,
+        /** File system operations (read, write). */
+        FILESYSTEM,
+        /** Network/HTTP operations. */
+        NETWORK,
+        /** System operations (shell, process). */
+        SYSTEM,
+        /** Data transformation and analysis. */
+        DATA
+    }
 }

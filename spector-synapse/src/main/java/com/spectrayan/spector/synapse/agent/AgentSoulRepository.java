@@ -131,4 +131,25 @@ public class AgentSoulRepository {
             }
         }
     }
+
+    /** Load the default agent soul (first available, or create one). */
+    public AgentSoul loadDefault() {
+        List<AgentSoul> souls = jdbc.query(
+                "SELECT * FROM agent_souls ORDER BY created_at ASC LIMIT 1",
+                new AgentSoulRowMapper());
+
+        if (!souls.isEmpty()) {
+            return souls.getFirst();
+        }
+
+        // Auto-create a default soul
+        return save(AgentSoul.of("default", "Assistant",
+                "You are a cognitive assistant powered by the Spector Engine."));
+    }
+
+    /** Count all agent souls. */
+    public long count() {
+        Long count = jdbc.queryForObject("SELECT COUNT(*) FROM agent_souls", Long.class);
+        return count != null ? count : 0;
+    }
 }
