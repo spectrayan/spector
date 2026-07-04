@@ -54,6 +54,16 @@ public class FileWriteTool implements AgentTool {
     }
 
     @Override
+    public boolean isWriteTool() {
+        return true;
+    }
+
+    @Override
+    public ToolCategory category() {
+        return ToolCategory.FILESYSTEM;
+    }
+
+    @Override
     public String execute(Map<String, Object> arguments) {
         String path = (String) arguments.get("path");
         String content = (String) arguments.get("content");

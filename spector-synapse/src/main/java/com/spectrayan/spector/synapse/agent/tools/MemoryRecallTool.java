@@ -62,6 +62,11 @@ public class MemoryRecallTool implements AgentTool {
     }
 
     @Override
+    public ToolCategory category() {
+        return ToolCategory.MEMORY;
+    }
+
+    @Override
     public String execute(Map<String, Object> arguments) {
         String query = (String) arguments.get("query");
         int topK = arguments.containsKey("topK") ? ((Number) arguments.get("topK")).intValue() : 5;

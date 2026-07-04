@@ -60,6 +60,11 @@ public class HttpRequestTool implements AgentTool {
     }
 
     @Override
+    public ToolCategory category() {
+        return ToolCategory.NETWORK;
+    }
+
+    @Override
     public String execute(Map<String, Object> arguments) {
         String url = (String) arguments.get("url");
         String method = (String) arguments.getOrDefault("method", "GET");

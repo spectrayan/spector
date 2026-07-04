@@ -49,6 +49,11 @@ public class CurrentTimeTool implements AgentTool {
     }
 
     @Override
+    public ToolCategory category() {
+        return ToolCategory.GENERAL;
+    }
+
+    @Override
     public String execute(Map<String, Object> arguments) {
         String tz = (String) arguments.getOrDefault("timezone", "UTC");
         try {

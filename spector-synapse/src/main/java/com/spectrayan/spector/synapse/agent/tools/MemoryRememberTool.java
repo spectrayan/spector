@@ -62,6 +62,16 @@ public class MemoryRememberTool implements AgentTool {
     }
 
     @Override
+    public boolean isWriteTool() {
+        return true;
+    }
+
+    @Override
+    public ToolCategory category() {
+        return ToolCategory.MEMORY;
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public String execute(Map<String, Object> arguments) {
         String text = (String) arguments.get("text");

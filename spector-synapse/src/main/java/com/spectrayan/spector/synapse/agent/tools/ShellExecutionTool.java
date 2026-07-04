@@ -58,6 +58,16 @@ public class ShellExecutionTool implements AgentTool {
     }
 
     @Override
+    public boolean isWriteTool() {
+        return true;
+    }
+
+    @Override
+    public ToolCategory category() {
+        return ToolCategory.SYSTEM;
+    }
+
+    @Override
     public String execute(Map<String, Object> arguments) {
         String command = (String) arguments.get("command");
         String workDir = (String) arguments.get("workDir");

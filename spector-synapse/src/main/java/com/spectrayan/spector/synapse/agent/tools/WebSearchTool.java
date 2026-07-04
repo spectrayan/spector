@@ -65,6 +65,11 @@ public class WebSearchTool implements AgentTool {
     }
 
     @Override
+    public ToolCategory category() {
+        return ToolCategory.NETWORK;
+    }
+
+    @Override
     public String execute(Map<String, Object> arguments) {
         String query = (String) arguments.get("query");
         if (query == null || query.isBlank()) {
