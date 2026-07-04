@@ -128,6 +128,11 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
+                <artifactId>spector-synapse</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-cli</artifactId>
                 <version>${project.version}</version>
             </dependency>

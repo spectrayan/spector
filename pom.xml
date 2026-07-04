@@ -76,6 +76,7 @@
         <module>spector-client</module>
         <module>spector-spring</module>
         <module>spector-mcp</module>
+        <module>spector-synapse</module>
         <module>spector-dist</module>
     </modules>
 
@@ -224,6 +225,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-mcp</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-synapse</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

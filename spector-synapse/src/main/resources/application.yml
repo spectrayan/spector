@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────
+# Spector Synapse — Configuration
+# ─────────────────────────────────────────────────────────────
+# All settings can be overridden via environment variables:
+#   SPECTOR_PORT=7070
+#   SPECTOR_API_KEY=your-secret-key
+#   SPECTOR_DATA_DIR=./spector-data
+#   SPECTOR_OLLAMA_BASE_URL=http://localhost:11434
+# ─────────────────────────────────────────────────────────────
+
+spector:
+  port: ${SPECTOR_PORT:7070}
+  api-key: ${SPECTOR_API_KEY:spector-dev-key}
+  data-dir: ${SPECTOR_DATA_DIR:./spector-data}
+  ollama:
+    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${SPECTOR_OLLAMA_MODEL:llama3.2}
+    embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
+  memory:
+    max-memories: ${SPECTOR_MAX_MEMORIES:0}
+    dimensions: ${SPECTOR_DIMENSIONS:0}
+  cors:
+    allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200}
+
+# ── Server (Armeria) ──
+server:
+  port: ${spector.port}
+
+# ── Spring Boot Actuator ──
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+# ── DataSource (H2 file-based) ──
+spring:
+  application:
+    name: spector-synapse
+  datasource:
+    url: jdbc:h2:file:${spector.data-dir}/synapse-db;DB_CLOSE_DELAY=-1;AUTO_RECONNECT=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  # Disable unnecessary auto-configurations
+  jmx:
+    enabled: false
+
+# ── Logging ──
+logging:
+  level:
+    root: INFO
+    com.spectrayan.spector: DEBUG
+    org.springframework.boot: INFO
+    org.flywaydb: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# ── Application Info ──
+info:
+  app:
+    name: Spector Synapse
+    description: The central nervous system for cognitive memory
+    version: ${revision:1.0.0-SNAPSHOT}
