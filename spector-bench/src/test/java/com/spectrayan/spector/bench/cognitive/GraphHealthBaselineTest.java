@@ -25,6 +25,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,6 +66,7 @@ import com.spectrayan.spector.memory.model.ReflectReport;
  * </ul>
  */
 @Tag("integration")
+@EnabledIfEnvironmentVariable(named = "OLLAMA_LIVE", matches = "true")
 @DisplayName("P0: GraphHealthMetrics Baseline — 20K Balanced Dataset")
 class GraphHealthBaselineTest {
 
