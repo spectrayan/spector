@@ -157,6 +157,9 @@ public final class StorageLayout {
     /** Global entity knowledge graph. Stored in runtime/ (V3). */
     public static final String FILE_ENTITY = "entity.graph";
 
+    /** HyperEntityGraph binary file (hyperedge storage). Stored in runtime/ (V3). */
+    public static final String FILE_HYPERGRAPH = "hypergraph.hyeg";
+
     /** BM25 inverted index binary file. Stored in runtime/ (V3). */
     public static final String FILE_BM25 = "bm25.bidx";
 
@@ -446,6 +449,11 @@ public final class StorageLayout {
     /** Resolves the entity.graph file path (in runtime/). */
     public static Path entityGraphRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_ENTITY);
+    }
+
+    /** Resolves the hypergraph.hyeg file path (in runtime/). */
+    public static Path hyperEntityGraphRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_HYPERGRAPH);
     }
 
     /** Resolves the entity-types.treg file path (in runtime/). */

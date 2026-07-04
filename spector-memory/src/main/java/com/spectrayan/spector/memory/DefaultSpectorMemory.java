@@ -44,11 +44,14 @@ import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphCsr;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -174,9 +177,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final MemoryWal wal;
 
     // ── 3-Layer Cognitive Graph ──
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
+    private final HyperEntityGraph hyperEntityGraph;
 
     // ── Configuration ──
     private final int dimensions;
@@ -382,11 +386,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             Path loadFrom = java.nio.file.Files.exists(runtimeGraph) ? runtimeGraph
                     : (v2Graph != null && java.nio.file.Files.exists(v2Graph)) ? v2Graph
                     : legacyGraph;
-            this.hebbianGraph = HebbianGraph.load(loadFrom, graphCapacity,
+            this.hebbianGraph = HebbianGraphCsr.load(loadFrom, graphCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance);
         } else {
-            this.hebbianGraph = new HebbianGraph(graphCapacity,
-                    builder.hebbianMaxDegree, builder.edgeImportance);
+            this.hebbianGraph = new HebbianGraphCsr(graphCapacity);
         }
 
         int temporalCapacity = builder.temporalChainCapacity > 0
@@ -447,6 +450,24 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         } else {
             this.entityGraph = null;
+        }
+
+        // ── HyperEntityGraph (multi-entity relationship layer) ──
+        if (entityEnabled && builder.hyperEntityGraphEnabled) {
+            int hyperCap = builder.entityGraphCapacity;
+            int hyperEdgeCap = hyperCap * 2;
+            if (isDisk && basePath != null) {
+                Path hyperPath = StorageLayout.hyperEntityGraphRuntime(basePath);
+                if (java.nio.file.Files.exists(hyperPath)) {
+                    this.hyperEntityGraph = HyperEntityGraph.load(hyperPath, hyperCap, hyperEdgeCap);
+                } else {
+                    this.hyperEntityGraph = new HyperEntityGraph(hyperCap, hyperEdgeCap);
+                }
+            } else {
+                this.hyperEntityGraph = new HyperEntityGraph(hyperCap, hyperEdgeCap);
+            }
+        } else {
+            this.hyperEntityGraph = null;
         }
 
         // ── BM25 Text Search ──
@@ -520,6 +541,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 tierRouter, index, wal, workingStore, builder.icnuWeights,
                 builder.semanticIndex, builder.tagExtractor, true,
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
+                hyperEntityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
                 memorySpladeIndex, builder.sparseEncodingProvider,
                 builder.dataEncryptor);
@@ -576,7 +598,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         this.reflectionOrchestrator = new ReflectionOrchestrator(
                 reflectDaemon, hebbianGraph, temporalChain, entityGraph,
-                wal, builder.temporalRetentionDays);
+                hyperEntityGraph, wal, builder.temporalRetentionDays);
 
         this.reinforcementHandler = new ReinforcementHandler(
                 valenceTracker, hebbianGraph, lateralEvaluator, recallPipeline,
@@ -605,7 +627,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     tierRouter, wal,
                     StorageLayout.checkpointMeta(basePath),
                     index, indexSavePath,
-                    hebbianGraph, temporalChain, entityGraph, coActivationTracker,
+                    hebbianGraph, temporalChain, entityGraph,
+                    hyperEntityGraph, coActivationTracker,
                     resolvedPartitionDir, basePath);
             this.daemonSupervisor = new DaemonSupervisor("memory");
             this.daemonSupervisor.schedule(
@@ -1373,9 +1396,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public TierRouter tierRouter() { return partitionManager.tierRouter(); }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
-    @Override public HebbianGraph hebbianGraph() { return hebbianGraph; }
+    @Override public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
     @Override public TemporalChain temporalChain() { return temporalChain; }
     @Override public EntityGraph entityGraph() { return entityGraph; }
+    @Override public HyperEntityGraph hyperEntityGraph() { return hyperEntityGraph; }
 
     /** Returns the namespace manager (null if IN_MEMORY mode). */
     public SpectorNamespaceManager namespaceManager() { return namespaceManager; }
@@ -1471,7 +1495,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         PersistenceManager.flushAndClose(
                 persistenceMode, persistencePath,
                 partitionManager.activePartitionDir(),
-                index, hebbianGraph, temporalChain, entityGraph,
+                index, hebbianGraph, temporalChain, entityGraph, hyperEntityGraph,
                 coActivationTracker, partitionManager.tierRouter(), wal);
     }
 
@@ -1519,6 +1543,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         com.spectrayan.spector.embed.GenerationOptions llmGenerationOptions;
         GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
         int temporalRetentionDays = 7;
+        boolean hyperEntityGraphEnabled = true;
         com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
                 = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
 
@@ -1624,6 +1649,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         /** Entity graph capacity — max entities (default: 50,000). */
         public Builder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
+
+        /** Enable/disable the HyperEntityGraph layer (default: true). */
+        public Builder hyperEntityGraphEnabled(boolean enabled) { this.hyperEntityGraphEnabled = enabled; return this; }
 
         /** Max entities to extract per memory (default: 10). */
         public Builder maxEntitiesPerMemory(int c) { this.maxEntitiesPerMemory = c; return this; }

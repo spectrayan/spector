@@ -147,6 +147,15 @@ public final class EntityGraph implements AutoCloseable {
     private static final long EDGE_OFF_BRIDGE_SCORE = 14; // 1B
     private static final long EDGE_OFF_EDGE_FLAGS = 15;   // 1B
 
+    /**
+     * Minimum bridge score (unsigned 0-255) required to protect an entity edge
+     * from eviction during decay. Matches {@code HebbianGraph.BRIDGE_PROTECTION_THRESHOLD}.
+     */
+    static final int BRIDGE_PROTECTION_THRESHOLD = 224;
+
+    /** Maximum entity edge weight — prevents runaway amplification from cross-capture boosts. */
+    static final float MAX_EDGE_WEIGHT = 20.0f;
+
     // ── Adjacency Entry Layout (8 bytes) ──
     static final int ADJ_ENTRY_BYTES = 8;
     private static final long ADJ_OFF_MEM_IDX = 0;      // 4B (memory slot index)
@@ -590,6 +599,56 @@ public final class EntityGraph implements AutoCloseable {
     }
 
     /**
+     * Boosts the weight of an existing entity edge (STC cross-capture).
+     *
+     * <p>Used during reflection to propagate Hebbian co-activation strength
+     * to entity edges between connected memories' entities. Mirrors the
+     * biological Synaptic Tagging and Capture mechanism (Frey & Morris, 1997)
+     * where strong synapses protect nearby weak synapses through shared
+     * plasticity-related proteins.</p>
+     *
+     * <p>This method only boosts <em>existing</em> edges — it does not create
+     * new entity relations. The boost is capped at {@link #MAX_EDGE_WEIGHT}
+     * to prevent runaway amplification.</p>
+     *
+     * @param fromEntity source entity ID
+     * @param toEntity   target entity ID
+     * @param boost      weight increment (clamped to [0, MAX_EDGE_WEIGHT])
+     * @return {@code true} if the edge was found and boosted, {@code false} otherwise
+     */
+    public boolean boostEdgeWeight(int fromEntity, int toEntity, float boost) {
+        if (fromEntity < 0 || fromEntity >= entityCount) return false;
+        if (toEntity < 0 || toEntity >= entityCount) return false;
+        if (fromEntity == toEntity || boost <= 0.0f) return false;
+
+        graphLock.lock();
+        try {
+            long entityOffset = (long) fromEntity * ENTITY_NODE_BYTES;
+            int degree = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_DEGREE);
+            int edgeStart = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_EDGE_START);
+
+            if (edgeStart < 0 || degree == 0) return false;
+
+            for (int i = 0; i < degree; i++) {
+                long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
+                int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
+                if (target == toEntity) {
+                    float weight = edgeSegment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
+                    float boosted = Math.min(weight + boost, MAX_EDGE_WEIGHT);
+                    edgeSegment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, boosted);
+                    // Update recency — cross-capture refreshes the edge's "last seen" cycle
+                    edgeSegment.set(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE,
+                            (short) currentCycle);
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            graphLock.unlock();
+        }
+    }
+
+    /**
      * Evicts the lowest-importance edge from an entity at max degree, replacing
      * it with a new edge if the new edge would score higher.
      *
@@ -1000,31 +1059,48 @@ public final class EntityGraph implements AutoCloseable {
                 float weight = edgeSegment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
                 float decayed = weight * decayFactor;
 
+                // Read bridge score from previous cycle for eviction decision
+                byte bridgeRaw = edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
+                int bridgeUnsigned = Byte.toUnsignedInt(bridgeRaw);
+
+                boolean keep;
+                boolean bridgeProtected = false;
                 if (decayed >= minWeight) {
+                    keep = true;
+                } else if (bridgeUnsigned >= BRIDGE_PROTECTION_THRESHOLD) {
+                    // Bridge protection: floor weight instead of evicting
+                    decayed = minWeight;
+                    keep = true;
+                    bridgeProtected = true;
+                } else {
+                    keep = false;
+                }
+
+                if (keep) {
                     // Keep edge: compact if needed (copy all 16 bytes including metadata)
-                    byte bridge;
                     if (newDegree < i) {
                         long destOffset = (long) (edgeStart + newDegree) * EDGE_BYTES;
                         int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
                         int relType = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE);
                         short lastCyc = edgeSegment.get(ValueLayout.JAVA_SHORT, edgeOffset + EDGE_OFF_LAST_CYCLE);
-                        bridge = edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
                         byte flags = edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_EDGE_FLAGS);
                         edgeSegment.set(ValueLayout.JAVA_INT, destOffset + EDGE_OFF_TARGET, target);
                         edgeSegment.set(ValueLayout.JAVA_INT, destOffset + EDGE_OFF_REL_TYPE, relType);
                         edgeSegment.set(ValueLayout.JAVA_FLOAT, destOffset + EDGE_OFF_WEIGHT, decayed);
                         edgeSegment.set(ValueLayout.JAVA_SHORT, destOffset + EDGE_OFF_LAST_CYCLE, lastCyc);
-                        edgeSegment.set(ValueLayout.JAVA_BYTE, destOffset + EDGE_OFF_BRIDGE_SCORE, bridge);
+                        edgeSegment.set(ValueLayout.JAVA_BYTE, destOffset + EDGE_OFF_BRIDGE_SCORE, bridgeRaw);
                         edgeSegment.set(ValueLayout.JAVA_BYTE, destOffset + EDGE_OFF_EDGE_FLAGS, flags);
                     } else {
                         edgeSegment.set(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT, decayed);
-                        bridge = edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE);
                     }
                     newDegree++;
 
                     // Record metrics for surviving edge
                     if (metrics != null) {
-                        metrics.recordEntitySurvivor(Byte.toUnsignedInt(bridge));
+                        metrics.recordEntitySurvivor(bridgeUnsigned);
+                        if (bridgeProtected) {
+                            metrics.recordEntityBridgeProtection();
+                        }
                     }
                 } else {
                     pruned++;
@@ -1038,6 +1114,9 @@ public final class EntityGraph implements AutoCloseable {
 
         // Phase 2: Recompute bridge scores for all surviving edges
         updateEntityBridgeScores();
+
+        // Phase 3: Compute entity hierarchy depth statistics
+        computeHierarchyDepth(metrics);
 
         if (pruned > 0) {
             log.info("EntityGraph decayed edges: {} pruned below threshold {}, cycle={}",
@@ -1101,6 +1180,60 @@ public final class EntityGraph implements AutoCloseable {
 
                 int bridgeScore = BridgeDetector.computeBridgeScore(shared, degree, targetDegree);
                 edgeSegment.set(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE, (byte) bridgeScore);
+            }
+        }
+    }
+
+    /**
+     * Computes entity hierarchy depth statistics via BFS from every entity.
+     *
+     * <p>For each entity, runs a BFS traversal and records the hop distance
+     * to every reachable entity. This produces a depth distribution that
+     * answers: "Is hierarchy depth &gt; 3 hops common?" — a key factor in
+     * deciding whether hyperbolic embeddings are warranted.</p>
+     *
+     * <p><b>Cost:</b> O(V × (V + E)) where V = entityCount, E = total edges.
+     * With V=27 and E=~400, this is negligible (~10K operations).</p>
+     *
+     * @param metrics the metrics collector to record depth data into
+     */
+    void computeHierarchyDepth(GraphHealthMetrics metrics) {
+        if (metrics == null || entityCount == 0) return;
+
+        // BFS from every entity — record depth to each reachable entity
+        for (int startEntity = 0; startEntity < entityCount; startEntity++) {
+            boolean[] visited = new boolean[entityCount];
+            // Use packed long: upper 32 bits = entityId, lower 32 bits = depth
+            java.util.ArrayDeque<Long> queue = new java.util.ArrayDeque<>();
+            queue.add(packBfsNode(startEntity, 0));
+            visited[startEntity] = true;
+
+            while (!queue.isEmpty()) {
+                long packed = queue.poll();
+                int entityId = (int) (packed >>> 32);
+                int depth = (int) packed;
+
+                if (depth > 0) {
+                    // Record this depth (each pair counted once: startEntity < entityId)
+                    if (startEntity < entityId) {
+                        metrics.recordEntityDepth(depth);
+                    }
+                }
+
+                // Expand neighbors
+                long entOffset = (long) entityId * ENTITY_NODE_BYTES;
+                int degree = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_DEGREE);
+                int edgeStart = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_EDGE_START);
+                if (edgeStart < 0 || degree == 0) continue;
+
+                for (int i = 0; i < degree; i++) {
+                    long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
+                    int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
+                    if (target >= 0 && target < entityCount && !visited[target]) {
+                        visited[target] = true;
+                        queue.add(packBfsNode(target, depth + 1));
+                    }
+                }
             }
         }
     }

@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
@@ -504,7 +504,7 @@ public interface SpectorMemory extends AutoCloseable {
     /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#lateralEvaluator() lateralEvaluator()} instead. */
     @Deprecated(since = "1.0.0", forRemoval = true) LateralEvaluator lateralEvaluator();
     /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#hebbianGraph() hebbianGraph()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) HebbianGraph hebbianGraph();
+    @Deprecated(since = "1.0.0", forRemoval = true) HebbianGraphBase hebbianGraph();
     /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#temporalChain() temporalChain()} instead. */
     @Deprecated(since = "1.0.0", forRemoval = true) TemporalChain temporalChain();
     /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#entityGraph() entityGraph()} instead. */

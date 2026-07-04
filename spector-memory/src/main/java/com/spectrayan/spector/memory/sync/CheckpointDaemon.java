@@ -16,7 +16,7 @@ import com.spectrayan.spector.events.EventBus;
 import com.spectrayan.spector.memory.StorageLayout;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 
 import com.spectrayan.spector.memory.cortex.TierRouter;
@@ -91,9 +91,10 @@ public final class CheckpointDaemon {
     private final Path indexPath;      // nullable — where to save index.midx
 
     // ── 3-Layer Cognitive Graph + CoActivation ──
-    private final HebbianGraph hebbianGraph;           // nullable
+    private final HebbianGraphBase hebbianGraph;           // nullable
     private final TemporalChain temporalChain;         // nullable
     private final EntityGraph entityGraph;             // nullable
+    private final com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph; // nullable
     private final CoActivationTracker coActivationTracker; // nullable
     private final Path partitionDir;                   // nullable — active partition dir for graph saves
     private final Path basePath;                       // nullable — persistence root for coactivation
@@ -136,9 +137,10 @@ public final class CheckpointDaemon {
     public CheckpointDaemon(TierRouter tierRouter, MemoryWal wal,
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath,
-                            HebbianGraph hebbianGraph,
+                            HebbianGraphBase hebbianGraph,
                             TemporalChain temporalChain,
                             EntityGraph entityGraph,
+                            com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph,
                             CoActivationTracker coActivationTracker,
                             Path partitionDir, Path basePath) {
         this.tierRouter = tierRouter;
@@ -149,6 +151,7 @@ public final class CheckpointDaemon {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.hyperEntityGraph = hyperEntityGraph;
         this.coActivationTracker = coActivationTracker;
         this.partitionDir = partitionDir;
         this.basePath = basePath;
@@ -164,7 +167,7 @@ public final class CheckpointDaemon {
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath) {
         this(tierRouter, wal, checkpointMetaPath, index, indexPath,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 
     /**
@@ -199,6 +202,10 @@ public final class CheckpointDaemon {
             if (entityGraph != null) {
                 saveGraph("EntityGraph", () ->
                         entityGraph.save(StorageLayout.entityGraphRuntime(basePath)));
+            }
+            if (hyperEntityGraph != null) {
+                saveGraph("HyperEntityGraph", () ->
+                        hyperEntityGraph.save(StorageLayout.hyperEntityGraphRuntime(basePath)));
             }
         }
 

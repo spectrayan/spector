@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -67,9 +67,10 @@ final class PersistenceManager {
                               Path persistencePath,
                               Path activePartitionDir,
                               MemoryIndex index,
-                              HebbianGraph hebbianGraph,
+                              HebbianGraphBase hebbianGraph,
                               TemporalChain temporalChain,
                               EntityGraph entityGraph,
+                              com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph,
                               CoActivationTracker coActivationTracker,
                               TierRouter tierRouter,
                               MemoryWal wal) {
@@ -94,7 +95,13 @@ final class PersistenceManager {
                         entityGraph.save(StorageLayout.entityGraphRuntime(persistencePath)));
             }
 
-            // 5. CoActivationTracker: runtime/
+            // 5. HyperEntityGraph: runtime/ (if enabled)
+            if (hyperEntityGraph != null) {
+                saveSubsystem("HyperEntityGraph", () ->
+                        hyperEntityGraph.save(StorageLayout.hyperEntityGraphRuntime(persistencePath)));
+            }
+
+            // 6. CoActivationTracker: runtime/
             saveSubsystem("CoActivationTracker", () ->
                     coActivationTracker.save(
                             StorageLayout.coactivationTracker(persistencePath)));
@@ -107,6 +114,7 @@ final class PersistenceManager {
         temporalChain.close();
         coActivationTracker.close();
         if (entityGraph != null) entityGraph.close();
+        if (hyperEntityGraph != null) hyperEntityGraph.close();
     }
 
     private static void saveIndex(MemoryIndex index, Path persistencePath) {

@@ -356,6 +356,92 @@ public final class TemporalChain implements AutoCloseable {
         return pruned;
     }
 
+    /**
+     * Provides importance scores for memory indices — used by importance-based
+     * temporal pruning to decide which session chains to protect.
+     *
+     * <p>Typical implementation reads the synaptic header importance field
+     * from the cortex tier store.</p>
+     */
+    @FunctionalInterface
+    public interface ImportanceProvider {
+        /**
+         * Returns the importance score for a memory at the given index.
+         *
+         * @param memoryIndex the memory slot index
+         * @return importance score (higher = more important), or 0 if unavailable
+         */
+        float importance(int memoryIndex);
+    }
+
+    /**
+     * Prunes low-importance temporal chain entries older than the cutoff.
+     *
+     * <p>Unlike {@link #pruneOlderThan}, this method considers the importance
+     * of each memory before pruning. A node is only pruned if:</p>
+     * <ol>
+     *   <li>It is older than {@code cutoffEpochMs}</li>
+     *   <li>Its importance (from the provider) is below {@code importanceThreshold}</li>
+     * </ol>
+     *
+     * <p>High-importance temporal links survive beyond the retention window,
+     * preserving causal chains for significant memories. This mirrors the
+     * Zeigarnik effect — incomplete or important tasks resist forgetting.</p>
+     *
+     * @param cutoffEpochMs       cutoff timestamp in milliseconds
+     * @param importanceThreshold importance below this value is prunable
+     * @param provider            importance score provider for memory indices
+     * @return number of nodes pruned
+     */
+    public int pruneByImportance(long cutoffEpochMs, float importanceThreshold,
+                                  ImportanceProvider provider) {
+        if (provider == null) return 0;
+        int cutoffEpochSec = (int) (cutoffEpochMs / 1000);
+        int pruned = 0;
+
+        for (int i = 0; i < capacity; i++) {
+            long offset = (long) i * NODE_BYTES;
+            int prev = segment.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
+            int next = segment.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
+
+            // Skip unlinked nodes
+            if (prev == NO_LINK && next == NO_LINK) continue;
+
+            int epochSec = segment.get(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC);
+            // Never prune nodes with unknown age (epochSec=0, from V1 migration)
+            if (epochSec == 0) continue;
+            // Only prune if old enough
+            if (epochSec >= cutoffEpochSec) continue;
+
+            // Check importance — protect high-importance memories
+            float importance = provider.importance(i);
+            if (importance >= importanceThreshold) continue;
+
+            // Unlink: re-stitch neighbors
+            if (prev >= 0 && prev < capacity) {
+                long prevOffset = (long) prev * NODE_BYTES;
+                segment.set(ValueLayout.JAVA_INT, prevOffset + OFF_NEXT, next);
+            }
+            if (next >= 0 && next < capacity) {
+                long nextOffset = (long) next * NODE_BYTES;
+                segment.set(ValueLayout.JAVA_INT, nextOffset + OFF_PREV, prev);
+            }
+
+            // Clear this node
+            segment.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+            segment.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+            segment.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+            segment.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
+            pruned++;
+        }
+
+        if (pruned > 0) {
+            log.info("TemporalChain importance-pruned {} low-importance nodes (threshold={})",
+                    pruned, importanceThreshold);
+        }
+        return pruned;
+    }
+
     // ══════════════════════════════════════════════════════════════
     // PERSISTENCE: save / load
     // ══════════════════════════════════════════════════════════════

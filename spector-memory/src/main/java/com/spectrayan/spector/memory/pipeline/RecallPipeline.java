@@ -57,7 +57,7 @@ import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
@@ -143,7 +143,7 @@ public final class RecallPipeline {
     private final List<RecallListener> listeners = new ArrayList<>();
 
     // ── 3-Layer Cognitive Graph (all nullable) ──
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
     private final EntityExtractor entityExtractor;
@@ -258,7 +258,7 @@ public final class RecallPipeline {
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
                            CoActivationTracker coActivationTracker,
-                           HebbianGraph hebbianGraph,
+                           HebbianGraphBase hebbianGraph,
                            TemporalChain temporalChain,
                            EntityGraph entityGraph,
                            EntityExtractor entityExtractor,

@@ -26,8 +26,9 @@ import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.EntityRelation;
+import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -75,7 +76,7 @@ final class PostIngestSync {
     private final MemoryIndex index;
     private final MemoryWal wal;
     private final VectorIndex semanticIndex;
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityExtractor entityExtractor;
     private final EntityGraph entityGraph;
@@ -85,15 +86,17 @@ final class PostIngestSync {
     private final MemorySpladeIndex spladeIndex;
     private final SparseEncodingProvider spladeProvider;
     private final DataEncryptor encryptor;
+    private final HyperEntityGraph hyperEntityGraph;
 
     PostIngestSync(TierRouter tierRouter, MemoryIndex index, MemoryWal wal,
                    VectorIndex semanticIndex,
-                   HebbianGraph hebbianGraph, TemporalChain temporalChain,
+                   HebbianGraphBase hebbianGraph, TemporalChain temporalChain,
                    EntityExtractor entityExtractor, EntityGraph entityGraph,
                    MemoryBM25Index bm25Index, TextDataStore textDataStore,
                    int activePartitionIndex,
                    MemorySpladeIndex spladeIndex, SparseEncodingProvider spladeProvider,
-                   DataEncryptor encryptor) {
+                   DataEncryptor encryptor,
+                   HyperEntityGraph hyperEntityGraph) {
         this.tierRouter = tierRouter;
         this.index = index;
         this.wal = wal;
@@ -108,6 +111,7 @@ final class PostIngestSync {
         this.spladeIndex = spladeIndex;
         this.spladeProvider = spladeProvider;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
+        this.hyperEntityGraph = hyperEntityGraph;
     }
 
     /** Called when the tier router is swapped after a partition roll. */
@@ -334,10 +338,12 @@ final class PostIngestSync {
     private void populateEntities(List<ExtractedEntity> entities, int memoryIdx, String id) {
         int entitiesAdded = 0;
         int relationsAdded = 0;
+        var entityIds = new java.util.ArrayList<Integer>(entities.size());
         for (ExtractedEntity entity : entities) {
             int eid = entityGraph.addEntity(entity.name(), entity.typeName());
             if (eid >= 0) {
                 entityGraph.linkEntityToMemory(eid, memoryIdx);
+                entityIds.add(eid);
                 entitiesAdded++;
                 for (EntityRelation rel : entity.relations()) {
                     int targetEid = entityGraph.findEntity(rel.targetEntityName());
@@ -355,6 +361,17 @@ final class PostIngestSync {
             log.info("[Ingest] '{}' → {} entities, {} relations added to EntityGraph",
                     id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
                     entitiesAdded, relationsAdded);
+
+            // Create hyperedge for multi-entity co-occurrence (if >= 2 entities in this memory)
+            if (hyperEntityGraph != null && entityIds.size() >= 2) {
+                int[] vertexArr = entityIds.stream().mapToInt(Integer::intValue).toArray();
+                int[] roles = new int[vertexArr.length];
+                // First entity gets SUBJECT role, rest get CONTEXT
+                roles[0] = HyperEntityGraph.ROLE_SUBJECT;
+                for (int r = 1; r < roles.length; r++) roles[r] = HyperEntityGraph.ROLE_CONTEXT;
+                hyperEntityGraph.addHyperedge(vertexArr, roles,
+                        0, 1.0f, memoryIdx, System.currentTimeMillis());
+            }
         }
     }
 }

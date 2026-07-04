@@ -15,9 +15,10 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
@@ -97,13 +98,16 @@ public interface SpectorMemoryAdmin {
     // ══════════════════════════════════════════════════════════════
 
     /** Returns the Hebbian memory-to-memory association graph (nullable if disabled). */
-    HebbianGraph hebbianGraph();
+    HebbianGraphBase hebbianGraph();
 
     /** Returns the temporal causal chain (nullable if disabled). */
     TemporalChain temporalChain();
 
     /** Returns the entity-relationship graph (nullable if disabled). */
     EntityGraph entityGraph();
+
+    /** Returns the hyper-entity graph for multi-entity relationships (nullable if disabled). */
+    HyperEntityGraph hyperEntityGraph();
 
     // ══════════════════════════════════════════════════════════════
     // OPERATIONAL

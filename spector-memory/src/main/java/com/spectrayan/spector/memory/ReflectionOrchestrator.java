@@ -16,8 +16,9 @@ import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
+import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 // RelationType enum replaced by open-schema strings via TypeRegistry
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.SynapticDecayModulator;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -75,23 +76,52 @@ final class ReflectionOrchestrator {
     /** Levenshtein distance threshold for merging near-duplicate entities. */
     private static final int ENTITY_MERGE_DISTANCE = 2;
 
+    // ── STC Cross-Capture Constants ──
+
+    /**
+     * Minimum Hebbian weight to qualify for cross-capture propagation.
+     * Only moderately-strong edges propagate signals across layers.
+     */
+    private static final float CROSS_CAPTURE_MIN_WEIGHT = 2.0f;
+
+    /**
+     * Scale factor mapping Hebbian weight to entity edge boost.
+     * Hebbian weight 4.0 × 0.05 = 0.20 boost to entity edge weight.
+     */
+    private static final float CROSS_CAPTURE_SCALE_FACTOR = 0.05f;
+
+    /**
+     * Maximum per-cycle boost to an entity edge from cross-capture.
+     * Prevents runaway amplification even with very strong Hebbian edges.
+     */
+    private static final float CROSS_CAPTURE_MAX_BOOST = 0.3f;
+
+    /**
+     * Importance threshold for temporal chain pruning — sessions with all
+     * constituent memories below this importance are prunable when old.
+     */
+    private static final float TEMPORAL_IMPORTANCE_THRESHOLD = 1.0f;
+
     private final ReflectDaemon reflectDaemon;
-    private final HebbianGraph hebbianGraph;
+    private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
+    private final HyperEntityGraph hyperEntityGraph;
     private final MemoryWal wal;
     private final int temporalRetentionDays;
 
     ReflectionOrchestrator(ReflectDaemon reflectDaemon,
-                           HebbianGraph hebbianGraph,
+                           HebbianGraphBase hebbianGraph,
                            TemporalChain temporalChain,
                            EntityGraph entityGraph,
+                           HyperEntityGraph hyperEntityGraph,
                            MemoryWal wal,
                            int temporalRetentionDays) {
         this.reflectDaemon = reflectDaemon;
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.hyperEntityGraph = hyperEntityGraph;
         this.wal = wal;
         this.temporalRetentionDays = temporalRetentionDays;
     }
@@ -119,11 +149,14 @@ final class ReflectionOrchestrator {
         // Phase 2: Hebbian decay (synaptic homeostasis, arousal-modulated)
         decayHebbianEdges(tierRouter, graphMetrics);
 
-        // Phase 3: Temporal chain pruning
-        int temporalPruned = pruneTemporalChain();
+        // Phase 3: Temporal chain pruning (age + importance)
+        int temporalPruned = pruneTemporalChain(tierRouter);
 
         // Phase 4: Cross-layer promotion (Hebbian → Entity)
         promoteCrossLayer();
+
+        // Phase 4b: STC cross-capture (Hebbian strength → Entity edge boost)
+        crossCaptureHebbianToEntity(graphMetrics);
 
         // Phase 5: Entity graph maintenance (edge decay + entity merge)
         maintainEntityGraph(graphMetrics);
@@ -133,6 +166,9 @@ final class ReflectionOrchestrator {
 
         // Phase 5c: Adjacency compaction (defragmentation)
         compactEntityAdjacency();
+
+        // Phase 5d: HyperEntityGraph decay (hyperedge weight homeostasis)
+        decayHyperEntityGraph();
 
         // Log graph health summary
         if (graphMetrics.totalEdgesDecayed() > 0 || graphMetrics.totalEdgesSurviving() > 0) {
@@ -174,12 +210,37 @@ final class ReflectionOrchestrator {
 
     // ── Phase 3: Temporal Pruning ──
 
-    private int pruneTemporalChain() {
+    private int pruneTemporalChain(TierRouter tierRouter) {
         if (temporalChain == null) return 0;
         try {
             long cutoffMs = System.currentTimeMillis()
                     - (long) temporalRetentionDays * 24 * 60 * 60 * 1000;
-            return temporalChain.pruneOlderThan(cutoffMs);
+
+            // Phase 3a: Age-based pruning (original behavior)
+            int agePruned = temporalChain.pruneOlderThan(cutoffMs);
+
+            // Phase 3b: Importance-based pruning — protects high-importance temporal links
+            int importancePruned = 0;
+            if (tierRouter != null && tierRouter.episodic() != null) {
+                var episodic = tierRouter.episodic();
+                var layout = episodic.layout();
+                var segment = episodic.segment();
+                int totalRecs = episodic.totalRecords();
+
+                importancePruned = temporalChain.pruneByImportance(
+                        cutoffMs, TEMPORAL_IMPORTANCE_THRESHOLD,
+                        memIdx -> {
+                            if (memIdx < 0 || memIdx >= totalRecs) return 0f;
+                            try {
+                                long offset = episodic.recordOffset(memIdx);
+                                return layout.readImportance(segment, offset);
+                            } catch (RuntimeException e) {
+                                return 0f;
+                            }
+                        });
+            }
+
+            return agePruned + importancePruned;
         } catch (RuntimeException e) {
             log.warn("Temporal chain pruning failed: {}", e.getMessage());
             return 0;
@@ -197,6 +258,85 @@ final class ReflectionOrchestrator {
             }
         } catch (RuntimeException e) {
             log.warn("Cross-layer promotion failed: {}", e.getMessage());
+        }
+    }
+
+    // ── Phase 4b: STC Cross-Capture (Hebbian → Entity Boost) ──
+
+    /**
+     * Propagates Hebbian co-activation strength to entity edges (Synaptic Tagging
+     * and Capture).
+     *
+     * <p>For each strong Hebbian edge (memA ↔ memB), boosts existing entity edges
+     * between memA's entities and memB's entities. This mirrors the biological STC
+     * mechanism where strong synapses protect nearby weak ones through shared
+     * plasticity-related proteins (Frey & Morris, 1997).</p>
+     *
+     * <p>Cross-capture only boosts <em>existing</em> entity edges — it never creates
+     * new relations. The boost is capped at {@link #CROSS_CAPTURE_MAX_BOOST} per
+     * cycle to prevent runaway amplification.</p>
+     *
+     * @param metrics collector for cross-capture telemetry
+     */
+    private void crossCaptureHebbianToEntity(GraphHealthMetrics metrics) {
+        if (entityGraph == null || entityGraph.entityCount() == 0) return;
+        try {
+            // Build reverse index: memoryIdx → List<entityId>
+            int ecnt = entityGraph.entityCount();
+            Map<Integer, List<Integer>> memToEntities = new HashMap<>();
+            for (int e = 0; e < ecnt; e++) {
+                int refCount = entityGraph.memoryRefCount(e);
+                for (int r = 0; r < refCount; r++) {
+                    int memIdx = entityGraph.memoryRefAt(e, r);
+                    if (memIdx >= 0) {
+                        memToEntities.computeIfAbsent(memIdx, k -> new ArrayList<>(2)).add(e);
+                    }
+                }
+            }
+
+            int captured = 0;
+            int capacity = hebbianGraph.capacity();
+
+            for (int nodeA = 0; nodeA < capacity; nodeA++) {
+                var edges = hebbianGraph.neighbors(nodeA);
+                for (var edge : edges) {
+                    if (edge.weight() < CROSS_CAPTURE_MIN_WEIGHT) break; // sorted descending
+                    int nodeB = edge.neighborIndex();
+                    if (nodeB <= nodeA) continue; // avoid double-processing A↔B
+
+                    var entitiesA = memToEntities.get(nodeA);
+                    var entitiesB = memToEntities.get(nodeB);
+                    if (entitiesA == null || entitiesB == null) continue;
+
+                    // Compute boost: scale Hebbian weight, cap at maximum
+                    float boost = Math.min(
+                            edge.weight() * CROSS_CAPTURE_SCALE_FACTOR,
+                            CROSS_CAPTURE_MAX_BOOST);
+
+                    for (int eA : entitiesA) {
+                        for (int eB : entitiesB) {
+                            if (eA != eB) {
+                                // Boost both directions (entity edges are directional)
+                                if (entityGraph.boostEdgeWeight(eA, eB, boost)) {
+                                    captured++;
+                                    if (metrics != null) metrics.recordCrossCapture();
+                                }
+                                if (entityGraph.boostEdgeWeight(eB, eA, boost)) {
+                                    captured++;
+                                    if (metrics != null) metrics.recordCrossCapture();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (captured > 0) {
+                log.info("Reflect: STC cross-capture boosted {} entity edges from strong Hebbian links",
+                        captured);
+            }
+        } catch (RuntimeException e) {
+            log.warn("STC cross-capture failed: {}", e.getMessage());
         }
     }
 
@@ -299,6 +439,20 @@ final class ReflectionOrchestrator {
             }
         } catch (RuntimeException e) {
             log.warn("Entity adjacency compaction failed: {}", e.getMessage());
+        }
+    }
+
+    // ── Phase 5d: HyperEntityGraph Decay ──
+
+    private void decayHyperEntityGraph() {
+        if (hyperEntityGraph == null) return;
+        try {
+            int evicted = hyperEntityGraph.decayHyperedges(ENTITY_DECAY_FACTOR, ENTITY_PRUNE_THRESHOLD);
+            if (evicted > 0) {
+                log.info("Reflect: HyperEntityGraph decayed {} weak hyperedges", evicted);
+            }
+        } catch (RuntimeException e) {
+            log.warn("HyperEntityGraph decay failed: {}", e.getMessage());
         }
     }
 }
