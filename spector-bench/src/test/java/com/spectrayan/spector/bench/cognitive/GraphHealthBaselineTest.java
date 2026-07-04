@@ -72,11 +72,13 @@ class GraphHealthBaselineTest {
 
     private static final Logger log = LoggerFactory.getLogger(GraphHealthBaselineTest.class);
 
-    /** Path to the balanced-baseline dataset. */
-    private static final Path DATASET_DIR = Path.of("D:/git/spector-datasets/balanced-baseline/data");
+    /** Path to the balanced-baseline dataset (override with {@code -Dspector.bench.dataset.dir}). */
+    private static final Path DATASET_DIR = Path.of(System.getProperty(
+            "spector.bench.dataset.dir", "../spector-datasets/balanced-baseline/data"));
 
-    /** Path to output the baseline report. */
-    private static final Path REPORT_OUTPUT = Path.of("D:/git/spector-enterprise/RnD/graph-health-baseline-report.md");
+    /** Path to output the baseline report (override with {@code -Dspector.bench.report.output}). */
+    private static final Path REPORT_OUTPUT = Path.of(System.getProperty(
+            "spector.bench.report.output", "target/graph-health-baseline-report.md"));
 
     /** Scale points: subset sizes to test. */
     private static final int[] SCALE_POINTS = {1_000, 5_000, 10_000, 20_000};
