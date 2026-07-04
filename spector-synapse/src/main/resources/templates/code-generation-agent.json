@@ -1,0 +1,85 @@
+{
+  "id": "code-generation-agent",
+  "name": "Code Generation Assistant",
+  "description": "Code generation agent — understands requirements, reads existing code for context, generates code following project patterns, and validates output.",
+  "category": "code",
+  "tags": ["code", "generation", "refactoring", "debugging", "review"],
+  "flowSpec": {
+    "version": "1.0",
+    "id": "code-generation-agent",
+    "name": "Code Generation Assistant",
+    "entry_point": "understand",
+    "nodes": {
+      "understand": {
+        "type": "AGENT",
+        "description": "Parse the coding request — identify language, framework, requirements, and constraints",
+        "agent": "requirements_analyst"
+      },
+      "context": {
+        "type": "TOOL",
+        "description": "Read existing codebase files for context and pattern matching",
+        "tool_name": "file_read"
+      },
+      "search_patterns": {
+        "type": "TOOL",
+        "description": "Search for relevant patterns, imports, and conventions in the codebase",
+        "tool_name": "file_search"
+      },
+      "generate": {
+        "type": "AGENT",
+        "description": "Generate code following discovered patterns and project conventions",
+        "agent": "code_generator"
+      },
+      "review": {
+        "type": "AGENT",
+        "description": "Review generated code for correctness, edge cases, security, and style",
+        "agent": "code_reviewer"
+      },
+      "write": {
+        "type": "TOOL",
+        "description": "Write the generated code to the target file",
+        "tool_name": "file_write"
+      }
+    },
+    "edges": [
+      {"from": "understand", "to": "context"},
+      {"from": "context", "to": "search_patterns"},
+      {"from": "search_patterns", "to": "generate"},
+      {"from": "generate", "to": "review"}
+    ],
+    "conditional_edges": [
+      {
+        "from": "review",
+        "conditions": {
+          "approved": "write",
+          "needs_revision": "generate"
+        }
+      }
+    ],
+    "agents": [
+      {
+        "id": "requirements_analyst",
+        "model": "default",
+        "system_prompt": "You are a software requirements analyst. Parse the user's coding request and identify:\n1. Target language and framework\n2. Functional requirements\n3. Non-functional constraints (performance, security, style)\n4. Files that need to be read for context\nOutput as structured JSON.",
+        "tools": ["memory_recall"]
+      },
+      {
+        "id": "code_generator",
+        "model": "default",
+        "system_prompt": "You are an expert programmer. Generate production-quality code that:\n1. Follows the existing project's patterns and conventions\n2. Includes proper error handling\n3. Has clear documentation and comments\n4. Uses the project's existing dependencies\nOutput only the code, no explanations.",
+        "tools": ["calculator"]
+      },
+      {
+        "id": "code_reviewer",
+        "model": "default",
+        "system_prompt": "You are a senior code reviewer. Review the generated code for:\n1. Correctness — does it handle edge cases?\n2. Security — any injection, traversal, or leak risks?\n3. Style — does it match project conventions?\n4. Performance — any unnecessary allocations or O(n²) patterns?\nOutput: APPROVED or NEEDS_REVISION with specific feedback.",
+        "tools": []
+      }
+    ],
+    "policy": {
+      "max_iterations": 5,
+      "timeout_ms": 120000,
+      "max_tokens": 4000
+    }
+  }
+}

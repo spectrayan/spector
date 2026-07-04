@@ -1,0 +1,102 @@
+{
+  "id": "customer-support-agent",
+  "name": "Customer Support Assistant",
+  "description": "Customer support agent — handles inquiries, searches knowledge base, escalates complex issues, and maintains conversation context with sentiment tracking.",
+  "category": "support",
+  "tags": ["support", "customer-service", "knowledge-base", "escalation", "sentiment", "ticketing"],
+  "flowSpec": {
+    "version": "1.0",
+    "id": "customer-support-agent",
+    "name": "Customer Support Assistant",
+    "entry_point": "classify",
+    "nodes": {
+      "classify": {
+        "type": "AGENT",
+        "description": "Classify the customer inquiry — category, urgency, sentiment, intent",
+        "agent": "classifier"
+      },
+      "search_kb": {
+        "type": "TOOL",
+        "description": "Search the knowledge base for relevant articles and solutions",
+        "tool_name": "memory_recall"
+      },
+      "respond": {
+        "type": "AGENT",
+        "description": "Generate a helpful, empathetic response using knowledge base results",
+        "agent": "responder"
+      },
+      "escalate": {
+        "type": "AGENT",
+        "description": "Prepare escalation summary for human agent handoff",
+        "agent": "escalation_specialist"
+      },
+      "log": {
+        "type": "TOOL",
+        "description": "Log the interaction to memory for future reference",
+        "tool_name": "memory_remember"
+      },
+      "sentiment_check": {
+        "type": "AGENT",
+        "description": "Analyze customer sentiment after response — detect frustration, satisfaction",
+        "agent": "sentiment_analyzer"
+      }
+    },
+    "edges": [
+      {"from": "classify", "to": "search_kb"},
+      {"from": "search_kb", "to": "respond"},
+      {"from": "respond", "to": "sentiment_check"},
+      {"from": "sentiment_check", "to": "log"},
+      {"from": "escalate", "to": "log"}
+    ],
+    "conditional_edges": [
+      {
+        "from": "classify",
+        "conditions": {
+          "simple_query": "search_kb",
+          "complex_issue": "escalate",
+          "billing": "search_kb",
+          "technical": "search_kb"
+        }
+      },
+      {
+        "from": "sentiment_check",
+        "conditions": {
+          "satisfied": "log",
+          "frustrated": "escalate",
+          "needs_followup": "respond"
+        }
+      }
+    ],
+    "agents": [
+      {
+        "id": "classifier",
+        "model": "default",
+        "system_prompt": "You are a customer support classifier. Analyze the customer message and output:\n1. Category: billing, technical, general, feature-request, complaint, account\n2. Urgency: low, medium, high, critical\n3. Sentiment: positive, neutral, negative, angry\n4. Intent: question, complaint, request, feedback\n5. Needs human: true/false (true for account changes, refunds, legal)\nOutput as structured JSON.",
+        "tools": []
+      },
+      {
+        "id": "responder",
+        "model": "default",
+        "system_prompt": "You are a customer support agent. Generate a helpful, empathetic response. Rules:\n1. Acknowledge the customer's concern first\n2. Provide a clear, actionable solution\n3. If unsure, say so honestly — don't fabricate answers\n4. Use the customer's name if available\n5. End with a follow-up question or next step\n6. Keep tone professional but warm\nNever share internal system details or credentials.",
+        "tools": ["current_time"]
+      },
+      {
+        "id": "escalation_specialist",
+        "model": "default",
+        "system_prompt": "You are an escalation specialist. Prepare a handoff summary for the human agent:\n1. Customer issue summary (2-3 sentences)\n2. Actions already taken\n3. Recommended resolution\n4. Customer sentiment and urgency\n5. Relevant context from previous interactions\nFormat for quick human review.",
+        "tools": ["memory_recall"]
+      },
+      {
+        "id": "sentiment_analyzer",
+        "model": "default",
+        "system_prompt": "You are a sentiment analysis specialist. After the agent's response, assess:\n1. Did the response address the customer's concern?\n2. Customer satisfaction prediction: satisfied, neutral, frustrated\n3. Need for follow-up: yes/no\n4. Risk of churn: low, medium, high\nOutput as structured JSON.",
+        "tools": []
+      }
+    ],
+    "policy": {
+      "max_iterations": 8,
+      "timeout_ms": 120000,
+      "max_tokens": 4000
+    }
+  }
+}
