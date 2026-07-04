@@ -16,11 +16,15 @@
 package com.spectrayan.spector.synapse.chat;
 
 import com.spectrayan.spector.synapse.chat.ChatDto.ChatMessage;
+import com.spectrayan.spector.synapse.bridge.LlmBridge;
+import com.spectrayan.spector.synapse.bridge.MemoryBridge;
 import com.spectrayan.spector.synapse.chat.ChatDto.ChatRequest;
 import com.spectrayan.spector.synapse.chat.ChatDto.ChatResponse;
 import com.spectrayan.spector.synapse.chat.ChatDto.SessionDetail;
 import com.spectrayan.spector.synapse.chat.ChatDto.SessionSummary;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -47,10 +51,17 @@ public class ChatService {
 
     private final JdbcTemplate jdbc;
     private final SynapseProperties props;
+    private final LlmBridge llmBridge;
+    private final MemoryBridge memoryBridge;
 
-    public ChatService(JdbcTemplate jdbc, SynapseProperties props) {
+    public ChatService(JdbcTemplate jdbc, SynapseProperties props,
+                       LlmBridge llmBridge, MemoryBridge memoryBridge) {
         this.jdbc = jdbc;
         this.props = props;
+        this.llmBridge = llmBridge;
+        this.memoryBridge = memoryBridge;
+        log.info("[Chat] LLM: {} | MemoryBridge: {}",
+                llmBridge.modelName(), memoryBridge.isAvailable() ? "active" : "stub");
     }
 
     /**
@@ -64,8 +75,9 @@ public class ChatService {
         long userMsgId = persistMessage(sessionId, "user", request.message(), model);
         log.info("[Chat] User message in session {}: {} chars", sessionId, request.message().length());
 
-        // TODO: Call LLM provider for response generation
-        String responseContent = "I received your message. LLM integration is in progress.";
+        // Build context with memory recall if available
+        String systemPrompt = buildSystemPrompt(request.message());
+        String responseContent = llmBridge.generate(systemPrompt, request.message());
 
         // Persist assistant response
         long assistantMsgId = persistMessage(sessionId, "assistant", responseContent, model);
@@ -163,5 +175,35 @@ public class ChatService {
         Long id = jdbc.queryForObject("SELECT MAX(id) FROM chat_messages WHERE session_id = ?",
                 Long.class, sessionId);
         return id != null ? id : 0;
+    }
+
+    /**
+     * Builds a system prompt with optional memory recall context.
+     */
+    private String buildSystemPrompt(String userMessage) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("You are Spector, a cognitive AI assistant with biological memory. ");
+        sb.append("You have access to a vector memory engine that stores and recalls ");
+        sb.append("information using SIMD-accelerated neural pathways.\n\n");
+
+        // Recall relevant memories if bridge is available
+        if (memoryBridge.isAvailable()) {
+            try {
+                List<RecallResult> memories = memoryBridge.recall(
+                        new RecallRequest(userMessage, 5, 1));
+                if (!memories.isEmpty()) {
+                    sb.append("## Relevant Memories\n");
+                    for (RecallResult r : memories) {
+                        sb.append("- [").append(r.tier()).append("] ").append(r.text()).append("\n");
+                    }
+                    sb.append("\nUse these memories to provide contextually aware responses.\n");
+                }
+            } catch (Exception e) {
+                log.debug("[Chat] Memory recall failed for system prompt: {}", e.getMessage());
+            }
+        }
+
+        sb.append("\nBe helpful, accurate, and concise. If you don't know something, say so.");
+        return sb.toString();
     }
 }

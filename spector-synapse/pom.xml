@@ -138,6 +138,11 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-gpu</artifactId>
         </dependency>
+        
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-ingestion</artifactId>
+        </dependency>
 
         <!-- ── LangGraph4j (agentic graph execution) ── -->
         <dependency>
