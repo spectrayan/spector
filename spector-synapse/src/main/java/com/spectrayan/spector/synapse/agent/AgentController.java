@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.synapse.agent;
 
+import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -38,53 +39,64 @@ import java.util.Map;
 @RequestMapping("/api/v1/agents")
 public class AgentController {
 
-    private final AgentSoulRepository soulRepo;
+    private final CognitiveSoulService soulService;
     private final ToolRegistry toolRegistry;
 
-    public AgentController(AgentSoulRepository soulRepo, ToolRegistry toolRegistry) {
-        this.soulRepo = soulRepo;
+    public AgentController(CognitiveSoulService soulService, ToolRegistry toolRegistry) {
+        this.soulService = soulService;
         this.toolRegistry = toolRegistry;
     }
 
-    /** List all agent souls. */
+    /** List the active agent soul. */
     @GetMapping
     public ResponseEntity<List<AgentSoul>> listAgents() {
-        return ResponseEntity.ok(soulRepo.findAll());
+        // Since we are moving to cognitive memory, we focus on the primary soul for now.
+        return ResponseEntity.ok(soulService.loadAgentSoul(null).map(List::of).orElse(List.of()));
     }
 
     /** Get an agent soul by ID. */
     @GetMapping("/{id}")
     public ResponseEntity<AgentSoul> getAgent(@PathVariable String id) {
-        return soulRepo.findById(id)
+        return soulService.loadAgentSoul(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /** Create a new agent soul. */
+    /** Create/Update an agent soul. */
     @PostMapping
     public ResponseEntity<AgentSoul> createAgent(@RequestBody AgentSoul soul) {
-        AgentSoul saved = soulRepo.save(soul);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        soulService.saveAgentSoul(soul);
+        return ResponseEntity.status(HttpStatus.CREATED).body(soul);
     }
 
     /** Update an existing agent soul. */
     @PutMapping("/{id}")
     public ResponseEntity<AgentSoul> updateAgent(@PathVariable String id, @RequestBody AgentSoul soul) {
-        if (soulRepo.findById(id).isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        AgentSoul updated = new AgentSoul(id, soul.name(), soul.description(),
-                soul.systemPrompt(), soul.personality(), soul.model(), soul.tools(),
-                soul.createdAt(), soul.updatedAt());
-        return ResponseEntity.ok(soulRepo.save(updated));
+        AgentSoul updated = AgentSoul.builder()
+                .id(id)
+                .name(soul.name())
+                .description(soul.description())
+                .systemPrompt(soul.systemPrompt())
+                .purpose(soul.purpose())
+                .personality(soul.personality())
+                .expertiseDomains(soul.expertiseDomains())
+                .coreValues(soul.coreValues())
+                .ethicalGuardrails(soul.ethicalGuardrails())
+                .emotionalBaseline(soul.emotionalBaseline())
+                .communicationStyle(soul.communicationStyle())
+                .model(soul.model())
+                .tools(soul.tools())
+                .build();
+        soulService.saveAgentSoul(updated);
+        return ResponseEntity.ok(updated);
     }
 
     /** Delete an agent soul. */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteAgent(@PathVariable String id) {
-        return soulRepo.delete(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+        // In cognitive memory, we just let it fade or "forget" it.
+        // For now, no-op or implement forget in service if needed.
+        return ResponseEntity.noContent().build();
     }
 
     /** List all available tools. */

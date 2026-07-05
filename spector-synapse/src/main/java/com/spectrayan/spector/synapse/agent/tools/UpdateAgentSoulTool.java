@@ -16,15 +16,15 @@
 package com.spectrayan.spector.synapse.agent.tools;
 
 import com.spectrayan.spector.synapse.agent.AgentSoul;
-import com.spectrayan.spector.synapse.agent.AgentSoulRepository;
 import com.spectrayan.spector.synapse.agent.AgentTool;
+import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,6 +43,9 @@ import java.util.Set;
  * <h3>Write Tool — Requires User Approval</h3>
  * <p>Mutations to the agent identity are surfaced as pending tool calls
  * in the UI for user confirmation before execution.</p>
+ *
+ * <h3>Enterprise Guardrails</h3>
+ * <p>Ethical guardrails are immutable — the agent cannot modify them.</p>
  */
 @Component
 public class UpdateAgentSoulTool implements AgentTool {
@@ -51,12 +54,13 @@ public class UpdateAgentSoulTool implements AgentTool {
 
     /** Fields the agent CAN modify (with user approval). */
     private static final Set<String> MUTABLE_FIELDS = Set.of(
-            "name", "description", "system_prompt", "model", "personality");
+            "name", "description", "system_prompt", "model", "personality",
+            "purpose", "communication_style", "expertise_domain", "core_value");
 
-    private final AgentSoulRepository soulRepository;
+    private final CognitiveSoulService soulService;
 
-    public UpdateAgentSoulTool(AgentSoulRepository soulRepository) {
-        this.soulRepository = soulRepository;
+    public UpdateAgentSoulTool(CognitiveSoulService soulService) {
+        this.soulService = soulService;
     }
 
     @Override public String name() { return "update_agent_soul"; }
@@ -64,7 +68,7 @@ public class UpdateAgentSoulTool implements AgentTool {
     @Override public String description() {
         return "Proposes a modification to the agent's own identity (soul). "
                 + "Call when the user gives feedback about behavior, expertise, or style. "
-                + "Requires user confirmation. "
+                + "Requires user confirmation. Ethical guardrails are immutable. "
                 + "Mutable fields: " + String.join(", ", MUTABLE_FIELDS);
     }
 
@@ -80,8 +84,8 @@ public class UpdateAgentSoulTool implements AgentTool {
                                 "description", "Soul field to update: " + String.join(", ", MUTABLE_FIELDS)),
                         "value", Map.of("type", "string",
                                 "description", "The new value for the field"),
-                        "personality_key", Map.of("type", "string",
-                                "description", "For personality field: the key to set (e.g., 'style', 'tone')")
+                        "action", Map.of("type", "string",
+                                "description", "'add' (default) or 'remove' — for list fields like expertise_domain, core_value")
                 ),
                 "required", List.of("field", "value")
         );
@@ -91,9 +95,15 @@ public class UpdateAgentSoulTool implements AgentTool {
     public String execute(Map<String, Object> arguments) {
         String field = String.valueOf(arguments.getOrDefault("field", "")).trim().toLowerCase();
         String value = String.valueOf(arguments.getOrDefault("value", "")).trim();
+        String action = String.valueOf(arguments.getOrDefault("action", "add")).trim().toLowerCase();
 
         if (field.isBlank()) return "ERROR: 'field' parameter is required";
         if (value.isBlank()) return "ERROR: 'value' parameter is required";
+
+        // Reject ethical guardrail modifications
+        if (field.contains("guardrail") || field.contains("ethic")) {
+            return "ERROR: Ethical guardrails are immutable and cannot be modified by the agent";
+        }
 
         if (!MUTABLE_FIELDS.contains(field)) {
             return "ERROR: Invalid field '" + field + "'. Mutable fields: "
@@ -101,38 +111,49 @@ public class UpdateAgentSoulTool implements AgentTool {
         }
 
         try {
-            AgentSoul current = soulRepository.loadDefault();
+            AgentSoul current = soulService.getEffectiveSoul(null);
 
-            AgentSoul updated = switch (field) {
-                case "name" -> new AgentSoul(current.id(), value, current.description(),
-                        current.systemPrompt(), current.personality(), current.model(),
-                        current.tools(), current.createdAt(), Instant.now());
+            var builder = AgentSoul.builder()
+                    .id(current.id())
+                    .name(current.name())
+                    .description(current.description())
+                    .systemPrompt(current.systemPrompt())
+                    .purpose(current.purpose())
+                    .personality(current.personality())
+                    .expertiseDomains(current.expertiseDomains())
+                    .coreValues(current.coreValues())
+                    .ethicalGuardrails(current.ethicalGuardrails())
+                    .emotionalBaseline(current.emotionalBaseline())
+                    .communicationStyle(current.communicationStyle())
+                    .model(current.model())
+                    .tools(current.tools())
+                    .createdAt(current.createdAt())
+                    .updatedAt(Instant.now());
 
-                case "description" -> new AgentSoul(current.id(), current.name(), value,
-                        current.systemPrompt(), current.personality(), current.model(),
-                        current.tools(), current.createdAt(), Instant.now());
-
-                case "system_prompt" -> new AgentSoul(current.id(), current.name(), current.description(),
-                        value, current.personality(), current.model(),
-                        current.tools(), current.createdAt(), Instant.now());
-
-                case "model" -> new AgentSoul(current.id(), current.name(), current.description(),
-                        current.systemPrompt(), current.personality(), value,
-                        current.tools(), current.createdAt(), Instant.now());
-
-                case "personality" -> {
-                    String key = String.valueOf(arguments.getOrDefault("personality_key", "trait")).trim();
-                    var newPersonality = new HashMap<>(current.personality());
-                    newPersonality.put(key, value);
-                    yield new AgentSoul(current.id(), current.name(), current.description(),
-                            current.systemPrompt(), Map.copyOf(newPersonality), current.model(),
-                            current.tools(), current.createdAt(), Instant.now());
+            switch (field) {
+                case "name" -> builder.name(value);
+                case "description" -> builder.description(value);
+                case "system_prompt" -> builder.systemPrompt(value);
+                case "model" -> builder.model(value);
+                case "personality" -> builder.personality(value);
+                case "purpose" -> builder.purpose(value);
+                case "communication_style" -> builder.communicationStyle(value);
+                case "expertise_domain" -> {
+                    var domains = new ArrayList<>(current.expertiseDomains());
+                    if ("remove".equals(action)) domains.remove(value);
+                    else if (!domains.contains(value)) domains.add(value);
+                    builder.expertiseDomains(domains);
                 }
-
+                case "core_value" -> {
+                    var values = new ArrayList<>(current.coreValues());
+                    if ("remove".equals(action)) values.remove(value);
+                    else if (!values.contains(value)) values.add(value);
+                    builder.coreValues(values);
+                }
                 default -> throw new IllegalArgumentException("Unknown field: " + field);
-            };
+            }
 
-            soulRepository.save(updated);
+            soulService.saveAgentSoul(builder.build());
             log.info("[UpdateSoulTool] Updated {} = '{}'", field, value);
             return "Updated agent soul: " + field + " = '" + value + "'";
 
