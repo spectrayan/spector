@@ -43,16 +43,6 @@ management:
 spring:
   application:
     name: spector-synapse
-  datasource:
-    url: jdbc:h2:file:${spector.data-dir}/synapse-db;DB_CLOSE_DELAY=-1;AUTO_RECONNECT=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-  # Disable unnecessary auto-configurations
   jmx:
     enabled: false
 
