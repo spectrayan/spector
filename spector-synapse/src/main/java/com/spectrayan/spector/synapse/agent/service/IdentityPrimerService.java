@@ -70,7 +70,7 @@ public class IdentityPrimerService {
     }
 
     /**
-     * Builds the agent identity block from the soul's personality traits.
+     * Builds the agent identity block from the soul's cognitive fields.
      */
     private String buildAgentBlock(AgentSoul soul) {
         var sb = new StringBuilder();
@@ -81,19 +81,35 @@ public class IdentityPrimerService {
         }
 
         if (soul.description() != null && !soul.description().isBlank()) {
-            sb.append("Purpose: ").append(soul.description()).append('\n');
+            sb.append("Description: ").append(soul.description()).append('\n');
         }
 
-        // Personality traits from the map
-        if (soul.personality() != null && !soul.personality().isEmpty()) {
-            for (var entry : soul.personality().entrySet()) {
-                sb.append(capitalize(entry.getKey())).append(": ")
-                        .append(entry.getValue()).append('\n');
-            }
+        if (soul.purpose() != null && !soul.purpose().isBlank()) {
+            sb.append("Purpose: ").append(soul.purpose()).append('\n');
+        }
+
+        if (soul.personality() != null && !soul.personality().isBlank()) {
+            sb.append("Personality: ").append(soul.personality()).append('\n');
+        }
+
+        if (!soul.expertiseDomains().isEmpty()) {
+            sb.append("Expertise: ").append(String.join(", ", soul.expertiseDomains())).append('\n');
+        }
+
+        if (!soul.coreValues().isEmpty()) {
+            sb.append("Core Values: ").append(String.join(", ", soul.coreValues())).append('\n');
+        }
+
+        if (soul.communicationStyle() != null && !soul.communicationStyle().isBlank()) {
+            sb.append("Communication Style: ").append(soul.communicationStyle()).append('\n');
+        }
+
+        if (!soul.ethicalGuardrails().isEmpty()) {
+            sb.append("Ethical Guardrails: ").append(String.join("; ", soul.ethicalGuardrails())).append('\n');
         }
 
         // Available tools
-        if (soul.tools() != null && !soul.tools().isEmpty()) {
+        if (!soul.tools().isEmpty()) {
             sb.append("Available Tools: ").append(String.join(", ", soul.tools())).append('\n');
         }
 

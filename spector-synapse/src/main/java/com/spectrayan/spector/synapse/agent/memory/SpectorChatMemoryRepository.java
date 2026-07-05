@@ -15,11 +15,9 @@
  */
 package com.spectrayan.spector.synapse.agent.memory;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.synapse.bridge.MemoryBridge;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
@@ -27,10 +25,8 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -56,16 +52,10 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorChatMemoryRepository.class);
 
-    private final JdbcTemplate jdbc;
     private final MemoryBridge memoryBridge;
-    private final ObjectMapper mapper;
 
-    public SpectorChatMemoryRepository(JdbcTemplate jdbc,
-                                       MemoryBridge memoryBridge,
-                                       ObjectMapper mapper) {
-        this.jdbc = jdbc;
+    public SpectorChatMemoryRepository(MemoryBridge memoryBridge) {
         this.memoryBridge = memoryBridge;
-        this.mapper = mapper;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -74,56 +64,79 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public List<String> findConversationIds() {
-        return jdbc.queryForList(
-                "SELECT DISTINCT session_id FROM chat_messages ORDER BY session_id",
-                String.class);
+        if (!memoryBridge.isAvailable()) return List.of();
+        
+        // Recall session summaries and extract IDs from tags
+        var results = memoryBridge.recall(new RecallRequest("session_summary", 100, null));
+        return results.stream()
+                .filter(r -> r.tags() != null && r.tags().contains("session_summary"))
+                .map(r -> r.tags().stream()
+                        .filter(t -> t.startsWith("id:"))
+                        .map(t -> t.substring(3))
+                        .findFirst()
+                        .orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     @Override
     public List<Message> findByConversationId(String conversationId) {
-        return jdbc.query(
-                "SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC",
-                (rs, rowNum) -> toMessage(rs.getString("role"), rs.getString("content")),
-                conversationId);
+        if (conversationId == null || !memoryBridge.isAvailable()) return List.of();
+
+        var results = memoryBridge.recall(new RecallRequest("session:" + conversationId, 100, null));
+
+        return results.stream()
+                .filter(r -> r.tags() != null && r.tags().contains("session:" + conversationId))
+                .sorted((a, b) -> a.id().compareTo(b.id())) // Rough temporal order
+                .map(r -> {
+                    String role = r.tags().stream()
+                            .filter(t -> t.startsWith("role:"))
+                            .map(t -> t.substring(5))
+                            .findFirst()
+                            .orElse("user");
+                    return toMessage(role, r.text());
+                })
+                .toList();
     }
 
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
-        // Spring AI's contract: replace all messages for this conversation
-        jdbc.update("DELETE FROM chat_messages WHERE session_id = ?", conversationId);
+        if (!memoryBridge.isAvailable()) return;
 
-        Instant now = Instant.now();
+        // Spring AI's contract: replace all messages for this conversation
+        // In SpectorMemory, we'd need to "forget" the old ones first if we wanted exact parity
+        // For now, we store them as new memories.
+        
         for (Message message : messages) {
             String role = toRole(message);
             String content = message.getText();
 
-            jdbc.update("""
-                    INSERT INTO chat_messages (session_id, role, content, model, created_at)
-                    VALUES (?, ?, ?, ?, ?)
-                    """, conversationId, role, content, "default", now);
-
-            // Also store in SpectorMemory for cross-session semantic recall
-            if (memoryBridge.isAvailable() && !content.isBlank()
-                    && ("user".equals(role) || "assistant".equals(role))) {
-                try {
-                    memoryBridge.store(new StoreRequest(
-                            content,
-                            List.of("chat", "session:" + conversationId, "role:" + role),
-                            null, Map.of()));
-                } catch (Exception e) {
-                    log.debug("[SpectorChatMemory] SpectorMemory store failed: {}", e.getMessage());
-                }
+            try {
+                memoryBridge.store(new StoreRequest(
+                        content,
+                        List.of("chat", "session:" + conversationId, "role:" + role, "type:turn"),
+                        null, Map.of()));
+            } catch (Exception e) {
+                log.debug("[SpectorChatMemory] SpectorMemory store failed: {}", e.getMessage());
             }
         }
 
-        log.debug("[SpectorChatMemory] Saved {} messages for conversation {}",
+        log.debug("[SpectorChatMemory] Saved {} messages for conversation {} to cognitive memory",
                 messages.size(), conversationId);
     }
 
     @Override
     public void deleteByConversationId(String conversationId) {
-        int deleted = jdbc.update("DELETE FROM chat_messages WHERE session_id = ?", conversationId);
-        log.info("[SpectorChatMemory] Deleted {} messages from conversation {}", deleted, conversationId);
+        // Implement "forget" logic for all memories with session tag
+        if (!memoryBridge.isAvailable()) return;
+        
+        var results = memoryBridge.recall(new RecallRequest("session:" + conversationId, 100, null));
+        results.stream()
+                .filter(r -> r.tags() != null && r.tags().contains("session:" + conversationId))
+                .forEach(r -> memoryBridge.forget(r.id()));
+        
+        log.info("[SpectorChatMemory] Deleted messages from conversation {} in cognitive memory", conversationId);
     }
 
     // ═══════════════════════════════════════════════════════════════

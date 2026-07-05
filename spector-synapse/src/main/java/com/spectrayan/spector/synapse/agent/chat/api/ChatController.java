@@ -16,7 +16,7 @@
 package com.spectrayan.spector.synapse.agent.chat.api;
 
 import com.spectrayan.spector.synapse.agent.AgentSoul;
-import com.spectrayan.spector.synapse.agent.AgentSoulRepository;
+import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.AgentChatRequest;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.AgentChatResponse;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.ChatConfig;
@@ -62,11 +62,11 @@ public class ChatController {
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
     private final ChatService chatService;
-    private final AgentSoulRepository soulRepository;
+    private final CognitiveSoulService soulService;
 
-    public ChatController(ChatService chatService, AgentSoulRepository soulRepository) {
+    public ChatController(ChatService chatService, CognitiveSoulService soulService) {
         this.chatService = chatService;
-        this.soulRepository = soulRepository;
+        this.soulService = soulService;
     }
 
     /**
@@ -87,8 +87,8 @@ public class ChatController {
         String model = request.model();
         int contextDepth = request.contextDepth() != null ? request.contextDepth() : -1;
 
-        // Load agent soul (use default if none configured)
-        AgentSoul soul = soulRepository.loadDefault();
+        // Load agent soul (use cognitive memory)
+        AgentSoul soul = soulService.getEffectiveSoul(null);
 
         try {
             AgentChatResponse response = chatService.executeChat(

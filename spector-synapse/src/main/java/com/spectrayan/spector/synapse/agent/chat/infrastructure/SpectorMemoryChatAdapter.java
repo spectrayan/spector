@@ -23,7 +23,6 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -31,110 +30,104 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Adapter connecting the Chat domain to Spector's cognitive memory engine
- * and H2 for structured session data.
+ * Adapter connecting the Chat domain to Spector's cognitive memory engine.
  *
- * <h3>Dual Storage</h3>
- * <ul>
- *   <li><b>H2</b> — structured session queries (list, paginate, load history)</li>
- *   <li><b>SpectorMemory</b> — cross-session semantic recall for context priming</li>
- * </ul>
+ * <p>All chat sessions and messages are stored as cognitive memories,
+ * eliminating the need for a relational database.</p>
  */
 @Component
 public class SpectorMemoryChatAdapter implements ChatMemoryPort {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorMemoryChatAdapter.class);
 
-    private final JdbcTemplate jdbc;
     private final MemoryBridge memoryBridge;
 
-    public SpectorMemoryChatAdapter(JdbcTemplate jdbc, MemoryBridge memoryBridge) {
-        this.jdbc = jdbc;
+    public SpectorMemoryChatAdapter(MemoryBridge memoryBridge) {
         this.memoryBridge = memoryBridge;
     }
 
     @Override
     public List<Map<String, Object>> loadSessionHistory(String sessionId) {
-        if (sessionId == null) return List.of();
+        if (sessionId == null || !memoryBridge.isAvailable()) return List.of();
 
-        return jdbc.query("""
-                SELECT role, content, created_at FROM chat_messages
-                WHERE session_id = ?
-                ORDER BY created_at ASC
-                """,
-                (rs, rowNum) -> Map.<String, Object>of(
-                        "role", rs.getString("role"),
-                        "content", rs.getString("content"),
-                        "timestamp", rs.getTimestamp("created_at").getTime()
-                ), sessionId);
+        // Recall memories for this session, sorted by temporal chain (ideally)
+        // For now, we query specifically for session tags
+        var results = memoryBridge.recall(new RecallRequest("session:" + sessionId, 100, null));
+
+        return results.stream()
+                .filter(r -> r.tags() != null && r.tags().contains("session:" + sessionId))
+                .sorted((a, b) -> a.id().compareTo(b.id())) // Rough temporal order by ID if they are sequential
+                .map(r -> {
+                    String role = r.tags().stream()
+                            .filter(t -> t.startsWith("role:"))
+                            .map(t -> t.substring(5))
+                            .findFirst()
+                            .orElse("user");
+                    return Map.<String, Object>of(
+                            "role", role,
+                            "content", r.text(),
+                            "timestamp", System.currentTimeMillis() // Metadata not fully preserved in recall currently
+                    );
+                })
+                .toList();
     }
 
     @Override
     public void saveToSession(String sessionId, String userMessage,
-                              String assistantResponse, String model) {
-        Instant now = Instant.now();
+                               String assistantResponse, String model) {
+        if (!memoryBridge.isAvailable()) return;
 
-        // Ensure session exists
-        jdbc.update("""
-                MERGE INTO chat_sessions (session_id, created_at, updated_at, preview, model)
-                KEY (session_id)
-                VALUES (?, ?, ?, ?, ?)
-                """, sessionId, now, now,
-                userMessage.length() > 200 ? userMessage.substring(0, 200) : userMessage,
-                model);
+        try {
+            // Store user turn
+            memoryBridge.store(new StoreRequest(
+                    userMessage,
+                    List.of("chat", "session:" + sessionId, "role:user", "type:turn"),
+                    null, Map.of()));
+            
+            // Store assistant turn
+            memoryBridge.store(new StoreRequest(
+                    assistantResponse,
+                    List.of("chat", "session:" + sessionId, "role:assistant", "model:" + model, "type:turn"),
+                    null, Map.of()));
 
-        // Save user turn
-        jdbc.update("""
-                INSERT INTO chat_messages (session_id, role, content, model, created_at)
-                VALUES (?, 'user', ?, ?, ?)
-                """, sessionId, userMessage, model, now);
+            // Store/Update session summary record for listing
+            String preview = userMessage.length() > 200 ? userMessage.substring(0, 200) : userMessage;
+            memoryBridge.store(new StoreRequest(
+                    "Session Preview: " + preview,
+                    List.of("chat", "session_summary", "id:" + sessionId),
+                    null, Map.of()));
 
-        // Save assistant turn
-        jdbc.update("""
-                INSERT INTO chat_messages (session_id, role, content, model, created_at)
-                VALUES (?, 'assistant', ?, ?, ?)
-                """, sessionId, assistantResponse, model, now);
-
-        // Update session timestamp
-        jdbc.update("UPDATE chat_sessions SET updated_at = ?, preview = ? WHERE session_id = ?",
-                now, userMessage.length() > 200 ? userMessage.substring(0, 200) : userMessage,
-                sessionId);
-
-        // Also store in SpectorMemory for cross-session semantic recall
-        if (memoryBridge.isAvailable()) {
-            try {
-                memoryBridge.store(new StoreRequest(
-                        userMessage,
-                        List.of("chat", "session:" + sessionId, "role:user"),
-                        null, Map.of()));
-                memoryBridge.store(new StoreRequest(
-                        assistantResponse,
-                        List.of("chat", "session:" + sessionId, "role:assistant", "model:" + model),
-                        null, Map.of()));
-            } catch (Exception e) {
-                log.debug("[ChatAdapter] SpectorMemory store failed: {}", e.getMessage());
-            }
+        } catch (Exception e) {
+            log.debug("[ChatAdapter] SpectorMemory store failed: {}", e.getMessage());
         }
 
-        log.debug("[ChatAdapter] Saved turn to session {}", sessionId);
+        log.debug("[ChatAdapter] Saved turn to cognitive memory for session {}", sessionId);
     }
 
     @Override
     public List<Conversation> listSessions(int limit) {
-        return jdbc.query("""
-                SELECT s.session_id, s.preview, s.created_at, s.updated_at,
-                       (SELECT COUNT(*) FROM chat_messages m WHERE m.session_id = s.session_id) as msg_count
-                FROM chat_sessions s
-                ORDER BY s.updated_at DESC
-                LIMIT ?
-                """,
-                (rs, rowNum) -> new Conversation(
-                        rs.getString("session_id"),
-                        rs.getInt("msg_count"),
-                        rs.getString("preview"),
-                        rs.getTimestamp("created_at").toInstant(),
-                        rs.getTimestamp("updated_at").toInstant()
-                ), limit);
+        if (!memoryBridge.isAvailable()) return List.of();
+
+        // Query for session summaries
+        var results = memoryBridge.recall(new RecallRequest("session_summary", limit, null));
+
+        return results.stream()
+                .filter(r -> r.tags() != null && r.tags().contains("session_summary"))
+                .map(r -> {
+                    String sid = r.tags().stream()
+                            .filter(t -> t.startsWith("id:"))
+                            .map(t -> t.substring(3))
+                            .findFirst()
+                            .orElse("unknown");
+                    return new Conversation(
+                            sid,
+                            0, // Message count not easily available without another query
+                            r.text().replace("Session Preview: ", ""),
+                            Instant.now(), // Real timestamps not available in recall DTO
+                            Instant.now()
+                    );
+                })
+                .toList();
     }
 
     @Override

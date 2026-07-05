@@ -162,17 +162,28 @@ public class ChatService {
                 : UUID.randomUUID().toString();
 
         // ── Step 3: Build agentic soul with enriched prompt ──
-        AgentSoul enrichedSoul = new AgentSoul(
-                soul != null ? soul.id() : "default",
-                soul != null ? soul.name() : "Assistant",
-                soul != null ? soul.description() : null,
-                enrichedPrompt,
-                soul != null ? soul.personality() : Map.of(),
-                model != null ? model : DEFAULT_MODEL,
-                soul != null ? soul.tools() : List.of(),
-                soul != null ? soul.createdAt() : java.time.Instant.now(),
-                soul != null ? soul.updatedAt() : java.time.Instant.now()
-        );
+        var soulBuilder = AgentSoul.builder()
+                .id(soul != null ? soul.id() : "default")
+                .name(soul != null ? soul.name() : "Assistant")
+                .description(soul != null ? soul.description() : null)
+                .systemPrompt(enrichedPrompt)
+                .purpose(soul != null ? soul.purpose() : null)
+                .personality(soul != null ? soul.personality() : null)
+                .model(model != null ? model : DEFAULT_MODEL)
+                .tools(soul != null ? soul.tools() : List.of())
+                .createdAt(soul != null ? soul.createdAt() : java.time.Instant.now())
+                .updatedAt(soul != null ? soul.updatedAt() : java.time.Instant.now());
+
+        if (soul != null) {
+            soulBuilder
+                    .expertiseDomains(soul.expertiseDomains())
+                    .coreValues(soul.coreValues())
+                    .ethicalGuardrails(soul.ethicalGuardrails())
+                    .emotionalBaseline(soul.emotionalBaseline())
+                    .communicationStyle(soul.communicationStyle());
+        }
+
+        AgentSoul enrichedSoul = soulBuilder.build();
 
         // ── Step 4: Collect trace events ──
         List<TraceEvent> traceEvents = new CopyOnWriteArrayList<>();
