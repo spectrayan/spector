@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "id": "cognitive-rag",
+  "name": "Cognitive RAG Pipeline",
+  "entry_point": "retrieve",
+  "nodes": {
+    "retrieve": {
+      "type": "TOOL",
+      "description": "Retrieve relevant memories from Spector cognitive memory",
+      "tool_name": "recall_memory"
+    },
+    "evaluate": {
+      "type": "AGENT",
+      "description": "Evaluate if retrieved context is sufficient",
+      "agent": "evaluator"
+    },
+    "generate": {
+      "type": "AGENT",
+      "description": "Generate the final answer from context",
+      "agent": "generator"
+    }
+  },
+  "edges": [
+    { "from": "retrieve", "to": "evaluate", "condition": "always" },
+    { "from": "generate", "to": "END", "condition": "always" }
+  ],
+  "conditional_edges": [
+    {
+      "from": "evaluate",
+      "condition_field": "decision",
+      "condition_mapping": {
+        "GENERATE": "generate",
+        "REQUERY": "retrieve"
+      },
+      "default_target": "generate"
+    }
+  ],
+  "agents": [
+    {
+      "id": "evaluator",
+      "name": "Context Evaluator",
+      "system_prompt": "Evaluate whether the retrieved context is sufficient to answer the query. Respond with DECISION: GENERATE if sufficient, or DECISION: REQUERY with REFINED_QUERY if not."
+    },
+    {
+      "id": "generator",
+      "name": "Answer Generator",
+      "system_prompt": "Generate a clear, well-structured answer based on the retrieved context. Be concise but thorough."
+    }
+  ]
+}
