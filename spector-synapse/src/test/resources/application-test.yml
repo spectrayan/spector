@@ -1,0 +1,25 @@
+# Test configuration for Synapse integration tests with Ollama
+spector:
+  port: 0
+  api-key: test-key
+  data-dir: ${java.io.tmpdir}/spector-test
+  ollama:
+    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${SPECTOR_OLLAMA_MODEL:qwen3.5:latest}
+    embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
+  memory:
+    max-memories: 0
+    dimensions: 0
+  cors:
+    allowed-origins: http://localhost:4200
+
+spring:
+  application:
+    name: spector-synapse-test
+  jmx:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.spectrayan.spector: INFO
