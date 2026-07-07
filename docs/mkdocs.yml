@@ -117,6 +117,7 @@ nav:
   - Getting Started:
       - Quick Start: getting-started/quickstart.md
       - Installation: getting-started/installation.md
+      - Developer Guide: getting-started/developer-guide.md
       - MCP Server: sdk-usage/mcp-server.md
       - Java SDK: sdk-usage/java-client.md
       - Python SDK: sdk-usage/python-sdk.md
