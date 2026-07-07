@@ -8,6 +8,9 @@ on:
       - '*.md'
       - 'docs/**'
       - 'LICENSE'
+      - 'spector-synapse/**'
+      - 'spector-cortex/**'
+      - 'docker-compose.synapse.yml'
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -15,6 +18,9 @@ on:
       - '*.md'
       - 'docs/**'
       - 'LICENSE'
+      - 'spector-synapse/**'
+      - 'spector-cortex/**'
+      - 'docker-compose.synapse.yml'
   schedule:
     - cron: '0 2 * * *'
 

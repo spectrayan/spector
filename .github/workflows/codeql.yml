@@ -1,0 +1,78 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - 'LICENSE'
+      - '.github/**'
+      - '**/*.txt'
+      - '**/*.json'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '!.github/workflows/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - 'LICENSE'
+      - '.github/**'
+      - '**/*.txt'
+      - '**/*.json'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '!.github/workflows/**'
+  schedule:
+    - cron: '30 3 * * 1'  # Weekly Monday 3:30 AM UTC
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    name: CodeQL Analysis
+    timeout-minutes: 30
+
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'java-kotlin' ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+
+      - name: Build for CodeQL
+        run: |
+          mvn -B clean compile -DskipTests \
+            --no-transfer-progress \
+            -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'

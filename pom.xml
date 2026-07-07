@@ -76,7 +76,6 @@
         <module>spector-client</module>
         <module>spector-spring</module>
         <module>spector-mcp</module>
-        <module>spector-synapse</module>
         <module>spector-dist</module>
     </modules>
 
@@ -832,6 +831,14 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <!-- Synapse module (opt-in: mvn verify -Psynapse) -->
+        <profile>
+            <id>synapse</id>
+            <modules>
+                <module>spector-synapse</module>
+            </modules>
         </profile>
     </profiles>
 
