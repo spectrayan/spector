@@ -41,19 +41,13 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: 'maven'
 
-      # ─── Build core modules first (synapse depends on them) ────────
-      - name: Build core dependencies
+      # ─── Build full reactor with synapse profile ────────────────
+      - name: Build & Test (Core + Synapse)
         run: |
-          mvn -B clean install -DskipTests \
+          mvn -B clean verify -Psynapse \
             --no-transfer-progress \
+            -Dsurefire.useSystemClassLoader=false \
             -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
-
-      # ─── Build and test Synapse ────────────────────────────────────
-      - name: Build & Test Synapse
-        run: |
-          mvn -B verify -pl spector-synapse -Psynapse \
-            --no-transfer-progress \
-            -Dsurefire.useSystemClassLoader=false
 
       # ─── License Header Check (BSL 1.1) ────────────────────────────
       - name: Check BSL license headers
