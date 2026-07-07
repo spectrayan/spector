@@ -1,0 +1,107 @@
+{
+  "scenario": "New User Onboarding — Teacher Discovery",
+  "description": "Simulates a new user exploring the AI companion. Mix of proactive sharing, terse yes/no answers to agent questions, and tool usage validation. The agent must handle ambiguous, minimal responses and build context progressively.",
+  "systemPrompt": "You are a cognitive AI companion. Get to know the user through natural conversation. Ask follow-up questions when they share info. Save what you learn about them using your tools.",
+  "turns": [
+    {
+      "user": "Hey, just started using this thing",
+      "judge": {
+        "criteria": "Agent should greet warmly and either introduce itself or ask what the user is looking for. Should NOT be overly formal or robotic.",
+        "requiredBehavior": "greeting_and_engagement",
+        "minScore": 6
+      }
+    },
+    {
+      "user": "yeah sure",
+      "judge": {
+        "criteria": "Agent must interpret 'yeah sure' as agreement to whatever it proposed/asked in the previous turn. Must NOT treat it as a new topic or ignore the context. Should continue the conversation naturally based on what it previously suggested.",
+        "requiredBehavior": "contextual_follow_up",
+        "minScore": 7
+      }
+    },
+    {
+      "user": "I teach kids",
+      "judge": {
+        "criteria": "Agent should acknowledge the user is a teacher, show genuine interest, and ask a follow-up question (e.g., what grade, what subject, how long). Should ideally call update_user_profile to save occupation=teacher.",
+        "requiredBehavior": "profile_extraction",
+        "minScore": 7,
+        "toolExpected": "update_user_profile"
+      }
+    },
+    {
+      "user": "3rd grade",
+      "judge": {
+        "criteria": "Agent must understand '3rd grade' is answering its previous question about what grade/age the user teaches. Must NOT treat it as a standalone statement. Should build on the teacher context.",
+        "requiredBehavior": "terse_answer_comprehension",
+        "minScore": 8
+      }
+    },
+    {
+      "user": "yep, mostly math and science",
+      "judge": {
+        "criteria": "Agent must understand 'yep' as confirmation of something it asked. Should engage with math/science teaching topics and possibly ask more specific questions. Should be building a picture of the user.",
+        "requiredBehavior": "compound_terse_response",
+        "minScore": 7
+      }
+    },
+    {
+      "user": "Can you help me come up with a fun activity for my class?",
+      "judge": {
+        "criteria": "Agent must use the context that the user teaches 3rd grade math/science to provide AGE-APPROPRIATE activity suggestions. Generic adult-level suggestions would fail. Must reference the prior context (3rd grade, math/science).",
+        "requiredBehavior": "context_aware_assistance",
+        "minScore": 8
+      }
+    },
+    {
+      "user": "the second one sounds good",
+      "judge": {
+        "criteria": "Agent must understand 'the second one' refers to the second option from its previous list of suggestions. Must NOT ask 'which one?' or lose track. Should elaborate on the chosen option.",
+        "requiredBehavior": "ordinal_reference_resolution",
+        "minScore": 8
+      }
+    },
+    {
+      "user": "nah, keep it simpler",
+      "judge": {
+        "criteria": "Agent must understand 'nah' as rejection and 'keep it simpler' as a request to simplify the current activity. Must NOT start over or change topic. Should provide a simplified version of what was previously discussed.",
+        "requiredBehavior": "iterative_refinement",
+        "minScore": 7
+      }
+    },
+    {
+      "user": "perfect, thanks! Oh btw, you can call me Sam",
+      "judge": {
+        "criteria": "Agent should acknowledge the positive feedback AND register the name 'Sam'. Should ideally call update_user_profile to save the name. Must use 'Sam' naturally in the response.",
+        "requiredBehavior": "dual_intent_handling",
+        "minScore": 7,
+        "toolExpected": "update_user_profile"
+      }
+    },
+    {
+      "user": "what do you know about me so far?",
+      "judge": {
+        "criteria": "Agent should call read_identity to retrieve user profile, or recall from conversation: teacher, 3rd grade, math/science, name is Sam. Must mention at least 2 of these facts. Should NOT hallucinate information not discussed.",
+        "requiredBehavior": "memory_recall",
+        "minScore": 8,
+        "toolExpected": "read_identity"
+      }
+    },
+    {
+      "user": "nice! from now on, I want you to call yourself Luna",
+      "judge": {
+        "criteria": "Agent should acknowledge the name change request and call update_agent_soul with field=name, value=Luna. Should confirm the name change to the user.",
+        "requiredBehavior": "soul_update",
+        "minScore": 7,
+        "toolExpected": "update_agent_soul"
+      }
+    },
+    {
+      "user": "yes",
+      "judge": {
+        "criteria": "Agent must interpret 'yes' as approval/confirmation of whatever it proposed in the previous turn (likely confirming the name change). Must NOT treat 'yes' as a standalone message or start a new topic.",
+        "requiredBehavior": "bare_confirmation",
+        "minScore": 7
+      }
+    }
+  ]
+}
