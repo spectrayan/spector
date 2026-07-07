@@ -161,7 +161,12 @@ nav:
           - "WAL Design": memory/wal-design.md
       - Cognitive Evaluation: memory/evaluation.md
 
-  # Tab 4: Search Engine & Architecture
+  # Tab 4: Synapse & Cortex — the agentic layer (own tab)
+  - "Synapse & Cortex":
+      - "Synapse Overview": synapse/index.md
+      - "Cortex Dashboard & Chat": cortex/index.md
+
+  # Tab 5: Search Engine & Architecture
   - Architecture:
       - System Overview: architecture/overview.md
       - Core Concepts: architecture/core-concepts.md
@@ -187,10 +192,8 @@ nav:
           - TurboQuant: deep-dives/turbo-quant.md
           - Real-Embedding Benchmarks: deep-dives/real-embedding-benchmarks.md
           - "Whitepaper: SVASQ + SpectorIndex": deep-dives/svasq-spectorindex-whitepaper.md
-      - Cortex Dashboard:
-          - Overview: cortex/index.md
 
-  # Tab 5: Community & future
+  # Tab 6: Community & future
   - Community:
       - Contributing: operations/contributing.md
       - FAQ: faq.md

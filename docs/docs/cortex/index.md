@@ -1,12 +1,59 @@
 ---
-title: "🧬 Spector Cortex — Neural Dashboard"
-description: "Real-time visualization dashboard for Spector's cognitive memory engine — neural graphs, vector spaces, memory heatmaps, and live cognitive metrics."
+title: "🧬 Spector Cortex — Neural Dashboard & Chat UI"
+description: "Real-time visualization dashboard and cognitive chat interface for Spector — neural graphs, vector spaces, memory heatmaps, agent management, and live cognitive metrics."
 ---
 
-# 🧬 Spector Cortex — Neural Dashboard
+# 🧬 Spector Cortex — Neural Dashboard & Chat UI
 
 !!! quote "The Vision"
-    What if you could **watch your AI's brain think?** Spector Cortex is a real-time neural dashboard that visualizes the cognitive memory engine — from SIMD lanes firing to Hebbian edges strengthening to memories decaying along the Ebbinghaus curve. It's the difference between a black box and a living brain.
+    What if you could **watch your AI's brain think** and **talk to it at the same time?** Spector Cortex is a real-time neural dashboard *and* cognitive chat interface — from SIMD lanes firing to Hebbian edges strengthening to memories decaying along the Ebbinghaus curve. It's the difference between a black box and a living brain.
+
+---
+
+## Two Faces of Cortex
+
+Cortex serves two purposes in the Spector ecosystem:
+
+### 1. Neural Dashboard (Visualization)
+
+The original Cortex — 12+ live cognitive panels for monitoring and debugging the memory engine:
+
+| Panel | What It Shows |
+|:------|:--------------|
+| **Neural Graph** | 200-node cognitive network with Hebbian, temporal, and entity edges |
+| **Vector Space** | 300-point PCA-projected embedding space with query dot and k-NN lines |
+| **Scoring Pipeline** | The 6-phase cognitive scoring funnel animated in real time |
+| **Live Metrics** | Real-time recall/remember/reinforce/forget rates |
+| **Cognitive Profile** | 6-axis radar showing thalamic modulation parameters |
+| **SIMD & Hardware** | 16-lane SIMD register visualization |
+| **Memory Heatmap** | Off-heap memory segment utilization across all 4 tiers |
+| **Decay Curve** | Ebbinghaus forgetting curve vs. LTP reconsolidation |
+| **Habituation** | Anti-filter-bubble mechanism gauges |
+
+### 2. Cognitive Chat Interface (Agent Interaction)
+
+The new Cortex — a fully-featured chat interface powered by [Spector Synapse](../synapse/index.md):
+
+| View | Description |
+|:-----|:------------|
+| **Chat** | Conversational interface with memory-primed responses, streaming, and context indicators |
+| **Memories** | Browse, search, and manage cognitive memories with tier filtering and importance visualization |
+| **Agents** | Create, configure, and manage autonomous agents with soul editing |
+| **Connectors** | Set up and monitor data connector integrations |
+| **Settings** | Configure providers, API keys, and system preferences |
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|:------|:-----------|
+| **Framework** | Angular 22 (standalone components, signals) |
+| **Styling** | SCSS with Material Design 3 tokens |
+| **3D Rendering** | THREE.js + Canvas API |
+| **State Management** | Angular Signals |
+| **HTTP** | `httpResource` + `HttpClient` |
+| **Build** | Angular CLI 22, Vitest |
 
 ---
 
@@ -35,7 +82,7 @@ Real-time scoring pipeline, SIMD lanes, decay curves, vector space, Hebbian grap
 
 ![Spector Graph Explorer](spector-cortex-graph.png)
 
-Interactive 3D graph with glowing star nodes, Hebbian/temporal/entity edges, fly-to navigation, click-to-explore, and real-time topology stats. Toggle edge types independently with the toolbar.
+Interactive 3D graph with glowing star nodes, Hebbian/temporal/entity edges, fly-to navigation, click-to-explore, and real-time topology stats.
 
 ---
 
@@ -43,7 +90,7 @@ Interactive 3D graph with glowing star nodes, Hebbian/temporal/entity edges, fly
 
 ![Spector Memory Table](spector-cortex-memory-table.png)
 
-Full CRUD with tier filtering, importance bars, valence indicators, synaptic tags, recall counts, tombstone ratios, and bulk actions. Sortable columns, pagination, and tier summary cards.
+Full CRUD with tier filtering, importance bars, valence indicators, synaptic tags, recall counts, tombstone ratios, and bulk actions.
 
 ---
 
@@ -51,106 +98,61 @@ Full CRUD with tier filtering, importance bars, valence indicators, synaptic tag
 
 ![Spector Memory Detail](spector-memory-detail.png)
 
-Identity card, cognitive state (importance/valence/arousal gauges), synaptic tags, and full relationship graph showing Hebbian associations (weighted), temporal chains (directional), and entity links.
+Identity card, cognitive state (importance/valence/arousal gauges), synaptic tags, and full relationship graph showing Hebbian associations, temporal chains, and entity links.
 
 ---
 
-## Views
+## What's Coming to Cortex
 
-The application includes **5 main views**:
+### Near-Term (In Progress)
 
-| View | Description |
-|:-----|:------------|
-| **Dashboard** | 12+ live cognitive panels in a responsive 3-column grid — neural graph, vector space, scoring pipeline, SIMD, memory heatmap, decay curve, and more |
-| **Cognitive Query** | Real-time recall against the memory subsystem with score breakdowns, tier badges, and synaptic tags |
-| **Memory Table** | Paginated table of all stored memories with sorting, filtering, and CRUD operations |
-| **Graph Explorer** | Full-screen 3D neural galaxy with fly-to navigation, edge filtering, and topology stats |
-| **Memory Detail** | Deep inspection of individual memories with cognitive state, relationships, and actions |
+- [ ] **Chat streaming UI** — real-time token rendering with typing indicators
+- [ ] **Agent soul editor** — visual editor for agent personality and tools
+- [ ] **Connector dashboard** — sync status, data volume, and health monitoring
+- [ ] **Dark mode** — full dark theme with M3 design tokens
+- [ ] **Mobile responsive** — responsive layouts for tablet and phone
 
----
+### Medium-Term (Planned)
 
-## Dashboard Panels
+- [ ] **Conversation timeline** — visual timeline of agent-user interactions
+- [ ] **Memory graph explorer v2** — filter by conversation, time range, or agent
+- [ ] **Agent template marketplace** — browse and install community templates
+- [ ] **Real-time collaboration** — multiple users in the same conversation
+- [ ] **Accessibility** — WCAG 2.1 AA compliance
 
-The dashboard is built around **12+ panels**, each visualizing a different aspect of the cognitive pipeline:
+### Long-Term (Vision)
 
-| Panel | What It Shows |
-|:------|:--------------|
-| **Neural Graph** | 200-node cognitive network with Hebbian, temporal, and entity edges — particles flow along connections during query spreading activation |
-| **Vector Space** | 300-point PCA-projected embedding space with query dot and nearest-neighbor lines |
-| **Scoring Pipeline** | The 6-phase cognitive scoring funnel — from total records → tombstone → tags → valence → decay → distance → final top-K |
-| **Live Metrics** | Real-time recall/remember/reinforce/forget rates plotted as multi-line chart |
-| **Cognitive Profile** | 6-axis radar showing current thalamic modulation parameters with animated profile transitions |
-| **SIMD & Hardware** | 16-lane SIMD register visualization with intensity and utilization color-coded bars |
-| **Memory Heatmap** | Off-heap memory segment utilization across all 4 tier stores + graph structures |
-| **Decay Curve** | Ebbinghaus forgetting curve vs. LTP reconsolidation — shows how recall events boost retention |
-| **Query History** | Chronological query traces with profile, latency, and augmented result counts |
-| **Zeigarnik Effect** | Unresolved memory count and cognitive tension percentage |
-| **Habituation** | Inhibition of Return, semantic satiation, and habituation penalty gauges — the anti-filter-bubble mechanisms |
-| **Query Input** | Submit queries to see the full pipeline execute in real time |
+- [ ] **Voice interface** — speech-to-text chat with agent responses
+- [ ] **Cognitive replay** — replay past cognitive states step by step
+- [ ] **Comparative agent view** — side-by-side agent behavior comparison
 
 ---
 
-## Panel Highlights
+## Building
 
-### Neural Graph
+```bash
+cd spector-cortex
 
-The centerpiece of the dashboard — a 3D graph with 200 nodes organized by memory tier:
+# Install dependencies
+npm ci
 
-- **Node colors**: Working (amber), Episodic (green), Semantic (blue), Procedural (purple)
-- **Node radius**: Proportional to tier (Working = inner, Procedural = outer shell)
-- **3 edge types**:
-    - **Hebbian** — solid white lines (co-activation strength)
-    - **Temporal** — dashed cyan lines (causal/temporal chains)
-    - **Entity** — solid gold lines (entity-relationship knowledge)
+# Development server (http://localhost:4200)
+ng serve
 
-**Interactive features:**
+# Production build
+ng build --configuration production
 
-- [x] **Layer toggles** — show/hide each edge type independently
-- [x] **Query traversal particles** — colored spheres flow along edges during spreading activation
-- [x] **Profile visual transforms** — HYPERFOCUS (tunnel vision), PARANOID (red shift), DIVERGENT (rainbow shimmer)
-- [x] **Consolidation animation** — edges dim and prune when `reflect()` fires
-- [x] **Mouse interaction** — camera follows mouse position for parallax effect
-
-### Vector Space
-
-A point cloud of 300 memory embeddings projected into 3D via PCA:
-
-- Points are colored by tier and sized by importance
-- **Query dot** — when a query fires, a white pulsing sphere appears at the query vector position
-- **Nearest-neighbor lines** — 5 translucent lines connect the query dot to its closest memories
-- **Layer controls** — 4 toggleable layers: Query, k-NN, Axes, Labels
-
-### Scoring Pipeline
-
-Animated horizontal funnel showing the 6-phase cognitive scoring pipeline:
-
-| Phase | Description |
-|:------|:------------|
-| Total Records | Starting record count |
-| After Tombstone | Tombstone-filtered records |
-| After Tag Gate | Synaptic tag bloom filter pass |
-| After Valence | Emotional valence range filter |
-| After Decay | Temporal decay threshold |
-| Vector Distance | L2 distance scoring |
-| Final Top-K | Final result set |
-
-Each bar animates smoothly to new values and shows the delta percentage from the previous phase.
-
-### Decay Curve
-
-Visualizes the Ebbinghaus forgetting curve alongside LTP reconsolidation:
-
-- **Red dashed line** — raw Ebbinghaus exponential decay (no intervention)
-- **Primary solid line** — actual retention with LTP reconsolidation bumps from recall events
-- **Filled area** — shows the retention gain from the reconsolidation system
+# Run tests
+ng test
+```
 
 ---
 
-## Roadmap
+## License
 
-- [x] **Cluster view** — multi-node visualization for distributed deployments
-- [x] **GPU acceleration panel** — CUDA kernel execution timeline visualization
-- [x] **Memory diff view** — before/after comparison of consolidation cycles
-- [x] **Vector Space layer controls** — Query dot, k-NN, Axes grid, Labels toggles
-- [ ] **Replay mode** — record and replay cognitive sessions for debugging
+Spector Cortex is licensed under the **Business Source License 1.1** (BSL 1.1).
 
+- **Change Date**: July 6, 2030
+- **Change License**: Apache License, Version 2.0
+
+See [LICENSE](https://github.com/spectrayan/spector/blob/main/spector-cortex/LICENSE) for full terms.

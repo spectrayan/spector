@@ -1,8 +1,7 @@
-# spector-cortex (Moved)
+# spector-cortex
 
-> [!IMPORTANT]
-> The Cortex dashboard has been moved to [spector-enterprise](https://github.com/spectrayan/spector-enterprise).
+**License**: BSL 1.1 · **Framework**: Angular 22 · **3D**: THREE.js
 
-The Angular neural dashboard is now maintained in the **spector-enterprise** repository under `ui/spector-cortex/`.
+The visual cortex — Angular 22 neural dashboard and cognitive chat UI. Features 12+ live cognitive panels (neural graph, vector space, scoring pipeline, SIMD visualization), 5 interactive views (dashboard, query, memory table, graph explorer, detail), and a full-featured chat interface for interacting with Synapse-powered agents.
 
-See the [Cortex documentation](../cortex/index.md) for architecture details, or visit the [enterprise repository](https://github.com/spectrayan/spector-enterprise) for the latest source.
+→ **Full documentation**: [Cortex Overview](../cortex/index.md)
