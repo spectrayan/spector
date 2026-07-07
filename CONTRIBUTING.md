@@ -24,8 +24,8 @@ By contributing to Spector, you agree that:
 1. **You have the right** to submit the contribution. The code is your original work, or you have permission to submit it under the project's license terms.
 
 2. **You grant Spectrayan** a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contribution under:
-   - The **Apache License 2.0** for all modules except `spector-memory`.
-   - The **Business Source License 1.1** for the `spector-memory` module (which transitions to Apache 2.0 on the Change Date specified in its LICENSE file).
+   - The **Apache License 2.0** for all modules except `spector-memory`, `spector-synapse`, and `spector-cortex`.
+   - The **Business Source License 1.1** for the `spector-memory`, `spector-synapse`, and `spector-cortex` modules (which transition to Apache 2.0 on the Change Date specified in each module's LICENSE file).
 
 3. **You understand** that your contribution becomes part of the project and may be distributed under the project's current or future license terms as described above.
 
@@ -63,6 +63,8 @@ Not sure where to start? Here are beginner-friendly contribution areas:
 - 🖥️ **CLI enhancements** — add new commands or improve output formatting in `spector-cli`
 - 🌱 **Spring AI adapter extensions** — improve the Spring AI integration in `spector-spring`
 - 📊 **Benchmark scenarios** — add new benchmark cases to `spector-bench`
+- 🧠 **Synapse agent tools** — add new agent tools or connector templates to `spector-synapse`
+- 🎨 **Cortex UI components** — build Angular 22 signal-based components for `spector-cortex`
 
 ## Development Setup
 
@@ -84,7 +86,7 @@ cd spector
 # Verify JDK 25+ is installed
 java -version
 
-# Build the project (full reactor)
+# Build the project (core modules only)
 mvn clean compile
 
 # Run the test suite (212 tests)
@@ -93,6 +95,23 @@ mvn test
 # Run the server (optional)
 mvn exec:java -pl spector-node -Dexec.mainClass="com.spectrayan.spector.server.SpectorNode"
 ```
+
+### Building Synapse
+
+The `spector-synapse` module is gated behind a Maven profile and is **not built by default**. To build synapse:
+
+```bash
+# Build core + synapse
+mvn clean compile -Psynapse
+
+# Run synapse tests only
+mvn test -pl spector-synapse -Psynapse
+
+# Full verify including synapse
+mvn verify -Psynapse
+```
+
+> **Note:** You must build core modules first (or use the full reactor with `-Psynapse`) since synapse depends on `spector-engine`, `spector-memory`, and other core modules.
 
 ### SIMD Verification
 

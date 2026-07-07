@@ -228,6 +228,11 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
+                <artifactId>spector-synapse</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-memory</artifactId>
                 <version>${revision}</version>
             </dependency>
@@ -826,6 +831,14 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <!-- Synapse module (opt-in: mvn verify -Psynapse) -->
+        <profile>
+            <id>synapse</id>
+            <modules>
+                <module>spector-synapse</module>
+            </modules>
         </profile>
     </profiles>
 

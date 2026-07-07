@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "id": "research-assistant",
+  "name": "Research Assistant",
+  "entry_point": "search",
+  "nodes": {
+    "search": {
+      "type": "TOOL",
+      "description": "Search cognitive memory for relevant information",
+      "tool_name": "recall_memory"
+    },
+    "analyze": {
+      "type": "AGENT",
+      "description": "Analyze search results and synthesize findings",
+      "agent": "researcher"
+    },
+    "summarize": {
+      "type": "AGENT",
+      "description": "Create a structured research summary",
+      "agent": "summarizer"
+    }
+  },
+  "edges": [
+    { "from": "search", "to": "analyze", "condition": "always" },
+    { "from": "analyze", "to": "summarize", "condition": "always" },
+    { "from": "summarize", "to": "END", "condition": "always" }
+  ],
+  "agents": [
+    {
+      "id": "researcher",
+      "name": "Research Analyst",
+      "system_prompt": "You are a research analyst. Analyze the search results, identify key themes, and note any gaps in the information."
+    },
+    {
+      "id": "summarizer",
+      "name": "Research Summarizer",
+      "system_prompt": "You are a research summarizer. Create a clear, well-structured summary of the research findings. Highlight key insights and recommendations."
+    }
+  ]
+}

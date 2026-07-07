@@ -1,0 +1,80 @@
+{
+  "id": "research-agent",
+  "name": "Research Assistant",
+  "description": "Multi-step research agent — searches the web, gathers sources, synthesizes findings, and produces a structured research report with citations.",
+  "category": "research",
+  "tags": ["research", "web-search", "summarization", "citations", "report"],
+  "flowSpec": {
+    "version": "1.0",
+    "id": "research-agent",
+    "name": "Research Assistant",
+    "entry_point": "plan",
+    "nodes": {
+      "plan": {
+        "type": "AGENT",
+        "description": "Decompose the research question into sub-queries and plan the search strategy",
+        "agent": "planner"
+      },
+      "search": {
+        "type": "TOOL",
+        "description": "Execute web search for each sub-query",
+        "tool_name": "web_search"
+      },
+      "fetch": {
+        "type": "TOOL",
+        "description": "Fetch full content from promising URLs",
+        "tool_name": "http_request"
+      },
+      "analyze": {
+        "type": "AGENT",
+        "description": "Analyze gathered sources — extract key facts, identify contradictions, assess credibility",
+        "agent": "analyzer"
+      },
+      "synthesize": {
+        "type": "AGENT",
+        "description": "Synthesize findings into a structured research report with citations",
+        "agent": "synthesizer"
+      }
+    },
+    "edges": [
+      {"from": "plan", "to": "search"},
+      {"from": "search", "to": "fetch"},
+      {"from": "fetch", "to": "analyze"},
+      {"from": "analyze", "to": "synthesize"}
+    ],
+    "conditional_edges": [
+      {
+        "from": "analyze",
+        "conditions": {
+          "needs_more_data": "search",
+          "sufficient": "synthesize"
+        }
+      }
+    ],
+    "agents": [
+      {
+        "id": "planner",
+        "model": "default",
+        "system_prompt": "You are a research planning specialist. Given a research question, decompose it into 3-5 specific sub-queries that can be searched independently. Output each sub-query on a separate line.",
+        "tools": []
+      },
+      {
+        "id": "analyzer",
+        "model": "default",
+        "system_prompt": "You are a research analyst. Analyze the gathered sources for key facts, contradictions, and credibility. Flag any gaps that need additional searching. Output your analysis in a structured format.",
+        "tools": ["memory_recall"]
+      },
+      {
+        "id": "synthesizer",
+        "model": "default",
+        "system_prompt": "You are a research synthesizer. Produce a well-structured research report with:\n1. Executive Summary\n2. Key Findings (with citations)\n3. Contradictions and Open Questions\n4. Recommendations\nCite sources using [Source N] notation.",
+        "tools": ["memory_remember"]
+      }
+    ],
+    "policy": {
+      "max_iterations": 10,
+      "timeout_ms": 300000,
+      "max_tokens": 8000
+    }
+  }
+}

@@ -41,6 +41,11 @@
 /spector-dist/ @sbharatjoshi
 /spector-bench/ @sbharatjoshi
 
+# Synapse & Cortex (BSL 1.1)
+/spector-synapse/ @sbharatjoshi
+/spector-cortex/ @sbharatjoshi
+/docker-compose.synapse.yml @sbharatjoshi
+
 # CI/CD & Infrastructure
 /.github/ @sbharatjoshi
 /deploy/ @sbharatjoshi

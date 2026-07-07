@@ -1,0 +1,86 @@
+{
+  "id": "data-analysis-agent",
+  "name": "Data Analysis Assistant",
+  "description": "Data analysis agent — ingests CSV/JSON data, performs statistical analysis, identifies trends, and produces visualization-ready insights.",
+  "category": "data",
+  "tags": ["data", "analysis", "statistics", "csv", "json", "trends", "visualization"],
+  "flowSpec": {
+    "version": "1.0",
+    "id": "data-analysis-agent",
+    "name": "Data Analysis Assistant",
+    "entry_point": "ingest",
+    "nodes": {
+      "ingest": {
+        "type": "TOOL",
+        "description": "Read and parse the data source (CSV, JSON, or file)",
+        "tool_name": "file_read"
+      },
+      "parse": {
+        "type": "TOOL",
+        "description": "Parse and query the data structure",
+        "tool_name": "json_query"
+      },
+      "analyze": {
+        "type": "AGENT",
+        "description": "Perform statistical analysis — mean, median, std dev, correlations, outliers",
+        "agent": "statistician"
+      },
+      "calculate": {
+        "type": "TOOL",
+        "description": "Perform numerical calculations as needed",
+        "tool_name": "calculator"
+      },
+      "insight": {
+        "type": "AGENT",
+        "description": "Extract business insights, identify trends, and generate recommendations",
+        "agent": "insight_generator"
+      },
+      "report": {
+        "type": "AGENT",
+        "description": "Produce a structured analysis report with visualizable data points",
+        "agent": "report_writer"
+      }
+    },
+    "edges": [
+      {"from": "ingest", "to": "parse"},
+      {"from": "parse", "to": "analyze"},
+      {"from": "analyze", "to": "calculate"},
+      {"from": "calculate", "to": "insight"},
+      {"from": "insight", "to": "report"}
+    ],
+    "conditional_edges": [
+      {
+        "from": "analyze",
+        "conditions": {
+          "needs_more_data": "ingest",
+          "ready": "calculate"
+        }
+      }
+    ],
+    "agents": [
+      {
+        "id": "statistician",
+        "model": "default",
+        "system_prompt": "You are a statistician. Analyze the data and compute:\n1. Descriptive stats (mean, median, mode, std dev, range)\n2. Correlations between key variables\n3. Outlier detection (values > 2σ from mean)\n4. Distribution characteristics\nOutput calculations that the calculator tool can evaluate.",
+        "tools": ["calculator"]
+      },
+      {
+        "id": "insight_generator",
+        "model": "default",
+        "system_prompt": "You are a data insight specialist. From the statistical analysis:\n1. Identify top 3-5 actionable trends\n2. Highlight anomalies and their potential causes\n3. Compare against benchmarks (if available)\n4. Generate testable hypotheses\nBe specific with numbers and percentages.",
+        "tools": ["memory_recall"]
+      },
+      {
+        "id": "report_writer",
+        "model": "default",
+        "system_prompt": "You are a data reporting specialist. Produce a structured report with:\n1. Executive Summary (2-3 sentences)\n2. Key Metrics Dashboard (table format)\n3. Trend Analysis (with specific data points)\n4. Anomalies and Alerts\n5. Recommendations (prioritized)\nFormat data points as tables for easy visualization.",
+        "tools": ["memory_remember"]
+      }
+    ],
+    "policy": {
+      "max_iterations": 8,
+      "timeout_ms": 180000,
+      "max_tokens": 6000
+    }
+  }
+}

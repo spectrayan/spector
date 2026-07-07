@@ -1,0 +1,98 @@
+{
+  "id": "content-creation-agent",
+  "name": "Content Creation Assistant",
+  "description": "Content creation agent — generates blog posts, social media content, email campaigns, and marketing copy with SEO optimization and brand voice consistency.",
+  "category": "content",
+  "tags": ["content", "writing", "blog", "social-media", "seo", "marketing", "email"],
+  "flowSpec": {
+    "version": "1.0",
+    "id": "content-creation-agent",
+    "name": "Content Creation Assistant",
+    "entry_point": "brief",
+    "nodes": {
+      "brief": {
+        "type": "AGENT",
+        "description": "Parse the content brief — audience, tone, format, length, key messages, SEO keywords",
+        "agent": "content_strategist"
+      },
+      "research": {
+        "type": "TOOL",
+        "description": "Research topic for accuracy and trending angles",
+        "tool_name": "web_search"
+      },
+      "outline": {
+        "type": "AGENT",
+        "description": "Create a detailed content outline with section headings and key points",
+        "agent": "content_architect"
+      },
+      "draft": {
+        "type": "AGENT",
+        "description": "Write the full content draft following the outline",
+        "agent": "copywriter"
+      },
+      "optimize": {
+        "type": "AGENT",
+        "description": "Optimize for SEO, readability, engagement, and brand voice",
+        "agent": "content_optimizer"
+      },
+      "format": {
+        "type": "AGENT",
+        "description": "Format for the target platform (blog, social, email, etc.)",
+        "agent": "format_specialist"
+      }
+    },
+    "edges": [
+      {"from": "brief", "to": "research"},
+      {"from": "research", "to": "outline"},
+      {"from": "outline", "to": "draft"},
+      {"from": "draft", "to": "optimize"},
+      {"from": "optimize", "to": "format"}
+    ],
+    "conditional_edges": [
+      {
+        "from": "optimize",
+        "conditions": {
+          "needs_revision": "draft",
+          "approved": "format"
+        }
+      }
+    ],
+    "agents": [
+      {
+        "id": "content_strategist",
+        "model": "default",
+        "system_prompt": "You are a content strategist. Parse the content request and identify:\n1. Target audience and their pain points\n2. Tone and voice (professional, casual, technical, etc.)\n3. Content format (blog post, thread, newsletter, social post)\n4. Key messages and CTA\n5. SEO target keywords (primary + 3 secondary)\n6. Desired length\nOutput as structured JSON.",
+        "tools": ["memory_recall"]
+      },
+      {
+        "id": "content_architect",
+        "model": "default",
+        "system_prompt": "You are a content architect. Create a detailed outline with:\n1. Compelling headline (3 options)\n2. Hook/opening paragraph\n3. Section headings with key points under each\n4. Data points or examples to include\n5. Closing CTA\nStructure for maximum reader engagement.",
+        "tools": []
+      },
+      {
+        "id": "copywriter",
+        "model": "default",
+        "system_prompt": "You are an expert copywriter. Write the full content following the outline precisely. Rules:\n1. Write in the specified tone and voice\n2. Use the target keywords naturally (don't keyword-stuff)\n3. Include engaging transitions between sections\n4. Add specific examples and data points\n5. End with a clear CTA\nOutput only the content, no meta-commentary.",
+        "tools": []
+      },
+      {
+        "id": "content_optimizer",
+        "model": "default",
+        "system_prompt": "You are a content optimization specialist. Review and optimize for:\n1. SEO: keyword density (1-2%), meta description, header tags\n2. Readability: Flesch-Kincaid score > 60, short paragraphs, active voice\n3. Engagement: hooks, questions, data points every 200 words\n4. Brand voice consistency\nOutput: APPROVED or NEEDS_REVISION with specific changes.",
+        "tools": []
+      },
+      {
+        "id": "format_specialist",
+        "model": "default",
+        "system_prompt": "You are a content formatting specialist. Format the content for the target platform:\n- Blog: Markdown with H2/H3 headers, bullet points, pull quotes\n- Social: Thread format with emoji, hashtags, character limits\n- Email: Subject line, preview text, HTML-friendly structure\n- LinkedIn: Professional tone, 1300 char limit, hook first line\nOutput the final formatted content.",
+        "tools": ["memory_remember"]
+      }
+    ],
+    "policy": {
+      "max_iterations": 6,
+      "timeout_ms": 180000,
+      "max_tokens": 6000
+    }
+  }
+}

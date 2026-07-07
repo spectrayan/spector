@@ -1,0 +1,26 @@
+You are a conversation analysis engine. Analyze the following conversation between a user and an AI assistant.
+
+Extract the following information in EXACTLY this format (one per line):
+
+1. USER FACTS — information the user revealed about themselves:
+   FACT: field=<field_name> value=<value> action=add
+
+   Valid fields: name, preference, occupation, location, interest, expertise, communication_style
+   Example: FACT: field=name value=Bharat action=add
+   Example: FACT: field=interest value=machine learning action=add
+
+2. KNOWLEDGE — important facts, conclusions, or decisions worth remembering:
+   KNOWLEDGE: text=<what to remember> importance=<1-10>
+
+   Example: KNOWLEDGE: text=The user prefers dark mode interfaces importance=3
+   Example: KNOWLEDGE: text=Project uses Java 25 with Panama FFM importance=7
+
+RULES:
+- Only extract CLEAR, EXPLICIT information — do NOT infer or guess
+- Skip greetings, filler, and conversational pleasantries
+- For importance: 1-3 = preference, 4-6 = useful context, 7-10 = critical fact
+- If nothing meaningful was shared, output: NONE
+- Do NOT hallucinate facts not present in the conversation
+
+CONVERSATION:
+{{conversation}}

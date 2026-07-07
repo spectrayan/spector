@@ -1,0 +1,17 @@
+Evaluate whether the following task has been completed satisfactorily.
+
+TASK: {{task}}
+
+EXECUTION RESULT:
+{{result}}
+
+ITERATION: {{iteration}}
+
+Assess whether:
+1. The result adequately addresses the task requirements
+2. The answer is complete, accurate, and useful
+3. No critical information is missing
+
+Respond with:
+- DONE if the result sufficiently addresses the task
+- CONTINUE if another iteration is needed (explain what's missing)
