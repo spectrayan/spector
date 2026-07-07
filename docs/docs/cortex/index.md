@@ -62,7 +62,7 @@ The new Cortex — a fully-featured chat interface powered by [Spector Synapse](
 ### 🎥 Neural Graph in Action
 
 <video controls width="100%" poster="spector-cortex-graph.png">
-  <source src="spector-cortex-neural-graph.mp4" type="video/mp4">
+  <source src="https://github.com/spectrayan/spector/releases/download/assets-v1/spector-cortex-neural-graph.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
