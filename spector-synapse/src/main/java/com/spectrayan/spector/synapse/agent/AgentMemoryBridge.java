@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.synapse.bridge.MemoryBridge;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,14 +44,14 @@ public final class AgentMemoryBridge {
 
     private static final Logger log = LoggerFactory.getLogger(AgentMemoryBridge.class);
 
-    private final SpectorMemory memory;
+    private final MemoryBridge memoryBridge;
 
-    public AgentMemoryBridge(SpectorMemory memory) {
-        if (memory == null) {
-            throw new IllegalArgumentException("SpectorMemory backend cannot be null");
-        }
-        this.memory = memory;
+    public AgentMemoryBridge(MemoryBridge memoryBridge) {
+        this.memoryBridge = memoryBridge;
     }
+
+    /** Get the underlying memory engine (may be null if bridge is in stub mode). */
+    private SpectorMemory memory() { return memoryBridge.engine(); }
 
     /**
      * Stores a thought into WORKING memory (volatile scratchpad for the active step)
@@ -61,7 +62,7 @@ public final class AgentMemoryBridge {
         String sessionTag = "session_" + sessionId;
 
         // WORKING Memory: Active scratchpad
-        CompletableFuture<String> workFut = memory.remember(
+        CompletableFuture<String> workFut = memory().remember(
                 content,
                 MemoryType.WORKING,
                 MemorySource.INFERRED,
@@ -69,7 +70,7 @@ public final class AgentMemoryBridge {
         );
 
         // EPISODIC Memory: Temporal logs
-        CompletableFuture<String> epiFut = memory.remember(
+        CompletableFuture<String> epiFut = memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
@@ -87,7 +88,7 @@ public final class AgentMemoryBridge {
                 action.toolName(), action.arguments());
         String sessionTag = "session_" + sessionId;
 
-        return memory.remember(
+        return memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
@@ -102,7 +103,7 @@ public final class AgentMemoryBridge {
         String content = "Observation: " + observation.result();
         String sessionTag = "session_" + sessionId;
 
-        return memory.remember(
+        return memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
@@ -118,7 +119,7 @@ public final class AgentMemoryBridge {
         String sessionTag = "session_" + sessionId;
         log.info("[MemoryBridge] Consolidating permanent semantic fact for session {}: '{}'", sessionId, fact);
 
-        return memory.remember(
+        return memory().remember(
                 fact,
                 MemoryType.SEMANTIC,
                 MemorySource.INFERRED,
@@ -131,7 +132,7 @@ public final class AgentMemoryBridge {
      */
     public CompletableFuture<Void> saveToolDefinition(AgentTool tool) {
         String content = String.format("Tool '%s' schema: %s", tool.name(), tool.description());
-        return memory.remember(
+        return memory().remember(
                 content,
                 MemoryType.PROCEDURAL,
                 MemorySource.PROCEDURAL,
@@ -150,7 +151,7 @@ public final class AgentMemoryBridge {
                 .minImportance(0.0f)
                 .build();
 
-        return memory.recall("session_log " + sessionTag, options);
+        return memory().recall("session_log " + sessionTag, options);
     }
 
     /**
@@ -162,13 +163,13 @@ public final class AgentMemoryBridge {
                 .minImportance(2.0f)
                 .build();
 
-        return memory.recall(topic, options);
+        return memory().recall(topic, options);
     }
 
     /**
      * Exposes the underlying SpectorMemory instance.
      */
-    public SpectorMemory memory() {
-        return memory;
+    public SpectorMemory engine() {
+        return memory();
     }
 }

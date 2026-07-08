@@ -1,0 +1,32 @@
+<div class="simd-container">
+  <!-- Register Grid Canvas -->
+  <div class="canvas-wrapper">
+    <canvas #simdCanvas></canvas>
+  </div>
+
+  <!-- Stats Bar -->
+  @if (state.simdState(); as simd) {
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-label">Kernel</span>
+        <span class="stat-value cortex-mono kernel-badge">{{ simd.kernelName }}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Lane Width</span>
+        <span class="stat-value cortex-mono">{{ simd.laneWidth }}F</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Vectors</span>
+        <span class="stat-value cortex-mono">{{ simd.vectorsProcessed | number }}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Duration</span>
+        <span class="stat-value cortex-mono">{{ simd.durationMicros | number }}µs</span>
+      </div>
+    </div>
+  } @else {
+    <div class="stats-bar placeholder">
+      <span class="stat-label">Awaiting SIMD events...</span>
+    </div>
+  }
+</div>

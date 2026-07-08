@@ -90,12 +90,16 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- ── Spring Boot 4 + Armeria integration ── -->
+        <!-- Armeria disabled: Jackson 2/3 TreeCodec classpath conflict with Spring Boot 4.
+             Armeria 1.40 BeanPostProcessor reflects on Jackson types causing
+             MalformedParameterizedTypeException. Using plain Tomcat until Armeria
+             releases Jackson 3 compatible version.
         <dependency>
             <groupId>com.linecorp.armeria</groupId>
             <artifactId>armeria-spring-boot3-starter</artifactId>
             <version>${armeria.version}</version>
         </dependency>
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -182,10 +186,20 @@
             <artifactId>spring-ai-client-chat</artifactId>
         </dependency>
 
-        <!-- ── Jackson 2.x (JSON serialization, used by Armeria) ── -->
+        <!-- ── Jackson 2.x annotations v2.21 (backward compat bridge for Jackson 3) ── -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>2.21</version>
+        </dependency>
+        <!-- ── Jackson 2.x (needed by LangChain4j, Tika, JacksonConfig ObjectMapper) ── -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <!-- ── Logging runtime ── -->
@@ -229,6 +243,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <useIncrementalCompilation>false</useIncrementalCompilation>
+                    <parameters>true</parameters>
                 </configuration>
             </plugin>
             <!-- Override: BSL 1.1 header for this module -->

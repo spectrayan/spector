@@ -1,0 +1,460 @@
+<div class="table-page">
+
+  <!-- ── Toolbar ── -->
+  <div class="table-toolbar">
+    <div class="toolbar-left">
+      <mat-icon class="toolbar-icon">table_chart</mat-icon>
+      <h2 class="toolbar-title">Memory Table</h2>
+      <span class="record-count cortex-mono">{{ table.totalCount() }}</span>
+    </div>
+
+    <!-- Persistent Toolbar Search -->
+    <div class="toolbar-middle">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="toolbar-search-field">
+        <mat-icon matPrefix>search</mat-icon>
+        <mat-label>Filter memories...</mat-label>
+        <input matInput [ngModel]="searchText()" (ngModelChange)="searchText.set($event)" placeholder="Search ID, content, tags...">
+        @if (searchText()) {
+          <button matSuffix mat-icon-button aria-label="Clear" (click)="searchText.set('')">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+    </div>
+
+    <div class="toolbar-right">
+      <!-- Toggle Advanced Filters -->
+      <button mat-icon-button
+              (click)="showAdvancedFilters.set(!showAdvancedFilters())"
+              [class.active]="showAdvancedFilters()"
+              matTooltip="Toggle Advanced Filters">
+        <mat-icon>filter_alt</mat-icon>
+      </button>
+
+      <!-- Tier Filter -->
+      <mat-form-field appearance="outline" class="tier-select" subscriptSizing="dynamic">
+        <mat-select [value]="table.tierFilter() || 'ALL'"
+                    (selectionChange)="table.setTierFilter($event.value === 'ALL' ? null : $event.value)">
+          <mat-option value="ALL">All Tiers</mat-option>
+          @for (tier of tiers; track tier) {
+            <mat-option [value]="tier">
+              <span class="tier-option-dot" [style.background]="tierColors[tier]"></span>
+              {{ tier }}
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Tombstone Toggle -->
+      <button mat-icon-button
+              (click)="table.toggleTombstoned()"
+              [class.active]="table.showTombstoned()"
+              matTooltip="Show/hide tombstoned records">
+        <mat-icon>{{ table.showTombstoned() ? 'visibility' : 'visibility_off' }}</mat-icon>
+      </button>
+
+      <!-- Reflect -->
+      <button mat-icon-button
+              (click)="onReflect()"
+              matTooltip="Trigger sleep consolidation cycle">
+        <mat-icon>bedtime</mat-icon>
+      </button>
+
+      <!-- Add Memory -->
+      <button mat-flat-button color="primary"
+              class="add-memory-btn"
+              (click)="openAddDialog()">
+        <mat-icon>add</mat-icon>
+        <span class="add-label">Add Memory</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Advanced Filters Drawer ── -->
+  @if (showAdvancedFilters()) {
+    <div class="advanced-filters-panel cortex-glass">
+      <div class="filters-grid">
+        <!-- Search In-page -->
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field search-filter">
+          <mat-label>Search inside page</mat-label>
+          <input matInput [ngModel]="searchText()" (ngModelChange)="searchText.set($event)" placeholder="Search text, tag, ID...">
+          @if (searchText()) {
+            <button matSuffix mat-icon-button aria-label="Clear" (click)="searchText.set('')" class="clear-input-btn">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+        </mat-form-field>
+
+        <!-- Tag Filter -->
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field tag-filter">
+          <mat-label>Filter by Tag</mat-label>
+          <mat-select [value]="selectedTagFilter()" (selectionChange)="selectedTagFilter.set($event.value || null)">
+            <mat-option [value]="null">All Tags</mat-option>
+            @for (tag of availableTags(); track tag) {
+              <mat-option [value]="tag">{{ tag }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Min Importance -->
+        <div class="filter-slider-container">
+          <span class="slider-label">Min Importance: <span class="cortex-mono value-text">{{ minImportance().toFixed(2) }}</span></span>
+          <mat-slider min="0" max="10" step="0.5" showTickMarks discrete>
+            <input matSliderThumb [ngModel]="minImportance()" (ngModelChange)="minImportance.set($event)">
+          </mat-slider>
+        </div>
+
+        <!-- Valence Range -->
+        <div class="filter-slider-container valence-sliders">
+          <span class="slider-label">Valence Range: <span class="cortex-mono value-text">{{ minValence() }} to {{ maxValence() }}</span></span>
+          <div class="sliders-row">
+            <mat-slider min="-128" max="127" step="4">
+              <input matSliderThumb [ngModel]="minValence()" (ngModelChange)="minValence.set($event)" matTooltip="Min Valence">
+            </mat-slider>
+            <mat-slider min="-128" max="127" step="4">
+              <input matSliderThumb [ngModel]="maxValence()" (ngModelChange)="maxValence.set($event)" matTooltip="Max Valence">
+            </mat-slider>
+          </div>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="filter-date-container">
+          <span class="slider-label">Date Range:</span>
+          <div class="date-range-row">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field date-filter">
+              <mat-label>From</mat-label>
+              <input matInput [matDatepicker]="tableFromPicker"
+                     [ngModel]="filterDateFrom()" (ngModelChange)="filterDateFrom.set($event)">
+              <mat-datepicker-toggle matSuffix [for]="tableFromPicker"></mat-datepicker-toggle>
+              <mat-datepicker #tableFromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field date-filter">
+              <mat-label>To</mat-label>
+              <input matInput [matDatepicker]="tableToPicker"
+                     [ngModel]="filterDateTo()" (ngModelChange)="filterDateTo.set($event)">
+              <mat-datepicker-toggle matSuffix [for]="tableToPicker"></mat-datepicker-toggle>
+              <mat-datepicker #tableToPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+        </div>
+      </div>
+      <div class="filters-actions">
+        <button mat-button (click)="searchText.set(''); minImportance.set(0); minValence.set(-128); maxValence.set(127); selectedTagFilter.set(null); filterDateFrom.set(null); filterDateTo.set(null)">
+          <mat-icon>restart_alt</mat-icon> Reset Filters
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ── Loading Bar ── -->
+  @if (table.loading()) {
+    <mat-progress-bar mode="indeterminate" class="table-loader"></mat-progress-bar>
+  }
+
+  <!-- ── Tier Summary Cards ── -->
+  <div class="tier-summary">
+    @for (tier of tiers; track tier) {
+      <div class="tier-card" [style.border-left-color]="tierColors[tier]">
+        <div class="tier-card-header">
+          <span class="tier-badge" [style.background]="tierColors[tier]">{{ tier }}</span>
+          @if ((table.tombstoneRatios()[tier] ?? 0) > 0.1) {
+            <button mat-icon-button
+                    class="vacuum-btn"
+                    (click)="table.vacuum(tier)"
+                    [matTooltip]="'Vacuum ' + tier">
+              <mat-icon>cleaning_services</mat-icon>
+            </button>
+          }
+        </div>
+        <span class="tier-count cortex-mono">{{ table.tierCounts()[tier] ?? 0 }}</span>
+        <span class="tier-tombstone">💀 {{ formatRatio(table.tombstoneRatios()[tier] ?? 0) }}</span>
+      </div>
+    }
+  </div>
+
+  <!-- ── Error State ── -->
+  @if (table.error(); as error) {
+    <div class="error-banner">
+      <mat-icon>error_outline</mat-icon>
+      {{ error }}
+    </div>
+  }
+
+  <!-- ── Data Table (desktop/tablet) ── -->
+  <div class="table-wrapper desktop-only">
+    <table class="memory-table">
+      <thead>
+        <tr>
+          <th class="col-checkbox">
+            <mat-checkbox [checked]="isAllSelected()" (change)="toggleAllRows()"></mat-checkbox>
+          </th>
+          <th class="col-id">ID</th>
+          <th class="col-text">Text</th>
+          <th class="col-tier">Tier</th>
+          @for (col of sortableColumns; track col.key) {
+            <th class="col-sortable"
+                (click)="table.setSort(col.key)"
+                [class.sorted]="table.sortField() === col.key">
+              {{ col.label }}
+              @if (table.sortField() === col.key) {
+                <mat-icon class="sort-icon">
+                  {{ table.sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                </mat-icon>
+              }
+            </th>
+          }
+          <th class="col-flags">Flags</th>
+          <th class="col-tags">Tags</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of filteredRows(); track trackRow($index, row)) {
+          <tr class="table-row"
+              [class.tombstoned]="row.tombstoned"
+              [class.selected]="isRowSelected(row)"
+              [style.animation-delay]="($index * 20) + 'ms'"
+              (click)="onRowClick(row)">
+            <!-- Checkbox Selection -->
+            <td class="col-checkbox" (click)="$event.stopPropagation()">
+              <mat-checkbox [checked]="isRowSelected(row)" (change)="toggleRowSelection(row, $event)"></mat-checkbox>
+            </td>
+
+            <!-- ID -->
+            <td class="col-id">
+              <span class="id-text cortex-mono"
+                    (click)="copyId(row.id, $event)"
+                    matTooltip="Click to copy">
+                {{ row.id.length > 12 ? row.id.substring(0, 12) + '…' : row.id }}
+              </span>
+            </td>
+
+            <!-- Text -->
+            <td class="col-text">
+              @if (row.metadata?.['fileName']) {
+                <span class="source-file-badge" matTooltip="Ingested from file">
+                  <mat-icon class="source-file-icon">description</mat-icon>
+                  {{ row.metadata['fileName'] }}
+                </span>
+              }
+              <span class="text-preview" [matTooltip]="row.textPreview">
+                {{ row.textPreview }}
+              </span>
+            </td>
+
+            <!-- Tier -->
+            <td class="col-tier">
+              <span class="tier-badge-sm" [style.background]="tierColors[row.tier]">
+                {{ row.tier }}
+              </span>
+            </td>
+
+            <!-- Time -->
+            <td class="col-time cortex-mono">
+              {{ relativeTime(row.timestampMs) }}
+            </td>
+
+            <!-- Importance -->
+            <td class="col-importance">
+              <div class="importance-bar-track">
+                <div class="importance-bar"
+                     [style.width.%]="row.importance * 10"
+                     [style.background]="'linear-gradient(90deg, var(--mat-sys-primary), var(--cortex-semantic))'">
+                </div>
+              </div>
+              <span class="importance-value cortex-mono">{{ (row.importance ?? 0).toFixed(2) }}</span>
+            </td>
+
+            <!-- Valence -->
+            <td class="col-valence">
+              <span class="valence-value cortex-mono"
+                    [class.positive]="row.valence > 0"
+                    [class.negative]="row.valence < 0">
+                {{ row.valence > 0 ? '+' : '' }}{{ row.valence }}
+              </span>
+            </td>
+
+            <!-- Recall Count -->
+            <td class="col-recall cortex-mono">
+              <span class="recall-badge">{{ row.agentRecallCount }}</span>
+            </td>
+
+            <!-- Flags -->
+            <td class="col-flags">
+              @if (row.tombstoned) { <span matTooltip="Tombstoned">💀</span> }
+              @if (row.pinned) { <span matTooltip="Pinned">📌</span> }
+              @if (row.resolved) { <span matTooltip="Resolved">✅</span> }
+              @if (row.consolidated) { <span matTooltip="Consolidated">🧠</span> }
+            </td>
+
+            <!-- Tags -->
+            <td class="col-tags">
+              @for (tag of row.tags.slice(0, 5); track tag) {
+                <span class="tag-chip">{{ tag }}</span>
+              }
+              @if (row.tags.length > 5) {
+                <span class="tag-chip more-tag" [matTooltip]="row.tags.slice(5).join(', ')">+{{ row.tags.length - 5 }} more</span>
+              }
+            </td>
+
+            <!-- Actions -->
+            <td class="col-actions">
+              <div class="action-buttons">
+                <button mat-icon-button
+                        class="action-btn reinforce-btn"
+                        (click)="onReinforce(row, $event)"
+                        matTooltip="Reinforce">
+                  <mat-icon>thumb_up</mat-icon>
+                </button>
+                <button mat-icon-button
+                        class="action-btn suppress-btn"
+                        (click)="onSuppress(row, $event)"
+                        matTooltip="Suppress">
+                  <mat-icon>block</mat-icon>
+                </button>
+                <button mat-icon-button
+                        class="action-btn resolve-btn"
+                        (click)="onResolve(row, $event)"
+                        [matTooltip]="row.resolved ? 'Unresolve' : 'Resolve'">
+                  <mat-icon>{{ row.resolved ? 'undo' : 'check_circle' }}</mat-icon>
+                </button>
+                <button mat-icon-button
+                        class="action-btn forget-btn"
+                        (click)="onForget(row, $event)"
+                        matTooltip="Forget"
+                        [disabled]="row.tombstoned">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="11" class="empty-state">
+              <mat-icon>inbox</mat-icon>
+              <span>No memory records found</span>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Card List (mobile only) ── -->
+  <div class="card-list mobile-only">
+    @for (row of filteredRows(); track trackRow($index, row)) {
+      <div class="memory-card" [class.tombstoned]="row.tombstoned" [class.selected]="isRowSelected(row)"
+           (click)="onRowClick(row)">
+        <div class="card-header">
+          <span class="tier-badge-sm" [style.background]="tierColors[row.tier]">{{ row.tier }}</span>
+          <span class="id-text cortex-mono" (click)="copyId(row.id, $event)">
+            {{ row.id.length > 12 ? row.id.substring(0, 12) + '…' : row.id }}
+          </span>
+          <span class="card-time cortex-mono">{{ relativeTime(row.timestampMs) }}</span>
+        </div>
+
+        @if (row.metadata?.['fileName']) {
+          <span class="source-file-badge" matTooltip="Ingested from file">
+            <mat-icon class="source-file-icon">description</mat-icon>
+            {{ row.metadata['fileName'] }}
+          </span>
+        }
+        <p class="card-text">{{ row.textPreview }}</p>
+
+        <div class="card-importance">
+          <div class="importance-bar-track">
+            <div class="importance-bar"
+                 [style.width.%]="row.importance * 10"
+                 [style.background]="'linear-gradient(90deg, var(--mat-sys-primary), var(--cortex-semantic))'"></div>
+          </div>
+          <span class="importance-value cortex-mono">{{ (row.importance ?? 0).toFixed(2) }}</span>
+        </div>
+
+        <div class="card-meta">
+          <span class="valence-value cortex-mono"
+                [class.positive]="row.valence > 0"
+                [class.negative]="row.valence < 0">
+            ❤️ {{ row.valence > 0 ? '+' : '' }}{{ row.valence }}
+          </span>
+          <span class="recall-badge">♻️ {{ row.agentRecallCount }}</span>
+          @if (row.tombstoned) { <span>💀</span> }
+          @if (row.pinned) { <span>📌</span> }
+          @if (row.resolved) { <span>✅</span> }
+          @if (row.consolidated) { <span>🧠</span> }
+        </div>
+
+        @if (row.tags.length > 0) {
+          <div class="card-tags">
+            @for (tag of row.tags.slice(0, 5); track tag) {
+              <span class="tag-chip">{{ tag }}</span>
+            }
+            @if (row.tags.length > 5) {
+              <span class="tag-chip more-tag" [matTooltip]="row.tags.slice(5).join(', ')">+{{ row.tags.length - 5 }} more</span>
+            }
+          </div>
+        }
+
+        <div class="card-actions">
+          <button mat-icon-button class="action-btn reinforce-btn"
+                  (click)="onReinforce(row, $event)"><mat-icon>thumb_up</mat-icon></button>
+          <button mat-icon-button class="action-btn suppress-btn"
+                  (click)="onSuppress(row, $event)"><mat-icon>block</mat-icon></button>
+          <button mat-icon-button class="action-btn resolve-btn"
+                  (click)="onResolve(row, $event)"><mat-icon>{{ row.resolved ? 'undo' : 'check_circle' }}</mat-icon></button>
+          <button mat-icon-button class="action-btn forget-btn"
+                  (click)="onForget(row, $event)" [disabled]="row.tombstoned"><mat-icon>delete_outline</mat-icon></button>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state">
+        <mat-icon>inbox</mat-icon>
+        <span>No memory records found</span>
+      </div>
+    }
+  </div>
+
+  <!-- ── Mat Paginator ── -->
+  <div class="paginator-wrapper">
+    @if (filteredRows().length < table.rows().length) {
+      <div class="filtered-count-indicator">
+        <mat-icon class="filter-indicator-icon">filter_alt</mat-icon>
+        <span class="cortex-mono">{{ filteredRows().length }}</span>
+        <span class="filter-label">of {{ table.rows().length }} shown on this page</span>
+      </div>
+    }
+    <mat-paginator
+      [length]="table.totalCount()"
+      [pageIndex]="table.page()"
+      [pageSize]="table.pageSize()"
+      [pageSizeOptions]="[25, 50, 100]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+  </div>
+
+  <!-- ── Floating Batch Actions Bar ── -->
+  <div class="batch-actions-bar cortex-glass" [class.visible]="selectedRowIds().size > 0">
+    <div class="batch-info">
+      <span class="selected-count cortex-mono">{{ selectedRowIds().size }}</span>
+      <span class="selected-label">memories selected</span>
+    </div>
+    <div class="batch-actions">
+      <button mat-flat-button color="primary" (click)="bulkReinforce()" matTooltip="Reinforce selected">
+        <mat-icon>thumb_up</mat-icon>
+        Bulk Reinforce
+      </button>
+      <button mat-flat-button color="accent" (click)="bulkSuppress()" matTooltip="Suppress selected">
+        <mat-icon>block</mat-icon>
+        Bulk Suppress
+      </button>
+      <button mat-flat-button color="warn" (click)="bulkForget()" matTooltip="Forget selected">
+        <mat-icon>delete_outline</mat-icon>
+        Bulk Forget
+      </button>
+      <button mat-stroked-button (click)="clearSelection()">
+        <mat-icon>close</mat-icon>
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>

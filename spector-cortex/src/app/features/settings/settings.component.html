@@ -1,0 +1,1150 @@
+<div class="settings-page">
+
+  <!-- ── Page Header ── -->
+  <div class="settings-header">
+    <div class="header-left">
+      <mat-icon class="header-icon">tune</mat-icon>
+      <h2 class="header-title">Settings</h2>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="resetProfile()" matTooltip="Reset all to defaults">
+        <mat-icon>restart_alt</mat-icon>
+        Reset
+      </button>
+      <button mat-flat-button color="primary" (click)="saveProfile()" [disabled]="saving()">
+        <mat-icon>save</mat-icon>
+        {{ saving() ? 'Saving...' : 'Save Profile' }}
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" class="settings-loader"></mat-progress-bar>
+  }
+
+  <!-- ── Tab Group ── -->
+  <mat-tab-group animationDuration="200ms" class="settings-tabs">
+
+    <!-- ═══ Tab 1: My Profile (About + Identity + Interests) ═══ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">person</mat-icon>
+        <span>My Profile</span>
+      </ng-template>
+
+      <div class="tab-content">
+
+        <!-- ── About / Self-Reflection ── -->
+        <mat-card appearance="outlined" class="persona-card about-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="panel-icon" style="color: var(--mat-sys-primary)">auto_stories</mat-icon>
+            <mat-card-title>About Me</mat-card-title>
+            <mat-card-subtitle>
+              Tell us about yourself — this free-text reflection is embedded for self-relevance scoring
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-form-field appearance="outline" class="about-field" subscriptSizing="dynamic">
+              <mat-label>Your self-reflection</mat-label>
+              <textarea matInput [ngModel]="about()" (ngModelChange)="about.set($event)"
+                        placeholder="Write about yourself — your background, what drives you, how you think about the world. This text is semantically matched against incoming memories to boost personally relevant information."
+                        rows="5"
+                        cdkTextareaAutosize
+                        cdkAutosizeMinRows="3"
+                        cdkAutosizeMaxRows="10"></textarea>
+              <mat-hint align="end">{{ about().length }} chars</mat-hint>
+            </mat-form-field>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- ── Identity + Interests Grid ── -->
+        <div class="salience-grid">
+
+          <!-- ── Identity Card ── -->
+          <mat-card appearance="outlined" class="persona-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon" style="color: var(--mat-sys-primary)">badge</mat-icon>
+              <mat-card-title>Identity</mat-card-title>
+              <mat-card-subtitle>Biographical context for self-relevance scoring</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="persona-fields">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Occupation</mat-label>
+                  <input matInput [ngModel]="occupation()" (ngModelChange)="occupation.set($event)"
+                         placeholder="e.g. Software Engineer, Doctor, Teacher">
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Nationality</mat-label>
+                  <input matInput [ngModel]="nationality()" (ngModelChange)="nationality.set($event)"
+                         placeholder="e.g. Indian, American">
+                </mat-form-field>
+              </div>
+              <!-- Languages chips -->
+              <div class="chip-section">
+                <div class="chip-label">Languages</div>
+                <div class="chip-list">
+                  @for (lang of personaLanguages(); track $index) {
+                    <span class="persona-chip">
+                      {{ lang }}
+                      <button mat-icon-button class="chip-remove" (click)="removeChip('languages', $index)">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </span>
+                  }
+                </div>
+                <div class="chip-add">
+                  <mat-form-field appearance="outline" class="chip-input" subscriptSizing="dynamic">
+                    <input matInput [ngModel]="newLanguage()" (ngModelChange)="newLanguage.set($event)"
+                           placeholder="Add language" (keyup.enter)="addChip('languages')">
+                  </mat-form-field>
+                  <button mat-icon-button color="primary" (click)="addChip('languages')" [disabled]="!newLanguage()">
+                    <mat-icon>add</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- ── Interests Card ── -->
+          <mat-card appearance="outlined" class="profile-card interests-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon interests-icon">trending_up</mat-icon>
+              <mat-card-title>Interests</mat-card-title>
+              <mat-card-subtitle>Topics that boost memory importance via semantic matching</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="entries-list">
+                @for (entry of interests(); track $index) {
+                  <div class="entry-row">
+                    <span class="entry-level-dot" [style.background]="getLevelColor(entry.level)"></span>
+                    <span class="entry-topic">{{ entry.topic }}</span>
+                    <span class="entry-level-badge" [style.background]="getLevelColor(entry.level)">
+                      {{ entry.level }}
+                    </span>
+                    <button mat-icon-button class="entry-remove" (click)="removeInterest($index)"
+                            matTooltip="Remove">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                } @empty {
+                  <div class="empty-entries">
+                    <mat-icon>lightbulb</mat-icon>
+                    <span>No interests defined yet. Add topics that matter to you.</span>
+                  </div>
+                }
+              </div>
+              <div class="add-entry-form">
+                <mat-form-field appearance="outline" class="topic-field" subscriptSizing="dynamic">
+                  <mat-label>Topic (natural language)</mat-label>
+                  <input matInput [ngModel]="newInterestTopic()" (ngModelChange)="newInterestTopic.set($event)"
+                         placeholder="e.g. database performance"
+                         (keyup.enter)="addInterest()">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="level-field" subscriptSizing="dynamic">
+                  <mat-select [value]="newInterestLevel()" (selectionChange)="newInterestLevel.set($event.value)">
+                    @for (level of interestLevels; track level.value) {
+                      <mat-option [value]="level.value">
+                        <span class="level-option-dot" [style.background]="level.color"></span>
+                        {{ level.label }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <button mat-flat-button color="primary" class="add-btn" (click)="addInterest()"
+                        [disabled]="!newInterestTopic()">
+                  <mat-icon>add</mat-icon>
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- ── Disinterests Card ── -->
+          <mat-card appearance="outlined" class="profile-card disinterests-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon disinterests-icon">trending_down</mat-icon>
+              <mat-card-title>Disinterests</mat-card-title>
+              <mat-card-subtitle>Topics that suppress memory importance (dampeners)</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="entries-list">
+                @for (entry of disinterests(); track $index) {
+                  <div class="entry-row">
+                    <span class="entry-level-dot" [style.background]="getLevelColor(entry.level)"></span>
+                    <span class="entry-topic">{{ entry.topic }}</span>
+                    <span class="entry-level-badge" [style.background]="getLevelColor(entry.level)">
+                      {{ entry.level }}
+                    </span>
+                    <button mat-icon-button class="entry-remove" (click)="removeDisinterest($index)"
+                            matTooltip="Remove">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                } @empty {
+                  <div class="empty-entries">
+                    <mat-icon>do_not_disturb</mat-icon>
+                    <span>No disinterests defined. Add topics to suppress.</span>
+                  </div>
+                }
+              </div>
+              <div class="add-entry-form">
+                <mat-form-field appearance="outline" class="topic-field" subscriptSizing="dynamic">
+                  <mat-label>Topic to suppress</mat-label>
+                  <input matInput [ngModel]="newDisinterestTopic()" (ngModelChange)="newDisinterestTopic.set($event)"
+                         placeholder="e.g. meeting notes"
+                         (keyup.enter)="addDisinterest()">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="level-field" subscriptSizing="dynamic">
+                  <mat-select [value]="newDisinterestLevel()" (selectionChange)="newDisinterestLevel.set($event.value)">
+                    @for (level of interestLevels; track level.value) {
+                      <mat-option [value]="level.value">
+                        <span class="level-option-dot" [style.background]="level.color"></span>
+                        {{ level.label }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <button mat-flat-button color="primary" class="add-btn" (click)="addDisinterest()"
+                        [disabled]="!newDisinterestTopic()">
+                  <mat-icon>add</mat-icon>
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <!-- ── How It Works ── -->
+        <mat-card appearance="outlined" class="info-card">
+          <mat-card-content>
+            <div class="info-row">
+              <mat-icon class="info-icon">psychology</mat-icon>
+              <div>
+                <strong>How Your Profile Works:</strong> Your about text, occupation, and interests are matched
+                via <em>semantic similarity</em> (cosine distance between embeddings). Memories related to your
+                identity receive up to 15% importance boost via the self-reference effect (mPFC analog).
+                Interests boost, disinterests suppress.
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- ═══ Tab 2: Personality ═══ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">psychology</mat-icon>
+        <span>Personality</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="persona-grid">
+
+          <!-- ── Big Five Card ── -->
+          <mat-card appearance="outlined" class="persona-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon" style="color: #9b59b6">fingerprint</mat-icon>
+              <mat-card-title>Big Five (OCEAN)</mat-card-title>
+              <mat-card-subtitle>Costa & McCrae personality dimensions — modulates valence/arousal encoding</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="trait-sliders">
+                <div class="trait-slider-row">
+                  <span class="trait-label">Openness</span>
+                  <mat-slider min="0" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="bigFiveO()" (ngModelChange)="bigFiveO.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ bigFiveO() }}</span>
+                </div>
+                <div class="trait-slider-row">
+                  <span class="trait-label">Conscientiousness</span>
+                  <mat-slider min="0" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="bigFiveC()" (ngModelChange)="bigFiveC.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ bigFiveC() }}</span>
+                </div>
+                <div class="trait-slider-row">
+                  <span class="trait-label">Extraversion</span>
+                  <mat-slider min="0" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="bigFiveE()" (ngModelChange)="bigFiveE.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ bigFiveE() }}</span>
+                </div>
+                <div class="trait-slider-row">
+                  <span class="trait-label">Agreeableness</span>
+                  <mat-slider min="0" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="bigFiveA()" (ngModelChange)="bigFiveA.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ bigFiveA() }}</span>
+                </div>
+                <div class="trait-slider-row">
+                  <span class="trait-label">Neuroticism</span>
+                  <mat-slider min="0" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="bigFiveN()" (ngModelChange)="bigFiveN.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ bigFiveN() }}</span>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- ── EQ Card ── -->
+          <mat-card appearance="outlined" class="persona-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon" style="color: #e74c3c">favorite</mat-icon>
+              <mat-card-title>Emotional Intelligence</mat-card-title>
+              <mat-card-subtitle>Goleman's 5 dimensions — modulates arousal compression</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="trait-sliders">
+                <div class="trait-slider-row">
+                  <span class="trait-label">Self-Awareness</span>
+                  <mat-slider min="1" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="eqSelfAwareness()" (ngModelChange)="eqSelfAwareness.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ eqSelfAwareness() }}</span>
+                </div>
+                <div class="trait-slider-row">
+                  <span class="trait-label">Self-Regulation</span>
+                  <mat-slider min="1" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="eqSelfRegulation()" (ngModelChange)="eqSelfRegulation.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ eqSelfRegulation() }}</span>
+                </div>
+                <div class="trait-slider-row">
+                  <span class="trait-label">Motivation</span>
+                  <mat-slider min="1" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="eqMotivation()" (ngModelChange)="eqMotivation.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ eqMotivation() }}</span>
+                </div>
+                <div class="trait-slider-row">
+                  <span class="trait-label">Empathy</span>
+                  <mat-slider min="1" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="eqEmpathy()" (ngModelChange)="eqEmpathy.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ eqEmpathy() }}</span>
+                </div>
+                <div class="trait-slider-row">
+                  <span class="trait-label">Social Skills</span>
+                  <mat-slider min="1" max="100" step="1" discrete>
+                    <input matSliderThumb [ngModel]="eqSocialSkills()" (ngModelChange)="eqSocialSkills.set($event)">
+                  </mat-slider>
+                  <span class="trait-value cortex-mono">{{ eqSocialSkills() }}</span>
+                </div>
+              </div>
+
+              <mat-divider></mat-divider>
+
+              <div class="trait-selects">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Stress Response</mat-label>
+                  <mat-select [value]="stressResponse()" (selectionChange)="stressResponse.set($event.value)">
+                    @for (opt of stressResponseOptions; track opt.value) {
+                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Communication Style</mat-label>
+                  <mat-select [value]="communicationStyle()" (selectionChange)="communicationStyle.set($event.value)">
+                    @for (opt of communicationStyleOptions; track opt.value) {
+                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <mat-card appearance="outlined" class="info-card">
+          <mat-card-content>
+            <div class="info-row">
+              <mat-icon class="info-icon">info</mat-icon>
+              <div>
+                <strong>How Personality Scoring Works:</strong> High neuroticism amplifies valence extremes,
+                while high EQ compresses arousal. Stress response affects encoding quality multiplier.
+                All personality effects are capped at ±15% (guardrail L2).
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- ═══ Tab 3: Values & Culture ═══ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">public</mat-icon>
+        <span>Values & Culture</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="persona-grid">
+
+          <!-- ── Values & Aspirations ── -->
+          <mat-card appearance="outlined" class="persona-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon" style="color: #27ae60">diamond</mat-icon>
+              <mat-card-title>Values & Aspirations</mat-card-title>
+              <mat-card-subtitle>Core motivators used for self-relevance matching</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              @for (section of [
+                { key: 'values', label: 'Core Values', icon: 'diamond', placeholder: 'e.g. integrity, innovation' },
+                { key: 'fears', label: 'Fears & Concerns', icon: 'warning', placeholder: 'e.g. public speaking, failure' },
+                { key: 'aspirations', label: 'Aspirations', icon: 'rocket_launch', placeholder: 'e.g. start a company' }
+              ]; track section.key) {
+                <div class="chip-section">
+                  <div class="chip-label">
+                    <mat-icon style="font-size: 16px; width: 16px; height: 16px">{{ section.icon }}</mat-icon>
+                    {{ section.label }}
+                  </div>
+                  <div class="chip-list">
+                    @for (item of (section.key === 'values' ? personaValues() : section.key === 'fears' ? personaFears() : personaAspirations()); track $index) {
+                      <span class="persona-chip">
+                        {{ item }}
+                        <button mat-icon-button class="chip-remove" (click)="removeChip($any(section.key), $index)">
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </span>
+                    }
+                  </div>
+                  <div class="chip-add">
+                    <mat-form-field appearance="outline" class="chip-input" subscriptSizing="dynamic">
+                      <input matInput
+                             [ngModel]="section.key === 'values' ? newValue() : section.key === 'fears' ? newFear() : newAspiration()"
+                             (ngModelChange)="section.key === 'values' ? newValue.set($event) : section.key === 'fears' ? newFear.set($event) : newAspiration.set($event)"
+                             [placeholder]="section.placeholder"
+                             (keyup.enter)="addChip($any(section.key))">
+                    </mat-form-field>
+                    <button mat-icon-button color="primary" (click)="addChip($any(section.key))">
+                      <mat-icon>add</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
+
+          <!-- ── Cultural Identity ── -->
+          <mat-card appearance="outlined" class="persona-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon" style="color: #e67e22">public</mat-icon>
+              <mat-card-title>Cultural Identity</mat-card-title>
+              <mat-card-subtitle>Self-described identity — boost-only scoring (never penalizes)</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="persona-fields">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Ethnicity</mat-label>
+                  <input matInput [ngModel]="culturalEthnicity()" (ngModelChange)="culturalEthnicity.set($event)"
+                         placeholder="Self-described (free text)">
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Race</mat-label>
+                  <input matInput [ngModel]="culturalRace()" (ngModelChange)="culturalRace.set($event)"
+                         placeholder="Self-described (free text)">
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Religion / Spiritual Practice</mat-label>
+                  <input matInput [ngModel]="culturalReligion()" (ngModelChange)="culturalReligion.set($event)"
+                         placeholder="Self-described (free text)">
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Cultural Heritage</mat-label>
+                  <input matInput [ngModel]="culturalHeritage()" (ngModelChange)="culturalHeritage.set($event)"
+                         placeholder="e.g. South Indian, Irish-American">
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Primary Culture</mat-label>
+                  <input matInput [ngModel]="culturalPrimaryCulture()" (ngModelChange)="culturalPrimaryCulture.set($event)"
+                         placeholder="e.g. Tamil, Yoruba, Japanese">
+                </mat-form-field>
+              </div>
+              <div class="cultural-privacy-note">
+                <mat-icon>shield</mat-icon>
+                <span>
+                  Cultural identity uses <strong>boost-only</strong> scoring (L4 guardrail).
+                  Similarity to your culture can only <em>increase</em> memory importance — it can never decrease or penalize it.
+                  All fields are free-text and self-described.
+                </span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ═══ Tab 4: Scoring ═══ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">science</mat-icon>
+        <span>Scoring</span>
+      </ng-template>
+
+      <div class="tab-content">
+
+        <!-- ── ICNU Weights ── -->
+        <mat-card appearance="outlined" class="icnu-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="panel-icon">tune</mat-icon>
+            <mat-card-title>ICNU Fusion Weights</mat-card-title>
+            <mat-card-subtitle>
+              Controls how the four recall signals are blended.
+              Sum should equal 1.0. Current sum:
+              <span class="icnu-sum" [class.warn]="icnuSum() !== 1">{{ icnuSum() }}</span>
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="icnu-grid">
+              <div class="icnu-slider-group">
+                <div class="icnu-label">
+                  <span class="icnu-letter" style="color: #e74c3c">I</span>
+                  <span class="icnu-name">Interest</span>
+                  <span class="icnu-value cortex-mono">{{ icnuI().toFixed(2) }}</span>
+                </div>
+                <mat-slider min="0" max="1" step="0.05" discrete>
+                  <input matSliderThumb [ngModel]="icnuI()" (ngModelChange)="icnuI.set($event)">
+                </mat-slider>
+                <span class="icnu-desc">How relevant this memory is to the agent's task</span>
+              </div>
+              <div class="icnu-slider-group">
+                <div class="icnu-label">
+                  <span class="icnu-letter" style="color: #f39c12">C</span>
+                  <span class="icnu-name">Challenge</span>
+                  <span class="icnu-value cortex-mono">{{ icnuC().toFixed(2) }}</span>
+                </div>
+                <mat-slider min="0" max="1" step="0.05" discrete>
+                  <input matSliderThumb [ngModel]="icnuC()" (ngModelChange)="icnuC.set($event)">
+                </mat-slider>
+                <span class="icnu-desc">Complexity or difficulty of the problem</span>
+              </div>
+              <div class="icnu-slider-group">
+                <div class="icnu-label">
+                  <span class="icnu-letter" style="color: #27ae60">N</span>
+                  <span class="icnu-name">Novelty</span>
+                  <span class="icnu-value cortex-mono">{{ icnuN().toFixed(2) }}</span>
+                </div>
+                <mat-slider min="0" max="1" step="0.05" discrete>
+                  <input matSliderThumb [ngModel]="icnuN()" (ngModelChange)="icnuN.set($event)">
+                </mat-slider>
+                <span class="icnu-desc">Freshness — how recently created (computed by SurpriseDetector)</span>
+              </div>
+              <div class="icnu-slider-group">
+                <div class="icnu-label">
+                  <span class="icnu-letter" style="color: #3498db">U</span>
+                  <span class="icnu-name">Urgency</span>
+                  <span class="icnu-value cortex-mono">{{ icnuU().toFixed(2) }}</span>
+                </div>
+                <mat-slider min="0" max="1" step="0.05" discrete>
+                  <input matSliderThumb [ngModel]="icnuU()" (ngModelChange)="icnuU.set($event)">
+                </mat-slider>
+                <span class="icnu-desc">Time-critical priority flags</span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- ── Scoring Parameters ── -->
+        <div class="scoring-grid">
+          <mat-card appearance="outlined" class="scoring-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon">speed</mat-icon>
+              <mat-card-title>Dual Surprise Weights</mat-card-title>
+              <mat-card-subtitle>Balance spatial novelty vs temporal recurrence</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="scoring-slider-group">
+                <div class="scoring-label">
+                  <span>α (Spatial)</span>
+                  <span class="cortex-mono">{{ alpha().toFixed(2) }}</span>
+                </div>
+                <mat-slider min="0" max="1" step="0.05" discrete>
+                  <input matSliderThumb [ngModel]="alpha()" (ngModelChange)="alpha.set($event)">
+                </mat-slider>
+                <span class="scoring-desc">How much weight goes to embedding distance novelty</span>
+              </div>
+              <mat-divider></mat-divider>
+              <div class="scoring-slider-group">
+                <div class="scoring-label">
+                  <span>β (Temporal)</span>
+                  <span class="cortex-mono">{{ beta().toFixed(2) }}</span>
+                </div>
+                <mat-slider min="0" max="1" step="0.05" discrete>
+                  <input matSliderThumb [ngModel]="beta()" (ngModelChange)="beta.set($event)">
+                </mat-slider>
+                <span class="scoring-desc">How much weight goes to recurrence-gap novelty</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card appearance="outlined" class="scoring-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon">flash_on</mat-icon>
+              <mat-card-title>Flashbulb Memory</mat-card-title>
+              <mat-card-subtitle>z-score threshold for pinning extreme outliers</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="scoring-slider-group">
+                <div class="scoring-label">
+                  <span>Threshold</span>
+                  <span class="cortex-mono">{{ flashbulbThreshold().toFixed(1) }}</span>
+                </div>
+                <mat-slider min="1.5" max="5.0" step="0.1" discrete>
+                  <input matSliderThumb [ngModel]="flashbulbThreshold()" (ngModelChange)="flashbulbThreshold.set($event)">
+                </mat-slider>
+                <span class="scoring-desc">
+                  Lower = more memories pinned at max importance. Default: 3.0
+                </span>
+              </div>
+              <mat-divider></mat-divider>
+              <div class="rescore-section">
+                <div class="rescore-info">
+                  <mat-icon>sync</mat-icon>
+                  <span>
+                    After changing settings, re-score existing memories to apply the new profile.
+                    This runs in the background.
+                  </span>
+                </div>
+                <button mat-flat-button color="accent" (click)="triggerRescore()" [disabled]="rescoring()">
+                  <mat-icon>{{ rescoring() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
+                  {{ rescoring() ? 'Re-scoring...' : 'Re-score All Memories' }}
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ═══ Tab 5: AI Configuration (User Overrides) ═══ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">psychology</mat-icon>
+        <span>AI Configuration</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <mat-card appearance="outlined" class="info-card" style="margin-bottom: 16px">
+          <mat-card-content>
+            <div class="info-row">
+              <mat-icon class="info-icon">info</mat-icon>
+              <div>
+                <strong>Your AI Configuration:</strong> Override the default LLM provider, embedding model,
+                ingestion chunk sizes, and RAG parameters for your account. Values you don't override
+                inherit from system defaults.
+                Each field shows its current source:
+                <span style="color: #7f8c8d">🔒 System</span> |
+                <span style="color: #27ae60">👤 User</span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        @if (aiConfigLoading()) {
+          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        } @else {
+
+          <!-- LLM Provider -->
+          <mat-card appearance="outlined" class="persona-card" style="margin-bottom: 16px">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon" style="color: #6366f1">psychology</mat-icon>
+              <mat-card-title>LLM Provider</mat-card-title>
+              <mat-card-subtitle>Text generation model and parameters</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="persona-fields">
+                @for (field of aiConfigFields()['llm_provider'] || []; track field.key) {
+                  <div class="ai-config-field">
+                    <div class="ai-field-header">
+                      <span class="ai-field-key">{{ field.key }}</span>
+                      <span class="ai-source-badge" [style.background-color]="aiSourceColors[field.source]">
+                        {{ aiSourceLabels[field.source] }}
+                      </span>
+                    </div>
+                    @if (field.key === 'api-key') {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                        <mat-label>{{ field.key }}</mat-label>
+                        <input matInput type="password" [ngModel]="field.editValue"
+                               (ngModelChange)="onAiFieldChange('llm_provider', field.key, $event)"
+                               placeholder="Enter your API key" autocomplete="off">
+                        <mat-hint>Encrypted at rest</mat-hint>
+                      </mat-form-field>
+                    } @else if (field.key === 'provider') {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                        <mat-label>Provider</mat-label>
+                        <mat-select [ngModel]="field.editValue"
+                                    (ngModelChange)="onAiFieldChange('llm_provider', field.key, $event)">
+                          @for (p of aiProviders(); track p.name) {
+                            @if (p.supportsGeneration) {
+                              <mat-option [value]="p.name">{{ p.displayName || p.name }}</mat-option>
+                            }
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    } @else {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                        <mat-label>{{ field.key }}</mat-label>
+                        <input matInput [ngModel]="field.editValue"
+                               (ngModelChange)="onAiFieldChange('llm_provider', field.key, $event)">
+                        <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                      </mat-form-field>
+                    }
+                  </div>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- Ingestion -->
+          <mat-card appearance="outlined" class="persona-card" style="margin-bottom: 16px">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon" style="color: #27ae60">upload_file</mat-icon>
+              <mat-card-title>Ingestion</mat-card-title>
+              <mat-card-subtitle>Document chunking and processing parameters</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="persona-fields">
+                @for (field of aiConfigFields()['ingestion'] || []; track field.key) {
+                  <div class="ai-config-field">
+                    <div class="ai-field-header">
+                      <span class="ai-field-key">{{ field.key }}</span>
+                      <span class="ai-source-badge" [style.background-color]="aiSourceColors[field.source]">
+                        {{ aiSourceLabels[field.source] }}
+                      </span>
+                    </div>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                      <mat-label>{{ field.key }}</mat-label>
+                      <input matInput [type]="field.type === 'integer' ? 'number' : 'text'"
+                             [ngModel]="field.editValue"
+                             (ngModelChange)="onAiFieldChange('ingestion', field.key, $event)">
+                      <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                    </mat-form-field>
+                  </div>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- RAG -->
+          <mat-card appearance="outlined" class="persona-card" style="margin-bottom: 16px">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon" style="color: #f39c12">search</mat-icon>
+              <mat-card-title>RAG Settings</mat-card-title>
+              <mat-card-subtitle>Retrieval-Augmented Generation parameters</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="persona-fields">
+                @for (field of aiConfigFields()['rag'] || []; track field.key) {
+                  <div class="ai-config-field">
+                    <div class="ai-field-header">
+                      <span class="ai-field-key">{{ field.key }}</span>
+                      <span class="ai-source-badge" [style.background-color]="aiSourceColors[field.source]">
+                        {{ aiSourceLabels[field.source] }}
+                      </span>
+                    </div>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ai-field-input">
+                      <mat-label>{{ field.key }}</mat-label>
+                      <input matInput [type]="field.type === 'number' ? 'number' : 'text'"
+                             [ngModel]="field.editValue"
+                             (ngModelChange)="onAiFieldChange('rag', field.key, $event)">
+                      <mat-hint>Default: {{ field.defaultValue }}</mat-hint>
+                    </mat-form-field>
+                  </div>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- Save / Reset Actions -->
+          <div class="ai-config-actions">
+            <button mat-flat-button color="primary" (click)="saveAiConfig()"
+                    [disabled]="aiConfigSaving() || !aiConfigDirty()"
+                    id="btn-save-ai-config">
+              <mat-icon>save</mat-icon>
+              {{ aiConfigSaving() ? 'Saving...' : 'Save My AI Settings' }}
+            </button>
+            <button mat-stroked-button (click)="resetAiConfig()" id="btn-reset-ai-config">
+              <mat-icon>restart_alt</mat-icon>
+              Reset to Defaults
+            </button>
+          </div>
+        }
+      </div>
+    </mat-tab>
+
+    <!-- ═══ Tab 6: Privacy & Security ═══ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">shield</mat-icon>
+        <span>Privacy &amp; Security</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="settings-grid single-column">
+
+          <!-- Selective Data Wipe Card -->
+          <mat-card appearance="outlined" class="danger-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon danger-icon">delete_sweep</mat-icon>
+              <mat-card-title>Selective Data Wipe</mat-card-title>
+              <mat-card-subtitle>Permanently delete selected data categories — this cannot be undone</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="wipe-categories">
+                <div class="wipe-category">
+                  <mat-checkbox [ngModel]="wipeMemories()" (ngModelChange)="wipeMemories.set($event)">
+                    <mat-icon class="category-icon">psychology</mat-icon>
+                    <span class="category-label">Memories</span>
+                    <span class="category-desc">All memory records across all tiers (Working, Episodic, Semantic, Procedural)</span>
+                  </mat-checkbox>
+                </div>
+                <div class="wipe-category">
+                  <mat-checkbox [ngModel]="wipeEntityGraph()" (ngModelChange)="wipeEntityGraph.set($event)">
+                    <mat-icon class="category-icon">hub</mat-icon>
+                    <span class="category-label">Entity Graph</span>
+                    <span class="category-desc">Entity nodes and relationship edges extracted from memories</span>
+                  </mat-checkbox>
+                </div>
+                <div class="wipe-category">
+                  <mat-checkbox [ngModel]="wipeHebbian()" (ngModelChange)="wipeHebbian.set($event)">
+                    <mat-icon class="category-icon">electric_bolt</mat-icon>
+                    <span class="category-label">Hebbian Graph</span>
+                    <span class="category-desc">Co-activation associations between memories (LTP/LTD links)</span>
+                  </mat-checkbox>
+                </div>
+                <div class="wipe-category">
+                  <mat-checkbox [ngModel]="wipeTemporal()" (ngModelChange)="wipeTemporal.set($event)">
+                    <mat-icon class="category-icon">timeline</mat-icon>
+                    <span class="category-label">Temporal Chain</span>
+                    <span class="category-desc">Temporal sequence ordering of memory events</span>
+                  </mat-checkbox>
+                </div>
+                <div class="wipe-category">
+                  <mat-checkbox [ngModel]="wipePersona()" (ngModelChange)="wipePersona.set($event)">
+                    <mat-icon class="category-icon">person</mat-icon>
+                    <span class="category-label">Persona &amp; Salience Profile</span>
+                    <span class="category-desc">Your salience profile, interests, personality traits, and cultural context</span>
+                  </mat-checkbox>
+                </div>
+                <div class="wipe-category">
+                  <mat-checkbox [ngModel]="wipeQueryHistory()" (ngModelChange)="wipeQueryHistory.set($event)">
+                    <mat-icon class="category-icon">history</mat-icon>
+                    <span class="category-label">Query History</span>
+                    <span class="category-desc">Search and recall query history (session-level)</span>
+                  </mat-checkbox>
+                </div>
+              </div>
+
+              @if (wipeResult(); as result) {
+                <div class="wipe-result">
+                  <mat-icon>check_circle</mat-icon>
+                  <span>
+                    Wiped: <strong>{{ result.categories.join(', ') }}</strong>
+                    @if (result.memoriesDeleted > 0) {
+                      — {{ result.memoriesDeleted }} memories deleted
+                    }
+                  </span>
+                </div>
+              }
+
+              <div class="wipe-actions">
+                <button mat-flat-button color="warn" class="wipe-btn"
+                        [disabled]="!hasWipeSelection || wiping()"
+                        (click)="performWipe()">
+                  @if (wiping()) {
+                    <mat-spinner diameter="18"></mat-spinner>
+                    Wiping...
+                  } @else {
+                    <mat-icon>delete_forever</mat-icon>
+                    Wipe Selected Data
+                  }
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- Delete Account Card -->
+          <mat-card appearance="outlined" class="danger-card account-delete-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar class="panel-icon danger-icon">no_accounts</mat-icon>
+              <mat-card-title>Delete Account</mat-card-title>
+              <mat-card-subtitle>Permanently delete your account — this action is irreversible</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="delete-account-content">
+                <div class="wipe-category">
+                  <mat-checkbox [ngModel]="deleteAllDataOnAccountDelete()"
+                                (ngModelChange)="deleteAllDataOnAccountDelete.set($event)">
+                    <mat-icon class="category-icon">cleaning_services</mat-icon>
+                    <span class="category-label">Delete all associated data</span>
+                    <span class="category-desc">Also wipe all memories, graphs, and profiles before deactivating the account</span>
+                  </mat-checkbox>
+                </div>
+
+                <div class="confirm-input-row">
+                  <mat-form-field appearance="outline" class="confirm-field">
+                    <mat-label>Type DELETE to confirm</mat-label>
+                    <input matInput [ngModel]="deleteConfirmText()"
+                           (ngModelChange)="deleteConfirmText.set($event)"
+                           placeholder="DELETE" autocomplete="off">
+                  </mat-form-field>
+                </div>
+
+                <div class="wipe-actions">
+                  <button mat-flat-button color="warn" class="delete-account-btn"
+                          [disabled]="deleteConfirmText() !== 'DELETE' || deletingAccount()"
+                          (click)="deleteAccount()">
+                    @if (deletingAccount()) {
+                      <mat-spinner diameter="18"></mat-spinner>
+                      Deleting...
+                    } @else {
+                      <mat-icon>person_off</mat-icon>
+                      Delete My Account
+                    }
+                  </button>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ═══ Tab: API Keys ═══ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">key</mat-icon>
+        <span>API Keys</span>
+      </ng-template>
+
+      <div class="tab-content" (click)="apiKeys().length === 0 && !apiKeysLoading() ? loadApiKeys() : null">
+
+        <!-- ── API Key Management Card ── -->
+        <mat-card appearance="outlined" class="persona-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="panel-icon" style="color: var(--mat-sys-primary)">vpn_key</mat-icon>
+            <mat-card-title>API Keys</mat-card-title>
+            <mat-card-subtitle>
+              Manage API keys for MCP integrations (Claude Desktop, Cursor, Gemini).
+              Keys use the <code>spk_</code> prefix and work like GitHub personal access tokens.
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+
+            <div class="api-keys-actions">
+              <button mat-flat-button color="primary" (click)="openCreateKeyDialog()">
+                <mat-icon>add</mat-icon>
+                Generate New Key
+              </button>
+              <button mat-stroked-button (click)="loadApiKeys()" [disabled]="apiKeysLoading()">
+                <mat-icon>refresh</mat-icon>
+                Refresh
+              </button>
+            </div>
+
+            @if (apiKeysLoading()) {
+              <mat-progress-bar mode="indeterminate" class="settings-loader"></mat-progress-bar>
+            }
+
+            <!-- Key List -->
+            @if (apiKeys().length > 0) {
+              <div class="api-keys-table">
+                @for (key of apiKeys(); track key.id) {
+                  <div class="api-key-row" [class.expired]="key.expired">
+                    <div class="key-info">
+                      <div class="key-name">
+                        <mat-icon class="key-icon">{{ key.expired ? 'key_off' : 'key' }}</mat-icon>
+                        <span>{{ key.name }}</span>
+                        @if (key.expired) {
+                          <span class="key-badge expired-badge">Expired</span>
+                        }
+                      </div>
+                      <div class="key-meta">
+                        <span class="key-prefix">{{ key.keyPrefix }}</span>
+                        <span class="key-sep">·</span>
+                        <span>Created {{ formatDate(key.createdAt) }}</span>
+                        <span class="key-sep">·</span>
+                        <span>Expires {{ formatDate(key.expiresAt) }}</span>
+                        <span class="key-sep">·</span>
+                        <span>Last used {{ formatRelativeDate(key.lastUsedAt) }}</span>
+                      </div>
+                      <div class="key-scopes">
+                        @for (scope of key.scopes; track scope) {
+                          <span class="scope-chip">{{ scope }}</span>
+                        }
+                      </div>
+                    </div>
+                    <div class="key-actions">
+                      <button mat-icon-button color="warn"
+                              matTooltip="Revoke this key"
+                              [disabled]="revokingKeyId() === key.id"
+                              (click)="revokeApiKey(key.id)">
+                        @if (revokingKeyId() === key.id) {
+                          <mat-spinner diameter="20"></mat-spinner>
+                        } @else {
+                          <mat-icon>delete</mat-icon>
+                        }
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else if (!apiKeysLoading()) {
+              <div class="api-keys-empty">
+                <mat-icon class="empty-icon">vpn_key</mat-icon>
+                <p>No API keys yet</p>
+                <p class="empty-hint">Generate an API key to connect your MCP-compatible AI tools to Spector.</p>
+                <button mat-stroked-button (click)="loadApiKeys()">
+                  <mat-icon>refresh</mat-icon>
+                  Load Keys
+                </button>
+              </div>
+            }
+
+          </mat-card-content>
+        </mat-card>
+
+        <!-- ── MCP Configuration Help Card ── -->
+        <mat-card appearance="outlined" class="persona-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="panel-icon" style="color: var(--mat-sys-tertiary)">integration_instructions</mat-icon>
+            <mat-card-title>MCP Integration Guide</mat-card-title>
+            <mat-card-subtitle>How to connect your AI tools to Spector via MCP</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="mcp-guide">
+              <div class="guide-step">
+                <span class="step-number">1</span>
+                <div class="step-content">
+                  <strong>Generate an API key</strong> using the button above
+                </div>
+              </div>
+              <div class="guide-step">
+                <span class="step-number">2</span>
+                <div class="step-content">
+                  <strong>Add to your MCP client config</strong> (Claude Desktop, Cursor, etc.):
+                  <pre class="config-snippet">{{'{'}}"mcpServers": {{'{'}}"spector": {{'{'}}
+  "url": "http://localhost:7070/mcp",
+  "headers": {{'{'}}"Authorization": "Bearer spk_your_key_here"{{'}'}}
+{{'}'}}{{'}'}}{{'}'}}
+                  </pre>
+                </div>
+              </div>
+              <div class="guide-step">
+                <span class="step-number">3</span>
+                <div class="step-content">
+                  <strong>Start using Spector</strong> — your AI tool now has access to your cognitive memory
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+      </div>
+    </mat-tab>
+
+  </mat-tab-group>
+
+  <!-- ═══ Create API Key Dialog (Overlay) ═══ -->
+  @if (showCreateKeyDialog()) {
+    <div class="dialog-overlay" (click)="closeCreateKeyDialog()">
+      <div class="dialog-panel" (click)="$event.stopPropagation()">
+        <div class="dialog-header">
+          <mat-icon>vpn_key</mat-icon>
+          <h3>Generate New API Key</h3>
+          <button mat-icon-button (click)="closeCreateKeyDialog()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="dialog-body">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Key Name</mat-label>
+            <input matInput [ngModel]="newKeyName()" (ngModelChange)="newKeyName.set($event)"
+                   placeholder="e.g. Claude Desktop - Work" maxlength="255">
+            <mat-hint>A descriptive name to identify this key</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Expiration</mat-label>
+            <mat-select [value]="newKeyExpiryDays()" (selectionChange)="newKeyExpiryDays.set($event.value)">
+              @for (opt of expiryOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <div class="scope-section">
+            <label class="scope-label">Permissions</label>
+            <div class="scope-checkboxes">
+              @for (scope of scopeOptions; track scope.value) {
+                <mat-checkbox [checked]="newKeyScopes().includes(scope.value)"
+                              (change)="toggleScope(scope.value)">
+                  <mat-icon class="scope-icon">{{ scope.icon }}</mat-icon>
+                  {{ scope.label }}
+                </mat-checkbox>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button mat-stroked-button (click)="closeCreateKeyDialog()">Cancel</button>
+          <button mat-flat-button color="primary" (click)="createApiKey()"
+                  [disabled]="creatingKey() || !newKeyName().trim()">
+            @if (creatingKey()) {
+              <mat-spinner diameter="18"></mat-spinner>
+              Creating...
+            } @else {
+              <mat-icon>key</mat-icon>
+              Generate Key
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ═══ Created Key Reveal Dialog (Overlay) ═══ -->
+  @if (showCreatedKeyDialog()) {
+    <div class="dialog-overlay">
+      <div class="dialog-panel created-key-panel" (click)="$event.stopPropagation()">
+        <div class="dialog-header success-header">
+          <mat-icon>check_circle</mat-icon>
+          <h3>API Key Created</h3>
+        </div>
+
+        <div class="dialog-body">
+          <div class="key-warning">
+            <mat-icon>warning</mat-icon>
+            <span>Copy your key now — you won't be able to see it again!</span>
+          </div>
+
+          <div class="created-key-display">
+            <code class="key-value">{{ createdKey()?.key }}</code>
+            <button mat-icon-button (click)="copyKeyToClipboard()" matTooltip="Copy to clipboard">
+              <mat-icon>{{ keyCopied() ? 'check' : 'content_copy' }}</mat-icon>
+            </button>
+          </div>
+
+          <div class="created-key-meta">
+            <div><strong>Name:</strong> {{ createdKey()?.name }}</div>
+            <div><strong>Expires:</strong> {{ formatDate(createdKey()?.expiresAt ?? null) }}</div>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button mat-flat-button color="primary" (click)="closeCreatedKeyDialog()">
+            <mat-icon>done</mat-icon>
+            I've copied my key
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>

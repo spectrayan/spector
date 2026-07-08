@@ -45,11 +45,10 @@ export class ShellComponent {
 
   private readonly allNavItems: NavItem[] = [
     // ── Primary (cognitive agent first) ──
-    { icon: 'psychology', label: 'Chat', route: '/chat' },
+
     { icon: 'hub', label: 'Graph', route: '/graph' },
     { icon: 'search', label: 'Query', route: '/query' },
     { icon: 'auto_stories', label: 'Memories', route: '/memories' },
-    { icon: 'replay', label: 'Replay', route: '/replay' },
 
   ];
 
