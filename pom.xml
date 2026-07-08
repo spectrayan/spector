@@ -401,6 +401,13 @@
                 <version>${mockito.version}</version>
                 <scope>test</scope>
             </dependency>
+
+            <!-- JSQL parser (to parse SQL expressions safely)-->
+            <dependency>
+                <groupId>com.github.jsqlparser</groupId>
+                <artifactId>jsqlparser</artifactId>
+                <version>4.9</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
