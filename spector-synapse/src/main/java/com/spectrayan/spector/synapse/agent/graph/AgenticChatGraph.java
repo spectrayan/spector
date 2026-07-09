@@ -177,8 +177,21 @@ public class AgenticChatGraph {
 
         } catch (Exception e) {
             log.error("[AgenticChatGraph] Chat execution failed: {}", e.getMessage(), e);
-            String userMessage = "I'm sorry, I encountered an issue processing your request. Please try again.";
-            listener.onError(userMessage);
+
+            // Produce a user-actionable error when possible
+            String rootCause = extractRootCause(e);
+            String userMessage;
+            if (rootCause.contains("not found") || rootCause.contains("ModelNotFound")) {
+                userMessage = "The configured LLM model is not available. " +
+                        "Please check your Ollama installation and model name. " +
+                        "Detail: " + rootCause;
+            } else if (rootCause.contains("Connection refused") || rootCause.contains("ConnectException")) {
+                userMessage = "Cannot connect to Ollama. Please ensure Ollama is running at the configured URL.";
+            } else {
+                userMessage = "I'm sorry, I encountered an issue processing your request. Please try again.";
+            }
+
+            listener.onError(rootCause);
             return userMessage;
         }
     }
@@ -298,5 +311,24 @@ public class AgenticChatGraph {
                     .toList();
         }
         return toolRegistry.toolSpecifications();
+    }
+
+    /**
+     * Extracts the deepest root cause message from a (possibly nested) exception chain.
+     *
+     * <p>LangGraph4j wraps errors in {@code GraphRunnerException} which wraps
+     * {@code ExecutionException} which wraps the actual cause. This method
+     * unwraps to the real error message.</p>
+     */
+    private static String extractRootCause(Throwable t) {
+        Throwable cause = t;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        String message = cause.getMessage();
+        if (message == null || message.isBlank()) {
+            message = cause.getClass().getSimpleName();
+        }
+        return message;
     }
 }
