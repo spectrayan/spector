@@ -469,4 +469,76 @@ public class MemoryAccessObject {
         if (text.length() <= max) return text;
         return text.substring(0, max) + "\u2026";
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // RESCORE — recompute importance under current salience profile
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Rescores all existing memories with the current salience profile.
+     *
+     * <p>Iterates every memory in the index, computes the topic boost and
+     * self-relevance boost under the active salience profile, and updates
+     * the importance score if it changed significantly (>1% delta).</p>
+     *
+     * <p>This operation uses the admin API to access the tier router and
+     * memory index. It runs synchronously — callers should invoke from
+     * a controller thread or wrap in a virtual thread.</p>
+     *
+     * @return the number of memories whose importance was adjusted
+     */
+    public int rescoreWithCurrentProfile() {
+        if (memory == null) return 0;
+
+        var admin = memory.admin();
+        var index = admin.index();
+        var tierRouter = admin.tierRouter();
+        var profile = memory.salienceProfile();
+
+        int rescored = 0;
+        int errors = 0;
+
+        for (var entry : index.locationMap().entrySet()) {
+            try {
+                String memoryId = entry.getKey();
+                var record = memory.inspect(memoryId);
+                if (record == null || record.isTombstoned()) continue;
+
+                // Compute combined boost from topic interests + self-relevance
+                float topicBoost = 1.0f;
+                float selfBoost = 1.0f;
+
+                if (record.quantizedVector() != null && record.quantizedVector().length > 0) {
+                    // Dequantize INT8 → float for semantic matching
+                    byte[] qvec = record.quantizedVector();
+                    float[] fvec = new float[qvec.length];
+                    for (int d = 0; d < qvec.length; d++) {
+                        fvec[d] = ((qvec[d] & 0xFF) - 128) / 127.5f;
+                    }
+                    topicBoost = profile.computeTopicBoost(fvec);
+                    selfBoost = profile.computeSelfRelevanceBoost(fvec);
+                }
+
+                float combinedBoost = topicBoost * selfBoost;
+                if (Math.abs(combinedBoost - 1.0f) > 0.01f) {
+                    var loc = entry.getValue();
+                    var segment = tierRouter.segmentFor(loc.type());
+                    var layout = tierRouter.layoutFor(loc.type());
+
+                    if (segment != null && layout != null) {
+                        float oldImportance = layout.readImportance(segment, loc.offset());
+                        float newImportance = Math.clamp(oldImportance * combinedBoost, 0.05f, 10.0f);
+                        layout.writeImportance(segment, loc.offset(), newImportance);
+                        rescored++;
+                    }
+                }
+            } catch (Exception e) {
+                errors++;
+                log.debug("[MemoryAccessObject] Rescore error for {}: {}", entry.getKey(), e.getMessage());
+            }
+        }
+
+        log.info("[MemoryAccessObject] Rescore completed: {} memories rescored, {} errors", rescored, errors);
+        return rescored;
+    }
 }

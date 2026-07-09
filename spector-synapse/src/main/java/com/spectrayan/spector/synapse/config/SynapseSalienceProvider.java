@@ -14,14 +14,18 @@ package com.spectrayan.spector.synapse.config;
 
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.memory.SalienceProfileProvider;
+import com.spectrayan.spector.memory.model.InterestDomain;
+import com.spectrayan.spector.memory.model.InterestLevel;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.model.PersonalityModifiers;
 import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -129,9 +133,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
                         enriched.aspirationsEmbedding());
             }
 
-            currentProfile = SalienceProfile.builder()
-                    .persona(enriched)
-                    .build();
+            rebuildProfile(enriched, modifiers);
 
             log.info("[SynapseSalience] User persona applied — occupation={}, hasEmbeddings={}, " +
                             "selfRelevanceWeight={}, valenceAmplification={}",
@@ -145,6 +147,143 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
         } finally {
             lock.unlock();
         }
+    }
+
+    // ── Interest Management ─────────────────────────────────────────
+
+    /** Stored interests (with embeddings) — survives persona updates. */
+    private volatile List<InterestDomain> interests = List.of();
+    private volatile List<InterestDomain> disinterests = List.of();
+
+    /** Scoring weight overrides. */
+    private volatile IcnuWeights icnuOverride;
+    private volatile Float alphaOverride;
+    private volatile Float betaOverride;
+
+    /** Cached persona for rebuilds. */
+    private volatile PersonaContext cachedPersona;
+    private volatile PersonalityModifiers cachedModifiers;
+
+    /**
+     * Updates the user's topic interests (what to boost during ingestion/recall).
+     *
+     * <p>Computes embeddings for each interest's topic text, enabling semantic
+     * matching against memory embeddings during the scoring pipeline.</p>
+     *
+     * @param interestTopics   topics to boost (topic → level)
+     * @param disinterestTopics topics to suppress (topic → level)
+     */
+    public void updateInterests(List<InterestEntry> interestTopics,
+                                List<InterestEntry> disinterestTopics) {
+        lock.lock();
+        try {
+            this.interests = computeInterestEmbeddings(interestTopics);
+            this.disinterests = computeInterestEmbeddings(disinterestTopics);
+
+            rebuildProfile(cachedPersona, cachedModifiers);
+
+            log.info("[SynapseSalience] Interests updated — {} interests, {} disinterests",
+                    interests.size(), disinterests.size());
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Updates scoring weight overrides (ICNU fusion weights, alpha/beta).
+     *
+     * @param icnu  custom ICNU weights (null = system default)
+     * @param alpha similarity weight override (null = default)
+     * @param beta  importance weight override (null = default)
+     */
+    public void updateScoringWeights(IcnuWeights icnu, Float alpha, Float beta) {
+        lock.lock();
+        try {
+            this.icnuOverride = icnu;
+            this.alphaOverride = alpha;
+            this.betaOverride = beta;
+
+            rebuildProfile(cachedPersona, cachedModifiers);
+
+            log.info("[SynapseSalience] Scoring weights updated — icnu={}, alpha={}, beta={}",
+                    icnu != null, alpha, beta);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Returns a snapshot of the current salience configuration for API responses.
+     */
+    public SalienceSnapshot snapshot() {
+        return new SalienceSnapshot(
+                interests.stream().map(d -> new InterestEntry(d.topic(), d.level())).toList(),
+                disinterests.stream().map(d -> new InterestEntry(d.topic(), d.level())).toList(),
+                icnuOverride,
+                alphaOverride,
+                betaOverride,
+                cachedPersona != null && cachedPersona.isPresent(),
+                currentProfile != SalienceProfile.NEUTRAL
+        );
+    }
+
+    /**
+     * Rebuilds the effective SalienceProfile from all components.
+     * Must be called under lock.
+     */
+    private void rebuildProfile(PersonaContext persona, PersonalityModifiers modifiers) {
+        this.cachedPersona = persona;
+        this.cachedModifiers = modifiers;
+
+        var builder = SalienceProfile.builder();
+
+        // Persona context (self-relevance scoring + valence/arousal modulation)
+        if (persona != null && persona.isPresent()) {
+            // Reconstruct with modifiers if needed
+            PersonaContext effectivePersona = modifiers != null && modifiers != persona.modifiers()
+                    ? new PersonaContext(
+                            persona.about(),
+                            persona.occupation(), persona.education(),
+                            persona.nationality(), persona.languages(),
+                            persona.culturalIdentity(),
+                            persona.bigFive(), persona.emotionalIntelligence(),
+                            persona.stressResponse(),
+                            persona.values(), persona.fears(), persona.aspirations(),
+                            persona.communicationStyle(),
+                            modifiers,
+                            persona.aboutEmbedding(),
+                            persona.occupationEmbedding(),
+                            persona.educationEmbedding(),
+                            persona.valuesEmbedding(),
+                            persona.aspirationsEmbedding())
+                    : persona;
+            builder.persona(effectivePersona);
+        }
+
+        // Topic interests
+        for (InterestDomain interest : interests) {
+            builder.interest(interest);
+        }
+        for (InterestDomain disinterest : disinterests) {
+            builder.disinterest(disinterest);
+        }
+
+        // Scoring weight overrides
+        if (icnuOverride != null) builder.icnuWeights(icnuOverride);
+        if (alphaOverride != null) builder.alpha(alphaOverride);
+        if (betaOverride != null) builder.beta(betaOverride);
+
+        currentProfile = builder.build();
+    }
+
+    /**
+     * Computes embeddings for a list of interest entries.
+     */
+    private List<InterestDomain> computeInterestEmbeddings(List<InterestEntry> entries) {
+        if (entries == null || entries.isEmpty()) return List.of();
+        return entries.stream()
+                .map(e -> new InterestDomain(e.topic(), e.level(), embedText(e.topic())))
+                .toList();
     }
 
     /**
@@ -213,4 +352,28 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
         }
         return sb.toString();
     }
+
+    // ── DTOs ─────────────────────────────────────────────────────────
+
+    /**
+     * A topic interest entry from the API (without embedding).
+     *
+     * @param topic natural language description of the interest
+     * @param level the interest level (CRITICAL, HIGH, MEDIUM, LOW, IGNORE)
+     */
+    public record InterestEntry(String topic, InterestLevel level) {}
+
+    /**
+     * Read-only snapshot of current salience configuration.
+     */
+    public record SalienceSnapshot(
+            List<InterestEntry> interests,
+            List<InterestEntry> disinterests,
+            IcnuWeights icnuWeights,
+            Float alpha,
+            Float beta,
+            boolean hasPersona,
+            boolean isActive
+    ) {}
 }
+
