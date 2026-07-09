@@ -101,8 +101,9 @@ public class AgenticChatGraph {
                     : "You are a helpful AI assistant with access to tools.";
 
             // Build node actions as NodeAction (sync) and wrap to async
+            String modelName = soul.model();
             NodeAction<AgentState> agentAction =
-                    state -> agentNode(state, systemPrompt, toolSpecs);
+                    state -> agentNode(state, systemPrompt, toolSpecs, modelName);
             NodeAction<AgentState> toolAction = this::toolNode;
 
             StateGraph<AgentState> graph = new StateGraph<>(channels,
@@ -207,7 +208,8 @@ public class AgenticChatGraph {
     @SuppressWarnings("unchecked")
     private Map<String, Object> agentNode(AgentState state,
                                           String systemPrompt,
-                                          List<ToolSpecification> toolSpecs) {
+                                          List<ToolSpecification> toolSpecs,
+                                          String modelName) {
         List<ChatMessage> messages = state.<List<ChatMessage>>value(MESSAGES_KEY)
                 .orElse(List.of());
 
@@ -216,20 +218,20 @@ public class AgenticChatGraph {
         fullMessages.add(SystemMessage.from(systemPrompt));
         fullMessages.addAll(messages);
 
-        log.debug("[AgenticChatGraph] Agent node — {} messages, {} tool specs",
-                messages.size(), toolSpecs.size());
+        log.debug("[AgenticChatGraph] Agent node — {} messages, {} tool specs, using model {}",
+                messages.size(), toolSpecs.size(), modelName);
 
         // Call LLM with tool specifications
         ChatResponse response;
         if (!toolSpecs.isEmpty()) {
-            response = llmBridge.chatModel().chat(
+            response = llmBridge.chatModel(modelName).chat(
                     dev.langchain4j.model.chat.request.ChatRequest.builder()
                             .messages(fullMessages)
                             .toolSpecifications(toolSpecs)
                             .build()
             );
         } else {
-            response = llmBridge.chatModel().chat(fullMessages);
+            response = llmBridge.chatModel(modelName).chat(fullMessages);
         }
 
         AiMessage aiMessage = response.aiMessage();
