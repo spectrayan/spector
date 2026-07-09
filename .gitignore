@@ -61,6 +61,7 @@ RnD
 
 # ──────────── Test data (E2E persistence tests) ────────────
 .test-data/
+spector-data/
 
 openclaw/
 !plugins/openclaw
