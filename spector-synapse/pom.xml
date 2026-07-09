@@ -126,6 +126,13 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-embed-ollama</artifactId>
         </dependency>
+        <!-- Spring auto-configuration (spector-spring module): provides the managed
+             SpectorMemory and SpectorEngine beans with optional Micrometer metrics
+             wrapping. Eliminates manual engine construction in MemoryBridge. -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spring-ai-starter-vector-store-spector</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-commons</artifactId>

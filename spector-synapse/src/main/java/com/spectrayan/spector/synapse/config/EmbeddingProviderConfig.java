@@ -1,0 +1,50 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.synapse.config;
+
+import com.spectrayan.spector.embed.EmbeddingConfig;
+import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/**
+ * Registers the {@link EmbeddingProvider} bean for the Spector Spring auto-configuration.
+ *
+ * <p>{@code SpectorAutoConfiguration} from {@code spector-spring} requires an
+ * {@code EmbeddingProvider} bean to construct the managed {@link com.spectrayan.spector.memory.SpectorMemory}
+ * instance. This configuration satisfies that dependency using the Ollama embedding
+ * settings from {@link SynapseProperties}.</p>
+ *
+ * <p>The {@code @ConditionalOnMissingBean} guard ensures this bean is only created
+ * if the application has not registered its own provider (e.g., for testing).</p>
+ */
+@Configuration
+public class EmbeddingProviderConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(EmbeddingProviderConfig.class);
+
+    @Bean
+    @ConditionalOnMissingBean(EmbeddingProvider.class)
+    EmbeddingProvider embeddingProvider(SynapseProperties props) {
+        EmbeddingConfig config = EmbeddingConfig
+                .ollama(props.ollama().embedModel())
+                .withBaseUrl(props.ollama().baseUrl());
+        log.info("[EmbeddingProvider] Configured Ollama embedding: model={}, baseUrl={}",
+                props.ollama().embedModel(), props.ollama().baseUrl());
+        return new OllamaEmbeddingProvider(config);
+    }
+}

@@ -238,6 +238,11 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
+                <artifactId>spring-ai-starter-vector-store-spector</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-events</artifactId>
                 <version>${revision}</version>
             </dependency>
