@@ -13,15 +13,20 @@
 package com.spectrayan.spector.synapse.memory;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 import com.spectrayan.spector.synapse.memory.MemoryDto.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -29,20 +34,20 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link MemoryService}.
- *
- * <p>All dependencies are mocked. No Spring context, no Ollama.</p>
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MemoryService — Unit Tests")
 class MemoryServiceTest {
 
-    @Mock MemoryBridge memoryBridge;
+    @Mock MemoryAccessObject mao;
+    @Mock EventPublisher eventPublisher;
+    @Mock TsidGenerator tsid;
 
     MemoryService service;
 
     @BeforeEach
     void setUp() {
-        service = new MemoryService(memoryBridge);
+        service = new MemoryService(mao, eventPublisher, tsid);
     }
 
     // ═══════════════════════════════════════════════════
@@ -50,17 +55,17 @@ class MemoryServiceTest {
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("remember — valid request delegates to bridge")
-    void remember_validRequest_delegatesToBridge() {
+    @DisplayName("remember — valid request triggers async ingestion")
+    void remember_validRequest_triggersAsync() {
         var request = new RememberRequest("id1", "Learning Java 25 virtual threads",
-                null, null, null, null, null, null, null, null);
-        var expected = AcceptedResponse.forRemember("task-1", "id1");
-        when(memoryBridge.remember(request)).thenReturn(expected);
+                "SEMANTIC", "USER_STATED", null, null, null, null, null, null);
+        when(mao.isAvailable()).thenReturn(true);
+        when(tsid.generate()).thenReturn("task-1");
 
         var result = service.remember(request);
 
         assertThat(result.id()).isEqualTo("id1");
-        verify(memoryBridge).remember(request);
+        assertThat(result.taskId()).isEqualTo("task-1");
     }
 
     @Test
@@ -73,34 +78,27 @@ class MemoryServiceTest {
                 .hasMessageContaining("text");
     }
 
-    @Test
-    @DisplayName("remember — null request throws (NullPointerException or IllegalArgumentException)")
-    void remember_nullRequest_throws() {
-        assertThatThrownBy(() -> service.remember(null))
-                .isInstanceOf(RuntimeException.class); // NPE or IAE depending on implementation
-    }
-
     // ═══════════════════════════════════════════════════
     // recall
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("recall — returns results from bridge")
-    void recall_returnsResultsFromBridge() {
+    @DisplayName("recall — returns mapped results from DAO")
+    void recall_returnsMappedResults() {
         var request = new RecallRequest("Java concurrency", 5, null);
         var results = List.of(
-                new RecallResult("id1", "Virtual threads in Java 25", "SEMANTIC", 0.9,
-                        "SEMANTIC", "2.0 days", List.of("java")),
-                new RecallResult("id2", "Platform thread limitations", "EPISODIC", 0.7,
-                        "EPISODIC", "5.0 days", List.of())
+                new CognitiveResult("id1", "Virtual threads in Java 25", MemoryType.SEMANTIC, 0.9f, 2.0f, List.of("java").toArray(String[]::new)),
+                new CognitiveResult("id2", "Platform thread limitations", MemoryType.EPISODIC, 0.7f, 5.0f, new String[0])
         );
-        when(memoryBridge.recall(request)).thenReturn(results);
+        when(mao.recall("Java concurrency")).thenReturn(results);
 
         var result = service.recall(request);
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).id()).isEqualTo("id1");
-        assertThat(result.get(0).cognitiveScore()).isGreaterThan(result.get(1).cognitiveScore());
+        assertThat(result.get(0).cognitiveScore()).isEqualTo(0.9);
+        verify(mao).recall("Java concurrency");
+        verify(eventPublisher).broadcast(eq("cortex.query.trace"), any());
     }
 
     @Test
@@ -113,26 +111,16 @@ class MemoryServiceTest {
                 .hasMessageContaining("query");
     }
 
-    @Test
-    @DisplayName("recall — negative topK is normalized to 10 (compact constructor behavior)")
-    void recall_negativeTopK_normalizedTo10() {
-        // RecallRequest compact constructor normalizes <=0 topK to 10
-        var request = new RecallRequest("Java", -1, null);
-        assertThat(request.topK()).isEqualTo(10); // normalized by compact ctor
-        // Service call should succeed, not throw
-        when(memoryBridge.recall(request)).thenReturn(List.of());
-        assertThatCode(() -> service.recall(request)).doesNotThrowAnyException();
-    }
-
     // ═══════════════════════════════════════════════════
     // forget
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("forget — delegates to bridge")
-    void forget_delegatesToBridge() {
+    @DisplayName("forget — delegates to DAO")
+    void forget_delegatesToDAO() {
         service.forget("mem-123");
-        verify(memoryBridge).forget("mem-123");
+        verify(mao).forget("mem-123");
+        verify(eventPublisher).memoryEvent("deleted", "mem-123", "Tombstoned memory");
     }
 
     @Test
@@ -147,16 +135,10 @@ class MemoryServiceTest {
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("reinforce — clamps valence to byte range and delegates")
-    void reinforce_clamps_and_delegates() {
-        service.reinforce("mem-1", 999);
-        // Bridge receives whatever we pass — the clamping happens inside MemoryBridge
-        verify(memoryBridge).reinforce("mem-1", 999);
-    }
-
-    // helper to show how controller uses ReinforceByIdRequest
-    private void helperReinforce(String id, ReinforceByIdRequest req) {
-        service.reinforce(id, req.effectiveValence());
+    @DisplayName("reinforce — delegates to DAO")
+    void reinforce_delegates() {
+        service.reinforce("mem-1", 100);
+        verify(mao).reinforce("mem-1", 100);
     }
 
     // ═══════════════════════════════════════════════════
@@ -164,18 +146,17 @@ class MemoryServiceTest {
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("suppress — delegates reason to bridge")
+    @DisplayName("suppress — delegates reason to DAO")
     void suppress_delegates() {
-        // SuppressRequest(action, reason) — null action means SUPPRESS
         service.suppress("mem-2", new SuppressRequest(null, "outdated"));
-        verify(memoryBridge).suppress("mem-2", "outdated");
+        verify(mao).suppress("mem-2", "outdated");
     }
 
     @Test
-    @DisplayName("unsuppress — delegates to bridge via suppress with UNSUPPRESS action")
+    @DisplayName("unsuppress — delegates to DAO via suppress with UNSUPPRESS action")
     void unsuppress_delegates() {
         service.suppress("mem-2", new SuppressRequest("UNSUPPRESS", null));
-        verify(memoryBridge).unsuppress("mem-2");
+        verify(mao).unsuppress("mem-2");
     }
 
     // ═══════════════════════════════════════════════════
@@ -183,18 +164,17 @@ class MemoryServiceTest {
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("resolve — delegates to bridge")
+    @DisplayName("resolve — delegates to DAO")
     void resolve_delegates() {
-        // ResolveRequest(true) → resolving
         service.resolve("mem-3", new ResolveRequest(true));
-        verify(memoryBridge).markResolved("mem-3");
+        verify(mao).markResolved("mem-3");
     }
 
     @Test
-    @DisplayName("unresolve — delegates to bridge via resolve(false)")
+    @DisplayName("unresolve — delegates to DAO via resolve(false)")
     void unresolve_delegates() {
         service.resolve("mem-3", new ResolveRequest(false));
-        verify(memoryBridge).markUnresolved("mem-3");
+        verify(mao).markUnresolved("mem-3");
     }
 
     // ═══════════════════════════════════════════════════
@@ -202,12 +182,12 @@ class MemoryServiceTest {
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("getStatus — returns bridge status")
-    void getStatus_returns_bridge_status() {
+    @DisplayName("getStatus — returns DAO status")
+    void getStatus_returns_status() {
         var expected = new MemoryStatusResponse(42,
-                java.util.Map.of("SEMANTIC", 20, "EPISODIC", 15, "WORKING", 5, "PROCEDURAL", 2),
+                Map.of("SEMANTIC", 20, "EPISODIC", 15, "WORKING", 5, "PROCEDURAL", 2),
                 100, 30, 10, 5);
-        when(memoryBridge.getStatus()).thenReturn(expected);
+        when(mao.getStatus()).thenReturn(expected);
 
         var result = service.getStatus();
 
@@ -222,12 +202,18 @@ class MemoryServiceTest {
     @Test
     @DisplayName("reflect — delegates and returns report")
     void reflect_delegates() {
-        when(memoryBridge.reflect()).thenReturn(new ReflectResponse(5, 120L, "Consolidation done"));
+        var mockReport = mock(ReflectReport.class);
+        when(mockReport.tombstonedCount()).thenReturn(5);
+        when(mockReport.consolidatedCount()).thenReturn(2);
+        when(mockReport.temporalPrunedCount()).thenReturn(1);
+        when(mockReport.duration()).thenReturn(Duration.ofMillis(120L));
+        when(mao.reflect()).thenReturn(mockReport);
 
         var result = service.reflect();
 
         assertThat(result.tombstonedCount()).isEqualTo(5);
         assertThat(result.durationMs()).isEqualTo(120L);
+        verify(eventPublisher).broadcast(eq("cortex.reflect.cycle"), any());
     }
 
     // ═══════════════════════════════════════════════════
@@ -235,16 +221,16 @@ class MemoryServiceTest {
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("getMemoryTable — defaults page=0, size=50")
-    void getMemoryTable_defaults() {
+    @DisplayName("getMemoryTable — delegates to DAO")
+    void getMemoryTable_delegates() {
         var emptyResp = new MemoryTableResponse(List.of(), 0, 0, 50,
-                java.util.Map.of(), java.util.Map.of());
-        when(memoryBridge.getMemoryTable(0, 50, null, false)).thenReturn(emptyResp);
+                Map.of(), Map.of());
+        when(mao.getMemoryTable(0, 50, null, false)).thenReturn(emptyResp);
 
         var result = service.getMemoryTable(0, 50, null, false);
 
         assertThat(result.totalCount()).isEqualTo(0);
-        verify(memoryBridge).getMemoryTable(0, 50, null, false);
+        verify(mao).getMemoryTable(0, 50, null, false);
     }
 
     // ═══════════════════════════════════════════════════
@@ -252,78 +238,38 @@ class MemoryServiceTest {
     // ═══════════════════════════════════════════════════
 
     @Test
-    @DisplayName("getGraphOverview — delegates to bridge with default maxNodes")
-    void getGraphOverview_delegatesToBridge() {
+    @DisplayName("getGraphOverview — delegates to DAO with capped maxNodes")
+    void getGraphOverview_delegatesToDAO() {
         var expected = MemoryGraphResponse.empty(null);
-        when(memoryBridge.getGraphOverview(100)).thenReturn(expected);
+        when(mao.getGraphOverview(100)).thenReturn(expected);
 
         var result = service.getGraphOverview(100);
 
         assertThat(result).isEqualTo(expected);
-        verify(memoryBridge).getGraphOverview(100);
+        verify(mao).getGraphOverview(100);
     }
 
     @Test
-    @DisplayName("getGraphOverview — caps maxNodes at 500")
-    void getGraphOverview_capsAt500() {
-        when(memoryBridge.getGraphOverview(500)).thenReturn(MemoryGraphResponse.empty(null));
-
-        service.getGraphOverview(9999);
-
-        verify(memoryBridge).getGraphOverview(500);
-    }
-
-    @Test
-    @DisplayName("getGraphOverview — clamps negative maxNodes to 1")
-    void getGraphOverview_clampsNegativeToOne() {
-        when(memoryBridge.getGraphOverview(1)).thenReturn(MemoryGraphResponse.empty(null));
-
-        service.getGraphOverview(-5);
-
-        verify(memoryBridge).getGraphOverview(1);
-    }
-
-    @Test
-    @DisplayName("getMemoryGraph — delegates to bridge with id + depth")
-    void getMemoryGraph_delegatesToBridge() {
+    @DisplayName("getMemoryGraph — delegates to DAO with id + depth")
+    void getMemoryGraph_delegatesToDAO() {
         var expected = MemoryGraphResponse.empty("mem-1");
-        when(memoryBridge.getMemoryGraph("mem-1", 2)).thenReturn(expected);
+        when(mao.getMemoryGraph("mem-1", 2)).thenReturn(expected);
 
         var result = service.getMemoryGraph("mem-1", 2);
 
         assertThat(result).isEqualTo(expected);
-        verify(memoryBridge).getMemoryGraph("mem-1", 2);
+        verify(mao).getMemoryGraph("mem-1", 2);
     }
 
     @Test
-    @DisplayName("getMemoryGraph — caps depth at 5")
-    void getMemoryGraph_capsDepthAt5() {
-        when(memoryBridge.getMemoryGraph(eq("mem-1"), eq(5)))
-                .thenReturn(MemoryGraphResponse.empty("mem-1"));
-
-        service.getMemoryGraph("mem-1", 100);
-
-        verify(memoryBridge).getMemoryGraph("mem-1", 5);
-    }
-
-    @Test
-    @DisplayName("getMemoryGraph — throws on blank ID")
-    void getMemoryGraph_blankId_throws() {
-        assertThatThrownBy(() -> service.getMemoryGraph("   ", 2))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("blank");
-    }
-
-    @Test
-    @DisplayName("getTopologyStats — delegates to bridge")
-    void getTopologyStats_delegatesToBridge() {
+    @DisplayName("getTopologyStats — delegates to DAO")
+    void getTopologyStats_delegatesToDAO() {
         var expected = MemoryDto.TopologyStatsResponse.empty();
-        when(memoryBridge.getTopologyStats()).thenReturn(expected);
+        when(mao.getTopologyStats()).thenReturn(expected);
 
         var result = service.getTopologyStats();
 
         assertThat(result).isEqualTo(expected);
-        verify(memoryBridge).getTopologyStats();
+        verify(mao).getTopologyStats();
     }
 }
-

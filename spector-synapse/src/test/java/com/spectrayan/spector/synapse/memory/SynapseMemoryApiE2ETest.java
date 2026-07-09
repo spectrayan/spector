@@ -13,7 +13,7 @@
 package com.spectrayan.spector.synapse.memory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
+import com.spectrayan.spector.synapse.memory.MemoryService;
 import com.spectrayan.spector.synapse.memory.MemoryDto.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,7 +75,7 @@ class SynapseMemoryApiE2ETest {
 
     @Autowired WebApplicationContext wac;
     @Autowired ObjectMapper mapper;
-    @Autowired MemoryBridge memoryBridge;
+    @Autowired MemoryService memoryService;
 
     MockMvc mvc;
 
@@ -95,7 +95,7 @@ class SynapseMemoryApiE2ETest {
                 || "true".equalsIgnoreCase(System.getProperty("OLLAMA_LIVE"));
         Assumptions.assumeTrue(ollamaLive,
                 "Skipping E2E API tests — set OLLAMA_LIVE=true to run");
-        Assumptions.assumeTrue(memoryBridge.isAvailable(),
+        Assumptions.assumeTrue(memoryService.isEngineAvailable(),
                 "SpectorMemory bean must be present — check Ollama is running and nomic-embed-text is pulled");
     }
 
@@ -293,7 +293,7 @@ class SynapseMemoryApiE2ETest {
         // Ingest 3 memories and forget them in bulk
         List<String> ids = new java.util.ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            var resp = memoryBridge.store(new StoreRequest(
+            var resp = memoryService.store(new StoreRequest(
                     "Bulk forget test memory " + i, List.of("bulk-test"), null, null));
             ids.add(resp.id());
         }

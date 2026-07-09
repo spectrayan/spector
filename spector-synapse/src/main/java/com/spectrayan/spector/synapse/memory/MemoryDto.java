@@ -578,5 +578,22 @@ public final class MemoryDto {
             return new TopologyStatsResponse(List.of(), List.of());
         }
     }
+
+    /**
+     * Request to update an existing memory's text and/or tags.
+     */
+    public record UpdateMemoryRequest(
+            @JsonProperty("text") String text,
+            @JsonProperty("tags") List<String> tags
+    ) {}
+
+    /**
+     * Response containing the INT8 quantized embedding vector for a memory.
+     */
+    public record MemoryVectorResponse(
+            @JsonProperty("memoryId") String memoryId,
+            @JsonProperty("dimension") int dimension,
+            @JsonProperty("values") List<Float> values
+    ) {}
 }
 

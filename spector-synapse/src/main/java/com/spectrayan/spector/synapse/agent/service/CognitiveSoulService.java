@@ -15,9 +15,9 @@ package com.spectrayan.spector.synapse.agent.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.synapse.agent.AgentSoul;
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
+import com.spectrayan.spector.synapse.memory.MemoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,18 +39,18 @@ public class CognitiveSoulService {
     private static final String TAG_AGENT_SOUL = "identity:agent";
     private static final String TAG_USER_SOUL = "identity:user";
 
-    private final MemoryBridge memoryBridge;
+    private final MemoryService memoryService;
     private final ObjectMapper mapper;
 
-    public CognitiveSoulService(MemoryBridge memoryBridge, ObjectMapper mapper) {
-        this.memoryBridge = memoryBridge;
+    public CognitiveSoulService(MemoryService memoryService, ObjectMapper mapper) {
+        this.memoryService = memoryService;
         this.mapper = mapper;
     }
 
     /** Loads an agent soul by ID (or the default if ID is null). */
     public Optional<AgentSoul> loadAgentSoul(String id) {
         String query = id != null ? "agent soul id:" + id : "default agent soul";
-        var results = memoryBridge.recall(new RecallRequest(query, 5, null));
+        var results = memoryService.recall(new RecallRequest(query, 5, null));
 
         return results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains(TAG_AGENT_SOUL))
@@ -66,7 +66,7 @@ public class CognitiveSoulService {
         forgetOldSouls(TAG_AGENT_SOUL);
 
         String json = toJson(soul);
-        memoryBridge.store(new StoreRequest(
+        memoryService.store(new StoreRequest(
                 json,
                 List.of(TAG_AGENT_SOUL, "soul:" + soul.id()),
                 null,
@@ -77,7 +77,7 @@ public class CognitiveSoulService {
 
     /** Loads the user soul (PersonaContext). */
     public Optional<PersonaContext> loadUserSoul() {
-        var results = memoryBridge.recall(new RecallRequest("user persona context", 5, null));
+        var results = memoryService.recall(new RecallRequest("user persona context", 5, null));
 
         return results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains(TAG_USER_SOUL))
@@ -92,7 +92,7 @@ public class CognitiveSoulService {
         forgetOldSouls(TAG_USER_SOUL);
 
         String json = toJson(persona);
-        memoryBridge.store(new StoreRequest(
+        memoryService.store(new StoreRequest(
                 json,
                 List.of(TAG_USER_SOUL),
                 null,
@@ -110,10 +110,10 @@ public class CognitiveSoulService {
     }
 
     private void forgetOldSouls(String tag) {
-        var results = memoryBridge.recall(new RecallRequest("identity", 10, null));
+        var results = memoryService.recall(new RecallRequest("identity", 10, null));
         results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains(tag))
-                .forEach(r -> memoryBridge.forget(r.id()));
+                .forEach(r -> memoryService.forget(r.id()));
     }
 
     private String toJson(Object obj) {

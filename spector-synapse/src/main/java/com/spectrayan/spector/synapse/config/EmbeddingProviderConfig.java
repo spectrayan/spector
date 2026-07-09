@@ -15,6 +15,7 @@ package com.spectrayan.spector.synapse.config;
 import com.spectrayan.spector.embed.EmbeddingConfig;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.memory.id.TsidGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -46,5 +47,11 @@ public class EmbeddingProviderConfig {
         log.info("[EmbeddingProvider] Configured Ollama embedding: model={}, baseUrl={}",
                 props.ollama().embedModel(), props.ollama().baseUrl());
         return new OllamaEmbeddingProvider(config);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TsidGenerator.class)
+    TsidGenerator tsidGenerator() {
+        return new TsidGenerator();
     }
 }

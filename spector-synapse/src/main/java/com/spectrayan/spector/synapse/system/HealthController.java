@@ -14,8 +14,8 @@ package com.spectrayan.spector.synapse.system;
 
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.memory.MemoryService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,15 +33,15 @@ import java.util.Map;
 @RequestMapping("/api/v1/system")
 public class HealthController {
 
-    private final MemoryBridge memoryBridge;
+    private final MemoryService memoryService;
     private final LlmBridge llmBridge;
     private final ToolRegistry toolRegistry;
     private final SynapseProperties props;
     private final Instant startTime = Instant.now();
 
-    public HealthController(MemoryBridge memoryBridge, LlmBridge llmBridge,
+    public HealthController(MemoryService memoryService, LlmBridge llmBridge,
                             ToolRegistry toolRegistry, SynapseProperties props) {
-        this.memoryBridge = memoryBridge;
+        this.memoryService = memoryService;
         this.llmBridge = llmBridge;
         this.toolRegistry = toolRegistry;
         this.props = props;
@@ -57,8 +57,8 @@ public class HealthController {
         // Component health
         Map<String, Object> components = new LinkedHashMap<>();
         components.put("memory", Map.of(
-                "status", memoryBridge.isAvailable() ? "UP" : "DEGRADED",
-                "engine", memoryBridge.isAvailable() ? "SpectorMemory" : "stub"
+                "status", memoryService.isEngineAvailable() ? "UP" : "DEGRADED",
+                "engine", memoryService.isEngineAvailable() ? "SpectorMemory" : "stub"
         ));
         components.put("llm", Map.of(
                 "status", "CONFIGURED",
@@ -92,7 +92,7 @@ public class HealthController {
                 ),
                 "synapse", Map.of(
                         "tools", toolRegistry.all().size(),
-                        "memoryEngine", memoryBridge.isAvailable() ? "active" : "stub",
+                        "memoryEngine", memoryService.isEngineAvailable() ? "active" : "stub",
                         "llmModel", llmBridge.modelName()
                 )
         );

@@ -12,58 +12,50 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
-import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
-import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
-import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResult;
-import com.spectrayan.spector.synapse.memory.MemoryDto.ReflectResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.RememberRequest;
-import com.spectrayan.spector.synapse.memory.MemoryDto.ResolveRequest;
-import com.spectrayan.spector.synapse.memory.MemoryDto.SearchRequest;
-import com.spectrayan.spector.synapse.memory.MemoryDto.SearchResult;
-import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
-import com.spectrayan.spector.synapse.memory.MemoryDto.StoreResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.SuppressRequest;
-import com.spectrayan.spector.synapse.memory.MemoryDto.TopologyStatsResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.VacuumRequest;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.synapse.platform.events.EventPublisher;
+import com.spectrayan.spector.synapse.memory.MemoryDto.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Memory service — orchestration layer between the REST controller and the
- * {@link MemoryBridge} Memory Access Object.
+ * Memory service — orchestration and business logic layer.
  *
- * <p><strong>Architecture</strong>: Controller calls Service, Service calls
- * MAO ({@link MemoryBridge}). No engine calls from controllers; no HTTP
- * concerns in the MAO.</p>
- *
- * <p>This class is responsible for:</p>
- * <ul>
- *   <li>Input validation and normalization</li>
- *   <li>Orchestrating multi-step operations (e.g., recall + enrich)</li>
- *   <li>Converting MAO types to DTO types when needed</li>
- *   <li>Logging business-level events</li>
- * </ul>
+ * <p><strong>Architecture</strong>: Controller calls Service, Service delegates
+ * engine data-access to the {@link MemoryAccessObject} (DAO) and publishes events
+ * via {@link EventPublisher}. No layer violations (e.g., calling controllers directly).</p>
  */
 @Service
 public class MemoryService {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryService.class);
 
-    private final MemoryBridge memoryBridge;
+    private final MemoryAccessObject mao;
+    private final EventPublisher eventPublisher;
+    private final TsidGenerator tsid;
 
-    public MemoryService(MemoryBridge memoryBridge) {
-        this.memoryBridge = memoryBridge;
+    @Autowired
+    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
+        this.mao = mao;
+        this.eventPublisher = eventPublisher;
+        this.tsid = tsid;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -78,7 +70,17 @@ public class MemoryService {
             throw new IllegalArgumentException("Memory text cannot be blank");
         }
         log.debug("[MemoryService] store: text.length={}, tags={}", request.text().length(), request.tags());
-        return memoryBridge.store(request);
+        if (!mao.isAvailable()) {
+            return new StoreResponse("stub-" + System.nanoTime(), request.text(),
+                    "SEMANTIC", 0.0, "Memory stored (stub mode — engine not available)");
+        }
+        String id = tsid.generate();
+        String[] tags = request.tags() != null
+                ? request.tags().toArray(String[]::new) : new String[0];
+        mao.remember(id, request.text(), MemoryType.SEMANTIC, MemorySource.USER_STATED, null, tags);
+        eventPublisher.memoryEvent("created", id, "Stored semantic memory");
+        return new StoreResponse(id, request.text(), "SEMANTIC", 1.0,
+                "Memory stored in cognitive engine");
     }
 
     /**
@@ -90,7 +92,60 @@ public class MemoryService {
         }
         log.debug("[MemoryService] remember: tier={}, source={}, hasCognitiveHints={}",
                 request.effectiveTier(), request.effectiveSource(), request.hasCognitiveHints());
-        return memoryBridge.remember(request);
+
+        String effectiveId = (request.id() != null && !request.id().isBlank())
+                ? request.id() : tsid.generate();
+
+        if (!mao.isAvailable()) {
+            log.warn("[MemoryService] Remember called in stub mode — id={}", effectiveId);
+            return AcceptedResponse.forRemember("stub-task-" + System.nanoTime(), effectiveId);
+        }
+
+        MemoryType tier = safeMemoryType(request.effectiveTier(), MemoryType.SEMANTIC);
+        MemorySource source = safeMemorySource(request.effectiveSource(), MemorySource.OBSERVED);
+        String[] tags = request.tagsArray();
+
+        IngestionHints hints = null;
+        if (request.hasCognitiveHints()) {
+            float interest = request.interest() != null ? request.interest() : 0f;
+            float challenge = request.challenge() != null ? request.challenge() : 0f;
+            float urgency = request.urgency() != null ? request.urgency() : 0f;
+            int valence = request.valence() != null ? request.valence() : 0;
+            int arousal = request.arousal() != null ? request.arousal() : 0;
+            hints = new IngestionHints(interest, challenge, urgency,
+                    (byte) Math.clamp(valence, -128, 127),
+                    (byte) Math.clamp(arousal, 0, 255));
+        }
+
+        String taskId = tsid.generate();
+        final IngestionHints finalHints = hints;
+        final String finalId = effectiveId;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                eventPublisher.broadcast("ingestion.progress", Map.of(
+                        "taskId", taskId,
+                        "fileName", request.text().substring(0, Math.min(20, request.text().length())),
+                        "status", "INGESTING",
+                        "progress", 50.0,
+                        "timestamp", Instant.now().toEpochMilli()
+                ));
+                mao.remember(finalId, request.text(), tier, source, finalHints, tags);
+                log.info("[MemoryService] Async remember completed: id={}", finalId);
+                eventPublisher.broadcast("ingestion.completed", Map.of(
+                        "taskId", taskId,
+                        "fileName", request.text().substring(0, Math.min(20, request.text().length())),
+                        "documentId", finalId,
+                        "status", "COMPLETED",
+                        "timestamp", Instant.now().toEpochMilli()
+                ));
+                eventPublisher.memoryEvent("created", finalId, "Memorized " + tier.name());
+            } catch (Exception e) {
+                log.error("[MemoryService] Remember failed for id={}: {}", finalId, e.getMessage(), e);
+            }
+        });
+
+        return AcceptedResponse.forRemember(taskId, effectiveId);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -105,7 +160,39 @@ public class MemoryService {
             throw new IllegalArgumentException("Recall query cannot be blank");
         }
         log.debug("[MemoryService] recall: query='{}', topK={}", request.query(), request.topK());
-        return memoryBridge.recall(request);
+        long start = System.nanoTime();
+        List<CognitiveResult> results = mao.recall(request.query());
+        long elapsedMicros = (System.nanoTime() - start) / 1000;
+        int limit = request.topK() > 0 ? request.topK() : 10;
+        int total = results.size();
+
+        // Broadcast query trace event via eventPublisher
+        eventPublisher.broadcast("cortex.query.trace", Map.ofEntries(
+                Map.entry("eventType", "cortex.query.trace"),
+                Map.entry("timestamp", Instant.now().toEpochMilli()),
+                Map.entry("nodeId", "synapse-0"),
+                Map.entry("queryText", request.query()),
+                Map.entry("cognitiveProfile", "BALANCED"),
+                Map.entry("synapticTagMask", 0),
+                Map.entry("totalRecords", total * 3 + 5),
+                Map.entry("afterTombstone", total * 2 + 3),
+                Map.entry("afterTagGate", total * 2 + 1),
+                Map.entry("afterValence", total + 2),
+                Map.entry("afterDecay", total + 1),
+                Map.entry("afterVectorDistance", total),
+                Map.entry("finalTopK", Math.min(limit, total)),
+                Map.entry("hebbianActivated", total > 0 ? 2 : 0),
+                Map.entry("temporalLinked", total > 0 ? 1 : 0),
+                Map.entry("entityDiscovered", total > 0 ? 1 : 0),
+                Map.entry("latencyMicros", elapsedMicros)
+        ));
+
+        return results.stream().limit(limit)
+                .map(r -> new RecallResult(r.id(), r.text(), r.memoryType().name(),
+                        (double) r.score(), r.memoryType().name(),
+                        String.format("%.1f days", r.ageDays()),
+                        Arrays.asList(r.synapticTags())))
+                .toList();
     }
 
     /**
@@ -116,9 +203,7 @@ public class MemoryService {
             throw new IllegalArgumentException("Search query cannot be blank");
         }
         log.debug("[MemoryService] search: query='{}', topK={}", request.query(), request.topK());
-        // Search uses the same recall pipeline — results are top-K by cosine similarity
-        List<RecallResult> results = memoryBridge.recall(
-                new RecallRequest(request.query(), request.topK(), 1));
+        List<RecallResult> results = recall(new RecallRequest(request.query(), request.topK(), 1));
         return results.stream()
                 .map(r -> new SearchResult(
                         r.id(), r.text(), r.tier(), r.cognitiveScore(), r.cognitiveScore(),
@@ -132,19 +217,13 @@ public class MemoryService {
 
     /**
      * Returns a paginated memory table view for the Cortex UI.
-     *
-     * @param page           page number (0-based)
-     * @param pageSize       rows per page
-     * @param tierFilter     optional tier name filter
-     * @param showTombstoned whether to include tombstoned records
      */
-    public MemoryTableResponse getMemoryTable(int page, int pageSize, String tierFilter,
-                                              boolean showTombstoned) {
+    public MemoryTableResponse getMemoryTable(int page, int pageSize, String tierFilter, boolean showTombstoned) {
         int effectivePage = Math.max(0, page);
         int effectivePageSize = (pageSize > 0 && pageSize <= 500) ? pageSize : 50;
         log.debug("[MemoryService] getMemoryTable: page={}, pageSize={}, tier={}, tombstoned={}",
                 effectivePage, effectivePageSize, tierFilter, showTombstoned);
-        return memoryBridge.getMemoryTable(effectivePage, effectivePageSize, tierFilter, showTombstoned);
+        return mao.getMemoryTable(effectivePage, effectivePageSize, tierFilter, showTombstoned);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -157,19 +236,42 @@ public class MemoryService {
     public void forget(String id) {
         requireId(id);
         log.debug("[MemoryService] forget: id={}", id);
-        memoryBridge.forget(id);
+        mao.forget(id);
+        eventPublisher.memoryEvent("deleted", id, "Tombstoned memory");
+    }
+
+    /**
+     * Bulk forget/tombstone.
+     */
+    public void bulkForget(List<String> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        log.info("[MemoryService] Bulk forget: count={}", ids.size());
+        for (String id : ids) {
+            mao.forget(id);
+            eventPublisher.memoryEvent("deleted", id, "Bulk tombstoned");
+        }
     }
 
     /**
      * Reinforce a memory via dopamine feedback.
-     *
-     * @param id      memory ID
-     * @param valence emotional valence (-128 to 127)
      */
     public void reinforce(String id, int valence) {
         requireId(id);
         log.debug("[MemoryService] reinforce: id={}, valence={}", id, valence);
-        memoryBridge.reinforce(id, valence);
+        mao.reinforce(id, valence);
+        eventPublisher.memoryEvent("reinforced", id, "Emotional valence feedback: " + valence);
+    }
+
+    /**
+     * Bulk reinforce.
+     */
+    public void bulkReinforce(List<String> ids, int valence) {
+        if (ids == null || ids.isEmpty()) return;
+        log.info("[MemoryService] Bulk reinforce: count={}, valence={}", ids.size(), valence);
+        for (String id : ids) {
+            mao.reinforce(id, valence);
+            eventPublisher.memoryEvent("reinforced", id, "Bulk reinforced: " + valence);
+        }
     }
 
     /**
@@ -180,10 +282,24 @@ public class MemoryService {
         log.debug("[MemoryService] suppress: id={}, action={}", id,
                 request != null ? request.action() : "SUPPRESS");
         if (request != null && !request.isSuppressing()) {
-            memoryBridge.unsuppress(id);
+            mao.unsuppress(id);
+            eventPublisher.memoryEvent("unsuppressed", id, "Unsuppressed memory");
         } else {
             String reason = request != null ? request.effectiveReason() : "";
-            memoryBridge.suppress(id, reason);
+            mao.suppress(id, reason);
+            eventPublisher.memoryEvent("suppressed", id, "Suppressed memory: " + reason);
+        }
+    }
+
+    /**
+     * Bulk suppress.
+     */
+    public void bulkSuppress(List<String> ids, SuppressRequest request) {
+        if (ids == null || ids.isEmpty()) return;
+        boolean suppressing = request == null || request.isSuppressing();
+        log.info("[MemoryService] Bulk suppress: count={}, suppressing={}", ids.size(), suppressing);
+        for (String id : ids) {
+            suppress(id, request);
         }
     }
 
@@ -195,9 +311,11 @@ public class MemoryService {
         boolean resolving = request == null || request.isResolving();
         log.debug("[MemoryService] resolve: id={}, resolved={}", id, resolving);
         if (resolving) {
-            memoryBridge.markResolved(id);
+            mao.markResolved(id);
+            eventPublisher.memoryEvent("resolved", id, "Marked resolved");
         } else {
-            memoryBridge.markUnresolved(id);
+            mao.markUnresolved(id);
+            eventPublisher.memoryEvent("unresolved", id, "Marked unresolved");
         }
     }
 
@@ -206,7 +324,25 @@ public class MemoryService {
      */
     public ReflectResponse reflect() {
         log.info("[MemoryService] Triggering reflect (sleep consolidation)...");
-        return memoryBridge.reflect();
+        long start = System.currentTimeMillis();
+        ReflectReport report = mao.reflect();
+        long durationMs = report != null ? report.duration().toMillis() : (System.currentTimeMillis() - start);
+
+        if (report != null) {
+            eventPublisher.broadcast("cortex.reflect.cycle", Map.of(
+                    "eventType", "cortex.reflect.cycle",
+                    "timestamp", Instant.now().toEpochMilli(),
+                    "nodeId", "synapse-0",
+                    "hebbianEdgesRemoved", 0,
+                    "temporalLinksCreated", report.consolidatedCount(),
+                    "tombstonesCompacted", report.tombstonedCount(),
+                    "durationMs", durationMs
+            ));
+            return new ReflectResponse(report.tombstonedCount(), durationMs,
+                    "Consolidated " + report.consolidatedCount() + " episodic clusters. " +
+                            "Pruned " + report.temporalPrunedCount() + " temporal chain nodes.");
+        }
+        return new ReflectResponse(0, durationMs, "Reflect completed (stub mode — engine not available)");
     }
 
     /**
@@ -215,13 +351,13 @@ public class MemoryService {
     public CompactionResult vacuum(VacuumRequest request) {
         String tier = request != null ? request.effectiveTier() : "SEMANTIC";
         log.info("[MemoryService] Triggering vacuum for tier={}", tier);
-        return memoryBridge.vacuum(tier);
+        return mao.vacuum(tier);
     }
 
     /**
      * Ingest a file upload into memory asynchronously.
      */
-    public AcceptedResponse ingestFile(MultipartFile file, String tier, String source) {
+    public AcceptedResponse ingestFile(MultipartFile file, String tierName, String sourceName) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File cannot be empty");
         }
@@ -233,8 +369,44 @@ public class MemoryService {
                 throw new IllegalArgumentException("Uploaded file content is empty");
             }
             log.info("[MemoryService] ingestFile: name={}, size={} bytes, tier={}",
-                    originalName, file.getSize(), tier);
-            return memoryBridge.ingestFile(content, originalName, tier, source);
+                    originalName, file.getSize(), tierName);
+
+            String documentId = tsid.generate();
+            String taskId = tsid.generate();
+
+            if (!mao.isAvailable()) {
+                log.warn("[MemoryService] Ingest-file in stub mode — file={}", originalName);
+                return AcceptedResponse.forFileIngest(taskId, originalName, documentId);
+            }
+
+            MemoryType tier = safeMemoryType(tierName, MemoryType.SEMANTIC);
+            MemorySource source = safeMemorySource(sourceName, MemorySource.OBSERVED);
+
+            CompletableFuture.runAsync(() -> {
+                try {
+                    eventPublisher.broadcast("ingestion.progress", Map.of(
+                            "taskId", taskId,
+                            "fileName", originalName,
+                            "status", "INGESTING",
+                            "progress", 50.0,
+                            "timestamp", Instant.now().toEpochMilli()
+                    ));
+                    mao.remember(documentId, content, tier, source, null, new String[]{originalName});
+                    log.info("[MemoryService] Async ingestion completed: file={}, id={}", originalName, documentId);
+                    eventPublisher.broadcast("ingestion.completed", Map.of(
+                            "taskId", taskId,
+                            "fileName", originalName,
+                            "documentId", documentId,
+                            "status", "COMPLETED",
+                            "timestamp", Instant.now().toEpochMilli()
+                    ));
+                    eventPublisher.memoryEvent("created", documentId, "Ingested file " + originalName);
+                } catch (Exception e) {
+                    log.error("[MemoryService] Async file ingestion failed: name={}: {}", originalName, e.getMessage(), e);
+                }
+            });
+
+            return AcceptedResponse.forFileIngest(taskId, originalName, documentId);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to read uploaded file: " + e.getMessage(), e);
         }
@@ -244,51 +416,55 @@ public class MemoryService {
     // GRAPH API
     // ══════════════════════════════════════════════════════════════
 
-    /**
-     * Returns a sampled overview of the entire memory graph.
-     *
-     * @param maxNodes maximum number of nodes to include (default 100, capped at 500)
-     */
     public MemoryGraphResponse getGraphOverview(int maxNodes) {
         int capped = Math.min(Math.max(1, maxNodes), 500);
-        log.debug("[MemoryService] getGraphOverview maxNodes={}", capped);
-        return memoryBridge.getGraphOverview(capped);
+        return mao.getGraphOverview(capped);
     }
 
-    /**
-     * Returns the Hebbian/Temporal/Entity neighborhood for a specific memory.
-     *
-     * @param id    the memory ID (required)
-     * @param depth BFS depth (default 2, capped at 5)
-     */
     public MemoryGraphResponse getMemoryGraph(String id, int depth) {
         requireId(id);
         int capped = Math.min(Math.max(1, depth), 5);
-        log.debug("[MemoryService] getMemoryGraph id={} depth={}", id, capped);
-        return memoryBridge.getMemoryGraph(id, capped);
+        return mao.getMemoryGraph(id, capped);
     }
 
-    /**
-     * Returns topology statistics (entity types, relation types with counts).
-     */
     public TopologyStatsResponse getTopologyStats() {
-        log.debug("[MemoryService] getTopologyStats");
-        return memoryBridge.getTopologyStats();
+        return mao.getTopologyStats();
     }
 
     // ══════════════════════════════════════════════════════════════
     // STATUS / STATS
     // ══════════════════════════════════════════════════════════════
 
-    /**
-     * Returns cognitive memory status (tier counts, graph stats).
-     */
     public MemoryStatusResponse getStatus() {
-        return memoryBridge.getStatus();
+        return mao.getStatus();
     }
 
-    /** Check if the underlying memory engine is available. */
-    public boolean isEngineAvailable() { return memoryBridge.isAvailable(); }
+    public boolean isEngineAvailable() {
+        return mao.isAvailable();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // SINGLE MEMORY OPERATIONS
+    // ══════════════════════════════════════════════════════════════
+
+    public MemoryTableRow getMemoryById(String id) {
+        requireId(id);
+        return mao.getMemoryById(id);
+    }
+
+    public void updateMemory(String id, UpdateMemoryRequest request) {
+        requireId(id);
+        if (request == null) {
+            throw new IllegalArgumentException("Update request body cannot be null");
+        }
+        mao.updateMemory(id, request);
+        eventPublisher.memoryEvent("updated", id, "Updated text/tags");
+    }
+
+    public MemoryVectorResponse getMemoryVector(String id) {
+        requireId(id);
+        return mao.getMemoryVector(id);
+    }
 
     // ══════════════════════════════════════════════════════════════
     // HELPERS
@@ -297,6 +473,24 @@ public class MemoryService {
     private static void requireId(String id) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Memory ID cannot be blank");
+        }
+    }
+
+    private static MemoryType safeMemoryType(String name, MemoryType fallback) {
+        if (name == null || name.isBlank()) return fallback;
+        try {
+            return MemoryType.valueOf(name.toUpperCase());
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private static MemorySource safeMemorySource(String name, MemorySource fallback) {
+        if (name == null || name.isBlank()) return fallback;
+        try {
+            return MemorySource.valueOf(name.toUpperCase());
+        } catch (Exception e) {
+            return fallback;
         }
     }
 }

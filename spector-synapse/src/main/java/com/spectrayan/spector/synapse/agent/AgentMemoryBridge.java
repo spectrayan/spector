@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
+import com.spectrayan.spector.synapse.memory.MemoryAccessObject;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,14 +44,14 @@ public final class AgentMemoryBridge {
 
     private static final Logger log = LoggerFactory.getLogger(AgentMemoryBridge.class);
 
-    private final MemoryBridge memoryBridge;
+    private final MemoryAccessObject memoryAccessObject;
 
-    public AgentMemoryBridge(MemoryBridge memoryBridge) {
-        this.memoryBridge = memoryBridge;
+    public AgentMemoryBridge(MemoryAccessObject memoryAccessObject) {
+        this.memoryAccessObject = memoryAccessObject;
     }
 
     /** Get the underlying memory engine (may be null if bridge is in stub mode). */
-    private SpectorMemory memory() { return memoryBridge.engine(); }
+    private SpectorMemory memory() { return memoryAccessObject.engine(); }
 
     /**
      * Stores a thought into WORKING memory (volatile scratchpad for the active step)

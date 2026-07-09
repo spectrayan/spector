@@ -13,7 +13,6 @@
 package com.spectrayan.spector.synapse.memory;
 
 import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
 import com.spectrayan.spector.synapse.memory.MemoryDto.*;
 import com.spectrayan.spector.test.judge.LlmAssertions;
 import com.spectrayan.spector.test.judge.LlmTestJudge;
@@ -67,7 +66,6 @@ import static org.assertj.core.api.Assertions.*;
 class SynapseMemoryIntegrationTest {
 
     @Autowired MemoryService memoryService;
-    @Autowired MemoryBridge memoryBridge;
 
     private static LlmTestJudge judge;
 
@@ -84,7 +82,7 @@ class SynapseMemoryIntegrationTest {
                 "Skipping integration tests — set OLLAMA_LIVE=true (env or -DOLLAMA_LIVE=true)");
 
         // Verify the bridge actually got a real SpectorMemory bean
-        Assumptions.assumeTrue(memoryBridge.isAvailable(),
+        Assumptions.assumeTrue(memoryService.isEngineAvailable(),
                 "SpectorMemory bean must be present — check Ollama is running and nomic-embed-text is pulled");
 
         // Initialize the LLM judge for semantic assertions (uses a fast small model)
@@ -208,7 +206,7 @@ class SynapseMemoryIntegrationTest {
     void recall_topK_respected() {
         // Store 3 more memories to ensure we have enough
         for (int i = 0; i < 3; i++) {
-            memoryBridge.store(new StoreRequest(
+            memoryService.store(new StoreRequest(
                     "Java " + i + " concurrency fact about virtual threads and structured concurrency",
                     List.of("java", "concurrency"), null, null
             ));
@@ -374,7 +372,7 @@ class SynapseMemoryIntegrationTest {
     @DisplayName("forget: tombstones a memory and reduces visible recall results")
     void forget_reducesResults() throws InterruptedException {
         // Store a very distinctive memory
-        var storeResp = memoryBridge.store(new StoreRequest(
+        var storeResp = memoryService.store(new StoreRequest(
                 "ZyxwvutsrqponmlkjihgfedcbaXYZ unique marker for forget test",
                 List.of("forget-marker"), null, null
         ));
