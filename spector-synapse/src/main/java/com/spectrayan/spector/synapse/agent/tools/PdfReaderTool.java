@@ -257,8 +257,8 @@ public class PdfReaderTool implements AgentTool {
 
     private static void appendTables(StringBuilder output, Path path,
             int startPage, int endPage) {
-        try (var extractor = new ObjectExtractor(
-                org.apache.pdfbox.pdmodel.PDDocument.load(path.toFile()))) {
+        try (var doc = org.apache.pdfbox.pdmodel.PDDocument.load(path.toFile());
+             var extractor = new ObjectExtractor(doc)) {
             var algorithm = new SpreadsheetExtractionAlgorithm();
             boolean hasTables = false;
             int tableCount = 0;
