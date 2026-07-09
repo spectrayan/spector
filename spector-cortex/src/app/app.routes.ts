@@ -22,6 +22,11 @@ export const routes: Routes = [
         title: 'Memories — Spector Cortex'
       },
       {
+        path: 'memories/:id',
+        loadComponent: () => import('./features/memory-detail/memory-detail.component').then(m => m.MemoryDetailComponent),
+        title: 'Memory Detail — Spector Cortex'
+      },
+      {
         path: 'dashboard',
         redirectTo: 'chat'
       },
