@@ -21,6 +21,7 @@ import tools.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.Map;
 
 /**
  * Complete cognitive snapshot of a single memory — the "X-ray" view.
@@ -64,6 +65,8 @@ import java.util.HexFormat;
  * @param quantizedVector    quantized INT8 vector bytes (nullable if not requested)
  * @param partitionIndex     partition where this memory is stored (-1 for non-partitioned)
  * @param byteOffset         byte offset within the tier's MemorySegment
+ * @param metadata           multimodal metadata key-value pairs (empty map for text-only, never null)
+ * @param suppressed         whether this memory is currently suppressed from recall
  *
  * @see com.spectrayan.spector.memory.SpectorMemory#inspect(String)
  */
@@ -93,7 +96,11 @@ public record CognitiveRecord(
 
         // ── Physical Location ──
         int partitionIndex,
-        long byteOffset
+        long byteOffset,
+
+        // ── Contextual State (populated by inspect/listAll) ──
+        Map<String, String> metadata,
+        boolean suppressed
 ) {
 
     // ══════════════════════════════════════════════════════════════
@@ -189,6 +196,11 @@ public record CognitiveRecord(
         node.put("multimodal", isMultimodal());
         node.put("partitionIndex", partitionIndex);
         node.put("byteOffset", byteOffset);
+        node.put("suppressed", suppressed);
+        if (metadata != null && !metadata.isEmpty()) {
+            var metaNode = node.putObject("metadata");
+            metadata.forEach(metaNode::put);
+        }
         if (quantizedVector != null) {
             node.put("quantizedVectorHex", HexFormat.of().formatHex(quantizedVector));
             node.put("vectorDimensions", quantizedVector.length);

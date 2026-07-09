@@ -41,6 +41,7 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.TextDataStore;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
@@ -181,6 +182,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
+    private final CognitiveGraphFacade graphFacade;
 
     // ── Configuration ──
     private final int dimensions;
@@ -217,7 +219,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ── Multimodal Attachment Processing ──
     private final com.spectrayan.spector.memory.pipeline.AttachmentProcessor attachmentProcessor;
 
-    private DefaultSpectorMemory(Builder builder) {
+    DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         this.dimensions = builder.dimensions;
         this.persistenceMode = builder.persistenceMode;
         this.persistencePath = builder.persistencePath;
@@ -613,6 +615,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 builder.quantizer != null ? "user-provided" : "identity-default",
                 builder.idGenerator != null ? "custom" : builder.idStrategy.name());
 
+        // ── Cognitive Graph Facade ──
+        this.graphFacade = new CognitiveGraphFacade(
+                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, index);
+
         // ── ID Generator ── (must be after logging)
         this.idGenerator = builder.idGenerator != null
                 ? builder.idGenerator
@@ -670,7 +676,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     /**
      * Rebuilds HNSW index from persisted semantic store if it has data but HNSW is empty.
      */
-    private void rebuildHnswIfNeeded(Builder builder, TierRouter tierRouter) {
+    private void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, TierRouter tierRouter) {
         var semStore = tierRouter.semantic();
         int storeSize = semStore.size();
         if (storeSize > 0 && builder.semanticIndex.size() == 0) {
@@ -1178,13 +1184,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Read extended fields that aren't in the base CognitiveHeader
         int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
 
+        // Metadata and suppression state
+        var metadata = java.util.Map.<String, String>of();
+        boolean suppressed = suppressionSet.isSuppressed(id);
+
         return new CognitiveRecord(
                 id, text, loc.type(), source, memTags,
                 header.timestampMs(), header.synapticTags(), header.exactNorm(),
                 header.importance(), header.agentRecallCount(), spectorRecallCount,
                 header.centroidId(), header.valence(), header.arousal(),
                 header.storageStrength(), header.flags(),
-                quantizedVec, loc.partitionIndex(), loc.offset());
+                quantizedVec, loc.partitionIndex(), loc.offset(),
+                metadata, suppressed);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -1221,7 +1232,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             header.centroidId(), header.valence(), header.arousal(),
                             header.storageStrength(), header.flags(),
                             null, // no vector for browse (use inspect for full detail)
-                            loc.partitionIndex(), loc.offset()));
+                            loc.partitionIndex(), loc.offset(),
+                            java.util.Map.of(), suppressionSet.isSuppressed(memId)));
                 }
             }
         }
@@ -1396,10 +1408,46 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public TierRouter tierRouter() { return partitionManager.tierRouter(); }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
-    @Override public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
-    @Override public TemporalChain temporalChain() { return temporalChain; }
-    @Override public EntityGraph entityGraph() { return entityGraph; }
-    @Override public HyperEntityGraph hyperEntityGraph() { return hyperEntityGraph; }
+    @Override public CognitiveGraphFacade graph() { return graphFacade; }
+    @SuppressWarnings("deprecation")
+    @Override public HebbianGraphBase hebbianGraph() { return graphFacade.hebbianGraph(); }
+    @SuppressWarnings("deprecation")
+    @Override public TemporalChain temporalChain() { return graphFacade.temporalChain(); }
+    @SuppressWarnings("deprecation")
+    @Override public EntityGraph entityGraph() { return graphFacade.entityGraph(); }
+    @SuppressWarnings("deprecation")
+    @Override public HyperEntityGraph hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
+
+    // ── listAll implementations ──
+
+    @Override
+    public List<CognitiveRecord> listAll() {
+        var results = new ArrayList<CognitiveRecord>();
+        for (var entry : index.locationMap().entrySet()) {
+            CognitiveRecord record = inspect(entry.getKey());
+            if (record != null && !record.isTombstoned()) {
+                results.add(record);
+            }
+        }
+        return List.copyOf(results);
+    }
+
+    @Override
+    public List<CognitiveRecord> listAll(MemoryType tier, int offset, int limit) {
+        var results = new ArrayList<CognitiveRecord>();
+        int skipped = 0;
+        for (var entry : index.locationMap().entrySet()) {
+            if (results.size() >= limit) break;
+            MemoryIndex.MemoryLocation loc = entry.getValue();
+            if (loc.type() != tier) continue;
+            CognitiveRecord record = inspect(entry.getKey());
+            if (record != null && !record.isTombstoned()) {
+                if (skipped < offset) { skipped++; continue; }
+                results.add(record);
+            }
+        }
+        return List.copyOf(results);
+    }
 
     /** Returns the namespace manager (null if IN_MEMORY mode). */
     public SpectorNamespaceManager namespaceManager() { return namespaceManager; }
@@ -1503,292 +1551,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // BUILDER
     // ══════════════════════════════════════════════════════════════
 
-    public static Builder builder() { return new Builder(); }
-
-    public static final class Builder {
-        int dimensions;
-        EmbeddingProvider embeddingProvider;
-        Path persistencePath;
-        MemoryPersistenceMode persistenceMode = MemoryPersistenceMode.DISK;
-        boolean persistWorkingMemory = false;
-        CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
-        int workingCapacity = 100;
-        int episodicPartitionCapacity = 1_000;
-        int semanticCapacity = 10_000;
-        int nodesPerPartition = 10_000;
-        int proceduralCapacity = 1_000;
-        int surpriseWarmup = 10;
-        double flashbulbThreshold = 3.0;
-        float valenceLearningRate = 0.3f;
-        float deduplicationRadius = 0.05f;
-        TextGenerationProvider textGenerationProvider;
-        ScalarQuantizer quantizer;
-        com.spectrayan.spector.index.VectorIndex semanticIndex;
-        long inhibitionTtlMs = 300_000L;
-        float inhibitionFloor = 0.1f;
-        IcnuWeights icnuWeights;
-        boolean pinSourceEpisodes = false;
-        int pinnedQuota = 10_000;
-        com.spectrayan.spector.memory.pipeline.TagExtractor tagExtractor;
-        CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
-
-        // 3-Layer Cognitive Graph configuration
-        int hebbianGraphCapacity = 0;
-        int temporalChainCapacity = 0;
-        EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
-        EntityExtractor entityExtractor;
-        int entityGraphCapacity = 50_000;
-        int maxEntitiesPerMemory = 10;
-        int maxRelationsPerMemory = 20;
-        com.spectrayan.spector.embed.GenerationOptions llmGenerationOptions;
-        GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
-        int temporalRetentionDays = 7;
-        boolean hyperEntityGraphEnabled = true;
-        com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
-                = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
-
-        // Edge importance configuration
-        com.spectrayan.spector.memory.graph.EdgeImportance edgeImportance
-                = com.spectrayan.spector.memory.graph.EdgeImportance.DEFAULT;
-        int hebbianMaxDegree = com.spectrayan.spector.memory.hebbian.HebbianGraph.DEFAULT_MAX_DEGREE;
-        int entityMaxDegree = com.spectrayan.spector.memory.graph.EntityGraph.DEFAULT_MAX_DEGREE;
-
-        // ID generation strategy
-        IdStrategy idStrategy = IdStrategy.TSID;
-        MemoryIdGenerator idGenerator;
-
-        // SPLADE + ColBERT providers
-        SparseEncodingProvider sparseEncodingProvider;
-        TokenEmbeddingProvider tokenEmbeddingProvider;
-
-        // Checkpoint daemon configuration
-        int checkpointIntervalSeconds = 30;
-
-        // Chunking for remember() — default aligned with ingestion pipeline (2500 chars, 200 overlap)
-        TextChunker chunker = new TextChunker(2500, 200);
-
-        // Embedding pipeline batch size (default: 32, matching EmbedConfig.DEFAULT)
-        int embedBatchSize = 32;
-
-        // Salience profile provider (enterprise SPI)
-        SalienceProfileProvider salienceProfileProvider;
-
-        // Data encryption SPI (NOOP in OSS — enterprise injects per-tenant encryptor)
-        DataEncryptor dataEncryptor = DataEncryptor.NOOP;
-
-        // Multimodal attachment processing
-        java.util.List<com.spectrayan.spector.ingestion.sensory.SensoryExtractor> sensoryExtractors = java.util.List.of();
-        com.spectrayan.spector.ingestion.sensory.AssetStore assetStore;
-
-        public Builder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
-        public Builder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
-        public Builder persistence(Path p) { this.persistencePath = p; return this; }
-        /** Sets the persistence mode (default: {@link MemoryPersistenceMode#DISK}). */
-        public Builder persistenceMode(MemoryPersistenceMode mode) { this.persistenceMode = mode; return this; }
-        /** If true, Working memory is also persisted to disk in DISK mode (default: false). */
-        public Builder persistWorkingMemory(boolean persist) { this.persistWorkingMemory = persist; return this; }
-        public Builder reflectPolicy(CircadianPolicy p) { this.circadianPolicy = p; return this; }
-
-        /** Sets the text chunker for remember() auto-chunking (default: TextChunker(2500, 200)). */
-        public Builder chunker(TextChunker chunker) { this.chunker = chunker; return this; }
-
-        /** Sets the embedding batch size for parallel chunk embedding (default: 32). */
-        public Builder embedBatchSize(int size) { this.embedBatchSize = size; return this; }
-
-        public Builder workingCapacity(int c) { this.workingCapacity = c; return this; }
-        public Builder episodicPartitionCapacity(int c) { this.episodicPartitionCapacity = c; return this; }
-        public Builder semanticCapacity(int c) { this.semanticCapacity = c; return this; }
-        /** Nodes per semantic partition before rolling to a new file (default: 10,000). */
-        public Builder nodesPerPartition(int n) { this.nodesPerPartition = n; return this; }
-        public Builder proceduralCapacity(int c) { this.proceduralCapacity = c; return this; }
-        public Builder surpriseWarmup(int w) { this.surpriseWarmup = w; return this; }
-        public Builder flashbulbThreshold(double t) { this.flashbulbThreshold = t; return this; }
-        public Builder valenceLearningRate(float r) { this.valenceLearningRate = r; return this; }
-        public Builder deduplicationRadius(float r) { this.deduplicationRadius = r; return this; }
-        public Builder textGenerationProvider(TextGenerationProvider p) { this.textGenerationProvider = p; return this; }
-        public Builder quantizer(ScalarQuantizer quantizer) { this.quantizer = quantizer; return this; }
-
-        /** Optional HNSW/IVF index for fused semantic recall (default: null = header-only fallback). */
-        public Builder semanticIndex(com.spectrayan.spector.index.VectorIndex idx) { this.semanticIndex = idx; return this; }
-
-
-        /** Inhibition of Return TTL in millis (default: 300_000 = 5 minutes). */
-        public Builder inhibitionTtlMs(long ms) { this.inhibitionTtlMs = ms; return this; }
-
-        /** Inhibition of Return floor multiplier (default: 0.1). */
-        public Builder inhibitionFloor(float floor) { this.inhibitionFloor = floor; return this; }
-
-        /** ICNU fusion weights for neurodivergent importance computation (default: IcnuWeights.DEFAULT). */
-        public Builder icnuWeights(IcnuWeights w) { this.icnuWeights = w; return this; }
-
-        /** Enable lossless consolidation — pin source episodes during REM sleep (default: false). */
-        public Builder pinSourceEpisodes(boolean pin) { this.pinSourceEpisodes = pin; return this; }
-
-        /** Maximum number of pinned records (default: 10,000). */
-        public Builder pinnedQuota(int quota) { this.pinnedQuota = quota; return this; }
-
-        /** Pluggable tag extraction strategy for cognitive ingestion (default: ContentTagExtractor). */
-        public Builder tagExtractor(com.spectrayan.spector.memory.pipeline.TagExtractor te) { this.tagExtractor = te; return this; }
-
-        /** Cognitive profile configuration (default: all profiles enabled). */
-        public Builder profileConfig(CognitiveProfileConfig config) { this.profileConfig = config; return this; }
-
-        // ── 3-Layer Cognitive Graph configuration ──
-
-        /** Hebbian graph capacity (default: same as episodicPartitionCapacity). */
-        public Builder hebbianGraphCapacity(int c) { this.hebbianGraphCapacity = c; return this; }
-
-        /** Temporal chain capacity (default: same as hebbianGraphCapacity). */
-        public Builder temporalChainCapacity(int c) { this.temporalChainCapacity = c; return this; }
-
-        /** Entity extraction mode (default: NONE). */
-        public Builder entityExtractionMode(EntityExtractionMode mode) { this.entityExtractionMode = mode; return this; }
-
-        /** Custom entity extractor (used when mode = CUSTOM). */
-        public Builder entityExtractor(EntityExtractor extractor) { this.entityExtractor = extractor; return this; }
-
-        /** Entity graph capacity — max entities (default: 50,000). */
-        public Builder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
-
-        /** Enable/disable the HyperEntityGraph layer (default: true). */
-        public Builder hyperEntityGraphEnabled(boolean enabled) { this.hyperEntityGraphEnabled = enabled; return this; }
-
-        /** Max entities to extract per memory (default: 10). */
-        public Builder maxEntitiesPerMemory(int c) { this.maxEntitiesPerMemory = c; return this; }
-
-        /** Max relations to extract per memory (default: 20). */
-        public Builder maxRelationsPerMemory(int c) { this.maxRelationsPerMemory = c; return this; }
-
-        /** LLM generation options for entity extraction (temperature, maxTokens, topP). */
-        public Builder llmGenerationOptions(com.spectrayan.spector.embed.GenerationOptions opts) { this.llmGenerationOptions = opts; return this; }
-
-        /** Graph scoring policy — configurable weights for cognitive graph steps (default: GraphScoringPolicy.DEFAULT). */
-        public Builder graphScoringPolicy(GraphScoringPolicy policy) { this.graphScoringPolicy = policy; return this; }
-
-        /** Temporal chain retention in days — links older than this are pruned during reflect() (default: 7). */
-        public Builder temporalRetentionDays(int days) { this.temporalRetentionDays = days; return this; }
-
-        /** Checkpoint interval in seconds (default: 30). Set to 0 to disable automatic checkpointing. */
-        public Builder checkpointIntervalSeconds(int seconds) { this.checkpointIntervalSeconds = seconds; return this; }
-
-        /** Two-Factor Memory (Bjork & Bjork) configuration (default: TwoFactorConfig.DEFAULT). */
-        public Builder twoFactorConfig(com.spectrayan.spector.memory.synapse.TwoFactorConfig config) { this.twoFactorConfig = config; return this; }
-
-        /** Edge importance scorer with configurable signal weights (default: EdgeImportance.DEFAULT). */
-        public Builder edgeImportance(com.spectrayan.spector.memory.graph.EdgeImportance importance) { this.edgeImportance = importance; return this; }
-
-        /** Maximum edges per node in the Hebbian graph (default: 24). */
-        public Builder hebbianMaxDegree(int maxDegree) { this.hebbianMaxDegree = maxDegree; return this; }
-
-        /** Maximum edges per entity in the entity graph (default: 48). */
-        public Builder entityMaxDegree(int maxDegree) { this.entityMaxDegree = maxDegree; return this; }
-
-        /**
-         * Parses a cognitive profile config from a YAML string value.
-         * Supports: "ALL", "CORE_ONLY", "WITH_NEURODIVERGENT", or comma-separated profile names.
-         * @see CognitiveProfileConfig#fromConfigValue(String)
-         */
-        public Builder cognitiveProfiles(String configValue) { this.profileConfig = CognitiveProfileConfig.fromConfigValue(configValue); return this; }
-
-        // ── ID Generation ──
-
-        /**
-         * Sets the ID generation strategy for auto-generated memory IDs.
-         *
-         * <p>Default: {@link IdStrategy#TSID} — 13-char time-sorted, distributed-safe.
-         * This is only used when {@link SpectorMemory#remember(String, MemoryType, MemorySource, String...)}
-         * is called without an explicit ID.</p>
-         *
-         * @param strategy the built-in strategy to use
-         * @return this builder
-         */
-        public Builder idStrategy(IdStrategy strategy) { this.idStrategy = strategy; return this; }
-
-        /**
-         * Sets a custom ID generator, overriding the built-in {@link #idStrategy(IdStrategy)}.
-         *
-         * <p>Use this for custom ID schemes (e.g., database-sequence-backed, ULID, etc.).
-         * The generator must be thread-safe.</p>
-         *
-         * @param generator the custom generator
-         * @return this builder
-         */
-        public Builder idGenerator(MemoryIdGenerator generator) { this.idGenerator = generator; return this; }
-
-        /**
-         * Sets the sparse encoding provider for SPLADE retrieval.
-         *
-         * <p>When provided, a {@code MemorySpladeIndex} is automatically created and wired
-         * into both the ingestion and recall pipelines, enabling SPLADE, SPLADE_HYBRID,
-         * and FULL_STACK text search modes.</p>
-         *
-         * @param provider the sparse encoding provider (e.g., OllamaSparseEncodingProvider)
-         * @return this builder
-         */
-        public Builder sparseEncodingProvider(SparseEncodingProvider provider) { this.sparseEncodingProvider = provider; return this; }
-
-        /**
-         * Sets the token embedding provider for ColBERT reranking.
-         *
-         * <p>When provided, a {@code ColBERTReranker} with a {@code ColBERTTokenCache}
-         * is automatically created and wired into the recall pipeline, enabling
-         * COLBERT_RERANK and FULL_STACK text search modes.</p>
-         *
-         * @param provider the token embedding provider (e.g., OllamaTokenEmbeddingProvider)
-         * @return this builder
-         */
-        public Builder tokenEmbeddingProvider(TokenEmbeddingProvider provider) { this.tokenEmbeddingProvider = provider; return this; }
-
-        /** Registers sensory extractors for multimodal attachment processing. */
-        public Builder sensoryExtractors(java.util.List<com.spectrayan.spector.ingestion.sensory.SensoryExtractor> extractors) {
-            this.sensoryExtractors = extractors != null ? extractors : java.util.List.of();
-            return this;
-        }
-
-        /** Sets the asset store for persisting original attachment files. */
-        public Builder assetStore(com.spectrayan.spector.ingestion.sensory.AssetStore store) {
-            this.assetStore = store;
-            return this;
-        }
-
-        /**
-         * Sets the data encryption provider for text.dat, WAL, and tag encryption.
-         *
-         * <p>Default: {@link DataEncryptor#NOOP} (no encryption, OSS mode).
-         * Enterprise callers inject a {@link DataEncryptor} implementation
-         * (e.g., {@code TenantDataEncryptor} or {@code ContextualDataEncryptor})
-         * to enable AES-256-GCM encryption of text content and WAL payloads,
-         * plus HMAC-SHA256 blind indexing for synaptic tags.</p>
-         *
-         * @param encryptor the data encryptor (null treated as NOOP)
-         * @return this builder
-         */
-        public Builder dataEncryptor(DataEncryptor encryptor) {
-            this.dataEncryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
-            return this;
-        }
-
-        /**
-         * Sets the salience profile provider for user-configurable importance scoring.
-         *
-         * <p>Enterprise callers supply a {@link TenantSalienceResolver} that merges
-         * tenant → agent → user profiles. The effective profile is applied during
-         * ingestion (ICNU weights + topic boost) and optionally at recall time
-         * (alpha/beta override).</p>
-         *
-         * @param provider the salience profile provider (null = noop/NEUTRAL)
-         * @return this builder
-         */
-        public Builder salienceProfileProvider(SalienceProfileProvider provider) {
-            this.salienceProfileProvider = provider;
-            return this;
-        }
-
-        public SpectorMemory build() {
-            if (dimensions <= 0 && embeddingProvider != null) {
-                dimensions = embeddingProvider.dimensions();
-            }
-            return new DefaultSpectorMemory(this);
-        }
-    }
+    /** Creates a new builder for configuring and assembling a SpectorMemory instance. */
+    public static SpectorMemoryBuilder builder() { return new SpectorMemoryBuilder(); }
 }

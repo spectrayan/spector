@@ -13,13 +13,10 @@
 package com.spectrayan.spector.synapse.memory;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.cortex.AbstractTierStore;
-import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
@@ -28,17 +25,18 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableRow;
 import com.spectrayan.spector.synapse.memory.MemoryDto.UpdateMemoryRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryVectorResponse;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.model.GraphNeighborhood;
+import com.spectrayan.spector.memory.model.TopologyStats;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -78,10 +76,6 @@ public class MemoryAccessObject {
 
     public boolean isAvailable() {
         return memory != null;
-    }
-
-    public SpectorMemory engine() {
-        return memory;
     }
 
     public TsidGenerator tsid() {
@@ -214,7 +208,7 @@ public class MemoryAccessObject {
     public CompactionResult vacuum(String tierName) {
         if (!isAvailable()) return new CompactionResult(tierName, 0, 0, 0, 0L, 0L);
         try {
-            MemoryType tier = safeMemoryType(tierName, MemoryType.SEMANTIC);
+            MemoryType tier = MemoryTypeParser.safeMemoryType(tierName, MemoryType.SEMANTIC);
             long start = System.currentTimeMillis();
             var result = memory.admin().vacuum(tier);
             long durationMs = System.currentTimeMillis() - start;
@@ -235,53 +229,7 @@ public class MemoryAccessObject {
         try {
             var record = memory.inspect(id);
             if (record == null) return null;
-            var admin = memory.admin();
-            var index = admin.index();
-            var store = admin.tierRouter().get(record.memoryType());
-            var layout = store.layout();
-            var loc = index.locate(id);
-            if (loc == null) return null;
-            long offset = loc.offset();
-
-            // Since readHeader is protected, we can read layout stats from memory
-            byte flags = 0; // Default flags
-            float importance = record.importance();
-            int valence = record.valence();
-            int arousal = 0;
-
-            // Optional: try to resolve header details via raw segment if available
-            try {
-                if (store instanceof AbstractTierStore ats) {
-                    long baseOffset = ats.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
-                    var header = layout.readHeader(ats.segment(), baseOffset + offset);
-                    flags = header.flags();
-                    arousal = Byte.toUnsignedInt(header.arousal());
-                }
-            } catch (Exception ignored) {}
-
-            boolean tombstoned = SynapticHeaderConstants.isTombstoned(flags);
-            boolean pinned = SynapticHeaderConstants.isPinned(flags);
-            boolean resolved = SynapticHeaderConstants.isResolved(flags);
-            boolean consolidated = SynapticHeaderConstants.isConsolidated(flags);
-
-            String[] tags = index.tags(id);
-            Map<String, String> metadata = index.metadata(id);
-            if (metadata != null && metadata.isEmpty()) metadata = null;
-
-            return new MemoryTableRow(
-                    id,
-                    record.text(),
-                    record.text(),
-                    record.memoryType().name(),
-                    index.source(id).name(),
-                    importance, valence, arousal,
-                    record.timestampMs(), 1, 1,
-                    tombstoned, false, pinned, resolved, consolidated,
-                    tags != null ? Arrays.asList(tags) : List.of(),
-                    0L,
-                    Instant.ofEpochMilli(record.timestampMs()).toString(),
-                    metadata
-            );
+            return toTableRow(record, false);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Inspect failed for id={}: {}", id, e.getMessage(), e);
             return null;
@@ -294,34 +242,18 @@ public class MemoryAccessObject {
     public MemoryVectorResponse getMemoryVector(String id) {
         if (!isAvailable()) return new MemoryVectorResponse(id, 0, List.of());
         try {
-            var admin = memory.admin();
-            var index = admin.index();
-            String tierStr = index.metadata(id).get("tier");
-            MemoryType tier = safeMemoryType(tierStr, MemoryType.SEMANTIC);
-            var store = admin.tierRouter().get(tier);
-
-            if (store instanceof AbstractTierStore ats) {
-                var loc = index.locate(id);
-                if (loc == null) return new MemoryVectorResponse(id, 0, List.of());
-                long offset = loc.offset();
-                long baseOffset = ats.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
-                long fullOffset = baseOffset + offset;
-                var layout = ats.layout();
-                int dims = layout.quantizedVecBytes();
-
-                // Read raw quant bytes
-                byte[] rawVector = new byte[dims];
-                MemorySegment.copy(ats.segment(), ValueLayout.JAVA_BYTE, fullOffset + 64, rawVector, 0, dims);
-
-                List<Float> floats = new ArrayList<>(dims);
-                for (byte b : rawVector) {
-                    floats.add((float) b);
-                }
-                return new MemoryVectorResponse(id, dims, floats);
+            var record = memory.inspect(id);
+            if (record == null || record.quantizedVector() == null) {
+                return new MemoryVectorResponse(id, 0, List.of());
             }
-            return new MemoryVectorResponse(id, 0, List.of());
+            byte[] rawVector = record.quantizedVector();
+            List<Float> floats = new ArrayList<>(rawVector.length);
+            for (byte b : rawVector) {
+                floats.add((float) b);
+            }
+            return new MemoryVectorResponse(id, rawVector.length, floats);
         } catch (Exception e) {
-            log.error("[MemoryAccessObject] Get memory vector failed for id={}: {}", id, e.getMessage());
+            log.error("[MemoryAccessObject] Get memory vector failed for id={}: {}", id, e.getMessage(), e);
             return new MemoryVectorResponse(id, 0, List.of());
         }
     }
@@ -332,15 +264,14 @@ public class MemoryAccessObject {
     public void updateMemory(String id, UpdateMemoryRequest request) {
         if (!isAvailable()) return;
         try {
-            var admin = memory.admin();
-            var index = admin.index();
-            String tierStr = index.metadata(id).get("tier");
-            MemoryType tier = safeMemoryType(tierStr, MemoryType.SEMANTIC);
-            MemorySource source = index.source(id);
-            String[] tags = request.tags() != null ? request.tags().toArray(String[]::new) : index.tags(id);
+            var record = memory.inspect(id);
+            if (record == null) {
+                throw new IllegalArgumentException("Memory ID not found: " + id);
+            }
+            String[] tags = request.tags() != null ? request.tags().toArray(String[]::new) : record.tags();
 
             // Re-store memory with the same ID, overwriting previous content
-            memory.remember(id, request.text(), tier, source, null, tags).join();
+            memory.remember(id, request.text(), record.memoryType(), record.source(), (IngestionHints) null, tags).join();
             log.info("[MemoryAccessObject] Updated memory id={}", id);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Update memory failed for id={}: {}", id, e.getMessage(), e);
@@ -359,64 +290,38 @@ public class MemoryAccessObject {
         }
 
         var admin = memory.admin();
-        var tierRouter = admin.tierRouter();
-        var index = admin.index();
+        MemoryType targetTier = MemoryTypeParser.safeMemoryType(tierFilter, null);
+
+        // Fetch all active cognitive records without loading large vector arrays into JVM memory
+        List<CognitiveRecord> allRecords = admin.listAll();
 
         List<MemoryTableRow> allRows = new ArrayList<>();
         Map<String, Integer> tierCounts = new LinkedHashMap<>();
 
+        // Initialize tier counts
         for (MemoryType type : MemoryType.values()) {
-            if (tierFilter != null && !tierFilter.equalsIgnoreCase(type.name())) continue;
-            var store = tierRouter.get(type);
-            if (!(store instanceof AbstractTierStore ats)) continue;
-
-            int visibleCount = ats.visibleCount();
-            tierCounts.put(type.name(), visibleCount);
-            var layout = ats.layout();
-            long baseOffset = ats.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
-
-            for (int i = 0; i < visibleCount; i++) {
-                long offset = baseOffset + (long) i * layout.stride();
-                var header = layout.readHeader(ats.segment(), offset);
-                byte flags = header.flags();
-
-                boolean tombstoned = SynapticHeaderConstants.isTombstoned(flags);
-                if (!showTombstoned && tombstoned) continue;
-
-                boolean pinned = SynapticHeaderConstants.isPinned(flags);
-                boolean resolved = SynapticHeaderConstants.isResolved(flags);
-                boolean consolidated = SynapticHeaderConstants.isConsolidated(flags);
-                int arousal = Byte.toUnsignedInt(header.arousal());
-
-                String id = index.findIdByOffset(type, offset);
-                String text = id != null ? index.text(id) : "";
-                String textPreview = text != null && text.length() > 200
-                        ? text.substring(0, 200) + "…" : text;
-                var source = id != null ? index.source(id) : MemorySource.OBSERVED;
-                String[] tags = id != null ? index.tags(id) : new String[0];
-                Map<String, String> metadata = id != null ? index.metadata(id) : null;
-                if (metadata != null && metadata.isEmpty()) metadata = null;
-
-                String effectiveId = id != null ? id : "unknown-" + type.name() + "-" + i;
-                allRows.add(new MemoryTableRow(
-                        effectiveId,
-                        text != null ? text : "",
-                        textPreview != null ? textPreview : "",
-                        type.name(),
-                        source != null ? source.name() : "OBSERVED",
-                        header.importance(), header.valence(), arousal,
-                        header.timestampMs(), header.agentRecallCount(), header.agentRecallCount(),
-                        tombstoned,
-                        false,
-                        pinned, resolved, consolidated,
-                        tags != null ? Arrays.asList(tags) : List.of(),
-                        header.synapticTags(),
-                        Instant.ofEpochMilli(header.timestampMs()).toString(),
-                        metadata
-                ));
-            }
+            tierCounts.put(type.name(), 0);
         }
 
+        for (CognitiveRecord record : allRecords) {
+            // Track per-tier active counts
+            String tierName = record.memoryType().name();
+            tierCounts.put(tierName, tierCounts.getOrDefault(tierName, 0) + 1);
+
+            // Filter by target tier if specified
+            if (targetTier != null && record.memoryType() != targetTier) {
+                continue;
+            }
+
+            // Filter by tombstone if specified
+            if (!showTombstoned && record.isTombstoned()) {
+                continue;
+            }
+
+            allRows.add(toTableRow(record, true));
+        }
+
+        // Sort by creation time (newest first)
         allRows.sort((a, b) -> Long.compare(b.timestampMs(), a.timestampMs()));
 
         int totalCount = allRows.size();
@@ -441,6 +346,7 @@ public class MemoryAccessObject {
                     Map.of("WORKING", 0, "EPISODIC", 0, "SEMANTIC", 0, "PROCEDURAL", 0),
                     0, 0, 0, 0);
         }
+        var stats = memory.admin().graph().graphStats();
         int total = memory.totalMemories();
         var counts = Map.of(
                 "WORKING", memory.memoryCount(MemoryType.WORKING),
@@ -448,18 +354,9 @@ public class MemoryAccessObject {
                 "SEMANTIC", memory.memoryCount(MemoryType.SEMANTIC),
                 "PROCEDURAL", memory.memoryCount(MemoryType.PROCEDURAL)
         );
-        int hebbian = memory.hebbianGraph() != null ? memory.hebbianGraph().totalEdges() : 0;
-        int entityNodes = memory.entityGraph() != null ? memory.entityGraph().entityCount() : 0;
-        int entityEdges = memory.entityGraph() != null ? memory.entityGraph().edgeCount() : 0;
-        int temporalLinks = 0;
-        if (memory.temporalChain() != null) {
-            int cap = memory.temporalChain().capacity();
-            for (int i = 0; i < cap; i++) {
-                if (memory.temporalChain().isLinked(i)) temporalLinks++;
-            }
-        }
-        return new MemoryStatusResponse(total, counts, hebbian, temporalLinks,
-                entityNodes, entityEdges);
+        return new MemoryStatusResponse(total, counts,
+                stats.hebbianEdges(), stats.temporalLinks(),
+                stats.entityNodes(), stats.entityEdges());
     }
 
     /**
@@ -467,99 +364,8 @@ public class MemoryAccessObject {
      */
     public MemoryGraphResponse getGraphOverview(int maxNodes) {
         if (!isAvailable()) return MemoryGraphResponse.empty(null);
-        try {
-            var admin = memory.admin();
-            var index = admin.index();
-            var hebbianGraph = admin.hebbianGraph();
-            var temporalChain = admin.temporalChain();
-            var entityGraph = admin.entityGraph();
-
-            var allIds = index.allIds().stream().limit(maxNodes).toList();
-            if (allIds.isEmpty()) return MemoryGraphResponse.empty(null);
-
-            Map<Integer, String> slotToId = new LinkedHashMap<>();
-            Map<String, Integer> idToSlot = new LinkedHashMap<>();
-            index.buildGraphSlotMappings(slotToId, idToSlot);
-
-            List<MemoryDto.GraphNodeDto> nodes = new ArrayList<>();
-            for (String id : allIds) {
-                var record = memory.inspect(id);
-                if (record == null) continue;
-                var entityNames = entityNamesForMemory(entityGraph, idToSlot.getOrDefault(id, -1));
-                nodes.add(new MemoryDto.GraphNodeDto(
-                        id,
-                        record.memoryType() != null ? record.memoryType().name() : "SEMANTIC",
-                        truncate(record.text(), 120),
-                        record.importance(),
-                        record.valence(),
-                        record.timestampMs(),
-                        entityNames
-                ));
-            }
-
-            List<MemoryDto.GraphEdgeDto> edges = new ArrayList<>();
-            for (String id : allIds) {
-                int slot = idToSlot.getOrDefault(id, -1);
-                if (slot < 0) continue;
-
-                // HEBBIAN edges
-                try {
-                    var hebbianNeighbors = hebbianGraph.neighbors(slot);
-                    for (var edge : hebbianNeighbors) {
-                        String neighborId = slotToId.get(edge.neighborIndex());
-                        if (neighborId != null && allIds.contains(neighborId)) {
-                            edges.add(new MemoryDto.GraphEdgeDto(
-                                     id, neighborId, "HEBBIAN", null,
-                                     Math.min(1.0, edge.weight()), null, null));
-                        }
-                    }
-                } catch (Exception ignored) {}
-
-                // TEMPORAL edges
-                try {
-                    int[] forward = temporalChain.followForward(slot, 1);
-                    for (int neighborSlot : forward) {
-                        String neighborId = slotToId.get(neighborSlot);
-                        if (neighborId != null && allIds.contains(neighborId)) {
-                            edges.add(new MemoryDto.GraphEdgeDto(
-                                    id, neighborId, "TEMPORAL", null, 0.8, null, null));
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-
-            // ENTITY edges
-            try {
-                var nameIndex = entityGraph.nameIndex();
-                for (var entry : nameIndex.entrySet()) {
-                    int entityId = entry.getValue();
-                    String entityType = safeEntityType(entityGraph, entityId);
-                    var entityEdgeList = entityGraph.edges(entityId);
-                    for (var ee : entityEdgeList) {
-                        int[] fromMems = entityGraph.memoriesForEntity(entityId);
-                        int[] toMems = entityGraph.memoriesForEntity(ee.targetEntityId());
-                        String toEntityType = safeEntityType(entityGraph, ee.targetEntityId());
-                        for (int fm : fromMems) {
-                            String fromMemId = slotToId.get(fm);
-                            if (fromMemId == null || !allIds.contains(fromMemId)) continue;
-                            for (int tm : toMems) {
-                                String toMemId = slotToId.get(tm);
-                                if (toMemId == null || !allIds.contains(toMemId)) continue;
-                                edges.add(new MemoryDto.GraphEdgeDto(
-                                        fromMemId, toMemId, "ENTITY", ee.relationType(),
-                                        (double) ee.weight(), entityType, toEntityType
-                                ));
-                            }
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-
-            return new MemoryGraphResponse(null, nodes, edges);
-        } catch (Exception e) {
-            log.error("[MemoryAccessObject] Graph overview failed: {}", e.getMessage(), e);
-            return MemoryGraphResponse.empty("Overview failed: " + e.getMessage());
-        }
+        var neighborhood = memory.admin().graph().overview(maxNodes, memory::inspect);
+        return toGraphResponse(neighborhood);
     }
 
     /**
@@ -567,106 +373,8 @@ public class MemoryAccessObject {
      */
     public MemoryGraphResponse getMemoryGraph(String id, int depth) {
         if (!isAvailable()) return MemoryGraphResponse.empty(null);
-        try {
-            var admin = memory.admin();
-            var index = admin.index();
-            var hebbianGraph = admin.hebbianGraph();
-            var temporalChain = admin.temporalChain();
-            var entityGraph = admin.entityGraph();
-
-            Map<Integer, String> slotToId = new LinkedHashMap<>();
-            Map<String, Integer> idToSlot = new LinkedHashMap<>();
-            index.buildGraphSlotMappings(slotToId, idToSlot);
-
-            int startSlot = idToSlot.getOrDefault(id, -1);
-            if (startSlot < 0) return MemoryGraphResponse.empty("Memory ID not found in index slot map");
-
-            List<String> visitedIds = new ArrayList<>();
-            List<MemoryDto.GraphEdgeDto> edges = new ArrayList<>();
-
-            // Perform simple BFS traversal up to depth
-            List<Integer> currentLevel = new ArrayList<>();
-            currentLevel.add(startSlot);
-            visitedIds.add(id);
-
-            for (int d = 0; d < depth; d++) {
-                List<Integer> nextLevel = new ArrayList<>();
-                for (int slot : currentLevel) {
-                    String currentId = slotToId.get(slot);
-                    if (currentId == null) continue;
-
-                    // HEBBIAN neighbors
-                    try {
-                        var neighbors = hebbianGraph.neighbors(slot);
-                        for (var edge : neighbors) {
-                            int nSlot = edge.neighborIndex();
-                            String nId = slotToId.get(nSlot);
-                            if (nId != null) {
-                                edges.add(new MemoryDto.GraphEdgeDto(
-                                         currentId, nId, "HEBBIAN", null,
-                                         Math.min(1.0, edge.weight()), null, null));
-                                if (!visitedIds.contains(nId)) {
-                                    visitedIds.add(nId);
-                                    nextLevel.add(nSlot);
-                                }
-                            }
-                        }
-                    } catch (Exception ignored) {}
-
-                    // TEMPORAL neighbors
-                    try {
-                        int[] forward = temporalChain.followForward(slot, 1);
-                        for (int nSlot : forward) {
-                            String nId = slotToId.get(nSlot);
-                            if (nId != null) {
-                                edges.add(new MemoryDto.GraphEdgeDto(
-                                         currentId, nId, "TEMPORAL", null, 0.8, null, null));
-                                if (!visitedIds.contains(nId)) {
-                                    visitedIds.add(nId);
-                                    nextLevel.add(nSlot);
-                                }
-                            }
-                        }
-                        int[] backward = temporalChain.followBackward(slot, 1);
-                        for (int nSlot : backward) {
-                            String nId = slotToId.get(nSlot);
-                            if (nId != null) {
-                                edges.add(new MemoryDto.GraphEdgeDto(
-                                         nId, currentId, "TEMPORAL", null, 0.8, null, null));
-                                if (!visitedIds.contains(nId)) {
-                                    visitedIds.add(nId);
-                                    nextLevel.add(nSlot);
-                                }
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                }
-                if (nextLevel.isEmpty()) break;
-                currentLevel = nextLevel;
-            }
-
-            // Inspect and build nodes
-            List<MemoryDto.GraphNodeDto> nodes = new ArrayList<>();
-            for (String vid : visitedIds) {
-                var record = memory.inspect(vid);
-                if (record == null) continue;
-                var entityNames = entityNamesForMemory(entityGraph, idToSlot.getOrDefault(vid, -1));
-                nodes.add(new MemoryDto.GraphNodeDto(
-                        vid,
-                        record.memoryType() != null ? record.memoryType().name() : "SEMANTIC",
-                        truncate(record.text(), 120),
-                        record.importance(),
-                        record.valence(),
-                        record.timestampMs(),
-                        entityNames
-                ));
-            }
-
-            return new MemoryGraphResponse(id, nodes, edges);
-        } catch (Exception e) {
-            log.error("[MemoryAccessObject] Graph fetch failed for id={}: {}", id, e.getMessage(), e);
-            return MemoryGraphResponse.empty(id);
-        }
+        var neighborhood = memory.admin().graph().neighborhood(id, depth, memory::inspect);
+        return toGraphResponse(neighborhood);
     }
 
     /**
@@ -674,108 +382,91 @@ public class MemoryAccessObject {
      */
     public MemoryDto.TopologyStatsResponse getTopologyStats() {
         if (!isAvailable()) return MemoryDto.TopologyStatsResponse.empty();
-        try {
-            var entityGraph = memory.admin().entityGraph();
-            var nameIndex = entityGraph.nameIndex();
-
-            Map<String, int[]> entityTypeAgg = new LinkedHashMap<>();
-            Map<String, int[]> relationTypeAgg = new LinkedHashMap<>();
-
-            for (var entry : nameIndex.entrySet()) {
-                int entityId = entry.getValue();
-                String entityType = safeEntityType(entityGraph, entityId);
-
-                var eStats = entityTypeAgg.computeIfAbsent(entityType, k -> new int[3]);
-                eStats[0]++; // node count
-                int memCount = 0;
-                try { memCount = entityGraph.memoryRefCount(entityId); } catch (Exception ignored) {}
-                eStats[2] += memCount; // memory refs
-
-                try {
-                    var edgeList = entityGraph.edges(entityId);
-                    eStats[1] += edgeList.size();
-                    for (var ee : edgeList) {
-                        String relType = ee.relationType() != null ? ee.relationType() : "UNKNOWN";
-                        var rStats = relationTypeAgg.computeIfAbsent(relType, k -> new int[3]);
-                        rStats[0]++; // edge count
-                        rStats[1] += 2; // from + to node
-                        try {
-                            rStats[2] += entityGraph.memoryRefCount(ee.targetEntityId());
-                        } catch (Exception ignored) {}
-                    }
-                } catch (Exception ignored) {}
-            }
-
-            List<MemoryDto.EntityTypeStatsDto> entityTypes = entityTypeAgg.entrySet().stream()
-                    .map(e -> new MemoryDto.EntityTypeStatsDto(
-                            e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2]))
-                    .toList();
-
-            List<MemoryDto.RelationTypeStatsDto> relationTypes = relationTypeAgg.entrySet().stream()
-                    .map(e -> new MemoryDto.RelationTypeStatsDto(
-                            e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2]))
-                    .toList();
-
-            return new MemoryDto.TopologyStatsResponse(entityTypes, relationTypes);
-        } catch (Exception e) {
-            log.error("[MemoryAccessObject] Topology stats failed: {}", e.getMessage(), e);
-            return MemoryDto.TopologyStatsResponse.empty();
-        }
+        var stats = memory.admin().graph().topologyStats();
+        return toTopologyResponse(stats);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════
     // INTERNAL HELPERS
-    // ══════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════
 
-    private static MemoryType safeMemoryType(String name, MemoryType fallback) {
-        if (name == null || name.isBlank()) return fallback;
-        try {
-            return MemoryType.valueOf(name.toUpperCase());
-        } catch (Exception e) {
-            return fallback;
-        }
+    /**
+     * Converts a {@link CognitiveRecord} to a {@link MemoryTableRow} DTO.
+     *
+     * <p>Centralizes the 20-field row construction so that both
+     * {@link #getMemoryById(String)} and {@link #getMemoryTable(int, int, String, boolean)}
+     * share a single conversion path.</p>
+     *
+     * @param record           the cognitive record from inspect/listAll
+     * @param truncatePreview  if true, truncates text preview to 200 characters
+     * @return the table row DTO
+     */
+    private MemoryTableRow toTableRow(CognitiveRecord record, boolean truncatePreview) {
+        String text = record.text() != null ? record.text() : "";
+        String preview = truncatePreview ? truncate(text, 200) : text;
+        Map<String, String> meta = record.metadata();
+        if (meta != null && meta.isEmpty()) meta = null;
+
+        return new MemoryTableRow(
+                record.id(), text, preview,
+                record.memoryType().name(),
+                record.source().name(),
+                record.importance(),
+                record.valence(),
+                Byte.toUnsignedInt(record.arousal()),
+                record.timestampMs(),
+                record.agentRecallCount(),
+                record.totalRecallCount(),
+                record.isTombstoned(),
+                record.suppressed(),
+                record.isPinned(),
+                record.isResolved(),
+                record.isConsolidated(),
+                record.tags() != null ? Arrays.asList(record.tags()) : List.of(),
+                record.synapticTags(),
+                record.createdAt().toString(),
+                meta
+        );
     }
 
-    private static MemorySource safeMemorySource(String name, MemorySource fallback) {
-        if (name == null || name.isBlank()) return fallback;
-        try {
-            return MemorySource.valueOf(name.toUpperCase());
-        } catch (Exception e) {
-            return fallback;
+    /**
+     * Converts a {@link GraphNeighborhood} from the core module to the synapse DTO.
+     */
+    private static MemoryGraphResponse toGraphResponse(GraphNeighborhood neighborhood) {
+        if (neighborhood.error() != null && neighborhood.nodes().isEmpty()) {
+            return MemoryGraphResponse.empty(neighborhood.centerId());
         }
+        var nodes = neighborhood.nodes().stream()
+                .map(n -> new MemoryDto.GraphNodeDto(
+                        n.id(), n.tier(), n.textPreview(),
+                        n.importance(), n.valence(), n.timestampMs(), n.entityNames()))
+                .toList();
+        var edges = neighborhood.edges().stream()
+                .map(e -> new MemoryDto.GraphEdgeDto(
+                        e.sourceId(), e.targetId(), e.type(), e.relationType(),
+                        e.weight(), e.sourceEntityType(), e.targetEntityType()))
+                .toList();
+        return new MemoryGraphResponse(neighborhood.centerId(), nodes, edges);
     }
 
-    private static List<String> entityNamesForMemory(com.spectrayan.spector.memory.graph.EntityGraph graph, int slot) {
-        if (graph == null || slot < 0) return List.of();
-        try {
-            List<String> names = new ArrayList<>();
-            var nameIndex = graph.nameIndex();
-            for (var entry : nameIndex.entrySet()) {
-                int[] mems = graph.memoriesForEntity(entry.getValue());
-                for (int m : mems) {
-                    if (m == slot) {
-                        names.add(entry.getKey());
-                        break;
-                    }
-                }
-            }
-            return names;
-        } catch (Exception e) {
-            return List.of();
-        }
-    }
-
-    private static String safeEntityType(com.spectrayan.spector.memory.graph.EntityGraph graph, int entityId) {
-        try {
-            return graph.entityType(entityId);
-        } catch (Exception e) {
-            return "ENTITY";
-        }
+    /**
+     * Converts {@link TopologyStats} from the core module to the synapse DTO.
+     */
+    private static MemoryDto.TopologyStatsResponse toTopologyResponse(TopologyStats stats) {
+        var entityTypes = stats.entityTypes().stream()
+                .map(e -> new MemoryDto.EntityTypeStatsDto(
+                        e.type(), e.nodeCount(), e.edgeCount(), e.memoryRefCount()))
+                .toList();
+        var relationTypes = stats.relationTypes().stream()
+                .map(r -> new MemoryDto.RelationTypeStatsDto(
+                        r.type(), r.edgeCount(), r.nodeCount(), r.memoryRefCount()))
+                .toList();
+        return new MemoryDto.TopologyStatsResponse(entityTypes, relationTypes);
     }
 
     private static String truncate(String text, int max) {
         if (text == null) return "";
         if (text.length() <= max) return text;
-        return text.substring(0, max) + "…";
+        return text.substring(0, max) + "\u2026";
     }
 }

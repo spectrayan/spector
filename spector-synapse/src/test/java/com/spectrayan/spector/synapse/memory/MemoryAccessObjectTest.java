@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -58,24 +59,22 @@ class MemoryAccessObjectTest {
     @DisplayName("isAvailable — true when SpectorMemory bean is present")
     void isAvailable_true_whenBeanPresent() {
         assertThat(maoWithMemory.isAvailable()).isTrue();
-        assertThat(maoWithMemory.engine()).isSameAs(mockMemory);
     }
 
     @Test
     @DisplayName("isAvailable — false when SpectorMemory bean is absent (stub mode)")
     void isAvailable_false_inStubMode() {
         assertThat(maoStubMode.isAvailable()).isFalse();
-        assertThat(maoStubMode.engine()).isNull();
     }
 
     @Test
     @DisplayName("remember — live mode calls memory.remember and returns id")
     @SuppressWarnings("unchecked")
     void remember_liveMode_callsRemember() {
-        var futureMem = CompletableFuture.completedFuture("mem-xyz");
+        var futureMem = CompletableFuture.completedFuture((Void) null);
         doReturn(futureMem).when(mockMemory)
                 .remember(eq("mem-xyz"), eq("knowledge about HNSW index"),
-                        eq(MemoryType.SEMANTIC), eq(MemorySource.USER_STATED), any(), any(String[].class));
+                        eq(MemoryType.SEMANTIC), eq(MemorySource.USER_STATED), nullable(IngestionHints.class), any(String[].class));
 
         var result = maoWithMemory.remember("mem-xyz", "knowledge about HNSW index",
                 MemoryType.SEMANTIC, MemorySource.USER_STATED, null, new String[]{"index", "hnsw"});
@@ -144,6 +143,12 @@ class MemoryAccessObjectTest {
     @Test
     @DisplayName("getStatus — live mode returns real counts")
     void getStatus_liveMode_realCounts() {
+        var mockAdmin = mock(com.spectrayan.spector.memory.SpectorMemoryAdmin.class);
+        var graphFacade = new com.spectrayan.spector.memory.graph.CognitiveGraphFacade(
+                null, null, null, null,
+                new com.spectrayan.spector.memory.index.MemoryIndex());
+        when(mockAdmin.graph()).thenReturn(graphFacade);
+        when(mockMemory.admin()).thenReturn(mockAdmin);
         when(mockMemory.totalMemories()).thenReturn(50);
         when(mockMemory.memoryCount(MemoryType.WORKING)).thenReturn(5);
         when(mockMemory.memoryCount(MemoryType.EPISODIC)).thenReturn(20);

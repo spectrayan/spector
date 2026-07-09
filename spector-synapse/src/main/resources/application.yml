@@ -12,6 +12,12 @@ spector:
   port: ${SPECTOR_PORT:7070}
   api-key: ${SPECTOR_API_KEY:spector-dev-key}
   data-dir: ${SPECTOR_DATA_DIR:./spector-data}
+
+spectrayan:
+  sse:
+    server:
+      enabled: true
+      base-path: /api/v1/events
   ollama:
     base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
     model: ${SPECTOR_OLLAMA_MODEL:llama3.2}

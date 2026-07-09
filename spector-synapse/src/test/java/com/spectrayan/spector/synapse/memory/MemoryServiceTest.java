@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 import com.spectrayan.spector.synapse.memory.MemoryDto.*;
@@ -87,8 +88,8 @@ class MemoryServiceTest {
     void recall_returnsMappedResults() {
         var request = new RecallRequest("Java concurrency", 5, null);
         var results = List.of(
-                new CognitiveResult("id1", "Virtual threads in Java 25", MemoryType.SEMANTIC, 0.9f, 2.0f, List.of("java").toArray(String[]::new)),
-                new CognitiveResult("id2", "Platform thread limitations", MemoryType.EPISODIC, 0.7f, 5.0f, new String[0])
+                new CognitiveResult("id1", "Virtual threads in Java 25", 0.9f, 2.0f, 0.0f, 0, (byte)0, MemoryType.SEMANTIC, MemorySource.OBSERVED, new String[]{"java"}, 1.0f, 1.0f),
+                new CognitiveResult("id2", "Platform thread limitations", 0.7f, 5.0f, 0.0f, 0, (byte)0, MemoryType.EPISODIC, MemorySource.OBSERVED, new String[0], 1.0f, 1.0f)
         );
         when(mao.recall("Java concurrency")).thenReturn(results);
 
@@ -96,7 +97,7 @@ class MemoryServiceTest {
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).id()).isEqualTo("id1");
-        assertThat(result.get(0).cognitiveScore()).isEqualTo(0.9);
+        assertThat(result.get(0).cognitiveScore()).isCloseTo(0.9, within(0.0001));
         verify(mao).recall("Java concurrency");
         verify(eventPublisher).broadcast(eq("cortex.query.trace"), any());
     }

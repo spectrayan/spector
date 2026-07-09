@@ -34,6 +34,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Memory service — orchestration and business logic layer.
@@ -46,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 public class MemoryService {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryService.class);
+    private static final ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     private final MemoryAccessObject mao;
     private final EventPublisher eventPublisher;
@@ -101,8 +104,8 @@ public class MemoryService {
             return AcceptedResponse.forRemember("stub-task-" + System.nanoTime(), effectiveId);
         }
 
-        MemoryType tier = safeMemoryType(request.effectiveTier(), MemoryType.SEMANTIC);
-        MemorySource source = safeMemorySource(request.effectiveSource(), MemorySource.OBSERVED);
+        MemoryType tier = MemoryTypeParser.safeMemoryType(request.effectiveTier(), MemoryType.SEMANTIC);
+        MemorySource source = MemoryTypeParser.safeMemorySource(request.effectiveSource(), MemorySource.OBSERVED);
         String[] tags = request.tagsArray();
 
         IngestionHints hints = null;
@@ -143,7 +146,7 @@ public class MemoryService {
             } catch (Exception e) {
                 log.error("[MemoryService] Remember failed for id={}: {}", finalId, e.getMessage(), e);
             }
-        });
+        }, virtualThreadExecutor);
 
         return AcceptedResponse.forRemember(taskId, effectiveId);
     }
@@ -379,8 +382,8 @@ public class MemoryService {
                 return AcceptedResponse.forFileIngest(taskId, originalName, documentId);
             }
 
-            MemoryType tier = safeMemoryType(tierName, MemoryType.SEMANTIC);
-            MemorySource source = safeMemorySource(sourceName, MemorySource.OBSERVED);
+            MemoryType tier = MemoryTypeParser.safeMemoryType(tierName, MemoryType.SEMANTIC);
+            MemorySource source = MemoryTypeParser.safeMemorySource(sourceName, MemorySource.OBSERVED);
 
             CompletableFuture.runAsync(() -> {
                 try {
@@ -404,7 +407,7 @@ public class MemoryService {
                 } catch (Exception e) {
                     log.error("[MemoryService] Async file ingestion failed: name={}: {}", originalName, e.getMessage(), e);
                 }
-            });
+            }, virtualThreadExecutor);
 
             return AcceptedResponse.forFileIngest(taskId, originalName, documentId);
         } catch (IOException e) {
@@ -473,24 +476,6 @@ public class MemoryService {
     private static void requireId(String id) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Memory ID cannot be blank");
-        }
-    }
-
-    private static MemoryType safeMemoryType(String name, MemoryType fallback) {
-        if (name == null || name.isBlank()) return fallback;
-        try {
-            return MemoryType.valueOf(name.toUpperCase());
-        } catch (Exception e) {
-            return fallback;
-        }
-    }
-
-    private static MemorySource safeMemorySource(String name, MemorySource fallback) {
-        if (name == null || name.isBlank()) return fallback;
-        try {
-            return MemorySource.valueOf(name.toUpperCase());
-        } catch (Exception e) {
-            return fallback;
         }
     }
 }

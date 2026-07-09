@@ -225,7 +225,7 @@ class MemoryControllerTest {
                         .content("[\"id1\", \"id2\", \"id3\"]"))
                 .andExpect(status().isOk());
 
-        verify(memoryService, times(3)).forget(anyString());
+        verify(memoryService).bulkForget(List.of("id1", "id2", "id3"));
     }
 
     // ═══════════════════════════════════════════════════

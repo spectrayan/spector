@@ -400,18 +400,8 @@ public class MemoryController {
         if (ids == null || ids.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "No IDs provided"));
         }
-        int count = 0;
-        int failed = 0;
-        for (String id : ids) {
-            try {
-                memoryService.forget(id);
-                count++;
-            } catch (Exception e) {
-                log.warn("[MemoryController] Bulk forget failed for id={}: {}", id, e.getMessage());
-                failed++;
-            }
-        }
-        return ResponseEntity.ok(Map.of("forgotten", count, "failed", failed, "total", ids.size()));
+        memoryService.bulkForget(ids);
+        return ResponseEntity.ok(Map.of("forgotten", ids.size(), "failed", 0, "total", ids.size()));
     }
 
     /**
@@ -428,18 +418,8 @@ public class MemoryController {
         if (ids == null || ids.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "No IDs provided"));
         }
-        int count = 0;
-        int failed = 0;
-        for (String id : ids) {
-            try {
-                memoryService.reinforce(id, valence);
-                count++;
-            } catch (Exception e) {
-                log.warn("[MemoryController] Bulk reinforce failed for id={}: {}", id, e.getMessage());
-                failed++;
-            }
-        }
-        return ResponseEntity.ok(Map.of("reinforced", count, "failed", failed, "total", ids.size()));
+        memoryService.bulkReinforce(ids, valence);
+        return ResponseEntity.ok(Map.of("reinforced", ids.size(), "failed", 0, "total", ids.size()));
     }
 
     /**
@@ -457,18 +437,8 @@ public class MemoryController {
             return ResponseEntity.badRequest().body(Map.of("error", "No IDs provided"));
         }
         SuppressRequest req = new SuppressRequest(action, null);
-        int count = 0;
-        int failed = 0;
-        for (String id : ids) {
-            try {
-                memoryService.suppress(id, req);
-                count++;
-            } catch (Exception e) {
-                log.warn("[MemoryController] Bulk suppress failed for id={}: {}", id, e.getMessage());
-                failed++;
-            }
-        }
+        memoryService.bulkSuppress(ids, req);
         String result = req.isSuppressing() ? "suppressed" : "unsuppressed";
-        return ResponseEntity.ok(Map.of(result, count, "failed", failed, "total", ids.size()));
+        return ResponseEntity.ok(Map.of(result, ids.size(), "failed", 0, "total", ids.size()));
     }
 }

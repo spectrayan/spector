@@ -17,10 +17,10 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.synapse.memory.MemoryAccessObject;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -44,14 +44,19 @@ public final class AgentMemoryBridge {
 
     private static final Logger log = LoggerFactory.getLogger(AgentMemoryBridge.class);
 
-    private final MemoryAccessObject memoryAccessObject;
+    private final SpectorMemory memory;
 
-    public AgentMemoryBridge(MemoryAccessObject memoryAccessObject) {
-        this.memoryAccessObject = memoryAccessObject;
+    public AgentMemoryBridge(ObjectProvider<SpectorMemory> memoryProvider) {
+        this.memory = memoryProvider.getIfAvailable();
+        if (this.memory != null) {
+            log.info("[AgentMemoryBridge] SpectorMemory available — bridge ready");
+        } else {
+            log.warn("[AgentMemoryBridge] SpectorMemory not available — bridge in stub mode");
+        }
     }
 
     /** Get the underlying memory engine (may be null if bridge is in stub mode). */
-    private SpectorMemory memory() { return memoryAccessObject.engine(); }
+    private SpectorMemory memory() { return memory; }
 
     /**
      * Stores a thought into WORKING memory (volatile scratchpad for the active step)
@@ -164,12 +169,5 @@ public final class AgentMemoryBridge {
                 .build();
 
         return memory().recall(topic, options);
-    }
-
-    /**
-     * Exposes the underlying SpectorMemory instance.
-     */
-    public SpectorMemory engine() {
-        return memory();
     }
 }

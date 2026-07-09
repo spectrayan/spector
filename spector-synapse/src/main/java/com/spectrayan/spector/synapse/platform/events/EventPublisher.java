@@ -3,66 +3,62 @@
  */
 package com.spectrayan.spector.synapse.platform.events;
 
+import com.spectrayan.sse.server.emitter.SseEmitter;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-
 /**
- * Event publisher for real-time SSE notifications.
- *
- * <p>Publishes Spring ApplicationEvents for internal listeners. Decoupled from
- * any direct SSE emitter dependency.</p>
+ * Event publisher for real-time SSE notifications using the Spectrayan SSE Server library.
  */
 @Service
 public class EventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(EventPublisher.class);
 
-    private final ApplicationEventPublisher applicationEventPublisher;
+    private final SseEmitter emitter;
 
-    public EventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
+    public EventPublisher(SseEmitter emitter) {
+        this.emitter = emitter;
     }
 
     /**
      * Publishes a memory event (created, recalled, consolidated, decayed).
      */
     public void memoryEvent(String eventType, String memoryId, String details) {
-        var data = Map.of("memoryId", memoryId, "type", eventType, "details", details);
-        applicationEventPublisher.publishEvent(new SpectorEvent(this, eventType, data));
-        log.debug("📡 Published memory event: type={}, id={}", eventType, memoryId);
+        emitter.emit("memory", eventType,
+                java.util.Map.of("memoryId", memoryId, "type", eventType, "details", details));
+        log.debug("📡 SSE memory event: type={}, id={}", eventType, memoryId);
     }
 
     /**
      * Publishes a chat event (message, thinking, tool_call, done).
      */
     public void chatEvent(String eventType, Object data) {
-        applicationEventPublisher.publishEvent(new SpectorEvent(this, eventType, data));
+        emitter.emit("chat", eventType, data);
     }
 
     /**
      * Publishes a system status change event.
      */
     public void systemEvent(String eventType, Object data) {
-        applicationEventPublisher.publishEvent(new SpectorEvent(this, eventType, data));
+        emitter.emit("system", eventType, data);
     }
 
     /**
      * Publishes a connector status event.
      */
     public void connectorEvent(String connectorId, String status) {
-        var data = Map.of("connectorId", connectorId, "status", status);
-        applicationEventPublisher.publishEvent(new SpectorEvent(this, "connector.status", data));
+        emitter.emit("connectors", "status",
+                java.util.Map.of("connectorId", connectorId, "status", status));
     }
 
     /**
      * Broadcasts to all connected topics.
      */
     public void broadcast(String eventName, Object data) {
-        applicationEventPublisher.publishEvent(new SpectorEvent(this, eventName, data));
-        log.debug("📡 Published broadcast event: event={}", eventName);
+        emitter.emit(data);
+        log.debug("📡 SSE broadcast: event={}", eventName);
     }
 }
