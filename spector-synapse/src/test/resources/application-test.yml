@@ -11,16 +11,6 @@ spector:
   port: 0
   api-key: test-key
   data-dir: ${java.io.tmpdir}/spector-test
-
-spectrayan:
-  sse:
-    server:
-      enabled: true
-      base-path: /api/v1/events
-  ollama:
-    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
-    model: ${SPECTOR_OLLAMA_MODEL:llama3.2}
-    embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
   memory:
     enabled: false          # disables SpectorAutoConfiguration bean — no Ollama needed
     max-memories: 0
@@ -35,6 +25,16 @@ spectrayan:
     batch-size: 32
   metrics:
     enabled: false
+
+spectrayan:
+  sse:
+    server:
+      enabled: true
+      base-path: /api/v1/events
+  ollama:
+    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${SPECTOR_OLLAMA_MODEL:llama3.2}
+    embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
   cors:
     allowed-origins: http://localhost:4200
 

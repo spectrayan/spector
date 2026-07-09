@@ -13,18 +13,6 @@ spector:
   api-key: ${SPECTOR_API_KEY:spector-dev-key}
   data-dir: ${SPECTOR_DATA_DIR:./spector-data}
 
-spectrayan:
-  sse:
-    server:
-      enabled: true
-      base-path: /api/v1/events
-  ollama:
-    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
-    model: ${SPECTOR_OLLAMA_MODEL:llama3.2}
-    embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
-  cors:
-    allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200}
-
   # ── Spector Spring Auto-Configuration ──
   # SpectorAutoConfiguration (spector-spring module) creates a Spring-managed
   # SpectorMemory bean — with Micrometer metrics wrapping when an actuator
@@ -44,6 +32,18 @@ spectrayan:
     batch-size: 32
   metrics:
     enabled: true           # wrap SpectorMemory with Micrometer via Actuator MeterRegistry
+
+spectrayan:
+  sse:
+    server:
+      enabled: true
+      base-path: /api/v1/events
+  ollama:
+    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${SPECTOR_OLLAMA_MODEL:llama3.2}
+    embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
+  cors:
+    allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200}
 
 # ── Server (Armeria) ──
 server:

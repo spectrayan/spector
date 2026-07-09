@@ -27,38 +27,58 @@ public class EventPublisher {
      * Publishes a memory event (created, recalled, consolidated, decayed).
      */
     public void memoryEvent(String eventType, String memoryId, String details) {
-        emitter.emit("memory", eventType,
-                java.util.Map.of("memoryId", memoryId, "type", eventType, "details", details));
-        log.debug("📡 SSE memory event: type={}, id={}", eventType, memoryId);
+        try {
+            emitter.emit("memory", eventType,
+                    java.util.Map.of("memoryId", memoryId, "type", eventType, "details", details));
+            log.debug("📡 SSE memory event: type={}, id={}", eventType, memoryId);
+        } catch (Exception e) {
+            log.debug("Failed to emit memory event (possibly no subscribers): {}", e.getMessage());
+        }
     }
 
     /**
      * Publishes a chat event (message, thinking, tool_call, done).
      */
     public void chatEvent(String eventType, Object data) {
-        emitter.emit("chat", eventType, data);
+        try {
+            emitter.emit("chat", eventType, data);
+        } catch (Exception e) {
+            log.debug("Failed to emit chat event (possibly no subscribers): {}", e.getMessage());
+        }
     }
 
     /**
      * Publishes a system status change event.
      */
     public void systemEvent(String eventType, Object data) {
-        emitter.emit("system", eventType, data);
+        try {
+            emitter.emit("system", eventType, data);
+        } catch (Exception e) {
+            log.debug("Failed to emit system event (possibly no subscribers): {}", e.getMessage());
+        }
     }
 
     /**
      * Publishes a connector status event.
      */
     public void connectorEvent(String connectorId, String status) {
-        emitter.emit("connectors", "status",
-                java.util.Map.of("connectorId", connectorId, "status", status));
+        try {
+            emitter.emit("connectors", "status",
+                    java.util.Map.of("connectorId", connectorId, "status", status));
+        } catch (Exception e) {
+            log.debug("Failed to emit connector event (possibly no subscribers): {}", e.getMessage());
+        }
     }
 
     /**
      * Broadcasts to all connected topics.
      */
     public void broadcast(String eventName, Object data) {
-        emitter.emit(data);
-        log.debug("📡 SSE broadcast: event={}", eventName);
+        try {
+            emitter.emit(data);
+            log.debug("📡 SSE broadcast: event={}", eventName);
+        } catch (Exception e) {
+            log.debug("Failed to broadcast SSE event: {}", e.getMessage());
+        }
     }
 }

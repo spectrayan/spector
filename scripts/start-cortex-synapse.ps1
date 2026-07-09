@@ -52,7 +52,9 @@ if (-not $FrontendOnly) {
         param([string]$rootDir, [int]$p)
         $env:SPECTOR_PORT = $p
         Set-Location $rootDir
-        mvn -Psynapse -pl spector-synapse spring-boot:run -q 2>&1
+        $logPath = Join-Path $rootDir "spector-synapse.log"
+        if (Test-Path $logPath) { Remove-Item $logPath -Force -ErrorAction SilentlyContinue }
+        mvn -Psynapse -pl spector-synapse spring-boot:run 2>&1 | Out-File -FilePath $logPath -Encoding utf8
     } -ArgumentList $root, $Port
 
     # Wait for backend to be ready (Spring Boot Actuator health endpoint)
