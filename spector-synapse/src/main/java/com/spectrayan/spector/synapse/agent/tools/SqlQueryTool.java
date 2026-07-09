@@ -1,20 +1,29 @@
 package com.spectrayan.spector.synapse.agent.tools;
 
 import com.spectrayan.spector.synapse.agent.AgentTool;
-import com.spectrayan.spector.synapse.agent.ToolCategory;
+import com.spectrayan.spector.synapse.agent.AgentTool.ToolCategory;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.util.TablesNamesFinder;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Translates a natural-language question into a read-only SQL query via the
@@ -31,11 +40,31 @@ public class SqlQueryTool implements AgentTool {
 
     private final ChatClient chatClient;
     private final JdbcTemplate jdbcTemplate;
+    // SLF4J logger   
+    private static final Logger log = LoggerFactory.getLogger(SqlQueryTool.class);
+    // Schema Caching
+    private volatile String cachedSchema = null;
 
-    public SqlQueryTool(ChatClient.Builder chatClientBuilder, JdbcTemplate jdbcTemplate) {
+    // Allowed tables:
+    private final Set<String> allowedTables;
+    // Denied tables:
+    private final Set<String> deniedTables;
+
+    public SqlQueryTool(
+            ChatClient.Builder chatClientBuilder,
+            JdbcTemplate jdbcTemplate,
+            @Value("${spector.sql-query-tool.allowed-tables:}") String allowedTablesProperty,
+            @Value("${spector.sql-query-tool.denied-tables:"
+                    + "credentials,credential,passwords,password_resets,"
+                    + "api_keys,api_key,secrets,secret,tokens,token,"
+                    + "oauth_tokens,refresh_tokens,sessions,session,"
+                    + "audit_log,audit_logs}") String deniedTablesProperty) {
+        
         this.chatClient = chatClientBuilder.build();
         this.jdbcTemplate = jdbcTemplate;
         this.jdbcTemplate.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+        this.allowedTables = parseTableSet(allowedTablesProperty);
+        this.deniedTables = parseTableSet(deniedTablesProperty);
     }
 
     @Override
@@ -97,6 +126,7 @@ public class SqlQueryTool implements AgentTool {
         try {
             return jdbcTemplate.query(sql, this::formatAsMarkdownTable);
         } catch (Exception e) {
+            log.error("[SqlQueryTool] Query execution failed: {}", e.getMessage(), e);  
             return "Error: query execution failed - " + e.getMessage();
         }
     }
@@ -166,11 +196,88 @@ public class SqlQueryTool implements AgentTool {
                     + statement.getClass().getSimpleName();
         }
 
+        return validateTableAccess((Select) statement);
+    }
+
+    // Helper methods to validate the table access:
+    /**
+     * Extracts every table the SELECT touches — including joins and
+     * subqueries — via JSQLParser's {@link TablesNamesFinder}, and checks
+     * them against the configured allowlist/denylist.
+     */
+
+    private String validateTableAccess(Select select) {
+        Set<String> referencedTables = new TablesNamesFinder().getTableList((Statement) select).stream()
+                .map(this::normalizeTableName)
+                .collect(Collectors.toSet());
+
+        if (!allowedTables.isEmpty()) {
+            Set<String> notAllowed = referencedTables.stream()
+                    .filter(t -> !allowedTables.contains(t))
+                    .collect(Collectors.toSet());
+            if (!notAllowed.isEmpty()) {
+                return "query references tables outside the allowlist: " + notAllowed;
+            }
+            return null;
+        }
+
+        Set<String> denied = referencedTables.stream()
+                .filter(deniedTables::contains)
+                .collect(Collectors.toSet());
+        if (!denied.isEmpty()) {
+            return "query references restricted tables: " + denied;
+        }
+
         return null;
     }
 
+    /** Strips schema/catalog qualification and quoting, lower-cases for comparison. */
+    private String normalizeTableName(String rawName) {
+        String name = rawName;
+        int dot = name.lastIndexOf('.');
+        if (dot >= 0) {
+            name = name.substring(dot + 1);
+        }
+        name = name.replaceAll("[\"`\\[\\]]", "");
+        return name.toLowerCase(Locale.ROOT);
+    }
+
+    private static Set<String> parseTableSet(String csv) {
+        if (csv == null || csv.isBlank()) {
+            return Set.of();
+        }
+        return Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(s -> s.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+    }
+
     /** Introspects the connected database's tables and columns via JDBC metadata. */
+    /** Returns the cached schema description, computing it on first use. */
     private String describeSchema() {
+        String schema = cachedSchema;
+        if (schema == null) {
+            synchronized (this) {
+                schema = cachedSchema;
+                if (schema == null) {
+                    schema = introspectSchema();
+                    cachedSchema = schema;
+                }
+            }
+        }
+        return schema;
+    }
+
+    // Recompute the schema on next request.
+    public void refreshSchema() {
+        synchronized (this) {
+            cachedSchema = null;
+        }
+    }
+
+    /** Introspects the connected database's tables and columns via JDBC metadata. */
+    private String introspectSchema() {
         return jdbcTemplate.execute((java.sql.Connection connection) -> {
             StringBuilder sb = new StringBuilder();
             DatabaseMetaData metaData = connection.getMetaData();
