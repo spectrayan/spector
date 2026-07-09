@@ -32,7 +32,7 @@ if (-not $SkipBuild -and -not $FrontendOnly) {
     Write-Step "Building Maven reactor (install, skip tests)..."
     Push-Location $root
     try {
-        mvn install -DskipTests -T1C -q
+        mvn install -Psynapse -DskipTests -T1C -q
         if ($LASTEXITCODE -ne 0) {
             Write-Err "Maven build failed (exit code $LASTEXITCODE)."
             exit 1
@@ -52,7 +52,7 @@ if (-not $FrontendOnly) {
         param([string]$rootDir, [int]$p)
         $env:SPECTOR_PORT = $p
         Set-Location $rootDir
-        mvn -pl spector-synapse spring-boot:run -q 2>&1
+        mvn -Psynapse -pl spector-synapse spring-boot:run -q 2>&1
     } -ArgumentList $root, $Port
 
     # Wait for backend to be ready (Spring Boot Actuator health endpoint)
