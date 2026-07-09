@@ -20,8 +20,10 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.synapse.memory.MemoryDto;
 import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableRow;
@@ -450,6 +452,297 @@ public class MemoryBridge {
     }
 
     // ══════════════════════════════════════════════════════════════
+    // GRAPH API
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Returns a sampled overview of the memory graph (nodes + edges).
+     *
+     * <p>Maps to: {@code GET /api/v1/memory/graph/overview?maxNodes=N}.</p>
+     *
+     * <p>Algorithm:</p>
+     * <ol>
+     *   <li>Collect up to {@code maxNodes} IDs from the MemoryIndex</li>
+     *   <li>Build slot → ID mapping via {@code buildGraphSlotMappings()}</li>
+     *   <li>Walk HebbianGraph neighbors for HEBBIAN edges</li>
+     *   <li>Walk TemporalChain forward links for TEMPORAL edges</li>
+     *   <li>Attach entity names from EntityGraph memory references</li>
+     * </ol>
+     */
+    public MemoryGraphResponse getGraphOverview(int maxNodes) {
+        if (!isAvailable()) return MemoryGraphResponse.empty(null);
+        try {
+            var admin = memory.admin();
+            var index = admin.index();
+            var hebbianGraph = admin.hebbianGraph();
+            var temporalChain = admin.temporalChain();
+            var entityGraph = admin.entityGraph();
+
+            // 1. Collect candidate IDs (up to maxNodes)
+            var allIds = index.allIds().stream()
+                    .limit(maxNodes)
+                    .toList();
+            if (allIds.isEmpty()) return MemoryGraphResponse.empty(null);
+
+            // 2. Build slot↔ID bidirectional maps
+            Map<Integer, String> slotToId = new LinkedHashMap<>();
+            Map<String, Integer> idToSlot = new LinkedHashMap<>();
+            index.buildGraphSlotMappings(slotToId, idToSlot);
+
+            // 3. Build node list with inspect() for tier/importance/valence/ts
+            List<MemoryDto.GraphNodeDto> nodes = new ArrayList<>();
+            for (String id : allIds) {
+                var record = memory.inspect(id);
+                if (record == null) continue;
+                var entityNames = entityNamesForMemory(entityGraph, idToSlot.getOrDefault(id, -1));
+                nodes.add(new MemoryDto.GraphNodeDto(
+                        id,
+                        record.memoryType() != null ? record.memoryType().name() : "SEMANTIC",
+                        truncate(record.text(), 120),
+                        record.importance(),
+                        record.valence(),
+                        record.timestampMs(),
+                        entityNames
+                ));
+            }
+
+            // 4. Build edges: HEBBIAN + TEMPORAL + ENTITY
+            List<MemoryDto.GraphEdgeDto> edges = new ArrayList<>();
+            for (String id : allIds) {
+                int slot = idToSlot.getOrDefault(id, -1);
+                if (slot < 0) continue;
+
+                // HEBBIAN edges
+                try {
+                    var hebbianNeighbors = hebbianGraph.neighbors(slot);
+                    for (var edge : hebbianNeighbors) {
+                        String neighborId = slotToId.get(edge.neighborIndex());
+                        if (neighborId != null && allIds.contains(neighborId)) {
+                            edges.add(new MemoryDto.GraphEdgeDto(
+                                    id, neighborId, "HEBBIAN", null,
+                                    Math.min(1.0, edge.weight()), null, null));
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                // TEMPORAL edges (forward link only to avoid duplicates)
+                try {
+                    int[] forward = temporalChain.followForward(slot, 1);
+                    for (int neighborSlot : forward) {
+                        String neighborId = slotToId.get(neighborSlot);
+                        if (neighborId != null && allIds.contains(neighborId)) {
+                            edges.add(new MemoryDto.GraphEdgeDto(
+                                    id, neighborId, "TEMPORAL", null, 0.8, null, null));
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // ENTITY edges — walk entity graph for memories in our node set
+            try {
+                var nameIndex = entityGraph.nameIndex();
+                for (var entry : nameIndex.entrySet()) {
+                    int entityId = entry.getValue();
+                    String entityType = safeEntityType(entityGraph, entityId);
+                    var entityEdgeList = entityGraph.edges(entityId);
+                    for (var ee : entityEdgeList) {
+                        // Map entity memories to memory IDs via slotToId
+                        int[] fromMems = entityGraph.memoriesForEntity(entityId);
+                        int[] toMems = entityGraph.memoriesForEntity(ee.targetEntityId());
+                        String toEntityType = safeEntityType(entityGraph, ee.targetEntityId());
+                        for (int fmSlot : fromMems) {
+                            String fmId = slotToId.get(fmSlot);
+                            if (fmId == null || !allIds.contains(fmId)) continue;
+                            for (int tmSlot : toMems) {
+                                String tmId = slotToId.get(tmSlot);
+                                if (tmId == null || !allIds.contains(tmId) || fmId.equals(tmId)) continue;
+                                edges.add(new MemoryDto.GraphEdgeDto(
+                                        fmId, tmId, "ENTITY",
+                                        ee.relationType(),
+                                        Math.min(1.0, ee.weight()),
+                                        entityType, toEntityType));
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            log.debug("[MemoryBridge] Graph overview: {} nodes, {} edges", nodes.size(), edges.size());
+            return new MemoryGraphResponse(null, nodes, edges);
+
+        } catch (Exception e) {
+            log.error("[MemoryBridge] getGraphOverview failed: {}", e.getMessage(), e);
+            return MemoryGraphResponse.empty(null);
+        }
+    }
+
+    /**
+     * Returns the neighborhood graph centered on a specific memory.
+     *
+     * <p>Maps to: {@code GET /api/v1/memory/{id}/graph?depth=N}.</p>
+     *
+     * <p>Performs BFS up to {@code depth} hops across Hebbian, Temporal,
+     * and Entity graphs to collect all reachable memory nodes.</p>
+     */
+    public MemoryGraphResponse getMemoryGraph(String id, int depth) {
+        if (!isAvailable()) return MemoryGraphResponse.empty(id);
+        try {
+            var admin = memory.admin();
+            var index = admin.index();
+            var hebbianGraph = admin.hebbianGraph();
+            var temporalChain = admin.temporalChain();
+            var entityGraph = admin.entityGraph();
+
+            // Build slot↔ID maps
+            Map<Integer, String> slotToId = new LinkedHashMap<>();
+            Map<String, Integer> idToSlot = new LinkedHashMap<>();
+            index.buildGraphSlotMappings(slotToId, idToSlot);
+
+            int startSlot = idToSlot.getOrDefault(id, -1);
+            if (startSlot < 0) return MemoryGraphResponse.empty(id);
+
+            // BFS frontier
+            java.util.Set<String> visited = new java.util.LinkedHashSet<>();
+            java.util.Queue<String> queue = new java.util.ArrayDeque<>();
+            java.util.Map<String, Integer> depthMap = new LinkedHashMap<>();
+            visited.add(id);
+            queue.add(id);
+            depthMap.put(id, 0);
+
+            List<MemoryDto.GraphEdgeDto> edges = new ArrayList<>();
+
+            while (!queue.isEmpty()) {
+                String current = queue.poll();
+                int currentDepth = depthMap.getOrDefault(current, depth);
+                int slot = idToSlot.getOrDefault(current, -1);
+                if (slot < 0) continue;
+
+                // HEBBIAN neighbors
+                try {
+                    for (var he : hebbianGraph.neighbors(slot)) {
+                        String neighborId = slotToId.get(he.neighborIndex());
+                        if (neighborId == null) continue;
+                        edges.add(new MemoryDto.GraphEdgeDto(
+                                current, neighborId, "HEBBIAN", null,
+                                Math.min(1.0, he.weight()), null, null));
+                        if (!visited.contains(neighborId) && currentDepth < depth) {
+                            visited.add(neighborId);
+                            queue.add(neighborId);
+                            depthMap.put(neighborId, currentDepth + 1);
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                // TEMPORAL forward
+                try {
+                    for (int tSlot : temporalChain.followForward(slot, depth - currentDepth)) {
+                        String neighborId = slotToId.get(tSlot);
+                        if (neighborId == null) continue;
+                        edges.add(new MemoryDto.GraphEdgeDto(
+                                current, neighborId, "TEMPORAL", null, 0.8, null, null));
+                        if (!visited.contains(neighborId) && currentDepth < depth) {
+                            visited.add(neighborId);
+                            queue.add(neighborId);
+                            depthMap.put(neighborId, currentDepth + 1);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // Build node list for all visited IDs
+            List<MemoryDto.GraphNodeDto> nodes = new ArrayList<>();
+            for (String nid : visited) {
+                var record = memory.inspect(nid);
+                if (record == null) continue;
+                var entityNames = entityNamesForMemory(entityGraph,
+                        idToSlot.getOrDefault(nid, -1));
+                nodes.add(new MemoryDto.GraphNodeDto(
+                        nid,
+                        record.memoryType() != null ? record.memoryType().name() : "SEMANTIC",
+                        truncate(record.text(), 120),
+                        record.importance(),
+                        record.valence(),
+                        record.timestampMs(),
+                        entityNames
+                ));
+            }
+
+            log.debug("[MemoryBridge] getMemoryGraph id={}: {} nodes, {} edges, depth={}",
+                    id, nodes.size(), edges.size(), depth);
+            return new MemoryGraphResponse(id, nodes, edges);
+
+        } catch (Exception e) {
+            log.error("[MemoryBridge] getMemoryGraph failed id={}: {}", id, e.getMessage(), e);
+            return MemoryGraphResponse.empty(id);
+        }
+    }
+
+    /**
+     * Returns topology statistics: entity types and relation types with counts.
+     *
+     * <p>Maps to: {@code GET /api/v1/memory/topology-stats}.</p>
+     */
+    public MemoryDto.TopologyStatsResponse getTopologyStats() {
+        if (!isAvailable()) return MemoryDto.TopologyStatsResponse.empty();
+        try {
+            var entityGraph = memory.admin().entityGraph();
+            var nameIndex = entityGraph.nameIndex();
+
+            // Aggregate by entity type
+            Map<String, int[]> entityTypeAgg = new LinkedHashMap<>(); // type -> [nodes, edges, memories]
+            Map<String, int[]> relationTypeAgg = new LinkedHashMap<>(); // relation -> [edges, nodes, memories]
+
+            for (var entry : nameIndex.entrySet()) {
+                int entityId = entry.getValue();
+                String entityType = safeEntityType(entityGraph, entityId);
+
+                // Entity type aggregation
+                var eStats = entityTypeAgg.computeIfAbsent(entityType, k -> new int[3]);
+                eStats[0]++; // node count
+                int memCount = 0;
+                try { memCount = entityGraph.memoryRefCount(entityId); } catch (Exception ignored) {}
+                eStats[2] += memCount; // memory refs
+
+                // Edge/relation aggregation
+                try {
+                    var edgeList = entityGraph.edges(entityId);
+                    eStats[1] += edgeList.size(); // edges for this entity type
+                    for (var ee : edgeList) {
+                        String relType = ee.relationType() != null ? ee.relationType() : "UNKNOWN";
+                        String toType = safeEntityType(entityGraph, ee.targetEntityId());
+                        var rStats = relationTypeAgg.computeIfAbsent(relType, k -> new int[3]);
+                        rStats[0]++; // edge count
+                        // count distinct node types as "nodes" for this relation
+                        rStats[1] += 2; // from + to node
+                        // memory refs via this relation
+                        try {
+                            rStats[2] += entityGraph.memoryRefCount(ee.targetEntityId());
+                        } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            List<MemoryDto.EntityTypeStatsDto> entityTypes = entityTypeAgg.entrySet().stream()
+                    .map(e -> new MemoryDto.EntityTypeStatsDto(
+                            e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2]))
+                    .toList();
+
+            List<MemoryDto.RelationTypeStatsDto> relationTypes = relationTypeAgg.entrySet().stream()
+                    .map(e -> new MemoryDto.RelationTypeStatsDto(
+                            e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2]))
+                    .toList();
+
+            log.debug("[MemoryBridge] topologyStats: {} entity types, {} relation types",
+                    entityTypes.size(), relationTypes.size());
+            return new MemoryDto.TopologyStatsResponse(entityTypes, relationTypes);
+
+        } catch (Exception e) {
+            log.error("[MemoryBridge] getTopologyStats failed: {}", e.getMessage(), e);
+            return MemoryDto.TopologyStatsResponse.empty();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // HELPERS
     // ══════════════════════════════════════════════════════════════
 
@@ -464,4 +757,37 @@ public class MemoryBridge {
         try { return MemorySource.valueOf(name.toUpperCase()); }
         catch (IllegalArgumentException e) { return fallback; }
     }
+
+    private static String truncate(String text, int max) {
+        if (text == null) return "";
+        return text.length() <= max ? text : text.substring(0, max) + "…";
+    }
+
+    private static String safeEntityType(com.spectrayan.spector.memory.graph.EntityGraph eg, int entityId) {
+        try { return eg.entityType(entityId); }
+        catch (Exception e) { return "UNKNOWN"; }
+    }
+
+    private static List<String> entityNamesForMemory(
+            com.spectrayan.spector.memory.graph.EntityGraph entityGraph, int slotIndex) {
+        if (slotIndex < 0) return List.of();
+        try {
+            var nameIndex = entityGraph.nameIndex();
+            List<String> names = new ArrayList<>();
+            for (var entry : nameIndex.entrySet()) {
+                int entityId = entry.getValue();
+                int[] mems = entityGraph.memoriesForEntity(entityId);
+                for (int m : mems) {
+                    if (m == slotIndex) {
+                        names.add(entry.getKey());
+                        break;
+                    }
+                }
+            }
+            return names;
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
 }
+

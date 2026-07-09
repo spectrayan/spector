@@ -227,4 +227,97 @@ class MemoryControllerTest {
 
         verify(memoryService, times(3)).forget(anyString());
     }
+
+    // ═══════════════════════════════════════════════════
+    // GRAPH API
+    // ═══════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("GET /memory/graph/overview — returns 200 with nodes+edges (default maxNodes)")
+    void getGraphOverview_defaultMaxNodes_returns200() throws Exception {
+        var node = new MemoryDto.GraphNodeDto("id1", "SEMANTIC", "hello world",
+                0.8, 10, 1_700_000_000_000L, List.of("Entity1"));
+        var edge = new MemoryDto.GraphEdgeDto("id1", "id2", "HEBBIAN", null, 0.5, null, null);
+        var response = new MemoryGraphResponse(null, List.of(node), List.of(edge));
+
+        when(memoryService.getGraphOverview(100)).thenReturn(response);
+
+        mvc.perform(get("/api/v1/memory/graph/overview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memoryId", nullValue()))
+                .andExpect(jsonPath("$.nodes", hasSize(1)))
+                .andExpect(jsonPath("$.nodes[0].id", is("id1")))
+                .andExpect(jsonPath("$.nodes[0].tier", is("SEMANTIC")))
+                .andExpect(jsonPath("$.edges", hasSize(1)))
+                .andExpect(jsonPath("$.edges[0].type", is("HEBBIAN")));
+
+        verify(memoryService).getGraphOverview(100);
+    }
+
+    @Test
+    @DisplayName("GET /memory/graph/overview?maxNodes=25 — passes maxNodes to service")
+    void getGraphOverview_customMaxNodes_passesParam() throws Exception {
+        when(memoryService.getGraphOverview(25)).thenReturn(MemoryGraphResponse.empty(null));
+
+        mvc.perform(get("/api/v1/memory/graph/overview").param("maxNodes", "25"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nodes", hasSize(0)));
+
+        verify(memoryService).getGraphOverview(25);
+    }
+
+    @Test
+    @DisplayName("GET /memory/{id}/graph — returns 200 with neighborhood graph")
+    void getMemoryGraph_returnsNeighborhoodGraph() throws Exception {
+        var node = new MemoryDto.GraphNodeDto("mem-42", "EPISODIC", "some event",
+                0.6, -5, 1_700_000_000_001L, List.of());
+        var response = new MemoryGraphResponse("mem-42", List.of(node), List.of());
+
+        when(memoryService.getMemoryGraph("mem-42", 2)).thenReturn(response);
+
+        mvc.perform(get("/api/v1/memory/mem-42/graph"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.memoryId", is("mem-42")))
+                .andExpect(jsonPath("$.nodes", hasSize(1)))
+                .andExpect(jsonPath("$.nodes[0].tier", is("EPISODIC")));
+
+        verify(memoryService).getMemoryGraph("mem-42", 2);
+    }
+
+    @Test
+    @DisplayName("GET /memory/topology-stats — returns entity + relation type stats")
+    void getTopologyStats_returnsStats() throws Exception {
+        var entityStat = new MemoryDto.EntityTypeStatsDto("PERSON", 5, 3, 12);
+        var relStat = new MemoryDto.RelationTypeStatsDto("WORKS_AT", 3, 6, 8);
+        var response = new MemoryDto.TopologyStatsResponse(List.of(entityStat), List.of(relStat));
+
+        when(memoryService.getTopologyStats()).thenReturn(response);
+
+        mvc.perform(get("/api/v1/memory/topology-stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entityTypes", hasSize(1)))
+                .andExpect(jsonPath("$.entityTypes[0].type", is("PERSON")))
+                .andExpect(jsonPath("$.entityTypes[0].nodes", is(5)))
+                .andExpect(jsonPath("$.relationTypes", hasSize(1)))
+                .andExpect(jsonPath("$.relationTypes[0].type", is("WORKS_AT")))
+                .andExpect(jsonPath("$.relationTypes[0].edges", is(3)));
+
+        verify(memoryService).getTopologyStats();
+    }
+
+    @Test
+    @DisplayName("GET /memory/graph/overview — path is NOT captured by /{id}/graph route")
+    void graphOverview_notCapturedByIdRoute() throws Exception {
+        // If Spring mistakenly routes /graph/overview to /{id}/graph,
+        // it would call getMemoryGraph("graph", ...) instead of getGraphOverview().
+        when(memoryService.getGraphOverview(anyInt())).thenReturn(MemoryGraphResponse.empty(null));
+
+        mvc.perform(get("/api/v1/memory/graph/overview"))
+                .andExpect(status().isOk());
+
+        // Must NOT have called getMemoryGraph with id="graph"
+        verify(memoryService, never()).getMemoryGraph(eq("graph"), anyInt());
+        verify(memoryService).getGraphOverview(anyInt());
+    }
 }
+

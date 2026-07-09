@@ -456,4 +456,127 @@ public final class MemoryDto {
             this(status, error, message, Instant.now());
         }
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // GRAPH API DTOs
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * A node in the memory graph.
+     *
+     * <p>Aligns with the {@code GraphNode} interface in the Angular
+     * {@code MemoryTableService}.</p>
+     *
+     * @param id           unique memory identifier
+     * @param tier         memory tier (WORKING, EPISODIC, SEMANTIC, PROCEDURAL)
+     * @param textPreview  first 120 characters of memory text
+     * @param importance   importance score (0.0–1.0)
+     * @param valence      emotional valence (-128 to +127)
+     * @param timestampMs  creation timestamp in epoch milliseconds
+     * @param entityNames  entity names co-occurring in this memory (may be null)
+     */
+    public record GraphNodeDto(
+            @JsonProperty("id") String id,
+            @JsonProperty("tier") String tier,
+            @JsonProperty("textPreview") String textPreview,
+            @JsonProperty("importance") double importance,
+            @JsonProperty("valence") int valence,
+            @JsonProperty("timestampMs") long timestampMs,
+            @JsonProperty("entityNames") List<String> entityNames
+    ) {}
+
+    /**
+     * An edge in the memory graph.
+     *
+     * <p>Aligns with the {@code GraphEdge} interface in the Angular
+     * {@code MemoryTableService}.</p>
+     *
+     * @param fromId         source memory ID
+     * @param toId           target memory ID
+     * @param type           edge type: HEBBIAN, TEMPORAL, or ENTITY
+     * @param relation       relation label (entity edges only, null for others)
+     * @param weight         edge weight (0.0–1.0)
+     * @param fromEntityType source entity type (entity edges only, null for others)
+     * @param toEntityType   target entity type (entity edges only, null for others)
+     */
+    public record GraphEdgeDto(
+            @JsonProperty("fromId") String fromId,
+            @JsonProperty("toId") String toId,
+            @JsonProperty("type") String type,
+            @JsonProperty("relation") String relation,
+            @JsonProperty("weight") double weight,
+            @JsonProperty("fromEntityType") String fromEntityType,
+            @JsonProperty("toEntityType") String toEntityType
+    ) {}
+
+    /**
+     * Memory graph response — used by both overview and per-memory neighborhood.
+     *
+     * <p>Aligns with the {@code MemoryGraphResponse} interface in the Angular
+     * {@code MemoryTableService}.</p>
+     *
+     * @param memoryId  the focal memory ID (null for overview)
+     * @param nodes     graph nodes
+     * @param edges     graph edges
+     */
+    public record MemoryGraphResponse(
+            @JsonProperty("memoryId") String memoryId,
+            @JsonProperty("nodes") List<GraphNodeDto> nodes,
+            @JsonProperty("edges") List<GraphEdgeDto> edges
+    ) {
+        /** Returns an empty graph (stub mode or no memories). */
+        public static MemoryGraphResponse empty(String memoryId) {
+            return new MemoryGraphResponse(memoryId, List.of(), List.of());
+        }
+    }
+
+    /**
+     * Entity type statistics for the topology panel.
+     *
+     * @param type      entity type name (e.g. PERSON, ORG, TECH)
+     * @param nodes     number of entity nodes of this type
+     * @param edges     number of edges involving this entity type
+     * @param memories  number of memories referencing this entity type
+     */
+    public record EntityTypeStatsDto(
+            @JsonProperty("type") String type,
+            @JsonProperty("nodes") int nodes,
+            @JsonProperty("edges") int edges,
+            @JsonProperty("memories") int memories
+    ) {}
+
+    /**
+     * Relation type statistics for the topology panel.
+     *
+     * @param type      relation/edge type name (e.g. WORKS_AT, RELATED_TO)
+     * @param edges     number of edges of this relation type
+     * @param nodes     number of entity nodes involved in this relation type
+     * @param memories  number of memories linked via this relation type
+     */
+    public record RelationTypeStatsDto(
+            @JsonProperty("type") String type,
+            @JsonProperty("edges") int edges,
+            @JsonProperty("nodes") int nodes,
+            @JsonProperty("memories") int memories
+    ) {}
+
+    /**
+     * Topology statistics response.
+     *
+     * <p>Aligns with the {@code TopologyStatsResponse} interface in the Angular
+     * {@code MemoryTableService}.</p>
+     *
+     * @param entityTypes    per-entity-type statistics
+     * @param relationTypes  per-relation-type statistics
+     */
+    public record TopologyStatsResponse(
+            @JsonProperty("entityTypes") List<EntityTypeStatsDto> entityTypes,
+            @JsonProperty("relationTypes") List<RelationTypeStatsDto> relationTypes
+    ) {
+        /** Returns an empty topology stats (stub mode or no memories). */
+        public static TopologyStatsResponse empty() {
+            return new TopologyStatsResponse(List.of(), List.of());
+        }
+    }
 }
+

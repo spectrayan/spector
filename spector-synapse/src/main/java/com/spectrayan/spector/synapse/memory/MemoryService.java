@@ -15,6 +15,7 @@ package com.spectrayan.spector.synapse.memory;
 import com.spectrayan.spector.synapse.bridge.MemoryBridge;
 import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
@@ -27,6 +28,7 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.SearchResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.SuppressRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.TopologyStatsResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.VacuumRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -236,6 +238,42 @@ public class MemoryService {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to read uploaded file: " + e.getMessage(), e);
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // GRAPH API
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Returns a sampled overview of the entire memory graph.
+     *
+     * @param maxNodes maximum number of nodes to include (default 100, capped at 500)
+     */
+    public MemoryGraphResponse getGraphOverview(int maxNodes) {
+        int capped = Math.min(Math.max(1, maxNodes), 500);
+        log.debug("[MemoryService] getGraphOverview maxNodes={}", capped);
+        return memoryBridge.getGraphOverview(capped);
+    }
+
+    /**
+     * Returns the Hebbian/Temporal/Entity neighborhood for a specific memory.
+     *
+     * @param id    the memory ID (required)
+     * @param depth BFS depth (default 2, capped at 5)
+     */
+    public MemoryGraphResponse getMemoryGraph(String id, int depth) {
+        requireId(id);
+        int capped = Math.min(Math.max(1, depth), 5);
+        log.debug("[MemoryService] getMemoryGraph id={} depth={}", id, capped);
+        return memoryBridge.getMemoryGraph(id, capped);
+    }
+
+    /**
+     * Returns topology statistics (entity types, relation types with counts).
+     */
+    public TopologyStatsResponse getTopologyStats() {
+        log.debug("[MemoryService] getTopologyStats");
+        return memoryBridge.getTopologyStats();
     }
 
     // ══════════════════════════════════════════════════════════════

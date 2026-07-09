@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.memory;
 
 import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
@@ -27,6 +28,7 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.SearchResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.SuppressRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.TopologyStatsResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.VacuumRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -157,6 +159,40 @@ public class MemoryController {
     }
 
     // ══════════════════════════════════════════════════════════════
+    // GRAPH API — registered before /{id}/* to avoid path variable capture
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Returns a sampled overview of the memory graph for the Graph Explorer page.
+     *
+     * <p>Maps to: {@code MemoryTableService.getGraphOverview(maxNodes)} in Angular.</p>
+     *
+     * <p>IMPORTANT: This endpoint must be declared before {@code /{id}/graph}
+     * so Spring does not capture "graph" as the {@code {id}} path variable.</p>
+     *
+     * <p>{@code GET /api/v1/memory/graph/overview?maxNodes=100}</p>
+     *
+     * @param maxNodes max nodes to return (default 100, capped at 500)
+     */
+    @GetMapping("/graph/overview")
+    public ResponseEntity<MemoryGraphResponse> getGraphOverview(
+            @RequestParam(defaultValue = "100") int maxNodes) {
+        return ResponseEntity.ok(memoryService.getGraphOverview(maxNodes));
+    }
+
+    /**
+     * Returns topology statistics (entity types, relation types with node/edge counts).
+     *
+     * <p>Maps to: {@code MemoryTableService.getTopologyStats()} in Angular.</p>
+     *
+     * <p>{@code GET /api/v1/memory/topology-stats}</p>
+     */
+    @GetMapping("/topology-stats")
+    public ResponseEntity<TopologyStatsResponse> getTopologyStats() {
+        return ResponseEntity.ok(memoryService.getTopologyStats());
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // COGNITIVE OPERATIONS — per-memory
     // ══════════════════════════════════════════════════════════════
 
@@ -203,6 +239,23 @@ public class MemoryController {
         return ResponseEntity.ok(Map.of(
                 "status", isSuppressing ? "suppressed" : "unsuppressed",
                 "id", id));
+    }
+
+    /**
+     * Returns the Hebbian/Temporal/Entity graph neighborhood for a specific memory.
+     *
+     * <p>Maps to: {@code MemoryTableService.getMemoryGraph(id, depth)} in Angular.</p>
+     *
+     * <p>{@code GET /api/v1/memory/{id}/graph?depth=2}</p>
+     *
+     * @param id    the memory ID
+     * @param depth BFS traversal depth (default 2, capped at 5 in service)
+     */
+    @GetMapping("/{id}/graph")
+    public ResponseEntity<MemoryGraphResponse> getMemoryGraph(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "2") int depth) {
+        return ResponseEntity.ok(memoryService.getMemoryGraph(id, depth));
     }
 
     /**

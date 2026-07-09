@@ -246,4 +246,84 @@ class MemoryServiceTest {
         assertThat(result.totalCount()).isEqualTo(0);
         verify(memoryBridge).getMemoryTable(0, 50, null, false);
     }
+
+    // ═══════════════════════════════════════════════════
+    // GRAPH API
+    // ═══════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("getGraphOverview — delegates to bridge with default maxNodes")
+    void getGraphOverview_delegatesToBridge() {
+        var expected = MemoryGraphResponse.empty(null);
+        when(memoryBridge.getGraphOverview(100)).thenReturn(expected);
+
+        var result = service.getGraphOverview(100);
+
+        assertThat(result).isEqualTo(expected);
+        verify(memoryBridge).getGraphOverview(100);
+    }
+
+    @Test
+    @DisplayName("getGraphOverview — caps maxNodes at 500")
+    void getGraphOverview_capsAt500() {
+        when(memoryBridge.getGraphOverview(500)).thenReturn(MemoryGraphResponse.empty(null));
+
+        service.getGraphOverview(9999);
+
+        verify(memoryBridge).getGraphOverview(500);
+    }
+
+    @Test
+    @DisplayName("getGraphOverview — clamps negative maxNodes to 1")
+    void getGraphOverview_clampsNegativeToOne() {
+        when(memoryBridge.getGraphOverview(1)).thenReturn(MemoryGraphResponse.empty(null));
+
+        service.getGraphOverview(-5);
+
+        verify(memoryBridge).getGraphOverview(1);
+    }
+
+    @Test
+    @DisplayName("getMemoryGraph — delegates to bridge with id + depth")
+    void getMemoryGraph_delegatesToBridge() {
+        var expected = MemoryGraphResponse.empty("mem-1");
+        when(memoryBridge.getMemoryGraph("mem-1", 2)).thenReturn(expected);
+
+        var result = service.getMemoryGraph("mem-1", 2);
+
+        assertThat(result).isEqualTo(expected);
+        verify(memoryBridge).getMemoryGraph("mem-1", 2);
+    }
+
+    @Test
+    @DisplayName("getMemoryGraph — caps depth at 5")
+    void getMemoryGraph_capsDepthAt5() {
+        when(memoryBridge.getMemoryGraph(eq("mem-1"), eq(5)))
+                .thenReturn(MemoryGraphResponse.empty("mem-1"));
+
+        service.getMemoryGraph("mem-1", 100);
+
+        verify(memoryBridge).getMemoryGraph("mem-1", 5);
+    }
+
+    @Test
+    @DisplayName("getMemoryGraph — throws on blank ID")
+    void getMemoryGraph_blankId_throws() {
+        assertThatThrownBy(() -> service.getMemoryGraph("   ", 2))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("blank");
+    }
+
+    @Test
+    @DisplayName("getTopologyStats — delegates to bridge")
+    void getTopologyStats_delegatesToBridge() {
+        var expected = MemoryDto.TopologyStatsResponse.empty();
+        when(memoryBridge.getTopologyStats()).thenReturn(expected);
+
+        var result = service.getTopologyStats();
+
+        assertThat(result).isEqualTo(expected);
+        verify(memoryBridge).getTopologyStats();
+    }
 }
+
