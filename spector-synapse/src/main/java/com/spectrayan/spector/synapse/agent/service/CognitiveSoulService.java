@@ -18,6 +18,7 @@ import com.spectrayan.spector.synapse.agent.AgentSoul;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
 import com.spectrayan.spector.synapse.memory.MemoryService;
+import com.spectrayan.spector.synapse.config.SynapseSalienceProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -28,9 +29,14 @@ import java.util.Optional;
 
 /**
  * Service for managing agent and user souls using Spector's cognitive memory.
- * 
- * <p>Replaces H2-based storage with cognitive persistence. Souls are serialized 
+ *
+ * <p>Replaces H2-based storage with cognitive persistence. Souls are serialized
  * to JSON and stored as memories with specific identity tags.</p>
+ *
+ * <p>When the user persona is loaded or saved, this service automatically
+ * updates the {@link SynapseSalienceProvider} so that the memory engine
+ * applies user-salience-driven importance, valence, and arousal modulation
+ * on all subsequent ingestion and recall operations.</p>
  */
 @Service
 public class CognitiveSoulService {
@@ -41,10 +47,13 @@ public class CognitiveSoulService {
 
     private final MemoryService memoryService;
     private final ObjectMapper mapper;
+    private final SynapseSalienceProvider salienceProvider;
 
-    public CognitiveSoulService(MemoryService memoryService, ObjectMapper mapper) {
+    public CognitiveSoulService(MemoryService memoryService, ObjectMapper mapper,
+                                SynapseSalienceProvider salienceProvider) {
         this.memoryService = memoryService;
         this.mapper = mapper;
+        this.salienceProvider = salienceProvider;
     }
 
     /** Loads an agent soul by ID (or the default if ID is null). */
@@ -75,19 +84,39 @@ public class CognitiveSoulService {
         log.info("[CognitiveSoul] Saved agent soul '{}'", soul.name());
     }
 
-    /** Loads the user soul (PersonaContext). */
+    /**
+     * Loads the user soul (PersonaContext).
+     *
+     * <p>When a user persona is found, it is automatically applied to the
+     * {@link SynapseSalienceProvider} so memory scoring reflects the user's
+     * personality and identity.</p>
+     */
     public Optional<PersonaContext> loadUserSoul() {
         var results = memoryService.recall(new RecallRequest("user persona context", 5, null));
 
-        return results.stream()
+        Optional<PersonaContext> persona = results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains(TAG_USER_SOUL))
                 .map(r -> fromJson(r.text(), PersonaContext.class))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+
+        // Propagate to salience provider
+        persona.ifPresent(p -> {
+            salienceProvider.updateUserPersona(p);
+            log.info("[CognitiveSoul] User persona applied to salience provider");
+        });
+
+        return persona;
     }
 
-    /** Saves the user soul (PersonaContext). */
+    /**
+     * Saves the user soul (PersonaContext).
+     *
+     * <p>After persistence, the persona is immediately applied to the
+     * {@link SynapseSalienceProvider} so all subsequent memory operations
+     * use the updated user salience profile.</p>
+     */
     public void saveUserSoul(PersonaContext persona) {
         forgetOldSouls(TAG_USER_SOUL);
 
@@ -98,7 +127,11 @@ public class CognitiveSoulService {
                 null,
                 Map.of()
         ));
-        log.info("[CognitiveSoul] Saved user persona context");
+
+        // Propagate to salience provider
+        salienceProvider.updateUserPersona(persona);
+
+        log.info("[CognitiveSoul] Saved user persona context — salience profile updated");
     }
 
     /** Helper to find the current agent soul or return a default. */
