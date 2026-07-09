@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
-import com.spectrayan.spector.memory.cortex.CognitiveRecord;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
@@ -33,6 +33,8 @@ import com.spectrayan.spector.memory.id.TsidGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
@@ -95,7 +97,7 @@ public class MemoryAccessObject {
             return id;
         }
         try {
-            memory.remember(id, text, type, source, hints, tags).join();
+            memory.remember(id, text, type, source, (IngestionHints) hints, tags).join();
             log.debug("[MemoryAccessObject] Remembered memory: id={}", id);
             return id;
         } catch (Exception e) {
@@ -235,18 +237,20 @@ public class MemoryAccessObject {
             if (record == null) return null;
             var admin = memory.admin();
             var index = admin.index();
-            var layout = admin.tierRouter().get(record.memoryType()).layout();
-            long offset = index.offset(id);
+            var store = admin.tierRouter().get(record.memoryType());
+            var layout = store.layout();
+            var loc = index.locate(id);
+            if (loc == null) return null;
+            long offset = loc.offset();
 
             // Since readHeader is protected, we can read layout stats from memory
             byte flags = 0; // Default flags
-            int importance = record.importance();
+            float importance = record.importance();
             int valence = record.valence();
             int arousal = 0;
 
             // Optional: try to resolve header details via raw segment if available
             try {
-                var store = admin.tierRouter().get(record.memoryType());
                 if (store instanceof AbstractTierStore ats) {
                     long baseOffset = ats.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
                     var header = layout.readHeader(ats.segment(), baseOffset + offset);
@@ -274,7 +278,7 @@ public class MemoryAccessObject {
                     record.timestampMs(), 1, 1,
                     tombstoned, false, pinned, resolved, consolidated,
                     tags != null ? Arrays.asList(tags) : List.of(),
-                    new byte[0],
+                    0L,
                     Instant.ofEpochMilli(record.timestampMs()).toString(),
                     metadata
             );
@@ -288,7 +292,7 @@ public class MemoryAccessObject {
      * Retrieve the INT8 quantized embedding vector for a memory.
      */
     public MemoryVectorResponse getMemoryVector(String id) {
-        if (!isAvailable()) return new MemoryVectorResponse(id, List.of(), 0);
+        if (!isAvailable()) return new MemoryVectorResponse(id, 0, List.of());
         try {
             var admin = memory.admin();
             var index = admin.index();
@@ -297,26 +301,28 @@ public class MemoryAccessObject {
             var store = admin.tierRouter().get(tier);
 
             if (store instanceof AbstractTierStore ats) {
-                long offset = index.offset(id);
+                var loc = index.locate(id);
+                if (loc == null) return new MemoryVectorResponse(id, 0, List.of());
+                long offset = loc.offset();
                 long baseOffset = ats.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
                 long fullOffset = baseOffset + offset;
                 var layout = ats.layout();
-                int dims = layout.dimensions();
+                int dims = layout.quantizedVecBytes();
 
                 // Read raw quant bytes
                 byte[] rawVector = new byte[dims];
-                ats.segment().getUtf8String(fullOffset + 64, rawVector, 0, dims);
+                MemorySegment.copy(ats.segment(), ValueLayout.JAVA_BYTE, fullOffset + 64, rawVector, 0, dims);
 
                 List<Float> floats = new ArrayList<>(dims);
                 for (byte b : rawVector) {
                     floats.add((float) b);
                 }
-                return new MemoryVectorResponse(id, floats, dims);
+                return new MemoryVectorResponse(id, dims, floats);
             }
-            return new MemoryVectorResponse(id, List.of(), 0);
+            return new MemoryVectorResponse(id, 0, List.of());
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Get memory vector failed for id={}: {}", id, e.getMessage());
-            return new MemoryVectorResponse(id, List.of(), 0);
+            return new MemoryVectorResponse(id, 0, List.of());
         }
     }
 
@@ -541,7 +547,7 @@ public class MemoryAccessObject {
                                 if (toMemId == null || !allIds.contains(toMemId)) continue;
                                 edges.add(new MemoryDto.GraphEdgeDto(
                                         fromMemId, toMemId, "ENTITY", ee.relationType(),
-                                        (double) ee.strength(), entityType, toEntityType
+                                        (double) ee.weight(), entityType, toEntityType
                                 ));
                             }
                         }
@@ -549,7 +555,7 @@ public class MemoryAccessObject {
                 }
             } catch (Exception ignored) {}
 
-            return new MemoryGraphResponse(nodes, edges);
+            return new MemoryGraphResponse(null, nodes, edges);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Graph overview failed: {}", e.getMessage(), e);
             return MemoryGraphResponse.empty("Overview failed: " + e.getMessage());
@@ -656,10 +662,10 @@ public class MemoryAccessObject {
                 ));
             }
 
-            return new MemoryGraphResponse(nodes, edges);
+            return new MemoryGraphResponse(id, nodes, edges);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Graph fetch failed for id={}: {}", id, e.getMessage(), e);
-            return MemoryGraphResponse.empty("Failed: " + e.getMessage());
+            return MemoryGraphResponse.empty(id);
         }
     }
 
@@ -667,27 +673,53 @@ public class MemoryAccessObject {
      * Returns topology statistics.
      */
     public MemoryDto.TopologyStatsResponse getTopologyStats() {
-        if (!isAvailable()) return new MemoryDto.TopologyStatsResponse(Map.of(), Map.of());
+        if (!isAvailable()) return MemoryDto.TopologyStatsResponse.empty();
         try {
             var entityGraph = memory.admin().entityGraph();
-            Map<String, Integer> entityTypes = new LinkedHashMap<>();
-            Map<String, Integer> relationTypes = new LinkedHashMap<>();
-
             var nameIndex = entityGraph.nameIndex();
+
+            Map<String, int[]> entityTypeAgg = new LinkedHashMap<>();
+            Map<String, int[]> relationTypeAgg = new LinkedHashMap<>();
+
             for (var entry : nameIndex.entrySet()) {
                 int entityId = entry.getValue();
-                String type = safeEntityType(entityGraph, entityId);
-                entityTypes.merge(type, 1, Integer::sum);
+                String entityType = safeEntityType(entityGraph, entityId);
 
-                var edges = entityGraph.edges(entityId);
-                for (var edge : edges) {
-                    relationTypes.merge(edge.relationType(), 1, Integer::sum);
-                }
+                var eStats = entityTypeAgg.computeIfAbsent(entityType, k -> new int[3]);
+                eStats[0]++; // node count
+                int memCount = 0;
+                try { memCount = entityGraph.memoryRefCount(entityId); } catch (Exception ignored) {}
+                eStats[2] += memCount; // memory refs
+
+                try {
+                    var edgeList = entityGraph.edges(entityId);
+                    eStats[1] += edgeList.size();
+                    for (var ee : edgeList) {
+                        String relType = ee.relationType() != null ? ee.relationType() : "UNKNOWN";
+                        var rStats = relationTypeAgg.computeIfAbsent(relType, k -> new int[3]);
+                        rStats[0]++; // edge count
+                        rStats[1] += 2; // from + to node
+                        try {
+                            rStats[2] += entityGraph.memoryRefCount(ee.targetEntityId());
+                        } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
             }
+
+            List<MemoryDto.EntityTypeStatsDto> entityTypes = entityTypeAgg.entrySet().stream()
+                    .map(e -> new MemoryDto.EntityTypeStatsDto(
+                            e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2]))
+                    .toList();
+
+            List<MemoryDto.RelationTypeStatsDto> relationTypes = relationTypeAgg.entrySet().stream()
+                    .map(e -> new MemoryDto.RelationTypeStatsDto(
+                            e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2]))
+                    .toList();
+
             return new MemoryDto.TopologyStatsResponse(entityTypes, relationTypes);
         } catch (Exception e) {
-            log.error("[MemoryAccessObject] Topology stats failed: {}", e.getMessage());
-            return new MemoryDto.TopologyStatsResponse(Map.of(), Map.of());
+            log.error("[MemoryAccessObject] Topology stats failed: {}", e.getMessage(), e);
+            return MemoryDto.TopologyStatsResponse.empty();
         }
     }
 
