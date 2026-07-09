@@ -30,6 +30,7 @@ import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncEdgeAction;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.action.NodeAction;
+import org.bsc.langgraph4j.langchain4j.serializer.std.LC4jStateSerializer;
 import org.bsc.langgraph4j.state.AgentState;
 import org.bsc.langgraph4j.state.Channel;
 import org.bsc.langgraph4j.state.Channels;
@@ -104,7 +105,8 @@ public class AgenticChatGraph {
                     state -> agentNode(state, systemPrompt, toolSpecs);
             NodeAction<AgentState> toolAction = this::toolNode;
 
-            StateGraph<AgentState> graph = new StateGraph<>(channels, AgentState::new)
+            StateGraph<AgentState> graph = new StateGraph<>(channels,
+                    new LC4jStateSerializer<>(AgentState::new))
                     .addNode(AGENT_NODE, AsyncNodeAction.node_async(agentAction))
                     .addNode(TOOLS_NODE, AsyncNodeAction.node_async(toolAction))
                     .addEdge(START, AGENT_NODE)
@@ -175,8 +177,9 @@ public class AgenticChatGraph {
 
         } catch (Exception e) {
             log.error("[AgenticChatGraph] Chat execution failed: {}", e.getMessage(), e);
-            listener.onError(e.getMessage());
-            return "Error during agentic processing: " + e.getMessage();
+            String userMessage = "I'm sorry, I encountered an issue processing your request. Please try again.";
+            listener.onError(userMessage);
+            return userMessage;
         }
     }
 
