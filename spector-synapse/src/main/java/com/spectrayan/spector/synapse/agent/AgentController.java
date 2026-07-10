@@ -48,27 +48,7 @@ public class AgentController {
     /** Get the current active agent soul. */
     @GetMapping("/soul")
     public ResponseEntity<AgentSoul> getSoul() {
-        return soulService.loadAgentSoul(null)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> {
-                    // Return a default/empty soul so UI doesn't crash or fail to load
-                    AgentSoul defaultSoul = AgentSoul.builder()
-                            .id("default")
-                            .name("Assistant")
-                            .description("Default Assistant")
-                            .systemPrompt("You are a helpful AI assistant.")
-                            .purpose("Help users")
-                            .personality("Friendly and helpful")
-                            .expertiseDomains(List.of())
-                            .coreValues(List.of())
-                            .ethicalGuardrails(List.of())
-                            .emotionalBaseline(AgentSoul.EmotionalBaseline.NEUTRAL)
-                            .communicationStyle("professional")
-                            .model("qwen3.5:latest")
-                            .tools(List.of())
-                            .build();
-                    return ResponseEntity.ok(defaultSoul);
-                });
+        return ResponseEntity.ok(soulService.getActiveSoul());
     }
 
     /** Create/Update the active agent soul. */
@@ -95,66 +75,14 @@ public class AgentController {
 
     /** Partially update the active agent soul. */
     @PatchMapping("/soul")
-    @SuppressWarnings("unchecked")
     public ResponseEntity<AgentSoul> patchSoul(@RequestBody Map<String, Object> updates) {
-        AgentSoul current = soulService.loadAgentSoul(null).orElseGet(() -> 
-            AgentSoul.builder()
-                .id("default")
-                .name("Assistant")
-                .systemPrompt("You are a helpful AI assistant.")
-                .model("qwen3.5:latest")
-                .build()
-        );
-
-        var builder = AgentSoul.builder()
-                .id(current.id())
-                .name(updates.containsKey("name") ? (String) updates.get("name") : current.name())
-                .description(updates.containsKey("description") ? (String) updates.get("description") : current.description())
-                .systemPrompt(updates.containsKey("systemPrompt") ? (String) updates.get("systemPrompt") : current.systemPrompt())
-                .purpose(updates.containsKey("purpose") ? (String) updates.get("purpose") : current.purpose())
-                .personality(updates.containsKey("personality") ? (String) updates.get("personality") : current.personality())
-                .emotionalBaseline(updates.containsKey("emotionalBaseline") ? parseEmotionalBaseline(updates.get("emotionalBaseline")) : current.emotionalBaseline())
-                .communicationStyle(updates.containsKey("communicationStyle") ? (String) updates.get("communicationStyle") : current.communicationStyle())
-                .model(updates.containsKey("model") ? (String) updates.get("model") : current.model());
-
-        if (updates.containsKey("expertiseDomains")) {
-            builder.expertiseDomains((List<String>) updates.get("expertiseDomains"));
-        } else {
-            builder.expertiseDomains(current.expertiseDomains());
-        }
-
-        if (updates.containsKey("coreValues")) {
-            builder.coreValues((List<String>) updates.get("coreValues"));
-        } else {
-            builder.coreValues(current.coreValues());
-        }
-
-        if (updates.containsKey("ethicalGuardrails")) {
-            builder.ethicalGuardrails((List<String>) updates.get("ethicalGuardrails"));
-        } else {
-            builder.ethicalGuardrails(current.ethicalGuardrails());
-        }
-
-        if (updates.containsKey("tools")) {
-            builder.tools((List<String>) updates.get("tools"));
-        } else {
-            builder.tools(current.tools());
-        }
-
-        AgentSoul updated = builder.build();
-        soulService.saveAgentSoul(updated);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(soulService.patchAgentSoul(updates));
     }
 
     /** Reset the active agent soul. */
     @DeleteMapping("/soul")
     public ResponseEntity<Void> resetSoul() {
-        soulService.saveAgentSoul(AgentSoul.builder()
-                .id("default")
-                .name("Assistant")
-                .systemPrompt("You are a helpful AI assistant.")
-                .model("qwen3.5:latest")
-                .build());
+        soulService.resetAgentSoul();
         return ResponseEntity.noContent().build();
     }
 
@@ -218,29 +146,5 @@ public class AgentController {
                 "count", toolDetails.size(),
                 "tools", toolDetails
         ));
-    }
-
-    private static AgentSoul.EmotionalBaseline parseEmotionalBaseline(Object obj) {
-        if (obj == null) {
-            return AgentSoul.EmotionalBaseline.NEUTRAL;
-        }
-        if (obj instanceof AgentSoul.EmotionalBaseline eb) {
-            return eb;
-        }
-        if (obj instanceof Map<?, ?> map) {
-            Number val = (Number) map.get("defaultValence");
-            Number ar = (Number) map.get("defaultArousal");
-            byte valence = val != null ? val.byteValue() : 0;
-            byte arousal = ar != null ? ar.byteValue() : (byte) 128;
-            return new AgentSoul.EmotionalBaseline(valence, arousal);
-        }
-        if (obj instanceof String s) {
-            return switch (s.toLowerCase()) {
-                case "warm" -> AgentSoul.EmotionalBaseline.WARM;
-                case "energetic" -> AgentSoul.EmotionalBaseline.ENERGETIC;
-                default -> AgentSoul.EmotionalBaseline.NEUTRAL;
-            };
-        }
-        return AgentSoul.EmotionalBaseline.NEUTRAL;
     }
 }

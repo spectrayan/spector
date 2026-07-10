@@ -45,6 +45,22 @@ public class CognitiveSoulService {
     private static final String TAG_AGENT_SOUL = "identity:agent";
     private static final String TAG_USER_SOUL = "identity:user";
 
+    public static final AgentSoul DEFAULT_FALLBACK_SOUL = AgentSoul.builder()
+            .id("default")
+            .name("Assistant")
+            .description("Default Assistant")
+            .systemPrompt("You are a helpful AI assistant.")
+            .purpose("Help users")
+            .personality("Friendly and helpful")
+            .expertiseDomains(List.of())
+            .coreValues(List.of())
+            .ethicalGuardrails(List.of())
+            .emotionalBaseline(AgentSoul.EmotionalBaseline.NEUTRAL)
+            .communicationStyle("professional")
+            .model("qwen3.5:latest")
+            .tools(List.of())
+            .build();
+
     private final MemoryService memoryService;
     private final ObjectMapper mapper;
     private final SynapseSalienceProvider salienceProvider;
@@ -134,12 +150,88 @@ public class CognitiveSoulService {
         log.info("[CognitiveSoul] Saved user persona context — salience profile updated");
     }
 
+    /** Get the current active agent soul, or a default fallback. */
+    public AgentSoul getActiveSoul() {
+        return loadAgentSoul(null).orElse(DEFAULT_FALLBACK_SOUL);
+    }
+
     /** Helper to find the current agent soul or return a default. */
     public AgentSoul getEffectiveSoul(String id) {
-        return loadAgentSoul(id).orElseGet(() -> 
-            AgentSoul.of("default", "Assistant", 
-                "You are a cognitive assistant powered by the Spector Engine.")
-        );
+        return loadAgentSoul(id).orElse(DEFAULT_FALLBACK_SOUL);
+    }
+
+    /** Reset the active agent soul to default settings. */
+    public void resetAgentSoul() {
+        saveAgentSoul(DEFAULT_FALLBACK_SOUL);
+    }
+
+    /** Partially updates the active agent soul. */
+    @SuppressWarnings("unchecked")
+    public AgentSoul patchAgentSoul(Map<String, Object> updates) {
+        AgentSoul current = getActiveSoul();
+
+        var builder = AgentSoul.builder()
+                .id(current.id())
+                .name(updates.containsKey("name") ? (String) updates.get("name") : current.name())
+                .description(updates.containsKey("description") ? (String) updates.get("description") : current.description())
+                .systemPrompt(updates.containsKey("systemPrompt") ? (String) updates.get("systemPrompt") : current.systemPrompt())
+                .purpose(updates.containsKey("purpose") ? (String) updates.get("purpose") : current.purpose())
+                .personality(updates.containsKey("personality") ? (String) updates.get("personality") : current.personality())
+                .emotionalBaseline(updates.containsKey("emotionalBaseline") ? parseEmotionalBaseline(updates.get("emotionalBaseline")) : current.emotionalBaseline())
+                .communicationStyle(updates.containsKey("communicationStyle") ? (String) updates.get("communicationStyle") : current.communicationStyle())
+                .model(updates.containsKey("model") ? (String) updates.get("model") : current.model());
+
+        if (updates.containsKey("expertiseDomains")) {
+            builder.expertiseDomains((List<String>) updates.get("expertiseDomains"));
+        } else {
+            builder.expertiseDomains(current.expertiseDomains());
+        }
+
+        if (updates.containsKey("coreValues")) {
+            builder.coreValues((List<String>) updates.get("coreValues"));
+        } else {
+            builder.coreValues(current.coreValues());
+        }
+
+        if (updates.containsKey("ethicalGuardrails")) {
+            builder.ethicalGuardrails((List<String>) updates.get("ethicalGuardrails"));
+        } else {
+            builder.ethicalGuardrails(current.ethicalGuardrails());
+        }
+
+        if (updates.containsKey("tools")) {
+            builder.tools((List<String>) updates.get("tools"));
+        } else {
+            builder.tools(current.tools());
+        }
+
+        AgentSoul updated = builder.build();
+        saveAgentSoul(updated);
+        return updated;
+    }
+
+    private static AgentSoul.EmotionalBaseline parseEmotionalBaseline(Object obj) {
+        if (obj == null) {
+            return AgentSoul.EmotionalBaseline.NEUTRAL;
+        }
+        if (obj instanceof AgentSoul.EmotionalBaseline eb) {
+            return eb;
+        }
+        if (obj instanceof Map<?, ?> map) {
+            Number val = (Number) map.get("defaultValence");
+            Number ar = (Number) map.get("defaultArousal");
+            byte valence = val != null ? val.byteValue() : 0;
+            byte arousal = ar != null ? ar.byteValue() : (byte) 128;
+            return new AgentSoul.EmotionalBaseline(valence, arousal);
+        }
+        if (obj instanceof String s) {
+            return switch (s.toLowerCase()) {
+                case "warm" -> AgentSoul.EmotionalBaseline.WARM;
+                case "energetic" -> AgentSoul.EmotionalBaseline.ENERGETIC;
+                default -> AgentSoul.EmotionalBaseline.NEUTRAL;
+            };
+        }
+        return AgentSoul.EmotionalBaseline.NEUTRAL;
     }
 
     private void forgetOldSouls(String tag) {
