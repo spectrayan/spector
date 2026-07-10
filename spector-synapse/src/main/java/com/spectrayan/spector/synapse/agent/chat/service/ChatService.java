@@ -28,6 +28,8 @@ import com.spectrayan.spector.synapse.agent.graph.AgenticChatGraph;
 import com.spectrayan.spector.synapse.agent.service.IdentityPrimerService;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 
+import com.spectrayan.spector.memory.id.TsidGenerator;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -42,7 +44,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -74,6 +75,7 @@ public class ChatService {
     private final IdentityPrimerService identityPrimerService;
     private final ToolRegistry toolRegistry;
     private final AgenticChatGraph agenticChatGraph;
+    private final TsidGenerator tsid;
     private final String ollamaBaseUrl;
 
     /** Lazily initialized cognitive engines. */
@@ -85,12 +87,14 @@ public class ChatService {
                        IdentityPrimerService identityPrimerService,
                        ToolRegistry toolRegistry,
                        AgenticChatGraph agenticChatGraph,
+                       TsidGenerator tsid,
                        SynapseProperties props) {
         this.chatMemoryPort = Objects.requireNonNull(chatMemoryPort);
         this.contextPrimingService = Objects.requireNonNull(contextPrimingService);
         this.identityPrimerService = Objects.requireNonNull(identityPrimerService);
         this.toolRegistry = Objects.requireNonNull(toolRegistry);
         this.agenticChatGraph = Objects.requireNonNull(agenticChatGraph);
+        this.tsid = Objects.requireNonNull(tsid);
         this.ollamaBaseUrl = props.ollama().baseUrl();
 
         // Initialize cognitive engines
@@ -156,7 +160,7 @@ public class ChatService {
         // Resolve session ID
         String resolvedSessionId = sessionId != null && !sessionId.isBlank()
                 ? sessionId
-                : UUID.randomUUID().toString();
+                : tsid.generate();
 
         // ── Step 3: Build agentic soul with enriched prompt ──
         var soulBuilder = AgentSoul.builder()
@@ -214,14 +218,16 @@ public class ChatService {
         // ── Step 5: Execute agentic graph ──
         String finalResponse = agenticChatGraph.chat(enrichedSoul, message, wrappedListener);
 
-        // ── Step 6: Persist the turn ──
-        if (message != null && !message.isBlank() && !finalResponse.isEmpty()) {
+        // ── Step 6: Persist the turn (skip on error) ──
+        boolean hasErrorTrace = traceEvents.stream()
+                .anyMatch(e -> "error".equals(e.type()));
+        if (!hasErrorTrace && message != null && !message.isBlank() && !finalResponse.isEmpty()) {
             chatMemoryPort.saveToSession(resolvedSessionId, message, finalResponse,
                     model != null ? model : DEFAULT_MODEL);
         }
 
-        // ── Step 7: Post-conversation reflection (async) ──
-        if (message != null && !message.isBlank() && !finalResponse.isEmpty()) {
+        // ── Step 7: Post-conversation reflection (async, skip on error) ──
+        if (!hasErrorTrace && message != null && !message.isBlank() && !finalResponse.isEmpty()) {
             var conversationMessages = new ArrayList<Map<String, Object>>();
             conversationMessages.add(Map.of("role", "user", "content", message));
             conversationMessages.add(Map.of("role", "assistant", "content", finalResponse));
@@ -230,13 +236,14 @@ public class ChatService {
 
         // ── Step 8: Build typed response ──
         long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+        String status = hasErrorTrace ? "ERROR" : "DONE";
 
         return new AgentChatResponse(
                 finalResponse,
                 resolvedSessionId,
                 isNewSession,
                 model != null ? model : DEFAULT_MODEL,
-                "DONE",
+                status,
                 elapsedMs,
                 elapsedMs,
                 primedContext.crossSessionMemories().size(),

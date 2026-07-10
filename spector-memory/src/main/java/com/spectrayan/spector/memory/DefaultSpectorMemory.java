@@ -41,6 +41,7 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.TextDataStore;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
@@ -181,6 +182,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
+    private final CognitiveGraphFacade graphFacade;
 
     // ── Configuration ──
     private final int dimensions;
@@ -217,434 +219,47 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ── Multimodal Attachment Processing ──
     private final com.spectrayan.spector.memory.pipeline.AttachmentProcessor attachmentProcessor;
 
-    private DefaultSpectorMemory(Builder builder) {
+    DefaultSpectorMemory(SpectorMemoryBuilder builder) {
+        var bundle = SpectorMemoryFactory.assemble(builder);
+        this.cognitiveTarget = bundle.cognitiveTarget();
+        this.embeddingProvider = bundle.embeddingProvider();
+        this.recallPipeline = bundle.recallPipeline();
+        this.index = bundle.index();
+        this.quantizer = bundle.quantizer();
+        this.partitionManager = bundle.partitionManager();
+        this.importanceEstimator = bundle.importanceEstimator();
+        this.reflectionOrchestrator = bundle.reflectionOrchestrator();
+        this.reinforcementHandler = bundle.reinforcementHandler();
+        this.valenceTracker = bundle.valenceTracker();
+        this.coActivationTracker = bundle.coActivationTracker();
+        this.suppressionSet = bundle.suppressionSet();
+        this.habituationPenalty = bundle.habituationPenalty();
+        this.prospectiveScheduler = bundle.prospectiveScheduler();
+        this.introspector = bundle.introspector();
+        this.lateralEvaluator = bundle.lateralEvaluator();
+        this.wal = bundle.wal();
+        this.hebbianGraph = bundle.hebbianGraph();
+        this.temporalChain = bundle.temporalChain();
+        this.entityGraph = bundle.entityGraph();
+        this.hyperEntityGraph = bundle.hyperEntityGraph();
+        this.graphFacade = bundle.graphFacade();
         this.dimensions = builder.dimensions;
         this.persistenceMode = builder.persistenceMode;
         this.persistencePath = builder.persistencePath;
         this.circadianPolicy = builder.circadianPolicy;
         this.profileConfig = builder.profileConfig;
+        this.namespaceManager = bundle.namespaceManager();
+        this.idGenerator = bundle.idGenerator();
+        this.checkpointDaemon = bundle.checkpointDaemon();
+        this.daemonSupervisor = bundle.daemonSupervisor();
+        this.bm25Index = bundle.bm25Index();
         this.chunker = builder.chunker;
-
-        if (builder.embeddingProvider == null) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL,
-                    "embeddingProvider is required");
-        }
-        EmbeddingProvider embeddingProvider = builder.embeddingProvider;
-        this.embeddingProvider = embeddingProvider;
-        this.parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider);
-        this.embedConfig = new EmbedConfig(builder.embedBatchSize, 3);
-
-        boolean isDisk = persistenceMode == MemoryPersistenceMode.DISK;
-
-        // ── Resolve persistence path ──
-        Path basePath;
-        if (isDisk && builder.persistencePath != null) {
-            basePath = builder.persistencePath;
-        } else if (isDisk) {
-            basePath = Path.of(System.getProperty("java.io.tmpdir"),
-                    "spector-memory-" + ProcessHandle.current().pid());
-            log.warn("DISK persistence mode with no explicit path — using temp directory: {}", basePath);
-        } else {
-            basePath = null;
-        }
-
-        // ── Quantizer ──
-        if (builder.quantizer != null) {
-            this.quantizer = builder.quantizer;
-        } else {
-            float[] defaultMins = new float[builder.dimensions];
-            float[] defaultMaxs = new float[builder.dimensions];
-            java.util.Arrays.fill(defaultMins, -1.0f);
-            java.util.Arrays.fill(defaultMaxs, 1.0f);
-            this.quantizer = ScalarQuantizer.fromBounds(builder.dimensions, defaultMins, defaultMaxs);
-        }
-
-        // ── Auto-migrate legacy layout ──
-        if (isDisk && basePath != null) {
-            PartitionLayoutMigrator.migrate(basePath);
-        }
-
-        // ── Namespace Manager ──
-        if (isDisk && basePath != null) {
-            this.namespaceManager = new SpectorNamespaceManager(basePath);
-            log.info("NamespaceManager initialized: {} namespaces discovered", namespaceManager.count());
-        } else {
-            this.namespaceManager = null;
-        }
-
-        // ── Partition layout ──
-        int quantizedVecBytes = builder.dimensions;
-
-        Path resolvedPartitionDir = null;
-        if (isDisk && basePath != null) {
-            try {
-                java.nio.file.Files.createDirectories(StorageLayout.runtimeDir(basePath));
-                java.nio.file.Files.createDirectories(StorageLayout.partitionsDir(basePath));
-                resolvedPartitionDir = PartitionManager.discoverOrCreatePartition(basePath);
-                log.info("Active partition: {}", resolvedPartitionDir.getFileName());
-            } catch (java.io.IOException e) {
-                log.error("Failed to initialize partition layout: {}", e.getMessage(), e);
-            }
-        }
-
-        // ── Tier stores ──
-        TierRouter tierRouter;
-        WorkingMemoryStore workingStore;
-        if (isDisk && builder.persistWorkingMemory && basePath != null) {
-            workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity,
-                    StorageLayout.workingMem(basePath));
-        } else {
-            workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity);
-        }
-
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
-                    StorageLayout.episodicMem(resolvedPartitionDir),
-                    quantizedVecBytes, builder.episodicPartitionCapacity);
-            ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
-                    quantizedVecBytes, builder.proceduralCapacity,
-                    StorageLayout.proceduralMem(resolvedPartitionDir));
-            SemanticMemoryStore semanticStore = new SemanticMemoryStore(
-                    quantizedVecBytes, builder.semanticCapacity,
-                    StorageLayout.semanticMem(resolvedPartitionDir));
-            tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
-        } else {
-            EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
-                    quantizedVecBytes, builder.episodicPartitionCapacity);
-            ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
-                    quantizedVecBytes, builder.proceduralCapacity);
-            SemanticMemoryStore semanticStore = new SemanticMemoryStore(
-                    quantizedVecBytes, builder.semanticCapacity);
-            tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
-        }
-
-        // ── Memory Index ──
-        if (isDisk && basePath != null) {
-            Path runtimeIndex = StorageLayout.indexMidxRuntime(basePath);
-            Path legacyIndex = StorageLayout.legacyIndex(basePath);
-            // V3: load from runtime/, fallback to V2 partition location, then legacy
-            if (java.nio.file.Files.exists(runtimeIndex)) {
-                this.index = MemoryIndex.load(runtimeIndex);
-            } else if (resolvedPartitionDir != null
-                    && java.nio.file.Files.exists(StorageLayout.indexMidx(resolvedPartitionDir))) {
-                this.index = MemoryIndex.load(StorageLayout.indexMidx(resolvedPartitionDir));
-                log.info("Loaded V2 index from partition — will save to runtime/ on next close");
-            } else if (java.nio.file.Files.exists(legacyIndex)) {
-                this.index = MemoryIndex.load(legacyIndex);
-                log.info("Loaded legacy memory-index.mem — will save to runtime/ on next close");
-            } else {
-                this.index = new MemoryIndex();
-            }
-        } else {
-            this.index = new MemoryIndex();
-        }
-
-        // ── WAL ──
-        if (isDisk && basePath != null) {
-            this.wal = new MemoryWal(StorageLayout.walDir(basePath));
-        } else {
-            this.wal = new MemoryWal();
-        }
-
-        // ── Biological Subsystems ──
-        SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
-        IcnuWeights icnuWeights = builder.icnuWeights != null ? builder.icnuWeights : IcnuWeights.DEFAULT;
-        FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
-        this.valenceTracker = new ValenceTracker(builder.valenceLearningRate);
-
-        if (isDisk && basePath != null) {
-            this.coActivationTracker = CoActivationTracker.load(
-                    StorageLayout.coactivationTracker(basePath), 10_000, 20_000);
-        } else {
-            this.coActivationTracker = new CoActivationTracker();
-        }
-        this.suppressionSet = new SuppressionSet();
-        this.habituationPenalty = new HabituationPenalty(0.2f, builder.inhibitionTtlMs, builder.inhibitionFloor);
-        this.prospectiveScheduler = new ProspectiveScheduler();
-        this.introspector = new MemoryIntrospector(coActivationTracker);
-        this.lateralEvaluator = new LateralEvaluator();
-
-        ReflectDaemon reflectDaemon = new ReflectDaemon(
-                builder.circadianPolicy,
-                builder.dimensions > 0 ? new CentroidRouter(builder.dimensions) : null,
-                builder.textGenerationProvider,
-                embeddingProvider,
-                5, // minClusterSize
-                builder.pinSourceEpisodes,
-                builder.pinnedQuota);
-
-        // ── 3-Layer Cognitive Graph ──
-        int graphCapacity = builder.hebbianGraphCapacity > 0
-                ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
-
-        if (isDisk && basePath != null) {
-            Path runtimeGraph = StorageLayout.hebbianGraphRuntime(basePath);
-            // Fallback: V2 partition location, then legacy flat
-            Path legacyGraph = basePath.resolve(StorageLayout.FILE_HEBBIAN);
-            Path v2Graph = resolvedPartitionDir != null
-                    ? StorageLayout.hebbianGraph(resolvedPartitionDir) : null;
-            Path loadFrom = java.nio.file.Files.exists(runtimeGraph) ? runtimeGraph
-                    : (v2Graph != null && java.nio.file.Files.exists(v2Graph)) ? v2Graph
-                    : legacyGraph;
-            this.hebbianGraph = HebbianGraphCsr.load(loadFrom, graphCapacity,
-                    builder.hebbianMaxDegree, builder.edgeImportance);
-        } else {
-            this.hebbianGraph = new HebbianGraphCsr(graphCapacity);
-        }
-
-        int temporalCapacity = builder.temporalChainCapacity > 0
-                ? builder.temporalChainCapacity : graphCapacity;
-        if (isDisk && basePath != null) {
-            Path runtimeChain = StorageLayout.temporalChainRuntime(basePath);
-            Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
-            Path v2Chain = resolvedPartitionDir != null
-                    ? StorageLayout.temporalChain(resolvedPartitionDir) : null;
-            Path loadFrom = java.nio.file.Files.exists(runtimeChain) ? runtimeChain
-                    : (v2Chain != null && java.nio.file.Files.exists(v2Chain)) ? v2Chain
-                    : legacyChain;
-            this.temporalChain = TemporalChain.load(loadFrom, temporalCapacity);
-        } else {
-            this.temporalChain = new TemporalChain(temporalCapacity);
-        }
-
-        EntityExtractor entityExtractor;
-        if (builder.entityExtractionMode == EntityExtractionMode.LLM
-                && builder.textGenerationProvider != null) {
-            entityExtractor = new LlmEntityExtractor(
-                    builder.textGenerationProvider,
-                    builder.maxEntitiesPerMemory, builder.maxRelationsPerMemory,
-                    builder.llmGenerationOptions);
-        } else if (builder.entityExtractionMode == EntityExtractionMode.CUSTOM
-                && builder.entityExtractor != null) {
-            entityExtractor = builder.entityExtractor;
-        } else {
-            entityExtractor = NoOpEntityExtractor.INSTANCE;
-        }
-
-        boolean entityEnabled = builder.entityExtractionMode != EntityExtractionMode.NONE;
-        if (entityEnabled) {
-            int entityCap = builder.entityGraphCapacity;
-            int edgeCap = entityCap * builder.entityMaxDegree;
-            if (isDisk && basePath != null) {
-                Path runtimeEntity = StorageLayout.entityGraphRuntime(basePath);
-                Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);
-                Path v2Entity = resolvedPartitionDir != null
-                        ? StorageLayout.entityGraph(resolvedPartitionDir) : null;
-
-                if (java.nio.file.Files.exists(runtimeEntity)) {
-                    // Runtime path exists — use mmap constructor (EGMM) or load (EGPH legacy)
-                    this.entityGraph = EntityGraph.load(runtimeEntity, entityCap, edgeCap);
-                } else if (v2Entity != null && java.nio.file.Files.exists(v2Entity)) {
-                    // V2 legacy path — load as heap (EGPH), will be saved as mmap on next checkpoint
-                    this.entityGraph = EntityGraph.load(v2Entity, entityCap, edgeCap);
-                } else if (java.nio.file.Files.exists(legacyEntity)) {
-                    this.entityGraph = EntityGraph.load(legacyEntity, entityCap, edgeCap);
-                } else {
-                    // No existing file — create fresh mmap-backed graph at runtime path
-                    this.entityGraph = new EntityGraph(runtimeEntity, entityCap, edgeCap,
-                            builder.entityMaxDegree, builder.edgeImportance);
-                }
-            } else {
-                this.entityGraph = new EntityGraph(entityCap, edgeCap,
-                        builder.entityMaxDegree, builder.edgeImportance);
-            }
-        } else {
-            this.entityGraph = null;
-        }
-
-        // ── HyperEntityGraph (multi-entity relationship layer) ──
-        if (entityEnabled && builder.hyperEntityGraphEnabled) {
-            int hyperCap = builder.entityGraphCapacity;
-            int hyperEdgeCap = hyperCap * 2;
-            if (isDisk && basePath != null) {
-                Path hyperPath = StorageLayout.hyperEntityGraphRuntime(basePath);
-                if (java.nio.file.Files.exists(hyperPath)) {
-                    this.hyperEntityGraph = HyperEntityGraph.load(hyperPath, hyperCap, hyperEdgeCap);
-                } else {
-                    this.hyperEntityGraph = new HyperEntityGraph(hyperCap, hyperEdgeCap);
-                }
-            } else {
-                this.hyperEntityGraph = new HyperEntityGraph(hyperCap, hyperEdgeCap);
-            }
-        } else {
-            this.hyperEntityGraph = null;
-        }
-
-        // ── BM25 Text Search ──
-        MemoryBM25Index bm25Index;
-        TextDataStore textDataStore;
-        int activePartitionIndex;
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            textDataStore = new TextDataStore(StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
-            // Call readAll() to establish the mmap'd segment for off-heap text reads.
-            var textEntries = textDataStore.readAll();
-            // P0: wire TextDataStore into MemoryIndex for off-heap text() resolution
-            index.setTextDataStore(textDataStore);
-
-            // P1: Try loading pre-built BM25 binary index (instant load vs O(n) rebuild)
-            java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
-            // Fallback: V2 partition location
-            if (!java.nio.file.Files.exists(bm25Path) && resolvedPartitionDir != null) {
-                java.nio.file.Path v2Bm25 = StorageLayout.bm25Bidx(resolvedPartitionDir);
-                if (java.nio.file.Files.exists(v2Bm25)) bm25Path = v2Bm25;
-            }
-            BM25Index loadedBm25 = BM25Index.load(bm25Path);
-            bm25Index = new MemoryBM25Index(1);
-            if (loadedBm25 != null) {
-                bm25Index.setPartition(0, loadedBm25);
-                log.info("BM25 loaded from binary index: {} docs", loadedBm25.size());
-            } else {
-                // Fall back to expensive rebuild from text data
-                Map<String, String> allTexts = new java.util.HashMap<>();
-                for (var entry : index.locationMap().entrySet()) {
-                    String text = index.text(entry.getKey());
-                    if (text != null && !text.isEmpty()) {
-                        allTexts.put(entry.getKey(), text);
-                    }
-                }
-                if (!allTexts.isEmpty()) {
-                    bm25Index.rebuildPartition(0, allTexts);
-                    log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
-                    // Save the rebuilt index for instant load on next startup
-                    bm25Index.partition(0).save(bm25Path);
-                }
-            }
-            activePartitionIndex = 0;
-        } else {
-            bm25Index = new MemoryBM25Index(1);
-            textDataStore = null;
-            activePartitionIndex = 0;
-        }
-        this.bm25Index = bm25Index;
-
-        // ── SPLADE Index (auto-created when provider is configured) ──
-        com.spectrayan.spector.memory.cortex.MemorySpladeIndex memorySpladeIndex = null;
-        if (builder.sparseEncodingProvider != null) {
-            memorySpladeIndex = new com.spectrayan.spector.memory.cortex.MemorySpladeIndex(1);
-            log.info("SPLADE index enabled: provider={}", builder.sparseEncodingProvider.modelName());
-        }
-
-        // ── ColBERT Reranker (auto-created when provider is configured) ──
-        ColBERTReranker colbertReranker = null;
-        if (builder.tokenEmbeddingProvider != null) {
-            ColBERTTokenCache tokenCache = new ColBERTTokenCache(
-                    builder.tokenEmbeddingProvider.tokenDimensions(), 10_000);
-            colbertReranker = new ColBERTReranker(builder.tokenEmbeddingProvider, tokenCache);
-            log.info("ColBERT reranker enabled: provider={}, tokenDims={}",
-                    builder.tokenEmbeddingProvider.modelName(),
-                    builder.tokenEmbeddingProvider.tokenDimensions());
-        }
-
-        // ── Ingestion Target ──
-        this.cognitiveTarget = new CognitiveIngestionTarget(
-                quantizer, surpriseDetector, flashbulbPolicy,
-                tierRouter, index, wal, workingStore, builder.icnuWeights,
-                builder.semanticIndex, builder.tagExtractor, true,
-                hebbianGraph, temporalChain, entityExtractor, entityGraph,
-                hyperEntityGraph,
-                bm25Index, textDataStore, activePartitionIndex,
-                memorySpladeIndex, builder.sparseEncodingProvider,
-                builder.dataEncryptor);
-
-        // ── Wire Salience Profile Provider ──
-        if (builder.salienceProfileProvider != null) {
-            SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
-            if (effective != null && !effective.isNeutral()) {
-                this.cognitiveTarget.setSalienceProfile(effective);
-                log.info("Salience profile applied: interests={}, disinterests={}, icnuOverride={}",
-                        effective.interests().size(), effective.disinterests().size(),
-                        effective.hasIcnuOverride());
-            }
-        }
-
-        // ── Partition Manager ──
-        if (isDisk) {
-            this.partitionManager = new PartitionManager(
-                    basePath, quantizedVecBytes, builder.semanticCapacity,
-                    builder.episodicPartitionCapacity, builder.proceduralCapacity,
-                    tierRouter, resolvedPartitionDir,
-                    index, hebbianGraph, temporalChain, cognitiveTarget);
-            cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
-        } else {
-            this.partitionManager = new PartitionManager(
-                    null, quantizedVecBytes, builder.semanticCapacity,
-                    builder.episodicPartitionCapacity, builder.proceduralCapacity,
-                    tierRouter, null,
-                    index, hebbianGraph, temporalChain, cognitiveTarget);
-        }
-
-        // ── Semantic Recall Strategy + HNSW Rebuild ──
-        SemanticRecallStrategy semanticStrategy = null;
-        if (builder.semanticIndex != null && tierRouter.semantic() != null) {
-            semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, tierRouter.semantic(), index);
-            rebuildHnswIfNeeded(builder, tierRouter);
-        }
-
-        // ── Recall Pipeline ──
-        this.recallPipeline = new RecallPipeline(
-                embeddingProvider, tierRouter, index,
-                suppressionSet, habituationPenalty, prospectiveScheduler, wal,
-                quantizer.mins(), quantizer.scales(), semanticStrategy,
-                null, hebbianGraph, temporalChain, entityGraph, entityExtractor,
-                builder.graphScoringPolicy, bm25Index,
-                memorySpladeIndex, builder.sparseEncodingProvider, colbertReranker);
-
-        recallPipeline.addListener(new LtpReconsolidationListener(index, tierRouter, wal));
-        recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
-
-        // ── Extracted Components ──
-        this.importanceEstimator = new ImportanceEstimator(
-                surpriseDetector, flashbulbPolicy, icnuWeights, quantizer);
-
-        this.reflectionOrchestrator = new ReflectionOrchestrator(
-                reflectDaemon, hebbianGraph, temporalChain, entityGraph,
-                hyperEntityGraph, wal, builder.temporalRetentionDays);
-
-        this.reinforcementHandler = new ReinforcementHandler(
-                valenceTracker, hebbianGraph, lateralEvaluator, recallPipeline,
-                wal, builder.twoFactorConfig);
-
-        log.info("SpectorMemory initialized: dimensions={}, model={}, persistence={}, mode={}, " +
-                 "partition={}, quantizer={}, idStrategy={}",
-                dimensions, embeddingProvider.modelName(),
-                basePath != null ? basePath : "in-memory",
-                persistenceMode,
-                resolvedPartitionDir != null ? resolvedPartitionDir.getFileName() : "none",
-                builder.quantizer != null ? "user-provided" : "identity-default",
-                builder.idGenerator != null ? "custom" : builder.idStrategy.name());
-
-        // ── ID Generator ── (must be after logging)
-        this.idGenerator = builder.idGenerator != null
-                ? builder.idGenerator
-                : builder.idStrategy.createGenerator();
-
-        // ── Daemon Supervisor + Checkpoint Daemon ── (DISK mode only)
-        if (isDisk && basePath != null && builder.checkpointIntervalSeconds > 0) {
-            Path indexSavePath = resolvedPartitionDir != null
-                    ? StorageLayout.indexMidx(resolvedPartitionDir)
-                    : basePath.resolve(StorageLayout.LEGACY_FILE_INDEX);
-            this.checkpointDaemon = new CheckpointDaemon(
-                    tierRouter, wal,
-                    StorageLayout.checkpointMeta(basePath),
-                    index, indexSavePath,
-                    hebbianGraph, temporalChain, entityGraph,
-                    hyperEntityGraph, coActivationTracker,
-                    resolvedPartitionDir, basePath);
-            this.daemonSupervisor = new DaemonSupervisor("memory");
-            this.daemonSupervisor.schedule(
-                    "checkpoint",
-                    checkpointDaemon::checkpoint,
-                    java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds),
-                    DaemonPolicy.CRITICAL);
-        } else {
-            this.checkpointDaemon = null;
-            this.daemonSupervisor = null;
-        }
+        this.parallelPipeline = bundle.parallelPipeline();
+        this.embedConfig = bundle.embedConfig();
+        this.attachmentProcessor = bundle.attachmentProcessor();
 
         // ── JVM Shutdown Hook ── (DISK mode only)
-        // Guarantees a final flush of all cognitive graphs and subsystems
-        // when the JVM exits, even if the caller never calls close().
-        if (isDisk && basePath != null) {
+        if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
             this.shutdownHook = new Thread(() -> {
                 if (closed.compareAndSet(false, true)) {
                     log.info("JVM shutdown hook: flushing SpectorMemory...");
@@ -655,53 +270,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             Runtime.getRuntime().addShutdownHook(shutdownHook);
         } else {
             this.shutdownHook = null;
-        }
-
-        // ── Multimodal Attachment Processor ──
-        if (!builder.sensoryExtractors.isEmpty()) {
-            this.attachmentProcessor = new com.spectrayan.spector.memory.pipeline.AttachmentProcessor(
-                    builder.sensoryExtractors, builder.assetStore);
-            log.info("AttachmentProcessor initialized with {} extractors", builder.sensoryExtractors.size());
-        } else {
-            this.attachmentProcessor = null;
-        }
-    }
-
-    /**
-     * Rebuilds HNSW index from persisted semantic store if it has data but HNSW is empty.
-     */
-    private void rebuildHnswIfNeeded(Builder builder, TierRouter tierRouter) {
-        var semStore = tierRouter.semantic();
-        int storeSize = semStore.size();
-        if (storeSize > 0 && builder.semanticIndex.size() == 0) {
-            log.info("Rebuilding HNSW index from {} persisted semantic records...", storeSize);
-            long startMs = System.currentTimeMillis();
-            var seg = semStore.primarySegment();
-            var recLayout = semStore.layout();
-            int stride = recLayout.stride();
-            int vecBytes = recLayout.quantizedVecBytes();
-            long baseOffset = semStore.filePath() != null
-                    ? com.spectrayan.spector.memory.cortex.AbstractTierStore.METADATA_HEADER_BYTES : 0;
-
-            int rebuilt = 0;
-            for (int i = 0; i < storeSize; i++) {
-                long recordOff = baseOffset + (long) i * stride;
-                byte[] quantized = new byte[vecBytes];
-                java.lang.foreign.MemorySegment.copy(
-                        seg, java.lang.foreign.ValueLayout.JAVA_BYTE,
-                        recLayout.vectorOffset(recordOff),
-                        java.lang.foreign.MemorySegment.ofArray(quantized),
-                        java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
-
-                float[] vector = quantizer.decode(quantized);
-                String id = index.findIdByOffset(MemoryType.SEMANTIC, recordOff);
-                if (id != null && !builder.semanticIndex.isReadOnly()) {
-                    builder.semanticIndex.add(id, i, vector);
-                    rebuilt++;
-                }
-            }
-            long elapsed = System.currentTimeMillis() - startMs;
-            log.info("HNSW rebuild complete: {}/{} vectors added in {}ms", rebuilt, storeSize, elapsed);
         }
     }
 
@@ -1178,13 +746,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Read extended fields that aren't in the base CognitiveHeader
         int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
 
+        // Metadata and suppression state
+        var metadata = java.util.Map.<String, String>of();
+        boolean suppressed = suppressionSet.isSuppressed(id);
+
         return new CognitiveRecord(
                 id, text, loc.type(), source, memTags,
                 header.timestampMs(), header.synapticTags(), header.exactNorm(),
                 header.importance(), header.agentRecallCount(), spectorRecallCount,
                 header.centroidId(), header.valence(), header.arousal(),
                 header.storageStrength(), header.flags(),
-                quantizedVec, loc.partitionIndex(), loc.offset());
+                quantizedVec, loc.partitionIndex(), loc.offset(),
+                metadata, suppressed);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -1221,7 +794,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             header.centroidId(), header.valence(), header.arousal(),
                             header.storageStrength(), header.flags(),
                             null, // no vector for browse (use inspect for full detail)
-                            loc.partitionIndex(), loc.offset()));
+                            loc.partitionIndex(), loc.offset(),
+                            java.util.Map.of(), suppressionSet.isSuppressed(memId)));
                 }
             }
         }
@@ -1396,10 +970,46 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public TierRouter tierRouter() { return partitionManager.tierRouter(); }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
-    @Override public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
-    @Override public TemporalChain temporalChain() { return temporalChain; }
-    @Override public EntityGraph entityGraph() { return entityGraph; }
-    @Override public HyperEntityGraph hyperEntityGraph() { return hyperEntityGraph; }
+    @Override public CognitiveGraphFacade graph() { return graphFacade; }
+    @SuppressWarnings("deprecation")
+    @Override public HebbianGraphBase hebbianGraph() { return graphFacade.hebbianGraph(); }
+    @SuppressWarnings("deprecation")
+    @Override public TemporalChain temporalChain() { return graphFacade.temporalChain(); }
+    @SuppressWarnings("deprecation")
+    @Override public EntityGraph entityGraph() { return graphFacade.entityGraph(); }
+    @SuppressWarnings("deprecation")
+    @Override public HyperEntityGraph hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
+
+    // ── listAll implementations ──
+
+    @Override
+    public List<CognitiveRecord> listAll() {
+        var results = new ArrayList<CognitiveRecord>();
+        for (var entry : index.locationMap().entrySet()) {
+            CognitiveRecord record = inspect(entry.getKey());
+            if (record != null && !record.isTombstoned()) {
+                results.add(record);
+            }
+        }
+        return List.copyOf(results);
+    }
+
+    @Override
+    public List<CognitiveRecord> listAll(MemoryType tier, int offset, int limit) {
+        var results = new ArrayList<CognitiveRecord>();
+        int skipped = 0;
+        for (var entry : index.locationMap().entrySet()) {
+            if (results.size() >= limit) break;
+            MemoryIndex.MemoryLocation loc = entry.getValue();
+            if (loc.type() != tier) continue;
+            CognitiveRecord record = inspect(entry.getKey());
+            if (record != null && !record.isTombstoned()) {
+                if (skipped < offset) { skipped++; continue; }
+                results.add(record);
+            }
+        }
+        return List.copyOf(results);
+    }
 
     /** Returns the namespace manager (null if IN_MEMORY mode). */
     public SpectorNamespaceManager namespaceManager() { return namespaceManager; }
@@ -1503,292 +1113,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // BUILDER
     // ══════════════════════════════════════════════════════════════
 
-    public static Builder builder() { return new Builder(); }
-
-    public static final class Builder {
-        int dimensions;
-        EmbeddingProvider embeddingProvider;
-        Path persistencePath;
-        MemoryPersistenceMode persistenceMode = MemoryPersistenceMode.DISK;
-        boolean persistWorkingMemory = false;
-        CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
-        int workingCapacity = 100;
-        int episodicPartitionCapacity = 1_000;
-        int semanticCapacity = 10_000;
-        int nodesPerPartition = 10_000;
-        int proceduralCapacity = 1_000;
-        int surpriseWarmup = 10;
-        double flashbulbThreshold = 3.0;
-        float valenceLearningRate = 0.3f;
-        float deduplicationRadius = 0.05f;
-        TextGenerationProvider textGenerationProvider;
-        ScalarQuantizer quantizer;
-        com.spectrayan.spector.index.VectorIndex semanticIndex;
-        long inhibitionTtlMs = 300_000L;
-        float inhibitionFloor = 0.1f;
-        IcnuWeights icnuWeights;
-        boolean pinSourceEpisodes = false;
-        int pinnedQuota = 10_000;
-        com.spectrayan.spector.memory.pipeline.TagExtractor tagExtractor;
-        CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
-
-        // 3-Layer Cognitive Graph configuration
-        int hebbianGraphCapacity = 0;
-        int temporalChainCapacity = 0;
-        EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
-        EntityExtractor entityExtractor;
-        int entityGraphCapacity = 50_000;
-        int maxEntitiesPerMemory = 10;
-        int maxRelationsPerMemory = 20;
-        com.spectrayan.spector.embed.GenerationOptions llmGenerationOptions;
-        GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
-        int temporalRetentionDays = 7;
-        boolean hyperEntityGraphEnabled = true;
-        com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
-                = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
-
-        // Edge importance configuration
-        com.spectrayan.spector.memory.graph.EdgeImportance edgeImportance
-                = com.spectrayan.spector.memory.graph.EdgeImportance.DEFAULT;
-        int hebbianMaxDegree = com.spectrayan.spector.memory.hebbian.HebbianGraph.DEFAULT_MAX_DEGREE;
-        int entityMaxDegree = com.spectrayan.spector.memory.graph.EntityGraph.DEFAULT_MAX_DEGREE;
-
-        // ID generation strategy
-        IdStrategy idStrategy = IdStrategy.TSID;
-        MemoryIdGenerator idGenerator;
-
-        // SPLADE + ColBERT providers
-        SparseEncodingProvider sparseEncodingProvider;
-        TokenEmbeddingProvider tokenEmbeddingProvider;
-
-        // Checkpoint daemon configuration
-        int checkpointIntervalSeconds = 30;
-
-        // Chunking for remember() — default aligned with ingestion pipeline (2500 chars, 200 overlap)
-        TextChunker chunker = new TextChunker(2500, 200);
-
-        // Embedding pipeline batch size (default: 32, matching EmbedConfig.DEFAULT)
-        int embedBatchSize = 32;
-
-        // Salience profile provider (enterprise SPI)
-        SalienceProfileProvider salienceProfileProvider;
-
-        // Data encryption SPI (NOOP in OSS — enterprise injects per-tenant encryptor)
-        DataEncryptor dataEncryptor = DataEncryptor.NOOP;
-
-        // Multimodal attachment processing
-        java.util.List<com.spectrayan.spector.ingestion.sensory.SensoryExtractor> sensoryExtractors = java.util.List.of();
-        com.spectrayan.spector.ingestion.sensory.AssetStore assetStore;
-
-        public Builder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
-        public Builder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
-        public Builder persistence(Path p) { this.persistencePath = p; return this; }
-        /** Sets the persistence mode (default: {@link MemoryPersistenceMode#DISK}). */
-        public Builder persistenceMode(MemoryPersistenceMode mode) { this.persistenceMode = mode; return this; }
-        /** If true, Working memory is also persisted to disk in DISK mode (default: false). */
-        public Builder persistWorkingMemory(boolean persist) { this.persistWorkingMemory = persist; return this; }
-        public Builder reflectPolicy(CircadianPolicy p) { this.circadianPolicy = p; return this; }
-
-        /** Sets the text chunker for remember() auto-chunking (default: TextChunker(2500, 200)). */
-        public Builder chunker(TextChunker chunker) { this.chunker = chunker; return this; }
-
-        /** Sets the embedding batch size for parallel chunk embedding (default: 32). */
-        public Builder embedBatchSize(int size) { this.embedBatchSize = size; return this; }
-
-        public Builder workingCapacity(int c) { this.workingCapacity = c; return this; }
-        public Builder episodicPartitionCapacity(int c) { this.episodicPartitionCapacity = c; return this; }
-        public Builder semanticCapacity(int c) { this.semanticCapacity = c; return this; }
-        /** Nodes per semantic partition before rolling to a new file (default: 10,000). */
-        public Builder nodesPerPartition(int n) { this.nodesPerPartition = n; return this; }
-        public Builder proceduralCapacity(int c) { this.proceduralCapacity = c; return this; }
-        public Builder surpriseWarmup(int w) { this.surpriseWarmup = w; return this; }
-        public Builder flashbulbThreshold(double t) { this.flashbulbThreshold = t; return this; }
-        public Builder valenceLearningRate(float r) { this.valenceLearningRate = r; return this; }
-        public Builder deduplicationRadius(float r) { this.deduplicationRadius = r; return this; }
-        public Builder textGenerationProvider(TextGenerationProvider p) { this.textGenerationProvider = p; return this; }
-        public Builder quantizer(ScalarQuantizer quantizer) { this.quantizer = quantizer; return this; }
-
-        /** Optional HNSW/IVF index for fused semantic recall (default: null = header-only fallback). */
-        public Builder semanticIndex(com.spectrayan.spector.index.VectorIndex idx) { this.semanticIndex = idx; return this; }
-
-
-        /** Inhibition of Return TTL in millis (default: 300_000 = 5 minutes). */
-        public Builder inhibitionTtlMs(long ms) { this.inhibitionTtlMs = ms; return this; }
-
-        /** Inhibition of Return floor multiplier (default: 0.1). */
-        public Builder inhibitionFloor(float floor) { this.inhibitionFloor = floor; return this; }
-
-        /** ICNU fusion weights for neurodivergent importance computation (default: IcnuWeights.DEFAULT). */
-        public Builder icnuWeights(IcnuWeights w) { this.icnuWeights = w; return this; }
-
-        /** Enable lossless consolidation — pin source episodes during REM sleep (default: false). */
-        public Builder pinSourceEpisodes(boolean pin) { this.pinSourceEpisodes = pin; return this; }
-
-        /** Maximum number of pinned records (default: 10,000). */
-        public Builder pinnedQuota(int quota) { this.pinnedQuota = quota; return this; }
-
-        /** Pluggable tag extraction strategy for cognitive ingestion (default: ContentTagExtractor). */
-        public Builder tagExtractor(com.spectrayan.spector.memory.pipeline.TagExtractor te) { this.tagExtractor = te; return this; }
-
-        /** Cognitive profile configuration (default: all profiles enabled). */
-        public Builder profileConfig(CognitiveProfileConfig config) { this.profileConfig = config; return this; }
-
-        // ── 3-Layer Cognitive Graph configuration ──
-
-        /** Hebbian graph capacity (default: same as episodicPartitionCapacity). */
-        public Builder hebbianGraphCapacity(int c) { this.hebbianGraphCapacity = c; return this; }
-
-        /** Temporal chain capacity (default: same as hebbianGraphCapacity). */
-        public Builder temporalChainCapacity(int c) { this.temporalChainCapacity = c; return this; }
-
-        /** Entity extraction mode (default: NONE). */
-        public Builder entityExtractionMode(EntityExtractionMode mode) { this.entityExtractionMode = mode; return this; }
-
-        /** Custom entity extractor (used when mode = CUSTOM). */
-        public Builder entityExtractor(EntityExtractor extractor) { this.entityExtractor = extractor; return this; }
-
-        /** Entity graph capacity — max entities (default: 50,000). */
-        public Builder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
-
-        /** Enable/disable the HyperEntityGraph layer (default: true). */
-        public Builder hyperEntityGraphEnabled(boolean enabled) { this.hyperEntityGraphEnabled = enabled; return this; }
-
-        /** Max entities to extract per memory (default: 10). */
-        public Builder maxEntitiesPerMemory(int c) { this.maxEntitiesPerMemory = c; return this; }
-
-        /** Max relations to extract per memory (default: 20). */
-        public Builder maxRelationsPerMemory(int c) { this.maxRelationsPerMemory = c; return this; }
-
-        /** LLM generation options for entity extraction (temperature, maxTokens, topP). */
-        public Builder llmGenerationOptions(com.spectrayan.spector.embed.GenerationOptions opts) { this.llmGenerationOptions = opts; return this; }
-
-        /** Graph scoring policy — configurable weights for cognitive graph steps (default: GraphScoringPolicy.DEFAULT). */
-        public Builder graphScoringPolicy(GraphScoringPolicy policy) { this.graphScoringPolicy = policy; return this; }
-
-        /** Temporal chain retention in days — links older than this are pruned during reflect() (default: 7). */
-        public Builder temporalRetentionDays(int days) { this.temporalRetentionDays = days; return this; }
-
-        /** Checkpoint interval in seconds (default: 30). Set to 0 to disable automatic checkpointing. */
-        public Builder checkpointIntervalSeconds(int seconds) { this.checkpointIntervalSeconds = seconds; return this; }
-
-        /** Two-Factor Memory (Bjork & Bjork) configuration (default: TwoFactorConfig.DEFAULT). */
-        public Builder twoFactorConfig(com.spectrayan.spector.memory.synapse.TwoFactorConfig config) { this.twoFactorConfig = config; return this; }
-
-        /** Edge importance scorer with configurable signal weights (default: EdgeImportance.DEFAULT). */
-        public Builder edgeImportance(com.spectrayan.spector.memory.graph.EdgeImportance importance) { this.edgeImportance = importance; return this; }
-
-        /** Maximum edges per node in the Hebbian graph (default: 24). */
-        public Builder hebbianMaxDegree(int maxDegree) { this.hebbianMaxDegree = maxDegree; return this; }
-
-        /** Maximum edges per entity in the entity graph (default: 48). */
-        public Builder entityMaxDegree(int maxDegree) { this.entityMaxDegree = maxDegree; return this; }
-
-        /**
-         * Parses a cognitive profile config from a YAML string value.
-         * Supports: "ALL", "CORE_ONLY", "WITH_NEURODIVERGENT", or comma-separated profile names.
-         * @see CognitiveProfileConfig#fromConfigValue(String)
-         */
-        public Builder cognitiveProfiles(String configValue) { this.profileConfig = CognitiveProfileConfig.fromConfigValue(configValue); return this; }
-
-        // ── ID Generation ──
-
-        /**
-         * Sets the ID generation strategy for auto-generated memory IDs.
-         *
-         * <p>Default: {@link IdStrategy#TSID} — 13-char time-sorted, distributed-safe.
-         * This is only used when {@link SpectorMemory#remember(String, MemoryType, MemorySource, String...)}
-         * is called without an explicit ID.</p>
-         *
-         * @param strategy the built-in strategy to use
-         * @return this builder
-         */
-        public Builder idStrategy(IdStrategy strategy) { this.idStrategy = strategy; return this; }
-
-        /**
-         * Sets a custom ID generator, overriding the built-in {@link #idStrategy(IdStrategy)}.
-         *
-         * <p>Use this for custom ID schemes (e.g., database-sequence-backed, ULID, etc.).
-         * The generator must be thread-safe.</p>
-         *
-         * @param generator the custom generator
-         * @return this builder
-         */
-        public Builder idGenerator(MemoryIdGenerator generator) { this.idGenerator = generator; return this; }
-
-        /**
-         * Sets the sparse encoding provider for SPLADE retrieval.
-         *
-         * <p>When provided, a {@code MemorySpladeIndex} is automatically created and wired
-         * into both the ingestion and recall pipelines, enabling SPLADE, SPLADE_HYBRID,
-         * and FULL_STACK text search modes.</p>
-         *
-         * @param provider the sparse encoding provider (e.g., OllamaSparseEncodingProvider)
-         * @return this builder
-         */
-        public Builder sparseEncodingProvider(SparseEncodingProvider provider) { this.sparseEncodingProvider = provider; return this; }
-
-        /**
-         * Sets the token embedding provider for ColBERT reranking.
-         *
-         * <p>When provided, a {@code ColBERTReranker} with a {@code ColBERTTokenCache}
-         * is automatically created and wired into the recall pipeline, enabling
-         * COLBERT_RERANK and FULL_STACK text search modes.</p>
-         *
-         * @param provider the token embedding provider (e.g., OllamaTokenEmbeddingProvider)
-         * @return this builder
-         */
-        public Builder tokenEmbeddingProvider(TokenEmbeddingProvider provider) { this.tokenEmbeddingProvider = provider; return this; }
-
-        /** Registers sensory extractors for multimodal attachment processing. */
-        public Builder sensoryExtractors(java.util.List<com.spectrayan.spector.ingestion.sensory.SensoryExtractor> extractors) {
-            this.sensoryExtractors = extractors != null ? extractors : java.util.List.of();
-            return this;
-        }
-
-        /** Sets the asset store for persisting original attachment files. */
-        public Builder assetStore(com.spectrayan.spector.ingestion.sensory.AssetStore store) {
-            this.assetStore = store;
-            return this;
-        }
-
-        /**
-         * Sets the data encryption provider for text.dat, WAL, and tag encryption.
-         *
-         * <p>Default: {@link DataEncryptor#NOOP} (no encryption, OSS mode).
-         * Enterprise callers inject a {@link DataEncryptor} implementation
-         * (e.g., {@code TenantDataEncryptor} or {@code ContextualDataEncryptor})
-         * to enable AES-256-GCM encryption of text content and WAL payloads,
-         * plus HMAC-SHA256 blind indexing for synaptic tags.</p>
-         *
-         * @param encryptor the data encryptor (null treated as NOOP)
-         * @return this builder
-         */
-        public Builder dataEncryptor(DataEncryptor encryptor) {
-            this.dataEncryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
-            return this;
-        }
-
-        /**
-         * Sets the salience profile provider for user-configurable importance scoring.
-         *
-         * <p>Enterprise callers supply a {@link TenantSalienceResolver} that merges
-         * tenant → agent → user profiles. The effective profile is applied during
-         * ingestion (ICNU weights + topic boost) and optionally at recall time
-         * (alpha/beta override).</p>
-         *
-         * @param provider the salience profile provider (null = noop/NEUTRAL)
-         * @return this builder
-         */
-        public Builder salienceProfileProvider(SalienceProfileProvider provider) {
-            this.salienceProfileProvider = provider;
-            return this;
-        }
-
-        public SpectorMemory build() {
-            if (dimensions <= 0 && embeddingProvider != null) {
-                dimensions = embeddingProvider.dimensions();
-            }
-            return new DefaultSpectorMemory(this);
-        }
-    }
+    /** Creates a new builder for configuring and assembling a SpectorMemory instance. */
+    public static SpectorMemoryBuilder builder() { return new SpectorMemoryBuilder(); }
 }

@@ -36,6 +36,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            ApiKeyAuthenticationFilter apiKeyFilter) throws Exception {
         http
+                .cors(cors -> {})  // Enable CORS — delegates to WebMvcConfigurer bean
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -47,8 +48,8 @@ public class SecurityConfig {
                         .requestMatchers("/index.html").permitAll()
                         .requestMatchers("/assets/**").permitAll()
                         .requestMatchers("/*.js", "/*.css", "/*.ico", "/*.png").permitAll()
-                        // All API endpoints require authentication
-                        .requestMatchers("/api/**").authenticated()
+                        // All API endpoints — permitAll for local dev (API key filter handles auth)
+                        .requestMatchers("/api/**").permitAll()
                         .anyRequest().permitAll())
                 .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class);
 

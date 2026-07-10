@@ -12,59 +12,45 @@
  */
 package com.spectrayan.spector.synapse.config;
 
-import com.linecorp.armeria.common.HttpHeaderNames;
-import com.linecorp.armeria.common.HttpMethod;
-import com.linecorp.armeria.server.cors.CorsService;
-import com.linecorp.armeria.server.cors.CorsServiceBuilder;
-import com.linecorp.armeria.server.file.FileService;
-import com.linecorp.armeria.spring.ArmeriaServerConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Configures the Armeria server for Spector Synapse.
+ * Configures CORS for Spector Synapse using Spring MVC.
  *
- * <p>Single port serves: REST API, actuator, static Cortex UI assets, and SSE events.
- * CORS is configured for the Cortex UI development server.</p>
+ * <p>Replaces the Armeria-based CORS configuration while Armeria is disabled
+ * due to the Jackson 2/3 classpath conflict with Spring Boot 4.</p>
  */
 @Configuration
-public class ArmeriaServerConfig {
+public class ArmeriaServerConfig implements WebMvcConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(ArmeriaServerConfig.class);
 
-    @Bean
-    public ArmeriaServerConfigurator armeriaServerConfigurator(SynapseProperties props) {
-        return serverBuilder -> {
-            log.info("[Armeria] Configuring server on port {}", props.port());
+    private final SynapseProperties props;
 
-            // Serve Cortex UI static assets from classpath:/static/
-            serverBuilder.serviceUnder("/", FileService.of(
-                    ArmeriaServerConfig.class.getClassLoader(), "static"));
+    public ArmeriaServerConfig(SynapseProperties props) {
+        this.props = props;
+    }
 
-            // CORS for Cortex UI dev server
-            String[] origins = props.cors().allowedOrigins().split(",");
-            CorsServiceBuilder corsBuilder = CorsService.builderForAnyOrigin();
-            for (String origin : origins) {
-                String trimmed = origin.trim();
-                if (!trimmed.isEmpty()) {
-                    corsBuilder = CorsService.builder(trimmed);
-                }
-            }
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        String origins = props.cors().allowedOrigins();
+        String[] originArray = origins.split(",");
+        for (int i = 0; i < originArray.length; i++) {
+            originArray[i] = originArray[i].trim();
+        }
 
-            serverBuilder.decorator(corsBuilder
-                    .allowRequestMethods(HttpMethod.GET, HttpMethod.POST,
-                            HttpMethod.PUT, HttpMethod.DELETE, HttpMethod.OPTIONS)
-                    .allowRequestHeaders(HttpHeaderNames.CONTENT_TYPE,
-                            HttpHeaderNames.AUTHORIZATION,
-                            HttpHeaderNames.of("X-API-Key"))
-                    .exposeHeaders(HttpHeaderNames.CONTENT_TYPE)
-                    .allowCredentials()
-                    .maxAge(3600)
-                    .newDecorator());
+        registry.addMapping("/**")
+                .allowedOrigins(originArray)
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("Content-Type", "Authorization", "X-API-Key")
+                .exposedHeaders("Content-Type")
+                .allowCredentials(true)
+                .maxAge(3600);
 
-            log.info("[Armeria] CORS enabled for origins: {}", props.cors().allowedOrigins());
-        };
+        log.info("[CORS] Enabled for origins: {}", origins);
     }
 }

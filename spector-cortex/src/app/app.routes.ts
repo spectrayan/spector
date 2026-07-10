@@ -1,38 +1,49 @@
 import { Routes } from '@angular/router';
+import { ShellComponent } from './features/shell/shell.component';
 
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'chat',
-    pathMatch: 'full'
-  },
-  {
-    path: 'chat',
-    loadComponent: () => import('./features/chat/chat.component').then(m => m.ChatComponent),
-    title: 'Chat — Spector Cortex'
-  },
-  {
-    path: 'memories',
-    loadComponent: () => import('./features/memories/memories.component').then(m => m.MemoriesComponent),
-    title: 'Memories — Spector Cortex'
-  },
-  {
-    path: 'agents',
-    loadComponent: () => import('./features/agents/agents.component').then(m => m.AgentsComponent),
-    title: 'Agents — Spector Cortex'
-  },
-  {
-    path: 'connectors',
-    loadComponent: () => import('./features/connectors/connectors.component').then(m => m.ConnectorsComponent),
-    title: 'Connectors — Spector Cortex'
-  },
-  {
-    path: 'settings',
-    loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent),
-    title: 'Settings — Spector Cortex'
-  },
-  {
-    path: '**',
-    redirectTo: 'chat'
+    component: ShellComponent,
+    children: [
+      {
+        path: '',
+        redirectTo: 'chat',
+        pathMatch: 'full'
+      },
+      {
+        path: 'chat',
+        loadComponent: () => import('./features/agent-chat/agent-chat.component').then(m => m.AgentChatComponent),
+        title: 'Chat — Spector Cortex'
+      },
+      {
+        path: 'memories',
+        loadComponent: () => import('./features/memory-table/memory-table.component').then(m => m.MemoryTableComponent),
+        title: 'Memories — Spector Cortex'
+      },
+      {
+        path: 'memories/:id',
+        loadComponent: () => import('./features/memory-detail/memory-detail.component').then(m => m.MemoryDetailComponent),
+        title: 'Memory Detail — Spector Cortex'
+      },
+      {
+        path: 'dashboard',
+        redirectTo: 'chat'
+      },
+      {
+        path: 'graph',
+        loadComponent: () => import('./features/graph-explorer/graph-explorer.component').then(m => m.GraphExplorerComponent),
+        title: 'Graph — Spector Cortex'
+      },
+      {
+        path: 'settings',
+        loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent),
+        title: 'Settings — Spector Cortex'
+      },
+      {
+        path: '**',
+        redirectTo: 'chat'
+      }
+    ]
   }
 ];

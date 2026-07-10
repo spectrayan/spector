@@ -1,0 +1,258 @@
+// ═══════════════════════════════════════════════════════════════
+// ONBOARDING TOUR — Guided walkthrough overlay
+// Glassmorphic spotlight + tooltip with sci-fi aesthetic
+// ═══════════════════════════════════════════════════════════════
+
+$cyan-primary: #00ffcc;
+$cyan-glow: rgba(0, 255, 204, 0.4);
+
+:host {
+  display: contents;
+}
+
+// ── Backdrop ──
+.onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  animation: onboarding-fade-in 0.4s ease;
+}
+
+@keyframes onboarding-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+// ── Spotlight cut-out ──
+.onboarding-spotlight {
+  position: absolute;
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.65),
+    0 0 30px rgba(0, 255, 204, 0.15);
+  border: 2px solid rgba(0, 255, 204, 0.3);
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  pointer-events: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 1px solid rgba(0, 255, 204, 0.08);
+    border-radius: 10px;
+    animation: spotlight-pulse 2s ease infinite;
+  }
+}
+
+@keyframes spotlight-pulse {
+  0%, 100% { opacity: 0.3; box-shadow: 0 0 20px rgba(0, 255, 204, 0.05); }
+  50% { opacity: 0.8; box-shadow: 0 0 40px rgba(0, 255, 204, 0.1); }
+}
+
+// ── Tooltip Card ──
+.onboarding-card {
+  position: fixed;
+  z-index: 10001;
+  width: 360px;
+  padding: 0;
+  background: var(--mat-sys-surface-container, #1e1e2e);
+  border: 1px solid var(--mat-sys-outline-variant, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(0, 255, 204, 0.06),
+    inset 0 0 40px rgba(0, 255, 204, 0.02);
+  animation: onboarding-card-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: left 0.4s ease, top 0.4s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 13px;
+    background: linear-gradient(135deg,
+      transparent 30%,
+      rgba(0, 255, 204, 0.08) 50%,
+      transparent 70%
+    );
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
+@keyframes onboarding-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.onboarding-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px 0;
+}
+
+.onboarding-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+  color: $cyan-primary;
+  filter: drop-shadow(0 0 6px $cyan-glow);
+}
+
+.onboarding-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--mat-sys-on-surface, #e0e0e0);
+  text-shadow: 0 0 8px rgba(0, 255, 204, 0.1);
+}
+
+.onboarding-description {
+  margin: 12px 20px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--mat-sys-on-surface-variant, #b0b0b0);
+}
+
+// ── Progress Dots ──
+.onboarding-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 20px 12px;
+}
+
+.progress-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+
+  &.dot-done {
+    background: rgba(0, 255, 204, 0.3);
+  }
+
+  &.dot-active {
+    width: 20px;
+    border-radius: 3px;
+    background: $cyan-primary;
+    box-shadow: 0 0 8px $cyan-glow;
+  }
+}
+
+// ── Footer ──
+.onboarding-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-top: 1px solid var(--mat-sys-outline-variant, rgba(255, 255, 255, 0.06));
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.onboarding-skip {
+  background: transparent;
+  border: none;
+  color: var(--mat-sys-outline, rgba(255, 255, 255, 0.3));
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--mat-sys-on-surface, #e0e0e0);
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+.onboarding-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-btn {
+  width: 32px !important;
+  height: 32px !important;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--mat-sys-on-surface-variant, #b0b0b0);
+  }
+
+  &.nav-next mat-icon {
+    color: $cyan-primary;
+    filter: drop-shadow(0 0 4px $cyan-glow);
+  }
+}
+
+.step-counter {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--mat-sys-outline, rgba(255, 255, 255, 0.3));
+  letter-spacing: 0.1em;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONFETTI CELEBRATION 🎉
+// ═══════════════════════════════════════════════════════════════
+
+.confetti-container {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -10px;
+  width: 8px;
+  height: 8px;
+  background: var(--confetti-color, #00ffcc);
+  border-radius: 50%;
+  left: var(--confetti-x, 50vw);
+  animation: confetti-fall 3s ease-out var(--confetti-delay, 0ms) forwards;
+  opacity: 0;
+
+  &:nth-child(odd) {
+    width: 6px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  &:nth-child(3n) {
+    width: 10px;
+    height: 5px;
+    border-radius: 1px;
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) rotate(720deg);
+  }
+}

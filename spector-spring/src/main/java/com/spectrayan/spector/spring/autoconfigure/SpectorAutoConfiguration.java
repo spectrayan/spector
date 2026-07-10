@@ -21,6 +21,7 @@ import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
+import com.spectrayan.spector.memory.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.metrics.MeteredSpectorEngine;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;
@@ -113,6 +114,11 @@ public class SpectorAutoConfiguration {
     /**
      * Creates the {@link SpectorMemory} bean when memory is enabled.
      *
+     * <p>If a {@link SalienceProfileProvider} bean is available (e.g., from the
+     * synapse module), it is wired into the memory builder to enable
+     * user-salience-driven importance modulation, valence/arousal adjustment,
+     * and topic boosting during ingestion and recall.</p>
+     *
      * <p>Optionally wrapped with {@link MeteredSpectorMemory} when metrics
      * are available.</p>
      */
@@ -121,7 +127,8 @@ public class SpectorAutoConfiguration {
     @ConditionalOnProperty(prefix = "spector.memory", name = "enabled", havingValue = "true")
     SpectorMemory spectorMemory(SpectorConfigProperties props,
                                  ObjectProvider<EmbeddingProvider> embedderProvider,
-                                 ObjectProvider<MeterRegistry> registryProvider) {
+                                 ObjectProvider<MeterRegistry> registryProvider,
+                                 ObjectProvider<SalienceProfileProvider> salienceProvider) {
 
         var memoryProps = props.getMemory();
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
@@ -144,6 +151,13 @@ public class SpectorAutoConfiguration {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));
         }
 
+        // ── Salience profile provider (user-driven importance modulation) ──
+        SalienceProfileProvider salience = salienceProvider.getIfAvailable();
+        if (salience != null) {
+            builder.salienceProfileProvider(salience);
+            log.info("SpectorMemory: user salience profile provider wired");
+        }
+
         // ── SPLADE + ColBERT providers (auto-created from embedding provider) ──
         if (memoryProps.isSpladeEnabled()) {
             builder.sparseEncodingProvider(
@@ -155,9 +169,10 @@ public class SpectorAutoConfiguration {
         }
 
         SpectorMemory raw = builder.build();
-        log.info("SpectorMemory auto-configured: dims={}, persistence={}, path={}, entity=enabled, SPLADE={}, ColBERT={}",
+        log.info("SpectorMemory auto-configured: dims={}, persistence={}, path={}, entity=enabled, SPLADE={}, ColBERT={}, salience={}",
                 memoryProps.getDimensions(), memoryProps.getPersistenceMode(),
-                memoryProps.getPersistencePath(), memoryProps.isSpladeEnabled(), memoryProps.isColbertEnabled());
+                memoryProps.getPersistencePath(), memoryProps.isSpladeEnabled(), memoryProps.isColbertEnabled(),
+                salience != null);
 
         MeterRegistry registry = registryProvider.getIfAvailable();
         if (registry != null && props.getMetrics().isEnabled()) {
