@@ -238,6 +238,12 @@
             <groupId>technology.tabula</groupId>
             <artifactId>tabula</artifactId>
             <version>1.0.5</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- ── PDFBox (pinned to align Tika 2.9.2 + Tabula 1.0.5) ── -->
