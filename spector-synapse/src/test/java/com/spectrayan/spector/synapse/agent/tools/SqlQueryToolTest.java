@@ -6,7 +6,7 @@ import com.spectrayan.spector.synapse.agent.AgentTool;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.client.ChatClient;
+import com.spectrayan.spector.synapse.bridge.LlmBridge;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,9 +16,9 @@ import java.sql.SQLTimeoutException;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -56,18 +56,10 @@ class SqlQueryToolTest {
     /** Builds a SqlQueryTool whose generated SQL is always {@code sqlToReturn}. */
     private SqlQueryTool toolReturning(String sqlToReturn, JdbcTemplate jdbc,
                                         String allowedTables, String deniedTables) {
-        ChatClient chatClient = mock(ChatClient.class, RETURNS_DEEP_STUBS);
-        when(chatClient.prompt()
-                .system(anyString())
-                .user(anyString())
-                .call()
-                .content())
-                .thenReturn(sqlToReturn);
+        LlmBridge llmBridge = mock(LlmBridge.class);
+        when(llmBridge.generate(anyString(), anyString())).thenReturn(sqlToReturn);
 
-        ChatClient.Builder builder = mock(ChatClient.Builder.class);
-        when(builder.build()).thenReturn(chatClient);
-
-        return new SqlQueryTool(builder, jdbc, allowedTables, deniedTables);
+        return new SqlQueryTool(llmBridge, jdbc, allowedTables, deniedTables);
     }
 
     private SqlQueryTool toolReturning(String sqlToReturn) {

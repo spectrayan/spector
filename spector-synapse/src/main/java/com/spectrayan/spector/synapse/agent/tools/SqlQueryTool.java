@@ -10,7 +10,7 @@ import net.sf.jsqlparser.util.TablesNamesFinder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
+import com.spectrayan.spector.synapse.bridge.LlmBridge;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,7 +38,7 @@ public class SqlQueryTool implements AgentTool {
     private static final int QUERY_TIMEOUT_SECONDS = 30;
     private static final int MAX_ROWS = 200;
 
-    private final ChatClient chatClient;
+    private final LlmBridge llmBridge;
     private final JdbcTemplate jdbcTemplate;
     // SLF4J logger   
     private static final Logger log = LoggerFactory.getLogger(SqlQueryTool.class);
@@ -51,7 +51,7 @@ public class SqlQueryTool implements AgentTool {
     private final Set<String> deniedTables;
 
     public SqlQueryTool(
-            ChatClient.Builder chatClientBuilder,
+            LlmBridge llmBridge,
             JdbcTemplate jdbcTemplate,
             @Value("${spector.sql-query-tool.allowed-tables:}") String allowedTablesProperty,
             @Value("${spector.sql-query-tool.denied-tables:"
@@ -60,7 +60,7 @@ public class SqlQueryTool implements AgentTool {
                     + "oauth_tokens,refresh_tokens,sessions,session,"
                     + "audit_log,audit_logs}") String deniedTablesProperty) {
         
-        this.chatClient = chatClientBuilder.build();
+        this.llmBridge = llmBridge;
         this.jdbcTemplate = jdbcTemplate;
         this.jdbcTemplate.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
         this.allowedTables = parseTableSet(allowedTablesProperty);
@@ -150,11 +150,7 @@ public class SqlQueryTool implements AgentTool {
                 %s
                 """.formatted(schema);
 
-        String rawResponse = chatClient.prompt()
-                .system(systemPrompt)
-                .user(question)
-                .call()
-                .content();
+        String rawResponse = llmBridge.generate(systemPrompt, question);
 
         return cleanSql(rawResponse);
     }
