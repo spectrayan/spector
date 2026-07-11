@@ -1,67 +1,550 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+// ═══════════════════════════════════════════════════════════════════════
+// Spector Cortex — Global Styles & M3 Theme
+// ═══════════════════════════════════════════════════════════════════════
+@use '@angular/material' as mat;
 
-/* ─── Design Tokens ─── */
+// ── M3 Theme Definition ────────────────────────────────────────────────
+// Deep purple seed for neural/brain aesthetic
 :root {
-  /* Dark mode (default) */
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #12121a;
-  --bg-tertiary: #0e0e16;
-  --bg-hover: rgba(255, 255, 255, 0.04);
-  --bg-active: rgba(99, 102, 241, 0.12);
+  --cortex-working: #f59e0b;
+  --cortex-episodic: #a78bfa;
+  --cortex-semantic: #8b5cf6;
+  --cortex-procedural: #3b82f6;
+  --cortex-success: #10b981;
+  --cortex-error: #ef4444;
+  --cortex-warning: #f59e0b;
 
-  --text-primary: #e4e4e7;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
+  // Cognitive edge & node association tokens
+  --cortex-hebbian: #e0e0e0;
+  --cortex-temporal: #00bcd4;
+  --cortex-entity: #ffc107;
+  --cortex-knn: #03dac6;
+  --cortex-axes: #888888;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-glow: rgba(99, 102, 241, 0.2);
+  // Bulk action lifecycle state colors
+  --cortex-reinforce: #1e88e5;
+  --cortex-suppress: #ff9800;
+  --cortex-resolve: #43a047;
+  --cortex-forget: #e53935;
 
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
+  // Backdrop colors for high contrast overlays
+  --cortex-dark-overlay: #000000;
+  --cortex-light-overlay: #ffffff;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  // Premium Cyber-Dark UI Tokens (for custom glass overlays, graphs, widgets)
+  --cortex-hud-bg: rgba(10, 15, 30, 0.75);
+  --cortex-hud-border: rgba(100, 140, 255, 0.12);
+  --cortex-hud-glow: rgba(60, 100, 255, 0.06);
+  --cortex-tooltip-bg: rgba(15, 20, 35, 0.92);
+  --cortex-tooltip-border: rgba(100, 140, 255, 0.2);
+  --cortex-tooltip-glow: rgba(60, 100, 255, 0.08);
+  --cortex-canvas-bg-center: rgba(10, 15, 30, 0.95);
+  --cortex-canvas-bg-edge: rgba(5, 8, 18, 1);
+  --cortex-text-primary: #e0e8ff;
+  --cortex-text-muted: rgba(200, 210, 230, 0.85);
+  --cortex-text-dim: rgba(160, 170, 200, 0.6);
+  --cortex-accent-blue-border: rgba(100, 140, 255, 0.1);
+  --cortex-accent-blue-bg-glow: rgba(100, 140, 255, 0.15);
 }
 
-/* ─── Reset ─── */
-*, *::before, *::after {
+html {
+  @include mat.theme((color: (primary: mat.$violet-palette,
+        tertiary: mat.$cyan-palette,
+        theme-type: dark,
+      ),
+      typography: (brand-family: 'Inter, system-ui, -apple-system, sans-serif',
+        plain-family: 'Inter, system-ui, -apple-system, sans-serif',
+      ),
+      density: 0,
+    ));
+
+  color-scheme: dark;
+}
+
+// ── Light Theme Override ───────────────────────────────────────────────
+html[data-theme='light'] {
+  @include mat.theme((color: (primary: mat.$violet-palette,
+        tertiary: mat.$cyan-palette,
+        theme-type: light,
+      ),
+      typography: (brand-family: 'Inter, system-ui, -apple-system, sans-serif',
+        plain-family: 'Inter, system-ui, -apple-system, sans-serif',
+      ),
+      density: 0,
+    ));
+
+  color-scheme: light;
+}
+
+// ── Google Fonts ───────────────────────────────────────────────────────
+// Fonts loaded via <link> tags in index.html (Inter + JetBrains Mono)
+
+// ── CSS Reset & Base ───────────────────────────────────────────────────
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 15px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--mat-sys-body-medium-font);
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Scrollbar ─── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
-
-/* ─── View Transitions ─── */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.2s;
+// ── Scrollbar Styling ──────────────────────────────────────────────────
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* ─── Selection ─── */
-::selection {
-  background: var(--accent-glow);
-  color: var(--text-primary);
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mat-sys-outline-variant);
+  border-radius: 3px;
+
+  &:hover {
+    background: var(--mat-sys-outline);
+  }
+}
+
+// ── Global Keyframe Animations ─────────────────────────────────────────
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes breathe {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes neuron-fire {
+  0% {
+    box-shadow: 0 0 4px var(--mat-sys-primary);
+  }
+
+  50% {
+    box-shadow: 0 0 24px var(--mat-sys-primary), 0 0 48px var(--mat-sys-primary);
+  }
+
+  100% {
+    box-shadow: 0 0 4px var(--mat-sys-primary);
+  }
+}
+
+// ── Utility Classes ────────────────────────────────────────────────────
+.cortex-glass {
+  background: color-mix(in srgb, var(--mat-sys-surface-container) 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--mat-sys-outline-variant);
+}
+
+.cortex-card {
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    border-color: var(--mat-sys-primary);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
+  }
+}
+
+.cortex-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+// ── Animation Utilities ───────────────────────────────────────────────
+// Drop-in classes for entrance animations.
+.animate-in {
+  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-scale {
+  animation: scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-left {
+  animation: slide-in-left 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+// Staggered grid entrance — add data-index="0", "1", etc. or use CSS nth-child.
+.stagger-children>* {
+  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @for $i from 1 through 12 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 60}ms;
+    }
+  }
+}
+
+// ── Standardized Section Title ────────────────────────────────────────
+.cortex-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// ── Standardized Page Container ───────────────────────────────────────
+.cortex-page {
+  padding: 28px 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+
+  @media (max-width: 767px) {
+    padding: 16px;
+    gap: 24px;
+  }
+}
+
+.cortex-page-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  letter-spacing: -0.02em;
+  margin: 0;
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+    font-size: 26px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// ── Global Button Polish ──────────────────────────────────────────────
+// Lift + glow on hover for all primary flat buttons.
+.mat-mdc-unelevated-button,
+.mat-mdc-raised-button {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--mat-sys-primary) 25%, transparent);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+}
+
+// ── Icon-Label Alignment in Buttons ───────────────────────────────────
+// Ensures mat-icon + text label are vertically centered in all buttons.
+.mat-mdc-unelevated-button,
+.mat-mdc-raised-button,
+.mat-mdc-outlined-button {
+  mat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin-right: 6px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+// ── Enhanced Card Hover ───────────────────────────────────────────────
+.mat-mdc-card[appearance='outlined'] {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--mat-sys-primary) 40%, var(--mat-sys-outline-variant));
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+  }
+}
+
+// ── Empty State Card ──────────────────────────────────────────────────
+.cortex-empty-state {
+  @extend .cortex-glass;
+  border-radius: 16px;
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.4;
+    animation: breathe 3s ease-in-out infinite;
+  }
+
+  p {
+    color: var(--mat-sys-on-surface-variant);
+    max-width: 400px;
+    line-height: 1.6;
+  }
+}
+
+// ── Loading Shimmer ───────────────────────────────────────────────────
+.cortex-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--mat-sys-on-surface-variant);
+  animation: fade-in-up 0.3s ease both;
+}
+
+// ── Responsive Utilities ──────────────────────────────────────────────
+// Breakpoints: mobile <768px, tablet 768–1024px, desktop >1024px
+
+.desktop-only {
+  @media (max-width: 767px) {
+    display: none !important;
+  }
+}
+
+.tablet-up {
+  @media (max-width: 767px) {
+    display: none !important;
+  }
+}
+
+.mobile-only {
+  display: none !important;
+
+  @media (max-width: 767px) {
+    display: block !important;
+  }
+}
+
+.mobile-only-flex {
+  display: none !important;
+
+  @media (max-width: 767px) {
+    display: flex !important;
+  }
+}
+
+.tablet-hide {
+  @media (max-width: 1024px) {
+    display: none !important;
+  }
+}
+
+// Allow natural scroll on mobile
+@media (max-width: 767px) {
+
+  html,
+  body {
+    overflow: auto;
+    overflow-x: hidden;
+  }
+}
+
+// ── Global Icon Centering Fix ─────────────────────────────────────────
+// Ensures mat-icon inside icon-buttons is always perfectly centered,
+// even when font-size differs from container size.
+button[mat-icon-button] mat-icon,
+.mat-mdc-icon-button mat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// ── Focus-Visible Ring ────────────────────────────────────────────────
+// Consistent keyboard focus indicator across all interactive elements.
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+// ── Smooth Transitions ───────────────────────────────────────────────
+// Global transition timing for interactive states.
+a,
+button,
+input,
+select,
+textarea {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// ── Mat-Card Panel Consistency ───────────────────────────────────────
+// Ensure dashboard/settings cards have consistent border radius and padding.
+.mat-mdc-card {
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+
+// ── Tooltip Polish ───────────────────────────────────────────────────
+.mat-mdc-tooltip .mdc-tooltip__surface {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  border-radius: 8px;
+}
+
+// ── Cortex Neural Snackbar (global panel override) ───────────────────
+// The snackbar component renders inside a MatSnackBar overlay panel.
+// We need global styles to remove the default Material container chrome.
+.cortex-snackbar-panel {
+  &.mat-mdc-snack-bar-container {
+    margin: 0 !important;
+    padding: 0 !important;
+
+    .mdc-snackbar__surface {
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      min-width: 320px;
+      max-width: 520px;
+    }
+
+    .mat-mdc-snack-bar-label {
+      padding: 0 !important;
+    }
+  }
+}
+
+// ── Cortex Confirm Dialog (global panel override) ────────────────────
+.cortex-confirm-panel {
+  .mat-mdc-dialog-container {
+    border-radius: 16px !important;
+  }
+}
+
+.cortex-confirm-backdrop {
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
 }

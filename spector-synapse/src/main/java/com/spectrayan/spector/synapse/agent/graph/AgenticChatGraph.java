@@ -30,6 +30,7 @@ import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncEdgeAction;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.action.NodeAction;
+import org.bsc.langgraph4j.langchain4j.serializer.std.LC4jStateSerializer;
 import org.bsc.langgraph4j.state.AgentState;
 import org.bsc.langgraph4j.state.Channel;
 import org.bsc.langgraph4j.state.Channels;
@@ -100,11 +101,13 @@ public class AgenticChatGraph {
                     : "You are a helpful AI assistant with access to tools.";
 
             // Build node actions as NodeAction (sync) and wrap to async
+            String modelName = soul.model();
             NodeAction<AgentState> agentAction =
-                    state -> agentNode(state, systemPrompt, toolSpecs);
+                    state -> agentNode(state, systemPrompt, toolSpecs, modelName);
             NodeAction<AgentState> toolAction = this::toolNode;
 
-            StateGraph<AgentState> graph = new StateGraph<>(channels, AgentState::new)
+            StateGraph<AgentState> graph = new StateGraph<>(channels,
+                    new LC4jStateSerializer<>(AgentState::new))
                     .addNode(AGENT_NODE, AsyncNodeAction.node_async(agentAction))
                     .addNode(TOOLS_NODE, AsyncNodeAction.node_async(toolAction))
                     .addEdge(START, AGENT_NODE)
@@ -175,8 +178,22 @@ public class AgenticChatGraph {
 
         } catch (Exception e) {
             log.error("[AgenticChatGraph] Chat execution failed: {}", e.getMessage(), e);
-            listener.onError(e.getMessage());
-            return "Error during agentic processing: " + e.getMessage();
+
+            // Produce a user-actionable error when possible
+            String rootCause = extractRootCause(e);
+            String userMessage;
+            if (rootCause.contains("not found") || rootCause.contains("ModelNotFound")) {
+                userMessage = "The configured LLM model is not available. " +
+                        "Please check your Ollama installation and model name. " +
+                        "Detail: " + rootCause;
+            } else if (rootCause.contains("Connection refused") || rootCause.contains("ConnectException")) {
+                userMessage = "Cannot connect to Ollama. Please ensure Ollama is running at the configured URL.";
+            } else {
+                userMessage = "I'm sorry, I encountered an issue processing your request. Please try again.";
+            }
+
+            listener.onError(rootCause);
+            return userMessage;
         }
     }
 
@@ -191,7 +208,8 @@ public class AgenticChatGraph {
     @SuppressWarnings("unchecked")
     private Map<String, Object> agentNode(AgentState state,
                                           String systemPrompt,
-                                          List<ToolSpecification> toolSpecs) {
+                                          List<ToolSpecification> toolSpecs,
+                                          String modelName) {
         List<ChatMessage> messages = state.<List<ChatMessage>>value(MESSAGES_KEY)
                 .orElse(List.of());
 
@@ -200,20 +218,20 @@ public class AgenticChatGraph {
         fullMessages.add(SystemMessage.from(systemPrompt));
         fullMessages.addAll(messages);
 
-        log.debug("[AgenticChatGraph] Agent node — {} messages, {} tool specs",
-                messages.size(), toolSpecs.size());
+        log.debug("[AgenticChatGraph] Agent node — {} messages, {} tool specs, using model {}",
+                messages.size(), toolSpecs.size(), modelName);
 
         // Call LLM with tool specifications
         ChatResponse response;
         if (!toolSpecs.isEmpty()) {
-            response = llmBridge.chatModel().chat(
+            response = llmBridge.chatModel(modelName).chat(
                     dev.langchain4j.model.chat.request.ChatRequest.builder()
                             .messages(fullMessages)
                             .toolSpecifications(toolSpecs)
                             .build()
             );
         } else {
-            response = llmBridge.chatModel().chat(fullMessages);
+            response = llmBridge.chatModel(modelName).chat(fullMessages);
         }
 
         AiMessage aiMessage = response.aiMessage();
@@ -295,5 +313,24 @@ public class AgenticChatGraph {
                     .toList();
         }
         return toolRegistry.toolSpecifications();
+    }
+
+    /**
+     * Extracts the deepest root cause message from a (possibly nested) exception chain.
+     *
+     * <p>LangGraph4j wraps errors in {@code GraphRunnerException} which wraps
+     * {@code ExecutionException} which wraps the actual cause. This method
+     * unwraps to the real error message.</p>
+     */
+    private static String extractRootCause(Throwable t) {
+        Throwable cause = t;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        String message = cause.getMessage();
+        if (message == null || message.isBlank()) {
+            message = cause.getClass().getSimpleName();
+        }
+        return message;
     }
 }

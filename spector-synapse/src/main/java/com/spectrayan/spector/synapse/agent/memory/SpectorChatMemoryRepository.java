@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.synapse.agent.memory;
 
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
+import com.spectrayan.spector.synapse.memory.MemoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
@@ -49,10 +49,10 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorChatMemoryRepository.class);
 
-    private final MemoryBridge memoryBridge;
+    private final MemoryService memoryService;
 
-    public SpectorChatMemoryRepository(MemoryBridge memoryBridge) {
-        this.memoryBridge = memoryBridge;
+    public SpectorChatMemoryRepository(MemoryService memoryService) {
+        this.memoryService = memoryService;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -61,10 +61,10 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public List<String> findConversationIds() {
-        if (!memoryBridge.isAvailable()) return List.of();
+        if (!memoryService.isEngineAvailable()) return List.of();
         
         // Recall session summaries and extract IDs from tags
-        var results = memoryBridge.recall(new RecallRequest("session_summary", 100, null));
+        var results = memoryService.recall(new RecallRequest("session_summary", 100, null));
         return results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains("session_summary"))
                 .map(r -> r.tags().stream()
@@ -79,9 +79,9 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public List<Message> findByConversationId(String conversationId) {
-        if (conversationId == null || !memoryBridge.isAvailable()) return List.of();
+        if (conversationId == null || !memoryService.isEngineAvailable()) return List.of();
 
-        var results = memoryBridge.recall(new RecallRequest("session:" + conversationId, 100, null));
+        var results = memoryService.recall(new RecallRequest("session:" + conversationId, 100, null));
 
         return results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains("session:" + conversationId))
@@ -99,7 +99,7 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
-        if (!memoryBridge.isAvailable()) return;
+        if (!memoryService.isEngineAvailable()) return;
 
         // Spring AI's contract: replace all messages for this conversation
         // In SpectorMemory, we'd need to "forget" the old ones first if we wanted exact parity
@@ -110,7 +110,7 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
             String content = message.getText();
 
             try {
-                memoryBridge.store(new StoreRequest(
+                memoryService.store(new StoreRequest(
                         content,
                         List.of("chat", "session:" + conversationId, "role:" + role, "type:turn"),
                         null, Map.of()));
@@ -126,12 +126,12 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
     @Override
     public void deleteByConversationId(String conversationId) {
         // Implement "forget" logic for all memories with session tag
-        if (!memoryBridge.isAvailable()) return;
+        if (!memoryService.isEngineAvailable()) return;
         
-        var results = memoryBridge.recall(new RecallRequest("session:" + conversationId, 100, null));
+        var results = memoryService.recall(new RecallRequest("session:" + conversationId, 100, null));
         results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains("session:" + conversationId))
-                .forEach(r -> memoryBridge.forget(r.id()));
+                .forEach(r -> memoryService.forget(r.id()));
         
         log.info("[SpectorChatMemory] Deleted messages from conversation {} in cognitive memory", conversationId);
     }

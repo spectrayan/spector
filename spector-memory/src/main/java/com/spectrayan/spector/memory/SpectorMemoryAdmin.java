@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
@@ -31,7 +32,9 @@ import com.spectrayan.spector.memory.sync.CompactionResult;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
 
 /**
  * Administrative interface for the Spector Cognitive Memory system.
@@ -94,19 +97,26 @@ public interface SpectorMemoryAdmin {
     LateralEvaluator lateralEvaluator();
 
     // ══════════════════════════════════════════════════════════════
-    // GRAPH SUBSYSTEM ACCESSORS (3-Layer Cognitive Graph)
+    // GRAPH SUBSYSTEM
     // ══════════════════════════════════════════════════════════════
 
-    /** Returns the Hebbian memory-to-memory association graph (nullable if disabled). */
+    /** Returns the cognitive graph facade for high-level graph queries. */
+    CognitiveGraphFacade graph();
+
+    /** @deprecated Use {@link #graph()} and its query methods instead. */
+    @Deprecated(since = "1.1.0", forRemoval = true)
     HebbianGraphBase hebbianGraph();
 
-    /** Returns the temporal causal chain (nullable if disabled). */
+    /** @deprecated Use {@link #graph()} and its query methods instead. */
+    @Deprecated(since = "1.1.0", forRemoval = true)
     TemporalChain temporalChain();
 
-    /** Returns the entity-relationship graph (nullable if disabled). */
+    /** @deprecated Use {@link #graph()} and its query methods instead. */
+    @Deprecated(since = "1.1.0", forRemoval = true)
     EntityGraph entityGraph();
 
-    /** Returns the hyper-entity graph for multi-entity relationships (nullable if disabled). */
+    /** @deprecated Use {@link #graph()} and its query methods instead. */
+    @Deprecated(since = "1.1.0", forRemoval = true)
     HyperEntityGraph hyperEntityGraph();
 
     // ══════════════════════════════════════════════════════════════
@@ -137,4 +147,14 @@ public interface SpectorMemoryAdmin {
      * @return map of tier → tombstone ratio (0.0 to 1.0)
      */
     Map<MemoryType, Float> tombstoneRatios();
+
+    /**
+     * Returns all active (not tombstoned) cognitive records without vectors.
+     */
+    List<CognitiveRecord> listAll();
+
+    /**
+     * Returns active cognitive records for a specific tier, sorted by timestamp descending, paginated.
+     */
+    List<CognitiveRecord> listAll(MemoryType tier, int offset, int limit);
 }

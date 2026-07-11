@@ -1,0 +1,314 @@
+<div class="query-page-layout">
+  <!-- Left Side: Search & Results -->
+  <div class="main-content-area">
+    <header class="page-header">
+      <mat-icon class="page-icon">psychology</mat-icon>
+      <div>
+        <h1 class="page-title">Cognitive Query Playground</h1>
+        <p class="page-subtitle">Recall, explore, and audit memories via multi-layer associative search</p>
+      </div>
+    </header>
+
+    <section class="query-section">
+      <cortex-query-input />
+    </section>
+
+    <!-- Recall Results Panel -->
+    @if (state.recallResults().length > 0) {
+      <section class="results-section">
+        <div class="results-meta-header">
+          <div class="results-meta">
+            <span class="meta-badge">
+              <mat-icon>query_stats</mat-icon>
+              @if (filterText()) {
+                {{ filteredRecallResults().length }} of {{ state.recallResults().length }} results
+              } @else {
+                {{ state.recallResults().length }} results
+              }
+            </span>
+            <span class="meta-badge">
+              <mat-icon>timer</mat-icon>
+              {{ state.recallQueryTimeMs() }}ms
+            </span>
+            <span class="meta-badge">
+              <mat-icon>database</mat-icon>
+              {{ state.recallTotalMemories() }} memories
+            </span>
+            <span class="meta-badge profile">
+              <mat-icon>settings_suggest</mat-icon>
+              {{ state.recallProfile() }}
+            </span>
+            @if (state.lastQueryText()) {
+              <span class="meta-query">"{{ state.lastQueryText() }}"</span>
+            }
+          </div>
+
+          <!-- Free-text result filter -->
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="results-filter-field">
+            <mat-icon matPrefix>filter_list</mat-icon>
+            <mat-label>Filter results...</mat-label>
+            <input matInput [ngModel]="filterText()" (ngModelChange)="filterText.set($event)" placeholder="Search text, ID, tags, tier...">
+            @if (filterText()) {
+              <button matSuffix mat-icon-button aria-label="Clear" (click)="filterText.set('')" class="clear-input-btn">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
+          </mat-form-field>
+        </div>
+
+        <div class="results-list">
+          @for (result of filteredRecallResults(); track result.id; let i = $index) {
+            <div class="result-container cortex-card">
+              <a class="result-card" [routerLink]="['/memories', result.id]">
+                <div class="result-rank">{{ i + 1 }}</div>
+                <div class="result-body">
+                  <div class="result-header">
+                    <span class="result-id cortex-mono">{{ result.id }}</span>
+                    <mat-chip-set>
+                      <mat-chip [class]="'tier-chip ' + result.memoryType.toLowerCase()">
+                        {{ result.memoryType }}
+                      </mat-chip>
+                    </mat-chip-set>
+                    @if (result.lateral) {
+                      <mat-chip class="flag-chip lateral">⚡ lateral</mat-chip>
+                    }
+                    @if (result.hyperfocused) {
+                      <mat-chip class="flag-chip hyper">🎯 hyperfocused</mat-chip>
+                    }
+                    @if (result.negativeOutcome) {
+                      <mat-chip class="flag-chip negative">⚠ negative</mat-chip>
+                    }
+                  </div>
+                  <p class="result-text">{{ result.text }}</p>
+
+                  <div class="result-scores">
+                    <span class="score primary" matTooltip="Final composite score">
+                      <mat-icon>star</mat-icon>
+                      {{ formatScore(result.breakdown.finalScore) }}
+                    </span>
+                    <span class="score" matTooltip="Vector similarity">
+                      sim: {{ result.breakdown.similarity.toFixed(4) }}
+                    </span>
+                    <span class="score" matTooltip="Importance × decay">
+                      imp: {{ result.breakdown.importanceDecay.toFixed(2) }}
+                    </span>
+                    @if (result.breakdown.tagBoostFactor !== 1.0) {
+                      <span class="score boost" matTooltip="Synaptic tag boost">
+                        tag: ×{{ result.breakdown.tagBoostFactor.toFixed(1) }}
+                      </span>
+                    }
+                    @if (result.breakdown.graphBoost !== 1.0) {
+                      <span class="score boost" matTooltip="Graph co-activation boost">
+                        graph: ×{{ result.breakdown.graphBoost.toFixed(2) }}
+                      </span>
+                    }
+                    @if (result.breakdown.habituationPenalty !== 1.0) {
+                      <span class="score penalty" matTooltip="Habituation penalty">
+                        hab: ×{{ result.breakdown.habituationPenalty.toFixed(2) }}
+                      </span>
+                    }
+                    <span class="score faint">
+                      valence: {{ result.valence }}
+                    </span>
+                  </div>
+
+                  @if (result.synapticTags && result.synapticTags.length > 0) {
+                    <div class="result-tags">
+                      @for (tag of result.synapticTags; track tag) {
+                        <span class="tag">{{ tag }}</span>
+                      }
+                    </div>
+                  }
+                </div>
+              </a>
+
+              <!-- Stacked Hybrid Search Explainer Bar Panel -->
+              <div class="score-explainer-panel">
+                <div class="explainer-header">
+                  <mat-icon>bar_chart</mat-icon>
+                  <span>Score Component Explainer</span>
+                </div>
+                <div class="explainer-bars">
+                  <!-- Vector Similarity Row -->
+                  <div class="explainer-bar-row">
+                    <div class="bar-info">
+                      <span class="bar-label">Vector Similarity (alpha)</span>
+                      <span class="bar-value">{{ (result.breakdown.similarity * 100).toFixed(1) }}%</span>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill similarity" [style.width.%]="result.breakdown.similarity * 100"></div>
+                    </div>
+                  </div>
+
+                  <!-- Importance & Decay Row -->
+                  <div class="explainer-bar-row">
+                    <div class="bar-info">
+                      <span class="bar-label">Importance & Decay (beta)</span>
+                      <span class="bar-value">{{ (result.breakdown.importanceDecay * 10).toFixed(1) }}%</span>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill importance" [style.width.%]="result.breakdown.importanceDecay * 10"></div>
+                    </div>
+                  </div>
+
+                  <!-- Valence Alignment -->
+                  @if (result.breakdown.valenceAlignment) {
+                    <div class="explainer-bar-row">
+                      <div class="bar-info">
+                        <span class="bar-label">Valence Alignment</span>
+                        <span class="bar-value">{{ (result.breakdown.valenceAlignment * 100).toFixed(1) }}%</span>
+                      </div>
+                      <div class="bar-track">
+                        <div class="bar-fill valence" [style.width.%]="result.breakdown.valenceAlignment * 100"></div>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Multipliers & Boosts row -->
+                  <div class="explainer-multipliers">
+                    <span class="mult-pill tag-boost" [class.active]="result.breakdown.tagBoostFactor > 1">
+                      Tag Boost: {{ result.breakdown.tagBoostFactor > 1 ? '+' + ((result.breakdown.tagBoostFactor - 1) * 100).toFixed(0) + '%' : '1.0x' }}
+                    </span>
+                    <span class="mult-pill graph-boost" [class.active]="result.breakdown.graphBoost > 1">
+                      Graph Boost: {{ result.breakdown.graphBoost > 1 ? '+' + ((result.breakdown.graphBoost - 1) * 100).toFixed(0) + '%' : '1.0x' }}
+                    </span>
+                    <span class="mult-pill habituation-penalty" [class.active]="result.breakdown.habituationPenalty < 1">
+                      Habituation: {{ result.breakdown.habituationPenalty < 1 ? '-' + ((1 - result.breakdown.habituationPenalty) * 100).toFixed(0) + '%' : '1.0x' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+    } @else {
+      <div class="no-results-placeholder cortex-glass">
+        <mat-icon class="search-placeholder-icon">insights</mat-icon>
+        <h3>No Recall Query Executed</h3>
+        <p>Type a cognitive query above or select a preset from history to explore retrieval gating pipeline metrics.</p>
+      </div>
+    }
+  </div>
+
+  <!-- Right Side: Playground Controls & Metrics -->
+  <div class="sidebar-panel-area">
+    <!-- Playground Settings Panel -->
+    <mat-card appearance="outlined" class="sidebar-card playground-settings cortex-glass">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="panel-icon">tune</mat-icon>
+        <mat-card-title>Recall Playground</mat-card-title>
+        <mat-card-subtitle>Configure Search Gating</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content class="settings-content">
+        <!-- Target Tenant Switcher -->
+        <div class="setting-row">
+          <label class="setting-label">Target Tenant Namespace</label>
+          <mat-form-field appearance="outline" class="density-tight-field">
+            <mat-select [value]="state.playgroundTenant()" (selectionChange)="state.playgroundTenant.set($event.value)">
+              @for (ns of namespaces; track ns.value) {
+                <mat-option [value]="ns.value">{{ ns.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Cognitive Profile Selector -->
+        <div class="setting-row">
+          <label class="setting-label">Cognitive Profile Preset</label>
+          <mat-form-field appearance="outline" class="density-tight-field">
+            <mat-select [value]="state.activeProfile()" (selectionChange)="state.activeProfile.set($event.value)">
+              @for (profile of profiles; track profile) {
+                <mat-option [value]="profile">{{ profileParams[profile].label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <p class="profile-info-text">{{ getActiveProfileDescription() }}</p>
+        </div>
+
+        <mat-divider class="setting-divider"></mat-divider>
+
+        <!-- Top K Results Slider -->
+        <div class="setting-row">
+          <div class="slider-header">
+            <span class="setting-label">Limit Results (Top K)</span>
+            <span class="slider-badge cortex-mono">{{ state.playgroundTopK() }}</span>
+          </div>
+          <mat-slider min="1" max="50" step="1" showTickMarks discrete>
+            <input matSliderThumb [value]="state.playgroundTopK()" (valueChange)="state.playgroundTopK.set($event)">
+          </mat-slider>
+        </div>
+
+        <!-- Emotional Valence Bias Alignment Slider -->
+        <div class="setting-row">
+          <div class="slider-header">
+            <span class="setting-label">Valence Alignment Bias</span>
+            <span class="slider-badge cortex-mono" [class.neutral]="state.playgroundValence() === null">
+              {{ state.playgroundValence() === null ? 'DISABLED' : state.playgroundValence() }}
+            </span>
+          </div>
+          <div class="slider-row-controls">
+            <mat-slider min="-100" max="100" step="5" [disabled]="state.playgroundValence() === null" discrete>
+              <input matSliderThumb [value]="state.playgroundValence() || 0" (valueChange)="state.playgroundValence.set($event)">
+            </mat-slider>
+            <button mat-icon-button 
+                    [color]="state.playgroundValence() !== null ? 'primary' : ''"
+                    (click)="state.playgroundValence.set(state.playgroundValence() === null ? 0 : null)"
+                    matTooltip="Toggle Valence Alignment Gating">
+              <mat-icon>{{ state.playgroundValence() !== null ? 'favorite' : 'favorite_border' }}</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Diagnostic profile metrics overview -->
+        <div class="active-params-grid">
+          <div class="param-cell">
+            <span class="param-name">Similarity (α)</span>
+            <span class="param-value cortex-mono">{{ getActiveProfileParams().alpha }}</span>
+          </div>
+          <div class="param-cell">
+            <span class="param-name">Decay (β)</span>
+            <span class="param-value cortex-mono">{{ getActiveProfileParams().beta }}</span>
+          </div>
+          <div class="param-cell">
+            <span class="param-name">Strictness</span>
+            <span class="param-value cortex-mono">{{ getActiveProfileParams().strictness }}</span>
+          </div>
+          <div class="param-cell">
+            <span class="param-name">Lateral mode</span>
+            <span class="param-value cortex-mono">{{ getActiveProfileParams().lateralMode ? 'ON' : 'OFF' }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Pipeline Gating Funnel Trace component -->
+    @if (state.currentQueryTrace()) {
+      <mat-card appearance="outlined" class="sidebar-card funnel-card cortex-glass">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-icon">filter_alt</mat-icon>
+          <mat-card-title>Retrieval Pipeline Gating</mat-card-title>
+          <mat-card-subtitle>Step-by-Step Gating Audits</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <cortex-pipeline-funnel />
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <!-- Query History Timeline -->
+    <section class="history-section">
+      <mat-card appearance="outlined" class="history-card cortex-glass">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-icon">history</mat-icon>
+          <mat-card-title>Query Trace History</mat-card-title>
+          <mat-card-subtitle>Recent Recall Audits</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <cortex-query-history />
+        </mat-card-content>
+      </mat-card>
+    </section>
+  </div>
+</div>

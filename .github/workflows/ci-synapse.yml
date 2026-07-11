@@ -23,6 +23,8 @@ env:
   JAVA_VERSION: '25'
   JAVA_DISTRIBUTION: 'temurin'
   MAVEN_OPTS: '-Xmx2g'
+  MAVEN_USERNAME: ${{ github.actor }}
+  MAVEN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build-synapse:
@@ -40,6 +42,9 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: 'maven'
+          server-id: spectrayan-github-server-sent-events
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_TOKEN
 
       # ─── Build full reactor with synapse profile ────────────────
       - name: Build & Test (Core + Synapse)

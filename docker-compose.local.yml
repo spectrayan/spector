@@ -1,0 +1,66 @@
+# ═══════════════════════════════════════════════════════════════════
+# Spector — Local Development Docker Compose
+# ═══════════════════════════════════════════════════════════════════
+#
+# Uses pre-built artifacts from the host (no multi-stage Maven/npm
+# builds inside Docker). Requires:
+#   1. mvn install -DskipTests          (core reactor)
+#   2. mvn package -DskipTests -f spector-synapse/pom.xml (synapse)
+#   3. cd spector-cortex && npm run build (cortex)
+#
+# Usage:
+#   docker compose -f docker-compose.local.yml up --build
+#   docker compose -f docker-compose.local.yml down
+#
+# Endpoints:
+#   UI:     http://localhost:4200
+#   API:    http://localhost:7070/api/v1/
+#   Status: http://localhost:7070/api/v1/system/status
+# ═══════════════════════════════════════════════════════════════════
+
+name: spector-local
+
+services:
+  synapse:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.synapse-local
+    container_name: spector-synapse
+    ports:
+      - "7070:7070"
+    environment:
+      SPECTOR_PORT: 7070
+      SPECTOR_API_KEY: spector-dev-key
+      SPECTOR_DATA_DIR: /data
+      SPECTOR_OLLAMA_BASE_URL: http://host.docker.internal:11434
+      SPECTOR_OLLAMA_MODEL: nomic-embed-text
+      SPECTOR_OLLAMA_EMBED_MODEL: nomic-embed-text
+      SPECTOR_CORS_ORIGINS: http://localhost:4200,http://localhost:7070
+      JAVA_OPTS: "-XX:+UseZGC -Xmx1g --enable-preview --add-modules=jdk.incubator.vector --enable-native-access=ALL-UNNAMED"
+    volumes:
+      - synapse-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7070/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  cortex:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.cortex-local
+    container_name: spector-cortex
+    ports:
+      - "4200:80"
+    depends_on:
+      synapse:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  synapse-data:
+    driver: local

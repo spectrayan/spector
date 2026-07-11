@@ -19,6 +19,8 @@ spector-cortex/public
 
 # Maven build output (rebuilt in container)
 **/target
+# Exception: allow pre-built Synapse fat JAR for local deployment
+!spector-synapse/target/spector-synapse-*.jar
 
 # Top-level documentation (not source code)
 ACKNOWLEDGMENTS.md

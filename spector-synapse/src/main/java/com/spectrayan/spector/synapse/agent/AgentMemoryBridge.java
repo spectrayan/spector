@@ -20,6 +20,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -45,12 +46,17 @@ public final class AgentMemoryBridge {
 
     private final SpectorMemory memory;
 
-    public AgentMemoryBridge(SpectorMemory memory) {
-        if (memory == null) {
-            throw new IllegalArgumentException("SpectorMemory backend cannot be null");
+    public AgentMemoryBridge(ObjectProvider<SpectorMemory> memoryProvider) {
+        this.memory = memoryProvider.getIfAvailable();
+        if (this.memory != null) {
+            log.info("[AgentMemoryBridge] SpectorMemory available — bridge ready");
+        } else {
+            log.warn("[AgentMemoryBridge] SpectorMemory not available — bridge in stub mode");
         }
-        this.memory = memory;
     }
+
+    /** Get the underlying memory engine (may be null if bridge is in stub mode). */
+    private SpectorMemory memory() { return memory; }
 
     /**
      * Stores a thought into WORKING memory (volatile scratchpad for the active step)
@@ -61,7 +67,7 @@ public final class AgentMemoryBridge {
         String sessionTag = "session_" + sessionId;
 
         // WORKING Memory: Active scratchpad
-        CompletableFuture<String> workFut = memory.remember(
+        CompletableFuture<String> workFut = memory().remember(
                 content,
                 MemoryType.WORKING,
                 MemorySource.INFERRED,
@@ -69,7 +75,7 @@ public final class AgentMemoryBridge {
         );
 
         // EPISODIC Memory: Temporal logs
-        CompletableFuture<String> epiFut = memory.remember(
+        CompletableFuture<String> epiFut = memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
@@ -87,7 +93,7 @@ public final class AgentMemoryBridge {
                 action.toolName(), action.arguments());
         String sessionTag = "session_" + sessionId;
 
-        return memory.remember(
+        return memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
@@ -102,7 +108,7 @@ public final class AgentMemoryBridge {
         String content = "Observation: " + observation.result();
         String sessionTag = "session_" + sessionId;
 
-        return memory.remember(
+        return memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
@@ -118,7 +124,7 @@ public final class AgentMemoryBridge {
         String sessionTag = "session_" + sessionId;
         log.info("[MemoryBridge] Consolidating permanent semantic fact for session {}: '{}'", sessionId, fact);
 
-        return memory.remember(
+        return memory().remember(
                 fact,
                 MemoryType.SEMANTIC,
                 MemorySource.INFERRED,
@@ -131,7 +137,7 @@ public final class AgentMemoryBridge {
      */
     public CompletableFuture<Void> saveToolDefinition(AgentTool tool) {
         String content = String.format("Tool '%s' schema: %s", tool.name(), tool.description());
-        return memory.remember(
+        return memory().remember(
                 content,
                 MemoryType.PROCEDURAL,
                 MemorySource.PROCEDURAL,
@@ -150,7 +156,7 @@ public final class AgentMemoryBridge {
                 .minImportance(0.0f)
                 .build();
 
-        return memory.recall("session_log " + sessionTag, options);
+        return memory().recall("session_log " + sessionTag, options);
     }
 
     /**
@@ -162,13 +168,6 @@ public final class AgentMemoryBridge {
                 .minImportance(2.0f)
                 .build();
 
-        return memory.recall(topic, options);
-    }
-
-    /**
-     * Exposes the underlying SpectorMemory instance.
-     */
-    public SpectorMemory memory() {
-        return memory;
+        return memory().recall(topic, options);
     }
 }

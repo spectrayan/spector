@@ -1,0 +1,50 @@
+<cortex-command-palette />
+<cortex-header />
+<cortex-maintenance-banner />
+<cortex-onboarding-tour />
+
+<div class="shell-layout">
+  <!-- Side Navigation (desktop/tablet) -->
+  <nav class="side-rail" [class.collapsed]="collapsed()">
+
+    @for (item of navItems(); track item.route) {
+    <a class="nav-item" [routerLink]="item.route" routerLinkActive="active" [matTooltip]="collapsed() ? item.label : ''"
+      matTooltipPosition="right">
+      <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+      @if (!collapsed()) {
+      <span class="nav-label">{{ item.label }}</span>
+      }
+    </a>
+    }
+
+    <div class="nav-spacer"></div>
+
+    <!-- Version badge -->
+    @if (!collapsed()) {
+    <div class="nav-version">
+      <span class="version-text">Spector Cortex</span>
+    </div>
+    }
+
+    <!-- Collapse / Expand toggle -->
+    <button class="nav-toggle" (click)="collapsed.set(!collapsed())" [matTooltip]="collapsed() ? 'Expand' : 'Collapse'"
+      matTooltipPosition="right">
+      <mat-icon>{{ collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="shell-content">
+    <router-outlet />
+  </main>
+</div>
+
+<!-- Bottom Tab Bar (mobile only) -->
+<nav class="bottom-nav">
+  @for (item of navItems(); track item.route) {
+  <a class="bottom-nav-item" [routerLink]="item.route" routerLinkActive="bottom-nav-active">
+    <mat-icon class="bottom-nav-icon">{{ item.icon }}</mat-icon>
+    <span class="bottom-nav-label">{{ item.label }}</span>
+  </a>
+  }
+</nav>
