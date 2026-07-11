@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * LLM bridge using LangChain4j to interface with Ollama.
@@ -39,53 +40,61 @@ public class LlmBridge {
     private static final Logger log = LoggerFactory.getLogger(LlmBridge.class);
 
     private final SynapseProperties props;
-    private volatile ChatModel chatModel;
-    private volatile StreamingChatModel streamingModel;
+    private final ConcurrentHashMap<String, ChatModel> chatModels = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, StreamingChatModel> streamingModels = new ConcurrentHashMap<>();
 
     public LlmBridge(SynapseProperties props) {
         this.props = props;
-        log.info("[LlmBridge] Configured for Ollama at {} with model {}",
+        log.info("[LlmBridge] Configured for Ollama at {} with default model {}",
                 props.ollama().baseUrl(), props.ollama().model());
     }
 
     /**
-     * Get the synchronous chat model (lazy-initialized).
+     * Get the default synchronous chat model.
      */
     public ChatModel chatModel() {
-        if (chatModel == null) {
-            synchronized (this) {
-                if (chatModel == null) {
-                    chatModel = OllamaChatModel.builder()
-                            .baseUrl(props.ollama().baseUrl())
-                            .modelName(props.ollama().model())
-                            .timeout(Duration.ofSeconds(120))
-                            .temperature(0.7)
-                            .build();
-                    log.info("[LlmBridge] Initialized ChatModel: {}", props.ollama().model());
-                }
-            }
-        }
-        return chatModel;
+        return chatModel(props.ollama().model());
     }
 
     /**
-     * Get the streaming chat model (lazy-initialized).
+     * Get the synchronous chat model for a specific model name (lazy-initialized and cached).
+     */
+    public ChatModel chatModel(String modelName) {
+        String resolvedModel = (modelName == null || modelName.isBlank()) ? props.ollama().model() : modelName;
+        return chatModels.computeIfAbsent(resolvedModel, name -> {
+            var model = OllamaChatModel.builder()
+                    .baseUrl(props.ollama().baseUrl())
+                    .modelName(name)
+                    .timeout(Duration.ofSeconds(120))
+                    .temperature(0.7)
+                    .build();
+            log.info("[LlmBridge] Initialized ChatModel for model: {}", name);
+            return model;
+        });
+    }
+
+    /**
+     * Get the default streaming chat model.
      */
     public StreamingChatModel streamingModel() {
-        if (streamingModel == null) {
-            synchronized (this) {
-                if (streamingModel == null) {
-                    streamingModel = OllamaStreamingChatModel.builder()
-                            .baseUrl(props.ollama().baseUrl())
-                            .modelName(props.ollama().model())
-                            .timeout(Duration.ofSeconds(120))
-                            .temperature(0.7)
-                            .build();
-                    log.info("[LlmBridge] Initialized StreamingChatModel: {}", props.ollama().model());
-                }
-            }
-        }
-        return streamingModel;
+        return streamingModel(props.ollama().model());
+    }
+
+    /**
+     * Get the streaming chat model for a specific model name (lazy-initialized and cached).
+     */
+    public StreamingChatModel streamingModel(String modelName) {
+        String resolvedModel = (modelName == null || modelName.isBlank()) ? props.ollama().model() : modelName;
+        return streamingModels.computeIfAbsent(resolvedModel, name -> {
+            var model = OllamaStreamingChatModel.builder()
+                    .baseUrl(props.ollama().baseUrl())
+                    .modelName(name)
+                    .timeout(Duration.ofSeconds(120))
+                    .temperature(0.7)
+                    .build();
+            log.info("[LlmBridge] Initialized StreamingChatModel for model: {}", name);
+            return model;
+        });
     }
 
     /**

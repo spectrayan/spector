@@ -1,0 +1,673 @@
+:host {
+  display: block;
+  padding: 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+// ── Page Layout ──
+.query-page-layout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 24px;
+  align-items: start;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.main-content-area {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0; // Prevent flex item blowout
+}
+
+.sidebar-panel-area {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+// ── Page Header ──
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-icon {
+  font-size: 40px;
+  width: 48px;
+  height: 48px;
+  color: var(--mat-sys-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--mat-sys-primary) 40%, transparent);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--mat-sys-on-surface);
+  letter-spacing: -0.5px;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// ── Search Section ──
+.query-section {
+  display: block;
+}
+
+// ── Results List ──
+.results-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: fade-in-up 0.4s ease both;
+}
+
+.results-meta-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.results-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.results-filter-field {
+  width: 300px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    height: 36px;
+    padding: 0 12px !important;
+    border-radius: 18px !important;
+    background: var(--mat-sys-surface-container-highest);
+  }
+
+  ::ng-deep .mat-mdc-form-field-infix {
+    padding: 6px 0 !important;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+  }
+
+  ::ng-deep .mat-mdc-form-field-flex {
+    align-items: center;
+  }
+
+  ::ng-deep input.mat-mdc-input-element {
+    font-size: 13px;
+    margin-top: 0;
+  }
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  button.clear-input-btn {
+    width: 28px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    padding: 0;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+.meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  border: 1px solid var(--mat-sys-outline-variant);
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &.profile {
+    background: color-mix(in srgb, var(--mat-sys-primary-container) 40%, transparent);
+    color: var(--mat-sys-on-primary-container);
+    border-color: var(--mat-sys-primary-container);
+  }
+}
+
+.meta-query {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.8;
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// ── Result Container & Cards ──
+.result-container {
+  display: flex;
+  flex-direction: column;
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    border-color: var(--mat-sys-primary);
+    box-shadow: 0 8px 30px color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+    transform: translateY(-2px);
+  }
+}
+
+.result-card {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 40%, transparent);
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-surface-container-high) 30%, transparent);
+  }
+}
+
+.result-rank {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+}
+
+.result-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.result-id {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mat-sys-primary);
+  letter-spacing: 0.5px;
+}
+
+// ── Custom Tier Chip classes (Pure M3 Tokens) ──
+.tier-chip {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  height: 22px !important;
+
+  &.working {
+    --mdc-chip-label-text-color: var(--cortex-working);
+    --mdc-chip-elevated-container-color: color-mix(in srgb, var(--cortex-working) 12%, transparent);
+  }
+  &.episodic {
+    --mdc-chip-label-text-color: var(--cortex-episodic);
+    --mdc-chip-elevated-container-color: color-mix(in srgb, var(--cortex-episodic) 12%, transparent);
+  }
+  &.semantic {
+    --mdc-chip-label-text-color: var(--cortex-semantic);
+    --mdc-chip-elevated-container-color: color-mix(in srgb, var(--cortex-semantic) 12%, transparent);
+  }
+  &.procedural {
+    --mdc-chip-label-text-color: var(--cortex-procedural);
+    --mdc-chip-elevated-container-color: color-mix(in srgb, var(--cortex-procedural) 12%, transparent);
+  }
+}
+
+.flag-chip {
+  font-size: 10px !important;
+  padding: 0 8px !important;
+  min-height: 22px !important;
+  font-weight: 600 !important;
+
+  &.lateral {
+    background: color-mix(in srgb, var(--cortex-working) 15%, transparent) !important;
+    color: var(--cortex-working) !important;
+  }
+  &.hyper {
+    background: color-mix(in srgb, var(--cortex-procedural) 15%, transparent) !important;
+    color: var(--cortex-procedural) !important;
+  }
+  &.negative {
+    background: color-mix(in srgb, var(--cortex-error) 15%, transparent) !important;
+    color: var(--cortex-error) !important;
+  }
+}
+
+.result-text {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--mat-sys-on-surface);
+}
+
+.result-scores {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--mat-sys-surface-container);
+  border-radius: 4px;
+
+  &.primary {
+    background: color-mix(in srgb, var(--mat-sys-primary-container) 50%, transparent);
+    color: var(--mat-sys-primary);
+    font-weight: 700;
+
+    mat-icon {
+      font-size: 13px;
+      width: 13px;
+      height: 13px;
+    }
+  }
+
+  &.boost {
+    color: var(--cortex-success);
+    background: color-mix(in srgb, var(--cortex-success) 8%, transparent);
+  }
+
+  &.penalty {
+    color: var(--cortex-error);
+    background: color-mix(in srgb, var(--cortex-error) 8%, transparent);
+  }
+
+  &.faint {
+    opacity: 0.6;
+  }
+}
+
+.result-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  border: 1px solid var(--mat-sys-outline-variant);
+}
+
+// ── Score Component Explainer Panel ──
+.score-explainer-panel {
+  padding: 16px 20px;
+  background: color-mix(in srgb, var(--mat-sys-surface-container-high) 20%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.explainer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.explainer-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.explainer-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bar-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.bar-label {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.bar-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: var(--mat-sys-on-surface);
+}
+
+.bar-track {
+  height: 6px;
+  background: var(--mat-sys-surface-container-highest);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.similarity {
+    background: linear-gradient(90deg, var(--mat-sys-primary), var(--cortex-episodic));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--mat-sys-primary) 40%, transparent);
+  }
+
+  &.importance {
+    background: linear-gradient(90deg, var(--cortex-working), var(--cortex-semantic));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--cortex-working) 40%, transparent);
+  }
+
+  &.valence {
+    background: linear-gradient(90deg, var(--cortex-procedural), var(--cortex-success));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--cortex-success) 40%, transparent);
+  }
+}
+
+.explainer-multipliers {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.mult-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  border: 1px solid var(--mat-sys-outline-variant);
+  opacity: 0.5;
+  transition: all 0.3s ease;
+
+  &.active {
+    opacity: 1;
+    border-color: currentColor;
+
+    &.tag-boost {
+      color: var(--cortex-success);
+      background: color-mix(in srgb, var(--cortex-success) 10%, transparent);
+    }
+    &.graph-boost {
+      color: var(--cortex-episodic);
+      background: color-mix(in srgb, var(--cortex-episodic) 10%, transparent);
+    }
+    &.habituation-penalty {
+      color: var(--cortex-error);
+      background: color-mix(in srgb, var(--cortex-error) 10%, transparent);
+    }
+  }
+}
+
+// ── No Results Placeholder ──
+.no-results-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 40px;
+  border-radius: 16px;
+  animation: fade-in-up 0.4s ease both;
+
+  .search-placeholder-icon {
+    font-size: 64px;
+    width: 80px;
+    height: 80px;
+    color: var(--mat-sys-primary);
+    opacity: 0.5;
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--mat-sys-on-surface-variant);
+    max-width: 400px;
+    line-height: 1.5;
+  }
+}
+
+// ── Sidebar Cards ──
+.sidebar-card {
+  border-radius: 16px;
+  border: 1px solid var(--mat-sys-outline-variant);
+
+  mat-card-header {
+    margin-bottom: 16px;
+  }
+}
+
+.panel-icon {
+  color: var(--mat-sys-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.density-tight-field {
+  width: 100%;
+
+  ::v-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none; // Remove padding space for errors
+  }
+}
+
+.profile-info-text {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+.setting-divider {
+  border-color: color-mix(in srgb, var(--mat-sys-outline-variant) 50%, transparent);
+  margin: 4px 0;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.slider-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+
+  &.neutral {
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.slider-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  mat-slider {
+    flex: 1;
+  }
+}
+
+// ── Active parameters grid ──
+.active-params-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.param-cell {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+
+  .param-name {
+    font-size: 10px;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.7;
+    margin-bottom: 2px;
+  }
+
+  .param-value {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+// ── Animations ──
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+::ng-deep {
+  .tier-chip.mat-mdc-standard-chip,
+  .flag-chip.mat-mdc-standard-chip {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    font-family: 'JetBrains Mono', 'Consolas', monospace !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+
+    .mdc-evolution-chip__graphic,
+    .mdc-evolution-chip__checkmark,
+    .mdc-evolution-chip__text-label {
+      border: none !important;
+    }
+    .mdc-evolution-chip__cell {
+      border: none !important;
+    }
+  }
+}
+

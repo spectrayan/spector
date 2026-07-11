@@ -90,12 +90,16 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- ── Spring Boot 4 + Armeria integration ── -->
+        <!-- Armeria disabled: Jackson 2/3 TreeCodec classpath conflict with Spring Boot 4.
+             Armeria 1.40 BeanPostProcessor reflects on Jackson types causing
+             MalformedParameterizedTypeException. Using plain Tomcat until Armeria
+             releases Jackson 3 compatible version.
         <dependency>
             <groupId>com.linecorp.armeria</groupId>
             <artifactId>armeria-spring-boot3-starter</artifactId>
             <version>${armeria.version}</version>
         </dependency>
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -121,6 +125,13 @@
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-embed-ollama</artifactId>
+        </dependency>
+        <!-- Spring auto-configuration (spector-spring module): provides the managed
+             SpectorMemory and SpectorEngine beans with optional Micrometer metrics
+             wrapping. Eliminates manual engine construction in MemoryBridge. -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spring-ai-starter-vector-store-spector</artifactId>
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
@@ -182,10 +193,31 @@
             <artifactId>spring-ai-client-chat</artifactId>
         </dependency>
 
-        <!-- ── Jackson 2.x (JSON serialization, used by Armeria) ── -->
+        <!-- ── Jackson 2.x annotations v2.21 (backward compat bridge for Jackson 3) ── -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>2.21</version>
+        </dependency>
+        <!-- ── Jackson 2.x (needed by LangChain4j, Tika, JacksonConfig ObjectMapper) ── -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- ── Spectrayan SSE Server (reactive SSE for real-time events) ── -->
+        <dependency>
+            <groupId>com.spectrayan.sse</groupId>
+            <artifactId>sse-server</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
         <!-- ── Apache Tika (PDF text and metadata extraction) ── -->
@@ -233,6 +265,11 @@
             <artifactId>spector-test-support</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -242,6 +279,11 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
+                <configuration>
+                    <jvmArguments>
+                        --add-modules jdk.incubator.vector --enable-preview --enable-native-access=ALL-UNNAMED
+                    </jvmArguments>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
@@ -256,6 +298,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <useIncrementalCompilation>false</useIncrementalCompilation>
+                    <parameters>true</parameters>
                 </configuration>
             </plugin>
             <!-- Override: BSL 1.1 header for this module -->

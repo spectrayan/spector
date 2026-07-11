@@ -1,0 +1,135 @@
+<mat-toolbar class="cortex-toolbar">
+  <!-- Brand -->
+  <div class="brand">
+    <img src="assets/spector-favicon.png" alt="Spector" class="brand-logo" />
+    <span class="brand-name">Spector</span>
+    <span class="brand-badge">Cortex</span>
+  </div>
+
+  <div class="spacer"></div>
+
+
+  <!-- Connection Status -->
+  <div class="status-group">
+    <div class="status-indicator" [class.connected]="state.connectionStatus() === 'connected'"
+      [class.reconnecting]="state.connectionStatus() === 'reconnecting'"
+      [class.disconnected]="state.connectionStatus() === 'disconnected'"
+      [matTooltip]="'Status: ' + state.connectionStatus()">
+      <span class="status-dot"></span>
+      <span class="status-ring"></span>
+    </div>
+    <span class="status-label">{{ state.connectionStatus() }}</span>
+  </div>
+
+  <!-- Latency -->
+  @if (state.currentQueryTrace(); as trace) {
+  <div class="metric-badge" matTooltip="Last query latency">
+    <mat-icon>speed</mat-icon>
+    <span class="metric-value cortex-mono">{{ state.latestLatencyMs() }}ms</span>
+  </div>
+  }
+
+  <!-- Notification Bell -->
+  <button mat-icon-button [matMenuTriggerFor]="notifMenu" class="notif-bell" matTooltip="Notifications"
+    (menuOpened)="notif.markAllRead()">
+    <mat-icon [matBadge]="notif.unreadCount()" matBadgeColor="accent" matBadgeSize="small"
+      [matBadgeHidden]="notif.unreadCount() === 0">
+      notifications
+    </mat-icon>
+  </button>
+  <mat-menu #notifMenu="matMenu" class="notif-panel" xPosition="before">
+    <div class="notif-header" (click)="$event.stopPropagation()">
+      <span class="notif-title">Activity</span>
+      @if (notif.notifications().length > 0) {
+      <button mat-icon-button class="notif-clear-btn" (click)="notif.clearAll()" matTooltip="Clear all">
+        <mat-icon>clear_all</mat-icon>
+      </button>
+      }
+    </div>
+    @if (notif.notifications().length === 0) {
+    <div class="notif-empty" (click)="$event.stopPropagation()">
+      <mat-icon class="notif-empty-icon">inbox</mat-icon>
+      <span>No recent activity</span>
+    </div>
+    }
+    @for (n of notif.notifications(); track n.taskId) {
+    <div class="notif-item" [class.success]="n.type === 'success'" [class.error]="n.type === 'error'"
+      (click)="$event.stopPropagation()">
+      <div class="notif-item-header">
+        <mat-icon class="notif-type-icon">
+          {{ n.type === 'progress' ? 'hourglass_top' : n.type === 'success' ? 'check_circle' : 'error' }}
+        </mat-icon>
+        <span class="notif-desc">{{ n.description }}</span>
+        <button mat-icon-button class="notif-dismiss" (click)="notif.dismiss(n.taskId)">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      @if (n.type === 'progress') {
+      <mat-progress-bar mode="determinate" [value]="n.progress >= 0 ? n.progress : 0"
+        class="notif-progress"></mat-progress-bar>
+      }
+      <div class="notif-meta cortex-mono">
+        @if (n.type === 'progress') {
+        {{ n.chunksStored }}/{{ n.totalChunks }} chunks
+        } @else {
+        {{ n.chunksStored }} chunks · {{ n.durationMs }}ms
+        @if (n.failures > 0) {
+        · {{ n.failures }} failed
+        }
+        }
+      </div>
+    </div>
+    }
+  </mat-menu>
+
+
+  <!-- Theme Toggle -->
+  <button mat-icon-button (click)="theme.toggle()"
+    [matTooltip]="'Switch to ' + (theme.isDark() ? 'light' : 'dark') + ' theme'">
+    <mat-icon>{{ theme.themeIcon() }}</mat-icon>
+  </button>
+
+  <!-- User Profile Menu -->
+  <button mat-icon-button [matMenuTriggerFor]="userMenu" class="user-menu-btn" matTooltip="Account"
+    id="user-menu-trigger">
+    <mat-icon>account_circle</mat-icon>
+  </button>
+  <mat-menu #userMenu="matMenu" class="user-menu-panel" xPosition="before">
+    <!-- User Info Header -->
+    <div class="user-menu-header" (click)="$event.stopPropagation()">
+      <mat-icon class="user-avatar-icon">account_circle</mat-icon>
+      <div class="user-info">
+        <span class="user-name">{{ auth.currentUser()?.username || 'User' }}</span>
+        <span class="user-role">{{ auth.currentUser()?.roles?.join(', ') || 'user' }}</span>
+      </div>
+    </div>
+    <mat-divider></mat-divider>
+
+    <!-- Navigation Items -->
+    @if (auth.currentUser()?.roles?.includes('admin')) {
+    <button mat-menu-item routerLink="/users" id="nav-user-management">
+      <mat-icon>group</mat-icon>
+      <span>User Management</span>
+    </button>
+    <button mat-menu-item routerLink="/admin" id="nav-admin">
+      <mat-icon>admin_panel_settings</mat-icon>
+      <span>System Admin</span>
+    </button>
+    <button mat-menu-item routerLink="/admin/config" id="nav-config">
+      <mat-icon>tune</mat-icon>
+      <span>Configuration</span>
+    </button>
+    }
+    <button mat-menu-item routerLink="/settings" id="nav-settings">
+      <mat-icon>settings</mat-icon>
+      <span>Settings</span>
+    </button>
+    <mat-divider></mat-divider>
+
+    <!-- Logout -->
+    <button mat-menu-item (click)="auth.logout()" id="logout-btn" class="logout-item">
+      <mat-icon>logout</mat-icon>
+      <span>Sign Out</span>
+    </button>
+  </mat-menu>
+</mat-toolbar>

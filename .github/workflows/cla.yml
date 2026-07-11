@@ -28,9 +28,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          path-to-signatures: '.github/cla-signatures.json'
+          path-to-signatures: 'cla-signatures.json'
           path-to-document: 'https://github.com/spectrayan/spector/blob/main/CLA.md'
-          branch: 'main'
+          branch: 'cla-signatures'
           allowlist: 'sbharatjoshi,dependabot[bot],github-actions[bot]'
           custom-notsigned-prcomment: |
             Thank you for your contribution! Before we can review this PR, we need you to sign our Contributor License Agreement (CLA).

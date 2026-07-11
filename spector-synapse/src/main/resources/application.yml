@@ -12,13 +12,36 @@ spector:
   port: ${SPECTOR_PORT:7070}
   api-key: ${SPECTOR_API_KEY:spector-dev-key}
   data-dir: ${SPECTOR_DATA_DIR:./spector-data}
+
+  # ── Spector Spring Auto-Configuration ──
+  # SpectorAutoConfiguration (spector-spring module) creates a Spring-managed
+  # SpectorMemory bean — with Micrometer metrics wrapping when an actuator
+  # MeterRegistry is present. Replaces manual DefaultSpectorMemory construction.
+  memory:
+    enabled: true
+    max-memories: ${SPECTOR_MAX_MEMORIES:0}
+    dimensions: ${SPECTOR_DIMENSIONS:768}
+    persistence-mode: DISK
+    persistence-path: ${SPECTOR_DATA_DIR:./spector-data}/cognitive
+    capacity: ${SPECTOR_MAX_MEMORIES:10000}
+    splade-enabled: false   # off until Ollama SPLADE model is available
+    colbert-enabled: false  # off until Ollama ColBERT model is available
+  embedding:
+    model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
+    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+    batch-size: 32
+  metrics:
+    enabled: true           # wrap SpectorMemory with Micrometer via Actuator MeterRegistry
+
+spectrayan:
+  sse:
+    server:
+      enabled: true
+      base-path: /api/v1/events
   ollama:
     base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
-    model: ${SPECTOR_OLLAMA_MODEL:llama3.2}
+    model: ${SPECTOR_OLLAMA_MODEL:qwen3.5:latest}
     embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
-  memory:
-    max-memories: ${SPECTOR_MAX_MEMORIES:0}
-    dimensions: ${SPECTOR_DIMENSIONS:0}
   cors:
     allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200}
 

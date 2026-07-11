@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +34,7 @@ import java.util.Map;
  * <p>CRUD operations for agent souls, tool listing, and agent execution.</p>
  */
 @RestController
-@RequestMapping("/api/v1/agents")
+@RequestMapping({"/api/v1/agents", "/api/v1/agent"})
 public class AgentController {
 
     private final CognitiveSoulService soulService;
@@ -42,6 +43,47 @@ public class AgentController {
     public AgentController(CognitiveSoulService soulService, ToolRegistry toolRegistry) {
         this.soulService = soulService;
         this.toolRegistry = toolRegistry;
+    }
+
+    /** Get the current active agent soul. */
+    @GetMapping("/soul")
+    public ResponseEntity<AgentSoul> getSoul() {
+        return ResponseEntity.ok(soulService.getActiveSoul());
+    }
+
+    /** Create/Update the active agent soul. */
+    @PutMapping("/soul")
+    public ResponseEntity<AgentSoul> updateSoul(@RequestBody AgentSoul soul) {
+        AgentSoul updated = AgentSoul.builder()
+                .id(soul.id() != null ? soul.id() : "default")
+                .name(soul.name())
+                .description(soul.description())
+                .systemPrompt(soul.systemPrompt())
+                .purpose(soul.purpose())
+                .personality(soul.personality())
+                .expertiseDomains(soul.expertiseDomains())
+                .coreValues(soul.coreValues())
+                .ethicalGuardrails(soul.ethicalGuardrails())
+                .emotionalBaseline(soul.emotionalBaseline())
+                .communicationStyle(soul.communicationStyle())
+                .model(soul.model())
+                .tools(soul.tools())
+                .build();
+        soulService.saveAgentSoul(updated);
+        return ResponseEntity.ok(updated);
+    }
+
+    /** Partially update the active agent soul. */
+    @PatchMapping("/soul")
+    public ResponseEntity<AgentSoul> patchSoul(@RequestBody Map<String, Object> updates) {
+        return ResponseEntity.ok(soulService.patchAgentSoul(updates));
+    }
+
+    /** Reset the active agent soul. */
+    @DeleteMapping("/soul")
+    public ResponseEntity<Void> resetSoul() {
+        soulService.resetAgentSoul();
+        return ResponseEntity.noContent().build();
     }
 
     /** List the active agent soul. */

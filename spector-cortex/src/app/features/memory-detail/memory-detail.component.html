@@ -1,0 +1,546 @@
+<div class="memory-detail-page">
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb">
+    <a routerLink="/memories" class="breadcrumb-link">
+      <mat-icon>arrow_back</mat-icon>
+      <span>Memories</span>
+    </a>
+    <mat-icon class="breadcrumb-sep">chevron_right</mat-icon>
+    <span class="breadcrumb-current">{{ memoryId() }}</span>
+  </nav>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <mat-progress-bar mode="indeterminate" />
+    </div>
+  } @else if (error()) {
+    <mat-card appearance="outlined" class="error-card">
+      <mat-card-content>
+        <mat-icon class="error-icon">error_outline</mat-icon>
+        <p>{{ error() }}</p>
+        <button mat-stroked-button (click)="goBack()">Back to Memories</button>
+      </mat-card-content>
+    </mat-card>
+  } @else if (memory(); as mem) {
+    <div class="detail-grid">
+
+      <!-- ═══ Identity Card ═══ -->
+      <mat-card appearance="outlined" class="card card-identity" style="animation: fade-in-up 0.3s ease both">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-icon">fingerprint</mat-icon>
+          <mat-card-title>Identity</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="identity-row">
+            <span class="label">ID</span>
+            <code class="value mono">{{ mem.id }}</code>
+          </div>
+          <div class="identity-row">
+            <span class="label">Tier</span>
+            <span class="tier-badge" [style.background]="tierColor()">{{ mem.tier }}</span>
+          </div>
+          <div class="identity-row">
+            <span class="label">Source</span>
+            <mat-chip-set>
+              <mat-chip>{{ mem.source || 'OBSERVED' }}</mat-chip>
+            </mat-chip-set>
+          </div>
+          @if (mem.metadata?.['fileName']) {
+            <div class="identity-row">
+              <span class="label">Source File</span>
+              <span class="value source-file-value">
+                <mat-icon class="source-file-icon">description</mat-icon>
+                {{ mem.metadata['fileName'] }}
+              </span>
+            </div>
+          }
+          <div class="identity-row">
+            <span class="label">Created</span>
+            <span class="value">{{ ageLabel() }}</span>
+          </div>
+          <div class="identity-row">
+            <span class="label">Status</span>
+            <div class="status-flags">
+              @if (mem.tombstoned) {
+                <mat-chip class="status-chip tombstoned">
+                  <mat-icon>delete</mat-icon> Tombstoned
+                </mat-chip>
+              }
+              @if (mem.suppressed) {
+                <mat-chip class="status-chip suppressed">
+                  <mat-icon>visibility_off</mat-icon> Suppressed
+                </mat-chip>
+              }
+              @if (mem.resolved) {
+                <mat-chip class="status-chip resolved">
+                  <mat-icon>check_circle</mat-icon> Resolved
+                </mat-chip>
+              }
+              @if (!mem.tombstoned && !mem.suppressed) {
+                <mat-chip class="status-chip active">
+                  <mat-icon>check</mat-icon> Active
+                </mat-chip>
+              }
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- ═══ Memory Profile Card (NEW — right of Identity) ═══ -->
+      <mat-card appearance="outlined" class="card card-profile" style="animation: fade-in-up 0.35s ease both">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-icon">{{ showFingerprint() ? 'fingerprint' : 'analytics' }}</mat-icon>
+          <mat-card-title>{{ showFingerprint() ? 'Embedding Fingerprint' : 'Memory Profile' }}</mat-card-title>
+          <button mat-icon-button class="profile-toggle-btn" (click)="toggleFingerprint()"
+                  [matTooltip]="showFingerprint() ? 'Show stats' : 'Show fingerprint'">
+            <mat-icon>{{ showFingerprint() ? 'bar_chart' : 'grain' }}</mat-icon>
+          </button>
+        </mat-card-header>
+        <mat-card-content>
+          @if (!showFingerprint()) {
+            <!-- ── Stats View ── -->
+            <div class="profile-stats" style="animation: fade-in 0.2s ease both">
+              <div class="stat-row">
+                <mat-icon class="stat-icon">{{ modalityIcon() }}</mat-icon>
+                <span class="stat-label">Modality</span>
+                <span class="stat-value">{{ mem.sourceModality || 'TEXT' }}</span>
+              </div>
+              @if (originalFileName(); as fileName) {
+                <div class="stat-row">
+                  <mat-icon class="stat-icon">attach_file</mat-icon>
+                  <span class="stat-label">File</span>
+                  <span class="stat-value file-name" [matTooltip]="mem.metadata?.original_path">{{ fileName }}</span>
+                </div>
+              }
+              @if (chunkLabel(); as chunk) {
+                <div class="stat-row">
+                  <mat-icon class="stat-icon">view_module</mat-icon>
+                  <span class="stat-label">Chunk</span>
+                  <span class="stat-value">{{ chunk }}</span>
+                </div>
+              }
+              <div class="stat-row">
+                <mat-icon class="stat-icon">fitness_center</mat-icon>
+                <span class="stat-label">Storage Strength</span>
+                <span class="stat-value cortex-mono">{{ safeFixed(mem.storageStrength, 2, 1.0) }}</span>
+              </div>
+              <div class="stat-row">
+                <mat-icon class="stat-icon">straighten</mat-icon>
+                <span class="stat-label">L2 Norm</span>
+                <span class="stat-value cortex-mono">{{ safeFixed(mem.l2Norm, 4, 0) }}</span>
+              </div>
+              <div class="stat-row">
+                <mat-icon class="stat-icon">push_pin</mat-icon>
+                <span class="stat-label">Pinned</span>
+                <span class="stat-value" [class.positive]="mem.pinned">{{ mem.pinned ? 'Yes' : 'No' }}</span>
+              </div>
+              <div class="stat-row">
+                <mat-icon class="stat-icon">bedtime</mat-icon>
+                <span class="stat-label">Consolidated</span>
+                <span class="stat-value" [class.positive]="mem.consolidated">{{ mem.consolidated ? 'Yes' : 'No' }}</span>
+              </div>
+              <div class="stat-row">
+                <mat-icon class="stat-icon">notes</mat-icon>
+                <span class="stat-label">Words</span>
+                <span class="stat-value cortex-mono">{{ wordCount() }}</span>
+              </div>
+              <div class="stat-row">
+                <mat-icon class="stat-icon">tag</mat-icon>
+                <span class="stat-label">Bloom Filter</span>
+                <span class="stat-value cortex-mono bloom-hex" matTooltip="64-bit synaptic tag Bloom filter">{{ mem.synapticTagsHex || '0x0' }}</span>
+              </div>
+            </div>
+          } @else {
+            <!-- ── Fingerprint View (live heatmap) ── -->
+            <div class="fingerprint-view" style="animation: fade-in 0.2s ease both">
+              @if (vectorLoading()) {
+                <mat-progress-bar mode="indeterminate" class="vec-loader"></mat-progress-bar>
+              } @else if (vectorData(); as vec) {
+                <canvas #fingerprintCanvas class="fingerprint-canvas"
+                        [attr.width]="fingerprintWidth()"
+                        [attr.height]="fingerprintHeight()">
+                </canvas>
+                <div class="fingerprint-meta">
+                  <span class="fingerprint-sublabel">INT8 Quantized · {{ vec.dimension }}d · {{ mem.l2Norm ? (mem.l2Norm).toFixed(4) + ' L2' : '' }}</span>
+                </div>
+              } @else {
+                <div class="fingerprint-placeholder">
+                  <mat-icon class="fingerprint-icon">grain</mat-icon>
+                  <span class="fingerprint-label">{{ vectorError() || 'Click to load embedding' }}</span>
+                  <button mat-stroked-button (click)="loadVector()" class="load-vec-btn">
+                    <mat-icon>download</mat-icon> Load Vector
+                  </button>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- ── Actions (merged into Profile) ── -->
+          <div class="profile-actions">
+            <button mat-flat-button class="action-btn reinforce" (click)="onReinforce()"
+                    matTooltip="Strengthen this memory's recall weight">
+              <mat-icon>thumb_up</mat-icon>
+              Reinforce
+            </button>
+            <button mat-flat-button class="action-btn suppress" (click)="onSuppress()"
+                    matTooltip="Suppress this memory from recall results">
+              <mat-icon>visibility_off</mat-icon>
+              Suppress
+            </button>
+            <button mat-flat-button class="action-btn resolve" (click)="onResolve()"
+                    matTooltip="Mark as resolved (Zeigarnik release)">
+              <mat-icon>check_circle</mat-icon>
+              Resolve
+            </button>
+            <button mat-flat-button class="action-btn forget" (click)="onForget()"
+                    matTooltip="Tombstone this memory (soft delete)">
+              <mat-icon>delete_forever</mat-icon>
+              Forget
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- ═══ Content Card (Inline Reconsolidation Editor) ═══ -->
+      <mat-card appearance="outlined" class="card card-content"
+                [class.editing]="isEditing()"
+                style="animation: fade-in-up 0.4s ease both">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-icon">{{ isEditing() ? 'edit_note' : 'article' }}</mat-icon>
+          <mat-card-title>{{ isEditing() ? 'Reconsolidation Editor' : 'Memory Content' }}</mat-card-title>
+          @if (!isEditing()) {
+            <button mat-icon-button class="content-edit-btn" (click)="startEdit()"
+                    matTooltip="Edit — triggers reconsolidation">
+              <mat-icon>edit</mat-icon>
+            </button>
+          }
+        </mat-card-header>
+        <mat-card-content>
+          @if (isEditing()) {
+            <!-- ── Inline Edit Mode ── -->
+            <div class="reconsolidation-editor" style="animation: fade-in 0.2s ease both">
+              <textarea class="edit-textarea"
+                        [value]="editText()"
+                        (input)="onEditTextInput($event)"
+                        rows="10"
+                        placeholder="Memory content..."></textarea>
+              <div class="edit-meta">
+                <span class="edit-word-count">{{ editWordCount() }} words · {{ editText().length }} chars</span>
+                @if (editText() !== mem.text) {
+                  <span class="edit-modified-badge">Modified</span>
+                }
+              </div>
+
+              <!-- Tag editor -->
+              <div class="edit-tags-section">
+                <span class="edit-section-label">Synaptic Tags</span>
+                <div class="edit-tag-cloud">
+                  @for (tag of editTags(); track tag; let i = $index) {
+                    <mat-chip class="edit-tag-chip" (removed)="removeEditTag(i)">
+                      {{ tag }}
+                      <mat-icon matChipRemove>cancel</mat-icon>
+                    </mat-chip>
+                  }
+                  <input class="edit-tag-input" placeholder="+ add tag"
+                         (keydown.enter)="addEditTag($event)" />
+                </div>
+              </div>
+
+              <!-- Reconsolidation options -->
+              <div class="reconsolidation-options">
+                <span class="edit-section-label">Reconsolidation Mode</span>
+                <label class="recon-option" [class.active]="reconMode() === 'update'">
+                  <input type="radio" name="reconMode" value="update"
+                         [checked]="reconMode() === 'update'"
+                         (change)="reconMode.set('update')" />
+                  <mat-icon>sync</mat-icon>
+                  <div>
+                    <strong>Update in place</strong>
+                    <span class="recon-desc">Re-embed with same ID. Resets recall count, preserves associations.</span>
+                  </div>
+                </label>
+                <label class="recon-option" [class.active]="reconMode() === 'fork'">
+                  <input type="radio" name="reconMode" value="fork"
+                         [checked]="reconMode() === 'fork'"
+                         (change)="reconMode.set('fork')" />
+                  <mat-icon>call_split</mat-icon>
+                  <div>
+                    <strong>Fork as new memory</strong>
+                    <span class="recon-desc">Preserve original, create new trace linked via Hebbian edge.</span>
+                  </div>
+                </label>
+              </div>
+
+              <!-- What reconsolidation will do -->
+              <div class="recon-summary">
+                <mat-icon>bolt</mat-icon>
+                <span>Reconsolidation will: re-embed text → new vector, reset recall count (fresh LTP trace),
+                  {{ reconMode() === 'update' ? 'preserve Hebbian associations' : 'create Hebbian link to original' }},
+                  update timestamp to now.</span>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="edit-actions">
+                <button mat-flat-button class="action-btn edit-save" (click)="saveEdit()"
+                        [disabled]="!hasEditChanges()">
+                  <mat-icon>save</mat-icon>
+                  {{ reconMode() === 'update' ? 'Save & Reconsolidate' : 'Fork & Create' }}
+                </button>
+                <button mat-stroked-button (click)="cancelEdit()">
+                  <mat-icon>close</mat-icon>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          } @else {
+            <!-- ── Read-only View ── -->
+            <div class="memory-text">{{ mem.text }}</div>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <!-- ═══ Consolidation Diff Card ═══ -->
+      @if (mem.consolidated) {
+        <mat-card appearance="outlined" class="card card-consolidation-diff" style="animation: fade-in-up 0.45s ease both">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="panel-icon">bedtime</mat-icon>
+            <mat-card-title>Consolidation Lifecycle Trace</mat-card-title>
+            <mat-card-subtitle>Episodic Ingest vs Consolidated Semantic Concept</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="diff-container">
+              <div class="diff-pane pre-episodic">
+                <div class="pane-header">
+                  <mat-icon>chat_bubble_outline</mat-icon>
+                  <span>Episodic Source (Pre-Consolidation)</span>
+                </div>
+                <div class="pane-body">
+                  <div class="diff-text-old">
+                    {{ preConsolidatedText() }}
+                  </div>
+                  <div class="pane-meta">
+                    <span class="meta-item">Raw context ingested from user activity</span>
+                  </div>
+                </div>
+              </div>
+              <div class="diff-pane post-semantic">
+                <div class="pane-header">
+                  <mat-icon>auto_awesome</mat-icon>
+                  <span>Semantic Core (Consolidated)</span>
+                </div>
+                <div class="pane-body">
+                  <div class="diff-text-new">
+                    {{ mem.text }}
+                  </div>
+                  <div class="pane-meta">
+                    <span class="meta-item">Reflected, summarized, and semanticized</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="diff-stats">
+              <span class="stat-badge"><mat-icon>compress</mat-icon> Compaction Ratio: ~54%</span>
+              <span class="stat-badge"><mat-icon>link</mat-icon> Hebbian associations formed: +3</span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      <!-- ═══ Cognitive State Card ═══ -->
+      <mat-card appearance="outlined" class="card card-cognitive" style="animation: fade-in-up 0.5s ease both">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-icon">psychology</mat-icon>
+          <mat-card-title>Cognitive State</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="metric-row">
+            <span class="metric-label">Importance</span>
+            <div class="metric-bar-container">
+              <div class="metric-bar importance" [style.width.%]="importancePct()"></div>
+            </div>
+            <span class="metric-value">{{ importancePct() }}%</span>
+          </div>
+
+          <div class="metric-row">
+            <span class="metric-label">Valence</span>
+            <div class="valence-gauge">
+              <div class="valence-track">
+                <div class="valence-marker"
+                     [style.left.%]="((mem.valence + 128) / 256) * 100"
+                     [class.positive]="mem.valence > 0"
+                     [class.negative]="mem.valence < 0">
+                </div>
+              </div>
+              <span class="valence-label">{{ valenceLabel() }} ({{ mem.valence }})</span>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <span class="metric-label">Arousal</span>
+            <div class="metric-bar-container">
+              <div class="metric-bar arousal" [style.width.%]="(mem.arousal / 255) * 100"></div>
+            </div>
+            <span class="metric-value">{{ mem.arousal }}</span>
+          </div>
+
+          <div class="metric-row">
+            <span class="metric-label">Recall Count</span>
+            <span class="metric-value count">{{ mem.recallCount ?? 0 }}</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- ═══ Synaptic Tags Card ═══ -->
+      <mat-card appearance="outlined" class="card card-tags" style="animation: fade-in-up 0.55s ease both">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-icon">label</mat-icon>
+          <mat-card-title>Synaptic Tags</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="tag-cloud">
+            @if (mem.tags && mem.tags.length > 0) {
+              @for (tag of mem.tags; track tag) {
+                <mat-chip class="tag-chip">{{ tag }}</mat-chip>
+              }
+            } @else {
+              <span class="no-tags">No tags encoded</span>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- ═══ Relationships Card ═══ -->
+      <mat-card appearance="outlined" class="card card-relationships" style="animation: fade-in-up 0.6s ease both">
+        <mat-card-header>
+          <mat-icon mat-card-avatar class="panel-icon">hub</mat-icon>
+          <mat-card-title>Relationships</mat-card-title>
+          <mat-card-subtitle>Hebbian · Temporal · Entity</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (graphLoading()) {
+            <mat-progress-bar mode="indeterminate" class="graph-loader"></mat-progress-bar>
+          } @else if (graphError()) {
+            <div class="graph-error">
+              <mat-icon>cloud_off</mat-icon>
+              <span>{{ graphError() }}</span>
+            </div>
+          } @else if (graphData(); as graph) {
+            <!-- Hebbian Associations -->
+            @if (hebbianEdges().length > 0) {
+              <div class="edge-section">
+                <div class="edge-section-header">
+                  <mat-icon class="edge-icon hebbian">link</mat-icon>
+                  <span class="edge-type-label">Hebbian Associations</span>
+                  <span class="edge-count">{{ hebbianEdges().length }}</span>
+                </div>
+                @for (edge of paginatedHebbianEdges(); track edge.toId) {
+                  @if (graphNodeById(neighborId(edge)); as neighbor) {
+                    <div class="neighbor-row" [routerLink]="['/memories', neighbor.id]">
+                      <span class="neighbor-tier" [style.background]="nodeTierColor(neighbor)">{{ neighbor.tier }}</span>
+                      <span class="neighbor-text">{{ neighbor.textPreview }}</span>
+                      <span class="neighbor-weight cortex-mono" matTooltip="Association strength">
+                        {{ edge.weight.toFixed(2) }}
+                      </span>
+                    </div>
+                  }
+                }
+                @if (hebbianTotalPages() > 1) {
+                  <div class="edge-pagination">
+                    <button mat-icon-button [disabled]="hebbianPage() === 0" (click)="hebbianPage.set(hebbianPage() - 1)">
+                      <mat-icon>chevron_left</mat-icon>
+                    </button>
+                    <span class="page-info cortex-mono">{{ hebbianPage() + 1 }} / {{ hebbianTotalPages() }}</span>
+                    <button mat-icon-button [disabled]="hebbianPage() >= hebbianTotalPages() - 1" (click)="hebbianPage.set(hebbianPage() + 1)">
+                      <mat-icon>chevron_right</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Temporal Chain -->
+            @if (temporalEdges().length > 0) {
+              <div class="edge-section">
+                <div class="edge-section-header">
+                  <mat-icon class="edge-icon temporal">timeline</mat-icon>
+                  <span class="edge-type-label">Temporal Chain</span>
+                  <span class="edge-count">{{ temporalEdges().length }}</span>
+                </div>
+                @for (edge of paginatedTemporalEdges(); track edge.toId) {
+                  @if (graphNodeById(neighborId(edge)); as neighbor) {
+                    <div class="neighbor-row" [routerLink]="['/memories', neighbor.id]">
+                      <span class="neighbor-tier" [style.background]="nodeTierColor(neighbor)">{{ neighbor.tier }}</span>
+                      <span class="neighbor-text">{{ neighbor.textPreview }}</span>
+                      <mat-icon class="temporal-arrow" [matTooltip]="edge.fromId === memoryId() ? 'Next' : 'Previous'">
+                        {{ edge.fromId === memoryId() ? 'arrow_forward' : 'arrow_back' }}
+                      </mat-icon>
+                    </div>
+                  }
+                }
+                @if (temporalTotalPages() > 1) {
+                  <div class="edge-pagination">
+                    <button mat-icon-button [disabled]="temporalPage() === 0" (click)="temporalPage.set(temporalPage() - 1)">
+                      <mat-icon>chevron_left</mat-icon>
+                    </button>
+                    <span class="page-info cortex-mono">{{ temporalPage() + 1 }} / {{ temporalTotalPages() }}</span>
+                    <button mat-icon-button [disabled]="temporalPage() >= temporalTotalPages() - 1" (click)="temporalPage.set(temporalPage() + 1)">
+                      <mat-icon>chevron_right</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Entity Relationships -->
+            @if (entityEdges().length > 0) {
+              <div class="edge-section">
+                <div class="edge-section-header">
+                  <mat-icon class="edge-icon entity">category</mat-icon>
+                  <span class="edge-type-label">Entity Relationships</span>
+                  <span class="edge-count">{{ entityEdges().length }}</span>
+                </div>
+                @for (edge of paginatedEntityEdges(); track edge.toId) {
+                  @if (graphNodeById(neighborId(edge)); as neighbor) {
+                    <div class="neighbor-row" [routerLink]="['/memories', neighbor.id]">
+                      <span class="neighbor-tier" [style.background]="nodeTierColor(neighbor)">{{ neighbor.tier }}</span>
+                      <span class="neighbor-text">{{ neighbor.textPreview }}</span>
+                      <mat-chip class="entity-label" matTooltip="Entity relation">{{ edge.relation }}</mat-chip>
+                    </div>
+                  }
+                }
+                @if (entityTotalPages() > 1) {
+                  <div class="edge-pagination">
+                    <button mat-icon-button [disabled]="entityPage() === 0" (click)="entityPage.set(entityPage() - 1)">
+                      <mat-icon>chevron_left</mat-icon>
+                    </button>
+                    <span class="page-info cortex-mono">{{ entityPage() + 1 }} / {{ entityTotalPages() }}</span>
+                    <button mat-icon-button [disabled]="entityPage() >= entityTotalPages() - 1" (click)="entityPage.set(entityPage() + 1)">
+                      <mat-icon>chevron_right</mat-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- No relationships -->
+            @if (hebbianEdges().length === 0 && temporalEdges().length === 0 && entityEdges().length === 0) {
+              <div class="graph-empty">
+                <mat-icon>device_hub</mat-icon>
+                <span>No relationships found for this memory</span>
+              </div>
+            }
+
+            <!-- Graph Explorer link -->
+            <div class="graph-explore-link">
+              <a mat-stroked-button routerLink="/graph" class="explore-link">
+                <mat-icon>explore</mat-icon>
+                Open in Graph Explorer
+              </a>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+
+    </div>
+  }
+</div>

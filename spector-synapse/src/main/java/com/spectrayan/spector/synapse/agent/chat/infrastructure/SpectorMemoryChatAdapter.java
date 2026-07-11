@@ -14,9 +14,9 @@ package com.spectrayan.spector.synapse.agent.chat.infrastructure;
 
 import com.spectrayan.spector.synapse.agent.chat.model.Conversation;
 import com.spectrayan.spector.synapse.agent.chat.service.ChatMemoryPort;
-import com.spectrayan.spector.synapse.bridge.MemoryBridge;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
+import com.spectrayan.spector.synapse.memory.MemoryService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,19 +37,19 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorMemoryChatAdapter.class);
 
-    private final MemoryBridge memoryBridge;
+    private final MemoryService memoryService;
 
-    public SpectorMemoryChatAdapter(MemoryBridge memoryBridge) {
-        this.memoryBridge = memoryBridge;
+    public SpectorMemoryChatAdapter(MemoryService memoryService) {
+        this.memoryService = memoryService;
     }
 
     @Override
     public List<Map<String, Object>> loadSessionHistory(String sessionId) {
-        if (sessionId == null || !memoryBridge.isAvailable()) return List.of();
+        if (sessionId == null || !memoryService.isEngineAvailable()) return List.of();
 
         // Recall memories for this session, sorted by temporal chain (ideally)
         // For now, we query specifically for session tags
-        var results = memoryBridge.recall(new RecallRequest("session:" + sessionId, 100, null));
+        var results = memoryService.recall(new RecallRequest("session:" + sessionId, 100, null));
 
         return results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains("session:" + sessionId))
@@ -72,24 +72,24 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
     @Override
     public void saveToSession(String sessionId, String userMessage,
                                String assistantResponse, String model) {
-        if (!memoryBridge.isAvailable()) return;
+        if (!memoryService.isEngineAvailable()) return;
 
         try {
             // Store user turn
-            memoryBridge.store(new StoreRequest(
+            memoryService.store(new StoreRequest(
                     userMessage,
                     List.of("chat", "session:" + sessionId, "role:user", "type:turn"),
                     null, Map.of()));
             
             // Store assistant turn
-            memoryBridge.store(new StoreRequest(
+            memoryService.store(new StoreRequest(
                     assistantResponse,
                     List.of("chat", "session:" + sessionId, "role:assistant", "model:" + model, "type:turn"),
                     null, Map.of()));
 
             // Store/Update session summary record for listing
             String preview = userMessage.length() > 200 ? userMessage.substring(0, 200) : userMessage;
-            memoryBridge.store(new StoreRequest(
+            memoryService.store(new StoreRequest(
                     "Session Preview: " + preview,
                     List.of("chat", "session_summary", "id:" + sessionId),
                     null, Map.of()));
@@ -103,10 +103,10 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
 
     @Override
     public List<Conversation> listSessions(int limit) {
-        if (!memoryBridge.isAvailable()) return List.of();
+        if (!memoryService.isEngineAvailable()) return List.of();
 
         // Query for session summaries
-        var results = memoryBridge.recall(new RecallRequest("session_summary", limit, null));
+        var results = memoryService.recall(new RecallRequest("session_summary", limit, null));
 
         return results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains("session_summary"))
@@ -131,12 +131,12 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
     public List<PrimedMemory> recallRelevantMemories(String query,
                                                       String excludeSessionId,
                                                       int limit) {
-        if (!memoryBridge.isAvailable() || query == null || query.isBlank()) {
+        if (!memoryService.isEngineAvailable() || query == null || query.isBlank()) {
             return List.of();
         }
 
         try {
-            var results = memoryBridge.recall(new RecallRequest(query, limit, null));
+            var results = memoryService.recall(new RecallRequest(query, limit, null));
 
             return results.stream()
                     // Exclude memories from the current session

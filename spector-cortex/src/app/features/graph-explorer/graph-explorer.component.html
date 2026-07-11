@@ -1,0 +1,637 @@
+<div class="graph-explorer-page">
+  <!-- Scan-line overlay — pure CSS, zero cost -->
+  <div class="scanline-overlay"></div>
+
+  <!-- Screenshot flash effect -->
+  @if (isCapturing()) {
+    <div class="screenshot-flash"></div>
+  }
+
+  <!-- Share toast notification -->
+  @if (shareToast(); as toast) {
+    <div class="share-toast" id="share-toast">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ toast }}</span>
+    </div>
+  }
+
+  <!-- Toolbar -->
+  <header class="explorer-toolbar">
+    <div class="toolbar-left">
+      <mat-icon class="page-icon">hub</mat-icon>
+      <div>
+        <h1 class="page-title">GRAPH EXPLORER</h1>
+        <p class="page-subtitle cortex-mono">
+          SCANNING: {{ loadedCount() }} / {{ totalAvailable() || '∞' }} NODES
+        </p>
+      </div>
+    </div>
+
+    <div class="toolbar-controls">
+      <!-- Layer toggles -->
+      <mat-chip-set>
+        <mat-chip [highlighted]="showHebbian()" (click)="showHebbian.set(!showHebbian())"
+                  class="layer-chip hebbian">
+          <mat-icon matChipAvatar>link</mat-icon>
+          Hebbian
+        </mat-chip>
+        <mat-chip [highlighted]="showTemporal()" (click)="showTemporal.set(!showTemporal())"
+                  class="layer-chip temporal">
+          <mat-icon matChipAvatar>timeline</mat-icon>
+          Temporal
+        </mat-chip>
+        <mat-chip [highlighted]="showEntity()" (click)="showEntity.set(!showEntity())"
+                  class="layer-chip entity">
+          <mat-icon matChipAvatar>category</mat-icon>
+          Entity
+        </mat-chip>
+      </mat-chip-set>
+
+      <button mat-icon-button [matTooltip]="showLabels() ? 'Hide labels' : 'Show labels'"
+              (click)="showLabels.set(!showLabels())"
+              [class.label-active]="showLabels()">
+        <mat-icon>{{ showLabels() ? 'label' : 'label_off' }}</mat-icon>
+      </button>
+
+      <button mat-icon-button matTooltip="Toggle Filter Command Deck"
+              (click)="showFilters.set(!showFilters())"
+              [class.filter-active]="showFilters()">
+        <mat-icon>tune</mat-icon>
+      </button>
+
+      <button mat-icon-button matTooltip="Expand Scan Range — Load More Nodes"
+              (click)="expandScanRange()"
+              [disabled]="isLoadingMore()">
+        <mat-icon>{{ isLoadingMore() ? 'hourglass_top' : 'radar' }}</mat-icon>
+      </button>
+
+      <button mat-icon-button matTooltip="Toggle Topology Stats Deck"
+              (click)="toggleTopologyStats()"
+              [class.stats-active]="showTopologyStats()">
+        <mat-icon>bar_chart</mat-icon>
+      </button>
+
+      <button mat-icon-button matTooltip="Capture Graph Screenshot"
+              (click)="captureScreenshot()"
+              [disabled]="isCapturing()">
+        <mat-icon>{{ isCapturing() ? 'check' : 'camera_alt' }}</mat-icon>
+      </button>
+
+      <div class="share-button-group">
+        <button mat-icon-button matTooltip="Share Graph"
+                (click)="toggleSharePanel()"
+                [class.share-active]="showSharePanel()">
+          <mat-icon>{{ isSharing() ? 'check' : 'share' }}</mat-icon>
+        </button>
+
+        @if (showSharePanel()) {
+          <div class="share-panel" id="share-panel">
+            <div class="share-panel-header">
+              <mat-icon class="share-panel-icon">share</mat-icon>
+              <span>SHARE GRAPH</span>
+            </div>
+            <button class="share-option" (click)="shareScreenshot()">
+              <mat-icon>send</mat-icon>
+              <span>Share Image</span>
+              <span class="share-hint">Web Share API</span>
+            </button>
+            <button class="share-option" (click)="copyShareLink()">
+              <mat-icon>link</mat-icon>
+              <span>Copy Link</span>
+              <span class="share-hint">Camera + Filters</span>
+            </button>
+            <button class="share-option" (click)="captureScreenshot()">
+              <mat-icon>download</mat-icon>
+              <span>Download PNG</span>
+              <span class="share-hint">Branded</span>
+            </button>
+          </div>
+        }
+      </div>
+
+      <button mat-icon-button matTooltip="Time Travel — Scrub Through History"
+              (click)="timeTravelMode() ? exitTimeTravel() : enterTimeTravel()"
+              [class.label-active]="timeTravelMode()">
+        <mat-icon>{{ timeTravelMode() ? 'history_toggle_off' : 'history' }}</mat-icon>
+      </button>
+
+      <button mat-icon-button matTooltip="Replay Query Animation"
+              (click)="replayQueryAnimation()">
+        <mat-icon>slow_motion_video</mat-icon>
+      </button>
+
+      <button mat-icon-button matTooltip="Refresh graph" (click)="refreshGraph()">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </header>
+
+  <!-- Query bar — recall queries trigger neuron firing particles -->
+  <div class="graph-query-bar">
+    <cortex-query-input></cortex-query-input>
+  </div>
+
+  <div class="explorer-layout">
+    <!-- Loading indicator -->
+    @if (graphLoading()) {
+      <div class="graph-loading">
+        <mat-spinner diameter="48"></mat-spinner>
+        <span class="loading-text cortex-mono">INITIALIZING NEURAL TOPOLOGY...</span>
+      </div>
+    }
+
+    <!-- Error state -->
+    @if (graphError(); as error) {
+      <div class="graph-error">
+        <mat-icon>memory</mat-icon>
+        <span>{{ error }}</span>
+      </div>
+    }
+
+    <!-- Loading More indicator (bottom bar) -->
+    @if (isLoadingMore()) {
+      <div class="loading-more-bar">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <span class="cortex-mono">EXPANDING SCAN RANGE...</span>
+      </div>
+    }
+
+    <!-- Graph Canvas -->
+    <div class="graph-canvas-container"
+         #graphCanvas
+         (mousemove)="onMouseMove($event)"
+         (mousedown)="onMouseDown($event)"
+         (mouseup)="onMouseUp($event)"
+         (mouseleave)="onMouseUp($event)"
+         (wheel)="onWheel($event)"
+         (click)="onClick($event)"
+         (dblclick)="onDoubleClick()">
+    </div>
+
+    <!-- Hover Tooltip -->
+    @if (hoverInfo(); as h) {
+      <div class="hover-tooltip"
+           [style.left.px]="h.x + 16"
+           [style.top.px]="h.y - 8">
+        <div class="hover-header">
+          <span class="hover-id">{{ h.id }}</span>
+          <span class="hover-tier" [attr.data-tier]="h.tier">{{ h.tier }}</span>
+        </div>
+        <p class="hover-text">{{ h.text }}</p>
+        <div class="hover-bar-row">
+          <span class="hover-bar-label">IMP</span>
+          <div class="hover-bar-track">
+            <div class="hover-bar-fill" [style.width.%]="h.importance * 100"
+                 [attr.data-tier]="h.tier"></div>
+          </div>
+          <span class="hover-bar-value">{{ (h.importance * 100).toFixed(0) }}%</span>
+        </div>
+      </div>
+    }
+
+    <!-- ═══════ Filter Command Deck (Left Panel) ═══════ -->
+    @if (showFilters()) {
+      <aside class="filter-deck" id="filter-command-deck">
+        <div class="deck-header">
+          <div class="deck-corner tl"></div>
+          <div class="deck-corner tr"></div>
+          <mat-icon class="deck-icon">tune</mat-icon>
+          <span class="deck-title">FILTER COMMAND DECK</span>
+        </div>
+
+        <!-- Importance Range -->
+        <div class="filter-group">
+          <div class="filter-label">
+            <span class="filter-name">IMPORTANCE</span>
+            <span class="filter-value cortex-mono">{{ importanceMin().toFixed(1) }} — {{ importanceMax().toFixed(1) }}</span>
+          </div>
+          <div class="slider-row">
+            <mat-slider min="0" max="10" step="0.5" class="filter-slider importance-slider">
+              <input matSliderThumb [ngModel]="importanceMin()" (ngModelChange)="importanceMin.set($event)">
+            </mat-slider>
+            <mat-slider min="0" max="10" step="0.5" class="filter-slider importance-slider">
+              <input matSliderThumb [ngModel]="importanceMax()" (ngModelChange)="importanceMax.set($event)">
+            </mat-slider>
+          </div>
+        </div>
+
+        <!-- Valence Range -->
+        <div class="filter-group">
+          <div class="filter-label">
+            <span class="filter-name">VALENCE</span>
+            <span class="filter-value cortex-mono">{{ valenceMin() }} — {{ valenceMax() }}</span>
+          </div>
+          <div class="slider-row">
+            <mat-slider min="-128" max="127" step="4" class="filter-slider valence-slider">
+              <input matSliderThumb [ngModel]="valenceMin()" (ngModelChange)="valenceMin.set($event)">
+            </mat-slider>
+            <mat-slider min="-128" max="127" step="4" class="filter-slider valence-slider">
+              <input matSliderThumb [ngModel]="valenceMax()" (ngModelChange)="valenceMax.set($event)">
+            </mat-slider>
+          </div>
+        </div>
+
+        <!-- Timestamp Range -->
+        <div class="filter-group">
+          <div class="filter-label">
+            <span class="filter-name">TEMPORAL RANGE</span>
+            <span class="filter-value cortex-mono">
+              {{ formatTimestamp(timestampMin()) }} — {{ formatTimestamp(timestampMax()) }}
+            </span>
+          </div>
+          <div class="date-picker-row">
+            <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+              <mat-label>From</mat-label>
+              <input matInput [matDatepicker]="graphFromPicker"
+                     [ngModel]="fromDate()" (ngModelChange)="onFromDateChange($event)">
+              <mat-datepicker-toggle matSuffix [for]="graphFromPicker"></mat-datepicker-toggle>
+              <mat-datepicker #graphFromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+              <mat-label>To</mat-label>
+              <input matInput [matDatepicker]="graphToPicker"
+                     [ngModel]="toDate()" (ngModelChange)="onToDateChange($event)">
+              <mat-datepicker-toggle matSuffix [for]="graphToPicker"></mat-datepicker-toggle>
+              <mat-datepicker #graphToPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+          <div class="preset-row">
+            <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset('1h')">1H</button>
+            <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset('24h')">24H</button>
+            <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset('7d')">7D</button>
+            <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset('30d')">30D</button>
+            <button mat-stroked-button class="preset-btn" (click)="setTemporalPreset('all')">ALL</button>
+          </div>
+        </div>
+
+        <!-- Visible Count -->
+        <div class="filter-stat">
+          <span class="stat-value cortex-mono">{{ visibleNodeCount() }}</span>
+          <span class="stat-label">VISIBLE NODES</span>
+        </div>
+
+        <!-- Reset Button -->
+        <button mat-button class="reset-btn" (click)="resetFilters()">
+          <mat-icon>restart_alt</mat-icon>
+          RESET FILTERS
+        </button>
+
+        <div class="deck-corner bl"></div>
+        <div class="deck-corner br"></div>
+      </aside>
+    }
+
+    <!-- ═══════ Scientific HUD Panel (top-left) ═══════ -->
+    <div class="hud-panel">
+      <div class="hud-corner tl"></div>
+      <div class="hud-corner tr"></div>
+      <div class="hud-title">
+        <mat-icon class="hud-icon">analytics</mat-icon>
+        NEURAL TOPOLOGY
+      </div>
+      <div class="hud-grid">
+        <div class="hud-stat">
+          <span class="hud-stat-value cortex-mono">{{ nodeCount() }}</span>
+          <span class="hud-stat-label">NODES</span>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-stat-value cortex-mono">{{ edgeCount() }}</span>
+          <span class="hud-stat-label">SYNAPSES</span>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-stat-value cortex-mono">{{ (avgImportance() * 100).toFixed(0) }}%</span>
+          <span class="hud-stat-label">AVG IMP</span>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-stat-value cortex-mono">{{ (densityRatio() * 100).toFixed(1) }}%</span>
+          <span class="hud-stat-label">DENSITY</span>
+        </div>
+      </div>
+      <div class="hud-edge-counts">
+        <div class="hud-edge-row">
+          <span class="hud-edge-dot hebbian"></span>
+          <span class="hud-edge-label">Hebbian</span>
+          <span class="hud-edge-count cortex-mono">{{ hebbianCount() }}</span>
+        </div>
+        <div class="hud-edge-row">
+          <span class="hud-edge-dot temporal"></span>
+          <span class="hud-edge-label">Temporal</span>
+          <span class="hud-edge-count cortex-mono">{{ temporalCount() }}</span>
+        </div>
+        <div class="hud-edge-row">
+          <span class="hud-edge-dot entity"></span>
+          <span class="hud-edge-label">Entity</span>
+          <span class="hud-edge-count cortex-mono">{{ entityCount() }}</span>
+        </div>
+      </div>
+      <div class="hud-corner bl"></div>
+      <div class="hud-corner br"></div>
+    </div>
+
+    <!-- ═══════ Topology Stats Deck (Right Panel) ═══════ -->
+    @if (showTopologyStats()) {
+      <aside class="stats-deck" id="topology-stats-deck">
+        <div class="deck-header">
+          <div class="deck-corner tl"></div>
+          <div class="deck-corner tr"></div>
+          <mat-icon class="deck-icon">insights</mat-icon>
+          <span class="deck-title">TOPOLOGY STATS DECK</span>
+          <span class="spacer" style="flex: 1;"></span>
+          <button class="debug-close" (click)="showTopologyStats.set(false)" style="background: none; border: none; color: inherit; cursor: pointer; display: flex; align-items: center;">
+            <mat-icon style="font-size: 16px; width: 16px; height: 16px;">close</mat-icon>
+          </button>
+        </div>
+
+        <div class="stats-deck-scroll">
+          @if (topologyStatsLoading()) {
+            <div style="display: flex; flex-direction: column; align-items: center; padding: 20px; gap: 10px;">
+              <mat-spinner diameter="32"></mat-spinner>
+              <span class="cortex-mono" style="font-size: 10px; color: var(--mat-sys-outline);">ANALYZING TOPOLOGY...</span>
+            </div>
+          } @else if (topologyStatsError(); as err) {
+            <div style="color: #ef5350; font-size: 11px; padding: 10px; text-align: center;">
+              {{ err }}
+            </div>
+          } @else {
+            <!-- Entity Types -->
+            <div class="stats-section-title">Entity Types ({{ entityTypesStats().length }})</div>
+            <div class="stats-list">
+              @for (stat of entityTypesStats(); track stat.type) {
+                <div class="stats-item">
+                  <div class="stats-item-header">
+                    <span class="stats-item-badge entity-badge">{{ stat.type }}</span>
+                  </div>
+                  <div class="stats-item-grid">
+                    <div class="stats-sub-stat">
+                      <span class="stats-sub-value">{{ stat.nodes }}</span>
+                      <span class="stats-sub-label">Nodes</span>
+                    </div>
+                    <div class="stats-sub-stat">
+                      <span class="stats-sub-value">{{ stat.edges }}</span>
+                      <span class="stats-sub-label">Synapses</span>
+                    </div>
+                    <div class="stats-sub-stat">
+                      <span class="stats-sub-value">{{ stat.memories }}</span>
+                      <span class="stats-sub-label">Memories</span>
+                    </div>
+                  </div>
+                </div>
+              } @empty {
+                <div style="font-size: 10px; color: var(--mat-sys-outline); text-align: center; padding: 10px;">
+                  No entity types extracted.
+                </div>
+              }
+            </div>
+
+            <!-- Relation Types -->
+            <div class="stats-section-title">Relation Types ({{ relationTypesStats().length }})</div>
+            <div class="stats-list">
+              @for (stat of relationTypesStats(); track stat.type) {
+                <div class="stats-item">
+                  <div class="stats-item-header">
+                    <span class="stats-item-badge relation-badge">{{ stat.type }}</span>
+                  </div>
+                  <div class="stats-item-grid">
+                    <div class="stats-sub-stat">
+                      <span class="stats-sub-value">{{ stat.edges }}</span>
+                      <span class="stats-sub-label">Synapses</span>
+                    </div>
+                    <div class="stats-sub-stat">
+                      <span class="stats-sub-value">{{ stat.nodes }}</span>
+                      <span class="stats-sub-label">Nodes</span>
+                    </div>
+                    <div class="stats-sub-stat">
+                      <span class="stats-sub-value">{{ stat.memories }}</span>
+                      <span class="stats-sub-label">Memories</span>
+                    </div>
+                  </div>
+                </div>
+              } @empty {
+                <div style="font-size: 10px; color: var(--mat-sys-outline); text-align: center; padding: 10px;">
+                  No relation types extracted.
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="deck-corner bl"></div>
+        <div class="deck-corner br"></div>
+      </aside>
+    }
+
+    <!-- Node Detail Panel -->
+    @if (selectedNode(); as node) {
+      <aside class="detail-panel" id="node-detail-panel">
+        <mat-card appearance="outlined">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>psychology</mat-icon>
+            <mat-card-title>{{ node.id }}</mat-card-title>
+            <mat-card-subtitle>{{ node.tier }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p class="node-text">{{ node.text }}</p>
+            <div class="node-metric">
+              <span class="metric-label">Importance</span>
+              <span class="metric-value">{{ (node.importance * 100).toFixed(0) }}%</span>
+            </div>
+            <div class="node-metric">
+              <span class="metric-label">Valence</span>
+              <span class="metric-value" [class.positive]="node.valence > 0" [class.negative]="node.valence < 0">
+                {{ node.valence > 0 ? '+' : '' }}{{ node.valence }}
+              </span>
+            </div>
+
+            <!-- Neighborhood Expansion -->
+            <div class="expand-section">
+              <div class="expand-depth-selector">
+                <span class="expand-label">DEPTH</span>
+                @for (d of [1, 2, 3]; track d) {
+                  <button class="depth-btn"
+                          [class.depth-active]="expansionDepth() === d"
+                          (click)="expansionDepth.set(d)">{{ d }}</button>
+                }
+              </div>
+              <button class="expand-btn" 
+                      (click)="expandNodeNeighbors(node.id)"
+                      [disabled]="isExpanding()">
+                <mat-icon>{{ isExpanding() ? 'hourglass_top' : 'scatter_plot' }}</mat-icon>
+                {{ isExpanding() ? 'EXPANDING...' : 'EXPAND NEIGHBORHOOD' }}
+              </button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </aside>
+    }
+
+    <!-- Edge Detail Panel -->
+    @if (selectedEdge(); as edge) {
+      <aside class="detail-panel" id="edge-detail-panel">
+        <mat-card appearance="outlined">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>{{ edgeIcon(edge.type) }}</mat-icon>
+            <mat-card-title>
+              <span class="edge-type-badge" [attr.data-type]="edge.type">{{ edge.type }}</span>
+            </mat-card-title>
+            <mat-card-subtitle>Edge Connection</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="edge-connection">
+              <div class="edge-endpoint">
+                <span class="endpoint-label">From</span>
+                <span class="endpoint-id">{{ edge.from }}</span>
+              </div>
+              <mat-icon class="edge-arrow">arrow_forward</mat-icon>
+              <div class="edge-endpoint">
+                <span class="endpoint-label">To</span>
+                <span class="endpoint-id">{{ edge.to }}</span>
+              </div>
+            </div>
+            @if (edge.relation) {
+              <div class="node-metric">
+                <span class="metric-label">Relation</span>
+                <span class="metric-value relation-tag">{{ edge.relation }}</span>
+              </div>
+            }
+            <div class="node-metric">
+              <span class="metric-label">Weight</span>
+              <span class="metric-value">{{ edge.weight.toFixed(2) }}</span>
+            </div>
+            <p class="edge-description">
+              @switch (edge.type) {
+                @case ('HEBBIAN') { Co-recall association — memories frequently retrieved together }
+                @case ('TEMPORAL') { Session sequence — memories created in order }
+                @case ('ENTITY') { Entity relationship — shared knowledge graph connection }
+              }
+            </p>
+          </mat-card-content>
+        </mat-card>
+      </aside>
+    }
+
+    <!-- ═══════ Debug Console Overlay (non-prod only) ═══════ -->
+    @if (showDebugConsole()) {
+      <div class="debug-console" id="debug-console">
+        <div class="debug-header">
+          <span class="debug-title">
+            <mat-icon>terminal</mat-icon>
+            EVENT STREAM
+          </span>
+          <span class="debug-badge">{{ debugLines().length }} events</span>
+          <button class="debug-close" (click)="showDebugConsole.set(false)">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="debug-body" #debugBody>
+          @for (line of debugLines(); track line.id) {
+            <div class="debug-line" [class.event-line]="line.tag === 'SSE'" [class.error-line]="line.tag === 'ERR'">
+              <span class="debug-timestamp">{{ line.time }}</span>
+              <span class="debug-tag"
+                    [class.tag-sse]="line.tag === 'SSE'"
+                    [class.tag-query]="line.tag === 'QRY'"
+                    [class.tag-err]="line.tag === 'ERR'"
+                    [class.tag-sys]="line.tag === 'SYS'">{{ line.tag }}</span>
+              <span class="debug-message">{{ line.message }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Legend (bottom-right) -->
+    <div class="graph-legend">
+      <div class="legend-item"><span class="legend-dot working"></span> Working</div>
+      <div class="legend-item"><span class="legend-dot episodic"></span> Episodic</div>
+      <div class="legend-item"><span class="legend-dot semantic"></span> Semantic</div>
+      <div class="legend-item"><span class="legend-dot procedural"></span> Procedural</div>
+      <div class="legend-separator"></div>
+      <div class="legend-item"><span class="legend-line hebbian"></span> Hebbian</div>
+      <div class="legend-item"><span class="legend-line temporal"></span> Temporal</div>
+      <div class="legend-item"><span class="legend-line entity"></span> Entity</div>
+    </div>
+
+    <!-- ═══════ Recall Results Panel (Right HUD) ═══════ -->
+    @if (recallMode()) {
+      <aside class="recall-panel" id="recall-results-panel">
+        <div class="recall-header">
+          <div class="recall-header-left">
+            <mat-icon class="recall-icon">psychology_alt</mat-icon>
+            <span class="recall-title">RECALL RESULTS</span>
+            <span class="recall-count cortex-mono">{{ recallResults().length }}</span>
+          </div>
+          <button class="recall-exit-btn" (click)="exitRecallMode()" matTooltip="Exit Recall Mode">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="recall-list">
+          @for (item of recallResults(); track item.id; let i = $index) {
+            <button class="recall-item" (click)="flyToRecallResult(item.id)">
+              <span class="recall-rank">{{ i + 1 }}</span>
+              <div class="recall-item-content">
+                <div class="recall-item-header">
+                  <span class="recall-tier-badge" [attr.data-tier]="item.tier">{{ item.tier }}</span>
+                  <span class="recall-score cortex-mono">{{ item.score.toFixed(3) }}</span>
+                </div>
+                <span class="recall-text">{{ item.text }}</span>
+              </div>
+              <mat-icon class="recall-fly-icon">flight</mat-icon>
+            </button>
+          }
+        </div>
+      </aside>
+
+      <!-- Recall Mode Badge -->
+      <div class="recall-mode-badge">
+        <mat-icon>psychology_alt</mat-icon>
+        <span class="cortex-mono">RECALL MODE</span>
+        <div class="recall-pulse-ring"></div>
+      </div>
+    }
+
+    <!-- ═══════ Query Animation Timeline Bar ═══════ -->
+    @if (queryAnimationMode()) {
+      <div class="animation-timeline" id="animation-timeline">
+        <div class="animation-stage-badge cortex-mono">
+          <mat-icon>auto_awesome</mat-icon>
+          {{ queryAnimationStage() }}
+        </div>
+        <div class="animation-track">
+          <div class="animation-fill" [style.width.%]="queryAnimationProgress() * 100"></div>
+        </div>
+        <button class="animation-replay-btn" (click)="replayQueryAnimation()" matTooltip="Replay Animation">
+          <mat-icon>replay</mat-icon>
+        </button>
+      </div>
+    }
+
+    <!-- ═══════ Time-Travel Toolbar ═══════ -->
+    @if (timeTravelMode()) {
+      <div class="time-travel-bar" id="time-travel-bar">
+        <button class="tt-btn" (click)="toggleTimeTravelPlay()" matTooltip="Play / Pause">
+          <mat-icon>{{ timeTravelPlaying() ? 'pause' : 'play_arrow' }}</mat-icon>
+        </button>
+        <div class="tt-timestamp cortex-mono">
+          {{ formatTimestamp(timeTravelTimestamp()) }}
+        </div>
+        <mat-slider class="tt-slider" 
+                    [min]="oldestTimestamp()" 
+                    [max]="newestTimestamp()" 
+                    [step]="1000">
+          <input matSliderThumb 
+                 [ngModel]="timeTravelTimestamp()" 
+                 (ngModelChange)="onTimeTravelScrub($event)">
+        </mat-slider>
+        <div class="tt-speed">
+          @for (s of [1, 2, 5, 10]; track s) {
+            <button class="speed-btn" 
+                    [class.speed-active]="timeTravelSpeed() === s"
+                    (click)="timeTravelSpeed.set(s)">{{ s }}x</button>
+          }
+        </div>
+        <button class="tt-btn tt-exit" (click)="exitTimeTravel()" matTooltip="Exit Time Travel">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    }
+  </div>
+</div>
