@@ -67,12 +67,35 @@ public final class CoordinatorGraph {
 
     /**
      * Builds and compiles the coordinator graph.
+     *
+     * @param llmBridge      LLM bridge for planner and evaluator calls
+     * @param dynamicBuilder dynamic graph builder for subgraph compilation
+     * @param availableTools list of available tool names
+     * @return a new coordinator graph instance
      */
     public static CoordinatorGraph create(LlmBridge llmBridge,
                                            DynamicGraphBuilder dynamicBuilder,
                                            List<String> availableTools) throws Exception {
+        return create(llmBridge, dynamicBuilder, availableTools, 5);
+    }
+
+    /**
+     * Builds and compiles the coordinator graph with configurable iteration limit.
+     *
+     * @param llmBridge      LLM bridge for planner and evaluator calls
+     * @param dynamicBuilder dynamic graph builder for subgraph compilation
+     * @param availableTools list of available tool names
+     * @param maxIterations  maximum planning-execution cycles before forced termination
+     * @return a new coordinator graph instance
+     */
+    public static CoordinatorGraph create(LlmBridge llmBridge,
+                                           DynamicGraphBuilder dynamicBuilder,
+                                           List<String> availableTools,
+                                           int maxIterations) throws Exception {
         Objects.requireNonNull(llmBridge, "llmBridge");
         Objects.requireNonNull(dynamicBuilder, "dynamicBuilder");
+
+        final int maxIter = maxIterations > 0 ? maxIterations : 5;
 
         var planner = new PlannerNode(llmBridge, availableTools);
         var executor = new SubgraphExecutorNode(dynamicBuilder);
@@ -87,6 +110,15 @@ public final class CoordinatorGraph {
                 .addEdge(NODE_EXECUTOR, NODE_EVALUATOR)
                 .addConditionalEdges(NODE_EVALUATOR,
                         edge_async(state -> {
+                            int iteration = state.iteration();
+
+                            // Iteration guard — prevent infinite loops
+                            if (iteration >= maxIter) {
+                                log.warn("[CoordinatorGraph] Max iterations ({}) reached, " +
+                                        "forcing DONE", maxIter);
+                                return "done";
+                            }
+
                             String decision = state.decision();
                             if ("DONE".equalsIgnoreCase(decision)) return "done";
                             return "continue";
@@ -98,7 +130,7 @@ public final class CoordinatorGraph {
                 );
 
         var compiled = graph.compile();
-        log.info("[CoordinatorGraph] Compiled successfully");
+        log.info("[CoordinatorGraph] Compiled successfully (maxIterations={})", maxIter);
         return new CoordinatorGraph(compiled);
     }
 
@@ -106,9 +138,9 @@ public final class CoordinatorGraph {
      * Executes a task through the dynamic coordinator pipeline.
      *
      * @param task the task description
-     * @return the final answer
+     * @return structured result containing answer or error details
      */
-    public String execute(String task) {
+    public CoordinatorResult execute(String task) {
         log.info("[CoordinatorGraph] Executing task: '{}'", task);
 
         try {
@@ -119,21 +151,49 @@ public final class CoordinatorGraph {
             ));
 
             if (result.isPresent()) {
-                String answer = result.get().answer().orElse("No answer produced");
-                log.info("[CoordinatorGraph] Task completed: {} chars", answer.length());
-                return answer;
+                CoordinatorState state = result.get();
+                String answer = state.answer().orElse("No answer produced");
+                int iterations = state.iteration();
+                log.info("[CoordinatorGraph] Task completed: {} chars, {} iterations",
+                        answer.length(), iterations);
+                return new CoordinatorResult.Success(answer, iterations);
             }
 
-            return "Coordinator returned empty state";
+            return new CoordinatorResult.Failure("Coordinator returned empty state", null);
 
         } catch (Exception e) {
             log.error("[CoordinatorGraph] Task execution failed", e);
-            return "ERROR: " + e.getMessage();
+            return new CoordinatorResult.Failure(e.getMessage(), e);
         }
     }
 
     /** Returns the compiled graph for direct invocation or testing. */
     public CompiledGraph<CoordinatorState> compiledGraph() {
         return graph;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Result Type
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Structured result of a coordinator graph execution.
+     *
+     * <p>Callers can pattern-match on success/failure:</p>
+     * <pre>{@code
+     * switch (result) {
+     *     case CoordinatorResult.Success s -> handleAnswer(s.answer());
+     *     case CoordinatorResult.Failure f -> handleError(f.message());
+     * }
+     * }</pre>
+     */
+    public sealed interface CoordinatorResult
+            permits CoordinatorResult.Success, CoordinatorResult.Failure {
+
+        /** Successful execution with the generated answer. */
+        record Success(String answer, int iterations) implements CoordinatorResult {}
+
+        /** Failed execution with error details. */
+        record Failure(String message, Throwable cause) implements CoordinatorResult {}
     }
 }

@@ -41,6 +41,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Dynamic graph builder — compiles {@link FlowSpec} JSON into executable LangGraph4j graphs.
@@ -68,6 +72,10 @@ public final class DynamicGraphBuilder {
 
     private final LlmBridge llmBridge;
     private final ToolRegistry toolRegistry;
+
+    /** Cache of compiled subgraphs by flow ID — compile once, execute many times. */
+    private final ConcurrentHashMap<String, CompiledGraph<CognitiveState>> subgraphCache =
+            new ConcurrentHashMap<>();
 
     public DynamicGraphBuilder(LlmBridge llmBridge, ToolRegistry toolRegistry) {
         this.llmBridge = Objects.requireNonNull(llmBridge, "llmBridge");
@@ -139,12 +147,51 @@ public final class DynamicGraphBuilder {
     private NodeAction<CognitiveState> resolveNodeAction(String nodeName,
                                                           NodeSpec nodeSpec,
                                                           FlowSpec flowSpec) {
-        return switch (nodeSpec.type()) {
+        NodeAction<CognitiveState> action = switch (nodeSpec.type()) {
             case AGENT -> createAgentNode(nodeName, nodeSpec, flowSpec);
             case TOOL -> createToolNode(nodeName, nodeSpec);
             case FUNCTION -> createFunctionNode(nodeName, nodeSpec);
             case SUBGRAPH -> createSubgraphNode(nodeName, nodeSpec);
             case END -> throw new IllegalStateException("END nodes should not be resolved");
+        };
+
+        // Phase 4.5: Wrap with per-node timeout (from NodeSpec.timeoutMs())
+        int timeoutMs = nodeSpec.timeoutMs();
+        return wrapWithTimeout(nodeName, action, timeoutMs);
+    }
+
+    /**
+     * Wraps a node action with a timeout guard.
+     *
+     * <p>If the node action does not complete within {@code timeoutMs},
+     * a {@link TimeoutException} is raised and logged. This prevents
+     * stalled LLM calls or tool executions from hanging indefinitely.</p>
+     */
+    private NodeAction<CognitiveState> wrapWithTimeout(String nodeName,
+                                                        NodeAction<CognitiveState> action,
+                                                        int timeoutMs) {
+        if (timeoutMs <= 0) {
+            return action; // No timeout configured
+        }
+        return state -> {
+            try {
+                return CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return action.apply(state);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }).orTimeout(timeoutMs, TimeUnit.MILLISECONDS).join();
+            } catch (java.util.concurrent.CompletionException e) {
+                if (e.getCause() instanceof TimeoutException) {
+                    log.error("[DynamicGraphBuilder] Node '{}' timed out after {}ms",
+                            nodeName, timeoutMs);
+                    return Map.of("context", List.of(
+                            "[timeout:" + nodeName + "] Node execution timed out after "
+                                    + timeoutMs + "ms"));
+                }
+                throw e;
+            }
         };
     }
 
@@ -162,6 +209,10 @@ public final class DynamicGraphBuilder {
             systemPrompt = loadPromptTemplate("agent-default-system");
         }
 
+        // Resolve LLM configuration from the agent spec (if present)
+        final var llmSpec = (agentSpec != null && agentSpec.llm() != null)
+                ? agentSpec.llm() : null;
+
         final String prompt = systemPrompt;
         return state -> {
             String query = state.query();
@@ -170,7 +221,15 @@ public final class DynamicGraphBuilder {
             String fullPrompt = prompt + "\n\n=== Context ===\n" + context
                     + "\n\n=== User Query ===\n" + query;
 
-            String response = llmBridge.generate(fullPrompt);
+            // Use per-agent LlmSpec if configured, otherwise default model
+            String response = (llmSpec != null)
+                    ? llmBridge.generate(fullPrompt, llmSpec)
+                    : llmBridge.generate(fullPrompt);
+
+            log.debug("[DynamicGraphBuilder] Agent '{}' generated {} chars (model={})",
+                    nodeName, response.length(),
+                    llmSpec != null ? llmSpec.model() : "default");
+
             return Map.of("answer", response);
         };
     }
@@ -185,7 +244,22 @@ public final class DynamicGraphBuilder {
                 log.warn("[DynamicGraphBuilder] {}", error);
                 return Map.of("context", List.of("[tool_error:" + toolName + "] " + error));
             }
-            String result = tool.execute(Map.of("query", state.query()));
+
+            // Merge static inputParams from spec with dynamic state query
+            var mergedArgs = new LinkedHashMap<String, Object>();
+
+            // Static params from the flow spec take priority
+            if (nodeSpec.inputParams() != null && !nodeSpec.inputParams().isEmpty()) {
+                mergedArgs.putAll(nodeSpec.inputParams());
+            }
+
+            // Add query from state if not already provided by inputParams
+            if (!mergedArgs.containsKey("query")) {
+                mergedArgs.put("query", state.query());
+            }
+
+            log.debug("[DynamicGraphBuilder] Tool '{}' executing with args: {}", toolName, mergedArgs);
+            String result = tool.execute(mergedArgs);
             return Map.of("context", List.of("[tool:" + toolName + "] " + result));
         };
     }
@@ -198,11 +272,22 @@ public final class DynamicGraphBuilder {
     }
 
     private NodeAction<CognitiveState> createSubgraphNode(String nodeName, NodeSpec nodeSpec) {
-        return state -> {
-            log.info("[SubgraphNode:{}] Executing subgraph: {}", nodeName, nodeSpec.subgraph());
+        String flowId = nodeSpec.subgraph();
 
-            String subgraphJson = loadFlowJson(nodeSpec.subgraph());
-            CompiledGraph<CognitiveState> subgraph = buildFromJson(subgraphJson);
+        // Phase 4: Compile subgraph once and cache by flow ID
+        return state -> {
+            log.info("[SubgraphNode:{}] Executing subgraph: {}", nodeName, flowId);
+
+            CompiledGraph<CognitiveState> subgraph = subgraphCache.computeIfAbsent(
+                    flowId, id -> {
+                        try {
+                            String json = loadFlowJson(id);
+                            log.debug("[DynamicGraphBuilder] Compiling subgraph '{}' (first use)", id);
+                            return buildFromJson(json);
+                        } catch (Exception e) {
+                            throw new RuntimeException("Failed to compile subgraph: " + id, e);
+                        }
+                    });
 
             var result = subgraph.invoke(Map.of(
                     "query", state.query(),

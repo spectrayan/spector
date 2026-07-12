@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.synapse.bridge;
 
+import com.spectrayan.spector.synapse.agent.graph.spec.LlmSpec;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -33,6 +34,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Provides both synchronous and streaming chat models. The models
  * are configured from {@link SynapseProperties} and lazily initialized.</p>
+ *
+ * <p>Supports per-request model configuration via {@link LlmSpec} for
+ * dynamic graph nodes that need custom model/temperature settings.</p>
  */
 @Service
 public class LlmBridge {
@@ -74,6 +78,34 @@ public class LlmBridge {
     }
 
     /**
+     * Get the synchronous chat model for a specific {@link LlmSpec} configuration.
+     *
+     * <p>Uses a composite cache key {@code (model:temperature:maxTokens)} so that
+     * the same model with different temperature settings produces separate instances.</p>
+     *
+     * @param spec the LLM configuration (model, temperature, maxTokens)
+     * @return cached or newly built ChatModel
+     */
+    public ChatModel chatModel(LlmSpec spec) {
+        if (spec == null) {
+            return chatModel();
+        }
+        String cacheKey = spec.provider() + ":" + spec.model() + ":"
+                + spec.temperature() + ":" + spec.maxTokens();
+        return chatModels.computeIfAbsent(cacheKey, key -> {
+            var model = OllamaChatModel.builder()
+                    .baseUrl(props.ollama().baseUrl())
+                    .modelName(spec.model())
+                    .timeout(Duration.ofSeconds(120))
+                    .temperature(spec.temperature())
+                    .build();
+            log.info("[LlmBridge] Initialized ChatModel from LlmSpec: model={}, temp={}, maxTokens={}",
+                    spec.model(), spec.temperature(), spec.maxTokens());
+            return model;
+        });
+    }
+
+    /**
      * Get the default streaming chat model.
      */
     public StreamingChatModel streamingModel() {
@@ -98,7 +130,11 @@ public class LlmBridge {
     }
 
     /**
-     * Generate a simple chat response.
+     * Generate a simple chat response using the default model.
+     *
+     * @param userMessage the user's message
+     * @return the generated response text
+     * @throws LlmBridgeException if generation fails
      */
     public String generate(String userMessage) {
         try {
@@ -107,12 +143,17 @@ public class LlmBridge {
             return response;
         } catch (Exception e) {
             log.error("[LlmBridge] Generation failed: {}", e.getMessage(), e);
-            return "I'm currently unable to connect to the LLM. Error: " + e.getMessage();
+            throw new LlmBridgeException("LLM generation failed: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Generate a chat response with system prompt.
+     * Generate a chat response with system prompt using the default model.
+     *
+     * @param systemPrompt the system-level instructions
+     * @param userMessage  the user's message
+     * @return the generated response text
+     * @throws LlmBridgeException if generation fails
      */
     public String generate(String systemPrompt, String userMessage) {
         try {
@@ -125,7 +166,33 @@ public class LlmBridge {
             return text;
         } catch (Exception e) {
             log.error("[LlmBridge] Generation with system prompt failed: {}", e.getMessage(), e);
-            return "I'm currently unable to connect to the LLM. Error: " + e.getMessage();
+            throw new LlmBridgeException("LLM generation with system prompt failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Generate a chat response using a specific {@link LlmSpec} configuration.
+     *
+     * <p>This enables dynamic graph nodes to use per-agent model settings
+     * (different model, temperature, max tokens) as defined in the flow spec.</p>
+     *
+     * @param userMessage the user's message
+     * @param spec        the LLM configuration to use
+     * @return the generated response text
+     * @throws LlmBridgeException if generation fails
+     */
+    public String generate(String userMessage, LlmSpec spec) {
+        try {
+            ChatModel model = chatModel(spec);
+            String response = model.chat(userMessage);
+            log.debug("[LlmBridge] Generated {} chars using spec (model={}, temp={})",
+                    response.length(), spec.model(), spec.temperature());
+            return response;
+        } catch (Exception e) {
+            log.error("[LlmBridge] Generation with LlmSpec failed (model={}): {}",
+                    spec.model(), e.getMessage(), e);
+            throw new LlmBridgeException("LLM generation failed for model '"
+                    + spec.model() + "': " + e.getMessage(), e);
         }
     }
 

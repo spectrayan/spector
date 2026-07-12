@@ -33,6 +33,7 @@ import org.bsc.langgraph4j.checkpoint.MemorySaver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -52,12 +53,16 @@ import java.util.Objects;
  * {@link ToolRegistry} (Spring component) for tool execution. The model
  * can be changed dynamically at runtime via the chat API.</p>
  *
- * <h3>Usage</h3>
- * <pre>{@code
- * var builder = new CognitiveGraphBuilder(memory, llmBridge, toolRegistry);
- * CompiledGraph<CognitiveState> graph = builder.build();
- * }</pre>
+ * @deprecated Use {@link AgenticChatGraph} instead. {@code AgenticChatGraph}
+ *     provides soul-aware conversations using {@code AgentSoul} (agent identity,
+ *     personality, expertise, ethical guardrails) and {@code PersonaContext}
+ *     (user salience profile) for meaningful cognitive interactions.
+ *     This builder lacks soul/salience integration and will be removed in a
+ *     future release.
+ *
+ * @see AgenticChatGraph#compile(com.spectrayan.spector.synapse.agent.AgentSoul)
  */
+@Deprecated(since = "2.1", forRemoval = true)
 public final class CognitiveGraphBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(CognitiveGraphBuilder.class);
@@ -128,7 +133,7 @@ public final class CognitiveGraphBuilder {
 
         // Create node actions
         var retrieveNode = new RetrieveNode(memory, topK);
-        var evaluateNode = new EvaluateNode(llmBridge);
+        var evaluateNode = new EvaluateNode(llmBridge, new ArrayList<>(toolRegistry.names()));
         var generateNode = new GenerateNode(llmBridge);
 
         // Build the graph declaratively using LangGraph4j API
