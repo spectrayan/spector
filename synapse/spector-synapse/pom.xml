@@ -114,11 +114,6 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
-        <!-- ── Spector Core modules ── -->
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-engine</artifactId>
-        </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-memory</artifactId>

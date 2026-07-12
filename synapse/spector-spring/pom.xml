@@ -59,11 +59,7 @@
             </exclusions>
         </dependency>
 
-        <!-- Spector Engine (embedded mode) -->
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-engine</artifactId>
-        </dependency>
+
 
         <!-- Spector GPU (required on classpath for Spring field introspection) -->
         <dependency>

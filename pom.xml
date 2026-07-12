@@ -84,12 +84,10 @@
         <module>memory/spector-gpu</module>
         <module>memory/spector-rag</module>
         <module>memory/spector-ingestion</module>
-        <module>memory/spector-engine</module>
         <module>memory/spector-memory</module>
 
         <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
         <module>synapse/spector-runtime</module>
-        <module>synapse/spector-node</module>
         <module>synapse/spector-mcp</module>
         <module>synapse/spector-cli</module>
         <module>synapse/spector-client</module>
@@ -191,11 +189,6 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
-                <artifactId>spector-engine</artifactId>
-                <version>${revision}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-ingestion</artifactId>
                 <version>${revision}</version>
             </dependency>
@@ -269,11 +262,6 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-metrics</artifactId>
-                <version>${revision}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-node</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

@@ -29,10 +29,6 @@
         <!-- Spector modules to decorate -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-engine</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.spectrayan</groupId>
             <artifactId>spector-events</artifactId>
         </dependency>
         <dependency>

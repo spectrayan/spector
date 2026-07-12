@@ -35,11 +35,7 @@
             <artifactId>spector-commons</artifactId>
         </dependency>
 
-        <!-- ── Search Engine ── -->
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-engine</artifactId>
-        </dependency>
+
 
         <!-- ── Cognitive Memory ── -->
         <dependency>
