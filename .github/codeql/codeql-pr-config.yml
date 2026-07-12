@@ -1,9 +1,0 @@
-# .github/codeql/codeql-pr-config.yml
-name: "CodeQL PR Configuration"
-
-# Exclude restructured folders to prevent pre-existing baseline alerts from failing the PR check
-paths-ignore:
-  - 'nucleus/**'
-  - 'memory/**'
-  - 'synapse/**'
-  - 'bench/**'

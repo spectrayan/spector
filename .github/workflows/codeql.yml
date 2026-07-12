@@ -67,16 +67,7 @@ jobs:
           server-username: MAVEN_USERNAME
           server-password: MAVEN_TOKEN
 
-      - name: Initialize CodeQL (PR)
-        if: github.event_name == 'pull_request'
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
-          queries: security-extended
-          config-file: ./.github/codeql/codeql-pr-config.yml
-
-      - name: Initialize CodeQL (Main Baseline)
-        if: github.event_name != 'pull_request'
+      - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
@@ -92,3 +83,4 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: '/language:${{ matrix.language }}'
+          upload: ${{ github.event_name != 'pull_request' }}
