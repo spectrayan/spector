@@ -185,7 +185,22 @@ public final class DynamicGraphBuilder {
                 log.warn("[DynamicGraphBuilder] {}", error);
                 return Map.of("context", List.of("[tool_error:" + toolName + "] " + error));
             }
-            String result = tool.execute(Map.of("query", state.query()));
+
+            // Merge static inputParams from spec with dynamic state query
+            var mergedArgs = new LinkedHashMap<String, Object>();
+
+            // Static params from the flow spec take priority
+            if (nodeSpec.inputParams() != null && !nodeSpec.inputParams().isEmpty()) {
+                mergedArgs.putAll(nodeSpec.inputParams());
+            }
+
+            // Add query from state if not already provided by inputParams
+            if (!mergedArgs.containsKey("query")) {
+                mergedArgs.put("query", state.query());
+            }
+
+            log.debug("[DynamicGraphBuilder] Tool '{}' executing with args: {}", toolName, mergedArgs);
+            String result = tool.execute(mergedArgs);
             return Map.of("context", List.of("[tool:" + toolName + "] " + result));
         };
     }
