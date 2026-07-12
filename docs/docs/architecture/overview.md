@@ -91,6 +91,45 @@ graph TB
     style Ingest fill:#4a6fa5,stroke:#3b82f6,color:#fff
 ```
 
+### High-Level Data Flow
+
+```mermaid
+graph LR
+    subgraph Ingest["Ingest"]
+        docs["📄 Documents"]
+        files["📁 Files"]
+        api["🌐 API Data"]
+    end
+
+    subgraph Process["Process"]
+        chunk["✂️ Chunk"]
+        embed["🧬 Embed"]
+        quantize["🗜️ Quantize"]
+    end
+
+    subgraph Store["Store"]
+        vectors["📊 Vector Index<br/><i>HNSW · IVF-PQ</i>"]
+        text["📝 Text Index<br/><i>BM25</i>"]
+        memory["🧠 Cognitive Store<br/><i>4-tier cortex</i>"]
+    end
+
+    subgraph Query["Query"]
+        search["🔍 Hybrid Search"]
+        recall["💭 Memory Recall"]
+        rag["🤖 RAG Pipeline"]
+    end
+
+    docs & files & api --> chunk --> embed --> quantize
+    quantize --> vectors & text & memory
+    vectors & text --> search --> rag
+    memory --> recall --> rag
+
+    style Ingest fill:#5b6abf,stroke:#e94560,color:#fff
+    style Process fill:#4a6fa5,stroke:#3b82f6,color:#fff
+    style Store fill:#3b82f6,stroke:#7c3aed,color:#fff
+    style Query fill:#7c3aed,stroke:#e94560,color:#fff
+```
+
 ### Deployment Modes
 
 ```mermaid

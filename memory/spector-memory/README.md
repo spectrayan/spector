@@ -233,14 +233,14 @@ Total: 443 tests, 0 failures
 
 ## Documentation
 
-📖 **Full documentation**: See the [Cognitive Memory Guide](../docs/docs/memory/index.md) for:
+📖 **Full documentation**: See the [Cognitive Memory Guide](https://spectrayan.github.io/spector/memory/) for:
 
-- [System Architecture](../docs/docs/memory/architecture.md) — package hierarchy, data flow, design patterns
-- [6-Phase Scoring Pipeline](../docs/docs/memory/scoring-pipeline.md) — deep dive with math and cycle counts
-- [Biological Systems](../docs/docs/memory/cortex.md) — each brain region mapped to code
-- [Performance & SIMD](../docs/docs/memory/performance.md) — benchmarks, optimization techniques
-- [Off-Heap Panama Design](../docs/docs/memory/panama-design.md) — zero-GC architecture
-- [API Reference](../docs/docs/memory/api-reference.md) — full method signatures
+- [System Architecture](https://spectrayan.github.io/spector/memory/architecture/) — package hierarchy, data flow, design patterns
+- [6-Phase Scoring Pipeline](https://spectrayan.github.io/spector/memory/scoring-pipeline/) — deep dive with math and cycle counts
+- [Biological Systems](https://spectrayan.github.io/spector/memory/cortex/) — each brain region mapped to code
+- [Performance & SIMD](https://spectrayan.github.io/spector/memory/performance/) — benchmarks, optimization techniques
+- [Off-Heap Panama Design](https://spectrayan.github.io/spector/memory/panama-design/) — zero-GC architecture
+- [API Reference](https://spectrayan.github.io/spector/memory/api-reference/) — full method signatures
 
 ---
 

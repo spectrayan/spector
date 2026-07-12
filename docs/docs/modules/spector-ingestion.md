@@ -1,1 +1,1 @@
---8<-- "spector-ingestion/README.md"
+--8<-- "memory/spector-ingestion/README.md"

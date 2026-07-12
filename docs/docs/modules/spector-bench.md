@@ -1,1 +1,1 @@
---8<-- "spector-bench/README.md"
+--8<-- "bench/spector-bench/README.md"

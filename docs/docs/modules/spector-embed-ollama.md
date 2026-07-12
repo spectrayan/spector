@@ -1,1 +1,1 @@
---8<-- "spector-embed-ollama/README.md"
+--8<-- "memory/spector-embed-ollama/README.md"
