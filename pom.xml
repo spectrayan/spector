@@ -857,7 +857,7 @@
         <profile>
             <id>synapse</id>
             <modules>
-                <module>spector-synapse</module>
+                <module>synapse/spector-synapse</module>
             </modules>
         </profile>
     </profiles>
