@@ -162,6 +162,10 @@ public final class DynamicGraphBuilder {
             systemPrompt = loadPromptTemplate("agent-default-system");
         }
 
+        // Resolve LLM configuration from the agent spec (if present)
+        final var llmSpec = (agentSpec != null && agentSpec.llm() != null)
+                ? agentSpec.llm() : null;
+
         final String prompt = systemPrompt;
         return state -> {
             String query = state.query();
@@ -170,7 +174,15 @@ public final class DynamicGraphBuilder {
             String fullPrompt = prompt + "\n\n=== Context ===\n" + context
                     + "\n\n=== User Query ===\n" + query;
 
-            String response = llmBridge.generate(fullPrompt);
+            // Use per-agent LlmSpec if configured, otherwise default model
+            String response = (llmSpec != null)
+                    ? llmBridge.generate(fullPrompt, llmSpec)
+                    : llmBridge.generate(fullPrompt);
+
+            log.debug("[DynamicGraphBuilder] Agent '{}' generated {} chars (model={})",
+                    nodeName, response.length(),
+                    llmSpec != null ? llmSpec.model() : "default");
+
             return Map.of("answer", response);
         };
     }

@@ -53,12 +53,16 @@ import java.util.Objects;
  * {@link ToolRegistry} (Spring component) for tool execution. The model
  * can be changed dynamically at runtime via the chat API.</p>
  *
- * <h3>Usage</h3>
- * <pre>{@code
- * var builder = new CognitiveGraphBuilder(memory, llmBridge, toolRegistry);
- * CompiledGraph<CognitiveState> graph = builder.build();
- * }</pre>
+ * @deprecated Use {@link AgenticChatGraph} instead. {@code AgenticChatGraph}
+ *     provides soul-aware conversations using {@code AgentSoul} (agent identity,
+ *     personality, expertise, ethical guardrails) and {@code PersonaContext}
+ *     (user salience profile) for meaningful cognitive interactions.
+ *     This builder lacks soul/salience integration and will be removed in a
+ *     future release.
+ *
+ * @see AgenticChatGraph#compile(com.spectrayan.spector.synapse.agent.AgentSoul)
  */
+@Deprecated(since = "2.1", forRemoval = true)
 public final class CognitiveGraphBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(CognitiveGraphBuilder.class);
