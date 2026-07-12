@@ -67,12 +67,35 @@ public final class CoordinatorGraph {
 
     /**
      * Builds and compiles the coordinator graph.
+     *
+     * @param llmBridge      LLM bridge for planner and evaluator calls
+     * @param dynamicBuilder dynamic graph builder for subgraph compilation
+     * @param availableTools list of available tool names
+     * @return a new coordinator graph instance
      */
     public static CoordinatorGraph create(LlmBridge llmBridge,
                                            DynamicGraphBuilder dynamicBuilder,
                                            List<String> availableTools) throws Exception {
+        return create(llmBridge, dynamicBuilder, availableTools, 5);
+    }
+
+    /**
+     * Builds and compiles the coordinator graph with configurable iteration limit.
+     *
+     * @param llmBridge      LLM bridge for planner and evaluator calls
+     * @param dynamicBuilder dynamic graph builder for subgraph compilation
+     * @param availableTools list of available tool names
+     * @param maxIterations  maximum planning-execution cycles before forced termination
+     * @return a new coordinator graph instance
+     */
+    public static CoordinatorGraph create(LlmBridge llmBridge,
+                                           DynamicGraphBuilder dynamicBuilder,
+                                           List<String> availableTools,
+                                           int maxIterations) throws Exception {
         Objects.requireNonNull(llmBridge, "llmBridge");
         Objects.requireNonNull(dynamicBuilder, "dynamicBuilder");
+
+        final int maxIter = maxIterations > 0 ? maxIterations : 5;
 
         var planner = new PlannerNode(llmBridge, availableTools);
         var executor = new SubgraphExecutorNode(dynamicBuilder);
@@ -87,6 +110,15 @@ public final class CoordinatorGraph {
                 .addEdge(NODE_EXECUTOR, NODE_EVALUATOR)
                 .addConditionalEdges(NODE_EVALUATOR,
                         edge_async(state -> {
+                            int iteration = state.iteration();
+
+                            // Iteration guard — prevent infinite loops
+                            if (iteration >= maxIter) {
+                                log.warn("[CoordinatorGraph] Max iterations ({}) reached, " +
+                                        "forcing DONE", maxIter);
+                                return "done";
+                            }
+
                             String decision = state.decision();
                             if ("DONE".equalsIgnoreCase(decision)) return "done";
                             return "continue";
@@ -98,7 +130,7 @@ public final class CoordinatorGraph {
                 );
 
         var compiled = graph.compile();
-        log.info("[CoordinatorGraph] Compiled successfully");
+        log.info("[CoordinatorGraph] Compiled successfully (maxIterations={})", maxIter);
         return new CoordinatorGraph(compiled);
     }
 
