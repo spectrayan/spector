@@ -138,9 +138,9 @@ public final class CoordinatorGraph {
      * Executes a task through the dynamic coordinator pipeline.
      *
      * @param task the task description
-     * @return the final answer
+     * @return structured result containing answer or error details
      */
-    public String execute(String task) {
+    public CoordinatorResult execute(String task) {
         log.info("[CoordinatorGraph] Executing task: '{}'", task);
 
         try {
@@ -151,21 +151,49 @@ public final class CoordinatorGraph {
             ));
 
             if (result.isPresent()) {
-                String answer = result.get().answer().orElse("No answer produced");
-                log.info("[CoordinatorGraph] Task completed: {} chars", answer.length());
-                return answer;
+                CoordinatorState state = result.get();
+                String answer = state.answer().orElse("No answer produced");
+                int iterations = state.iteration();
+                log.info("[CoordinatorGraph] Task completed: {} chars, {} iterations",
+                        answer.length(), iterations);
+                return new CoordinatorResult.Success(answer, iterations);
             }
 
-            return "Coordinator returned empty state";
+            return new CoordinatorResult.Failure("Coordinator returned empty state", null);
 
         } catch (Exception e) {
             log.error("[CoordinatorGraph] Task execution failed", e);
-            return "ERROR: " + e.getMessage();
+            return new CoordinatorResult.Failure(e.getMessage(), e);
         }
     }
 
     /** Returns the compiled graph for direct invocation or testing. */
     public CompiledGraph<CoordinatorState> compiledGraph() {
         return graph;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Result Type
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Structured result of a coordinator graph execution.
+     *
+     * <p>Callers can pattern-match on success/failure:</p>
+     * <pre>{@code
+     * switch (result) {
+     *     case CoordinatorResult.Success s -> handleAnswer(s.answer());
+     *     case CoordinatorResult.Failure f -> handleError(f.message());
+     * }
+     * }</pre>
+     */
+    public sealed interface CoordinatorResult
+            permits CoordinatorResult.Success, CoordinatorResult.Failure {
+
+        /** Successful execution with the generated answer. */
+        record Success(String answer, int iterations) implements CoordinatorResult {}
+
+        /** Failed execution with error details. */
+        record Failure(String message, Throwable cause) implements CoordinatorResult {}
     }
 }
