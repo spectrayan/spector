@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spector</artifactId>
+        <version>${revision}</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>spector-metrics</artifactId>
+    <name>Spector Metrics</name>
+    <description>Micrometer-based observability for Spector — metered decorators for engine, memory, and ingestion.</description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.metrics</spector.module.name>
+    </properties>
+
+    <dependencies>
+        <!-- Micrometer core (standalone, no Spring) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
+
+        <!-- Spector modules to decorate -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-events</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-memory</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-ingestion</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

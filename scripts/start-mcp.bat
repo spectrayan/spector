@@ -11,7 +11,7 @@ set CONFIG=%SPECTOR_HOME%\spector-local.yml
 
 if not exist "%JAR%" (
     echo [ERROR] Fat JAR not found: %JAR%
-    echo [INFO]  Run: mvn package -pl spector-dist -am -DskipTests
+    echo [INFO]  Run: mvn package -pl synapse/spector-dist -am -DskipTests
     exit /b 1
 )
 

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spector</artifactId>
+        <version>${revision}</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>spector-bom</artifactId>
+    <packaging>pom</packaging>
+    <name>Spector BOM</name>
+    <description>
+        Bill of Materials for Spector — import this POM to align all Spector module versions.
+        Usage: add to your dependencyManagement with type=pom, scope=import.
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- ── Foundation Layer ── -->
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-commons</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-config</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-storage</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ── Embedding Layer ── -->
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-embed-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-embed-ollama</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ── Search Layer ── -->
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-index</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-query</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-gpu</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ── Intelligence Layer ── -->
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-events</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-ingestion</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-rag</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-engine</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-memory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ── Infrastructure Layer ── -->
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-metrics</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spring-ai-starter-vector-store-spector</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ── Runtime Layer ── -->
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-runtime</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-node</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-mcp</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-synapse</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-cli</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- Override flatten mode for BOM: resolve ${project.version} in depMgmt -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <configuration>
+                    <flattenMode>bom</flattenMode>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

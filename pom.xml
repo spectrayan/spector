@@ -66,31 +66,41 @@
 
     <!-- ───────────────────────── Modules ───────────────────────── -->
     <modules>
-        <module>spector-bom</module>
-        <module>spector-commons</module>
-        <module>spector-core</module>
-        <module>spector-config</module>
-        <module>spector-storage</module>
-        <module>spector-index</module>
-        <module>spector-query</module>
-        <module>spector-embed-api</module>
-        <module>spector-embed-ollama</module>
-        <module>spector-test-support</module>
-        <module>spector-gpu</module>
-        <module>spector-rag</module>
-        <module>spector-engine</module>
-        <module>spector-ingestion</module>
-        <module>spector-memory</module>
-        <module>spector-events</module>
-        <module>spector-metrics</module>
-        <module>spector-runtime</module>
-        <module>spector-node</module>
-        <module>spector-bench</module>
-        <module>spector-cli</module>
-        <module>spector-client</module>
-        <module>spector-spring</module>
-        <module>spector-mcp</module>
-        <module>spector-dist</module>
+        <!-- ── Nucleus: Foundation layer ── -->
+        <module>nucleus/spector-bom</module>
+        <module>nucleus/spector-commons</module>
+        <module>nucleus/spector-core</module>
+        <module>nucleus/spector-config</module>
+        <module>nucleus/spector-storage</module>
+        <module>nucleus/spector-events</module>
+        <module>nucleus/spector-metrics</module>
+        <module>nucleus/spector-test-support</module>
+
+        <!-- ── Memory: Cognitive engine (flagship) ── -->
+        <module>memory/spector-embed-api</module>
+        <module>memory/spector-embed-ollama</module>
+        <module>memory/spector-index</module>
+        <module>memory/spector-query</module>
+        <module>memory/spector-gpu</module>
+        <module>memory/spector-rag</module>
+        <module>memory/spector-ingestion</module>
+        <module>memory/spector-engine</module>
+        <module>memory/spector-memory</module>
+
+        <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
+        <module>synapse/spector-runtime</module>
+        <module>synapse/spector-node</module>
+        <module>synapse/spector-mcp</module>
+        <module>synapse/spector-cli</module>
+        <module>synapse/spector-client</module>
+        <module>synapse/spector-spring</module>
+        <module>synapse/spector-synapse</module>
+        <module>synapse/spector-dist</module>
+
+        <!-- ── Bench: Benchmarks ── -->
+        <module>bench/spector-bench</module>
+
+        <!-- NOTE: cortex/spector-cortex is Angular 22 (no Maven POM) — built separately -->
     </modules>
 
     <!-- ───────────────────────── Properties ───────────────────────── -->
@@ -250,11 +260,7 @@
                 <artifactId>spector-memory</artifactId>
                 <version>${revision}</version>
             </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spring-ai-starter-vector-store-spector</artifactId>
-                <version>${revision}</version>
-            </dependency>
+
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-events</artifactId>

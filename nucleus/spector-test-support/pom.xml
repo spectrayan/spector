@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spector</artifactId>
+        <version>${revision}</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>spector-test-support</artifactId>
+    <name>Spector Test Support</name>
+    <description>LLM-powered test validation utilities for Spector modules — LLM-as-Judge assertions.</description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.test.support</spector.module.name>
+        <!-- Test infrastructure module — skip coverage enforcement -->
+        <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
+        <!-- Test infrastructure — not published as a consumable artifact -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
+    </properties>
+
+    <dependencies>
+        <!-- Spector embed API (TextGenerationProvider interface) -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-embed-api</artifactId>
+        </dependency>
+
+        <!-- Spector embed Ollama (OllamaLlmProvider) -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-embed-ollama</artifactId>
+        </dependency>
+
+        <!-- Jackson for JSON verdict parsing -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!--
+            JUnit and AssertJ are COMPILE scope here (not test) because this module
+            IS test infrastructure — it provides assertions that other modules
+            use in their test scope.
+        -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>compile</scope>
+        </dependency>
+    </dependencies>
+
+</project>

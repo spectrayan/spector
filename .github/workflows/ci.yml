@@ -8,8 +8,8 @@ on:
       - '*.md'
       - 'docs/**'
       - 'LICENSE'
-      - 'spector-synapse/**'
-      - 'spector-cortex/**'
+      - 'synapse/spector-synapse/**'
+      - 'cortex/spector-cortex/**'
       - 'docker-compose.synapse.yml'
   pull_request:
     branches: [ main ]
@@ -18,8 +18,8 @@ on:
       - '*.md'
       - 'docs/**'
       - 'LICENSE'
-      - 'spector-synapse/**'
-      - 'spector-cortex/**'
+      - 'synapse/spector-synapse/**'
+      - 'cortex/spector-cortex/**'
       - 'docker-compose.synapse.yml'
   schedule:
     - cron: '0 2 * * *'
@@ -72,7 +72,7 @@ jobs:
           mvn -B package -DskipTests \
             --no-transfer-progress \
             -Dproject.build.outputTimestamp=2024-01-01T00:00:00Z \
-            -pl '!spector-bench'
+            -pl '!bench/spector-bench'
           echo "Reproducible build verified: rebuild produces identical artifacts"
 
       # ─── Dependency Pinning Verification ─────────────────────────────
@@ -89,7 +89,7 @@ jobs:
       # ─── Cognitive Benchmark Property Tests ────────────────────────────
       - name: Run Cognitive Benchmark Property Tests
         run: |
-          mvn -B test -pl spector-bench \
+          mvn -B test -pl bench/spector-bench \
             --no-transfer-progress \
             -DskipBenchTests=false \
             -Dtest="*PropertyTest"
@@ -97,7 +97,7 @@ jobs:
       # ─── Cognitive Benchmark Unit Tests ──────────────────────────────
       - name: Run Cognitive Benchmark Unit Tests
         run: |
-          mvn -B test -pl spector-bench \
+          mvn -B test -pl bench/spector-bench \
             --no-transfer-progress \
             -DskipBenchTests=false \
             -Dtest="*Test,!*PropertyTest,!*IntegrationTest"
@@ -227,7 +227,7 @@ jobs:
 
       - name: Run Cognitive Benchmark (Full Dataset)
         run: |
-          mvn -B exec:exec -pl spector-bench \
+          mvn -B exec:exec -pl bench/spector-bench \
             --no-transfer-progress \
             -Dexec.mainClass="com.spectrayan.spector.bench.cognitive.CognitiveBenchmarkHarness" \
             -Dexec.executable="java" \
