@@ -115,7 +115,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-actuator</artifactId>
-            <version>3.5.3</version>
+            <version>4.1.0</version>
             <optional>true</optional>
         </dependency>
 
