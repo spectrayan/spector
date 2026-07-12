@@ -16,10 +16,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * FlowSpec DSL — a declarative specification for agent graph execution flows.
+ * GraphDsl — a programmatic DSL for building agent graph execution flows.
  *
- * <p>FlowSpec defines nodes, edges, and conditional routing for a LangGraph4j
- * graph. It can be created programmatically or loaded from YAML configuration.</p>
+ * <p>Defines nodes, edges, and conditional routing for a LangGraph4j
+ * graph. This is the programmatic builder API; for JSON-based declarative
+ * flows, see {@link com.spectrayan.spector.synapse.agent.graph.spec.FlowSpec}.</p>
  *
  * @param name            flow name
  * @param description     human-readable description
@@ -28,44 +29,44 @@ import java.util.Map;
  * @param edges           list of edge connections
  * @param conditionalEdges list of conditional edge definitions
  */
-public record FlowSpec(
+public record GraphDsl(
         String name,
         String description,
         String entryPoint,
-        List<NodeSpec> nodes,
-        List<EdgeSpec> edges,
-        List<ConditionalEdgeSpec> conditionalEdges
+        List<NodeDef> nodes,
+        List<EdgeDef> edges,
+        List<ConditionalEdgeDef> conditionalEdges
 ) {
 
-    /** A node in the graph. */
-    public record NodeSpec(
+    /** A node definition in the graph. */
+    public record NodeDef(
             String name,
             String type,           // "retrieve", "generate", "evaluate", "tool"
             Map<String, String> config
     ) {
-        public NodeSpec {
+        public NodeDef {
             if (config == null) config = Map.of();
         }
     }
 
     /** A direct edge between two nodes. */
-    public record EdgeSpec(
+    public record EdgeDef(
             String from,
             String to
     ) {}
 
     /** A conditional edge with routing function. */
-    public record ConditionalEdgeSpec(
+    public record ConditionalEdgeDef(
             String from,
             String routerType,     // "quality_check", "tool_needed", "custom"
             Map<String, String> routes  // condition -> target node
     ) {
-        public ConditionalEdgeSpec {
+        public ConditionalEdgeDef {
             if (routes == null) routes = Map.of();
         }
     }
 
-    /** Builder for creating FlowSpec instances. */
+    /** Builder for creating GraphDsl instances. */
     public static Builder builder(String name) {
         return new Builder(name);
     }
@@ -74,9 +75,9 @@ public record FlowSpec(
         private final String name;
         private String description = "";
         private String entryPoint;
-        private final java.util.ArrayList<NodeSpec> nodes = new java.util.ArrayList<>();
-        private final java.util.ArrayList<EdgeSpec> edges = new java.util.ArrayList<>();
-        private final java.util.ArrayList<ConditionalEdgeSpec> conditionalEdges = new java.util.ArrayList<>();
+        private final java.util.ArrayList<NodeDef> nodes = new java.util.ArrayList<>();
+        private final java.util.ArrayList<EdgeDef> edges = new java.util.ArrayList<>();
+        private final java.util.ArrayList<ConditionalEdgeDef> conditionalEdges = new java.util.ArrayList<>();
 
         Builder(String name) { this.name = name; }
 
@@ -84,27 +85,27 @@ public record FlowSpec(
         public Builder entryPoint(String entry) { this.entryPoint = entry; return this; }
 
         public Builder addNode(String name, String type) {
-            nodes.add(new NodeSpec(name, type, Map.of()));
+            nodes.add(new NodeDef(name, type, Map.of()));
             return this;
         }
 
         public Builder addNode(String name, String type, Map<String, String> config) {
-            nodes.add(new NodeSpec(name, type, config));
+            nodes.add(new NodeDef(name, type, config));
             return this;
         }
 
         public Builder addEdge(String from, String to) {
-            edges.add(new EdgeSpec(from, to));
+            edges.add(new EdgeDef(from, to));
             return this;
         }
 
         public Builder addConditionalEdge(String from, String routerType, Map<String, String> routes) {
-            conditionalEdges.add(new ConditionalEdgeSpec(from, routerType, routes));
+            conditionalEdges.add(new ConditionalEdgeDef(from, routerType, routes));
             return this;
         }
 
-        public FlowSpec build() {
-            return new FlowSpec(name, description, entryPoint,
+        public GraphDsl build() {
+            return new GraphDsl(name, description, entryPoint,
                     List.copyOf(nodes), List.copyOf(edges), List.copyOf(conditionalEdges));
         }
     }
