@@ -1,1 +1,1 @@
---8<-- "spector-spring/README.md"
+--8<-- "synapse/spector-spring/README.md"

@@ -12,15 +12,15 @@ description: "Spector Synapse is the agentic orchestration layer — cognitive c
 
 ## What is Synapse?
 
-Spector Synapse is the **agentic application layer** built on top of the Spector cognitive memory engine. It transforms Spector from a memory library into a fully autonomous AI agent platform.
+Spector Synapse is the **unified application server and agentic gateway** built on top of the Spector cognitive memory engine (absorbing the former `spector-node` gateway). It transforms Spector from an embedded Java library into a standalone, network-accessible AI agent platform and hybrid search server.
 
 | Spector Memory | Spector Synapse |
 |:---|:---|
-| Stores and recalls memories | Orchestrates conversations with memory |
-| 16 neuroscience mechanisms | Agentic reasoning graphs |
-| Java library (embed anywhere) | Spring Boot 4 server (deploy as service) |
-| Off-heap, SIMD-accelerated | LLM-powered, tool-equipped agents |
-| Passive (respond to API calls) | Active (plan, reflect, act autonomously) |
+| Stores and recalls memories | Orchestrates conversations and API gateways |
+| 16 neuroscience mechanisms | Agentic reasoning graphs & REST/gRPC endpoints |
+| Java library (embed anywhere) | Standalone Spring Boot 4 application server |
+| Off-heap, SIMD-accelerated | Unified gateway (Search, Memory, RAG, Agents) |
+| Passive (respond to API calls) | Active (runnable server + autonomous agents) |
 
 ---
 
@@ -61,6 +61,14 @@ sequenceDiagram
 ```
 
 This creates agents that genuinely *know* their users — remembering preferences, past conversations, emotional states, and evolving relationships over time.
+
+### 🌐 Unified API Gateway & Server
+
+Synapse hosts a unified HTTP REST, gRPC, and Server-Sent Events (SSE) server (running on port `7070` by default). By absorbing the search gateway, it exposes unified endpoints across:
+*   **Search & Retrieval**: `/api/v1/engine/search` for AVX2/AVX-512 accelerated hybrid search (Vector + BM25) and reciprocal rank fusion (RRF).
+*   **Ingestion Pipelines**: `/api/v1/engine/ingest` and `/api/v1/engine/ingest/file` for manual text, directory-level discovery, and bulk payload ingestion.
+*   **RAG Services**: `/api/v1/engine/rag` for out-of-the-box context assembly and prompt synthesis.
+*   **Agent Identity & Chat**: `/api/v1/chat/*` and `/api/v1/agents/*` for configuring agent souls, running cognitive sessions, and tracking conversational state.
 
 ### 🤖 Autonomous Agent Framework
 
@@ -204,6 +212,7 @@ graph TD
             chat["Chat Service\n· Context priming\n· Summarizer\n· Reflector"]
             agent["Agent Graph\n· LangGraph4j\n· Tool execution\n· Templates"]
             provider["Provider Registry\n· Ollama bridge\n· Health checks\n· Failover"]
+            engine_gateway["Engine Gateways\n· Search Endpoint\n· Ingestion Endpoint\n· RAG Endpoint"]
         end
         subgraph integration["Integration Layer"]
             bridge["Memory Bridge\n· recall → cognitive memory\n· remember → store\n· reinforce → strengthen"]
@@ -220,8 +229,7 @@ graph TD
     synapse -->|"Java API"| core
 
     subgraph core["🧠 Spector Core"]
-        engine["engine"]
-        memory["memory"]
+        memory["memory<br/><i>(Cognitive Store + Search Facade)</i>"]
         rag["rag"]
         embed["embed"]
         ingestion["ingestion"]
@@ -326,6 +334,13 @@ All settings are configurable via environment variables:
 
 | Endpoint | Method | Description |
 |:---------|:-------|:------------|
+| `/api/v1/engine/search` | POST | Hybrid search (Vector + Keyword) with RRF |
+| `/api/v1/engine/ingest` | POST | Ingest raw text payload |
+| `/api/v1/engine/ingest/file` | POST | Auto-discover and ingest local directories |
+| `/api/v1/engine/ingest/bulk` | POST | Bulk JSON document ingestion |
+| `/api/v1/engine/delete` | POST | Delete documents from indices |
+| `/api/v1/engine/status` | GET | Retrieve search index stats & health |
+| `/api/v1/engine/rag` | POST | Execute retrieval-augmented generation (RAG) |
 | `/api/v1/chat/sessions` | POST | Create chat session |
 | `/api/v1/chat/sessions/{id}/messages` | POST | Send message |
 | `/api/v1/memory` | GET/POST | List/create memories |

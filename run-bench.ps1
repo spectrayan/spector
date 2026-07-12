@@ -6,14 +6,14 @@ param(
 )
 
 # Build classpath from Maven dependency:build-classpath output
-$depCp = Get-Content "spector-bench\target\bench-cp.txt" -ErrorAction Stop
+$depCp = Get-Content "bench\spector-bench\target\bench-cp.txt" -ErrorAction Stop
 
 # Collect all target/classes directories from known modules
 $modules = @(
-    "spector-bench", "spector-memory", "spector-core", "spector-commons",
-    "spector-storage", "spector-index", "spector-embed-api", "spector-embed-ollama",
-    "spector-config", "spector-ingestion", "spector-events", "spector-engine",
-    "spector-rag", "spector-gpu", "spector-query", "spector-test-support"
+    "bench\spector-bench", "memory\spector-memory", "nucleus\spector-core", "nucleus\spector-commons",
+    "nucleus\spector-storage", "memory\spector-index", "memory\spector-embed-api", "memory\spector-embed-ollama",
+    "nucleus\spector-config", "memory\spector-ingestion", "nucleus\spector-events", "memory\spector-engine",
+    "memory\spector-rag", "memory\spector-gpu", "memory\spector-query", "nucleus\spector-test-support"
 )
 
 $modCp = ($modules | ForEach-Object { "$PSScriptRoot\$_\target\classes" } | Where-Object { Test-Path $_ }) -join ";"

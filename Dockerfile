@@ -10,7 +10,7 @@ LABEL org.opencontainers.image.title="Spector" \
 WORKDIR /app
 
 # Copy the distribution JAR
-COPY spector-dist/target/spector.jar /app/spector.jar
+COPY synapse/spector-dist/target/spector.jar /app/spector.jar
 
 # Copy default config
 COPY spector.yml /app/spector.yml

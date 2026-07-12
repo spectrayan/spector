@@ -1,1 +1,1 @@
---8<-- "spector-events/README.md"
+--8<-- "nucleus/spector-events/README.md"

@@ -33,6 +33,10 @@ concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  MAVEN_USERNAME: ${{ github.actor }}
+  MAVEN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
@@ -59,6 +63,9 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: 'maven'
+          server-id: spectrayan-github-server-sent-events
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_TOKEN
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -76,3 +83,4 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: '/language:${{ matrix.language }}'
+          upload: ${{ github.event_name != 'pull_request' }}

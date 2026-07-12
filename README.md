@@ -21,252 +21,21 @@ Legacy search engines bolted vectors onto text databases. **Spector** is designe
 
 ---
 
-## System Architecture
+## System Architecture & Data Flow
 
-```mermaid
-graph TB
-    subgraph Clients["Client Interfaces"]
-        claude["🤖 Claude Desktop"]
-        cursor["✏️ Cursor / AI IDEs"]
-        agents["🦾 Autonomous Agents"]
-        sdk["☕ Java SDK"]
-        spring["🌱 Spring AI"]
-        cli["🖥️ spectorctl CLI"]
-        rest["🌐 REST / gRPC"]
-    end
+Spector is structured around a modular, biologically-inspired architecture designed to bridge low-level bare-metal SIMD operations with high-level agent orchestration:
+*   **Nucleus (Foundation)**: Core configurations, off-heap storage layouts (Panama MemorySegment), and standard utilities.
+*   **Memory (Cognitive Engine)**: The flagship vector search and cognitive memory engine containing the 4-tier cortex, Hebbian graph, and sleep consolidation pipelines.
+*   **Synapse (Gateway & APIs)**: Spring Boot entry points, Armeria-based REST/gRPC gateways, and stdio/HTTP Model Context Protocol (MCP) servers.
+*   **Cortex (UI)**: Three.js and Angular-powered neural dashboard for real-time visualization of memory graphs, decay, and search metrics.
 
-    subgraph Transport["Transport Layer"]
-        mcp["MCP Server<br/><i>stdio · Streamable HTTP · 21 tools</i>"]
-        armeria["Armeria Server<br/><i>REST + gRPC + SSE</i>"]
-    end
-
-    subgraph Core["Spector Engine"]
-        runtime["SpectorRuntime<br/><i>Composition Root</i>"]
-
-        subgraph Search["Search Pipeline"]
-            hybrid["Hybrid Search<br/><i>Vector + Keyword</i>"]
-            hnsw["HNSW Index<br/><i>M=16, ef=200</i>"]
-            bm25["BM25 Index<br/><i>Inverted Index</i>"]
-            rrf["RRF Fusion<br/><i>+ LLM Re-ranking</i>"]
-        end
-
-        subgraph Memory["Cognitive Memory"]
-            cortex["4-Tier Cortex<br/><i>Working → Episodic → Semantic → Procedural</i>"]
-            hebbian["Hebbian Graph<br/><i>Associative links</i>"]
-            entity_graph["Entity Graph<br/><i>LLM-powered knowledge</i>"]
-            temporal["Temporal Chain<br/><i>Causal sequences</i>"]
-            decay["Memory Decay<br/><i>Power-law forgetting</i>"]
-            consolidation["Sleep Consolidation<br/><i>Hippocampal replay</i>"]
-        end
-
-        subgraph Ingestion["Ingestion Pipeline"]
-            chunking["Document Chunking<br/><i>Sentence · Paragraph · Semantic</i>"]
-            embedding["Embedding<br/><i>Ollama · Provider SPI</i>"]
-            indexing["Index Writer<br/><i>Batch + streaming</i>"]
-        end
-    end
-
-    subgraph Platform["Platform Layer"]
-        simd["SIMD Kernels<br/><i>AVX2 / AVX-512 / NEON</i>"]
-        panama["Panama Storage<br/><i>Off-heap MemorySegment</i>"]
-        quant["SVASQ Quantization<br/><i>INT8 · INT4 · IVF-PQ</i>"]
-        gpu["GPU Acceleration<br/><i>CUDA via Panama FFM</i>"]
-    end
-
-    subgraph Observe["Observability"]
-        events["TelemetryBus<br/><i>12 event types</i>"]
-        metrics["Micrometer<br/><i>Prometheus export</i>"]
-        sse["SSE Stream<br/><i>Real-time events</i>"]
-    end
-
-    claude & cursor & agents --> mcp
-    sdk & spring & cli & rest --> armeria
-    mcp & armeria --> runtime
-
-    runtime --> Search
-    runtime --> Memory
-    runtime --> Ingestion
-
-    Search --> simd & panama & quant
-    Memory --> simd & panama
-    Ingestion --> embedding
-
-    runtime --> events
-    events --> metrics & sse
-
-    gpu -.->|optional| simd
-
-    style Clients fill:#1a1a2e,stroke:#e94560,color:#fff
-    style Transport fill:#16213e,stroke:#0f3460,color:#fff
-    style Core fill:#0f3460,stroke:#533483,color:#fff
-    style Platform fill:#533483,stroke:#e94560,color:#fff
-    style Observe fill:#1a1a2e,stroke:#533483,color:#fff
-    style Search fill:#16213e,stroke:#0f3460,color:#fff
-    style Memory fill:#16213e,stroke:#0f3460,color:#fff
-    style Ingestion fill:#16213e,stroke:#0f3460,color:#fff
-```
-
-### Data Flow
-
-```mermaid
-graph LR
-    subgraph Ingest["Ingest"]
-        docs["📄 Documents"]
-        files["📁 Files"]
-        api["🌐 API Data"]
-    end
-
-    subgraph Process["Process"]
-        chunk["✂️ Chunk"]
-        embed["🧬 Embed"]
-        quantize["🗜️ Quantize"]
-    end
-
-    subgraph Store["Store"]
-        vectors["📊 Vector Index<br/><i>HNSW · IVF-PQ</i>"]
-        text["📝 Text Index<br/><i>BM25</i>"]
-        memory["🧠 Cognitive Store<br/><i>4-tier cortex</i>"]
-    end
-
-    subgraph Query["Query"]
-        search["🔍 Hybrid Search"]
-        recall["💭 Memory Recall"]
-        rag["🤖 RAG Pipeline"]
-    end
-
-    docs & files & api --> chunk --> embed --> quantize
-    quantize --> vectors & text & memory
-    vectors & text --> search --> rag
-    memory --> recall --> rag
-
-    style Ingest fill:#1a1a2e,stroke:#e94560,color:#fff
-    style Process fill:#16213e,stroke:#0f3460,color:#fff
-    style Store fill:#0f3460,stroke:#533483,color:#fff
-    style Query fill:#533483,stroke:#e94560,color:#fff
-```
-
-### Deployment Topology
-
-```mermaid
-graph TB
-    subgraph Standalone["Standalone Mode"]
-        jar["java -jar spector.jar<br/><i>Embedded engine + server</i>"]
-    end
-
-    subgraph Embedded["Embedded Mode"]
-        lib["SpectorEngine API<br/><i>In-process, zero-network</i>"]
-    end
-
-    subgraph Distributed["Distributed Mode"]
-        coord["Coordinator Node<br/><i>Query routing · fan-out</i>"]
-        shard1["Shard 1<br/><i>Partition A</i>"]
-        shard2["Shard 2<br/><i>Partition B</i>"]
-        shard3["Shard N<br/><i>Partition C</i>"]
-        coord --> shard1 & shard2 & shard3
-    end
-
-    style Standalone fill:#0f3460,stroke:#533483,color:#fff
-    style Embedded fill:#16213e,stroke:#0f3460,color:#fff
-    style Distributed fill:#1a1a2e,stroke:#e94560,color:#fff
-```
+For a comprehensive analysis of the system architecture, data flows, thread scheduling model, and detailed Mermaid diagrams, see the **[Architecture Overview Docs](https://spectrayan.github.io/spector/architecture/overview/)**.
 
 ---
 
 ## 🤖 MCP-Native — Built for AI Agents
 
 Spector is an **MCP-native engine** — not an afterthought adapter. The MCP server runs **in-process** with the search engine (zero network, zero serialization), giving agents direct SIMD-accelerated access to 21 tools across search, memory, and RAG.
-
-### MCP Architecture
-
-```mermaid
-graph TB
-    subgraph Agents["AI Agents"]
-        claude["🤖 Claude Desktop"]
-        cursor["✏️ Cursor"]
-        cline["🔧 Cline"]
-        custom["🦾 Custom Agents"]
-    end
-
-    subgraph MCP["MCP Server — Dual Transport"]
-        transport["JSON-RPC 2.0<br/><i>stdio (stdin/stdout) · Streamable HTTP (/mcp)</i>"]
-        registry["SpectorToolRegistry<br/><i>21 tools auto-registered</i>"]
-
-        subgraph EngineTools["Engine Tools — 6"]
-            engine_search["engine_search<br/><i>Semantic vector search</i>"]
-            engine_hybrid["engine_hybrid_search<br/><i>Vector + keyword + RRF</i>"]
-            engine_rag["engine_rag<br/><i>RAG with context assembly</i>"]
-            engine_ingest["engine_ingest<br/><i>File/text ingestion</i>"]
-            engine_delete["engine_delete<br/><i>Remove documents</i>"]
-            engine_status["engine_status<br/><i>Index stats & health</i>"]
-        end
-
-        subgraph MemoryTools["Cognitive Memory Tools — 15"]
-            mem_remember["memory_remember<br/><i>Store with importance/tags</i>"]
-            mem_recall["memory_recall<br/><i>Recall with fused scoring</i>"]
-            mem_scratchpad["working_memory_scratchpad<br/><i>In-progress reasoning</i>"]
-            mem_reinforce["memory_reinforce<br/><i>Outcome feedback +/-</i>"]
-            mem_forget["memory_forget<br/><i>Intentional forgetting</i>"]
-            mem_status["memory_status<br/><i>Per-tier statistics</i>"]
-            mem_introspect["memory_introspect<br/><i>Self-reflection</i>"]
-            mem_suppress["memory_suppress<br/><i>Temporary suppression</i>"]
-            mem_resolve["memory_resolve<br/><i>Conflict resolution</i>"]
-            mem_reminder["memory_reminder<br/><i>Proactive reminders</i>"]
-            mem_whynot["memory_why_not<br/><i>Explain recall misses</i>"]
-            mem_importance["memory_compute_importance<br/><i>Pre-ingestion scoring</i>"]
-            mem_inspect["memory_inspect<br/><i>Cognitive X-ray</i>"]
-            mem_export["memory_export<br/><i>Bulk export</i>"]
-            mem_browse["memory_browse<br/><i>Browse by tag</i>"]
-        end
-    end
-
-    subgraph Core["In-Process Engine — Zero Network"]
-        runtime["⚡ SpectorRuntime<br/><i>SIMD search + cognitive memory</i>"]
-        simd["🔬 SIMD Kernels<br/><i>~100µs per query</i>"]
-    end
-
-    Agents -->|stdio| transport
-    transport --> registry
-    registry --> EngineTools & MemoryTools
-    EngineTools & MemoryTools --> runtime
-    runtime --> simd
-
-    style Agents fill:#1a1a2e,stroke:#e94560,color:#fff
-    style MCP fill:#16213e,stroke:#0f3460,color:#fff
-    style EngineTools fill:#0f3460,stroke:#533483,color:#fff
-    style MemoryTools fill:#533483,stroke:#e94560,color:#fff
-    style Core fill:#1a1a2e,stroke:#e94560,color:#fff
-```
-
-### Agent Interaction Flow
-
-```mermaid
-sequenceDiagram
-    participant Agent as 🤖 AI Agent
-    participant MCP as 📡 MCP Server (stdio / Streamable HTTP)
-    participant Tools as 🔧 Tool Registry
-    participant Runtime as ⚡ SpectorRuntime
-    participant SIMD as 🔬 SIMD (off-heap)
-
-    Note over Agent,SIMD: Everything runs in ONE JVM process — zero network hops
-
-    Agent->>MCP: tools/call {"name": "memory_remember", "arguments": {...}}
-    MCP->>Tools: Route to MemoryRememberTool
-    Tools->>Runtime: runtime.memory().remember(text, tags, importance)
-    Runtime->>SIMD: Embed → HNSW insert → tier assignment (~1ms)
-    SIMD-->>Agent: ✅ {"memoryId": "...", "tier": "EPISODIC"}
-
-    Agent->>MCP: tools/call {"name": "memory_recall", "arguments": {"query": "..."}}
-    MCP->>Tools: Route to MemoryRecallTool
-    Tools->>Runtime: runtime.memory().recall(query, topK)
-    Runtime->>SIMD: Fused SIMD scoring: similarity × importance × decay (~0.13ms)
-    SIMD-->>Agent: 📋 Top memories with scores, tiers, associations
-
-    Agent->>MCP: tools/call {"name": "engine_hybrid_search", "arguments": {...}}
-    MCP->>Tools: Route to EngineHybridSearchTool
-    Tools->>Runtime: runtime.search().hybridSearch(text, vector, topK)
-    Runtime->>SIMD: Parallel HNSW + BM25 → RRF fusion (~88µs)
-    SIMD-->>Agent: 🔍 Ranked results with scores
-```
 
 ### Why MCP-Native Matters
 
@@ -452,7 +221,7 @@ We welcome contributions of all kinds — code, docs, tests, benchmarks, and ide
 
 This repository uses a **split licensing model**:
 
-- **`spector-memory`** — [Business Source License 1.1](spector-memory/LICENSE) (transitions to Apache 2.0 on May 27, 2030)
+- **`spector-memory`** — [Business Source License 1.1](memory/spector-memory/LICENSE) (transitions to Apache 2.0 on May 27, 2030)
 - **All other modules** — [Apache License 2.0](LICENSE)
 
 For branding and trademark guidelines, see the [NOTICE](NOTICE) file.

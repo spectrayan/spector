@@ -31,7 +31,7 @@ Write-Host "══════════════════════�
 
 # ── Resolve paths ──
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$benchModule = Join-Path $projectRoot "spector-bench"
+$benchModule = Join-Path $projectRoot "bench/spector-bench"
 
 $resolvedPersona  = if ([System.IO.Path]::IsPathRooted($Persona)) { $Persona } else { Join-Path $projectRoot $Persona }
 $resolvedOutput   = if ([System.IO.Path]::IsPathRooted($Output))  { $Output  } else { Join-Path $projectRoot $Output  }
@@ -93,7 +93,7 @@ if (!$SkipBuild) {
     Write-Host "── Building spector-bench module ──" -ForegroundColor Yellow
     Push-Location $projectRoot
     try {
-        mvn -B package -pl spector-bench -am -DskipTests --no-transfer-progress
+        mvn -B package -pl bench/spector-bench -am -DskipTests --no-transfer-progress
         if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: Maven build failed" -ForegroundColor Red
             exit 1
@@ -113,7 +113,7 @@ $benchJar = Get-ChildItem (Join-Path $benchModule "target") -Filter "spector-ben
 
 if (!$benchJar) {
     Write-Host "ERROR: spector-bench JAR not found in target/" -ForegroundColor Red
-    Write-Host "  Run: mvn package -pl spector-bench -am -DskipTests" -ForegroundColor Yellow
+    Write-Host "  Run: mvn package -pl bench/spector-bench -am -DskipTests" -ForegroundColor Yellow
     exit 1
 }
 
@@ -121,7 +121,7 @@ if (!$benchJar) {
 Push-Location $projectRoot
 $cpFile = Join-Path $env:TEMP "spector-bench-cp.txt"
 $ErrorActionPreference = "Continue"
-mvn -B dependency:build-classpath -pl spector-bench "-Dmdep.outputFile=$cpFile" --no-transfer-progress 2>&1 | Out-Null
+mvn -B dependency:build-classpath -pl bench/spector-bench "-Dmdep.outputFile=$cpFile" --no-transfer-progress 2>&1 | Out-Null
 $ErrorActionPreference = "Stop"
 Pop-Location
 

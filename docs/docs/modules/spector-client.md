@@ -1,1 +1,1 @@
---8<-- "spector-client/README.md"
+--8<-- "synapse/spector-client/README.md"

@@ -67,10 +67,10 @@ Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) s
 | Concurrent queries | Limited by Python GIL | **61,000 QPS** † |
 | Dependencies | Python framework stack | **Single JAR** |
 
-† *Measured. See [Benchmarks](../#-benchmarks).*
+† *Measured. See [Benchmarks](index.md#-benchmarks).*
 
 > [!TIP]
-> See the [MCP Server Guide](../sdk-usage/mcp-server.md) to connect Claude Desktop, Cursor, or any MCP client in minutes.
+> See the [MCP Server Guide](sdk-usage/mcp-server.md) to connect Claude Desktop, Cursor, or any MCP client in minutes.
 
 ### 📦 Pure Java, Zero Dependencies
 

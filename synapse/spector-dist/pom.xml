@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spector</artifactId>
+        <version>${revision}</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>spector-dist</artifactId>
+    <name>Spector Distribution</name>
+    <description>
+        Single fat JAR containing all Spector modules.
+        Default main class: SpectorMcpMain (MCP server).
+        Use -cp with the appropriate main class to run different tools:
+          - MCP Server:  com.spectrayan.spector.mcp.SpectorMcpMain
+          - CLI:         com.spectrayan.spector.cli.SpectorCtl
+    </description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.dist</spector.module.name>
+        <!-- Packaging-only module — skip coverage enforcement -->
+        <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
+        <!-- Distribution fat JAR — not published to Maven repos -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
+    </properties>
+
+    <dependencies>
+        <!-- ── MCP server (transitively pulls engine, commons, storage, index, etc.) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-mcp</artifactId>
+        </dependency>
+
+        <!-- ── Ingestion pipeline (FileIngestionService, FileIngestionMain) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-ingestion</artifactId>
+        </dependency>
+
+        <!-- ── Spector Runtime (engine + memory) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-runtime</artifactId>
+        </dependency>
+
+        <!-- ── CLI (spectorctl — ingest, search, status commands) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-cli</artifactId>
+        </dependency>
+
+        <!-- ── Runtime: Ollama embedding provider ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-embed-ollama</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- ── Logging runtime ── -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Single fat JAR with all modules -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <filters>
+                                <!-- Exclude JAR signature files from signed dependencies -->
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.spectrayan.spector.mcp.SpectorMcpMain</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <finalName>spector</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
