@@ -127,6 +127,17 @@
                                 <include>src/main/java/**/*.java</include>
                                 <include>src/test/java/**/*.java</include>
                             </includes>
+                            <excludes>
+                                <exclude>src/main/java/com/spectrayan/spector/engine/**/*.java</exclude>
+                                <exclude>src/test/java/com/spectrayan/spector/engine/**/*.java</exclude>
+                            </excludes>
+                        </licenseSet>
+                        <licenseSet>
+                            <header>../../src/license/apache2-header.txt</header>
+                            <includes>
+                                <include>src/main/java/com/spectrayan/spector/engine/**/*.java</include>
+                                <include>src/test/java/com/spectrayan/spector/engine/**/*.java</include>
+                            </includes>
                         </licenseSet>
                     </licenseSets>
                 </configuration>
