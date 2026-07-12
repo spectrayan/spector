@@ -33,6 +33,10 @@ concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  MAVEN_USERNAME: ${{ github.actor }}
+  MAVEN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
@@ -59,8 +63,20 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: 'maven'
+          server-id: spectrayan-github-server-sent-events
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_TOKEN
 
-      - name: Initialize CodeQL
+      - name: Initialize CodeQL (PR)
+        if: github.event_name == 'pull_request'
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+          config-file: ./.github/codeql/codeql-pr-config.yml
+
+      - name: Initialize CodeQL (Main Baseline)
+        if: github.event_name != 'pull_request'
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
