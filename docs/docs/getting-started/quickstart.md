@@ -59,15 +59,13 @@ SIMD Species: S_256_BIT (AVX2, 8 float lanes)
 
 ## 🖥️ Start the Server
 
-```bash
-# Start on default port 7070 with 384 dimensions
-mvn exec:java -pl spector-node \
-  -Dexec.mainClass="com.spectrayan.spector.server.SpectorNode"
+Start the unified server using the packaged distribution JAR:
 
-# Start with custom port, dimensions, and API key
-mvn exec:java -pl spector-node \
-  -Dexec.mainClass="com.spectrayan.spector.server.SpectorNode" \
-  -Dexec.args="7070 384 my-secret-key"
+```bash
+java --add-modules jdk.incubator.vector \
+  --enable-native-access=ALL-UNNAMED --enable-preview \
+  -jar spector-dist/target/spector.jar \
+  --config spector.yml
 ```
 
 Verify it's running:
