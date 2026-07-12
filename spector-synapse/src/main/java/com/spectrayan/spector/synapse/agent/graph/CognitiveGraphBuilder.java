@@ -33,6 +33,7 @@ import org.bsc.langgraph4j.checkpoint.MemorySaver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -128,7 +129,7 @@ public final class CognitiveGraphBuilder {
 
         // Create node actions
         var retrieveNode = new RetrieveNode(memory, topK);
-        var evaluateNode = new EvaluateNode(llmBridge);
+        var evaluateNode = new EvaluateNode(llmBridge, new ArrayList<>(toolRegistry.names()));
         var generateNode = new GenerateNode(llmBridge);
 
         // Build the graph declaratively using LangGraph4j API
