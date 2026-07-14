@@ -142,7 +142,7 @@ run() {
         -e "SPECTOR_OLLAMA_BASE_URL=http://host.docker.internal:11434" \
         -e "SPECTOR_OLLAMA_EMBED_MODEL=qwen3-embedding:0.6b" \
         -e "SPECTOR_OLLAMA_MODEL=spector-extractor:small" \
-        -e "SPECTOR_CORS_ORIGINS=http://localhost:4200,http://localhost:7700,http://localhost:3000" \
+        -e "SPECTOR_CORS_ORIGINS=http://localhost:4200,http://localhost:7700,http://localhost:3000,*" \
         --add-host=host.docker.internal:host-gateway \
         --restart unless-stopped \
         "$IMAGE_NAME"

@@ -15,7 +15,7 @@ spector:
 
   engine:
     dimensions: 1024
-    capacity: 10000
+    capacity: 100
     similarity: COSINE
     index-type: HNSW
     persistence-mode: DISK
@@ -61,6 +61,6 @@ spector:
     skip-dirs: ".git,node_modules,target"
     chunk-size: 2500
     chunk-overlap: 200
-    parallelism: 2
+    parallelism: 1
     max-retries: 3
     retry-delay-ms: 2000
