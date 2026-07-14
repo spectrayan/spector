@@ -4,7 +4,7 @@
 [![Java](https://img.shields.io/badge/Java-25+-green.svg)](https://openjdk.org/projects/jdk/25/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
 
-The **central nervous system** of the Spector ecosystem. Spring Boot 4 + Armeria entry point for cognitive chat, autonomous agent orchestration, LLM provider management, data connector routing, and channel adapters. Serves the [Cortex UI](../spector-cortex/) as static assets.
+The **central nervous system** of the Spector ecosystem. Spring Boot 4 + Armeria entry point for cognitive chat, autonomous agent orchestration, LLM provider management, data connector routing, and channel adapters. Serves the [Cortex UI](../../cortex/spector-cortex/) as static assets.
 
 ## Architecture
 

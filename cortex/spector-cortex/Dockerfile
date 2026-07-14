@@ -2,9 +2,9 @@
 FROM node:24-alpine AS builder
 
 WORKDIR /app/spector-cortex
-COPY spector-cortex/package*.json ./
+COPY cortex/spector-cortex/package*.json ./
 RUN npm ci --prefer-offline
-COPY spector-cortex/ .
+COPY cortex/spector-cortex/ .
 RUN npx ng build --configuration=production
 
 # ── Stage 2: Serve with Nginx ──

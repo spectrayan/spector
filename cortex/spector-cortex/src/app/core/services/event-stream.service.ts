@@ -144,6 +144,11 @@ export class EventStreamService implements OnDestroy {
             currentData = line.substring(5).trim();
           } else if (line === '' && currentEventType && currentData) {
             // End of event — dispatch
+            if (currentEventType === 'heartbeat' || currentData === '::heartbeat::') {
+              currentEventType = '';
+              currentData = '';
+              continue;
+            }
             try {
               const data = JSON.parse(currentData);
               data.eventType = currentEventType;

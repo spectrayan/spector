@@ -116,6 +116,10 @@
 
         <dependency>
             <groupId>com.spectrayan</groupId>
+            <artifactId>spector-mcp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
             <artifactId>spector-memory</artifactId>
         </dependency>
         <dependency>

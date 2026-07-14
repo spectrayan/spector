@@ -17,9 +17,11 @@ package com.spectrayan.spector.spring.autoconfigure;
 
 import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.embed.TextGenerationProvider;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -127,6 +129,7 @@ public class SpectorAutoConfiguration {
     @ConditionalOnProperty(prefix = "spector.memory", name = "enabled", havingValue = "true")
     SpectorMemory spectorMemory(SpectorConfigProperties props,
                                  ObjectProvider<EmbeddingProvider> embedderProvider,
+                                 ObjectProvider<TextGenerationProvider> textGenProvider,
                                  ObjectProvider<MeterRegistry> registryProvider,
                                  ObjectProvider<SalienceProfileProvider> salienceProvider) {
 
@@ -151,6 +154,15 @@ public class SpectorAutoConfiguration {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));
         }
 
+        // ── Entity extraction (LLM if TextGenerationProvider is present) ──
+        TextGenerationProvider textGen = textGenProvider.getIfAvailable();
+        if (textGen != null) {
+            builder.entityExtractionMode(EntityExtractionMode.LLM);
+            builder.textGenerationProvider(textGen);
+        } else {
+            builder.entityExtractionMode(EntityExtractionMode.NONE);
+        }
+
         // ── Salience profile provider (user-driven importance modulation) ──
         SalienceProfileProvider salience = salienceProvider.getIfAvailable();
         if (salience != null) {
@@ -169,9 +181,10 @@ public class SpectorAutoConfiguration {
         }
 
         SpectorMemory raw = builder.build();
-        log.info("SpectorMemory auto-configured: dims={}, persistence={}, path={}, entity=enabled, SPLADE={}, ColBERT={}, salience={}",
+        log.info("SpectorMemory auto-configured: dims={}, persistence={}, path={}, entity={}, SPLADE={}, ColBERT={}, salience={}",
                 memoryProps.getDimensions(), memoryProps.getPersistenceMode(),
-                memoryProps.getPersistencePath(), memoryProps.isSpladeEnabled(), memoryProps.isColbertEnabled(),
+                memoryProps.getPersistencePath(), textGen != null ? "enabled" : "disabled",
+                memoryProps.isSpladeEnabled(), memoryProps.isColbertEnabled(),
                 salience != null);
 
         MeterRegistry registry = registryProvider.getIfAvailable();

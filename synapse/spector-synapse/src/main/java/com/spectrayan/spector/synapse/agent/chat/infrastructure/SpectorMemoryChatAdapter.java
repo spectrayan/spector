@@ -87,6 +87,18 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
                     List.of("chat", "session:" + sessionId, "role:assistant", "model:" + model, "type:turn"),
                     null, Map.of()));
 
+            // Delete any existing session summaries for this session to avoid duplicates
+            try {
+                var existing = memoryService.recall(new RecallRequest("id:" + sessionId, 10, null));
+                for (var r : existing) {
+                    if (r.tags() != null && r.tags().contains("session_summary") && r.tags().contains("id:" + sessionId)) {
+                        memoryService.forget(r.id());
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("[ChatAdapter] Failed to delete old session summary: {}", e.getMessage());
+            }
+
             // Store/Update session summary record for listing
             String preview = userMessage.length() > 200 ? userMessage.substring(0, 200) : userMessage;
             memoryService.store(new StoreRequest(

@@ -163,10 +163,8 @@ var config = SpectorConfig.DEFAULT
 | `corsOrigins` | * | Allowed CORS origins |
 
 ```bash
-# Format: port dimensions apiKey
-mvn exec:java -pl spector-node \
-  -Dexec.mainClass="com.spectrayan.spector.server.SpectorNode" \
-  -Dexec.args="7070 384 my-secret-key"
+# Start Spector Synapse server on port 7070 with custom API key
+SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-boot:run
 ```
 
 ---

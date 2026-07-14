@@ -60,8 +60,8 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // Skip non-API paths
-        if (!path.startsWith("/api/")) {
+        // Skip non-API and non-MCP paths
+        if (!path.startsWith("/api/") && !path.startsWith("/mcp")) {
             filterChain.doFilter(request, response);
             return;
         }
