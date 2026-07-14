@@ -25,13 +25,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * due to the Jackson 2/3 classpath conflict with Spring Boot 4.</p>
  */
 @Configuration
-public class ArmeriaServerConfig implements WebMvcConfigurer {
+public class WebConfig implements WebMvcConfigurer {
 
-    private static final Logger log = LoggerFactory.getLogger(ArmeriaServerConfig.class);
+    private static final Logger log = LoggerFactory.getLogger(WebConfig.class);
 
     private final SynapseProperties props;
 
-    public ArmeriaServerConfig(SynapseProperties props) {
+    public WebConfig(SynapseProperties props) {
         this.props = props;
     }
 
@@ -44,7 +44,7 @@ public class ArmeriaServerConfig implements WebMvcConfigurer {
         }
 
         registry.addMapping("/**")
-                .allowedOrigins(originArray)
+                .allowedOriginPatterns(originArray)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("Content-Type", "Authorization", "X-API-Key")
                 .exposedHeaders("Content-Type")

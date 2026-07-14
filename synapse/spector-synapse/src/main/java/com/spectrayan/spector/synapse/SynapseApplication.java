@@ -35,7 +35,7 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
  *   <li><b>Synapse</b> — Synaptic Network (agent orchestration, signal routing)</li>
  * </ul>
  *
- * @see com.spectrayan.spector.synapse.config.ArmeriaServerConfig
+ * @see com.spectrayan.spector.synapse.config.WebConfig
  * @see com.spectrayan.spector.synapse.config.SynapseProperties
  */
 @SpringBootApplication
