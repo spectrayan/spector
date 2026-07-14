@@ -8,6 +8,7 @@ Thank you for your interest in contributing to Spector! We welcome contributions
 - [Contributor License Agreement](#contributor-license-agreement)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
+- [Troubleshooting First-Time Setup](#troubleshooting-first-time-setup)
 - [Making Changes](#making-changes)
 - [Coding Standards](#coding-standards)
 - [Pull Request Process](#pull-request-process)
@@ -112,6 +113,57 @@ mvn verify -Psynapse
 ```
 
 > **Note:** You must build core modules first (or use the full reactor with `-Psynapse`) since synapse depends on `spector-engine`, `spector-memory`, and other core modules.
+
+
+## Troubleshooting First-Time Setup
+
+### GitHub Packages Authentication
+
+Some project dependencies are hosted on GitHub Packages. Even though these packages are public, Maven still requires authentication to download them.
+
+If you encounter a `401 Unauthorized` error while resolving dependencies, configure GitHub Packages authentication in your local Maven settings before building the project.
+
+### Configure Maven Authentication
+
+Create (or update) your local Maven settings file at `~/.m2/settings.xml` and add credentials for GitHub Packages.
+
+Example:
+
+```xml
+<settings>
+  <servers>
+    <server>
+      <id>spectrayan-github-server-sent-events</id>
+      <username>YOUR_GITHUB_USERNAME</username>
+      <password>YOUR_GITHUB_PERSONAL_ACCESS_TOKEN</password>
+    </server>
+  </servers>
+</settings>
+```
+
+Your Personal Access Token should include the `read:packages` scope.
+
+### Building from the Repository Root
+
+Always run builds from the repository root so Maven can build and cache all local modules before compiling dependent modules.
+
+For example:
+
+```bash
+mvn clean install -Psynapse -DskipTests
+```
+
+Building from the project root ensures modules such as `spector-test-support` are available locally before other modules attempt to resolve them.
+
+> **Note:** Future releases may publish these dependencies to Maven Central, reducing the need for GitHub Packages authentication during local development.
+
+### Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `401 Unauthorized` | GitHub Packages authentication is missing or invalid. | Configure `~/.m2/settings.xml` with a Personal Access Token that has the `read:packages` scope. |
+| Missing local module dependencies | The project was built from a submodule instead of the repository root. | Run `mvn clean install -Psynapse -DskipTests` from the repository root. |
+
 
 ### SIMD Verification
 
