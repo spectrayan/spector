@@ -365,6 +365,11 @@ final class PostIngestSync {
             // Create hyperedge for multi-entity co-occurrence (if >= 2 entities in this memory)
             if (hyperEntityGraph != null && entityIds.size() >= 2) {
                 int[] vertexArr = entityIds.stream().mapToInt(Integer::intValue).toArray();
+                if (vertexArr.length > HyperEntityGraph.MAX_VERTICES_PER_EDGE) {
+                    int[] truncated = new int[HyperEntityGraph.MAX_VERTICES_PER_EDGE];
+                    System.arraycopy(vertexArr, 0, truncated, 0, HyperEntityGraph.MAX_VERTICES_PER_EDGE);
+                    vertexArr = truncated;
+                }
                 int[] roles = new int[vertexArr.length];
                 // First entity gets SUBJECT role, rest get CONTEXT
                 roles[0] = HyperEntityGraph.ROLE_SUBJECT;
