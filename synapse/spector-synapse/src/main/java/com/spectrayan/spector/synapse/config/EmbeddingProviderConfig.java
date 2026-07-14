@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.config;
 
 import com.spectrayan.spector.embed.EmbeddingConfig;
 import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.embed.TextGenerationProvider;
 import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import org.slf4j.Logger;
@@ -43,8 +44,9 @@ public class EmbeddingProviderConfig {
     EmbeddingProvider embeddingProvider(SynapseProperties props) {
         EmbeddingConfig config = EmbeddingConfig
                 .ollama(props.ollama().embedModel())
-                .withBaseUrl(props.ollama().baseUrl());
-        log.info("[EmbeddingProvider] Configured Ollama embedding: model={}, baseUrl={}",
+                .withBaseUrl(props.ollama().baseUrl())
+                .withTimeout(java.time.Duration.ofSeconds(300));
+        log.info("[EmbeddingProvider] Configured Ollama embedding: model={}, baseUrl={}, timeout=300s",
                 props.ollama().embedModel(), props.ollama().baseUrl());
         return new OllamaEmbeddingProvider(config);
     }
@@ -53,5 +55,20 @@ public class EmbeddingProviderConfig {
     @ConditionalOnMissingBean(TsidGenerator.class)
     TsidGenerator tsidGenerator() {
         return new TsidGenerator();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TextGenerationProvider.class)
+    TextGenerationProvider textGenerationProvider(com.spectrayan.spector.synapse.provider.ProviderRegistry providerRegistry, SynapseProperties props) {
+        try {
+            var llm = new com.spectrayan.spector.embed.ollama.OllamaLlmProvider(
+                    props.ollama().model(), props.ollama().baseUrl(), java.time.Duration.ofSeconds(300));
+            providerRegistry.registerGeneration("ollama", llm);
+            log.info("[EmbeddingProvider] Registered default Ollama text generation provider: model={}, baseUrl={}, timeout=300s",
+                    props.ollama().model(), props.ollama().baseUrl());
+        } catch (Exception e) {
+            log.warn("Failed to register default Ollama generation provider: {}", e.getMessage());
+        }
+        return new com.spectrayan.spector.synapse.provider.DelegatingTextGenerationProvider(providerRegistry);
     }
 }
