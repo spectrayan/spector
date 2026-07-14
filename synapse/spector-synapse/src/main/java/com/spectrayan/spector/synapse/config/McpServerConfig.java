@@ -19,9 +19,9 @@ import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
-import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.McpServerFeatures;
-import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
+import io.modelcontextprotocol.server.McpStatelessSyncServer;
+import io.modelcontextprotocol.server.McpStatelessServerFeatures;
+import io.modelcontextprotocol.server.transport.HttpServletStatelessServerTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -31,49 +31,56 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Exposes the official Model Context Protocol (MCP) server over HTTP/SSE.
+ * Exposes the official Model Context Protocol (MCP) server over stateless HTTP.
  *
- * Exposes registered Spring-managed tools dynamically, conforming strictly to the
- * official MCP specification.
+ * <p>Uses {@link HttpServletStatelessServerTransport} which handles each request
+ * independently — no sessions, no SSE streaming, no persistent connections.
+ * Each POST to {@code /mcp} receives a direct JSON response and closes.</p>
+ *
+ * <p>This is ideal for IDE integrations (Antigravity, Cursor, etc.) that only need
+ * tool discovery and invocation without server-initiated notifications.</p>
  */
 @Configuration
 public class McpServerConfig {
 
     @Bean
-    public HttpServletSseServerTransportProvider mcpTransportProvider() {
-        McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(
-                tools.jackson.databind.json.JsonMapper.builder().build());
+    public McpJsonMapper mcpJsonMapper() {
+        return new JacksonMcpJsonMapper(
+                tools.jackson.databind.json.JsonMapper.builder()
+                        .disable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                        .build());
+    }
 
-        return HttpServletSseServerTransportProvider.builder()
+    @Bean
+    public HttpServletStatelessServerTransport mcpTransport(McpJsonMapper jsonMapper) {
+        return HttpServletStatelessServerTransport.builder()
                 .jsonMapper(jsonMapper)
-                .sseEndpoint("/mcp")
-                .messageEndpoint("/mcp/message")
                 .build();
     }
 
     @Bean
-    public ServletRegistrationBean<HttpServletSseServerTransportProvider> mcpServletRegistrationBean(
-            HttpServletSseServerTransportProvider transportProvider) {
-        ServletRegistrationBean<HttpServletSseServerTransportProvider> registration =
-                new ServletRegistrationBean<>(transportProvider);
-        registration.addUrlMappings("/mcp", "/mcp/*");
+    public ServletRegistrationBean<HttpServletStatelessServerTransport> mcpServletRegistrationBean(
+            HttpServletStatelessServerTransport transport) {
+        ServletRegistrationBean<HttpServletStatelessServerTransport> registration =
+                new ServletRegistrationBean<>(transport);
+        registration.addUrlMappings("/mcp");
         registration.setLoadOnStartup(1);
         return registration;
     }
 
     @Bean
-    public McpSyncServer mcpSyncServer(HttpServletSseServerTransportProvider transportProvider,
-                                       ToolRegistry toolRegistry) {
+    public McpStatelessSyncServer mcpStatelessServer(HttpServletStatelessServerTransport transport,
+                                                      ToolRegistry toolRegistry) {
 
         // Dynamically translate local AgentTool beans to official MCP SDK ToolSpecifications
-        List<McpServerFeatures.SyncToolSpecification> toolSpecs = toolRegistry.all().values().stream()
+        List<McpStatelessServerFeatures.SyncToolSpecification> toolSpecs = toolRegistry.all().values().stream()
                 .map(agentTool -> {
                     var tool = McpSchema.Tool.builder(agentTool.name())
                             .description(agentTool.description())
                             .inputSchema(agentTool.parameterSchema())
                             .build();
 
-                    return new McpServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
+                    return new McpStatelessServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
                         try {
                             String result = agentTool.execute(args);
@@ -91,7 +98,7 @@ public class McpServerConfig {
                 })
                 .toList();
 
-        McpSyncServer server = McpServer.sync(transportProvider)
+        return McpServer.sync(transport)
                 .serverInfo("spector", "1.0.0")
                 .capabilities(McpSchema.ServerCapabilities.builder()
                         .tools(true)
@@ -100,7 +107,5 @@ public class McpServerConfig {
                         .build())
                 .tools(toolSpecs)
                 .build();
-
-        return server;
     }
 }
