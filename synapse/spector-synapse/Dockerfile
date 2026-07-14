@@ -20,7 +20,7 @@ RUN groupadd -r spector && useradd -r -g spector spector
 WORKDIR /app
 
 # Copy the fat JAR
-COPY --from=builder /build/spector-synapse/target/spector-synapse-*.jar app.jar
+COPY --from=builder /build/synapse/spector-synapse/target/spector-synapse-*.jar app.jar
 
 # Data directory for H2 database and file storage
 RUN mkdir -p /data && chown -R spector:spector /data /app

@@ -11,7 +11,7 @@ RUN groupadd -r spector && useradd -r -g spector spector && \
 WORKDIR /app
 
 # Copy pre-built fat JAR
-COPY spector-synapse/target/spector-synapse-*.jar app.jar
+COPY synapse/spector-synapse/target/spector-synapse-*.jar app.jar
 
 # Data directory
 RUN mkdir -p /data && chown -R spector:spector /data /app

@@ -110,7 +110,7 @@ Write-Host "  ------------------------------------------------" -ForegroundColor
 Write-Host ""
 
 try {
-    Push-Location (Join-Path $root "spector-cortex")
+    Push-Location (Join-Path $root "cortex/spector-cortex")
     npm run start
 } finally {
     Pop-Location

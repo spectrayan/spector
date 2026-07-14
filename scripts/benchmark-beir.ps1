@@ -8,7 +8,7 @@ param(
     [string]$Dataset = "scifact",
     [string]$DataDir = "datasets",
     [string]$Config  = "spector-local.yml",
-    [string]$Jar     = "spector-dist/target/spector.jar",
+    [string]$Jar     = "synapse/spector-dist/target/spector.jar",
     [int]$TopK       = 10,
     [string]$SearchMode = "HYBRID",  # HYBRID, VECTOR_ONLY, KEYWORD_ONLY
     [string]$ScoringMode = "COGNITIVE",  # COGNITIVE, SIMILARITY

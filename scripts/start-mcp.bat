@@ -6,7 +6,7 @@ REM  CLI args can override any setting.
 REM ═══════════════════════════════════════════════════════════════
 
 set SPECTOR_HOME=%~dp0..
-set JAR=%SPECTOR_HOME%\spector-dist\target\spector.jar
+set JAR=%SPECTOR_HOME%\synapse\spector-dist\target\spector.jar
 set CONFIG=%SPECTOR_HOME%\spector-local.yml
 
 if not exist "%JAR%" (

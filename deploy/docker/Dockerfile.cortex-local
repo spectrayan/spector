@@ -2,7 +2,7 @@
 FROM nginx:alpine
 
 # Copy pre-built Angular dist
-COPY spector-cortex/dist/spector-cortex/browser /usr/share/nginx/html
+COPY cortex/spector-cortex/dist/spector-cortex/browser /usr/share/nginx/html
 
 # Nginx config for SPA routing + API proxy
 RUN echo 'server { \

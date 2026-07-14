@@ -43,25 +43,25 @@ if (-not $SkipBuild -and -not $FrontendOnly) {
     }
 }
 
-# -- Step 2: Start backend using mvn exec:exec (Maven handles classpath) --
+# -- Step 2: Start backend using Spring Boot Maven Plugin --
 $backendJob = $null
 if (-not $FrontendOnly) {
-    Write-Step "Starting Spector Node on port $Port..."
+    Write-Step "Starting Spector Synapse on port $Port..."
 
     $backendJob = Start-Job -ScriptBlock {
         param([string]$rootDir, [int]$p)
         $env:SPECTOR_PORT = $p
         Set-Location $rootDir
-        mvn -pl spector-node compile exec:exec -q 2>&1
+        mvn -Psynapse -pl synapse/spector-synapse spring-boot:run 2>&1
     } -ArgumentList $root, $Port
 
-    # Wait for backend to be ready
+    # Wait for backend to be ready (Spring Boot Actuator health endpoint)
     $ready = $false
     for ($i = 0; $i -lt 30; $i++) {
         Start-Sleep -Seconds 2
         try {
-            $resp = Invoke-RestMethod -Uri "http://localhost:$Port/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
-            if ($resp) { $ready = $true; break }
+            $resp = Invoke-RestMethod -Uri "http://localhost:$Port/actuator/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
+            if ($resp -and $resp.status -eq "UP") { $ready = $true; break }
         } catch { }
         if ($backendJob.State -eq "Failed" -or $backendJob.State -eq "Completed") {
             Write-Err "Backend process exited unexpectedly:"
@@ -107,7 +107,7 @@ Write-Host "  ------------------------------------------------" -ForegroundColor
 Write-Host ""
 
 try {
-    Push-Location (Join-Path $root "spector-cortex")
+    Push-Location (Join-Path $root "cortex/spector-cortex")
     npm run start
 } finally {
     Pop-Location

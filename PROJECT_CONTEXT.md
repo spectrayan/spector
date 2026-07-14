@@ -58,7 +58,7 @@ graph TD
 
     subgraph run_layer ["Runtime Layer"]
         runtime[spector-runtime]
-        node[spector-node]
+        synapse[spector-synapse]
         mcp[spector-mcp]
         cli[spector-cli]
         client[spector-client]
@@ -131,7 +131,7 @@ graph TD
     *   `spector-events`: Reactive publishing-subscription model.
 5.  **Runtime Layer**
     *   `spector-runtime`: Combines `spector-memory` and `spector-engine` peers.
-    *   `spector-node`: Orchestrates clustering and replication.
+    *   `spector-synapse`: Unified API gateway, Spring Boot application, and clustering/replication coordinator.
     *   `spector-mcp`: Anthropic Model Context Protocol server.
     *   `spector-cli` / `spector-client`: User interfaces and client libraries.
 6.  **Infrastructure Layer**
@@ -184,4 +184,4 @@ The **Cortex dashboard** and full-stack product features have been extracted to 
 *   Cortex Dashboard — Angular 22 neural visualization (migrated from `spector-cortex/`)
 *   Single-port architecture — everything on port 7070 via Armeria
 
-Enterprise **depends on** `spector-node` and always starts the core engine.
+Enterprise **depends on** `spector-synapse` and always starts the core engine.
