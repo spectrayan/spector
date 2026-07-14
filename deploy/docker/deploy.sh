@@ -20,6 +20,7 @@ IMAGE_NAME="spector"
 CONTAINER_NAME="spector"
 DOCKERFILE="deploy/docker/Dockerfile"
 DATA_VOLUME="spector-data"
+HOST_PORT_HTTP=7700
 HOST_PORT_API=7070
 
 # Colors
@@ -49,6 +50,20 @@ build() {
         err "Docker is not installed or not in PATH"
         exit 1
     fi
+
+    # 1. Build Spring Boot fat JAR on Host
+    log "Building backend (Maven - Spring Boot fat JAR)..."
+    mvn package -DskipTests -B -q
+    ok "Backend built successfully (Spring Boot fat JAR)."
+
+    # 2. Build Angular Frontend on Host
+    log "Building Angular Cortex Frontend..."
+    pushd cortex/spector-cortex >/dev/null
+    log "Running npm install to ensure all dependencies are present..."
+    npm install
+    npm run build
+    popd >/dev/null
+    ok "Angular frontend built successfully."
 
     local timestamp="$(date +%Y%m%d_%H%M%S)"
     local version_tag="v${timestamp}"
@@ -112,14 +127,22 @@ run() {
     docker volume create "$DATA_VOLUME" > /dev/null 2>&1 || true
 
     log "Starting container '${CONTAINER_NAME}'..."
-    log "  API (SpectorNode) → http://localhost:${HOST_PORT_API}"
+    log "  Dashboard (Nginx) → http://localhost:${HOST_PORT_HTTP}"
+    log "  API Backend       → http://localhost:${HOST_PORT_API}"
     log "  Data volume       → ${DATA_VOLUME}"
-    log "  Note: This is the headless engine. For the dashboard, use spector-enterprise."
 
     docker run -d \
         --name "$CONTAINER_NAME" \
+        -p "${HOST_PORT_HTTP}:3000" \
         -p "${HOST_PORT_API}:7070" \
         -v "${DATA_VOLUME}:/data" \
+        -e "SPECTOR_DATA_DIR=/data" \
+        -e "SPECTOR_DB_ENCRYPT=false" \
+        -e "SPECTOR_DIMENSIONS=1024" \
+        -e "SPECTOR_OLLAMA_BASE_URL=http://host.docker.internal:11434" \
+        -e "SPECTOR_OLLAMA_EMBED_MODEL=qwen3-embedding:0.6b" \
+        -e "SPECTOR_OLLAMA_MODEL=spector-extractor:small" \
+        -e "SPECTOR_CORS_ORIGINS=http://localhost:4200,http://localhost:7700,http://localhost:3000" \
         --add-host=host.docker.internal:host-gateway \
         --restart unless-stopped \
         "$IMAGE_NAME"

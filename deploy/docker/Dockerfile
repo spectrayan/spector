@@ -1,65 +1,66 @@
 # ═══════════════════════════════════════════════════════════════════
-# Spector — Backend-Only Docker Image
+# Spector OSS — Single Docker Image (Spring Boot 4 + Nginx)
 # ═══════════════════════════════════════════════════════════════════
 #
-# SpectorNode backend only (REST/gRPC/MCP-SSE/Prometheus) on :7070
+# Packages pre-built artifacts (built on host) into a runtime image:
+#   - Spector Synapse (Spring Boot 4 fat JAR — cognitive memory engine)
+#   - Nginx serving Angular Cortex dashboard + reverse proxy on :3000
 #
-# The Cortex dashboard has been moved to spector-enterprise.
-# This image runs the headless cognitive memory engine only.
+# Prerequisites (done by deploy.ps1):
+#   1. mvn package -DskipTests   (builds Spring Boot fat JAR)
+#   2. npm run build             (builds Angular production bundle)
 #
 # Build:
 #   docker build -f deploy/docker/Dockerfile -t spector .
 #
 # ═══════════════════════════════════════════════════════════════════
 
-# ── Stage 1: Build backend ────────────────────────────────────────
-FROM eclipse-temurin:25-jdk AS build
-
-# Install Maven
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz \
-       | tar xz -C /opt \
-    && ln -s /opt/apache-maven-3.9.9/bin/mvn /usr/local/bin/mvn \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /src
-COPY . .
-
-# Build the full reactor (skip tests for speed)
-# BuildKit cache mount avoids re-downloading on retries
-RUN --mount=type=cache,target=/root/.m2/repository \
-    mvn install -DskipTests -B -q \
-    && mkdir -p /app/lib \
-    && cp spector-node/target/spector-node-*.jar /app/spector-node.jar \
-    && mvn dependency:copy-dependencies -pl spector-node \
-         -DoutputDirectory=/app/lib -DincludeScope=runtime -B -q
-
-# ── Stage 2: Runtime ──────────────────────────────────────────────
 FROM eclipse-temurin:25-jre-alpine
+
+# Install Nginx and tini for proper signal handling
+RUN apk add --no-cache nginx tini
 
 # Create non-root user
 RUN addgroup -S spector && adduser -S spector -G spector
 
 WORKDIR /app
 
-# Copy backend
-COPY --from=build /app/spector-node.jar /app/spector-node.jar
-COPY --from=build /app/lib/             /app/lib/
+# Copy pre-built Spring Boot fat JAR (self-contained)
+COPY synapse/spector-synapse/target/spector-synapse-*.jar /app/spector-synapse.jar
 
 # Copy YAML config
 COPY deploy/docker/spector-docker.yml /app/spector.yml
 
-# Copy entrypoint
+# Copy frontend (Angular dist — built on host)
+COPY cortex/spector-cortex/dist/spector-cortex/browser/ /usr/share/nginx/html/
+
+# Copy Nginx config
+RUN rm -f /etc/nginx/http.d/default.conf
+COPY deploy/docker/nginx.conf /etc/nginx/http.d/spector.conf
+
+# Copy entrypoint (sed strips Windows CRLF — critical for Windows-built images)
 COPY deploy/docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+# Set data root to Docker volume mount point
+ENV SPECTOR_DATA_DIR=/data
+
+# JVM tuning — right-sized for Panama + Virtual Threads
+ENV JAVA_OPTS="-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
+-XX:G1HeapRegionSize=8m -XX:MaxDirectMemorySize=2g \
+--enable-preview --add-modules=jdk.incubator.vector \
+--enable-native-access=ALL-UNNAMED -Djava.io.tmpdir=/data/tmp"
 
 # Create data directories
-RUN mkdir -p /data/index /data/memory && chown -R spector:spector /data /app
+RUN mkdir -p /data/index /data/memory /data/tmp \
+    && chown -R spector:spector /data /app
 
-EXPOSE 7070
+# Fix Nginx PID directory permissions
+RUN mkdir -p /run/nginx
+
+EXPOSE 3000
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
-    CMD wget -qO- http://localhost:7070/health || exit 1
+    CMD wget -qO- http://localhost:7070/actuator/health || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]

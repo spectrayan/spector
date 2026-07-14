@@ -5,8 +5,8 @@
 # Uses pre-built artifacts from the host (no multi-stage Maven/npm
 # builds inside Docker). Requires:
 #   1. mvn install -DskipTests          (core reactor)
-#   2. mvn package -DskipTests -f spector-synapse/pom.xml (synapse)
-#   3. cd spector-cortex && npm run build (cortex)
+#   2. mvn package -DskipTests -f synapse/spector-synapse/pom.xml (synapse)
+#   3. cd cortex/spector-cortex && npm run build (cortex)
 #
 # Usage:
 #   docker compose -f docker-compose.local.yml up --build
