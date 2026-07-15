@@ -204,12 +204,12 @@ public enum CognitiveProfile {
      * active context tags from the {@code RecallHistory} buffer, simulating
      * the "it was related to what I was just working on" retrieval pattern.</p>
      *
-     * <p>Scoring: α=0.1 (minimal direct similarity), β=0.3 (low importance),
+     * <p>Scoring: α=0.3 (low direct similarity), β=0.7 (high importance),
      * γ=0.1 (minimal keyword). The bulk of scoring comes from tag overlap
      * with recent recall context. Graph expansion threshold is high (0.80)
      * to aggressively expand associative connections.</p>
      */
-    EXECUTIVE_DYSFUNCTION(0.1f, 0.3f, 0.1f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.80f);
+    EXECUTIVE_DYSFUNCTION(0.3f, 0.7f, 0.1f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.80f);
 
     private final float alpha;
     private final float beta;
