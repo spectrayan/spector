@@ -28,6 +28,11 @@ import com.spectrayan.spector.synapse.agent.graph.AgenticChatGraph;
 import com.spectrayan.spector.synapse.agent.service.IdentityPrimerService;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.SystemMessage;
+
 import com.spectrayan.spector.memory.id.TsidGenerator;
 
 import org.slf4j.Logger;
@@ -134,16 +139,31 @@ public class ChatService {
         int depth = contextDepth > 0 ? contextDepth : DEFAULT_CONTEXT_DEPTH;
         boolean isNewSession = (sessionId == null || sessionId.isBlank());
 
-        // ── Step 0: Compact session history if needed ──
-        if (sessionId != null && !sessionId.isBlank()) {
-            var history = chatMemoryPort.loadSessionHistory(sessionId);
-            if (summarizer.needsCompaction(history)) {
-                log.info("[ChatService] Compacting session {} history ({} messages)",
-                        sessionId, history.size());
-                summarizer.compact(history);
-                // Note: compact returns the compacted list — in a full implementation
-                // the compacted summary would replace older messages in the session.
-                // For now, the summarizer logs the compaction.
+        // ── Step 0: Load and compact session history if needed ──
+        List<Map<String, Object>> history = new ArrayList<>();
+        if (messages != null && !messages.isEmpty()) {
+            history = new ArrayList<>(messages);
+        } else if (sessionId != null && !sessionId.isBlank()) {
+            history = new ArrayList<>(chatMemoryPort.loadSessionHistory(sessionId));
+        }
+
+        if (summarizer.needsCompaction(history)) {
+            log.info("[ChatService] Compacting session {} history ({} messages)",
+                    sessionId, history.size());
+            history = summarizer.compact(history);
+        }
+
+        // Convert Map to ChatMessage
+        List<ChatMessage> historyMessages = new ArrayList<>();
+        for (var msg : history) {
+            String role = String.valueOf(msg.getOrDefault("role", "user"));
+            String content = String.valueOf(msg.getOrDefault("content", ""));
+            if ("user".equalsIgnoreCase(role)) {
+                historyMessages.add(UserMessage.from(content));
+            } else if ("assistant".equalsIgnoreCase(role) || "agent".equalsIgnoreCase(role)) {
+                historyMessages.add(AiMessage.from(content));
+            } else if ("system".equalsIgnoreCase(role)) {
+                historyMessages.add(SystemMessage.from(content));
             }
         }
 
@@ -216,7 +236,7 @@ public class ChatService {
         };
 
         // ── Step 5: Execute agentic graph ──
-        String finalResponse = agenticChatGraph.chat(enrichedSoul, message, wrappedListener);
+        String finalResponse = agenticChatGraph.chat(enrichedSoul, historyMessages, message, wrappedListener);
 
         // ── Step 6: Persist the turn (skip on error) ──
         boolean hasErrorTrace = traceEvents.stream()

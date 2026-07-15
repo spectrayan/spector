@@ -371,7 +371,9 @@ class ChatServiceLiveIT {
                             .replaceAll("[^a-z0-9 ]", "").split("\\s+"))
                     .filter(w -> w.length() > 2)
                     .collect(java.util.stream.Collectors.toSet());
-            return sessions.values().stream()
+            return sessions.entrySet().stream()
+                    .filter(e -> excludeSessionId == null || !e.getKey().equals(excludeSessionId))
+                    .map(Map.Entry::getValue)
                     .flatMap(List::stream)
                     .filter(msg -> {
                         String content = msg.getOrDefault("content", "").toString().toLowerCase();
