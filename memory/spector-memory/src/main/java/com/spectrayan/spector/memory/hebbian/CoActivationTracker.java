@@ -12,12 +12,14 @@
  */
 package com.spectrayan.spector.memory.hebbian;
 
+import com.spectrayan.spector.memory.adaptor.RunningStats;
+import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-
-import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import java.lang.foreign.Arena;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -25,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -86,9 +89,12 @@ public final class CoActivationTracker implements AutoCloseable {
 
     /** File magic: "COAX" in ASCII. */
     private static final int FILE_MAGIC = 0x434F4158;
-    private static final int FILE_VERSION = 1;
-    /** Header: magic(4) + version(4) + pairCap(4) + edgeCap(4) + pairCount(4) + edgeCount(4) = 24B. */
-    private static final int FILE_HEADER_BYTES = 24;
+    /** COAX v2: adds bandit stats for ProfileAdaptor persistence. */
+    private static final int FILE_VERSION = 2;
+    /** v1 header size (for backward-compatible loading). */
+    private static final int FILE_HEADER_V1_BYTES = 24;
+    /** v2 header: v1(24) + bandCap(4) + bandCount(4) = 32B. */
+    private static final int FILE_HEADER_BYTES = 32;
 
     // ── State ──
 
@@ -98,6 +104,10 @@ public final class CoActivationTracker implements AutoCloseable {
 
     /** On-heap name↔hash resolution (small — only unique tag strings). */
     private final ConcurrentHashMap<Long, String> hashToTag = new ConcurrentHashMap<>();
+
+    /** On-heap ProfileAdaptor bandit statistics (persisted in COAX v2 format). */
+    private volatile Map<Long, EnumMap<CognitiveProfile, RunningStats>> banditStats =
+            new ConcurrentHashMap<>();
 
     // ── Records ──
 
@@ -374,12 +384,47 @@ public final class CoActivationTracker implements AutoCloseable {
         pairTable.reset();
         edgeTable.reset();
         hashToTag.clear();
+        banditStats = new ConcurrentHashMap<>();
     }
 
     @Override
     public void close() {
         log.info("CoActivationTracker closing (pairs={}, edges={})", pairCount(), edgeCount());
         arena.close();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Bandit Stats (ProfileAdaptor persistence)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Returns the current bandit statistics map.
+     *
+     * @return the bandit stats (may be empty, never null)
+     */
+    public Map<Long, EnumMap<CognitiveProfile, RunningStats>> banditStats() {
+        return banditStats;
+    }
+
+    /**
+     * Updates the bandit statistics from the ProfileAdaptor.
+     *
+     * <p>Called during checkpoint to capture the latest adaptor state
+     * before persisting to the COAX v2 file.</p>
+     *
+     * @param stats the current adaptor stats snapshot
+     */
+    public void updateBanditStats(Map<Long, EnumMap<CognitiveProfile, RunningStats>> stats) {
+        this.banditStats = stats != null ? stats : new ConcurrentHashMap<>();
+    }
+
+    /** Returns the total number of bandit stat entries (flattened context×profile pairs). */
+    private int banditStatsCount() {
+        int count = 0;
+        for (EnumMap<CognitiveProfile, RunningStats> map : banditStats.values()) {
+            count += map.size();
+        }
+        return count;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -425,7 +470,7 @@ public final class CoActivationTracker implements AutoCloseable {
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE,
                 StandardOpenOption.TRUNCATE_EXISTING)) {
 
-            // Header
+            // Header (v2: 32 bytes)
             ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
             header.putInt(FILE_MAGIC);
             header.putInt(FILE_VERSION);
@@ -433,6 +478,8 @@ public final class CoActivationTracker implements AutoCloseable {
             header.putInt(edgeTable.capacity());
             header.putInt(pairTable.count());
             header.putInt(edgeTable.count());
+            header.putInt(0);                   // bandCap (reserved, not used since on-heap)
+            header.putInt(banditStatsCount());   // bandCount
             header.flip();
             ch.write(header);
 
@@ -443,9 +490,12 @@ public final class CoActivationTracker implements AutoCloseable {
             // Tag name index
             writeTagIndex(ch);
 
+            // Bandit stats (COAX v2)
+            writeBanditStats(ch);
+
             ch.force(true);
-            log.info("CoActivationTracker saved: pairs={}, edges={}, tags={} → {}",
-                    pairCount(), edgeCount(), hashToTag.size(), filePath);
+            log.info("CoActivationTracker saved: pairs={}, edges={}, tags={}, bandit={} → {}",
+                    pairCount(), edgeCount(), hashToTag.size(), banditStatsCount(), filePath);
 
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("CoActivationTracker", filePath, e);
@@ -467,25 +517,38 @@ public final class CoActivationTracker implements AutoCloseable {
         }
 
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            if (ch.size() < FILE_HEADER_BYTES) {
+            // v1 files have 24-byte header, v2 files have 32-byte header
+            if (ch.size() < FILE_HEADER_V1_BYTES) {
                 log.warn("CoActivationTracker file too small, creating fresh");
                 return new CoActivationTracker(defaultPairs, defaultEdges);
             }
 
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            ch.read(header);
-            header.flip();
+            // Read v1 header first (24 bytes)
+            ByteBuffer headerV1 = ByteBuffer.allocate(FILE_HEADER_V1_BYTES);
+            ch.read(headerV1);
+            headerV1.flip();
 
-            int magic = header.getInt();
-            int version = header.getInt();
-            int pairCap = header.getInt();
-            int edgeCap = header.getInt();
-            int pairs = header.getInt();
-            int edges = header.getInt();
+            int magic = headerV1.getInt();
+            int version = headerV1.getInt();
+            int pairCap = headerV1.getInt();
+            int edgeCap = headerV1.getInt();
+            int pairs = headerV1.getInt();
+            int edges = headerV1.getInt();
 
-            if (magic != FILE_MAGIC || version != FILE_VERSION) {
-                log.warn("Invalid CoActivationTracker file, creating fresh");
+            if (magic != FILE_MAGIC || (version != 1 && version != 2)) {
+                log.warn("Invalid CoActivationTracker file (magic={}, version={}), creating fresh",
+                        Integer.toHexString(magic), version);
                 return new CoActivationTracker(defaultPairs, defaultEdges);
+            }
+
+            // v2: read extended header fields (bandCap + bandCount)
+            int bandCount = 0;
+            if (version >= 2) {
+                ByteBuffer headerV2 = ByteBuffer.allocate(FILE_HEADER_BYTES - FILE_HEADER_V1_BYTES);
+                ch.read(headerV2);
+                headerV2.flip();
+                headerV2.getInt(); // bandCap (reserved, unused)
+                bandCount = headerV2.getInt();
             }
 
             Arena arena = Arena.ofShared();
@@ -497,9 +560,19 @@ public final class CoActivationTracker implements AutoCloseable {
             // Tag name index
             ConcurrentHashMap<Long, String> names = readTagIndex(ch);
 
+            // Bandit stats (v2 only)
+            Map<Long, EnumMap<CognitiveProfile, RunningStats>> bandit;
+            if (version >= 2 && ch.position() < ch.size()) {
+                bandit = readBanditStats(ch);
+            } else {
+                bandit = new ConcurrentHashMap<>(); // v1 file = cold start
+            }
+
             CoActivationTracker tracker = new CoActivationTracker(arena, pairTable, edgeTable, names);
-            log.info("CoActivationTracker loaded: pairs={}, edges={}, tags={} from {}",
-                    pairs, edges, names.size(), filePath);
+            tracker.banditStats = bandit instanceof ConcurrentHashMap
+                    ? bandit : new ConcurrentHashMap<>(bandit);
+            log.info("CoActivationTracker loaded (v{}): pairs={}, edges={}, tags={}, bandit={} from {}",
+                    version, pairs, edges, names.size(), bandit.size(), filePath);
             return tracker;
 
         } catch (IOException e) {
@@ -555,6 +628,88 @@ public final class CoActivationTracker implements AutoCloseable {
         }
 
         return names;
+    }
+
+    // ── Bandit Stats I/O (COAX v2) ──
+
+    /**
+     * Writes bandit statistics to the file channel.
+     *
+     * <p>Format per entry (32 bytes):
+     * ctxHash(8B) + profileOrdinal(1B) + pad(3B) + ema(4B) +
+     * totalSignals(4B) + positiveSignals(4B) + lastUpdatedMs(8B)</p>
+     */
+    private void writeBanditStats(FileChannel ch) throws IOException {
+        int entryCount = banditStatsCount();
+        ByteBuffer countBuf = ByteBuffer.allocate(4);
+        countBuf.putInt(entryCount);
+        countBuf.flip();
+        ch.write(countBuf);
+
+        if (entryCount == 0) return;
+
+        // 32 bytes per flattened entry
+        ByteBuffer entryBuf = ByteBuffer.allocate(32);
+        for (Map.Entry<Long, EnumMap<CognitiveProfile, RunningStats>> ctxEntry : banditStats.entrySet()) {
+            long ctxHash = ctxEntry.getKey();
+            for (Map.Entry<CognitiveProfile, RunningStats> profEntry : ctxEntry.getValue().entrySet()) {
+                RunningStats rs = profEntry.getValue();
+                entryBuf.clear();
+                entryBuf.putLong(ctxHash);                     // 8B
+                entryBuf.put((byte) profEntry.getKey().ordinal()); // 1B
+                entryBuf.put((byte) 0);                        // pad
+                entryBuf.put((byte) 0);                        // pad
+                entryBuf.put((byte) 0);                        // pad
+                entryBuf.putFloat(rs.ema());                   // 4B
+                entryBuf.putInt(rs.totalSignals());            // 4B
+                entryBuf.putInt(rs.positiveSignals());         // 4B
+                entryBuf.putLong(rs.lastUpdatedMs());          // 8B
+                entryBuf.flip();
+                ch.write(entryBuf);
+            }
+        }
+    }
+
+    /**
+     * Reads bandit statistics from the file channel.
+     */
+    private static Map<Long, EnumMap<CognitiveProfile, RunningStats>> readBanditStats(
+            FileChannel ch) throws IOException {
+        ByteBuffer countBuf = ByteBuffer.allocate(4);
+        ch.read(countBuf);
+        countBuf.flip();
+        int entryCount = countBuf.getInt();
+
+        CognitiveProfile[] profiles = CognitiveProfile.values();
+        ConcurrentHashMap<Long, EnumMap<CognitiveProfile, RunningStats>> result =
+                new ConcurrentHashMap<>();
+
+        ByteBuffer entryBuf = ByteBuffer.allocate(32);
+        for (int i = 0; i < entryCount; i++) {
+            entryBuf.clear();
+            ch.read(entryBuf);
+            entryBuf.flip();
+
+            long ctxHash = entryBuf.getLong();                          // 8B
+            int ordinal = entryBuf.get() & 0xFF;                       // 1B
+            entryBuf.get(); entryBuf.get(); entryBuf.get();            // 3B pad
+            float ema = entryBuf.getFloat();                           // 4B
+            int totalSignals = entryBuf.getInt();                      // 4B
+            int positiveSignals = entryBuf.getInt();                   // 4B
+            long lastUpdatedMs = entryBuf.getLong();                   // 8B
+
+            if (ordinal >= profiles.length) {
+                log.warn("Skipping bandit entry with unknown profile ordinal: {}", ordinal);
+                continue;
+            }
+
+            CognitiveProfile profile = profiles[ordinal];
+            RunningStats rs = new RunningStats(ema, totalSignals, positiveSignals, lastUpdatedMs);
+            result.computeIfAbsent(ctxHash, _ -> new EnumMap<>(CognitiveProfile.class))
+                    .put(profile, rs);
+        }
+
+        return result;
     }
 
     // ── Utility ──
