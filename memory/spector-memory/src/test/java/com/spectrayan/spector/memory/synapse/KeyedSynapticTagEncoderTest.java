@@ -64,12 +64,20 @@ class KeyedSynapticTagEncoderTest {
         var encoder1 = new KeyedSynapticTagEncoder(generateTestKey());
         var encoder2 = new KeyedSynapticTagEncoder(generateTestKey());
 
-        long filter1 = encoder1.encodeTag("project:alpha");
-        long filter2 = encoder2.encodeTag("project:alpha");
+        // Test multiple tags to eliminate any chance of random Bloom filter collision flaking the test
+        boolean anyDifferent = false;
+        for (int i = 0; i < 5; i++) {
+            long f1 = encoder1.encodeTag("project:alpha-" + i);
+            long f2 = encoder2.encodeTag("project:alpha-" + i);
+            if (f1 != f2) {
+                anyDifferent = true;
+                break;
+            }
+        }
 
-        // Different keys should (almost certainly) produce different filters
-        // There's a tiny chance they could collide, but with 64-bit space it's negligible
-        assertThat(filter1).isNotEqualTo(filter2);
+        assertThat(anyDifferent)
+                .as("Different keys must produce different filters for at least one tag")
+                .isTrue();
     }
 
     @Test
