@@ -721,34 +721,53 @@ flowchart TD
 
 ---
 
-## Hypergraphs & Spectral Sparsification
+## ✅ Hypergraphs & Spectral Sparsification
+
+> **Status**: Hypergraphs — **Graduated** (implemented in `HyperEntityGraph`). Spectral Sparsification — **Research**.
+>
+> **Recently graduated:** HyperEntityGraph off-heap implementation with Panama FFM.
 
 ### Concept
 
-Preventing graph node and edge explosion in Spector's 3-Layer Cognitive Architecture (HebbianGraph, EntityGraph, TemporalChain) through mathematical compression:
+Preventing graph node and edge explosion in Spector's Cognitive Architecture through mathematical compression:
 
-1. **Hypergraphs**: Collapsing pairwise relationships into n-body hyperedges. Instead of creating binary edges between entities (e.g. `Alice → ProjectAlpha` and `Alice → OrgX`), a single hyperedge `{Alice, ProjectAlpha, OrgX}` connects all entities. This collapses representation complexity by 40-60%.
-2. **Spectral Sparsification**: Using eigenvalue-guided (effective resistance) sampling to prune Hebbian memory-to-memory edges during the sleep consolidation cycle. This maintains spreading activation recall quality with a 50% lower edge degree limit.
+1. **Hypergraphs** ✅: Collapsing pairwise relationships into n-body hyperedges. Instead of creating binary edges between entities (e.g. `Alice → ProjectAlpha` and `Alice → OrgX`), a single hyperedge `{Alice, ProjectAlpha, OrgX}` connects all entities with typed roles. This collapses representation complexity by 40-60%.
+2. **Spectral Sparsification** 🔬: Using eigenvalue-guided (effective resistance) sampling to prune Hebbian memory-to-memory edges during the sleep consolidation cycle. This maintains spreading activation recall quality with a 50% lower edge degree limit.
 
 ### Biological Basis
 
 Cognitive memory doesn't just store flat pairs; it stores n-body event-based memories (episodes involving multiple entities, locations, and contexts). Furthermore, consolidation processes selectively prune weak associative connections while preserving global topological path connectivity (modeled as spectral sparsification).
 
-### Proposed Architecture
+### Implemented Architecture
 
-- **Panama-Compatible Hyperedge Layout**: A fixed-width off-heap layout that references role-assigned vertices:
-  ```
-  Hyperedge Node (32B):
-    [edgeId:4B][type:4B][weight:4B][vertexCount:4B]
-    [vertexOffset:4B][memoryIdx:4B][timestamp:8B]
-  ```
-- **Effective Resistance Sparsification**: Computed during the `ReflectDaemon` background consolidation cycle using randomized SVD/Lanczos approximations.
+The `HyperEntityGraph` uses three off-heap Panama FFM segments:
 
-### Dependencies & Complexity
+```
+Hyperedge Node (32B):
+  [edgeId:4B][type:4B][weight:4B][vertexCount:4B]
+  [vertexOffset:4B][memoryIdx:4B][timestamp:8B]
 
-- **Dependencies:** LLM reflection extraction prompt updates to support n-body grouping, 3D Cortex UI hypergraph visualization.
-- **Complexity:** High — dynamic off-heap incidence matrix allocations, spectral matrix computations on large graph Laplacians.
-- **Estimated effort:** 3-4 weeks
+Vertex Entry (8B):
+  [entityId:4B][roleId:4B]
+
+Incidence Index (4B × entityCapacity):
+  [hyperedgeListOffset] → per-entity list of participating hyperedges
+
+Incidence List Entry (4B):
+  [hyperedgeId]
+```
+
+| Property | Value |
+|---|---|
+| Max vertices per hyperedge | 3-8 entities with typed roles |
+| Max hyperedges per entity | 64 (participation cap, weakest eviction) |
+| Persistence | Binary file ("HYEG" magic, V1) |
+
+### Remaining Work (Spectral Sparsification)
+
+- **Effective Resistance Sparsification**: To be computed during the `ReflectDaemon` background consolidation cycle using randomized SVD/Lanczos approximations.
+- **Dependencies:** Approximate eigenvalue computation library, integration with decay cycle.
+- **Estimated effort:** 2-3 weeks
 
 ---
 
@@ -760,7 +779,8 @@ Cognitive memory doesn't just store flat pairs; it stores n-body event-based mem
 | SPLADE Sparse Retrieval | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
 | ColBERT v2 Reranking | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
 | Executive Dysfunction | 🟡 Medium | Medium | ✅ | 1-2 weeks | 🔜 Planned |
-| Hypergraphs & Spectral | 🟢 High | High | ⏳ | 3-4 weeks | 🔬 Research |
+| Hypergraphs | 🟢 High | High | ✅ | 3-4 weeks | ✅ Done |
+| Spectral Sparsification | 🟢 High | High | ⏳ | 2-3 weeks | 🔬 Research |
 | Neuromodulatory Gain | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |
 | Dynamic Quantization | 🟡 Medium | High | ⏳ | 4-6 weeks | 🔬 Research |
 | SPLARE (Sparse Autoencoders) | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |

@@ -1,11 +1,11 @@
 ---
-title: "3-Layer Cognitive Graph"
-description: "HebbianGraph, TemporalChain, and EntityGraph — three biologically-inspired graph structures that augment vector recall with associative, temporal, and relational signals."
+title: "4-Layer Cognitive Graph"
+description: "HebbianGraphCsr, TemporalChain, EntityGraph, and HyperEntityGraph — four biologically-inspired graph structures that augment vector recall with associative, temporal, relational, and hyperedge signals."
 ---
 
-# 🧠 3-Layer Cognitive Graph
+# 🧠 4-Layer Cognitive Graph
 
-> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), and **semantic knowledge** (who manages what project?). Spector Memory implements all three as graph structures that augment vector recall.
+> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), **semantic knowledge** (who manages what project?), and **n-body event groupings** (multi-entity episodes). Spector Memory implements all four as graph structures that augment vector recall.
 
 ---
 
@@ -20,13 +20,15 @@ graph TB
     RP --> S5c["Step 5c: Hebbian<br/>Spreading Activation"]
     RP --> S5d["Step 5d: Temporal<br/>Chain Extension"]
     RP --> S5e["Step 5e: Entity<br/>Graph Traversal"]
+    RP --> S5f["Step 5f: Hyperedge<br/>Set Intersection"]
 
     S5c --> M["Merge & Dedup → Re-sort → Final Top-K"]
     S5d --> M
     S5e --> M
+    S5f --> M
 
     subgraph "Layer 1 — Hebbian Association"
-        HG["HebbianGraph<br/>Co-activation edges"]
+        HG["HebbianGraphCsr<br/>CSR co-activation edges"]
         CAT["CoActivationTracker<br/>Tag-level STDP learning"]
     end
 
@@ -39,16 +41,22 @@ graph TB
         TC["TemporalChain<br/>Session-linked sequences"]
     end
 
+    subgraph "Layer 4 — Hyperedge"
+        HEG["HyperEntityGraph<br/>n-body entity groupings"]
+    end
+
     S5c --> HG
     S5c --> CAT
     S5d --> TC
     S5e --> EG
+    S5f --> HEG
 
     style RP fill:#4a90d9,color:white
     style M fill:#00b894,color:white
     style HG fill:#e74c3c,color:white
     style EG fill:#9b59b6,color:white
     style TC fill:#f39c12,color:white
+    style HEG fill:#e91e63,color:white
 ```
 
 !!! tip "Graceful Degradation"
@@ -79,12 +87,13 @@ graph LR
 
 | Property | Value |
 |---|---|
-| Max degree | 20 neighbors per memory |
-| Edge weight | Float — strengthened on co-ingestion |
-| Eviction | Weakest edge evicted when degree exceeds max |
-| Decay | 0.9× multiplicative factor per consolidation cycle |
+| Max degree | 24 neighbors per memory (configurable) |
+| Edge format | 12B — 4B neighbor + 4B weight + 2B lastCycle + 1B bridgeScore + 1B flags |
+| Storage layout | **CSR (Compressed Sparse Row)** — stores only actual edges, ~90% memory reduction vs. fixed-width |
+| Eviction | Multi-signal importance scoring (weight, recency, bridge centrality, redundancy, arousal, Zeigarnik) |
+| Decay | 0.9× multiplicative factor per consolidation cycle; bridge-protected edges floored instead of evicted |
 | Spreading activation | BFS with depth=2, attenuated by edge weight |
-| Persistence | Binary file with chunked 64KB I/O |
+| Persistence | Binary CSR file (V3 format, "HCSR" magic) with offset + edge segments |
 
 ### How It's Used
 
@@ -185,16 +194,20 @@ The entity graph supports typed BFS traversal with optional relation filtering:
 Entity nodes use a **fixed 64-byte** cache-line-aligned layout with a **separate adjacency segment** for entity→memory links:
 
 ```
-Entity Node (64B):
+Entity Node (64B, 8-byte aligned — V2):
   [type:4B][pad:4B][nameHash:8B]
   [adjOffset:4B][adjCount:4B][adjCapacity:4B][pad:4B]  ← pointer into adjacency segment
   [pad:4B][degree:4B][edgeStart:4B][pad:20B]
+
+Entity Edge (16B — V2):
+  [targetId:4B][relationType:4B][weight:4B]
+  [lastCycle:2B][bridgeScore:1B][flags:1B]
 
 Adjacency Entry (8B):
   [memIdx:4B][weight:4B]    ← weighted link to a memory slot
 ```
 
-This design allows **unlimited** entity→memory associations (no fixed cap), with amortized O(1) growth via block doubling. Each entity starts with 8 adjacency slots and grows as needed.
+This design allows **unlimited** entity→memory associations (no fixed cap), with amortized O(1) growth via block doubling. Each entity starts with 8 adjacency slots and grows as needed. Max 48 entity–entity edges per entity (configurable), with multi-signal importance eviction.
 
 ---
 
@@ -235,23 +248,28 @@ All graph components persist alongside memory data in DISK mode:
 
 | Component | File | Format |
 |---|---|---|
-| HebbianGraph | `hebbian.graph` | Binary with chunked 64KB I/O |
+| HebbianGraphCsr | `hebbian.graph` | CSR V3 ("HCSR" magic) — offset segment + edge segment. Auto-migrates legacy V2 files. |
 | CoActivationTracker | `coactivation.dat` | Pair table + edge table + hash→tag map |
-| EntityGraph | `entity.graph` | Entity segment + edge segment + adjacency segment + name index |
-| TemporalChain | `temporal.chain` | Raw linked-list segment |
+| EntityGraph | `entity.graph` | Entity segment + edge segment + adjacency segment + name index ("EGMM" magic, V2) |
+| HyperEntityGraph | `hyper-entity.graph` | Hyperedge segment + vertex segment + incidence index + incidence list ("HYEG" magic) |
+| TemporalChain | `temporal.chain` | Raw linked-list segment ("TPCH" magic, V2) |
 | TypeRegistry | `entity-types.reg` / `relation-types.reg` | Type name ↔ ID mappings |
 
 ---
 
 ## Memory Budget
 
-| Layer | Per-Node | At 100K memories | At 1M memories |
+| Layer | Per-Node/Edge | At 100K memories | At 1M memories |
 |---|---|---|---|
-| Hebbian (L1) | 164B | 16.4 MB | 164 MB |
+| Hebbian CSR (L1) | 4B offset + 12B × avg degree (~2) | ~2.8 MB | ~28 MB |
 | CoActivation | ~1MB total | ~1 MB | ~1 MB |
-| Entity (L2) | ~64B + edges + adj | ~8 MB | ~80 MB |
+| Entity (L2) | 64B node + 16B × edges + 8B × adj | ~10 MB | ~100 MB |
+| HyperEntity | 32B hyperedge + 8B × vertices + 4B incidence | ~5 MB | ~50 MB |
 | Temporal (L3) | 16B | 1.6 MB | 16 MB |
-| **Total** | | **~27 MB** | **~261 MB** |
+| **Total** | | **~20 MB** | **~195 MB** |
+
+!!! tip "CSR Memory Savings"
+    The CSR (Compressed Sparse Row) Hebbian layout stores only actual edges rather than pre-allocating MAX_DEGREE slots per node. At observed average degree ~2.0, this reduces Hebbian memory by ~90% compared to the legacy fixed-width layout (292B/node → ~28B/node).
 
 This is small compared to the vector store (100K × 768-dim × 1B quantized = 75 MB).
 
@@ -272,14 +290,65 @@ Traditional vector search treats each query independently. The 3-layer graph cre
 
 ---
 
-## Addressing Graph Node Explosion
+## Layer 4: Hyperedge Entity Graph
 
-As memory capacity grows, the number of nodes in the Entity and Hebbian graphs scales, increasing off-heap allocations and traversal latency. To address this, Spector is researching advanced mathematical compression models:
+> *Collapsing pairwise relationships into n-body groupings.*
 
-- **Hypergraphs**: Collapsing pairwise relationships into n-body hyperedges (e.g. grouping `{Subject, Object, Location}`) to reduce graph complexity by 40-60%.
-- **Spectral Sparsification**: Using eigenvalue-guided (effective resistance) edge pruning during consolidation cycles to maintain spreading activation quality with fewer edges.
+The `HyperEntityGraph` extends the binary Entity Graph by grouping related entities into **hyperedges** — single graph atoms that connect 3-8 entities with typed roles.
 
-For the detailed technical design and development status, see the [Labs Research Roadmap](../labs/roadmap.md#hypergraphs-spectral-sparsification).
+```mermaid
+graph TD
+    subgraph "Binary EntityGraph (3 edges)"
+        A1["Alice"] -->|MANAGES| B1["Project Alpha"]
+        A1 -->|WORKS_AT| C1["Spectrayan"]
+        B1 -->|BELONGS_TO| C1
+    end
+
+    subgraph "HyperEntityGraph (1 hyperedge)"
+        HE["Hyperedge\n{Alice, Project Alpha, Spectrayan}\ntype: MANAGES_AT"]
+        A2["Alice\nrole: AGENT"] --- HE
+        B2["Project Alpha\nrole: OBJECT"] --- HE
+        C2["Spectrayan\nrole: LOCATION"] --- HE
+    end
+
+    style HE fill:#9b59b6,color:white
+    style A1 fill:#3498db,color:white
+    style B1 fill:#2ecc71,color:white
+    style C1 fill:#e74c3c,color:white
+    style A2 fill:#3498db,color:white
+    style B2 fill:#2ecc71,color:white
+    style C2 fill:#e74c3c,color:white
+```
+
+### Key Properties
+
+| Property | Value |
+|---|---|
+| Max vertices per hyperedge | 3-8 entities with typed roles |
+| Max hyperedges per entity | 64 (participation cap with LRU eviction) |
+| Complexity reduction | 40-60% fewer graph atoms vs. binary decomposition |
+| Traversal | Set intersection: O(hyperedges_per_entity × avg_vertices) |
+
+### Off-Heap Layout
+
+```
+Hyperedge Node (32B):
+  [edgeId:4B][type:4B][weight:4B][vertexCount:4B]
+  [vertexOffset:4B][memoryIdx:4B][timestamp:8B]
+
+Vertex Entry (8B):
+  [entityId:4B][roleId:4B]
+
+Incidence Index (4B × entityCapacity):
+  [hyperedgeListOffset] → per-entity list of participating hyperedges
+
+Incidence List Entry (4B):
+  [hyperedgeId]
+```
+
+### How It Complements the Binary Entity Graph
+
+The `HyperEntityGraph` works alongside the traditional `EntityGraph`, not as a replacement. Binary edges remain useful for simple pairwise relations, while hyperedges capture **irreducible multi-entity events** — preserving the semantic unity that binary decomposition loses.
 
 ---
 
