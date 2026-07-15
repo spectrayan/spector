@@ -272,6 +272,17 @@ Traditional vector search treats each query independently. The 3-layer graph cre
 
 ---
 
+## Addressing Graph Node Explosion
+
+As memory capacity grows, the number of nodes in the Entity and Hebbian graphs scales, increasing off-heap allocations and traversal latency. To address this, Spector is researching advanced mathematical compression models:
+
+- **Hypergraphs**: Collapsing pairwise relationships into n-body hyperedges (e.g. grouping `{Subject, Object, Location}`) to reduce graph complexity by 40-60%.
+- **Spectral Sparsification**: Using eigenvalue-guided (effective resistance) edge pruning during consolidation cycles to maintain spreading activation quality with fewer edges.
+
+For the detailed technical design and development status, see the [Labs Research Roadmap](../labs/roadmap.md#hypergraphs-spectral-sparsification).
+
+---
+
 ## Next Steps
 
 - :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — the SIMD hot-loop that produces the seed set
