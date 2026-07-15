@@ -85,6 +85,17 @@ public class CognitiveSoulService {
                 .findFirst();
     }
 
+    /** Lists all agent souls stored in cognitive memory. */
+    public List<AgentSoul> listAllAgents() {
+        var results = memoryService.recall(new RecallRequest("agent soul", 100, null));
+        return results.stream()
+                .filter(r -> r.tags() != null && r.tags().contains(TAG_AGENT_SOUL))
+                .map(r -> fromJson(r.text(), AgentSoul.class))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+    }
+
     /** Saves an agent soul to cognitive memory. */
     public void saveAgentSoul(AgentSoul soul) {
         // First, "forget" old versions to keep memory clean

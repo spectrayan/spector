@@ -147,14 +147,42 @@ public class AgenticChatGraph {
      * @return the agent's final response text
      */
     public String chat(AgentSoul soul, String message, AgentChatListener listener) {
+        return chat(soul, List.of(), message, listener);
+    }
+
+    /**
+     * Executes a user message through the agentic graph with conversation history.
+     *
+     * @param soul     the agent identity
+     * @param history  the conversation history messages
+     * @param message  the user's message
+     * @return the agent's final response text
+     */
+    public String chat(AgentSoul soul, List<ChatMessage> history, String message) {
+        return chat(soul, history, message, AgentChatListener.NOOP);
+    }
+
+    /**
+     * Executes a user message through the agentic graph with conversation history and streaming.
+     *
+     * @param soul     the agent identity
+     * @param history  the conversation history messages
+     * @param message  the user's message
+     * @param listener callback for real-time streaming events
+     * @return the agent's final response text
+     */
+    public String chat(AgentSoul soul, List<ChatMessage> history, String message, AgentChatListener listener) {
         CompiledGraph<AgentState> compiled = compile(soul);
 
         try {
             listener.onThinking("Processing message...");
 
-            // Seed state with the user message
+            // Seed state with the history + user message
+            List<ChatMessage> initialMessages = new ArrayList<>(history);
+            initialMessages.add(UserMessage.from(message));
+
             Map<String, Object> input = Map.of(
-                    MESSAGES_KEY, List.of(UserMessage.from(message))
+                    MESSAGES_KEY, initialMessages
             );
 
             var result = compiled.invoke(input);

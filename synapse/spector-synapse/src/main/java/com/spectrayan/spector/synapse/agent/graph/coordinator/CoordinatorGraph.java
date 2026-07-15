@@ -75,8 +75,9 @@ public final class CoordinatorGraph {
      */
     public static CoordinatorGraph create(LlmBridge llmBridge,
                                            DynamicGraphBuilder dynamicBuilder,
-                                           List<String> availableTools) throws Exception {
-        return create(llmBridge, dynamicBuilder, availableTools, 5);
+                                           List<String> availableTools,
+                                           com.spectrayan.spector.synapse.agent.service.CognitiveSoulService soulService) throws Exception {
+        return create(llmBridge, dynamicBuilder, availableTools, soulService, 5);
     }
 
     /**
@@ -85,19 +86,22 @@ public final class CoordinatorGraph {
      * @param llmBridge      LLM bridge for planner and evaluator calls
      * @param dynamicBuilder dynamic graph builder for subgraph compilation
      * @param availableTools list of available tool names
+     * @param soulService    cognitive soul service for retrieving agent identities
      * @param maxIterations  maximum planning-execution cycles before forced termination
      * @return a new coordinator graph instance
      */
     public static CoordinatorGraph create(LlmBridge llmBridge,
                                            DynamicGraphBuilder dynamicBuilder,
                                            List<String> availableTools,
+                                           com.spectrayan.spector.synapse.agent.service.CognitiveSoulService soulService,
                                            int maxIterations) throws Exception {
         Objects.requireNonNull(llmBridge, "llmBridge");
         Objects.requireNonNull(dynamicBuilder, "dynamicBuilder");
+        Objects.requireNonNull(soulService, "soulService");
 
         final int maxIter = maxIterations > 0 ? maxIterations : 5;
 
-        var planner = new PlannerNode(llmBridge, availableTools);
+        var planner = new PlannerNode(llmBridge, availableTools, soulService);
         var executor = new SubgraphExecutorNode(dynamicBuilder);
         var evaluator = new ResultEvaluatorNode(llmBridge);
 

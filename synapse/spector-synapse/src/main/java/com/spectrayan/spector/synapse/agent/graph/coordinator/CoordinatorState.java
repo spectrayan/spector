@@ -41,7 +41,8 @@ public class CoordinatorState extends AgentState {
             Map.entry("execution_result",  Channels.base(() -> "")),
             Map.entry("iteration",         Channels.base(() -> 0)),
             Map.entry("max_iterations",    Channels.base(() -> 5)),
-            Map.entry("status",            Channels.base(() -> "PLANNING"))
+            Map.entry("status",            Channels.base(() -> "PLANNING")),
+            Map.entry("child_results",     Channels.appender(ArrayList::new))
     );
 
     public CoordinatorState(Map<String, Object> initData) {
@@ -93,5 +94,10 @@ public class CoordinatorState extends AgentState {
 
     public String status() {
         return this.<String>value("status").orElse("PLANNING");
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> childResults() {
+        return this.<List<Map<String, Object>>>value("child_results").orElse(List.of());
     }
 }

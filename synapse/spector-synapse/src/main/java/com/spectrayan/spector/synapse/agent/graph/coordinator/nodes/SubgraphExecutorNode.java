@@ -70,13 +70,16 @@ public final class SubgraphExecutorNode implements NodeAction<CoordinatorState> 
                 CognitiveState subState = result.get();
                 String answer = subState.answer().orElse("(no answer from subgraph)");
                 List<String> subContext = subState.context();
+                List<?> subChildResults = subState.value("child_results")
+                        .map(o -> (List<?>) o).orElse(List.of());
 
-                log.info("[SubgraphExecutorNode] Subgraph completed: answer={} chars, context={} entries",
-                        answer.length(), subContext.size());
+                log.info("[SubgraphExecutorNode] Subgraph completed: answer={} chars, context={} entries, childResults={} entries",
+                        answer.length(), subContext.size(), subChildResults.size());
 
                 return Map.of(
                         "execution_result", answer,
                         "context", subContext,
+                        "child_results", subChildResults,
                         "status", "EVALUATING"
                 );
             }

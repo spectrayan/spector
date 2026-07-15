@@ -39,10 +39,14 @@ public final class PlannerNode implements NodeAction<CoordinatorState> {
 
     private final LlmBridge llmBridge;
     private final List<String> availableTools;
+    private final com.spectrayan.spector.synapse.agent.service.CognitiveSoulService soulService;
 
-    public PlannerNode(LlmBridge llmBridge, List<String> availableTools) {
+    public PlannerNode(LlmBridge llmBridge,
+                       List<String> availableTools,
+                       com.spectrayan.spector.synapse.agent.service.CognitiveSoulService soulService) {
         this.llmBridge = Objects.requireNonNull(llmBridge, "llmBridge");
         this.availableTools = availableTools != null ? availableTools : List.of();
+        this.soulService = Objects.requireNonNull(soulService, "soulService");
     }
 
     @Override
@@ -58,10 +62,22 @@ public final class PlannerNode implements NodeAction<CoordinatorState> {
 
         String executionResult = state.executionResult().orElse("(no previous execution)");
 
+        List<com.spectrayan.spector.synapse.agent.AgentSoul> agents = soulService.listAllAgents();
+        StringBuilder agentsList = new StringBuilder();
+        if (agents.isEmpty()) {
+            agentsList.append("- No specialized child agents available (use default system assistant)\n");
+        } else {
+            for (var agent : agents) {
+                agentsList.append(String.format("- ID: %s | Name: %s | Purpose: %s | Tools: %s\n",
+                        agent.id(), agent.name(), agent.purpose(), String.join(", ", agent.tools())));
+            }
+        }
+
         String promptTemplate = loadPromptTemplate("coordinator-planner-system");
         String prompt = promptTemplate
                 .replace("{{task}}", task)
                 .replace("{{available_tools}}", String.join(", ", availableTools))
+                .replace("{{available_agents}}", agentsList.toString())
                 .replace("{{context}}", context)
                 .replace("{{previous_result}}", executionResult)
                 .replace("{{iteration}}", String.valueOf(iteration));

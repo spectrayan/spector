@@ -13,6 +13,7 @@
 package com.spectrayan.spector.synapse.agent;
 
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
+import com.spectrayan.spector.synapse.agent.graph.AgenticChatGraph;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,16 +40,26 @@ public class AgentController {
 
     private final CognitiveSoulService soulService;
     private final ToolRegistry toolRegistry;
+    private final AgenticChatGraph agenticChatGraph;
 
-    public AgentController(CognitiveSoulService soulService, ToolRegistry toolRegistry) {
+    public AgentController(CognitiveSoulService soulService,
+                           ToolRegistry toolRegistry,
+                           AgenticChatGraph agenticChatGraph) {
         this.soulService = soulService;
         this.toolRegistry = toolRegistry;
+        this.agenticChatGraph = agenticChatGraph;
     }
 
     /** Get the current active agent soul. */
     @GetMapping("/soul")
     public ResponseEntity<AgentSoul> getSoul() {
         return ResponseEntity.ok(soulService.getActiveSoul());
+    }
+
+    /** Get the current active agent card manifest. */
+    @GetMapping("/soul/card")
+    public ResponseEntity<AgentCard> getSoulCard() {
+        return ResponseEntity.ok(AgentCard.from(soulService.getActiveSoul()));
     }
 
     /** Create/Update the active agent soul. */
@@ -146,5 +157,31 @@ public class AgentController {
                 "count", toolDetails.size(),
                 "tools", toolDetails
         ));
+    }
+
+    /** Get an agent card manifest by ID. */
+    @GetMapping("/{id}/card")
+    public ResponseEntity<AgentCard> getAgentCard(@PathVariable String id) {
+        return soulService.loadAgentSoul(id)
+                .map(AgentCard::from)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Invoke an agent by ID to chat. */
+    @PostMapping("/{id}/invoke")
+    public ResponseEntity<Map<String, String>> invokeAgent(
+            @PathVariable String id,
+            @RequestBody Map<String, String> payload) {
+        String prompt = payload.get("prompt");
+        if (prompt == null || prompt.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        return soulService.loadAgentSoul(id)
+                .map(soul -> {
+                    String reply = agenticChatGraph.chat(soul, prompt);
+                    return ResponseEntity.ok(Map.of("response", reply));
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 }
