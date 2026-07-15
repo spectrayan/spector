@@ -84,6 +84,7 @@ public final class CognitiveProfileConfig {
         NEURODIVERGENT_PROFILES.add(CognitiveProfile.HYPERFOCUS);
         NEURODIVERGENT_PROFILES.add(CognitiveProfile.SYSTEMATIZER);
         NEURODIVERGENT_PROFILES.add(CognitiveProfile.DIVERGENT);
+        NEURODIVERGENT_PROFILES.add(CognitiveProfile.EXECUTIVE_DYSFUNCTION);
     }
 
     /** All profiles. */
