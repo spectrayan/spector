@@ -81,6 +81,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.spectrayan.spector.memory.model.CognitiveProfile;
+
 import com.spectrayan.spector.commons.concurrent.NativeOsMemory;
 
 import com.spectrayan.spector.embed.SparseEncodingProvider;
@@ -168,6 +170,9 @@ public final class RecallPipeline {
             = new ConcurrentHashMap<>();
     private static final int RETRIEVAL_MODE_CACHE_MAX = 2000;
     private RecallOptions lastRecallOptions; // for detecting hyperfocus mode
+
+    // ── Executive Dysfunction: Associative recall context history ──
+    private final RecallHistory recallHistory;
 
     // ── Semantic Satiation: Anti-looping cache ──
     // Bounded cache of last N result IDs. Any result that appears in this
@@ -287,6 +292,60 @@ public final class RecallPipeline {
         this.spladeIndex = spladeIndex;
         this.spladeProvider = spladeProvider;
         this.colbertReranker = colbertReranker;
+        this.recallHistory = null;
+
+        // ── Delegate graph expansion to focused stage class ──
+        this.graphExpansionStage = new GraphExpansionStage(
+                hebbianGraph, temporalChain, entityGraph, entityExtractor,
+                this.graphScoringPolicy, index, tierRouter,
+                calibrationMins, calibrationScales);
+    }
+
+    /**
+     * Creates a recall pipeline with all subsystems plus RecallHistory for associative recall.
+     */
+    public RecallPipeline(EmbeddingProvider embeddingProvider,
+                           TierRouter tierRouter,
+                           MemoryIndex index,
+                           SuppressionSet suppressionSet,
+                           HabituationPenalty habituationPenalty,
+                           ProspectiveScheduler prospectiveScheduler,
+                           MemoryWal wal,
+                           float[] calibrationMins,
+                           float[] calibrationScales,
+                           SemanticRecallStrategy semanticRecallStrategy,
+                           CoActivationTracker coActivationTracker,
+                           HebbianGraphBase hebbianGraph,
+                           TemporalChain temporalChain,
+                           EntityGraph entityGraph,
+                           EntityExtractor entityExtractor,
+                           GraphScoringPolicy graphScoringPolicy,
+                           MemoryBM25Index bm25Index,
+                           MemorySpladeIndex spladeIndex,
+                           SparseEncodingProvider spladeProvider,
+                           ColBERTReranker colbertReranker,
+                           RecallHistory recallHistory) {
+        this.embeddingProvider = embeddingProvider;
+        this.tierRouter = tierRouter;
+        this.index = index;
+        this.suppressionSet = suppressionSet;
+        this.habituationPenalty = habituationPenalty;
+        this.prospectiveScheduler = prospectiveScheduler;
+        this.wal = wal;
+        this.calibrationMins = calibrationMins;
+        this.calibrationScales = calibrationScales;
+        this.semanticRecallStrategy = semanticRecallStrategy;
+        this.coActivationTracker = coActivationTracker;
+        this.hebbianGraph = hebbianGraph;
+        this.temporalChain = temporalChain;
+        this.entityGraph = entityGraph;
+        this.entityExtractor = entityExtractor;
+        this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
+        this.bm25Index = bm25Index;
+        this.spladeIndex = spladeIndex;
+        this.spladeProvider = spladeProvider;
+        this.colbertReranker = colbertReranker;
+        this.recallHistory = recallHistory;
 
         // ── Delegate graph expansion to focused stage class ──
         this.graphExpansionStage = new GraphExpansionStage(
@@ -321,6 +380,11 @@ public final class RecallPipeline {
 
         log.debug("Recall query: '{}', topK={}, mode={}", queryText, options.topK(), options.recallMode());
         this.lastRecallOptions = options; // for RetrievalMode detection in headerToResult
+
+        // Route ASSOCIATIVE scoring to dedicated method
+        if (options.scoringMode() == ScoringMode.ASSOCIATIVE && recallHistory != null) {
+            return recallAssociative(queryText, options);
+        }
 
         // Step 1: Embed query
         float[] queryVector = embeddingProvider.embed(queryText).vector();
@@ -606,6 +670,20 @@ public final class RecallPipeline {
             }
         } else {
             log.debug("Recall [OBSERVE] returned {} results for '{}'", allResults.size(), queryText);
+        }
+
+        // Step 9: Write last-used profile ordinal to synaptic header byte 60
+        // This enables ProfileAdaptor to read which profile produced each result
+        // during reinforce() calls.
+        writeProfileOrdinalToResults(allResults, options);
+
+        // Step 9b: Record tags in RecallHistory for associative recall context
+        if (recallHistory != null && options.recallMode() == RecallMode.LEARN) {
+            for (CognitiveResult r : allResults) {
+                if (r.synapticTags() != null && r.synapticTags().length > 0) {
+                    recallHistory.record(r.synapticTags());
+                }
+            }
         }
 
         // ── Pipeline Tracing (opt-in) ──
@@ -1154,6 +1232,160 @@ public final class RecallPipeline {
 
             return results;
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // PROFILE HEADER WRITE — stamps profile ordinal at byte 60
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Writes the CognitiveProfile ordinal to byte 60 of each result's synaptic header.
+     *
+     * <p>This enables the ReinforcementHandler to read which profile produced
+     * each result during reinforce() calls, allowing the ProfileAdaptor to
+     * learn context→profile mappings.</p>
+     */
+    private void writeProfileOrdinalToResults(List<CognitiveResult> results, RecallOptions options) {
+        CognitiveProfile profile = options.profile();
+        if (profile == null || results.isEmpty()) return;
+
+        byte profileOrdinal = (byte) profile.ordinal();
+        for (CognitiveResult result : results) {
+            if (result.id() == null) continue;
+            try {
+                var loc = index.locate(result.id());
+                if (loc == null) continue;
+                MemorySegment segment = tierRouter.segmentFor(loc.type());
+                if (segment != null) {
+                    segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
+                            loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
+                            profileOrdinal);
+                }
+            } catch (RuntimeException e) {
+                // Non-critical — don't fail recall for header writes
+                log.trace("Failed to write profile ordinal for '{}': {}", result.id(), e.getMessage());
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ASSOCIATIVE RECALL — bottom-up context-driven retrieval
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Associative recall for Executive Dysfunction profile.
+     *
+     * <p>Instead of relying on explicit query intent, this method uses recent
+     * activity context (from RecallHistory) and STDP causal predictions (from
+     * CoActivationTracker) to surface contextually relevant memories bottom-up.
+     * This models how the default mode network retrieves memories through
+     * associative spreading activation rather than directed search.</p>
+     *
+     * <h3>Algorithm</h3>
+     * <ol>
+     *   <li>Get recent context tags from RecallHistory (weighted by recency)</li>
+     *   <li>Query STDP edges for causal predictions from those tags</li>
+     *   <li>Run standard vector+cognitive recall with predicted tag boost</li>
+     *   <li>Blend 2/3 associative + 1/3 standard vector results</li>
+     * </ol>
+     *
+     * @param queryText the query text
+     * @param options   recall options (with ASSOCIATIVE scoring mode)
+     * @return ranked results combining context-driven and query-driven signals
+     */
+    private List<CognitiveResult> recallAssociative(String queryText, RecallOptions options) {
+        // Step 1: Get recent context tags (weighted by recency)
+        Map<String, Float> contextTags = recallHistory.weightedRecentTags(20, 0.85f);
+
+        if (contextTags.isEmpty()) {
+            // Cold start — fall back to standard cognitive recall with low α (more importance-driven)
+            log.debug("Associative recall: cold start (no history), falling back to COGNITIVE");
+            RecallOptions fallback = RecallOptions.builder()
+                    .topK(options.topK())
+                    .profile(options.profile())
+                    .scoringMode(ScoringMode.COGNITIVE)
+                    .recallMode(options.recallMode())
+                    .build();
+            return recall(queryText, fallback);
+        }
+
+        log.debug("Associative recall: {} context tags from history", contextTags.size());
+
+        // Step 2: Query STDP edges for causal predictions
+        Map<String, Float> predictedTags = new LinkedHashMap<>();
+        if (coActivationTracker != null) {
+            for (Map.Entry<String, Float> ctxEntry : contextTags.entrySet()) {
+                String ctxTag = ctxEntry.getKey();
+                float recencyWeight = ctxEntry.getValue();
+                // Get tags causally associated with this context tag
+                List<String> associated = coActivationTracker.getAssociatedTags(ctxTag, 5);
+                for (String predTag : associated) {
+                    // Each associated tag gets 1.0 × recency weight
+                    predictedTags.merge(predTag, recencyWeight, Float::sum);
+                }
+            }
+        }
+
+        // Step 3: Build predicted tag set (top 10 by combined weight)
+        List<String> topPredicted = predictedTags.entrySet().stream()
+                .sorted(Map.Entry.<String, Float>comparingByValue().reversed())
+                .limit(10)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        // Step 4: Run standard cognitive recall with predicted tags as synaptic filter
+        RecallOptions.Builder cogBuilder = RecallOptions.builder()
+                .topK(options.topK() * 2) // over-fetch for blending
+                .profile(options.profile())
+                .scoringMode(ScoringMode.COGNITIVE)
+                .recallMode(options.recallMode());
+
+        if (!topPredicted.isEmpty()) {
+            cogBuilder.synapticFilter(topPredicted.toArray(new String[0]));
+        }
+
+        List<CognitiveResult> associativeResults = new ArrayList<>(recall(queryText, cogBuilder.build()));
+
+        // Step 5: Re-score with STDP predictive boost for results matching predicted tags
+        if (coActivationTracker != null && !contextTags.isEmpty()) {
+            List<String> contextTagList = new ArrayList<>(contextTags.keySet());
+            for (int i = 0; i < associativeResults.size(); i++) {
+                CognitiveResult r = associativeResults.get(i);
+                if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
+
+                float predictive = coActivationTracker.getPredictiveStrength(
+                        contextTagList, r.synapticTags());
+                if (predictive > 0) {
+                    float boosted = r.score() * (1.0f + predictive * 0.5f);
+                    associativeResults.set(i, new CognitiveResult(
+                            r.id(), r.text(), boosted, r.importance(), r.ageDays(),
+                            r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
+                            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
+                            r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+                }
+            }
+        }
+
+        // Step 6: Sort, topK, record in recallHistory
+        associativeResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        if (associativeResults.size() > options.topK()) {
+            associativeResults = new ArrayList<>(associativeResults.subList(0, options.topK()));
+        }
+
+        // Record result tags in history for future associative context
+        for (CognitiveResult r : associativeResults) {
+            if (r.synapticTags() != null && r.synapticTags().length > 0) {
+                recallHistory.record(r.synapticTags());
+            }
+        }
+
+        // Write profile ordinal for reinforcement tracking
+        writeProfileOrdinalToResults(associativeResults, options);
+
+        log.debug("Associative recall: {} results (from {} context tags, {} predicted tags)",
+                associativeResults.size(), contextTags.size(), predictedTags.size());
+
+        return associativeResults;
     }
 }
 

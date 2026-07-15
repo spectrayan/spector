@@ -17,6 +17,8 @@ import com.spectrayan.spector.commons.concurrent.DaemonPolicy;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
+import com.spectrayan.spector.memory.pipeline.RecallHistory;
 import com.spectrayan.spector.embed.EmbedConfig;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.ParallelEmbeddingPipeline;
@@ -126,7 +128,8 @@ public final class SpectorMemoryFactory {
             EmbedConfig embedConfig,
             Path resolvedPartitionDir,
             Path basePath,
-            SpectorNamespaceManager namespaceManager
+            SpectorNamespaceManager namespaceManager,
+            ProfileAdaptor profileAdaptor
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -481,6 +484,22 @@ public final class SpectorMemoryFactory {
             rebuildHnswIfNeeded(builder, tierRouter, index, quantizer);
         }
 
+        // ── ProfileAdaptor (Contextual Bandit) ──
+        CognitiveProfile salienceDefault = null;
+        if (builder.salienceProfileProvider != null) {
+            SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
+            if (effective != null) {
+                salienceDefault = effective.defaultProfile();
+            }
+        }
+        ProfileAdaptor profileAdaptor = new ProfileAdaptor(salienceDefault);
+        if (!coActivationTracker.banditStats().isEmpty()) {
+            profileAdaptor.loadStats(coActivationTracker.banditStats());
+        }
+
+        // ── RecallHistory (Executive Dysfunction context buffer) ──
+        RecallHistory recallHistory = new RecallHistory();
+
         // ── Recall Pipeline ──
         RecallPipeline recallPipeline = new RecallPipeline(
                 embeddingProvider, tierRouter, index,
@@ -488,7 +507,8 @@ public final class SpectorMemoryFactory {
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
                 null, hebbianGraph, temporalChain, entityGraph, entityExtractor,
                 builder.graphScoringPolicy, bm25Index,
-                memorySpladeIndex, builder.sparseEncodingProvider, colbertReranker);
+                memorySpladeIndex, builder.sparseEncodingProvider, colbertReranker,
+                recallHistory);
 
         recallPipeline.addListener(new LtpReconsolidationListener(index, tierRouter, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
@@ -503,7 +523,7 @@ public final class SpectorMemoryFactory {
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
                 valenceTracker, hebbianGraph, lateralEvaluator, recallPipeline,
-                wal, builder.twoFactorConfig);
+                wal, builder.twoFactorConfig, profileAdaptor);
 
         // ── Cognitive Graph Facade ──
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
@@ -557,7 +577,7 @@ public final class SpectorMemoryFactory {
                 entityGraph, hyperEntityGraph, graphFacade, idGenerator,
                 checkpointDaemon, daemonSupervisor, bm25Index, attachmentProcessor,
                 parallelPipeline, embedConfig, resolvedPartitionDir, basePath,
-                namespaceManager
+                namespaceManager, profileAdaptor
         );
     }
 

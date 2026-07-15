@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
@@ -65,19 +66,22 @@ final class ReinforcementHandler {
     private final RecallPipeline recallPipeline;
     private final MemoryWal wal;
     private final TwoFactorConfig twoFactorConfig;
+    private final ProfileAdaptor profileAdaptor;
 
     ReinforcementHandler(ValenceTracker valenceTracker,
                          HebbianGraphBase hebbianGraph,
                          LateralEvaluator lateralEvaluator,
                          RecallPipeline recallPipeline,
                          MemoryWal wal,
-                         TwoFactorConfig twoFactorConfig) {
+                         TwoFactorConfig twoFactorConfig,
+                         ProfileAdaptor profileAdaptor) {
         this.valenceTracker = valenceTracker;
         this.hebbianGraph = hebbianGraph;
         this.lateralEvaluator = lateralEvaluator;
         this.recallPipeline = recallPipeline;
         this.wal = wal;
         this.twoFactorConfig = twoFactorConfig;
+        this.profileAdaptor = profileAdaptor;
     }
 
     /**
@@ -144,6 +148,28 @@ final class ReinforcementHandler {
 
         // Step 6: WAL append
         wal.appendReinforce(memoryId, valence);
+
+        // Step 7: ProfileAdaptor — record reinforcement outcome for profile learning
+        if (profileAdaptor != null && segment != null) {
+            try {
+                // Read profile ordinal from synaptic header byte 60
+                byte profileOrdinal = segment.get(
+                        java.lang.foreign.ValueLayout.JAVA_BYTE,
+                        loc.offset() + com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE);
+                if (profileOrdinal >= 0 && profileOrdinal < com.spectrayan.spector.memory.model.CognitiveProfile.values().length) {
+                    com.spectrayan.spector.memory.model.CognitiveProfile usedProfile =
+                            com.spectrayan.spector.memory.model.CognitiveProfile.values()[profileOrdinal];
+                    // Read tag names from the MemoryIndex (bloom filter can't be reversed)
+                    String[] tags = index.tags(memoryId);
+                    if (tags != null && tags.length > 0) {
+                        profileAdaptor.recordOutcome(usedProfile, tags, valence > 0);
+                    }
+                }
+            } catch (RuntimeException e) {
+                log.debug("ProfileAdaptor recording failed for '{}': {}", memoryId, e.getMessage());
+            }
+        }
+
         log.debug("Reinforce: '{}' with valence={}", memoryId, valence);
     }
 
