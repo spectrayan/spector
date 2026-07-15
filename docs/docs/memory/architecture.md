@@ -15,7 +15,7 @@ Spector Memory is organized around a **biological metaphor** where each Java pac
 |---|---|---|
 | `SpectorMemory` | Single entry point for all operations | Configure tiers, capacities, embedding providers |
 | `TierStore` interface | Add new memory tiers | Implement the interface + register in `TierRouter` — no other changes needed |
-| `AbstractTierStore` | Common tier lifecycle | Extend for new off-heap tier stores with Arena/segment management |
+| `AbstractTierStore` | Common tier lifecycle | Base implementation for custom tier storage backends |
 | `RecallListener` | Post-recall hooks | Add async listeners for co-activation tracking, logging, metrics |
 | `CognitiveIngestionTarget` / `RecallPipeline` | Discrete processing steps | Each step is independently testable and replaceable |
 

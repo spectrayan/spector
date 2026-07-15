@@ -17,18 +17,13 @@ Human memory is not a single system. Cognitive science identifies distinct memor
 graph TB
     subgraph "TierRouter — Polymorphic Registry"
         direction TB
-        TR["TierStore interface"]
+        TR["TierStore interface"]:::core
     end
     
-    TR --> WM["🧪 Working Memory<br/>WorkingMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Prefrontal Cortex<br/>Volatile circular buffer<br/>~100 records"]
-    TR --> EM["📝 Episodic Memory<br/>EpisodicMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Hippocampus<br/>Time-partitioned mmap<br/>Unbounded"]
-    TR --> SE["🧬 Semantic Memory<br/>SemanticMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Neocortex<br/>Permanent knowledge<br/>~5,000 records"]
-    TR --> PR["⚙️ Procedural Memory<br/>ProceduralMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Basal Ganglia<br/>Learned procedures<br/>~500 records"]
-    
-    style WM fill:#e74c3c,color:white
-    style EM fill:#3498db,color:white
-    style SE fill:#2ecc71,color:white
-    style PR fill:#9b59b6,color:white
+    TR --> WM["🧪 Working Memory<br/>WorkingMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Prefrontal Cortex<br/>Volatile circular buffer<br/>~100 records"]:::working
+    TR --> EM["📝 Episodic Memory<br/>EpisodicMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Hippocampus<br/>Time-partitioned files<br/>Unbounded"]:::episodic
+    TR --> SE["🧬 Semantic Memory<br/>SemanticMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Neocortex<br/>Permanent knowledge<br/>~5,000 records"]:::semantic
+    TR --> PR["⚙️ Procedural Memory<br/>ProceduralMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Basal Ganglia<br/>Learned procedures<br/>~500 records"]:::procedural
 ```
 
 ---
@@ -47,7 +42,7 @@ All four stores implement a common `TierStore` interface. The `TierRouter` dispa
 
 | Property | Value |
 |---|---|
-| Storage | Volatile off-heap segment |
+| Storage | In-memory segment (volatile) |
 | Capacity | Configurable (default: 100) |
 | Eviction | Circular buffer — oldest entries overwritten |
 | Persistence | **None** — lost on JVM shutdown |
@@ -65,7 +60,7 @@ Working memory operates as a circular buffer: when the buffer is full, the oldes
 
 | Property | Value |
 |---|---|
-| Storage | Memory-mapped files (`FileChannel.map()`) |
+| Storage | Memory-mapped files (persistent) |
 | Capacity | Unbounded (1 partition per day, each up to 10,000 records) |
 | Eviction | Tombstone + compaction |
 | Persistence | **Full** — survives JVM restarts |
@@ -73,7 +68,7 @@ Working memory operates as a circular buffer: when the buffer is full, the oldes
 
 ### Partition Lifecycle
 
-Each episodic partition is a memory-mapped file with a 64-byte metadata header:
+Each episodic partition is a structured memory-mapped file with a binary metadata header:
 
 ```
 ┌─── Partition File ─────────────────────────────────────────┐
@@ -86,10 +81,10 @@ Each episodic partition is a memory-mapped file with a 64-byte metadata header:
 │   ├── 4B state (ACTIVE/SEALED/REFLECTABLE/TOMBSTONED/...)  │
 │   ├── 4B stride                                             │
 │   └── 36B reserved                                          │
-├── [Record 0: 64B header + NB vector] ──────────────────────┤
-├── [Record 1: 64B header + NB vector] ──────────────────────┤
+│─── [Record 0: Header + Quantized Vector] ──────────────────┤
+│─── [Record 1: Header + Quantized Vector] ──────────────────┤
 │   ...                                                       │
-└── [Record N-1]  ───────────────────────────────────────────┘
+└─── [Record N-1]  ───────────────────────────────────────────┘
 ```
 
 **Partition state machine**:
@@ -114,11 +109,11 @@ stateDiagram-v2
 
 | Property | Value |
 |---|---|
-| Storage | Rolling `semantic-NNN.mem` files |
+| Storage | Persistent rolling files |
 | Capacity per partition | Configurable (default: 10,000 records) |
 | Total capacity | Unbounded (new partitions roll automatically) |
 | Eviction | Tombstone + per-partition compaction |
-| Persistence | **Full** — mmap-backed files survive restarts |
+| Persistence | **Full** — persistent files survive restarts |
 | Recall | Parallel per-partition scan via virtual threads |
 | Use case | "The user prefers dark mode", "Java uses garbage collection" |
 
@@ -146,7 +141,7 @@ stateDiagram-v2
 
 | Property | Value |
 |---|---|
-| Storage | Fixed-capacity off-heap slab |
+| Storage | Fixed-capacity in-memory slab |
 | Capacity | Configurable (default: 5,000) |
 | Use case | Small deployments or in-memory mode |
 
@@ -158,7 +153,7 @@ stateDiagram-v2
 
 | Property | Value |
 |---|---|
-| Storage | Linear off-heap segment |
+| Storage | Linear in-memory segment |
 | Capacity | Configurable (default: 500) |
 | Eviction | None (append-only) |
 | Persistence | Via WAL replay |
