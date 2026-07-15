@@ -51,7 +51,8 @@ public class CognitiveState extends AgentState {
             "answer",         Channels.base(() -> ""),
             "attempt",        Channels.base(() -> 0),
             "tool_calls",     Channels.appender(ArrayList::new),
-            "tool_results",   Channels.appender(ArrayList::new)
+            "tool_results",   Channels.appender(ArrayList::new),
+            "child_results",  Channels.appender(ArrayList::new)
     );
 
     public CognitiveState(Map<String, Object> initData) {
@@ -93,5 +94,10 @@ public class CognitiveState extends AgentState {
     @SuppressWarnings("unchecked")
     public List<String> toolResults() {
         return this.<List<String>>value("tool_results").orElse(List.of());
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> childResults() {
+        return this.<List<Map<String, Object>>>value("child_results").orElse(List.of());
     }
 }

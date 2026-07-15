@@ -4,6 +4,9 @@ TASK: {{task}}
 
 AVAILABLE TOOLS: {{available_tools}}
 
+AVAILABLE AGENTS:
+{{available_agents}}
+
 PREVIOUS CONTEXT:
 {{context}}
 

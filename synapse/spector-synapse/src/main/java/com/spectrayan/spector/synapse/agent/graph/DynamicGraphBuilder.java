@@ -25,6 +25,9 @@ import com.spectrayan.spector.synapse.agent.graph.spec.ConditionalEdgeSpec;
 import com.spectrayan.spector.synapse.agent.graph.spec.EdgeSpec;
 import com.spectrayan.spector.synapse.agent.graph.spec.FlowSpec;
 import com.spectrayan.spector.synapse.agent.graph.spec.NodeSpec;
+import com.spectrayan.spector.synapse.agent.graph.coordinator.AgentSelector;
+import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
+import com.spectrayan.spector.synapse.agent.AgentSoul;
 
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 
@@ -72,14 +75,24 @@ public final class DynamicGraphBuilder {
 
     private final LlmBridge llmBridge;
     private final ToolRegistry toolRegistry;
+    private final AgentSelector agentSelector;
+    private final AgenticChatGraph agenticChatGraph;
+    private final CognitiveSoulService soulService;
 
     /** Cache of compiled subgraphs by flow ID — compile once, execute many times. */
     private final ConcurrentHashMap<String, CompiledGraph<CognitiveState>> subgraphCache =
             new ConcurrentHashMap<>();
 
-    public DynamicGraphBuilder(LlmBridge llmBridge, ToolRegistry toolRegistry) {
+    public DynamicGraphBuilder(LlmBridge llmBridge,
+                               ToolRegistry toolRegistry,
+                               AgentSelector agentSelector,
+                               AgenticChatGraph agenticChatGraph,
+                               CognitiveSoulService soulService) {
         this.llmBridge = Objects.requireNonNull(llmBridge, "llmBridge");
         this.toolRegistry = Objects.requireNonNull(toolRegistry, "toolRegistry");
+        this.agentSelector = Objects.requireNonNull(agentSelector, "agentSelector");
+        this.agenticChatGraph = Objects.requireNonNull(agenticChatGraph, "agenticChatGraph");
+        this.soulService = Objects.requireNonNull(soulService, "soulService");
     }
 
     /**
@@ -199,39 +212,25 @@ public final class DynamicGraphBuilder {
                                                         NodeSpec nodeSpec,
                                                         FlowSpec flowSpec) {
         String agentId = nodeSpec.agent() != null ? nodeSpec.agent() : nodeName;
-        AgentSpec agentSpec = flowSpec.agentById(agentId);
 
-        String systemPrompt;
-        if (agentSpec != null && agentSpec.systemPrompt() != null) {
-            systemPrompt = agentSpec.systemPrompt();
-        } else {
-            // Load default system prompt from classpath
-            systemPrompt = loadPromptTemplate("agent-default-system");
-        }
+        // Resolve the child agent's soul
+        AgentSoul soul = agentSelector.getAgentByIdOrSelection(agentId, nodeSpec.description())
+                .orElseGet(() -> {
+                    // Fall back to inline FlowSpec agent if defined in the flow
+                    AgentSpec agentSpec = flowSpec.agentById(agentId);
+                    if (agentSpec != null) {
+                        return AgentSoul.builder()
+                                .id(agentId)
+                                .name(agentSpec.name() != null ? agentSpec.name() : agentId)
+                                .systemPrompt(agentSpec.systemPrompt())
+                                .model(agentSpec.llm() != null ? agentSpec.llm().model() : "qwen3.5:latest")
+                                .build();
+                    }
+                    // Fall back to active default soul
+                    return soulService.getActiveSoul();
+                });
 
-        // Resolve LLM configuration from the agent spec (if present)
-        final var llmSpec = (agentSpec != null && agentSpec.llm() != null)
-                ? agentSpec.llm() : null;
-
-        final String prompt = systemPrompt;
-        return state -> {
-            String query = state.query();
-            String context = String.join("\n", state.context());
-
-            String fullPrompt = prompt + "\n\n=== Context ===\n" + context
-                    + "\n\n=== User Query ===\n" + query;
-
-            // Use per-agent LlmSpec if configured, otherwise default model
-            String response = (llmSpec != null)
-                    ? llmBridge.generate(fullPrompt, llmSpec)
-                    : llmBridge.generate(fullPrompt);
-
-            log.debug("[DynamicGraphBuilder] Agent '{}' generated {} chars (model={})",
-                    nodeName, response.length(),
-                    llmSpec != null ? llmSpec.model() : "default");
-
-            return Map.of("answer", response);
-        };
+        return new com.spectrayan.spector.synapse.agent.graph.coordinator.AgentDelegationNode(agenticChatGraph, soul);
     }
 
     private NodeAction<CognitiveState> createToolNode(String nodeName, NodeSpec nodeSpec) {
