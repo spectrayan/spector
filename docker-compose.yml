@@ -56,4 +56,4 @@ services:
 
 volumes:
   spector-data:
-    driver: local
+    external: true

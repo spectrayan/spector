@@ -250,7 +250,7 @@ public final class BridgeDetector {
         inTree[root] = true;
 
         // Maximum walk steps to prevent infinite loops on disconnected components
-        int maxSteps = nodeCount * 10;
+        int maxSteps = Math.max(10, activeNodes.size() * 2);
 
         // Process each active node not yet in the tree
         for (int activeNode : activeNodes) {

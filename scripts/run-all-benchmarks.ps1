@@ -26,7 +26,7 @@ if (!$SkipBuild) {
     Write-Host "── Building spector-bench module ──" -ForegroundColor Yellow
     Push-Location $projectRoot
     try {
-        mvn -B package -pl bench/spector-bench -am -DskipTests --no-transfer-progress
+        mvn -B install -pl bench/spector-bench -am -DskipTests --no-transfer-progress
         if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: Maven build failed" -ForegroundColor Red
             exit 1
@@ -70,6 +70,7 @@ $jvmArgs = @(
     "--add-opens", "java.base/java.lang.foreign=ALL-UNNAMED",
     "-Xmx${HeapMb}m",
     "-Dlogback.configurationFile=logback-bench.xml",
+    "-Dspector.embedding.cache-dir=$(Join-Path $DatasetsBase '.spector-bench')",
     "-cp", $classpath
 )
 

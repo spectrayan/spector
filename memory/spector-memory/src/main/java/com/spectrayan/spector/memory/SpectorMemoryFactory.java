@@ -233,16 +233,19 @@ public final class SpectorMemoryFactory {
         MemoryIndex index;
         if (isDisk && basePath != null) {
             Path runtimeIndex = StorageLayout.indexMidxRuntime(basePath);
+            Path partitionIndex = resolvedPartitionDir != null ? StorageLayout.indexMidx(resolvedPartitionDir) : null;
             Path legacyIndex = StorageLayout.legacyIndex(basePath);
-            if (java.nio.file.Files.exists(runtimeIndex)) {
-                index = MemoryIndex.load(runtimeIndex);
-            } else if (resolvedPartitionDir != null
-                    && java.nio.file.Files.exists(StorageLayout.indexMidx(resolvedPartitionDir))) {
-                index = MemoryIndex.load(StorageLayout.indexMidx(resolvedPartitionDir));
-                log.info("Loaded V2 index from partition — will save to runtime/ on next close");
-            } else if (java.nio.file.Files.exists(legacyIndex)) {
-                index = MemoryIndex.load(legacyIndex);
-                log.info("Loaded legacy memory-index.mem — will save to runtime/ on next close");
+
+            Path loadFrom = getNewerPath(runtimeIndex, partitionIndex, legacyIndex);
+            if (loadFrom != null) {
+                index = MemoryIndex.load(loadFrom);
+                if (loadFrom.equals(partitionIndex)) {
+                    log.info("Loaded index from partition (newer than runtime index): {}", loadFrom);
+                } else if (loadFrom.equals(legacyIndex)) {
+                    log.info("Loaded legacy index: {}", loadFrom);
+                } else {
+                    log.info("Loaded index from runtime: {}", loadFrom);
+                }
             } else {
                 index = new MemoryIndex();
             }
@@ -296,9 +299,10 @@ public final class SpectorMemoryFactory {
             Path legacyGraph = basePath.resolve(StorageLayout.FILE_HEBBIAN);
             Path v2Graph = resolvedPartitionDir != null
                     ? StorageLayout.hebbianGraph(resolvedPartitionDir) : null;
-            Path loadFrom = java.nio.file.Files.exists(runtimeGraph) ? runtimeGraph
-                    : (v2Graph != null && java.nio.file.Files.exists(v2Graph)) ? v2Graph
-                    : legacyGraph;
+            Path loadFrom = getNewerPath(runtimeGraph, v2Graph, legacyGraph);
+            if (loadFrom == null) {
+                loadFrom = legacyGraph;
+            }
             hebbianGraph = HebbianGraphCsr.load(loadFrom, graphCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance);
         } else {
@@ -313,9 +317,10 @@ public final class SpectorMemoryFactory {
             Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
             Path v2Chain = resolvedPartitionDir != null
                     ? StorageLayout.temporalChain(resolvedPartitionDir) : null;
-            Path loadFrom = java.nio.file.Files.exists(runtimeChain) ? runtimeChain
-                    : (v2Chain != null && java.nio.file.Files.exists(v2Chain)) ? v2Chain
-                    : legacyChain;
+            Path loadFrom = getNewerPath(runtimeChain, v2Chain, legacyChain);
+            if (loadFrom == null) {
+                loadFrom = legacyChain;
+            }
             temporalChain = TemporalChain.load(loadFrom, temporalCapacity);
         } else {
             temporalChain = new TemporalChain(temporalCapacity);
@@ -346,12 +351,9 @@ public final class SpectorMemoryFactory {
                 Path v2Entity = resolvedPartitionDir != null
                         ? StorageLayout.entityGraph(resolvedPartitionDir) : null;
 
-                if (java.nio.file.Files.exists(runtimeEntity)) {
-                    entityGraph = EntityGraph.load(runtimeEntity, entityCap, edgeCap);
-                } else if (v2Entity != null && java.nio.file.Files.exists(v2Entity)) {
-                    entityGraph = EntityGraph.load(v2Entity, entityCap, edgeCap);
-                } else if (java.nio.file.Files.exists(legacyEntity)) {
-                    entityGraph = EntityGraph.load(legacyEntity, entityCap, edgeCap);
+                Path loadFrom = getNewerPath(runtimeEntity, v2Entity, legacyEntity);
+                if (loadFrom != null) {
+                    entityGraph = EntityGraph.load(loadFrom, entityCap, edgeCap);
                 } else {
                     entityGraph = new EntityGraph(runtimeEntity, entityCap, edgeCap,
                             builder.entityMaxDegree, builder.edgeImportance);
@@ -392,9 +394,10 @@ public final class SpectorMemoryFactory {
             index.setTextDataStore(textDataStore);
 
             java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
-            if (!java.nio.file.Files.exists(bm25Path) && resolvedPartitionDir != null) {
-                java.nio.file.Path v2Bm25 = StorageLayout.bm25Bidx(resolvedPartitionDir);
-                if (java.nio.file.Files.exists(v2Bm25)) bm25Path = v2Bm25;
+            java.nio.file.Path v2Bm25 = resolvedPartitionDir != null ? StorageLayout.bm25Bidx(resolvedPartitionDir) : null;
+            java.nio.file.Path loadFrom = getNewerPath(bm25Path, v2Bm25, null);
+            if (loadFrom != null) {
+                bm25Path = loadFrom;
             }
             BM25Index loadedBm25 = BM25Index.load(bm25Path);
             bm25Index = new MemoryBM25Index(1);
@@ -614,5 +617,42 @@ public final class SpectorMemoryFactory {
             long elapsed = System.currentTimeMillis() - startMs;
             log.info("HNSW rebuild complete: {}/{} vectors added in {}ms", rebuilt, storeSize, elapsed);
         }
+    }
+
+    private static Path getNewerPath(Path runtimePath, Path partitionPath, Path legacyPath) {
+        Path target = null;
+        long latestTime = Long.MIN_VALUE;
+
+        if (runtimePath != null && java.nio.file.Files.exists(runtimePath)) {
+            try {
+                long t = java.nio.file.Files.getLastModifiedTime(runtimePath).toMillis();
+                if (t > latestTime) {
+                    latestTime = t;
+                    target = runtimePath;
+                }
+            } catch (java.io.IOException ignored) {}
+        }
+
+        if (partitionPath != null && java.nio.file.Files.exists(partitionPath)) {
+            try {
+                long t = java.nio.file.Files.getLastModifiedTime(partitionPath).toMillis();
+                if (t > latestTime) {
+                    latestTime = t;
+                    target = partitionPath;
+                }
+            } catch (java.io.IOException ignored) {}
+        }
+
+        if (legacyPath != null && java.nio.file.Files.exists(legacyPath)) {
+            try {
+                long t = java.nio.file.Files.getLastModifiedTime(legacyPath).toMillis();
+                if (t > latestTime) {
+                    latestTime = t;
+                    target = legacyPath;
+                }
+            } catch (java.io.IOException ignored) {}
+        }
+
+        return target;
     }
 }

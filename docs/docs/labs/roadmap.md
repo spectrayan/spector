@@ -10,7 +10,7 @@ description: "Research roadmap for Spector's experimental cognitive features: 4-
 > Some features have graduated from Labs into the main release. Others remain
 > under active research and planned for implementation in the `labs` branch.
 >
-> **Recently graduated:** SPLADE sparse retrieval, ColBERT v2 reranking, Two-Factor Memory.
+> **Recently graduated:** SPLADE sparse retrieval, ColBERT v2 reranking, Two-Factor Memory, ProfileAdaptor Contextual Bandit, and Executive Dysfunction Profile.
 
 ---
 
@@ -163,7 +163,11 @@ public final class NeuromodulatoryState {
 
 ---
 
-## Executive Dysfunction Profile
+## ✅ Executive Dysfunction Profile
+
+!!! success "Graduated to Main Release"
+    Implemented in `CognitiveProfile.EXECUTIVE_DYSFUNCTION`, `ProfileAdaptor`, and `RecallHistory` (graduated in issue #295). It is fully integrated into the `RecallPipeline` as the `ASSOCIATIVE` scoring mode routing path.
+
 
 ### Concept
 
