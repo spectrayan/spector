@@ -562,8 +562,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (options.autoProfile() && options.profile() == null) {
             CognitiveProfile suggested = null;
             if (profileAdaptor != null) {
-                // ProfileAdaptor uses its internal context history for suggestion
-                suggested = profileAdaptor.suggest();
+                // Extract context tags from the query text
+                String[] tags = cognitiveTarget.tagExtractor() != null
+                        ? cognitiveTarget.tagExtractor().extract("query", queryText)
+                        : new String[0];
+                suggested = profileAdaptor.suggest(tags);
             }
             if (suggested == null) {
                 SalienceProfile sp = cognitiveTarget.salienceProfile();
