@@ -48,6 +48,17 @@ These profiles go beyond α/β tuning — they activate specialized scoring mech
 | `THE_EXECUTOR` | 0.3 | 0.7 | Prefrontal executive function | Heaviside Cliff (strictness=10.0), no lateral retrieval |
 | `HIGHLY_SENSITIVE` | 0.7 | 0.3 | Sensory Processing Sensitivity | Low flashbulb threshold, strong lateral inhibition |
 | `DEFAULT_MODE_NETWORK` | 0.2 | 0.8 | Brain's resting state network | Skips Working + Episodic, Semantic + Procedural only |
+| `EXECUTIVE_DYSFUNCTION` | 0.3 | 0.7 | Prefrontal executive dysfunction | Hebbian-first associative recall, bypasses vector similarity |
+
+---
+
+## Self-Tuning Retrieval (`profile=auto`)
+
+When `profile` is set to `"auto"`, Spector activates the **ProfileAdaptor** contextual bandit. It deterministically hashes the current synaptic filter tags and queries its reinforcement stats. 
+
+- **Epsilon-greedy exploration:** The system selects the best performing profile for the tag context 90% of the time, and randomly explores alternative profiles 10% of the time to avoid local optima.
+- **Cold start fallback:** If there are fewer than 10 reinforcement signals for a tag context, it falls back to the configured `SalienceProfile` default profile, and finally to `BALANCED`.
+- **Durable reinforcement:** Learned stats are snapshotted to the `coactivation.tracker` (COAX v2) file on engine shutdown.
 
 ---
 
@@ -139,6 +150,27 @@ At strictness=1.0 (default), this is a gentle hyperbola. At strictness=10.0, it'
 
 !!! example "Scenario"
     Agent is stuck on a performance problem → switches to DEFAULT_MODE_NETWORK → surfaces a deep architectural principle from 3 months ago that reframes the problem entirely. This is the computational equivalent of "sleeping on it."
+
+### EXECUTIVE_DYSFUNCTION — Hebbian-First Associative Recall
+
+**Biological analog:** Prefrontal cortex executive dysfunction. When top-down goal-directed query formulation struggles, bottom-up associative retrieval via the hippocampus and basal ganglia remains intact. Memories surface through directed Spike-Timing-Dependent Plasticity (STDP) causal chains rather than vector query matching.
+
+**Use case:** Agents struggling with ambiguous inputs or unable to formulate clear semantic queries, relying instead on associative context transitions.
+
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.3 | Moderate similarity weight (used as tie-breaker only) |
+| β | 0.7 | High importance weight |
+| Scoring mode | `ASSOCIATIVE` | **Hebbian-first pipeline routing** |
+| Lateral mode | enabled | Aggressive graph expansion across associations |
+| Expansion threshold | 0.80 | Aggressively expand candidate retrieval via STDP edges |
+
+**How it works:**
+
+- **Hippocampal Replay Seed:** Rather than searching vectors from a query, the system extracts the last 20 context tags from a sliding `RecallHistory` buffer.
+- **STDP Predictive Association:** It queries the `CoActivationTracker` for directed STDP edges leading *from* those recent context tags, predicting the next logical tag set.
+- **Tag-Gated Semantic Recall:** It runs a standard recall scan using these predicted tags as a strict synaptic Bloom filter.
+- **STDP Rescoring:** Retrieved candidates are boosted based on their Hebbian predictive strength and recency decay.
 
 ---
 

@@ -137,7 +137,8 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         }
 
         String cacheKey = getCacheKey(text);
-        java.nio.file.Path cacheDir = java.nio.file.Path.of("embedding-cache", config.model().replace(":", "_"));
+        String cacheBase = System.getProperty("spector.embedding.cache-dir", "embedding-cache");
+        java.nio.file.Path cacheDir = java.nio.file.Path.of(cacheBase, config.model().replace(":", "_"));
         java.nio.file.Path cacheFile = cacheDir.resolve(cacheKey + ".json");
 
         if (java.nio.file.Files.exists(cacheFile)) {

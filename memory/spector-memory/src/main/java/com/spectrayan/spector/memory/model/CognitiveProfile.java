@@ -187,7 +187,29 @@ public enum CognitiveProfile {
      * <p>Scoring: α=0.2 (low similarity), β=0.8 (importance-dominated).
      * memoryTypes restricted to SEMANTIC + PROCEDURAL.</p>
      */
-    DEFAULT_MODE_NETWORK(0.2f, 0.8f, 0.1f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.40f);
+    DEFAULT_MODE_NETWORK(0.2f, 0.8f, 0.1f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.40f),
+
+    /**
+     * Executive Dysfunction mode — associative, context-primed recall.
+     *
+     * <p>Biological analog: Prefrontal cortex hypoactivation. In executive
+     * dysfunction, the prefrontal cortex's top-down retrieval cues are weak —
+     * the brain knows the information is "in there" but can't formulate the
+     * precise query to retrieve it. The hippocampus compensates through
+     * bottom-up associative activation: recent context tags prime related
+     * memories, lowering their retrieval threshold.</p>
+     *
+     * <p>This profile enables {@code ASSOCIATIVE} scoring mode with lateral
+     * retrieval. The recall pipeline augments the user's query with recently
+     * active context tags from the {@code RecallHistory} buffer, simulating
+     * the "it was related to what I was just working on" retrieval pattern.</p>
+     *
+     * <p>Scoring: α=0.3 (low direct similarity), β=0.7 (high importance),
+     * γ=0.1 (minimal keyword). The bulk of scoring comes from tag overlap
+     * with recent recall context. Graph expansion threshold is high (0.80)
+     * to aggressively expand associative connections.</p>
+     */
+    EXECUTIVE_DYSFUNCTION(0.3f, 0.7f, 0.1f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.80f);
 
     private final float alpha;
     private final float beta;
@@ -259,6 +281,9 @@ public enum CognitiveProfile {
             case HIGHLY_SENSITIVE -> builder.minImportance(0.01f);
             case DEFAULT_MODE_NETWORK -> builder.memoryTypes(
                     MemoryType.SEMANTIC, MemoryType.PROCEDURAL);
+            case EXECUTIVE_DYSFUNCTION -> builder.scoringMode(ScoringMode.ASSOCIATIVE)
+                                                  .lateralMode(true)
+                                                  .graphExpansionThreshold(0.80f);
             default         -> builder;
         };
     }

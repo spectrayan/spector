@@ -83,7 +83,9 @@ public final class MemoryRecallTool extends MemoryToolHandler {
                         + "CRITICAL (high-stakes), HYPERFOCUS (narrow deep-dive), "
                         + "SYSTEMATIZER (encyclopedic detail), DIVERGENT (cross-domain), "
                         + "PARANOID_SENTINEL (threat detection), THE_EXECUTOR (strict task), "
-                        + "HIGHLY_SENSITIVE (fine detail), DEFAULT_MODE_NETWORK (deep knowledge).", "")
+                        + "HIGHLY_SENSITIVE (fine detail), DEFAULT_MODE_NETWORK (deep knowledge), "
+                        + "EXECUTIVE_DYSFUNCTION (associative context-driven recall), "
+                        + "auto (let the system choose based on context).", "")
                 .optionalString("synaptic_filter",
                         "Comma-separated tags for Bloom filter pre-filtering.", "")
                 .optionalString("min_importance",
@@ -104,7 +106,8 @@ public final class MemoryRecallTool extends MemoryToolHandler {
                 .optionalString("scoring_mode",
                         "Controls how retrieved candidates are ranked. "
                         + "COGNITIVE (default): full biological scoring — importance, decay, tag boost. "
-                        + "SIMILARITY: pure vector cosine similarity — ideal for search/retrieval benchmarks.", "COGNITIVE")
+                        + "SIMILARITY: pure vector cosine similarity — ideal for search/retrieval benchmarks. "
+                        + "ASSOCIATIVE: context-driven recall using recent activity and causal predictions.", "COGNITIVE")
                 .optionalString("namespace",
                         "Memory namespace to query. Isolates agent/user memory spaces. "
                         + "Leave empty for default namespace.", "")
@@ -133,9 +136,13 @@ public final class MemoryRecallTool extends MemoryToolHandler {
 
         // Apply cognitive profile preset (if specified)
         String profileStr = optionalString(args, "profile", "");
-        CognitiveProfile profile = RecallOptions.parseProfile(profileStr);
-        if (profile != null) {
-            builder.profile(profile);
+        if (RecallOptions.isAutoProfile(profileStr)) {
+            builder.autoProfile(true);
+        } else {
+            CognitiveProfile profile = RecallOptions.parseProfile(profileStr);
+            if (profile != null) {
+                builder.profile(profile);
+            }
         }
 
         String[] filterTags = optionalTags(args, "synaptic_filter");

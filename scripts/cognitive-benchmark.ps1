@@ -112,6 +112,7 @@ $jvmArgs = @(
     "--add-opens", "java.base/java.lang.foreign=ALL-UNNAMED"
     "-Xmx${HeapMb}m"
     "-Dlogback.configurationFile=logback-bench.xml"
+    "-Dspector.embedding.cache-dir=$(Join-Path $resolvedDataset '../../.spector-bench')"
     "-cp", $classpath
 )
 

@@ -69,7 +69,7 @@ class CognitiveProfileConfigTest {
             assertThat(config.isEnabled(CognitiveProfile.HYPERFOCUS)).isTrue();
             assertThat(config.isEnabled(CognitiveProfile.SYSTEMATIZER)).isTrue();
             assertThat(config.isEnabled(CognitiveProfile.DIVERGENT)).isTrue();
-            assertThat(config.enabledProfiles()).hasSize(8);
+            assertThat(config.enabledProfiles()).hasSize(9);
         }
 
         @Test
@@ -178,7 +178,7 @@ class CognitiveProfileConfigTest {
         @DisplayName("'WITH_NEURODIVERGENT' returns core + neuro")
         void withNeuroString() {
             var config = CognitiveProfileConfig.fromConfigValue("WITH_NEURODIVERGENT");
-            assertThat(config.enabledProfiles()).hasSize(8);
+            assertThat(config.enabledProfiles()).hasSize(9);
         }
 
         @Test

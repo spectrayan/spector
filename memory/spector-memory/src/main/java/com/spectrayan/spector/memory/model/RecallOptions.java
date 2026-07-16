@@ -104,7 +104,11 @@ public record RecallOptions(
         int maxReplayEvents,
         // ── Reranker (ColBERT v2) ──
         boolean enableReranker,
-        int rerankerDepth
+        int rerankerDepth,
+        // ── Auto-Profile Detection ──
+        boolean autoProfile,
+        // ── Resolved Profile (for header stamping) ──
+        CognitiveProfile resolvedProfile
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -158,6 +162,16 @@ public record RecallOptions(
         return new RerankerOptions(enableReranker, rerankerDepth);
     }
 
+    /**
+     * Returns the resolved CognitiveProfile that was applied to this options instance.
+     *
+     * <p>May be null if no profile was explicitly applied via the builder or autoProfile.
+     * Used by RecallPipeline to write the profile ordinal to synaptic header byte 60.</p>
+     */
+    public CognitiveProfile profile() {
+        return resolvedProfile;
+    }
+
 
     /**
      * Builder for {@link RecallOptions}.
@@ -204,6 +218,10 @@ public record RecallOptions(
         private boolean enableReranker = false;     // default: off (requires TokenEmbeddingProvider)
         private int rerankerDepth = 50;             // rerank top-50 first-stage candidates
 
+        // ── Auto-Profile Detection ──
+        private boolean autoProfile = false;         // default: off (use explicit profile)
+        private CognitiveProfile resolvedProfile = null; // set when profile() is called
+
         // ── Neurodivergent: Hyperfocus ──
         private long hyperfocusMask = 0L;       // 0 = disabled
         private float hyperfocusBoost = 1.0f;   // post-score multiplier
@@ -237,6 +255,7 @@ public record RecallOptions(
          * @param profile the cognitive scoring profile to apply
          */
         public Builder profile(CognitiveProfile profile) {
+            this.resolvedProfile = profile;
             return profile.applyTo(this);
         }
 
@@ -549,6 +568,22 @@ public record RecallOptions(
             return this;
         }
 
+        // ── Auto-Profile Detection ──
+
+        /**
+         * Enables automatic profile detection from recall context tags.
+         *
+         * <p>When enabled, the recall pipeline will use {@link CognitiveProfile#detect}
+         * to automatically select the best profile based on the query's synaptic tags,
+         * ignoring any explicitly set profile.</p>
+         *
+         * @param auto true to enable auto-detection
+         */
+        public Builder autoProfile(boolean auto) {
+            this.autoProfile = auto;
+            return this;
+        }
+
         /**
          * Sets the scoring mode (default: {@link ScoringMode#COGNITIVE}).
          *
@@ -651,7 +686,9 @@ public record RecallOptions(
                     minTimestamp, maxTimestamp,
                     graphExpansionThreshold,
                     replayTimestamp, maxReplayEvents,
-                    enableReranker, rerankerDepth);
+                    enableReranker, rerankerDepth,
+                    autoProfile,
+                    resolvedProfile);
             return options;
         }
     }
@@ -741,6 +778,7 @@ public record RecallOptions(
      */
     public static CognitiveProfile parseProfile(String profileName) {
         if (profileName == null || profileName.isBlank()) return null;
+        if ("AUTO".equalsIgnoreCase(profileName.strip())) return null;
         try {
             return CognitiveProfile.valueOf(profileName.strip().toUpperCase());
         } catch (IllegalArgumentException e) {
@@ -748,5 +786,19 @@ public record RecallOptions(
                     + "'. Available: " + java.util.Arrays.toString(CognitiveProfile.values()));
             return null;
         }
+    }
+
+    /**
+     * Checks if the given profile name represents the AUTO detection mode.
+     *
+     * <p>Use in combination with {@link #parseProfile} and {@link Builder#autoProfile}:
+     * if this returns {@code true}, set {@code autoProfile(true)} on the builder
+     * instead of applying a specific profile.</p>
+     *
+     * @param profileName profile name string (may be null)
+     * @return true if the name is "AUTO" (case-insensitive)
+     */
+    public static boolean isAutoProfile(String profileName) {
+        return profileName != null && "AUTO".equalsIgnoreCase(profileName.strip());
     }
 }

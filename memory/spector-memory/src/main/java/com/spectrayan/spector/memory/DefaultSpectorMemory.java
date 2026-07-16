@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
@@ -219,6 +220,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ── Multimodal Attachment Processing ──
     private final com.spectrayan.spector.memory.pipeline.AttachmentProcessor attachmentProcessor;
 
+    // ── Contextual Bandit (ProfileAdaptor) ──
+    private final ProfileAdaptor profileAdaptor;
+
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
         this.cognitiveTarget = bundle.cognitiveTarget();
@@ -257,6 +261,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.parallelPipeline = bundle.parallelPipeline();
         this.embedConfig = bundle.embedConfig();
         this.attachmentProcessor = bundle.attachmentProcessor();
+        this.profileAdaptor = bundle.profileAdaptor();
 
         // ── JVM Shutdown Hook ── (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
@@ -553,6 +558,34 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
+        // Auto-profile resolution: use ProfileAdaptor to suggest best profile
+        if (options.autoProfile() && options.profile() == null) {
+            CognitiveProfile suggested = null;
+            if (profileAdaptor != null) {
+                // Extract context tags from the query text
+                String[] tags = cognitiveTarget.tagExtractor() != null
+                        ? cognitiveTarget.tagExtractor().extract("query", queryText)
+                        : new String[0];
+                suggested = profileAdaptor.suggest(tags);
+            }
+            if (suggested == null) {
+                SalienceProfile sp = cognitiveTarget.salienceProfile();
+                if (sp != null) {
+                    suggested = sp.defaultProfile();
+                }
+            }
+            if (suggested == null) {
+                suggested = CognitiveProfile.BALANCED;
+            }
+            log.debug("Auto-profile resolved to {} for query '{}'", suggested, queryText);
+            options = RecallOptions.builder()
+                    .topK(options.topK())
+                    .profile(suggested)
+                    .scoringMode(options.scoringMode())
+                    .recallMode(options.recallMode())
+                    .autoProfile(true)
+                    .build();
+        }
         return recallPipeline.recall(queryText, options);
     }
 
@@ -1084,6 +1117,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Final checkpoint flush before closing storage
         if (checkpointDaemon != null) {
             try {
+                // Snapshot ProfileAdaptor bandit stats to CoActivationTracker before checkpoint
+                if (profileAdaptor != null && coActivationTracker != null) {
+                    coActivationTracker.updateBanditStats(profileAdaptor.statsSnapshot());
+                }
                 checkpointDaemon.checkpoint();
             } catch (Exception e) {
                 log.warn("Final checkpoint on close failed: {}", e.getMessage());

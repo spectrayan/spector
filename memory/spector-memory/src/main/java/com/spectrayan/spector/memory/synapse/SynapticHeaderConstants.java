@@ -108,8 +108,10 @@ public final class SynapticHeaderConstants {
     public static final long OFFSET_RESERVED_F1         = 44L;
     /** Offset of last auto-LTP timestamp long (8B-aligned). */
     public static final long OFFSET_LAST_AUTO_LTP       = 48L;
-    /** Offset of reserved long field (future: 128-bit tag upper half). */
+    /** Offset of reserved long field (future: 128-bit tag upper half, partially used for profile ordinal at byte 60). */
     public static final long OFFSET_RESERVED_L1         = 56L;
+    /** Profile ordinal of the CognitiveProfile used during last recall (1 byte, inside reserved region). */
+    public static final long OFFSET_LAST_RECALL_PROFILE = 60L;
 
     // ── Value layouts ──
 

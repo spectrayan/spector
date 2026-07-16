@@ -49,5 +49,21 @@ public enum ScoringMode {
      * Bypasses importance, decay, tag boosting, and valence alignment.
      * Ideal for information retrieval benchmarks.
      */
-    SIMILARITY
+    SIMILARITY,
+
+    /**
+     * Associative scoring: tag-weighted contextual recall.
+     *
+     * <p>Biological analog: Hippocampal pattern completion. When the prefrontal
+     * cortex struggles with top-down retrieval (as in executive dysfunction),
+     * the hippocampus compensates with bottom-up associative activation —
+     * recent context tags prime related memories for easier retrieval.</p>
+     *
+     * <p>Scoring combines standard cognitive scoring with enhanced tag overlap
+     * boosting from recent recall history. Lateral retrieval is enabled to
+     * surface tangentially related memories that share contextual tags.</p>
+     *
+     * @see CognitiveProfile#EXECUTIVE_DYSFUNCTION
+     */
+    ASSOCIATIVE
 }
