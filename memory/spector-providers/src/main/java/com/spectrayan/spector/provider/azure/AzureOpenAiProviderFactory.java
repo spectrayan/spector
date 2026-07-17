@@ -21,6 +21,11 @@ import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
+import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
+
+import com.azure.core.http.ProxyOptions;
+import java.net.InetSocketAddress;
+import java.util.Map;
 
 import dev.langchain4j.model.azure.AzureOpenAiChatModel;
 import dev.langchain4j.model.azure.AzureOpenAiEmbeddingModel;
@@ -67,6 +72,24 @@ public class AzureOpenAiProviderFactory implements ProviderFactory {
             builder.dimensions(config.dimensions());
         }
 
+        // Apply proxy if specified
+        String host = config.properties().get("proxyHost");
+        String portStr = config.properties().get("proxyPort");
+        if (host != null && !host.isBlank() && portStr != null && !portStr.isBlank()) {
+            try {
+                int port = Integer.parseInt(portStr.trim());
+                builder.proxyOptions(new ProxyOptions(ProxyOptions.Type.HTTP, new InetSocketAddress(host, port)));
+            } catch (NumberFormatException e) {
+                // Ignore
+            }
+        }
+
+        // Apply custom headers
+        Map<String, String> headers = LangChain4jHelper.resolveCustomHeaders(config);
+        if (!headers.isEmpty()) {
+            builder.customHeaders(headers);
+        }
+
         AzureOpenAiEmbeddingModel model = builder.build();
         int dims = config.dimensions() > 0 ? config.dimensions() : 1536;
         return Optional.of(new LangChain4jEmbeddingAdapter(model, config.model(), dims));
@@ -89,6 +112,24 @@ public class AzureOpenAiProviderFactory implements ProviderFactory {
                 builder.temperature(Double.parseDouble(t)));
         config.property("maxTokens").ifPresent(t ->
                 builder.maxTokens(Integer.parseInt(t)));
+
+        // Apply proxy if specified
+        String genHost = config.properties().get("proxyHost");
+        String genPortStr = config.properties().get("proxyPort");
+        if (genHost != null && !genHost.isBlank() && genPortStr != null && !genPortStr.isBlank()) {
+            try {
+                int port = Integer.parseInt(genPortStr.trim());
+                builder.proxyOptions(new ProxyOptions(ProxyOptions.Type.HTTP, new InetSocketAddress(genHost, port)));
+            } catch (NumberFormatException e) {
+                // Ignore
+            }
+        }
+
+        // Apply custom headers
+        Map<String, String> headers = LangChain4jHelper.resolveCustomHeaders(config);
+        if (!headers.isEmpty()) {
+            builder.customHeaders(headers);
+        }
 
         return Optional.of(new LangChain4jGenerationAdapter(builder.build(), config.model()));
     }

@@ -17,20 +17,17 @@ package com.spectrayan.spector.provider.ollama;
 
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
 import com.spectrayan.spector.provider.model.*;
 
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.request.ChatRequestParameters;
-import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Semaphore;
 
 /**
- * Text generation provider backed by a local Ollama server, utilizing LangChain4j.
+ * Text generation provider backed by a local Ollama server, utilizing LangChain4j and reusing the core adapter.
  */
 public class OllamaLlmProvider implements LlmProvider {
 
@@ -38,6 +35,7 @@ public class OllamaLlmProvider implements LlmProvider {
     private final String baseUrl;
     private final Duration timeout;
     private final OllamaChatModel delegate;
+    private final LangChain4jGenerationAdapter adapter;
     private final Semaphore llmGate = new Semaphore(1, true);
 
     public OllamaLlmProvider(String model, String baseUrl, Duration timeout) {
@@ -49,6 +47,7 @@ public class OllamaLlmProvider implements LlmProvider {
                 .modelName(model)
                 .timeout(timeout)
                 .build();
+        this.adapter = new LangChain4jGenerationAdapter(delegate, model);
     }
 
     public static OllamaLlmProvider create(String model) {
@@ -66,7 +65,24 @@ public class OllamaLlmProvider implements LlmProvider {
     @Override
     public LlmResponse generate(LlmRequest request, GenerationOptions options) {
         Objects.requireNonNull(request, "request must not be null");
-        var actualOptions = options != null ? options : GenerationOptions.DEFAULT;
+
+        // Validate request's prompt or messages
+        if (request.messages().isEmpty()) {
+            throw new GenerationException("Request must contain at least one message");
+        }
+
+        // Check for null or blank text content in messages
+        for (var msg : request.messages()) {
+            if (msg.content() != null) {
+                for (var content : msg.content()) {
+                    if (content instanceof com.spectrayan.spector.provider.model.TextContent tc) {
+                        if (tc.text() == null || tc.text().isBlank()) {
+                            throw new GenerationException("Prompt text cannot be null or blank");
+                        }
+                    }
+                }
+            }
+        }
 
         try {
             llmGate.acquire();
@@ -76,86 +92,33 @@ public class OllamaLlmProvider implements LlmProvider {
         }
 
         try {
-            // Build parameters from GenerationOptions
-            var paramsBuilder = ChatRequestParameters.builder();
-            paramsBuilder.temperature((double) actualOptions.temperature());
-
-            if (actualOptions.maxTokens() > 0) {
-                paramsBuilder.maxOutputTokens(actualOptions.maxTokens());
-            }
-            paramsBuilder.topP((double) actualOptions.topP());
-
-            if (actualOptions.stopSequences() != null && actualOptions.stopSequences().length > 0) {
-                paramsBuilder.stopSequences(List.of(actualOptions.stopSequences()));
-            }
-
-            if (request.responseJsonSchema() != null && !request.responseJsonSchema().isBlank()) {
-                paramsBuilder.responseFormat(ResponseFormat.JSON);
-            }
-
-            // Map Spector messages to LangChain4j messages
-            List<dev.langchain4j.data.message.ChatMessage> langChainMessages = request.messages().stream()
-                    .map(this::mapMessage)
-                    .filter(Objects::nonNull)
-                    .toList();
-
-            var chatRequest = ChatRequest.builder()
-                    .messages(langChainMessages)
-                    .parameters(paramsBuilder.build())
-                    .build();
-
-            var response = delegate.chat(chatRequest);
-
-            int inputTokens = 0;
-            int outputTokens = 0;
-            if (response.tokenUsage() != null) {
-                inputTokens = response.tokenUsage().inputTokenCount() != null ? response.tokenUsage().inputTokenCount() : 0;
-                outputTokens = response.tokenUsage().outputTokenCount() != null ? response.tokenUsage().outputTokenCount() : 0;
-            }
-
-            return new LlmResponse(response.aiMessage().text(), inputTokens, outputTokens, model);
+            return adapter.generate(request, options);
+        } catch (GenerationException ge) {
+            throw ge;
         } catch (Exception e) {
             if (e.getMessage() != null && (e.getMessage().contains("ConnectException") || e.getMessage().contains("UnknownHostException") || e.getMessage().contains("Connection refused"))) {
                 throw new GenerationException("Ollama server unavailable at " + baseUrl, e);
             }
-            throw new GenerationException("Ollama generation failed: " + e.getMessage(), e);
+            throw new GenerationException("Generation failed: " + e.getMessage(), e);
         } finally {
             llmGate.release();
         }
     }
 
-    private dev.langchain4j.data.message.ChatMessage mapMessage(ChatMessage message) {
-        switch (message.role()) {
-            case SYSTEM:
-                return dev.langchain4j.data.message.SystemMessage.from(message.text());
-            case AI:
-                return dev.langchain4j.data.message.AiMessage.from(message.text());
-            case TOOL:
-                return dev.langchain4j.data.message.UserMessage.from(message.text());
-            case USER:
-            default:
-                List<dev.langchain4j.data.message.Content> contents = message.content().stream()
-                        .map(this::mapContentBlock)
-                        .filter(Objects::nonNull)
-                        .toList();
-                return dev.langchain4j.data.message.UserMessage.from(contents);
+    @Override
+    public String generate(String prompt) {
+        if (prompt == null || prompt.isBlank()) {
+            throw new GenerationException("Prompt text cannot be null or blank");
         }
+        return LlmProvider.super.generate(prompt);
     }
 
-    private dev.langchain4j.data.message.Content mapContentBlock(ContentBlock block) {
-        if (block instanceof TextContent txt) {
-            return dev.langchain4j.data.message.TextContent.from(txt.text());
-        } else if (block instanceof ImageContent img) {
-            if (img.hasData()) {
-                return dev.langchain4j.data.message.ImageContent.from(
-                        java.util.Base64.getEncoder().encodeToString(img.data()),
-                        img.mimeType()
-                );
-            } else if (img.hasUrl()) {
-                return dev.langchain4j.data.message.ImageContent.from(img.url());
-            }
+    @Override
+    public String generate(String prompt, GenerationOptions options) {
+        if (prompt == null || prompt.isBlank()) {
+            throw new GenerationException("Prompt text cannot be null or blank");
         }
-        return null;
+        return LlmProvider.super.generate(prompt, options);
     }
 
     @Override
@@ -165,11 +128,10 @@ public class OllamaLlmProvider implements LlmProvider {
 
     @Override
     public boolean isAvailable() {
-        try {
-            delegate.chat("ping");
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return adapter.isAvailable();
+    }
+
+    public dev.langchain4j.model.chat.ChatModel delegate() {
+        return delegate;
     }
 }

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.config;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.memory.SalienceProfileProvider;
 import com.spectrayan.spector.memory.model.InterestDomain;
 import com.spectrayan.spector.memory.model.InterestLevel;
@@ -36,10 +36,10 @@ import java.util.concurrent.locks.ReentrantLock;
  * manages a single user's salience profile, derived from the user's
  * {@link PersonaContext} (their "soul"). The user's persona influences:</p>
  * <ul>
- *   <li><b>Importance modulation</b> — self-relevance boost for memories matching
+ *   <li><b>Importance modulation</b> â€” self-relevance boost for memories matching
  *       the user's occupation, values, aspirations</li>
- *   <li><b>Valence/arousal modulation</b> — personality-based emotional adjustment</li>
- *   <li><b>ICNU weight overrides</b> — if the user's profile specifies custom weights</li>
+ *   <li><b>Valence/arousal modulation</b> â€” personality-based emotional adjustment</li>
+ *   <li><b>ICNU weight overrides</b> â€” if the user's profile specifies custom weights</li>
  * </ul>
  *
  * <h3>Lifecycle</h3>
@@ -84,7 +84,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
      * {@link SalienceProfile} with the persona set for self-relevance scoring
      * and personality-based valence/arousal modulation.</p>
      *
-     * <p>Thread-safe — uses {@link ReentrantLock} to prevent concurrent updates.</p>
+     * <p>Thread-safe â€” uses {@link ReentrantLock} to prevent concurrent updates.</p>
      *
      * @param persona the user's persona context (null resets to NEUTRAL)
      */
@@ -93,7 +93,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
             lock.lock();
             try {
                 currentProfile = SalienceProfile.NEUTRAL;
-                log.info("[SynapseSalience] User persona cleared — profile reset to NEUTRAL");
+                log.info("[SynapseSalience] User persona cleared â€” profile reset to NEUTRAL");
             } finally {
                 lock.unlock();
             }
@@ -135,7 +135,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
 
             rebuildProfile(enriched, modifiers);
 
-            log.info("[SynapseSalience] User persona applied — occupation={}, hasEmbeddings={}, " +
+            log.info("[SynapseSalience] User persona applied â€” occupation={}, hasEmbeddings={}, " +
                             "selfRelevanceWeight={}, valenceAmplification={}",
                     enriched.occupation(),
                     enriched.hasEmbeddings(),
@@ -143,15 +143,15 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
                     modifiers.valenceAmplification());
         } catch (Exception e) {
             log.error("[SynapseSalience] Failed to update user persona: {}", e.getMessage(), e);
-            // Keep the current profile on failure — don't reset to NEUTRAL
+            // Keep the current profile on failure â€” don't reset to NEUTRAL
         } finally {
             lock.unlock();
         }
     }
 
-    // ── Interest Management ─────────────────────────────────────────
+    // â”€â”€ Interest Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    /** Stored interests (with embeddings) — survives persona updates. */
+    /** Stored interests (with embeddings) â€” survives persona updates. */
     private volatile List<InterestDomain> interests = List.of();
     private volatile List<InterestDomain> disinterests = List.of();
 
@@ -170,8 +170,8 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
      * <p>Computes embeddings for each interest's topic text, enabling semantic
      * matching against memory embeddings during the scoring pipeline.</p>
      *
-     * @param interestTopics   topics to boost (topic → level)
-     * @param disinterestTopics topics to suppress (topic → level)
+     * @param interestTopics   topics to boost (topic â†’ level)
+     * @param disinterestTopics topics to suppress (topic â†’ level)
      */
     public void updateInterests(List<InterestEntry> interestTopics,
                                 List<InterestEntry> disinterestTopics) {
@@ -182,7 +182,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
 
             rebuildProfile(cachedPersona, cachedModifiers);
 
-            log.info("[SynapseSalience] Interests updated — {} interests, {} disinterests",
+            log.info("[SynapseSalience] Interests updated â€” {} interests, {} disinterests",
                     interests.size(), disinterests.size());
         } finally {
             lock.unlock();
@@ -205,7 +205,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
 
             rebuildProfile(cachedPersona, cachedModifiers);
 
-            log.info("[SynapseSalience] Scoring weights updated — icnu={}, alpha={}, beta={}",
+            log.info("[SynapseSalience] Scoring weights updated â€” icnu={}, alpha={}, beta={}",
                     icnu != null, alpha, beta);
         } finally {
             lock.unlock();
@@ -296,11 +296,11 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
      */
     private PersonaContext computePersonaEmbeddings(PersonaContext persona) {
         if (persona.hasEmbeddings()) {
-            log.debug("[SynapseSalience] Persona already has embeddings — skipping computation");
+            log.debug("[SynapseSalience] Persona already has embeddings â€” skipping computation");
             return persona;
         }
         if (embeddingProvider == null) {
-            log.warn("[SynapseSalience] No embedding provider — self-relevance scoring disabled");
+            log.warn("[SynapseSalience] No embedding provider â€” self-relevance scoring disabled");
             return persona;
         }
 
@@ -353,7 +353,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
         return sb.toString();
     }
 
-    // ── DTOs ─────────────────────────────────────────────────────────
+    // â”€â”€ DTOs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * A topic interest entry from the API (without embedding).

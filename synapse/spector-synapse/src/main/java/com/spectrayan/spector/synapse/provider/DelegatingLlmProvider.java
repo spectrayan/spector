@@ -12,29 +12,36 @@
  */
 package com.spectrayan.spector.synapse.provider;
 
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderRegistry;
+import com.spectrayan.spector.provider.model.LlmRequest;
+import com.spectrayan.spector.provider.model.LlmResponse;
 
 /**
- * Delegating implementation of {@link TextGenerationProvider} that routes requests
+ * Delegating implementation of {@link LlmProvider} that routes requests
  * to the dynamically active provider registered in the {@link ProviderRegistry}.
  *
  * This allows the statically defined SpectorMemory bean to leverage dynamic provider
  * switching in the Synapse container.
  */
-public class DelegatingTextGenerationProvider implements TextGenerationProvider {
+public class DelegatingLlmProvider implements LlmProvider {
 
     private final ProviderRegistry providerRegistry;
 
-    public DelegatingTextGenerationProvider(ProviderRegistry providerRegistry) {
+    public DelegatingLlmProvider(ProviderRegistry providerRegistry) {
         this.providerRegistry = providerRegistry;
     }
 
-    private TextGenerationProvider getActive() {
+    private LlmProvider getActive() {
         return providerRegistry.activeGeneration()
-                .orElseThrow(() -> new TextGenerationProvider.GenerationException(
+                .orElseThrow(() -> new LlmProvider.GenerationException(
                         "No active text generation provider registered in the ProviderRegistry"));
+    }
+
+    @Override
+    public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+        return getActive().generate(request, options);
     }
 
     @Override
@@ -50,14 +57,14 @@ public class DelegatingTextGenerationProvider implements TextGenerationProvider 
     @Override
     public String modelName() {
         return providerRegistry.activeGeneration()
-                .map(TextGenerationProvider::modelName)
+                .map(LlmProvider::modelName)
                 .orElse("none");
     }
 
     @Override
     public boolean isAvailable() {
         return providerRegistry.activeGeneration()
-                .map(TextGenerationProvider::isAvailable)
+                .map(LlmProvider::isAvailable)
                 .orElse(false);
     }
 }

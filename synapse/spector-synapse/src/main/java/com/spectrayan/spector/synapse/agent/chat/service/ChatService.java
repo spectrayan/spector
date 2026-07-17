@@ -32,6 +32,9 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.Content;
+import dev.langchain4j.data.message.TextContent;
+import dev.langchain4j.data.message.ImageContent;
 
 import com.spectrayan.spector.memory.id.TsidGenerator;
 
@@ -156,14 +159,9 @@ public class ChatService {
         // Convert Map to ChatMessage
         List<ChatMessage> historyMessages = new ArrayList<>();
         for (var msg : history) {
-            String role = String.valueOf(msg.getOrDefault("role", "user"));
-            String content = String.valueOf(msg.getOrDefault("content", ""));
-            if ("user".equalsIgnoreCase(role)) {
-                historyMessages.add(UserMessage.from(content));
-            } else if ("assistant".equalsIgnoreCase(role) || "agent".equalsIgnoreCase(role)) {
-                historyMessages.add(AiMessage.from(content));
-            } else if ("system".equalsIgnoreCase(role)) {
-                historyMessages.add(SystemMessage.from(content));
+            var parsed = parseHistoryMessage(msg);
+            if (parsed != null) {
+                historyMessages.add(parsed);
             }
         }
 
@@ -367,5 +365,50 @@ public class ChatService {
      */
     public ChatConfig chatConfig() {
         return new ChatConfig(DEFAULT_MODEL, 50, 10, true, "2.0-cognitive");
+    }
+
+    private dev.langchain4j.data.message.ChatMessage parseHistoryMessage(Map<String, Object> msg) {
+        String role = String.valueOf(msg.getOrDefault("role", "user"));
+        Object contentObj = msg.get("content");
+        
+        if ("system".equalsIgnoreCase(role)) {
+            return SystemMessage.from(String.valueOf(contentObj != null ? contentObj : ""));
+        } else if ("assistant".equalsIgnoreCase(role) || "agent".equalsIgnoreCase(role)) {
+            return AiMessage.from(String.valueOf(contentObj != null ? contentObj : ""));
+        } else {
+            // USER or fallback
+            if (contentObj instanceof List<?> list) {
+                List<Content> contents = new ArrayList<>();
+                for (Object item : list) {
+                    if (item instanceof Map<?, ?> blockMap) {
+                        String type = String.valueOf(blockMap.get("type"));
+                        if ("TEXT".equalsIgnoreCase(type)) {
+                            contents.add(TextContent.from(String.valueOf(blockMap.get("text"))));
+                        } else if ("IMAGE".equalsIgnoreCase(type)) {
+                            String url = String.valueOf(blockMap.get("url"));
+                            if (blockMap.containsKey("data")) {
+                                Object dataVal = blockMap.get("data");
+                                byte[] data;
+                                if (dataVal instanceof byte[]) {
+                                    data = (byte[]) dataVal;
+                                } else {
+                                    String base64Str = String.valueOf(dataVal);
+                                    data = java.util.Base64.getDecoder().decode(base64Str);
+                                }
+                                Object mimeVal = blockMap.get("mimeType");
+                                String mimeType = mimeVal != null ? String.valueOf(mimeVal) : "image/png";
+                                String base64 = java.util.Base64.getEncoder().encodeToString(data);
+                                contents.add(ImageContent.from(base64, mimeType));
+                            } else if (url != null && !url.isBlank()) {
+                                contents.add(ImageContent.from(url));
+                            }
+                        }
+                    }
+                }
+                return UserMessage.from(contents);
+            } else {
+                return UserMessage.from(String.valueOf(contentObj != null ? contentObj : ""));
+            }
+        }
     }
 }

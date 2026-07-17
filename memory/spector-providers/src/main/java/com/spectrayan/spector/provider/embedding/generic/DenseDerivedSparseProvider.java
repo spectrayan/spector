@@ -64,7 +64,7 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
         // 2. Tokenize into unique candidate terms
         List<String> terms = tokenize(text);
         if (terms.isEmpty()) {
-            return new SparseEmbeddingResult(Map.of(), docResult.tokens(), modelName);
+            return new SparseEmbeddingResult(Map.of(), docResult.tokenCount(), modelName);
         }
 
         // 3. Batch embed each term -> [T_1, T_2, ..., T_n]
@@ -75,15 +75,16 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
         for (int i = 0; i < terms.size(); i++) {
             String term = terms.get(i);
             float[] termVector = termResults.get(i).vector();
-            float sim = cosineSimilarity(termVector, docVector);
-            if (sim > weightThreshold) {
+            float cosine = cosineSimilarity(termVector, docVector);
+            float sim = Math.max(0.0f, cosine);
+            if (sim >= weightThreshold) {
                 weights.put(term, sim);
             }
         }
 
-        int totalTokens = docResult.tokens();
+        int totalTokens = docResult.tokenCount();
         for (var tr : termResults) {
-            totalTokens += tr.tokens();
+            totalTokens += tr.tokenCount();
         }
 
         return new SparseEmbeddingResult(weights, totalTokens, modelName);
@@ -102,6 +103,15 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
     @Override
     public String modelName() {
         return modelName;
+    }
+
+    @Override
+    public int vocabularySize() {
+        return 50_000;
+    }
+
+    public EmbeddingProvider embeddingProvider() {
+        return embeddingProvider;
     }
 
     private List<String> tokenize(String text) {

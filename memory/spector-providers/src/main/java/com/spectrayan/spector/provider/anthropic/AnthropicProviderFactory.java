@@ -20,6 +20,9 @@ import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
+import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
+
+import java.util.Map;
 
 import dev.langchain4j.model.anthropic.AnthropicChatModel;
 
@@ -68,6 +71,19 @@ public class AnthropicProviderFactory implements ProviderFactory {
                 builder.topP(Double.parseDouble(t)));
         if (config.hasBaseUrl()) {
             builder.baseUrl(config.baseUrl());
+        }
+
+        // Apply HTTP client settings (proxy, mTLS)
+        dev.langchain4j.http.client.HttpClientBuilder clientBuilderGen = LangChain4jHelper.resolveHttpClient(
+                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "60"))));
+        if (clientBuilderGen != null) {
+            builder.httpClientBuilder(clientBuilderGen);
+        }
+
+        // Apply custom headers
+        Map<String, String> headers = LangChain4jHelper.resolveCustomHeaders(config);
+        if (!headers.isEmpty()) {
+            builder.customHeaders(headers);
         }
 
         return Optional.of(new LangChain4jGenerationAdapter(builder.build(), config.model()));

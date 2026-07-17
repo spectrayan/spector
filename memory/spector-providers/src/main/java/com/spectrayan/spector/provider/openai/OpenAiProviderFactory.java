@@ -21,6 +21,9 @@ import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
+import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
+
+import java.util.Map;
 
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
@@ -80,6 +83,19 @@ public class OpenAiProviderFactory implements ProviderFactory {
         }
         config.property("organization").ifPresent(builder::organizationId);
 
+        // Apply HTTP client settings (proxy, mTLS)
+        dev.langchain4j.http.client.HttpClientBuilder clientBuilder = LangChain4jHelper.resolveHttpClient(
+                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "30"))));
+        if (clientBuilder != null) {
+            builder.httpClientBuilder(clientBuilder);
+        }
+
+        // Apply custom headers
+        Map<String, String> headers = LangChain4jHelper.resolveCustomHeaders(config);
+        if (!headers.isEmpty()) {
+            builder.customHeaders(headers);
+        }
+
         OpenAiEmbeddingModel model = builder.build();
         int dims = config.dimensions() > 0 ? config.dimensions() : inferDimensions(config.model());
 
@@ -102,6 +118,19 @@ public class OpenAiProviderFactory implements ProviderFactory {
         config.property("maxTokens").ifPresent(t ->
                 builder.maxTokens(Integer.parseInt(t)));
         config.property("organization").ifPresent(builder::organizationId);
+
+        // Apply HTTP client settings (proxy, mTLS)
+        dev.langchain4j.http.client.HttpClientBuilder clientBuilderGen = LangChain4jHelper.resolveHttpClient(
+                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "60"))));
+        if (clientBuilderGen != null) {
+            builder.httpClientBuilder(clientBuilderGen);
+        }
+
+        // Apply custom headers
+        Map<String, String> headers = LangChain4jHelper.resolveCustomHeaders(config);
+        if (!headers.isEmpty()) {
+            builder.customHeaders(headers);
+        }
 
         OpenAiChatModel model = builder.build();
         return Optional.of(new LangChain4jGenerationAdapter(model, config.model()));

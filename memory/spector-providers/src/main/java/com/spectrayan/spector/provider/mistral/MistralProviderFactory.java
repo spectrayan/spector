@@ -21,6 +21,9 @@ import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
+import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
+
+import java.util.Map;
 
 import dev.langchain4j.model.mistralai.MistralAiChatModel;
 import dev.langchain4j.model.mistralai.MistralAiEmbeddingModel;
@@ -61,6 +64,19 @@ public class MistralProviderFactory implements ProviderFactory {
             builder.baseUrl(config.baseUrl());
         }
 
+        // Apply HTTP client settings (proxy, mTLS)
+        dev.langchain4j.http.client.HttpClientBuilder clientBuilder = LangChain4jHelper.resolveHttpClient(
+                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "30"))));
+        if (clientBuilder != null) {
+            builder.httpClientBuilder(clientBuilder);
+        }
+
+        // Apply custom headers (expects Supplier<Map>)
+        Map<String, String> headers = LangChain4jHelper.resolveCustomHeaders(config);
+        if (!headers.isEmpty()) {
+            builder.customHeaders(() -> headers);
+        }
+
         MistralAiEmbeddingModel model = builder.build();
         int dims = config.dimensions() > 0 ? config.dimensions() : 1024;
         return Optional.of(new LangChain4jEmbeddingAdapter(model, config.model(), dims));
@@ -83,6 +99,19 @@ public class MistralProviderFactory implements ProviderFactory {
                 builder.maxTokens(Integer.parseInt(t)));
         config.property("topP").ifPresent(t ->
                 builder.topP(Double.parseDouble(t)));
+
+        // Apply HTTP client settings (proxy, mTLS)
+        dev.langchain4j.http.client.HttpClientBuilder clientBuilderGen = LangChain4jHelper.resolveHttpClient(
+                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "60"))));
+        if (clientBuilderGen != null) {
+            builder.httpClientBuilder(clientBuilderGen);
+        }
+
+        // Apply custom headers
+        Map<String, String> headers = LangChain4jHelper.resolveCustomHeaders(config);
+        if (!headers.isEmpty()) {
+            builder.customHeaders(headers);
+        }
 
         return Optional.of(new LangChain4jGenerationAdapter(builder.build(), config.model()));
     }

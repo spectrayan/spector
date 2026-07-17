@@ -53,13 +53,13 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
     @Override
     public TokenEmbeddingResult encode(String text) {
         if (text == null || text.isBlank()) {
-            return new TokenEmbeddingResult(new float[0][0], List.of(), modelName);
+            return new TokenEmbeddingResult(new float[0][0], new String[0], 0, modelName);
         }
 
         // Tokenize terms
         List<String> terms = tokenize(text);
         if (terms.isEmpty()) {
-            return new TokenEmbeddingResult(new float[0][0], List.of(), modelName);
+            return new TokenEmbeddingResult(new float[0][0], new String[0], 0, modelName);
         }
 
         // Batch embed terms
@@ -67,16 +67,16 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
 
         // Project/slice terms to target token dimensions
         int denseDims = embeddingProvider.dimensions();
-        int targetDims = Math.min(tokenDimensions, denseDims);
 
-        float[][] matrix = new float[terms.size()][targetDims];
+        float[][] matrix = new float[terms.size()][tokenDimensions];
         for (int i = 0; i < terms.size(); i++) {
             float[] denseVector = termResults.get(i).vector();
-            System.arraycopy(denseVector, 0, matrix[i], 0, targetDims);
+            int copyLen = Math.min(tokenDimensions, denseVector.length);
+            System.arraycopy(denseVector, 0, matrix[i], 0, copyLen);
             normalize(matrix[i]);
         }
 
-        return new TokenEmbeddingResult(matrix, terms, modelName);
+        return new TokenEmbeddingResult(matrix, terms.toArray(new String[0]), terms.size(), modelName);
     }
 
     @Override
@@ -89,12 +89,17 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
         return modelName;
     }
 
+    public EmbeddingProvider embeddingProvider() {
+        return embeddingProvider;
+    }
+
     private List<String> tokenize(String text) {
         String[] parts = TOKEN_SPLITTER.split(text.toLowerCase());
         List<String> terms = new ArrayList<>();
         for (String part : parts) {
-            if (!part.isBlank()) {
-                terms.add(part);
+            String trimmed = part.trim();
+            if (trimmed.length() >= 2) {
+                terms.add(trimmed);
                 if (terms.size() >= MAX_TOKENS) {
                     break;
                 }

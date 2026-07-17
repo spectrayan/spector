@@ -294,7 +294,11 @@
             </div>
           } @else {
             <!-- ── Read-only View ── -->
-            <div class="memory-text">{{ mem.text }}</div>
+            <cortex-markdown-preview
+              [content]="mem.text"
+              height="auto"
+              class="borderless"
+            />
           }
         </mat-card-content>
       </mat-card>

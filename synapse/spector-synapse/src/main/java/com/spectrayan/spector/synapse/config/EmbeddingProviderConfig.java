@@ -14,9 +14,9 @@ package com.spectrayan.spector.synapse.config;
 
 import com.spectrayan.spector.provider.DefaultProviderRegistry;
 import com.spectrayan.spector.provider.ProviderRegistry;
-import com.spectrayan.spector.embed.EmbeddingConfig;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import org.slf4j.Logger;
@@ -66,8 +66,8 @@ public class EmbeddingProviderConfig {
     }
 
     @Bean
-    @ConditionalOnMissingBean(TextGenerationProvider.class)
-    TextGenerationProvider textGenerationProvider(ProviderRegistry providerRegistry, SynapseProperties props) {
+    @ConditionalOnMissingBean(LlmProvider.class)
+    LlmProvider LlmProvider(ProviderRegistry providerRegistry, SynapseProperties props) {
         try {
             var llm = new com.spectrayan.spector.provider.ollama.OllamaLlmProvider(
                     props.ollama().model(), props.ollama().baseUrl(), java.time.Duration.ofSeconds(300));
@@ -77,6 +77,6 @@ public class EmbeddingProviderConfig {
         } catch (Exception e) {
             log.warn("Failed to register default Ollama generation provider: {}", e.getMessage());
         }
-        return new com.spectrayan.spector.synapse.provider.DelegatingTextGenerationProvider(providerRegistry);
+        return new com.spectrayan.spector.synapse.provider.DelegatingLlmProvider(providerRegistry);
     }
 }

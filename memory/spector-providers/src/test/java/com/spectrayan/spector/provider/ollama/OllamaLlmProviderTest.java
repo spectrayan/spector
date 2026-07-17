@@ -18,8 +18,8 @@ package com.spectrayan.spector.provider.ollama;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -69,8 +69,8 @@ class OllamaLlmProviderTest {
         @Test
         void generateNullPromptThrows() {
             var provider = OllamaLlmProvider.create("test");
-            assertThatThrownBy(() -> provider.generate(null))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class)
+            assertThatThrownBy(() -> provider.generate((String) null))
+                    .isInstanceOf(LlmProvider.GenerationException.class)
                     .hasMessageContaining("blank");
         }
 
@@ -78,7 +78,7 @@ class OllamaLlmProviderTest {
         void generateBlankPromptThrows() {
             var provider = OllamaLlmProvider.create("test");
             assertThatThrownBy(() -> provider.generate("   "))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class)
+                    .isInstanceOf(LlmProvider.GenerationException.class)
                     .hasMessageContaining("blank");
         }
 
@@ -86,15 +86,15 @@ class OllamaLlmProviderTest {
         void generateEmptyPromptThrows() {
             var provider = OllamaLlmProvider.create("test");
             assertThatThrownBy(() -> provider.generate(""))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class)
+                    .isInstanceOf(LlmProvider.GenerationException.class)
                     .hasMessageContaining("blank");
         }
 
         @Test
         void generateWithOptionsNullPromptThrows() {
             var provider = OllamaLlmProvider.create("test");
-            assertThatThrownBy(() -> provider.generate(null, GenerationOptions.DEFAULT))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class)
+            assertThatThrownBy(() -> provider.generate((String) null, GenerationOptions.DEFAULT))
+                    .isInstanceOf(LlmProvider.GenerationException.class)
                     .hasMessageContaining("blank");
         }
     }
@@ -107,7 +107,7 @@ class OllamaLlmProviderTest {
             var provider = new OllamaLlmProvider("test",
                     "http://localhost:19999", Duration.ofMillis(500));
             assertThatThrownBy(() -> provider.generate("test prompt"))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class)
+                    .isInstanceOf(LlmProvider.GenerationException.class)
                     .hasMessageContaining("unavailable");
         }
 
@@ -120,7 +120,7 @@ class OllamaLlmProviderTest {
                     .maxTokens(256)
                     .build();
             assertThatThrownBy(() -> provider.generate("test prompt", options))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class);
+                    .isInstanceOf(LlmProvider.GenerationException.class);
         }
 
         @Test
@@ -140,7 +140,7 @@ class OllamaLlmProviderTest {
             // generate(prompt) delegates to generate(prompt, DEFAULT)
             // just verify it throws the connection error, not a config error
             assertThatThrownBy(() -> provider.generate("test"))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class);
+                    .isInstanceOf(LlmProvider.GenerationException.class);
         }
 
         @Test
@@ -154,7 +154,7 @@ class OllamaLlmProviderTest {
                     .stopSequences("---", "\n\n")
                     .build();
             assertThatThrownBy(() -> provider.generate("test prompt", options))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class);
+                    .isInstanceOf(LlmProvider.GenerationException.class);
         }
 
         @Test
@@ -163,7 +163,7 @@ class OllamaLlmProviderTest {
                     "http://localhost:19999", Duration.ofMillis(500));
             // null options should not cause NPE in buildRequestBody
             assertThatThrownBy(() -> provider.generate("test prompt", null))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class);
+                    .isInstanceOf(LlmProvider.GenerationException.class);
         }
 
         @Test
@@ -173,9 +173,9 @@ class OllamaLlmProviderTest {
             var options = GenerationOptions.builder()
                     .maxTokens(0)
                     .build();
-            // Should not fail on building the request body — fails on connection
+            // Should not fail on building the request body â€” fails on connection
             assertThatThrownBy(() -> provider.generate("test prompt", options))
-                    .isInstanceOf(TextGenerationProvider.GenerationException.class);
+                    .isInstanceOf(LlmProvider.GenerationException.class);
         }
     }
 }

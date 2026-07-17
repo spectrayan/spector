@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.provider.ollama;
+package com.spectrayan.spector.provider.embedding.generic;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
-import com.spectrayan.spector.embed.TokenEmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.TokenEmbeddingResult;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -29,12 +29,12 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Unit tests for {@link OllamaTokenEmbeddingProvider}.
+ * Unit tests for {@link DenseDerivedTokenProvider}.
  *
  * <p>Uses a fake in-memory {@link EmbeddingProvider} to test the dense-derived
  * per-token embedding logic without requiring a running Ollama server.</p>
  */
-class OllamaTokenEmbeddingProviderTest {
+class DenseDerivedTokenProviderTest {
 
     /** Fake embedding provider that returns deterministic vectors. */
     private static class FakeEmbeddingProvider implements EmbeddingProvider {
@@ -74,26 +74,26 @@ class OllamaTokenEmbeddingProviderTest {
 
         @Test
         void constructsWithProvider() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             assertThat(provider.modelName()).contains("dense-derived-colbert");
             assertThat(provider.modelName()).contains("fake-embed");
         }
 
         @Test
         void constructsWithCustomDimensions() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider, 64);
+            var provider = new DenseDerivedTokenProvider(fakeProvider, 64);
             assertThat(provider.tokenDimensions()).isEqualTo(64);
         }
 
         @Test
         void defaultDimensionsIs128() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             assertThat(provider.tokenDimensions()).isEqualTo(128);
         }
 
         @Test
         void embeddingProviderAccessor() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             assertThat(provider.embeddingProvider()).isSameAs(fakeProvider);
         }
     }
@@ -103,7 +103,7 @@ class OllamaTokenEmbeddingProviderTest {
 
         @Test
         void encodeNullReturnsEmpty() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             TokenEmbeddingResult result = provider.encode(null);
             assertThat(result.embeddings()).isEmpty();
             assertThat(result.tokens()).isEmpty();
@@ -112,7 +112,7 @@ class OllamaTokenEmbeddingProviderTest {
 
         @Test
         void encodeBlankReturnsEmpty() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             TokenEmbeddingResult result = provider.encode("   ");
             assertThat(result.embeddings()).isEmpty();
             assertThat(result.tokens()).isEmpty();
@@ -120,7 +120,7 @@ class OllamaTokenEmbeddingProviderTest {
 
         @Test
         void encodeTextProducesTokenEmbeddings() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             TokenEmbeddingResult result = provider.encode("memory consolidation during sleep");
             assertThat(result.tokenCount()).isGreaterThan(0);
             assertThat(result.embeddings().length).isEqualTo(result.tokenCount());
@@ -130,7 +130,7 @@ class OllamaTokenEmbeddingProviderTest {
         @Test
         void embeddingsProjectedToTokenDims() {
             int tokenDims = 64;
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider, tokenDims);
+            var provider = new DenseDerivedTokenProvider(fakeProvider, tokenDims);
             TokenEmbeddingResult result = provider.encode("test projection dimensions");
             for (float[] tokenEmb : result.embeddings()) {
                 assertThat(tokenEmb.length).isEqualTo(tokenDims);
@@ -139,7 +139,7 @@ class OllamaTokenEmbeddingProviderTest {
 
         @Test
         void embeddingsProjectedToDefaultDims() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             TokenEmbeddingResult result = provider.encode("test default dims");
             for (float[] tokenEmb : result.embeddings()) {
                 assertThat(tokenEmb.length).isEqualTo(128);
@@ -148,7 +148,7 @@ class OllamaTokenEmbeddingProviderTest {
 
         @Test
         void singleCharTermsFiltered() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             TokenEmbeddingResult result = provider.encode("I am a test of words");
             // "I", "a" should be filtered (< 2 chars), "am", "test", "of", "words" kept
             for (String token : result.tokens()) {
@@ -158,7 +158,7 @@ class OllamaTokenEmbeddingProviderTest {
 
         @Test
         void tokensAreLowercase() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             TokenEmbeddingResult result = provider.encode("Hello World Testing");
             for (String token : result.tokens()) {
                 assertThat(token).isEqualTo(token.toLowerCase());
@@ -181,7 +181,7 @@ class OllamaTokenEmbeddingProviderTest {
                     return new EmbeddingResult(vec, 1, "small-fake");
                 }
             };
-            var provider = new OllamaTokenEmbeddingProvider(smallProvider, 128);
+            var provider = new DenseDerivedTokenProvider(smallProvider, 128);
             TokenEmbeddingResult result = provider.encode("test padding");
             for (float[] tokenEmb : result.embeddings()) {
                 assertThat(tokenEmb.length).isEqualTo(128);
@@ -198,7 +198,7 @@ class OllamaTokenEmbeddingProviderTest {
 
         @Test
         void modelNameIncludesBaseModel() {
-            var provider = new OllamaTokenEmbeddingProvider(fakeProvider);
+            var provider = new DenseDerivedTokenProvider(fakeProvider);
             assertThat(provider.modelName()).isEqualTo("dense-derived-colbert/fake-embed");
         }
     }

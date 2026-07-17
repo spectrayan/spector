@@ -21,6 +21,9 @@ import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
+import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
+
+import java.util.Map;
 
 import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
@@ -51,12 +54,20 @@ public class GoogleProviderFactory implements ProviderFactory {
 
     @Override
     public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
-        var model = GoogleAiEmbeddingModel.builder()
+        var builder = GoogleAiEmbeddingModel.builder()
                 .apiKey(config.apiKey())
                 .modelName(config.model())
                 .timeout(Duration.ofSeconds(
-                        Long.parseLong(config.property("timeout", "30"))))
-                .build();
+                        Long.parseLong(config.property("timeout", "30"))));
+
+        // Apply HTTP client settings (proxy, mTLS)
+        dev.langchain4j.http.client.HttpClientBuilder clientBuilder = LangChain4jHelper.resolveHttpClient(
+                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "30"))));
+        if (clientBuilder != null) {
+            builder.httpClientBuilder(clientBuilder);
+        }
+
+        var model = builder.build();
 
         int dims = config.dimensions() > 0 ? config.dimensions() : 768;
         return Optional.of(new LangChain4jEmbeddingAdapter(model, config.model(), dims));
@@ -76,6 +87,19 @@ public class GoogleProviderFactory implements ProviderFactory {
                 builder.maxOutputTokens(Integer.parseInt(t)));
         config.property("topP").ifPresent(t ->
                 builder.topP(Double.parseDouble(t)));
+
+        // Apply HTTP client settings (proxy, mTLS)
+        dev.langchain4j.http.client.HttpClientBuilder clientBuilderGen = LangChain4jHelper.resolveHttpClient(
+                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "60"))));
+        if (clientBuilderGen != null) {
+            builder.httpClientBuilder(clientBuilderGen);
+        }
+
+        // Apply custom headers
+        Map<String, String> headers = LangChain4jHelper.resolveCustomHeaders(config);
+        if (!headers.isEmpty()) {
+            builder.customHeaders(headers);
+        }
 
         return Optional.of(new LangChain4jGenerationAdapter(builder.build(), config.model()));
     }

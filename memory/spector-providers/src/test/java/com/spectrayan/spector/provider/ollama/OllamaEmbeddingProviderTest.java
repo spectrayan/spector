@@ -20,7 +20,7 @@ import com.spectrayan.spector.commons.error.SpectorEmbeddingException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.spectrayan.spector.embed.EmbeddingConfig;
+import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
 
 import org.junit.jupiter.api.Test;
 

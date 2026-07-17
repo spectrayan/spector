@@ -51,6 +51,8 @@ const MODALITY_ICONS: Record<string, string> = {
   VIDEO: 'videocam',
 };
 
+import { MarkdownPreviewComponent } from '../../shared/components/markdown-preview/markdown-preview.component';
+
 @Component({
   selector: 'cortex-memory-detail',
   standalone: true,
@@ -66,6 +68,7 @@ const MODALITY_ICONS: Record<string, string> = {
     MatBadgeModule,
     MatDialogModule,
     MatSnackBarModule,
+    MarkdownPreviewComponent,
   ],
   templateUrl: './memory-detail.component.html',
   styleUrl: './memory-detail.component.scss',

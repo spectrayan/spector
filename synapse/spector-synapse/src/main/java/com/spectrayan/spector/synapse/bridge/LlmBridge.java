@@ -24,6 +24,9 @@ import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import com.spectrayan.spector.provider.ProviderRegistry;
+import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 
 import java.time.Duration;
 import java.util.List;
@@ -44,12 +47,14 @@ public class LlmBridge {
     private static final Logger log = LoggerFactory.getLogger(LlmBridge.class);
 
     private final SynapseProperties props;
+    private final ProviderRegistry providerRegistry;
     private final ConcurrentHashMap<String, ChatModel> chatModels = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, StreamingChatModel> streamingModels = new ConcurrentHashMap<>();
 
-    public LlmBridge(SynapseProperties props) {
+    public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry) {
         this.props = props;
-        log.info("[LlmBridge] Configured for Ollama at {} with default model {}",
+        this.providerRegistry = providerRegistry;
+        log.info("[LlmBridge] Configured with ProviderRegistry and Ollama fallback at {} with default model {}",
                 props.ollama().baseUrl(), props.ollama().model());
     }
 
@@ -64,6 +69,19 @@ public class LlmBridge {
      * Get the synchronous chat model for a specific model name (lazy-initialized and cached).
      */
     public ChatModel chatModel(String modelName) {
+        if (providerRegistry != null) {
+            var activeLlmOpt = providerRegistry.activeGeneration();
+            if (activeLlmOpt.isPresent()) {
+                var activeLlm = activeLlmOpt.get();
+                if (modelName == null || modelName.isBlank() || modelName.equals(activeLlm.modelName())) {
+                    if (activeLlm instanceof LangChain4jGenerationAdapter adapter) {
+                        return adapter.delegate();
+                    } else if (activeLlm instanceof OllamaLlmProvider ollamaLlm) {
+                        return ollamaLlm.delegate();
+                    }
+                }
+            }
+        }
         String resolvedModel = (modelName == null || modelName.isBlank()) ? props.ollama().model() : modelName;
         return chatModels.computeIfAbsent(resolvedModel, name -> {
             var model = OllamaChatModel.builder()
@@ -89,6 +107,19 @@ public class LlmBridge {
     public ChatModel chatModel(LlmSpec spec) {
         if (spec == null) {
             return chatModel();
+        }
+        if (providerRegistry != null) {
+            var activeLlmOpt = providerRegistry.activeGeneration();
+            if (activeLlmOpt.isPresent()) {
+                var activeLlm = activeLlmOpt.get();
+                if (spec.model() == null || spec.model().isBlank() || spec.model().equals(activeLlm.modelName())) {
+                    if (activeLlm instanceof LangChain4jGenerationAdapter adapter) {
+                        return adapter.delegate();
+                    } else if (activeLlm instanceof OllamaLlmProvider ollamaLlm) {
+                        return ollamaLlm.delegate();
+                    }
+                }
+            }
         }
         String cacheKey = spec.provider() + ":" + spec.model() + ":"
                 + spec.temperature() + ":" + spec.maxTokens();

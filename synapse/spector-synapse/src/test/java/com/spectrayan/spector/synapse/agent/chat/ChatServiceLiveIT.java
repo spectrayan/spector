@@ -115,7 +115,7 @@ class ChatServiceLiveIT {
                 new CorsProperties("http://localhost:4200")
         );
 
-        llmBridge = new LlmBridge(props);
+        llmBridge = new LlmBridge(props, new com.spectrayan.spector.provider.DefaultProviderRegistry());
         toolRegistry = new ToolRegistry(List.of(new CurrentTimeTool()));
         identityPrimerService = new IdentityPrimerService();
         agenticChatGraph = new AgenticChatGraph(llmBridge, toolRegistry);

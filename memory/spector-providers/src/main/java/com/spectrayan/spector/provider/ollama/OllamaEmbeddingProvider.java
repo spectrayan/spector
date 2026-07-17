@@ -18,6 +18,7 @@ package com.spectrayan.spector.provider.ollama;
 import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
+import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.commons.error.SpectorEmbeddingException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
@@ -28,12 +29,13 @@ import java.util.Objects;
 import java.util.concurrent.Semaphore;
 
 /**
- * Embedding provider backed by a local Ollama server, utilizing LangChain4j.
+ * Embedding provider backed by a local Ollama server, reusing the core LangChain4j embedding adapter.
  */
 public class OllamaEmbeddingProvider implements EmbeddingProvider {
 
     private final EmbeddingConfig config;
     private final OllamaEmbeddingModel delegate;
+    private final LangChain4jEmbeddingAdapter adapter;
     private final Semaphore concurrencyLimiter;
     private volatile int cachedDimensions = -1;
 
@@ -44,6 +46,8 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
                 .modelName(config.model())
                 .timeout(config.timeout())
                 .build();
+        // Uses 1 as a placeholder dimension since OllamaEmbeddingProvider overrides the dimensions() getter
+        this.adapter = new LangChain4jEmbeddingAdapter(delegate, config.model(), 1);
         this.concurrencyLimiter = config.maxConcurrent() > 0
                 ? new Semaphore(config.maxConcurrent())
                 : null;
@@ -77,13 +81,9 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         }
 
         try {
-            var response = delegate.embed(text);
-            float[] vector = response.content().vector();
-            cachedDimensions = vector.length;
-            int tokens = response.tokenUsage() != null && response.tokenUsage().inputTokenCount() != null
-                    ? response.tokenUsage().inputTokenCount()
-                    : 0;
-            return new EmbeddingResult(vector, tokens, config.model());
+            var result = adapter.embed(text);
+            cachedDimensions = result.vector().length;
+            return result;
         } catch (Exception e) {
             throw new SpectorEmbeddingException(ErrorCode.EMBEDDING_UNAVAILABLE, "Ollama server unavailable or error occurred: " + e.getMessage(), e);
         } finally {
@@ -110,16 +110,11 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         }
 
         try {
-            var response = delegate.embedAll(texts.stream()
-                    .map(dev.langchain4j.data.segment.TextSegment::from)
-                    .toList());
-            var embeddings = response.content();
-            if (!embeddings.isEmpty()) {
-                cachedDimensions = embeddings.getFirst().vector().length;
+            var results = adapter.embedBatch(texts);
+            if (!results.isEmpty()) {
+                cachedDimensions = results.getFirst().vector().length;
             }
-            return embeddings.stream()
-                    .map(emb -> new EmbeddingResult(emb.vector(), 0, config.model()))
-                    .toList();
+            return results;
         } catch (Exception e) {
             throw new SpectorEmbeddingException(ErrorCode.EMBEDDING_UNAVAILABLE, "Ollama server unavailable or error occurred: " + e.getMessage(), e);
         } finally {
@@ -141,5 +136,10 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
     @Override
     public String modelName() {
         return config.model();
+    }
+
+    /** Returns the underlying LangChain4j model for advanced configuration. */
+    public dev.langchain4j.model.embedding.EmbeddingModel delegate() {
+        return delegate;
     }
 }
