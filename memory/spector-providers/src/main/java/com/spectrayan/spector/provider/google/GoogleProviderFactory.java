@@ -30,6 +30,7 @@ import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 
 import java.time.Duration;
 import java.util.Optional;
+import com.spectrayan.spector.commons.ParseUtils;
 
 /**
  * Factory for creating Google AI (Gemini) embedding and generation providers.
@@ -54,15 +55,15 @@ public class GoogleProviderFactory implements ProviderFactory {
 
     @Override
     public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
+        long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
         var builder = GoogleAiEmbeddingModel.builder()
                 .apiKey(config.apiKey())
                 .modelName(config.model())
-                .timeout(Duration.ofSeconds(
-                        Long.parseLong(config.property("timeout", "30"))));
+                .timeout(Duration.ofSeconds(timeoutSeconds));
 
         // Apply HTTP client settings (proxy, mTLS)
         dev.langchain4j.http.client.HttpClientBuilder clientBuilder = LangChain4jHelper.resolveHttpClient(
-                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "30"))));
+                config, Duration.ofSeconds(timeoutSeconds));
         if (clientBuilder != null) {
             builder.httpClientBuilder(clientBuilder);
         }
@@ -75,22 +76,25 @@ public class GoogleProviderFactory implements ProviderFactory {
 
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
+        long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 60L);
         var builder = GoogleAiGeminiChatModel.builder()
                 .apiKey(config.apiKey())
                 .modelName(config.model())
-                .timeout(Duration.ofSeconds(
-                        Long.parseLong(config.property("timeout", "60"))));
+                .timeout(Duration.ofSeconds(timeoutSeconds));
 
-        config.property("temperature").ifPresent(t ->
-                builder.temperature(Double.parseDouble(t)));
-        config.property("maxOutputTokens").ifPresent(t ->
-                builder.maxOutputTokens(Integer.parseInt(t)));
-        config.property("topP").ifPresent(t ->
-                builder.topP(Double.parseDouble(t)));
+        config.property("temperature")
+                .flatMap(ParseUtils::parseDouble)
+                .ifPresent(builder::temperature);
+        config.property("maxOutputTokens")
+                .flatMap(ParseUtils::parseInteger)
+                .ifPresent(builder::maxOutputTokens);
+        config.property("topP")
+                .flatMap(ParseUtils::parseDouble)
+                .ifPresent(builder::topP);
 
         // Apply HTTP client settings (proxy, mTLS)
         dev.langchain4j.http.client.HttpClientBuilder clientBuilderGen = LangChain4jHelper.resolveHttpClient(
-                config, Duration.ofSeconds(Long.parseLong(config.property("timeout", "60"))));
+                config, Duration.ofSeconds(timeoutSeconds));
         if (clientBuilderGen != null) {
             builder.httpClientBuilder(clientBuilderGen);
         }
