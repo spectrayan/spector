@@ -23,6 +23,7 @@ import com.spectrayan.spector.provider.ProviderFactory;
 
 import java.time.Duration;
 import java.util.Optional;
+import com.spectrayan.spector.commons.ParseUtils;
 
 /**
  * Factory for creating Ollama embedding and generation providers.
@@ -67,9 +68,9 @@ public class OllamaProviderFactory implements ProviderFactory {
     @Override
     public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
         String baseUrl = config.hasBaseUrl() ? config.baseUrl() : DEFAULT_BASE_URL;
-        int timeout = Integer.parseInt(config.property("timeout", "30"));
-        int maxConcurrent = Integer.parseInt(config.property("maxConcurrent", "0"));
-        int batchSize = Integer.parseInt(config.property("batchSize", "32"));
+        int timeout = ParseUtils.parseInteger(config.property("timeout").orElse(null)).orElse(30);
+        int maxConcurrent = ParseUtils.parseInteger(config.property("maxConcurrent").orElse(null)).orElse(0);
+        int batchSize = ParseUtils.parseInteger(config.property("batchSize").orElse(null)).orElse(32);
 
         var embeddingConfig = new EmbeddingConfig(
                 config.model(),
@@ -85,7 +86,7 @@ public class OllamaProviderFactory implements ProviderFactory {
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         String baseUrl = config.hasBaseUrl() ? config.baseUrl() : DEFAULT_BASE_URL;
-        int timeout = Integer.parseInt(config.property("timeout", "60"));
+        int timeout = ParseUtils.parseInteger(config.property("timeout").orElse(null)).orElse(60);
 
         return Optional.of(new OllamaLlmProvider(
                 config.model(),
