@@ -9,6 +9,7 @@ import { MaintenanceBannerComponent } from '../maintenance-banner/maintenance-ba
 import { CommandPaletteComponent } from '../command-palette/command-palette.component';
 import { EventStreamService } from '../../core/services/event-stream.service';
 import { AuthService } from '../../core/services/auth.service';
+import { FeatureFlagService } from '../../core/services/feature-flag.service';
 import { OnboardingTourComponent } from '../onboarding-tour/onboarding-tour.component';
 
 interface NavItem {
@@ -16,6 +17,7 @@ interface NavItem {
   label: string;
   route: string;
   adminOnly?: boolean;
+  featureFlag?: string;
 }
 
 @Component({
@@ -42,19 +44,23 @@ export class ShellComponent {
 
   private readonly eventStream = inject(EventStreamService);
   private readonly auth = inject(AuthService);
+  private readonly featureFlags = inject(FeatureFlagService);
 
   private readonly allNavItems: NavItem[] = [
-    // ── Primary (cognitive agent first) ──
-    {icon: 'chat', label: 'Chat', route: '/chat'},
+    { icon: 'dashboard', label: 'Dashboard', route: '/dashboard' },
+    { icon: 'chat', label: 'Chat', route: '/chat', featureFlag: 'chatEnabled' },
     { icon: 'hub', label: 'Graph', route: '/graph' },
     { icon: 'search', label: 'Query', route: '/query' },
     { icon: 'auto_stories', label: 'Memories', route: '/memories' },
 
   ];
 
-  /** Filtered nav items based on user role. */
+  /** Filtered nav items based on user role and feature flags. */
   readonly navItems = computed(() =>
-    this.allNavItems.filter(item => !item.adminOnly || this.auth.isAdmin())
+    this.allNavItems.filter(item =>
+      (!item.adminOnly || this.auth.isAdmin()) &&
+      (!item.featureFlag || this.featureFlags.isEnabled(item.featureFlag))
+    )
   );
 
   constructor() {

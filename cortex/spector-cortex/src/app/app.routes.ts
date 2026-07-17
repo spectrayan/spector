@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { ShellComponent } from './features/shell/shell.component';
+import { featureGuard } from './core/guards/feature.guard';
 
 export const routes: Routes = [
   {
@@ -8,13 +9,24 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        redirectTo: 'chat',
+        redirectTo: 'dashboard',
         pathMatch: 'full'
+      },
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent),
+        title: 'Dashboard — Spector Cortex'
       },
       {
         path: 'chat',
         loadComponent: () => import('./features/agent-chat/agent-chat.component').then(m => m.AgentChatComponent),
+        canActivate: [featureGuard('chatEnabled')],
         title: 'Chat — Spector Cortex'
+      },
+      {
+        path: 'query',
+        loadComponent: () => import('./features/query/query.component').then(m => m.QueryComponent),
+        title: 'Query — Spector Cortex'
       },
       {
         path: 'memories',
@@ -26,10 +38,7 @@ export const routes: Routes = [
         loadComponent: () => import('./features/memory-detail/memory-detail.component').then(m => m.MemoryDetailComponent),
         title: 'Memory Detail — Spector Cortex'
       },
-      {
-        path: 'dashboard',
-        redirectTo: 'chat'
-      },
+
       {
         path: 'graph',
         loadComponent: () => import('./features/graph-explorer/graph-explorer.component').then(m => m.GraphExplorerComponent),
@@ -42,7 +51,7 @@ export const routes: Routes = [
       },
       {
         path: '**',
-        redirectTo: 'chat'
+        redirectTo: 'dashboard'
       }
     ]
   }

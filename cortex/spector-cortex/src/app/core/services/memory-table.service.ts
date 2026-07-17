@@ -425,12 +425,53 @@ export class MemoryTableService {
 
   /** Executes a cognitive recall query against the memory subsystem. */
   recall(query: string, topK: number = 10, profile?: string, queryValence?: number | null): Observable<RecallResponse> {
+    const startTime = Date.now();
     const body: Record<string, any> = { query, topK };
     if (profile) body['profile'] = profile;
     if (queryValence !== undefined && queryValence !== null) {
       body['queryValence'] = queryValence;
     }
-    return this.http.post<RecallResponse>(`${this.API}/recall`, body);
+    return this.http.post<any[]>(`${this.API}/recall`, body).pipe(
+      map(items => {
+        const endTime = Date.now();
+        const queryTimeMs = endTime - startTime;
+        
+        const results = (items || []).map(item => {
+          return {
+            id: item.id,
+            text: item.text,
+            score: item.cognitiveScore ?? 0,
+            importance: item.importance ?? 1.0,
+            ageDays: parseFloat(item.ageDescription) || 0,
+            agentRecallCount: item.agentRecallCount ?? 0,
+            valence: item.valence ?? 0,
+            memoryType: item.memoryType || item.tier || 'SEMANTIC',
+            source: item.source || 'OBSERVED',
+            synapticTags: item.tags || [],
+            breakdown: {
+              similarity: item.cognitiveScore ?? 0,
+              importanceDecay: 1.0,
+              tagBoostFactor: 1.0,
+              habituationPenalty: 1.0,
+              graphBoost: 1.0,
+              valenceAlignment: 1.0,
+              finalScore: item.cognitiveScore ?? 0
+            },
+            lateral: false,
+            negativeOutcome: false,
+            hyperfocused: false,
+            positivelyReinforced: false
+          } as RecallResult;
+        });
+
+        return {
+          results: results,
+          totalMemories: results.length,
+          queryTimeMs: queryTimeMs,
+          profile: profile || 'BALANCED'
+        } as RecallResponse;
+      })
+    );
   }
 
   // ══════════════════════════════════════════════════════════════
