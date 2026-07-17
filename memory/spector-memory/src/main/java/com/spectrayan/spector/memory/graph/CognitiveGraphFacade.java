@@ -121,7 +121,7 @@ public final class CognitiveGraphFacade {
      */
     public GraphNeighborhood overview(int maxNodes, Function<String, CognitiveRecord> inspector) {
         try {
-            List<String> allIds = new java.util.ArrayList<>(index.allIds());
+            List<String> allIds = new java.util.ArrayList<>(index.orderedIds());
             java.util.Collections.reverse(allIds);
             allIds = allIds.stream().limit(maxNodes).toList();
             if (allIds.isEmpty()) return GraphNeighborhood.empty(null);

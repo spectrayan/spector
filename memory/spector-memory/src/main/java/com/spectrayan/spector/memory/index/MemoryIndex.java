@@ -421,6 +421,15 @@ public final class MemoryIndex {
     }
 
     /**
+     * Returns all registered memory IDs in insertion order.
+     */
+    public java.util.List<String> orderedIds() {
+        synchronized (orderedIds) {
+            return new java.util.ArrayList<>(orderedIds);
+        }
+    }
+
+    /**
      * Returns the raw location map (for iteration in decay, etc.).
      */
     public ConcurrentHashMap<String, MemoryLocation> locationMap() {
