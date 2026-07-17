@@ -11,6 +11,20 @@ spector:
   port: 0
   api-key: test-key
   data-dir: ${java.io.tmpdir}/spector-test
+  features:
+    chat-enabled: true
+    agent-chat-enabled: true
+    agent-workspaces-enabled: true
+    tag-extraction-enabled: true
+    entity-extraction-enabled: true
+    reflection-enabled: true
+    gpu-acceleration-enabled: true
+    cluster-mode-enabled: true
+    connectors-enabled: true
+    benchmarks-enabled: true
+    advanced-visualizations-enabled: true
+    governance-enabled: true
+    mcp-server-enabled: true
   memory:
     enabled: false          # disables SpectorAutoConfiguration bean — no Ollama needed
     max-memories: 0
