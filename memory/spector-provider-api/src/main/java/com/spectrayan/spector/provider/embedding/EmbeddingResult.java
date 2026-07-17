@@ -21,33 +21,47 @@ import java.util.Objects;
 /**
  * Result of generating embeddings for a piece of text.
  *
- * @param vector    the raw dense float vector
- * @param tokens    number of tokens used (0 if unknown/untracked)
- * @param modelName name of the model that generated the vector
+ * @param vector     the raw dense float vector
+ * @param tokenCount number of tokens used (0 or -1 if unknown/untracked)
+ * @param model      name of the model that generated the vector
  */
 public record EmbeddingResult(
         float[] vector,
-        int tokens,
-        String modelName
+        int tokenCount,
+        String model
 ) {
 
     public EmbeddingResult {
         Objects.requireNonNull(vector, "vector must not be null");
-        Objects.requireNonNull(modelName, "modelName must not be null");
+        Objects.requireNonNull(model, "model must not be null");
+    }
+
+    /**
+     * Creates a result with unknown token count.
+     */
+    public static EmbeddingResult of(float[] vector, String model) {
+        return new EmbeddingResult(vector, -1, model);
+    }
+
+    /**
+     * Returns the dimensionality of the vector.
+     */
+    public int dimensions() {
+        return vector.length;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof EmbeddingResult that)) return false;
-        return tokens == that.tokens &&
+        return tokenCount == that.tokenCount &&
                 Arrays.equals(vector, that.vector) &&
-                Objects.equals(modelName, that.modelName);
+                Objects.equals(model, that.model);
     }
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(tokens, modelName);
+        int result = Objects.hash(tokenCount, model);
         result = 31 * result + Arrays.hashCode(vector);
         return result;
     }
@@ -55,7 +69,7 @@ public record EmbeddingResult(
     @Override
     public String toString() {
         return "EmbeddingResult[dimensions=" + vector.length +
-                ", tokens=" + tokens +
-                ", model='" + modelName + "']";
+                ", tokens=" + tokenCount +
+                ", model='" + model + "']";
     }
 }

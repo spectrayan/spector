@@ -12,7 +12,10 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.model.LlmRequest;
+import com.spectrayan.spector.provider.model.LlmResponse;
 
 import org.junit.jupiter.api.Test;
 
@@ -33,20 +36,7 @@ class LlmEntityExtractorTest {
                 RELATION: Alice | MANAGES | Project Alpha
                 """;
 
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) {
-                return response;
-            }
-            @Override
-            public boolean isAvailable() {
-                return true;
-            }
-            @Override
-            public String modelName() {
-                return "test-mock";
-            }
-        };
+        LlmProvider mockProvider = mockLlm(response, true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test-id", "Alice manages Project Alpha");
@@ -64,20 +54,7 @@ class LlmEntityExtractorTest {
 
     @Test
     void handlesEmptyResponse() {
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) {
-                return "";
-            }
-            @Override
-            public boolean isAvailable() {
-                return true;
-            }
-            @Override
-            public String modelName() {
-                return "test-mock";
-            }
-        };
+        LlmProvider mockProvider = mockLlm("", true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test-id", "some text");
@@ -95,20 +72,7 @@ class LlmEntityExtractorTest {
 
     @Test
     void handlesUnavailableProvider() {
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) {
-                throw new RuntimeException("Should not be called");
-            }
-            @Override
-            public boolean isAvailable() {
-                return false;
-            }
-            @Override
-            public String modelName() {
-                return "test-mock";
-            }
-        };
+        LlmProvider mockProvider = mockLlm("Should not be called", false);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         assertThat(extractor.extract("test", "text")).isEmpty();
@@ -116,20 +80,7 @@ class LlmEntityExtractorTest {
 
     @Test
     void handlesProviderException() {
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) {
-                throw new RuntimeException("API failure");
-            }
-            @Override
-            public boolean isAvailable() {
-                return true;
-            }
-            @Override
-            public String modelName() {
-                return "test-mock";
-            }
-        };
+        LlmProvider mockProvider = mockLlm(null, true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test-id", "text");
@@ -141,20 +92,7 @@ class LlmEntityExtractorTest {
     void preservesNovelEntityType() {
         String response = "ENTITY: Widget | GADGET\n";
 
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) {
-                return response;
-            }
-            @Override
-            public boolean isAvailable() {
-                return true;
-            }
-            @Override
-            public String modelName() {
-                return "test-mock";
-            }
-        };
+        LlmProvider mockProvider = mockLlm(response, true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test", "text");
@@ -172,20 +110,7 @@ class LlmEntityExtractorTest {
             response.append("ENTITY: Entity" + i + " | PERSON\n");
         }
 
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) {
-                return response.toString();
-            }
-            @Override
-            public boolean isAvailable() {
-                return true;
-            }
-            @Override
-            public String modelName() {
-                return "test-mock";
-            }
-        };
+        LlmProvider mockProvider = mockLlm(response.toString(), true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider, 5, 10);
         List<ExtractedEntity> entities = extractor.extract("test", "text");
@@ -203,20 +128,7 @@ class LlmEntityExtractorTest {
                 RELATION: Alice | WORKS_ON | Acme
                 """;
 
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) {
-                return response;
-            }
-            @Override
-            public boolean isAvailable() {
-                return true;
-            }
-            @Override
-            public String modelName() {
-                return "test-mock";
-            }
-        };
+        LlmProvider mockProvider = mockLlm(response, true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test", "text");
@@ -235,14 +147,7 @@ class LlmEntityExtractorTest {
                 RELATION: Service A | DEPENDS-ON | Library B
                 """;
 
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) { return response; }
-            @Override
-            public boolean isAvailable() { return true; }
-            @Override
-            public String modelName() { return "test-mock"; }
-        };
+        LlmProvider mockProvider = mockLlm(response, true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test", "text");
@@ -261,14 +166,7 @@ class LlmEntityExtractorTest {
                 RELATION: Alice | WORKS ON | Project X
                 """;
 
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) { return response; }
-            @Override
-            public boolean isAvailable() { return true; }
-            @Override
-            public String modelName() { return "test-mock"; }
-        };
+        LlmProvider mockProvider = mockLlm(response, true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test", "text");
@@ -289,14 +187,7 @@ class LlmEntityExtractorTest {
                 RELATION: Module B | DEPENDS-ON | Module C
                 """;
 
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) { return response; }
-            @Override
-            public boolean isAvailable() { return true; }
-            @Override
-            public String modelName() { return "test-mock"; }
-        };
+        LlmProvider mockProvider = mockLlm(response, true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test", "text");
@@ -315,35 +206,47 @@ class LlmEntityExtractorTest {
         // Some small models output: RELATION: REL_TYPE | entity1 | entity2
         // instead of the expected:  RELATION: entity1 | REL_TYPE | entity2
         String response = """
-                ENTITY: Punam | PERSON
-                ENTITY: Bharat | PERSON
-                RELATION: DEPENDS_ON | Punam | Bharat
-                RELATION: ASSIGNED_TO | Bharat | Punam
+                ENTITY: Alex | PERSON
+                ENTITY: Blake | PERSON
+                RELATION: DEPENDS_ON | Alex | Blake
+                RELATION: ASSIGNED_TO | Blake | Alex
                 """;
 
-        TextGenerationProvider mockProvider = new TextGenerationProvider() {
-            @Override
-            public String generate(String prompt) { return response; }
-            @Override
-            public boolean isAvailable() { return true; }
-            @Override
-            public String modelName() { return "test-mock"; }
-        };
+        LlmProvider mockProvider = mockLlm(response, true);
 
         LlmEntityExtractor extractor = new LlmEntityExtractor(mockProvider);
         List<ExtractedEntity> entities = extractor.extract("test", "text");
 
         assertThat(entities).hasSize(2);
-        // Punam should be the source of DEPENDS_ON (after swap detection)
-        var punam = entities.get(0);
-        assertThat(punam.relations()).hasSize(1);
-        assertThat(punam.relations().get(0).relationType()).isEqualTo("DEPENDS_ON");
-        assertThat(punam.relations().get(0).targetEntityName()).isEqualTo("Bharat");
+        // Alex should be the source of DEPENDS_ON (after swap detection)
+        var alex = entities.get(0);
+        assertThat(alex.relations()).hasSize(1);
+        assertThat(alex.relations().get(0).relationType()).isEqualTo("DEPENDS_ON");
+        assertThat(alex.relations().get(0).targetEntityName()).isEqualTo("Blake");
 
-        // Bharat should be the source of ASSIGNED_TO (after swap detection)
-        var bharat = entities.get(1);
-        assertThat(bharat.relations()).hasSize(1);
-        assertThat(bharat.relations().get(0).relationType()).isEqualTo("ASSIGNED_TO");
-        assertThat(bharat.relations().get(0).targetEntityName()).isEqualTo("Punam");
+        // Blake should be the source of ASSIGNED_TO (after swap detection)
+        var blake = entities.get(1);
+        assertThat(blake.relations()).hasSize(1);
+        assertThat(blake.relations().get(0).relationType()).isEqualTo("ASSIGNED_TO");
+        assertThat(blake.relations().get(0).targetEntityName()).isEqualTo("Alex");
+    }
+
+    private LlmProvider mockLlm(String fixedResponse, boolean available) {
+        return new LlmProvider() {
+            @Override
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                if (!available) {
+                    throw new RuntimeException("Should not be called");
+                }
+                if (fixedResponse == null) {
+                    throw new RuntimeException("API failure");
+                }
+                return new LlmResponse(fixedResponse, 0, 0, "test-mock");
+            }
+            @Override
+            public boolean isAvailable() { return available; }
+            @Override
+            public String modelName() { return "test-mock"; }
+        };
     }
 }

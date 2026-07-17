@@ -851,4 +851,6 @@ RecallOptions.builder()
 | 30 | **Structured Concurrency** | Runtime | Low |
 | 31 | **4-Layer Retrieval Stack** | Retrieval | High |
 | 32 | **ColBERT v2 reranking** | Retrieval | Medium |
+| 33 | **Multi-LLM Provider Integration** | N/A | None | Medium | ?? Planned |
+
 

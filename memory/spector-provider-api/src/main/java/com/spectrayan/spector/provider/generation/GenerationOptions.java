@@ -29,14 +29,20 @@ public record GenerationOptions(
         float topP,
         String[] stopSequences
 ) {
-    /** Default generation options. */
-    public static final GenerationOptions DEFAULT = new GenerationOptions(0.3f, 1024, 0.9f, new String[0]);
+    /** Default options: deterministic, 512 max tokens. */
+    public static final GenerationOptions DEFAULT = new GenerationOptions(0.1f, 512, 0.9f, new String[0]);
+
+    /** Creative options: higher temperature for synthesis. */
+    public static final GenerationOptions CREATIVE = new GenerationOptions(0.7f, 1024, 0.95f, new String[0]);
+
+    /** Concise options: short, factual output for reflection. */
+    public static final GenerationOptions CONCISE = new GenerationOptions(0.1f, 256, 0.9f, new String[0]);
 
     public static Builder builder() {
         return new Builder();
     }
 
-    public static class Builder {
+    public static final class Builder {
         private float temperature = DEFAULT.temperature;
         private int maxTokens = DEFAULT.maxTokens;
         private float topP = DEFAULT.topP;

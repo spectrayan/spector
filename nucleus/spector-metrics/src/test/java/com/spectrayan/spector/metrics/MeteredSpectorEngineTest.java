@@ -16,7 +16,7 @@
 package com.spectrayan.spector.metrics;
 
 import com.spectrayan.spector.config.SpectorConfig;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.engine.EngineIngestionTarget;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.index.VectorIndex;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.embed;
+package com.spectrayan.spector.provider.embedding;
 
 import com.spectrayan.spector.commons.error.SpectorEmbeddingException;
 import com.spectrayan.spector.commons.error.ErrorCode;

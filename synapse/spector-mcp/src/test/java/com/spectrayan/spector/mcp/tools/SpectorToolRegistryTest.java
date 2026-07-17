@@ -24,8 +24,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
@@ -39,10 +39,10 @@ import io.modelcontextprotocol.spec.McpSchema;
  *
  * <p>Tests cover:</p>
  * <ul>
- *   <li>Tool registry — all 6 tools registered with correct names</li>
- *   <li>Individual tool handlers — correct behavior via the abstract base</li>
- *   <li>Schema builder — produces valid input schemas</li>
- *   <li>Argument validation — missing/empty required args produce errors</li>
+ *   <li>Tool registry â€” all 6 tools registered with correct names</li>
+ *   <li>Individual tool handlers â€” correct behavior via the abstract base</li>
+ *   <li>Schema builder â€” produces valid input schemas</li>
+ *   <li>Argument validation â€” missing/empty required args produce errors</li>
  * </ul>
  */
 class SpectorToolRegistryTest {
@@ -69,7 +69,7 @@ class SpectorToolRegistryTest {
         if (engine != null) engine.close();
     }
 
-    // ─────────────── Registry Tests ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Registry Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void shouldRegister6Tools() {
@@ -110,7 +110,7 @@ class SpectorToolRegistryTest {
         }
     }
 
-    // ─────────────── Tool Handler Tests ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Tool Handler Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void semanticSearchShouldReturnResults() {
@@ -203,7 +203,7 @@ class SpectorToolRegistryTest {
                 .contains("Simd:");
     }
 
-    // ─────────────── Schema Builder Tests ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Schema Builder Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void schemaBuilderShouldProduceValidSchema() {
@@ -234,7 +234,7 @@ class SpectorToolRegistryTest {
         assertThat(schema).containsKey("properties");
     }
 
-    // ─────────────── Helpers ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Calls a tool by name via its registered spec.

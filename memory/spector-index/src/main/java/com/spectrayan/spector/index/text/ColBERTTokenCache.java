@@ -31,8 +31,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  *
  * <h3>Problem</h3>
  * <p>ColBERT reranking requires per-token embeddings for each candidate document.
- * Without caching, the {@link com.spectrayan.spector.embed.TokenEmbeddingProvider}
- * must re-encode every document on every query — expensive for ONNX inference
+ * Without caching, the {@link com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider}
+ * must re-encode every document on every query â€” expensive for ONNX inference
  * (typically 5-15ms per document). For 50 candidates, that's 250-750ms of
  * redundant model inference on documents whose text hasn't changed.</p>
  *
@@ -40,27 +40,27 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * <p>This cache stores pre-computed token embeddings in off-heap memory via
  * the Panama Foreign Memory API ({@link MemorySegment}). Benefits:</p>
  * <ul>
- *   <li><b>No GC pressure</b> — token embeddings are large (200 tokens × 128 dims
+ *   <li><b>No GC pressure</b> â€” token embeddings are large (200 tokens Ã— 128 dims
  *       = 100KB per doc). Off-heap avoids promoting to old-gen.</li>
- *   <li><b>Cache-friendly</b> — flat float layout enables sequential SIMD reads
+ *   <li><b>Cache-friendly</b> â€” flat float layout enables sequential SIMD reads
  *       during MaxSim scoring.</li>
- *   <li><b>Bounded memory</b> — configurable maximum entries with LRU eviction.</li>
+ *   <li><b>Bounded memory</b> â€” configurable maximum entries with LRU eviction.</li>
  * </ul>
  *
  * <h3>Memory Layout</h3>
  * <pre>
  *   Per entry (variable size):
- *   ┌────────────────────────────────────────────────┐
- *   │ float[tokenCount × tokenDims]                  │
- *   │   token 0: [f0, f1, ..., f_{dims-1}]          │
- *   │   token 1: [f0, f1, ..., f_{dims-1}]          │
- *   │   ...                                          │
- *   │   token N: [f0, f1, ..., f_{dims-1}]          │
- *   └────────────────────────────────────────────────┘
+ *   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+ *   â”‚ float[tokenCount Ã— tokenDims]                  â”‚
+ *   â”‚   token 0: [f0, f1, ..., f_{dims-1}]          â”‚
+ *   â”‚   token 1: [f0, f1, ..., f_{dims-1}]          â”‚
+ *   â”‚   ...                                          â”‚
+ *   â”‚   token N: [f0, f1, ..., f_{dims-1}]          â”‚
+ *   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
  * </pre>
  *
  * <h3>Thread Safety</h3>
- * <p>Uses {@link ReadWriteLock} — concurrent reads during MaxSim scoring,
+ * <p>Uses {@link ReadWriteLock} â€” concurrent reads during MaxSim scoring,
  * exclusive writes during cache population. The off-heap segment is allocated
  * with a shared {@link Arena} for cross-thread access.</p>
  *
@@ -79,7 +79,7 @@ public final class ColBERTTokenCache implements AutoCloseable {
     private volatile boolean closed = false;
 
     /**
-     * Cached entry metadata — points into a shared off-heap segment.
+     * Cached entry metadata â€” points into a shared off-heap segment.
      *
      * @param segment    the off-heap memory segment holding the embeddings
      * @param tokenCount number of tokens in this entry
@@ -137,7 +137,7 @@ public final class ColBERTTokenCache implements AutoCloseable {
             // Allocate off-heap segment for this entry
             MemorySegment segment = arena.allocate(sizeBytes, Float.BYTES);
 
-            // Flatten float[][] → contiguous off-heap float[]
+            // Flatten float[][] â†’ contiguous off-heap float[]
             long offset = 0;
             for (float[] tokenVec : embeddings) {
                 int copyLen = Math.min(tokenVec.length, tokenDims);
@@ -173,7 +173,7 @@ public final class ColBERTTokenCache implements AutoCloseable {
             entries.computeIfPresent(docId, (k, v) ->
                     new CacheEntry(v.segment, v.tokenCount, System.nanoTime()));
 
-            // Read from off-heap → float[][]
+            // Read from off-heap â†’ float[][]
             float[][] result = new float[entry.tokenCount][tokenDims];
             long offset = 0;
             for (int t = 0; t < entry.tokenCount; t++) {
@@ -208,7 +208,7 @@ public final class ColBERTTokenCache implements AutoCloseable {
         rwLock.writeLock().lock();
         try {
             entries.remove(docId);
-            // Note: the segment memory is not individually freeable — it's part of
+            // Note: the segment memory is not individually freeable â€” it's part of
             // the shared Arena. It will be reclaimed when the Arena is closed.
         } finally {
             rwLock.writeLock().unlock();
@@ -257,7 +257,7 @@ public final class ColBERTTokenCache implements AutoCloseable {
         }
     }
 
-    // ── LRU eviction ──
+    // â”€â”€ LRU eviction â”€â”€
 
     private void evictLru() {
         // Find least-recently-accessed entry

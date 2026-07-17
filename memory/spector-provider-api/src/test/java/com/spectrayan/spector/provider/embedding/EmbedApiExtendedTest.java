@@ -13,22 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.embed;
+package com.spectrayan.spector.provider.embedding;
 
 import static org.assertj.core.api.Assertions.*;
 
 import java.util.Map;
 
+import com.spectrayan.spector.provider.generation.GenerationOptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.embed.error.SpectorEmbeddingUnavailableException;
-import com.spectrayan.spector.embed.error.SpectorEmbeddingTimeoutException;
+import com.spectrayan.spector.provider.embedding.SpectorEmbeddingUnavailableException;
+import com.spectrayan.spector.provider.embedding.SpectorEmbeddingTimeoutException;
 
 /**
- * Tests for embed-api DTOs — EmbeddingResult, GenerationOptions,
- * SparseEncodingResult, TokenEmbeddingResult, PipelineEmbeddingResult.
+ * Tests for embed-api DTOs Ã¢â‚¬â€ EmbeddingResult, GenerationOptions,
+ * SparseEmbeddingResult, TokenEmbeddingResult, PipelineEmbeddingResult.
  */
 @DisplayName("Embed API DTOs")
 class EmbedApiExtendedTest {
@@ -104,12 +105,12 @@ class EmbedApiExtendedTest {
     }
 
     @Nested
-    @DisplayName("SparseEncodingResult")
+    @DisplayName("SparseEmbeddingResult")
     class SparseEncodingTests {
 
         @Test @DisplayName("nonZeroCount returns map size")
         void nonZeroCount() {
-            var result = new SparseEncodingResult(
+            var result = new SparseEmbeddingResult(
                     Map.of("memory", 2.3f, "consolidation", 1.8f, "sleep", 2.1f),
                     15, "splade-v2");
             assertThat(result.nonZeroCount()).isEqualTo(3);
@@ -117,14 +118,14 @@ class EmbedApiExtendedTest {
 
         @Test @DisplayName("l1Norm sums all weights")
         void l1Norm() {
-            var result = new SparseEncodingResult(
+            var result = new SparseEmbeddingResult(
                     Map.of("a", 1.0f, "b", 2.0f, "c", 3.0f), 10, "model");
             assertThat(result.l1Norm()).isEqualTo(6.0f);
         }
 
         @Test @DisplayName("empty weights")
         void emptyWeights() {
-            var result = new SparseEncodingResult(Map.of(), 0, "model");
+            var result = new SparseEmbeddingResult(Map.of(), 0, "model");
             assertThat(result.nonZeroCount()).isZero();
             assertThat(result.l1Norm()).isZero();
         }

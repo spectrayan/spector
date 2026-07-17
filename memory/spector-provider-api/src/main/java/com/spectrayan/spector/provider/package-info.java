@@ -15,7 +15,7 @@
  */
 
 /**
- * Provider SPI — unified multi-provider management for embedding and text generation.
+ * Provider SPI - unified multi-provider management for embedding and text generation.
  *
  * <p>This package defines the Service Provider Interface (SPI) for pluggable LLM
  * backends. Implementations are discovered via {@link java.util.ServiceLoader} and
@@ -23,13 +23,13 @@
  *
  * <h3>Key Types</h3>
  * <ul>
- *   <li>{@link com.spectrayan.spector.provider.ProviderFactory} — ServiceLoader SPI for provider discovery</li>
- *   <li>{@link com.spectrayan.spector.provider.ProviderConfig} — immutable provider configuration</li>
- *   <li>{@link com.spectrayan.spector.provider.ProviderRegistry} — multi-provider management</li>
- *   <li>{@link com.spectrayan.spector.provider.ProviderHealth} — health check results</li>
+ *   <li>{@link com.spectrayan.spector.provider.ProviderFactory} - ServiceLoader SPI for provider discovery</li>
+ *   <li>{@link com.spectrayan.spector.provider.ProviderConfig} - immutable provider configuration</li>
+ *   <li>{@link com.spectrayan.spector.provider.ProviderRegistry} - multi-provider management</li>
+ *   <li>{@link com.spectrayan.spector.provider.ProviderHealth} - health check results</li>
  * </ul>
  *
- * @see com.spectrayan.spector.embed.EmbeddingProvider
- * @see com.spectrayan.spector.embed.TextGenerationProvider
+ * @see com.spectrayan.spector.provider.embedding.EmbeddingProvider
+ * @see com.spectrayan.spector.provider.generation.LlmProvider
  */
 package com.spectrayan.spector.provider;

@@ -15,8 +15,10 @@
  */
 package com.spectrayan.spector.ingestion.sensory;
 
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.model.LlmRequest;
+import com.spectrayan.spector.provider.model.LlmResponse;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,14 +47,14 @@ class OllamaAudioExtractorTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        // Create a fake audio file (not real audio — just bytes for testing the extraction flow)
+        // Create a fake audio file (not real audio â€” just bytes for testing the extraction flow)
         fakeAudioFile = tempDir.resolve("interview.mp3");
         Files.write(fakeAudioFile, "fake-mp3-header-bytes-for-testing".getBytes());
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // SUCCESSFUL TRANSCRIPTION
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Nested
     @DisplayName("Transcription")
@@ -107,9 +109,9 @@ class OllamaAudioExtractorTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // MIME TYPE SUPPORT
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Nested
     @DisplayName("MIME Support")
@@ -177,9 +179,9 @@ class OllamaAudioExtractorTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // EDGE CASES
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Nested
     @DisplayName("Edge Cases")
@@ -238,13 +240,9 @@ class OllamaAudioExtractorTest {
         @Test
         @DisplayName("LLM generation failure throws IOException")
         void llmFailureThrows() {
-            TextGenerationProvider failingLlm = new TextGenerationProvider() {
+            LlmProvider failingLlm = new LlmProvider() {
                 @Override
-                public String generate(String prompt, GenerationOptions options) {
-                    throw new GenerationException("Model crashed", new RuntimeException());
-                }
-                @Override
-                public String generate(String prompt) {
+                public LlmResponse generate(LlmRequest request, GenerationOptions options) {
                     throw new GenerationException("Model crashed", new RuntimeException());
                 }
                 @Override
@@ -265,9 +263,9 @@ class OllamaAudioExtractorTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // AVAILABILITY
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @DisplayName("isAvailable delegates to LLM provider")
@@ -283,12 +281,12 @@ class OllamaAudioExtractorTest {
         assertEquals("mock-audio-model", extractor.transcriptionModel());
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // NULL MIME TYPE
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
-    @DisplayName("Null mime type still works — content_type omitted from metadata")
+    @DisplayName("Null mime type still works â€” content_type omitted from metadata")
     void nullMimeTypeWorks() throws IOException {
         var extractor = new OllamaAudioExtractor(mockLlm("Transcribed with null mime."));
 
@@ -300,19 +298,15 @@ class OllamaAudioExtractorTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // HELPERS
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-    private static TextGenerationProvider mockLlm(String fixedResponse) {
-        return new TextGenerationProvider() {
+    private static LlmProvider mockLlm(String fixedResponse) {
+        return new LlmProvider() {
             @Override
-            public String generate(String prompt, GenerationOptions options) {
-                return fixedResponse;
-            }
-            @Override
-            public String generate(String prompt) {
-                return fixedResponse;
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                return new LlmResponse(fixedResponse, 0, 0, "mock-audio-model");
             }
             @Override
             public String modelName() {

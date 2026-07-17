@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * Interface for generating dense vector embeddings from text strings.
  */
-public interface EmbeddingProvider {
+public interface EmbeddingProvider extends AutoCloseable {
 
     /**
      * Generates a dense vector embedding for a single text.
@@ -36,7 +36,9 @@ public interface EmbeddingProvider {
      * @param texts the texts to embed
      * @return list of dense embedding results in matching order
      */
-    List<EmbeddingResult> embedBatch(List<String> texts);
+    default List<EmbeddingResult> embedBatch(List<String> texts) {
+        return texts.stream().map(this::embed).toList();
+    }
 
     /**
      * Returns the output dimensionality of the generated vectors.
@@ -47,4 +49,19 @@ public interface EmbeddingProvider {
      * Returns the unique model identifier.
      */
     String modelName();
+
+    /**
+     * Returns the maximum number of tokens this model supports per input.
+     *
+     * @return max token count (default: 512)
+     */
+    default int maxTokens() {
+        return 512;
+    }
+
+    /**
+     * Default no-op close. Override if the provider holds resources.
+     */
+    @Override
+    default void close() {}
 }

@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * Interface for generating sparse bag-of-words weights (SPLADE) from text strings.
  */
-public interface SparseEmbeddingProvider {
+public interface SparseEmbeddingProvider extends AutoCloseable {
 
     /**
      * Generates sparse term weights for a single text.
@@ -36,10 +36,46 @@ public interface SparseEmbeddingProvider {
      * @param texts the texts to encode
      * @return list of sparse embedding results in matching order
      */
-    List<SparseEmbeddingResult> encodeBatch(List<String> texts);
+    default List<SparseEmbeddingResult> encodeBatch(List<String> texts) {
+        return texts.stream().map(this::encode).toList();
+    }
 
     /**
      * Returns the unique model identifier.
      */
     String modelName();
+
+    /**
+     * Returns the vocabulary size (number of possible unique terms).
+     *
+     * @return maximum vocabulary size
+     */
+    int vocabularySize();
+
+    /**
+     * Returns the type of sparse encoding method.
+     *
+     * @return the encoding method type
+     */
+    default SparseEncodingType type() {
+        return SparseEncodingType.SPLADE;
+    }
+
+    /**
+     * Default no-op close. Override if the provider holds resources.
+     */
+    @Override
+    default void close() {}
+
+    /**
+     * Enumeration of sparse encoding method types.
+     */
+    enum SparseEncodingType {
+        /** SPLADE: neural term expansion via masked language model. */
+        SPLADE,
+        /** Li-LSR: inference-free lookup-table-based sparse retrieval. */
+        LI_LSR,
+        /** SPLARE: sparse autoencoder-based learned sparse retrieval. */
+        SPLARE
+    }
 }

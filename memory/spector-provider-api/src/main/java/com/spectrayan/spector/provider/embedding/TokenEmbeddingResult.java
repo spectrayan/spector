@@ -16,52 +16,62 @@
 package com.spectrayan.spector.provider.embedding;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 
 /**
- * Result of generating multi-vector token-level embeddings (e.g. ColBERT) for a text.
+ * Result of generating multi-vector token-level embeddings (e.g. ColBERT).
  *
- * @param tokenEmbeddings 2D matrix of floats representing individual term vectors
- * @param tokenStrings    list of constituent token strings corresponding to the matrix rows
- * @param modelName       name of the model that generated the embeddings
+ * @param embeddings  2D matrix of floats representing individual term vectors
+ * @param tokens      the tokenized terms
+ * @param tokenCount  number of tokens produced
+ * @param modelName   name of the model that generated the embeddings
  */
 public record TokenEmbeddingResult(
-        float[][] tokenEmbeddings,
-        List<String> tokenStrings,
+        float[][] embeddings,
+        String[] tokens,
+        int tokenCount,
         String modelName
 ) {
 
     public TokenEmbeddingResult {
-        Objects.requireNonNull(tokenEmbeddings, "tokenEmbeddings must not be null");
-        Objects.requireNonNull(tokenStrings, "tokenStrings must not be null");
+        Objects.requireNonNull(embeddings, "embeddings must not be null");
+        Objects.requireNonNull(tokens, "tokens must not be null");
         Objects.requireNonNull(modelName, "modelName must not be null");
-        if (tokenEmbeddings.length != tokenStrings.size()) {
-            throw new IllegalArgumentException("Matrix rows (" + tokenEmbeddings.length +
-                    ") must match tokens list size (" + tokenStrings.size() + ")");
+        if (embeddings.length != tokenCount || tokens.length != tokenCount) {
+            throw new IllegalArgumentException("embeddings size and tokens size must match tokenCount");
         }
+    }
+
+    public float[] tokenEmbedding(int tokenIndex) {
+        return embeddings[tokenIndex];
+    }
+
+    public int dimensions() {
+        return embeddings.length > 0 ? embeddings[0].length : 0;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof TokenEmbeddingResult that)) return false;
-        return Arrays.deepEquals(tokenEmbeddings, that.tokenEmbeddings) &&
-                Objects.equals(tokenStrings, that.tokenStrings) &&
+        return tokenCount == that.tokenCount &&
+                Arrays.deepEquals(embeddings, that.embeddings) &&
+                Arrays.equals(tokens, that.tokens) &&
                 Objects.equals(modelName, that.modelName);
     }
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(tokenStrings, modelName);
-        result = 31 * result + Arrays.deepHashCode(tokenEmbeddings);
+        int result = Objects.hash(tokenCount, modelName);
+        result = 31 * result + Arrays.deepHashCode(embeddings);
+        result = 31 * result + Arrays.hashCode(tokens);
         return result;
     }
 
     @Override
     public String toString() {
-        return "TokenEmbeddingResult[tokens=" + tokenStrings.size() +
-                ", dimensions=" + (tokenEmbeddings.length > 0 ? tokenEmbeddings[0].length : 0) +
+        return "TokenEmbeddingResult[tokens=" + tokenCount +
+                ", dimensions=" + dimensions() +
                 ", model='" + modelName + "']";
     }
 }

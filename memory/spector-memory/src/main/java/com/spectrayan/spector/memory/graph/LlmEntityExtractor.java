@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.graph;
 
 import com.spectrayan.spector.commons.ResourceUtils;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 
 import org.slf4j.Logger;
@@ -27,7 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * LLM-powered entity extractor using a {@link TextGenerationProvider}.
+ * LLM-powered entity extractor using a {@link LlmProvider}.
  *
  * <h3>How It Works</h3>
  * <p>Sends a structured prompt to the LLM asking it to identify entities
@@ -48,11 +48,11 @@ import java.util.regex.Pattern;
  * returns an empty list (graceful degradation).</p>
  *
  * <h3>Performance Note</h3>
- * <p>LLM inference adds ~500ms–2s per memory. Use this extractor for
+ * <p>LLM inference adds ~500msâ€“2s per memory. Use this extractor for
  * high-value ingestion where entity quality justifies the latency.</p>
  *
  * @see EntityExtractor
- * @see TextGenerationProvider
+ * @see LlmProvider
  * @see ResourceUtils
  */
 public final class LlmEntityExtractor implements EntityExtractor {
@@ -109,14 +109,14 @@ public final class LlmEntityExtractor implements EntityExtractor {
             "name", "source", "target", "type", "relation", "relation_type"
     );
 
-    private final TextGenerationProvider generator;
+    private final LlmProvider generator;
     private final int maxEntities;
     private final int maxRelations;
-    private final com.spectrayan.spector.embed.GenerationOptions generationOptions;
+    private final com.spectrayan.spector.provider.generation.GenerationOptions generationOptions;
 
     /** Default generation options for entity extraction. */
-    private static final com.spectrayan.spector.embed.GenerationOptions DEFAULT_OPTIONS =
-            com.spectrayan.spector.embed.GenerationOptions.builder()
+    private static final com.spectrayan.spector.provider.generation.GenerationOptions DEFAULT_OPTIONS =
+            com.spectrayan.spector.provider.generation.GenerationOptions.builder()
                     .temperature(0.3f)
                     .maxTokens(1024)
                     .topP(0.95f)
@@ -127,7 +127,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
      *
      * @param generator the text generation provider
      */
-    public LlmEntityExtractor(TextGenerationProvider generator) {
+    public LlmEntityExtractor(LlmProvider generator) {
         this(generator, DEFAULT_MAX_ENTITIES, DEFAULT_MAX_RELATIONS, null);
     }
 
@@ -138,7 +138,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
      * @param maxEntities  maximum entities to extract per memory
      * @param maxRelations maximum relations to extract per memory
      */
-    public LlmEntityExtractor(TextGenerationProvider generator,
+    public LlmEntityExtractor(LlmProvider generator,
                                int maxEntities, int maxRelations) {
         this(generator, maxEntities, maxRelations, null);
     }
@@ -151,9 +151,9 @@ public final class LlmEntityExtractor implements EntityExtractor {
      * @param maxRelations maximum relations to extract per memory
      * @param options      generation options (temperature, maxTokens, topP); null uses defaults
      */
-    public LlmEntityExtractor(TextGenerationProvider generator,
+    public LlmEntityExtractor(LlmProvider generator,
                                int maxEntities, int maxRelations,
-                               com.spectrayan.spector.embed.GenerationOptions options) {
+                               com.spectrayan.spector.provider.generation.GenerationOptions options) {
         this.generator = generator;
         this.maxEntities = maxEntities;
         this.maxRelations = maxRelations;
@@ -244,7 +244,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
             return List.of();
         }
 
-        // Parse relations — with format auto-detection.
+        // Parse relations â€” with format auto-detection.
         // Expected format: RELATION: source | RELATION_TYPE | target
         // But many models produce: RELATION: RELATION_TYPE | source_or_desc | target
         // We detect the swap by checking whether group(1) looks like a SCREAMING_SNAKE_CASE
@@ -274,7 +274,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
                 relTypeStr = g1.toUpperCase(Locale.ROOT).replaceAll("[- ]+", "_");
                 source = g2;
                 target = g3;
-                log.debug("[EntityExtract] Fixed swapped relation format: {} | {} | {} → {} → {} → {}",
+                log.debug("[EntityExtract] Fixed swapped relation format: {} | {} | {} â†’ {} â†’ {} â†’ {}",
                         g1, g2, g3, source, relTypeStr, target);
             } else {
                 // Standard format: RELATION: source | RELATION_TYPE | target
@@ -303,7 +303,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
                 String target = twoFieldMatcher.group(2).trim();
 
                 // Try to decompose: find which entity name is a prefix of the merged type
-                // e.g., JOHN_SMITH_REPORTS_TO → source=John_Smith, type=REPORTS_TO
+                // e.g., JOHN_SMITH_REPORTS_TO â†’ source=John_Smith, type=REPORTS_TO
                 String source = null;
                 String relTypeStr = mergedType;
                 String mergedUpper = mergedType.toUpperCase(Locale.ROOT);
@@ -323,12 +323,12 @@ public final class LlmEntityExtractor implements EntityExtractor {
                         || entityNameSet.contains(target.replace("_", " ").toLowerCase(Locale.ROOT));
 
                 if (source != null && targetIsEntity) {
-                    log.debug("[EntityExtract] Decomposed 2-field relation: {} | {} → {} | {} | {}",
+                    log.debug("[EntityExtract] Decomposed 2-field relation: {} | {} â†’ {} | {} | {}",
                             mergedType, target, source, relTypeStr, target);
                     relations.add(new RelationTriple(source, relTypeStr, target));
                     relationCount++;
                 } else if (targetIsEntity) {
-                    // Can't decompose source — use RELATED_TO with first entity as source
+                    // Can't decompose source â€” use RELATED_TO with first entity as source
                     log.debug("[EntityExtract] 2-field relation with unknown source: {} | {}",
                             mergedType, target);
                 }

@@ -22,7 +22,7 @@ public enum EntityExtractionMode {
     /** No entity extraction (default). Entity graph features are disabled. */
     NONE,
 
-    /** LLM-powered extraction via TextGenerationProvider. */
+    /** LLM-powered extraction via LlmProvider. */
     LLM,
 
     /** Custom EntityExtractor provided via Builder. */

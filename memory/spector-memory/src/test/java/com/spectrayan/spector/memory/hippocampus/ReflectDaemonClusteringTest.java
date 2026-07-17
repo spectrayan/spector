@@ -21,10 +21,12 @@ import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
-import com.spectrayan.spector.embed.TextGenerationProvider;
-import com.spectrayan.spector.embed.GenerationOptions;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.model.LlmRequest;
+import com.spectrayan.spector.provider.model.LlmResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -58,7 +60,7 @@ class ReflectDaemonClusteringTest {
         embeddingProvider = new MockEmbeddingProvider(DIMS);
     }
 
-    // ── V3.1: Centroid-Based Clustering ──
+    // â”€â”€ V3.1: Centroid-Based Clustering â”€â”€
 
     @Test
     void clustersBycentroidIdAndPromotes() {
@@ -68,7 +70,7 @@ class ReflectDaemonClusteringTest {
             // Create 20 memories across 3 centroids (ids: 1, 2, 3)
             // Cluster 1: 8 records (above min=5)
             // Cluster 2: 7 records (above min=5)
-            // Cluster 3: 3 records (below min=5 — should NOT promote)
+            // Cluster 3: 3 records (below min=5 â€” should NOT promote)
             // Unassigned (centroid 0): 2 records
             int[] centroidAssignments = {
                     1, 1, 1, 1, 1, 1, 1, 1,  // 8 records for centroid 1
@@ -100,16 +102,16 @@ class ReflectDaemonClusteringTest {
 
             ReflectReport report = daemon.runCycle(episodicStore, semanticStore);
 
-            // Should promote 2 clusters (centroid 1 and 2, both ≥ 5 records)
-            // Centroid 3 has only 3 records — below threshold
-            // Centroid 0 has only 2 records — below threshold
+            // Should promote 2 clusters (centroid 1 and 2, both â‰¥ 5 records)
+            // Centroid 3 has only 3 records â€” below threshold
+            // Centroid 0 has only 2 records â€” below threshold
             assertThat(report.consolidatedCount()).isEqualTo(2);
             assertThat(semanticStore.size()).isEqualTo(2);
         }
     }
 
     @Test
-    void withTextGenerationProviderSynthesizes() {
+    void withLlmProviderSynthesizes() {
         try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
              SemanticMemoryStore semanticStore = new SemanticMemoryStore(VEC_BYTES, 100)) {
 
@@ -126,8 +128,8 @@ class ReflectDaemonClusteringTest {
                 episodicStore.append(header, makeVec(i));
             }
 
-            // Mock TextGenerationProvider
-            MockTextGenerationProvider mockLlm = new MockTextGenerationProvider();
+            // Mock LlmProvider
+            MockLlmProvider mockLlm = new MockLlmProvider();
 
             // Text lookup function
             Function<Long, String> textLookup = offset -> "Memory text for offset " + offset;
@@ -151,7 +153,7 @@ class ReflectDaemonClusteringTest {
         try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
              SemanticMemoryStore semanticStore = new SemanticMemoryStore(VEC_BYTES, 100)) {
 
-            // Create 5 memories with importance ≥ 1.0
+            // Create 5 memories with importance â‰¥ 1.0
             for (int i = 0; i < 5; i++) {
                 CognitiveHeader header = new CognitiveHeader(
                         System.currentTimeMillis(),
@@ -162,7 +164,7 @@ class ReflectDaemonClusteringTest {
                 episodicStore.append(header, makeVec(i));
             }
 
-            // V1 mode — no centroid router
+            // V1 mode â€” no centroid router
             ReflectDaemon daemon = new ReflectDaemon(CircadianPolicy.DEFAULT);
 
             ReflectReport report = daemon.runCycle(episodicStore, semanticStore);
@@ -231,13 +233,13 @@ class ReflectDaemonClusteringTest {
             ReflectReport report1 = daemon.runCycle(episodicStore, semanticStore);
             assertThat(report1.consolidatedCount()).isEqualTo(1);
 
-            // Second reflect — records are already consolidated, nothing new
+            // Second reflect â€” records are already consolidated, nothing new
             ReflectReport report2 = daemon.runCycle(episodicStore, semanticStore);
             assertThat(report2.consolidatedCount()).isEqualTo(0);
         }
     }
 
-    // ── Mock Providers ──
+    // â”€â”€ Mock Providers â”€â”€
 
     static class MockEmbeddingProvider implements EmbeddingProvider {
         private final int dims;
@@ -264,24 +266,21 @@ class ReflectDaemonClusteringTest {
         @Override public String modelName() { return "mock-" + dims + "d"; }
     }
 
-    static class MockTextGenerationProvider implements TextGenerationProvider {
+    static class MockLlmProvider implements LlmProvider {
         int callCount = 0;
 
         @Override
-        public String generate(String prompt) {
+        public LlmResponse generate(LlmRequest request, GenerationOptions options) {
             callCount++;
-            return "Synthesized fact from " + callCount + " call(s).";
-        }
-
-        @Override
-        public String generate(String prompt, GenerationOptions options) {
-            return generate(prompt);
+            String result = "Synthesized fact from " + callCount + " call(s).";
+            return new LlmResponse(result, 0, 0, "mock-llm");
         }
 
         @Override public String modelName() { return "mock-llm"; }
+        @Override public boolean isAvailable() { return true; }
     }
 
-    // ── Helpers ──
+    // â”€â”€ Helpers â”€â”€
 
     private byte[] makeVec(int seed) {
         byte[] vec = new byte[VEC_BYTES];

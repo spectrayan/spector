@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.bench.cognitive.DatasetLoader.LoadedDataset;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallMode;
@@ -39,19 +39,19 @@ import com.spectrayan.spector.memory.model.TextSearchMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 
 /**
- * Ablation study runner — measures the contribution of each subsystem by
+ * Ablation study runner â€” measures the contribution of each subsystem by
  * disabling it and measuring the nDCG drop.
  *
  * <h3>Ablation Conditions</h3>
  * <ol>
- *   <li><b>FULL</b> — complete pipeline (control)</li>
- *   <li><b>NO_GRAPH</b> — disable Hebbian, Temporal, Entity graphs</li>
- *   <li><b>NO_IMPORTANCE</b> — SIMILARITY scoring mode (importance × decay disabled)</li>
- *   <li><b>NO_TAGS</b> — empty tag filter (Bloom filter bypassed)</li>
- *   <li><b>NO_VALENCE</b> — full valence range (valence filter bypassed)</li>
- *   <li><b>VECTOR_ONLY</b> — pure vector search, no BM25</li>
- *   <li><b>KEYWORD_ONLY</b> — pure BM25, no vector search</li>
- *   <li><b>NO_SALIENCE</b> — profile = NONE (salience profile disabled)</li>
+ *   <li><b>FULL</b> â€” complete pipeline (control)</li>
+ *   <li><b>NO_GRAPH</b> â€” disable Hebbian, Temporal, Entity graphs</li>
+ *   <li><b>NO_IMPORTANCE</b> â€” SIMILARITY scoring mode (importance Ã— decay disabled)</li>
+ *   <li><b>NO_TAGS</b> â€” empty tag filter (Bloom filter bypassed)</li>
+ *   <li><b>NO_VALENCE</b> â€” full valence range (valence filter bypassed)</li>
+ *   <li><b>VECTOR_ONLY</b> â€” pure vector search, no BM25</li>
+ *   <li><b>KEYWORD_ONLY</b> â€” pure BM25, no vector search</li>
+ *   <li><b>NO_SALIENCE</b> â€” profile = NONE (salience profile disabled)</li>
  * </ol>
  *
  * <h3>Output</h3>
@@ -104,7 +104,7 @@ public final class SubsystemAblationRunner {
      * Executes the full ablation study.
      */
     public void run() {
-        log.info("═══ Subsystem Ablation Study ═══");
+        log.info("â•â•â• Subsystem Ablation Study â•â•â•");
 
         DatasetLoader loader = new DatasetLoader();
         LoadedDataset dataset = loader.load(datasetDir);
@@ -119,7 +119,7 @@ public final class SubsystemAblationRunner {
 
             MetricsComputer metrics = new MetricsComputer();
 
-            // Results: condition → list of per-query nDCGs
+            // Results: condition â†’ list of per-query nDCGs
             Map<AblationCondition, List<Double>> results = new LinkedHashMap<>();
             for (AblationCondition c : AblationCondition.values()) {
                 results.put(c, new ArrayList<>());
@@ -153,7 +153,7 @@ public final class SubsystemAblationRunner {
             }
 
             writeAblationReport(results, queryCount);
-            log.info("═══ Ablation Study Complete ═══");
+            log.info("â•â•â• Ablation Study Complete â•â•â•");
 
         } catch (Exception e) {
             log.error("Ablation study failed: {}", e.getMessage(), e);
@@ -181,20 +181,20 @@ public final class SubsystemAblationRunner {
                 applyFilters(builder, query);
             }
             case NO_IMPORTANCE -> {
-                // Similarity-only scoring — importance and decay have no effect
+                // Similarity-only scoring â€” importance and decay have no effect
                 builder.profile(query.cognitiveProfile());
                 builder.scoringMode(ScoringMode.SIMILARITY);
                 applyFilters(builder, query);
             }
             case NO_TAGS -> {
-                // Skip tag filtering — don't apply synaptic filter
+                // Skip tag filtering â€” don't apply synaptic filter
                 builder.profile(query.cognitiveProfile());
                 // Deliberately omit synapticFilter
                 if (query.minValence() != null) builder.minValence(query.minValence());
                 if (query.maxValence() != null) builder.maxValence(query.maxValence());
             }
             case NO_VALENCE -> {
-                // Full valence range — effectively disables valence filter
+                // Full valence range â€” effectively disables valence filter
                 builder.profile(query.cognitiveProfile());
                 builder.minValence(Byte.MIN_VALUE);
                 builder.maxValence(Byte.MAX_VALUE);
@@ -203,19 +203,19 @@ public final class SubsystemAblationRunner {
                 }
             }
             case VECTOR_ONLY -> {
-                // Pure vector search — no BM25
+                // Pure vector search â€” no BM25
                 builder.profile(query.cognitiveProfile());
                 builder.textSearchMode(TextSearchMode.VECTOR_ONLY);
                 applyFilters(builder, query);
             }
             case KEYWORD_ONLY -> {
-                // Pure BM25 keyword search — no vector similarity
+                // Pure BM25 keyword search â€” no vector similarity
                 builder.profile(query.cognitiveProfile());
                 builder.textSearchMode(TextSearchMode.KEYWORD_ONLY);
                 applyFilters(builder, query);
             }
             case NO_SALIENCE -> {
-                // No salience profile — uses raw defaults (alpha=0.6, beta=0.4)
+                // No salience profile â€” uses raw defaults (alpha=0.6, beta=0.4)
                 // Deliberately omit profile
                 applyFilters(builder, query);
             }
@@ -259,23 +259,23 @@ public final class SubsystemAblationRunner {
             log.info("Ablation report written to {}", outFile);
 
             // Console summary
-            System.out.println("\n══════════════════════════════════════════════════════════════");
+            System.out.println("\nâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
             System.out.println("  ABLATION STUDY RESULTS");
             System.out.printf("  Queries: %d   |   Baseline (FULL) nDCG: %.4f%n", queryCount, fullMean);
-            System.out.println("══════════════════════════════════════════════════════════════");
-            System.out.printf("  %-20s  %8s  %8s  %8s%n", "Condition", "nDCG", "Δ", "%Δ");
-            System.out.println("  " + "─".repeat(56));
+            System.out.println("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            System.out.printf("  %-20s  %8s  %8s  %8s%n", "Condition", "nDCG", "Î”", "%Î”");
+            System.out.println("  " + "â”€".repeat(56));
 
             for (AblationCondition condition : AblationCondition.values()) {
                 double mean = results.get(condition).stream().mapToDouble(d -> d).average().orElse(0.0);
                 double delta = mean - fullMean;
                 double pctChange = fullMean > 0 ? (delta / fullMean) * 100.0 : 0.0;
-                String marker = condition == AblationCondition.FULL ? " ◆" :
-                        (pctChange < -10 ? " ⚠" : "");
+                String marker = condition == AblationCondition.FULL ? " â—†" :
+                        (pctChange < -10 ? " âš " : "");
                 System.out.printf("  %-20s  %8.4f  %+8.4f  %+7.1f%%%s%n",
                         condition.name(), mean, delta, pctChange, marker);
             }
-            System.out.println("══════════════════════════════════════════════════════════════\n");
+            System.out.println("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n");
 
         } catch (IOException e) {
             log.error("Failed to write ablation report: {}", e.getMessage(), e);

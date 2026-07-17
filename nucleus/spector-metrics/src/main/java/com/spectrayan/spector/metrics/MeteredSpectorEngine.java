@@ -16,7 +16,7 @@
 package com.spectrayan.spector.metrics;
 
 import com.spectrayan.spector.config.SpectorConfig;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.engine.EngineIngestionTarget;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.events.QueryTraceTelemetry;
@@ -70,12 +70,12 @@ public class MeteredSpectorEngine implements SpectorEngine {
 
     private final SpectorEngine delegate;
 
-    // ── Timers ──
+    // â”€â”€ Timers â”€â”€
     private final Timer searchTimer;
     private final Timer ingestTimer;
     private final Timer batchIngestTimer;
 
-    // ── Counters ──
+    // â”€â”€ Counters â”€â”€
     private final Counter searchCounter;
     private final Counter ingestCounter;
     private final Counter deleteCounter;
@@ -128,7 +128,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
         return delegate;
     }
 
-    // ─────────────── Ingestion (metered) ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Ingestion (metered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public void ingest(String id, String content, float[] vector) {
@@ -247,7 +247,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
         }
     }
 
-    // ─────────────── Search (metered) ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Search (metered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public SearchResponse search(SearchQuery query) {
@@ -259,9 +259,9 @@ public class MeteredSpectorEngine implements SpectorEngine {
                 query.text(),
                 query.mode() != null ? query.mode().name() : "HYBRID",
                 response.totalHits(),
-                0, 0, 0, 0, 0, // funnel counts — populated by RecallPipeline via GraphPulseTelemetry
+                0, 0, 0, 0, 0, // funnel counts â€” populated by RecallPipeline via GraphPulseTelemetry
                 response.size(),
-                response.queryTimeMs() * 1_000)); // ms → µs
+                response.queryTimeMs() * 1_000)); // ms â†’ Âµs
 
         return response;
     }
@@ -290,7 +290,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
         return searchTimer.record(() -> delegate.search(text, topK));
     }
 
-    // ─────────────── GPU (pass-through) ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ GPU (pass-through) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public float[] batchCosineSimilarity(float[] query, float[] database, int n, int dims) {
@@ -300,7 +300,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
     @Override
     public boolean isGpuActive() { return delegate.isGpuActive(); }
 
-    // ─────────────── Admin + Accessors (pass-through) ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Admin + Accessors (pass-through) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override public com.spectrayan.spector.engine.SpectorEngineAdmin admin() { return delegate.admin(); }
 
@@ -315,7 +315,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
     @Override public boolean isRerankerActive() { return delegate.isRerankerActive(); }
     @Override public EngineIngestionTarget target() { return delegate.target(); }
 
-    // ─────────────── Lifecycle ───────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Override
     public void close() {

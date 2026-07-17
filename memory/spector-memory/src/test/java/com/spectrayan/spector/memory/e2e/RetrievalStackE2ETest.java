@@ -27,9 +27,9 @@ import static org.assertj.core.api.Assertions.*;
  * <h3>Provider Implementation</h3>
  * <p>Uses dense-derived providers backed by Ollama:</p>
  * <ul>
- *   <li>{@code OllamaSparseEncodingProvider}: derives SPLADE-like sparse weights
+ *   <li>{@code OllamaSparseEmbeddingProvider}: derives SPLADE-like sparse weights
  *       from per-term cosine similarity with the document embedding</li>
- *   <li>{@code OllamaTokenEmbeddingProvider}: derives ColBERT-style per-token
+ *   <li>{@code DenseDerivedTokenProvider}: derives ColBERT-style per-token
  *       embeddings with Matryoshka truncation to 128 dims</li>
  * </ul>
  *
@@ -53,19 +53,19 @@ import static org.assertj.core.api.Assertions.*;
  * @see TextSearchMode#COLBERT_RERANK
  * @see TextSearchMode#FULL_STACK
  */
-@DisplayName("🧪 E2E: SPLADE + ColBERT Retrieval Stack")
+@DisplayName("ðŸ§ª E2E: SPLADE + ColBERT Retrieval Stack")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class RetrievalStackE2ETest extends AbstractE2ETest {
 
-    // ══════════════════════════════════════════════════════════════
-    // SPLADE — Vocabulary Mismatch Bridging
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // SPLADE â€” Vocabulary Mismatch Bridging
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(1)
-    @DisplayName("SPLADE bridges vocabulary mismatch: 'car' → 'automobile' / 'vehicle'")
+    @DisplayName("SPLADE bridges vocabulary mismatch: 'car' â†’ 'automobile' / 'vehicle'")
     void splade_vocabularyMismatch() {
-        // Seed data uses "vehicle", "automobile" — query uses "car"
+        // Seed data uses "vehicle", "automobile" â€” query uses "car"
         // BM25 won't match, but SPLADE should via neural term expansion
         List<CognitiveResult> spladeResults = memory.recall(
                 "car maintenance and repair issues",
@@ -93,13 +93,13 @@ class RetrievalStackE2ETest extends AbstractE2ETest {
 
         if (isLlmJudgeEnabled()) {
             llmAssertRecall("car maintenance and repair issues", spladeResults)
-                    .isRelevantTo("Results should relate to vehicles, transportation, or mechanical maintenance — SPLADE should bridge from 'car' to related terms");
+                    .isRelevantTo("Results should relate to vehicles, transportation, or mechanical maintenance â€” SPLADE should bridge from 'car' to related terms");
         }
     }
 
     @Test
     @Order(2)
-    @DisplayName("SPLADE — synonym expansion: 'error' → 'exception', 'failure', 'crash'")
+    @DisplayName("SPLADE â€” synonym expansion: 'error' â†’ 'exception', 'failure', 'crash'")
     void splade_synonymExpansion() {
         List<CognitiveResult> results = memory.recall(
                 "application crash and failure diagnosis",
@@ -134,7 +134,7 @@ class RetrievalStackE2ETest extends AbstractE2ETest {
 
     @Test
     @Order(3)
-    @DisplayName("SPLADE_HYBRID — better quality than HYBRID for paraphrased queries")
+    @DisplayName("SPLADE_HYBRID â€” better quality than HYBRID for paraphrased queries")
     void spladeHybrid_betterThanHybrid() {
         String query = "server ran out of available connections causing service degradation";
 
@@ -158,13 +158,13 @@ class RetrievalStackE2ETest extends AbstractE2ETest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // ColBERT — Token-Level Reranking Precision
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ColBERT â€” Token-Level Reranking Precision
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(10)
-    @DisplayName("COLBERT_RERANK — improves top-5 precision over first-stage retrieval")
+    @DisplayName("COLBERT_RERANK â€” improves top-5 precision over first-stage retrieval")
     void colbertRerank_improvedPrecision() {
         String query = "how to fix OOM errors in Spring Boot with HikariCP connection pooling";
 
@@ -186,7 +186,7 @@ class RetrievalStackE2ETest extends AbstractE2ETest {
             llmAssertRecall(query, firstStage.stream().limit(5).toList())
                     .warnIfIrrelevant("First-stage top-5 should relate to OOM, Spring Boot, or HikariCP");
 
-            // Reranked quality — should be better
+            // Reranked quality â€” should be better
             llmAssertRecall(query, reranked.stream().limit(5).toList())
                     .isRelevantTo("Reranked top-5 should be specifically about Java OOM in Spring Boot with connection pooling, not generic errors")
                     .hasGoodRanking();
@@ -195,7 +195,7 @@ class RetrievalStackE2ETest extends AbstractE2ETest {
 
     @Test
     @Order(11)
-    @DisplayName("COLBERT_RERANK — reranking does not lose relevant results")
+    @DisplayName("COLBERT_RERANK â€” reranking does not lose relevant results")
     void colbertRerank_noRelevanceLoss() {
         String query = "PostgreSQL deadlock resolution strategy";
 
@@ -219,15 +219,15 @@ class RetrievalStackE2ETest extends AbstractE2ETest {
 
     @Test
     @Order(12)
-    @DisplayName("ColBERT cache — cached results identical to cold results")
+    @DisplayName("ColBERT cache â€” cached results identical to cold results")
     void colbertCache_identicalResults() {
         String query = "database connection pool sizing formula";
 
-        // First query — cold cache
+        // First query â€” cold cache
         List<CognitiveResult> cold = memory.recall(query,
                 RecallOptions.builder().topK(5).textSearchMode(TextSearchMode.COLBERT_RERANK).build());
 
-        // Second query — should hit ColBERT token cache
+        // Second query â€” should hit ColBERT token cache
         List<CognitiveResult> warm = memory.recall(query,
                 RecallOptions.builder().topK(5).textSearchMode(TextSearchMode.COLBERT_RERANK).build());
 
@@ -248,13 +248,13 @@ class RetrievalStackE2ETest extends AbstractE2ETest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // FULL_STACK — All Layers Active
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // FULL_STACK â€” All Layers Active
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(20)
-    @DisplayName("FULL_STACK — maximum quality for complex multi-faceted query")
+    @DisplayName("FULL_STACK â€” maximum quality for complex multi-faceted query")
     void fullStack_maximumQuality() {
         String query = "how to diagnose and fix PostgreSQL connection pool exhaustion "
                 + "causing intermittent 500 errors in the Spring Boot REST API";
@@ -283,7 +283,7 @@ class RetrievalStackE2ETest extends AbstractE2ETest {
 
     @Test
     @Order(21)
-    @DisplayName("FULL_STACK — outperforms HYBRID on precision@5 for domain-specific query")
+    @DisplayName("FULL_STACK â€” outperforms HYBRID on precision@5 for domain-specific query")
     void fullStack_betterPrecisionThanHybrid() {
         String query = "Flyway database migration failed adding NOT NULL column to large table";
 

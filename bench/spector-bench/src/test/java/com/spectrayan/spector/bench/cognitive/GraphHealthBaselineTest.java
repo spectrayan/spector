@@ -38,7 +38,7 @@ import com.spectrayan.spector.bench.cognitive.model.EntityRelation;
 import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
 import com.spectrayan.spector.bench.cognitive.model.TemporalChainDef;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.ReflectReport;
@@ -53,10 +53,10 @@ import com.spectrayan.spector.memory.model.ReflectReport;
  *
  * <h3>Scale Points</h3>
  * <ul>
- *   <li>1K memories — 10 reflection cycles</li>
- *   <li>5K memories — 10 reflection cycles</li>
- *   <li>10K memories — 10 reflection cycles</li>
- *   <li>20K memories — 20 reflection cycles (convergence analysis)</li>
+ *   <li>1K memories â€” 10 reflection cycles</li>
+ *   <li>5K memories â€” 10 reflection cycles</li>
+ *   <li>10K memories â€” 10 reflection cycles</li>
+ *   <li>20K memories â€” 20 reflection cycles (convergence analysis)</li>
  * </ul>
  *
  * <h3>Prerequisites</h3>
@@ -67,7 +67,7 @@ import com.spectrayan.spector.memory.model.ReflectReport;
  */
 @Tag("integration")
 @EnabledIfEnvironmentVariable(named = "OLLAMA_LIVE", matches = "true")
-@DisplayName("P0: GraphHealthMetrics Baseline — 20K Balanced Dataset")
+@DisplayName("P0: GraphHealthMetrics Baseline â€” 20K Balanced Dataset")
 class GraphHealthBaselineTest {
 
     private static final Logger log = LoggerFactory.getLogger(GraphHealthBaselineTest.class);
@@ -96,12 +96,12 @@ class GraphHealthBaselineTest {
     @Test
     @DisplayName("Baseline: graph health over multiple scale points and reflection cycles")
     void baseline_graphHealthOverMultipleReflectionCycles() throws Exception {
-        log.info("═══════════════════════════════════════════════════════════════");
+        log.info("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
         log.info("P0: GraphHealthMetrics Baseline Test Starting");
         log.info("Dataset: {}", DATASET_DIR);
         log.info("Embed model: {}", EMBED_MODEL);
         log.info("Scale points: {} scale(s), cycles: {}/{}", SCALE_POINTS.length, CYCLES_PER_SCALE, CYCLES_FULL_SCALE);
-        log.info("═══════════════════════════════════════════════════════════════");
+        log.info("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
 
         // Load the full dataset once
         var loader = new DatasetLoader();
@@ -121,9 +121,9 @@ class GraphHealthBaselineTest {
             int cycles = (i == SCALE_POINTS.length - 1) ? CYCLES_FULL_SCALE : CYCLES_PER_SCALE;
             String label = formatLabel(targetSize);
 
-            log.info("───────────────────────────────────────────────────────────────");
+            log.info("â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€");
             log.info("Scale Point: {} ({} records, {} reflection cycles)", label, targetSize, cycles);
-            log.info("───────────────────────────────────────────────────────────────");
+            log.info("â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€");
 
             // Create subset dataset
             LoadedDataset subset = createSubset(fullDataset, targetSize);
@@ -137,7 +137,7 @@ class GraphHealthBaselineTest {
         }
 
         // Generate the report
-        log.info("═══════════════════════════════════════════════════════════════");
+        log.info("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
         log.info("Generating baseline report at: {}", REPORT_OUTPUT);
         GraphHealthReportGenerator.generate(REPORT_OUTPUT, allScaleData);
         log.info("Report generated successfully.");
@@ -154,17 +154,17 @@ class GraphHealthBaselineTest {
         assertTrue(largest.cycles().size() == CYCLES_FULL_SCALE,
                 "Should have run all " + CYCLES_FULL_SCALE + " cycles at max scale");
 
-        log.info("═══════════════════════════════════════════════════════════════");
-        log.info("P0: GraphHealthMetrics Baseline Test COMPLETE ✓");
-        log.info("═══════════════════════════════════════════════════════════════");
+        log.info("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+        log.info("P0: GraphHealthMetrics Baseline Test COMPLETE âœ“");
+        log.info("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Helpers
-    // ═══════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
-     * Runs one scale point: ingest → snapshot → N reflection cycles → snapshot.
+     * Runs one scale point: ingest â†’ snapshot â†’ N reflection cycles â†’ snapshot.
      */
     private ScalePointData runScalePoint(String label, LoadedDataset dataset,
                                           EmbeddingProvider embedder, int cycles) {

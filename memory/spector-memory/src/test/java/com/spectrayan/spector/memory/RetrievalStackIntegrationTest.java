@@ -12,10 +12,10 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.embed.SparseEncodingProvider;
-import com.spectrayan.spector.embed.SparseEncodingResult;
-import com.spectrayan.spector.embed.TokenEmbeddingProvider;
-import com.spectrayan.spector.embed.TokenEmbeddingResult;
+import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.SparseEmbeddingResult;
+import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.TokenEmbeddingResult;
 import com.spectrayan.spector.index.ColBERTReranker;
 import com.spectrayan.spector.index.ColBERTReranker.RerankCandidate;
 import com.spectrayan.spector.index.ColBERTReranker.RerankResult;
@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration tests for the 4-Layer Retrieval Stack.
  *
  * <p>Tests the interaction between BM25, SPLADE, vector (simulated via mock scores),
- * and ColBERT layers — the same flow that the {@code RecallPipeline} executes.</p>
+ * and ColBERT layers â€” the same flow that the {@code RecallPipeline} executes.</p>
  *
  * <p>Uses mock SPI providers for deterministic, fast tests without ONNX models.</p>
  */
@@ -46,14 +46,14 @@ class RetrievalStackIntegrationTest {
 
     private MemoryBM25Index bm25Index;
     private MemorySpladeIndex spladeIndex;
-    private SparseEncodingProvider spladeProvider;
+    private SparseEmbeddingProvider spladeProvider;
     private ColBERTReranker colbertReranker;
 
     @BeforeEach
     void setUp() {
         bm25Index = new MemoryBM25Index();
         spladeIndex = new MemorySpladeIndex();
-        spladeProvider = new MockSparseEncodingProvider();
+        spladeProvider = new MockSparseEmbeddingProvider();
         colbertReranker = new ColBERTReranker(new MockTokenEmbeddingProvider(128));
 
         // Populate both indexes with the same docs
@@ -72,7 +72,7 @@ class RetrievalStackIntegrationTest {
             String id = "doc-" + i;
             bm25Index.index(0, id, docs[i]);
 
-            SparseEncodingResult sparse = spladeProvider.encode(docs[i]);
+            SparseEmbeddingResult sparse = spladeProvider.encode(docs[i]);
             spladeIndex.index(0, id, sparse.weights());
         }
     }
@@ -83,12 +83,12 @@ class RetrievalStackIntegrationTest {
         spladeIndex.close();
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Layer integration tests
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
-    @DisplayName("BM25 search — returns keyword matches")
+    @DisplayName("BM25 search â€” returns keyword matches")
     void bm25_returnsKeywordMatches() {
         List<BM25Candidate> results = bm25Index.search("java exception", 10);
 
@@ -98,9 +98,9 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("SPLADE search — returns semantically expanded matches")
+    @DisplayName("SPLADE search â€” returns semantically expanded matches")
     void splade_returnsSpladeResults() {
-        SparseEncodingResult querySparse = spladeProvider.encode("java exception");
+        SparseEmbeddingResult querySparse = spladeProvider.encode("java exception");
         List<SpladeCandidate> results = spladeIndex.search(
                 querySparse.weights(), 10);
 
@@ -111,11 +111,11 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("RRF fusion — BM25 + SPLADE candidates merged and deduped")
+    @DisplayName("RRF fusion â€” BM25 + SPLADE candidates merged and deduped")
     void rrfFusion_mergesBM25AndSplade() {
         // Simulate the pipeline's RRF fusion step
         List<BM25Candidate> bm25Results = bm25Index.search("java error", 10);
-        SparseEncodingResult querySparse = spladeProvider.encode("java error");
+        SparseEmbeddingResult querySparse = spladeProvider.encode("java error");
         List<SpladeCandidate> spladeResults = spladeIndex.search(
                 querySparse.weights(), 10);
 
@@ -141,7 +141,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("ColBERT reranking — changes first-stage order")
+    @DisplayName("ColBERT reranking â€” changes first-stage order")
     void colbertRerank_changesOrder() {
         // First-stage results: intentionally wrong order
         List<RerankCandidate> firstStage = List.of(
@@ -160,7 +160,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("Full stack flow — BM25 → SPLADE → fuse → ColBERT rerank")
+    @DisplayName("Full stack flow â€” BM25 â†’ SPLADE â†’ fuse â†’ ColBERT rerank")
     void fullStack_allLayers() {
         String query = "java error handling";
 
@@ -168,7 +168,7 @@ class RetrievalStackIntegrationTest {
         List<BM25Candidate> bm25Results = bm25Index.search(query, 10);
 
         // Layer 3: SPLADE
-        SparseEncodingResult querySparse = spladeProvider.encode(query);
+        SparseEmbeddingResult querySparse = spladeProvider.encode(query);
         List<SpladeCandidate> spladeResults = spladeIndex.search(
                 querySparse.weights(), 10);
 
@@ -209,16 +209,16 @@ class RetrievalStackIntegrationTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Graceful degradation
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
-    @DisplayName("Null SPLADE provider — BM25 still works")
+    @DisplayName("Null SPLADE provider â€” BM25 still works")
     void nullSplade_bm25StillWorks() {
         // Simulate the pipeline's null-check pattern
         MemorySpladeIndex nullSpladeIndex = null;
-        SparseEncodingProvider nullProvider = null;
+        SparseEmbeddingProvider nullProvider = null;
 
         // The pipeline's Step 3c would check:
         // if (spladeIndex != null && spladeProvider != null && mode.usesSPLADE()) { ... }
@@ -233,7 +233,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("Null ColBERT reranker — first-stage results preserved")
+    @DisplayName("Null ColBERT reranker â€” first-stage results preserved")
     void nullColbert_firstStagePreserved() {
         ColBERTReranker nullReranker = null;
 
@@ -249,7 +249,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("TextSearchMode gates — only requested layers activate")
+    @DisplayName("TextSearchMode gates â€” only requested layers activate")
     void textSearchMode_gatesLayers() {
         // KEYWORD_ONLY should not activate SPLADE or ColBERT
         TextSearchMode mode = TextSearchMode.KEYWORD_ONLY;
@@ -264,23 +264,23 @@ class RetrievalStackIntegrationTest {
         assertThat(runColBERT).isFalse();
     }
 
-    // ── Mock providers ──
+    // â”€â”€ Mock providers â”€â”€
 
     /**
      * Mock sparse encoding provider that uses simple term-frequency extraction.
      * <p>Not neural, but deterministic and sufficient for testing index wiring.</p>
      */
-    static class MockSparseEncodingProvider implements SparseEncodingProvider {
+    static class MockSparseEmbeddingProvider implements SparseEmbeddingProvider {
 
         @Override
-        public SparseEncodingResult encode(String text) {
+        public SparseEmbeddingResult encode(String text) {
             Map<String, Float> weights = new HashMap<>();
             for (String token : text.toLowerCase().split("\\W+")) {
                 if (token.length() >= 2) {
                     weights.merge(token, 1.0f, Float::sum);
                 }
             }
-            return new SparseEncodingResult(weights, text.split("\\s+").length, modelName());
+            return new SparseEmbeddingResult(weights, text.split("\\s+").length, modelName());
         }
 
         @Override

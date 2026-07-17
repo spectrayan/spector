@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.model.*;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
@@ -87,9 +87,9 @@ class OllamaRealEmbeddingTest {
         if (memory != null) memory.close();
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // Semantic Similarity — Real Embeddings
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Semantic Similarity â€” Real Embeddings
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(1)
@@ -134,7 +134,7 @@ class OllamaRealEmbeddingTest {
     @Order(2)
     @DisplayName("Semantic recall: 'database error' query ranks DB-related highest")
     void semanticSimilarity_databaseError() throws Exception {
-        memory.remember("err-db", "Database connection pool exhausted — 50 active, 0 idle connections.",
+        memory.remember("err-db", "Database connection pool exhausted â€” 50 active, 0 idle connections.",
                 MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "database")
                 .get(30, TimeUnit.SECONDS);
         memory.remember("err-npe", "NullPointerException in UserService.getPreferences at line 42.",
@@ -165,9 +165,9 @@ class OllamaRealEmbeddingTest {
         assertThat(foundRelevant).as("At least one result should be about database connections").isTrue();
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // Cross-Tier Recall — All 4 Tiers
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Cross-Tier Recall â€” All 4 Tiers
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(3)
@@ -201,9 +201,9 @@ class OllamaRealEmbeddingTest {
         assertThat(tiers.size()).as("At least 3 tiers in results").isGreaterThanOrEqualTo(3);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Performance with Real Embeddings
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(4)
@@ -226,7 +226,7 @@ class OllamaRealEmbeddingTest {
         System.out.println("\n=== Real Embedding Performance ===");
         long ingestStart = System.nanoTime();
         for (int i = 0; i < 50; i++) {
-            String text = topics[i % topics.length] + " — instance " + i;
+            String text = topics[i % topics.length] + " â€” instance " + i;
             MemoryType type = switch (i % 4) {
                 case 0 -> MemoryType.WORKING;
                 case 1 -> MemoryType.EPISODIC;
@@ -270,9 +270,9 @@ class OllamaRealEmbeddingTest {
         assertThat(totalResults).isGreaterThan(0);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Suppression + Habituation with Real Vectors
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(5)
@@ -320,13 +320,13 @@ class OllamaRealEmbeddingTest {
                 firstScore, secondScore, secondScore < firstScore);
 
         if (firstScore > 0 && secondScore > 0) {
-            assertThat(secondScore).as("Second recall score should be ≤ first").isLessThanOrEqualTo(firstScore);
+            assertThat(secondScore).as("Second recall score should be â‰¤ first").isLessThanOrEqualTo(firstScore);
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Memory Type-Filtered Recall
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(7)
@@ -353,9 +353,9 @@ class OllamaRealEmbeddingTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Forget + WAL
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(8)
@@ -375,9 +375,9 @@ class OllamaRealEmbeddingTest {
         assertThat(forgottenFound).as("Forgotten memory should not appear").isFalse();
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Batch Embedding Performance
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(9)
@@ -399,9 +399,9 @@ class OllamaRealEmbeddingTest {
         assertThat(results.getFirst().dimensions()).isEqualTo(detectedDimensions);
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // Recall Quality — Semantic Relevance Ordering
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Recall Quality â€” Semantic Relevance Ordering
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     @Order(10)
@@ -441,7 +441,7 @@ class OllamaRealEmbeddingTest {
         }
     }
 
-    // ── Helper ──
+    // â”€â”€ Helper â”€â”€
 
     private static String truncate(String s, int maxLen) {
         return s.length() <= maxLen ? s : s.substring(0, maxLen) + "...";
