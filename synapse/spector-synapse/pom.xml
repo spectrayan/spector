@@ -158,6 +158,10 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-ingestion</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-providers</artifactId>
+        </dependency>
 
         <!-- ── LangGraph4j (agentic graph execution + Spring AI integration) ── -->
         <dependency>

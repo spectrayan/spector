@@ -30,11 +30,19 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-embed-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-provider-api</artifactId>
+        </dependency>
 
         <!-- Spector embed Ollama (OllamaLlmProvider) -->
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-embed-ollama</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-providers</artifactId>
         </dependency>
 
         <!-- Jackson for JSON verdict parsing -->
