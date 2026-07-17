@@ -131,10 +131,10 @@ Separate documentation into two tracks to prevent the "19 packages overwhelm dev
 
 ## 📜 Planned — Agentic AI
 
-### 📜 ProfileAdaptor — Self-Tuning Cognitive Profiles {#profile-adaptor}
+### ✅ ProfileAdaptor — Self-Tuning Cognitive Profiles {#profile-adaptor}
 
-!!! info "Status: Planned"
-    Low-medium effort. High impact for autonomous agent deployments.
+!!! success "Completed"
+    Implemented in `spector-memory` (OSS repo) as a contextual bandit that tracks reinforcement signals per tag-context and profile, persisting stats to `coactivation.tracker` (COAX v2). Enabled via `profile=auto`. Fully tested with 37 unit tests.
 
 A lightweight **contextual bandit** that learns which `CognitiveProfile` performs best for each context (tag combination), using the existing `memory_reinforce` feedback signal. Instead of requiring AI agents to manually select `DEBUGGING` vs `EXPLORING` vs `BALANCED`, the system auto-selects the optimal profile based on historical reinforcement rates.
 
@@ -811,7 +811,6 @@ RecallOptions.builder()
 
 | # | Improvement | Category | Effort | Status |
 |---|------------|----------|--------|--------|
-| 1 | **ProfileAdaptor (contextual bandit)** | Agentic AI | Low-Medium | 📜 Planned |
 | 2 | **GPU kernel dispatch** | Compute | Medium | 📜 Infra ready |
 | 3 | **Project Valhalla** | Runtime | Medium | 🔄 Prepared |
 
@@ -834,6 +833,8 @@ RecallOptions.builder()
 
 | # | Improvement | Category | Effort |
 |---|------------|----------|--------|
+| 1 | **ProfileAdaptor (contextual bandit)** | Agentic AI | Low-Medium |
+| 14 | **Executive Dysfunction (Hebbian recall)** | Agentic AI | Low-Medium |
 | 17 | **OpenClaw integration** | Agentic AI | Medium |
 | 18 | **Python SDK (MCP wrapper)** | Client SDKs | Low-Medium |
 | 19 | **Documentation split** | Documentation | Low |

@@ -30,7 +30,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ── Configuration ──────────────────────────────────────────────────
 $ImageName     = "spector"
@@ -68,6 +68,36 @@ function Invoke-Build {
         Write-Err "Dockerfile not found at $Dockerfile"
         exit 1
     }
+
+    # 1. Build Spring Boot fat JAR on Host
+    Write-Log "Building backend (Maven - Spring Boot fat JAR)..."
+    mvn package '-DskipTests' -B -q
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Maven backend build failed"
+        exit $LASTEXITCODE
+    }
+    Write-Ok "Backend built successfully (Spring Boot fat JAR)."
+
+    # 2. Build Angular Frontend on Host
+    Write-Log "Building Angular Cortex Frontend..."
+    $uiPath = Join-Path $ProjectRoot "cortex/spector-cortex"
+    Push-Location $uiPath
+    try {
+        Write-Log "Running npm install to ensure all dependencies are present..."
+        npm install 2>&1 | ForEach-Object { Write-Host $_ }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "npm install failed"
+            exit $LASTEXITCODE
+        }
+        npm run build 2>&1 | ForEach-Object { Write-Host $_ }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Angular frontend build failed"
+            exit $LASTEXITCODE
+        }
+    } finally {
+        Pop-Location
+    }
+    Write-Ok "Angular frontend built successfully."
 
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $versionTag = "v$timestamp"
@@ -143,6 +173,13 @@ function Invoke-Run {
         -p "${HostPortHttp}:3000" `
         -p "${HostPortApi}:7070" `
         -v "${DataVolume}:/data" `
+        -e "SPECTOR_DATA_DIR=/data" `
+        -e "SPECTOR_DB_ENCRYPT=false" `
+        -e "SPECTOR_DIMENSIONS=1024" `
+        -e "SPECTOR_OLLAMA_BASE_URL=http://host.docker.internal:11434" `
+        -e "SPECTOR_OLLAMA_EMBED_MODEL=qwen3-embedding:0.6b" `
+        -e "SPECTOR_OLLAMA_MODEL=spector-extractor:small" `
+        -e "SPECTOR_CORS_ORIGINS=http://localhost:4200,http://localhost:7700,http://localhost:3000,*" `
         --add-host=host.docker.internal:host-gateway `
         --restart unless-stopped `
         $ImageName

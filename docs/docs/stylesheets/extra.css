@@ -214,3 +214,275 @@
   fill: #6366f1 !important;
   stroke: #6366f1 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Spector Enterprise Theme-Aware Mermaid Nodes
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Dark Mode (slate) overrides ── */
+[data-md-color-scheme="slate"] .mermaid .node.working rect,
+[data-md-color-scheme="slate"] .mermaid .node.working polygon,
+[data-md-color-scheme="slate"] .mermaid .node.working circle,
+[data-md-color-scheme="slate"] .mermaid .node.working path {
+  fill: #e74c3c !important;
+  stroke: #c0392b !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.working .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.working .label {
+  color: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.episodic rect,
+[data-md-color-scheme="slate"] .mermaid .node.episodic polygon,
+[data-md-color-scheme="slate"] .mermaid .node.episodic circle,
+[data-md-color-scheme="slate"] .mermaid .node.episodic path {
+  fill: #3498db !important;
+  stroke: #2980b9 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.episodic .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.episodic .label {
+  color: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.semantic rect,
+[data-md-color-scheme="slate"] .mermaid .node.semantic polygon,
+[data-md-color-scheme="slate"] .mermaid .node.semantic circle,
+[data-md-color-scheme="slate"] .mermaid .node.semantic path {
+  fill: #2ecc71 !important;
+  stroke: #27ae60 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.semantic .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.semantic .label {
+  color: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.procedural rect,
+[data-md-color-scheme="slate"] .mermaid .node.procedural polygon,
+[data-md-color-scheme="slate"] .mermaid .node.procedural circle,
+[data-md-color-scheme="slate"] .mermaid .node.procedural path {
+  fill: #9b59b6 !important;
+  stroke: #8e44ad !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.procedural .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.procedural .label {
+  color: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.cortex rect,
+[data-md-color-scheme="slate"] .mermaid .node.cortex polygon,
+[data-md-color-scheme="slate"] .mermaid .node.cortex circle,
+[data-md-color-scheme="slate"] .mermaid .node.cortex path {
+  fill: #1e1b4b !important;
+  stroke: #6366f1 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.cortex .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.cortex .label {
+  color: #e0e7ff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.synapse rect,
+[data-md-color-scheme="slate"] .mermaid .node.synapse polygon,
+[data-md-color-scheme="slate"] .mermaid .node.synapse circle,
+[data-md-color-scheme="slate"] .mermaid .node.synapse path {
+  fill: #082f49 !important;
+  stroke: #0ea5e9 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.synapse .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.synapse .label {
+  color: #e0f2fe !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.core rect,
+[data-md-color-scheme="slate"] .mermaid .node.core polygon,
+[data-md-color-scheme="slate"] .mermaid .node.core circle,
+[data-md-color-scheme="slate"] .mermaid .node.core path {
+  fill: #062f4f !important;
+  stroke: #10b981 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.core .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.core .label {
+  color: #ecfdf5 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.success rect,
+[data-md-color-scheme="slate"] .mermaid .node.success polygon,
+[data-md-color-scheme="slate"] .mermaid .node.success circle,
+[data-md-color-scheme="slate"] .mermaid .node.success path {
+  fill: #059669 !important;
+  stroke: #047857 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.success .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.success .label {
+  color: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.fail rect,
+[data-md-color-scheme="slate"] .mermaid .node.fail polygon,
+[data-md-color-scheme="slate"] .mermaid .node.fail circle,
+[data-md-color-scheme="slate"] .mermaid .node.fail path {
+  fill: #dc2626 !important;
+  stroke: #b91c1c !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.fail .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.fail .label {
+  color: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.info rect,
+[data-md-color-scheme="slate"] .mermaid .node.info polygon,
+[data-md-color-scheme="slate"] .mermaid .node.info circle,
+[data-md-color-scheme="slate"] .mermaid .node.info path {
+  fill: #2563eb !important;
+  stroke: #1d4ed8 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.info .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.info .label {
+  color: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid .node.warning rect,
+[data-md-color-scheme="slate"] .mermaid .node.warning polygon,
+[data-md-color-scheme="slate"] .mermaid .node.warning circle,
+[data-md-color-scheme="slate"] .mermaid .node.warning path {
+  fill: #d97706 !important;
+  stroke: #b45309 !important;
+}
+[data-md-color-scheme="slate"] .mermaid .node.warning .nodeLabel,
+[data-md-color-scheme="slate"] .mermaid .node.warning .label {
+  color: #ffffff !important;
+}
+
+
+/* ── Light Mode (default) overrides ── */
+[data-md-color-scheme="default"] .mermaid .node.working rect,
+[data-md-color-scheme="default"] .mermaid .node.working polygon,
+[data-md-color-scheme="default"] .mermaid .node.working circle,
+[data-md-color-scheme="default"] .mermaid .node.working path {
+  fill: #fee2e2 !important;
+  stroke: #f87171 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.working .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.working .label {
+  color: #991b1b !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.episodic rect,
+[data-md-color-scheme="default"] .mermaid .node.episodic polygon,
+[data-md-color-scheme="default"] .mermaid .node.episodic circle,
+[data-md-color-scheme="default"] .mermaid .node.episodic path {
+  fill: #e0f2fe !important;
+  stroke: #60a5fa !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.episodic .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.episodic .label {
+  color: #1e40af !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.semantic rect,
+[data-md-color-scheme="default"] .mermaid .node.semantic polygon,
+[data-md-color-scheme="default"] .mermaid .node.semantic circle,
+[data-md-color-scheme="default"] .mermaid .node.semantic path {
+  fill: #dcfce7 !important;
+  stroke: #4ade80 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.semantic .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.semantic .label {
+  color: #166534 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.procedural rect,
+[data-md-color-scheme="default"] .mermaid .node.procedural polygon,
+[data-md-color-scheme="default"] .mermaid .node.procedural circle,
+[data-md-color-scheme="default"] .mermaid .node.procedural path {
+  fill: #f3e8ff !important;
+  stroke: #c084fc !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.procedural .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.procedural .label {
+  color: #6b21a8 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.cortex rect,
+[data-md-color-scheme="default"] .mermaid .node.cortex polygon,
+[data-md-color-scheme="default"] .mermaid .node.cortex circle,
+[data-md-color-scheme="default"] .mermaid .node.cortex path {
+  fill: #e0e7ff !important;
+  stroke: #6366f1 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.cortex .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.cortex .label {
+  color: #3730a3 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.synapse rect,
+[data-md-color-scheme="default"] .mermaid .node.synapse polygon,
+[data-md-color-scheme="default"] .mermaid .node.synapse circle,
+[data-md-color-scheme="default"] .mermaid .node.synapse path {
+  fill: #e0f2fe !important;
+  stroke: #0ea5e9 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.synapse .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.synapse .label {
+  color: #075985 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.core rect,
+[data-md-color-scheme="default"] .mermaid .node.core polygon,
+[data-md-color-scheme="default"] .mermaid .node.core circle,
+[data-md-color-scheme="default"] .mermaid .node.core path {
+  fill: #ecfdf5 !important;
+  stroke: #10b981 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.core .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.core .label {
+  color: #065f46 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.success rect,
+[data-md-color-scheme="default"] .mermaid .node.success polygon,
+[data-md-color-scheme="default"] .mermaid .node.success circle,
+[data-md-color-scheme="default"] .mermaid .node.success path {
+  fill: #dcfce7 !important;
+  stroke: #4ade80 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.success .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.success .label {
+  color: #166534 !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.fail rect,
+[data-md-color-scheme="default"] .mermaid .node.fail polygon,
+[data-md-color-scheme="default"] .mermaid .node.fail circle,
+[data-md-color-scheme="default"] .mermaid .node.fail path {
+  fill: #fee2e2 !important;
+  stroke: #f87171 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.fail .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.fail .label {
+  color: #991b1b !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.info rect,
+[data-md-color-scheme="default"] .mermaid .node.info polygon,
+[data-md-color-scheme="default"] .mermaid .node.info circle,
+[data-md-color-scheme="default"] .mermaid .node.info path {
+  fill: #dbeafe !important;
+  stroke: #60a5fa !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.info .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.info .label {
+  color: #1e40af !important;
+}
+
+[data-md-color-scheme="default"] .mermaid .node.warning rect,
+[data-md-color-scheme="default"] .mermaid .node.warning polygon,
+[data-md-color-scheme="default"] .mermaid .node.warning circle,
+[data-md-color-scheme="default"] .mermaid .node.warning path {
+  fill: #fef3c7 !important;
+  stroke: #fbbf24 !important;
+}
+[data-md-color-scheme="default"] .mermaid .node.warning .nodeLabel,
+[data-md-color-scheme="default"] .mermaid .node.warning .label {
+  color: #92400e !important;
+}
+

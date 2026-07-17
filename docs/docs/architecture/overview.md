@@ -91,6 +91,45 @@ graph TB
     style Ingest fill:#4a6fa5,stroke:#3b82f6,color:#fff
 ```
 
+### High-Level Data Flow
+
+```mermaid
+graph LR
+    subgraph Ingest["Ingest"]
+        docs["📄 Documents"]
+        files["📁 Files"]
+        api["🌐 API Data"]
+    end
+
+    subgraph Process["Process"]
+        chunk["✂️ Chunk"]
+        embed["🧬 Embed"]
+        quantize["🗜️ Quantize"]
+    end
+
+    subgraph Store["Store"]
+        vectors["📊 Vector Index<br/><i>HNSW · IVF-PQ</i>"]
+        text["📝 Text Index<br/><i>BM25</i>"]
+        memory["🧠 Cognitive Store<br/><i>4-tier cortex</i>"]
+    end
+
+    subgraph Query["Query"]
+        search["🔍 Hybrid Search"]
+        recall["💭 Memory Recall"]
+        rag["🤖 RAG Pipeline"]
+    end
+
+    docs & files & api --> chunk --> embed --> quantize
+    quantize --> vectors & text & memory
+    vectors & text --> search --> rag
+    memory --> recall --> rag
+
+    style Ingest fill:#5b6abf,stroke:#e94560,color:#fff
+    style Process fill:#4a6fa5,stroke:#3b82f6,color:#fff
+    style Store fill:#3b82f6,stroke:#7c3aed,color:#fff
+    style Query fill:#7c3aed,stroke:#e94560,color:#fff
+```
+
 ### Deployment Modes
 
 ```mermaid
@@ -261,9 +300,8 @@ graph LR
     end
 
     subgraph "⚡ Runtime & Interfaces"
-        runtime["spector-runtime<br/><i>Unified context (engine + memory)</i>"]
-        engine["spector-engine<br/><i>Search facade + lifecycle</i>"]
-        node["spector-node<br/><i>Armeria: REST + gRPC + SSE + cluster</i>"]
+        runtime["spector-runtime<br/><i>Unified context (memory + ingestion)</i>"]
+        synapse["spector-synapse<br/><i>Armeria REST/gRPC/SSE server</i>"]
         mcp["spector-mcp<br/><i>MCP Server — Agent-native</i>"]
         cli["spector-cli<br/><i>spectorctl CLI</i>"]
         client["spector-client<br/><i>Java client SDK</i>"]
@@ -289,33 +327,25 @@ graph LR
 
 ```mermaid
 graph TD
-    node["🌐 node"] --> runtime["⚡ runtime"]
-    node --> mcp["🤖 mcp"]
-    node --> metrics["📈 metrics"]
+    synapse["🌐 synapse"] --> runtime["⚡ runtime"]
+    synapse --> mcp["🤖 mcp"]
+    synapse --> metrics["📈 metrics"]
     mcp --> runtime
     mcp --> ingestion["📥 ingestion"]
     cli["🖥️ cli"] --> runtime
     cli --> client["📦 client"]
 
-    runtime --> engine["⚡ engine"]
     runtime --> memory["🧠 memory"]
     runtime --> ingestion
 
-    engine --> query["🔍 query"]
-    engine --> rag["🤖 rag"]
-    engine --> ingestion
-    engine --> index["📊 index"]
-    engine --> storage["💾 storage"]
-    engine --> embedapi["🧬 embed-api"]
-    engine -.-> gpu["🎮 gpu"]
-
-    memory --> index
-    memory --> storage
-    memory --> ingestion
-    memory --> embedapi
+    memory --> query["🔍 query"]
+    memory --> index["📊 index"]
+    memory --> storage["💾 storage"]
+    memory --> embedapi["🧬 embed-api"]
+    memory -.-> gpu["🎮 gpu"]
+    memory --> rag["🤖 rag"]
     memory --> core["🔬 core"]
 
-    metrics --> engine
     metrics --> memory
 
     ingestion --> config["⚙️ config"]
@@ -343,11 +373,9 @@ graph TD
     dist --> cli
     dist --> runtime
 
-    spring["🌱 spring"] --> engine
-    spring --> memory
+    spring["🌱 spring"] --> memory
     spring --> metrics
-    bench["🧪 bench"] --> engine
-    bench --> memory
+    bench["🧪 bench"] --> memory
 ```
 
 > **Legend:** Solid arrows = compile dependency. Dotted arrow (`gpu`) = optional dependency.
@@ -356,19 +384,18 @@ graph TD
 
 | Path | Description |
 |------|-------------|
-| `runtime → engine + memory + ingestion` | Composition root — wires all subsystems |
+| `runtime → memory + ingestion` | Composition root — wires all subsystems |
 | `cli → runtime + client` | CLI with local batch (runtime) and remote (client) modes |
-| `node → runtime` | Unified Armeria node: REST + gRPC + cluster coordination |
+| `synapse → runtime` | Unified Armeria node: REST + gRPC + SSE + cluster coordination (incorporates former spector-node) |
 | `mcp → runtime + ingestion` | MCP agent entry point (in-process, zero network) |
-| `engine → ingestion` | `EngineIngestionTarget` implements `IngestionTarget` |
-| `memory → ingestion` | `CognitiveIngestionTarget` implements `IngestionTarget` |
-| `engine → rag` | RAG context assembly pipeline |
-| `engine -.-> gpu` | Optional GPU acceleration |
-| `memory → index, storage, core, embed-api` | Cognitive memory (independent of engine) |
+| `memory → ingestion` | Houses both `EngineIngestionTarget` and `CognitiveIngestionTarget` |
+| `memory → rag` | RAG context assembly pipeline |
+| `memory -.-> gpu` | Optional GPU acceleration |
+| `memory → index, storage, core, embed-api` | Cognitive memory and HNSW/BM25 storage foundations |
 | `dist → mcp + cli + runtime` | Fat JAR distribution |
 
 !!! important
-    **No circular dependencies.** `spector-memory` and `spector-engine` are **peers** — both depend on `spector-ingestion` for the `IngestionTarget` interface, but neither depends on the other. `SpectorRuntime` is the single composition root that wires them together.
+    **No circular dependencies.** `spector-memory` contains both engine search facades and cognitive stores. `SpectorRuntime` acts as the single composition root, keeping the API gateway (`spector-synapse`) decoupled from low-level storage.
 
 ---
 

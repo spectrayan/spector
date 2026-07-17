@@ -216,7 +216,7 @@ java \
   --enable-native-access=ALL-UNNAMED \
   -XX:+UseZGC -XX:+ZGenerational \
   -Xmx4g -Xms4g \
-  -jar spector-node.jar
+  -jar spector.jar
 ```
 
 ---
@@ -238,8 +238,11 @@ java \
 **Yes.** Set an API key at server startup:
 
 ```bash
-mvn exec:java -pl spector-node \
-  -Dexec.args="7070 384 my-secret-key"
+# via environment variable
+SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-boot:run
+
+# or via Spring Boot argument
+mvn -Psynapse -pl synapse/spector-synapse spring-boot:run -- --spector.api-key=my-secret-key
 ```
 
 Clients include `X-API-Key: my-secret-key` in requests. Without a key configured, all requests are allowed.

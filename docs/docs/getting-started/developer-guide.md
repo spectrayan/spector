@@ -43,12 +43,12 @@ To build all modules without running tests:
 mvn clean package -DskipTests
 ```
 
-## Run The Local Node
+## Run The Local Synapse Server
 
-The node module starts the embedded Armeria REST server on port `7070` by default:
+The synapse module starts the embedded Armeria REST/gRPC/SSE server on port `7070` by default:
 
 ```bash
-mvn exec:java -pl spector-node -Dexec.mainClass="com.spectrayan.spector.node.SpectorNode"
+mvn spring-boot:run -pl synapse/spector-synapse -Psynapse
 ```
 
 In another terminal, verify the service:
@@ -58,10 +58,10 @@ curl http://localhost:7070/health
 curl http://localhost:7070/api/v1/status
 ```
 
-To use a different port, vector dimension, or API key, pass runtime arguments:
+To use a different port or API key, pass environment variables or system properties:
 
 ```bash
-mvn exec:java -pl spector-node -Dexec.mainClass="com.spectrayan.spector.node.SpectorNode" -Dexec.args="7071 384 my-secret-key"
+SPECTOR_PORT=7071 SPECTOR_API_KEY=my-secret-key mvn spring-boot:run -pl synapse/spector-synapse -Psynapse
 ```
 
 If you plan to test automatic embeddings or cognitive memory examples, start Ollama before the node:
@@ -95,11 +95,10 @@ Spector is a multi-module Maven project. Start with these areas when deciding wh
 
 | Area | Modules |
 | ---- | ------- |
-| Search and storage | `spector-core`, `spector-index`, `spector-query`, `spector-storage` |
-| Runtime composition | `spector-engine`, `spector-runtime`, `spector-node` |
-| Cognitive memory | `spector-memory`, `spector-rag`, `spector-embed-api`, `spector-embed-ollama` |
-| Integrations | `spector-mcp`, `spector-client`, `spector-cli`, `spector-spring` |
-| Support and verification | `spector-test-support`, `spector-bench`, `spector-metrics`, `spector-events` |
+| Search, Storage & Core | `nucleus/spector-core`, `nucleus/spector-commons`, `nucleus/spector-config`, `nucleus/spector-storage` |
+| Cognitive Memory & Ingestion | `memory/spector-memory`, `memory/spector-index`, `memory/spector-query`, `memory/spector-gpu`, `memory/spector-rag`, `memory/spector-embed-api`, `memory/spector-embed-ollama`, `memory/spector-ingestion` |
+| Gateways & Agentic Runtime | `synapse/spector-synapse`, `synapse/spector-mcp`, `synapse/spector-runtime`, `synapse/spector-cli`, `synapse/spector-client`, `synapse/spector-spring`, `synapse/spector-dist` |
+| Observability & Verification | `nucleus/spector-events`, `nucleus/spector-metrics`, `nucleus/spector-test-support`, `bench/spector-bench` |
 
 For a deeper walkthrough, read the [architecture overview](../architecture/overview.md), [module guide](../modules/index.md), and module-specific README files.
 
@@ -114,8 +113,8 @@ mvn test
 For focused work, test the touched module and any required upstream modules:
 
 ```bash
-mvn test -pl spector-memory -am
-mvn test -pl spector-node -am
+mvn test -pl memory/spector-memory -am
+mvn verify -pl synapse/spector-synapse -Psynapse -am
 ```
 
 To run a single test class:
@@ -134,7 +133,7 @@ Useful defaults:
 
 - Enable automatic Maven project import.
 - Delegate build and test actions to Maven if IDE classpath resolution differs from the command line.
-- Run the node from Maven with the `spector-node` command above, or create a run configuration for `com.spectrayan.spector.node.SpectorNode`.
+- Run the server from Maven with the `spector-synapse` command above, or create a run configuration for `com.spectrayan.spector.synapse.SynapseApplication`.
 - Keep generated build output under each module's `target/` directory out of commits.
 
 ## Contribution Checklist

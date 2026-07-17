@@ -1,0 +1,30 @@
+You are evaluating whether the retrieved context is sufficient to answer the user's query.
+
+CONTEXT:
+{{context}}
+
+QUERY: {{query}}
+
+AVAILABLE TOOLS: {{available_tools}}
+
+Analyze the context and decide:
+1. If the context contains enough information to generate a comprehensive answer → GENERATE
+2. If the context is insufficient or the query needs refinement → REQUERY with a better search query
+3. If the context is insufficient and a tool could help retrieve specific data → USE_TOOLS
+
+Respond with EXACTLY one of these formats:
+
+DECISION: GENERATE
+REASON: [brief explanation of why the context is sufficient]
+
+OR:
+
+DECISION: REQUERY
+REFINED_QUERY: [a more specific or alternative search query]
+REASON: [brief explanation of what's missing from the context]
+
+OR:
+
+DECISION: USE_TOOLS
+TOOL_CALLS: toolName({"arg": "value"}), anotherTool({"key": "val"})
+REASON: [brief explanation of why tools are needed and what data they should fetch]

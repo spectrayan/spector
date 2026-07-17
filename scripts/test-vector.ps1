@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = "D:\git\spector-search"
+$root = "d:\git\spector"
 
 # Build the JSON-RPC sequence: init + notify + query
 $initMsg = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test"}}}'
@@ -18,7 +18,7 @@ $tmpIn = [System.IO.Path]::GetTempFileName()
 @($initMsg, $notifyMsg, $queryMsg) | Set-Content $tmpIn -Encoding UTF8
 
 # Run server with stdin from file, capture stdout
-$javaArgs = "--enable-preview --add-modules jdk.incubator.vector -Xmx4g -jar $root\spector-dist\target\spector.jar serve --config $root\$Config"
+$javaArgs = "--enable-preview --add-modules jdk.incubator.vector -Xmx4g -jar $root\synapse\spector-dist\target\spector.jar serve --config $root\$Config"
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = "java"

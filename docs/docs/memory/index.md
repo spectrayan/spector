@@ -10,67 +10,95 @@ description: "The biologically-inspired memory engine that gives AI agents the a
 
 ---
 
-## What Makes This Different
+## The 4-Tier Memory Architecture
 
-Every AI memory solution today — Mem0, Letta (MemGPT), Zep — wraps a Python layer around Postgres/pgvector or ChromaDB. They suffer from:
+Just as the human brain has distinct memory systems, Spector organizes memories into four cognitive tiers to match their biological functions:
 
-- **Network latency**: 50-200ms per query (HTTP → Postgres → HTTP)
-- **Python GIL**: Sequential embedding + scoring under a global lock
-- **Post-filtering trap**: Retrieve top-K by similarity, *then* filter by importance/time — losing critical memories that are old but vital
+=== "🧪 Working Memory"
 
-Spector Memory collapses the entire cognitive stack onto a **zero-GC, off-heap Panama memory store** with SIMD-accelerated scoring. The result:
+    **Biological analog: Prefrontal Cortex**
+    
+    Volatile, limited-capacity buffer for the current task context. Operates as a circular buffer where the oldest entries are automatically evicted when capacity is reached.
+    
+    - **Capacity**: Configurable (default: 100 records)
+    - **Storage**: In-memory segment (volatile)
+    - **Use case**: "What was the user just talking about?"
 
-| Metric | Python Memory Layer | **Spector Memory** |
-|---|---|---|
-| Query latency (1M memories) | 50-200ms | **0.13ms** † |
-| GC pauses | Unpredictable | **≤0.01%** (100% off-heap) † |
-| Scoring pipeline | Post-filter (lossy) | **Fused SIMD** (lossless) |
-| Concurrent queries | GIL-limited | **61,000 QPS** (Virtual Threads) † |
-| Memory per record | ~500B (Python objects) | **64B header + quantized vector** |
+=== "📝 Episodic Memory"
 
-† *Measured on Intel Core Ultra 9 285K, Java 25, AVX2. See [Benchmarks](performance.md).*
+    **Biological analog: Hippocampus**
+    
+    Time-stamped event records representing autobiographical history. Partitioned by day and backed by memory-mapped files for persistence across restarts. Supports sleep consolidation into semantic memory.
+    
+    - **Capacity**: Unbounded (time-partitioned)
+    - **Storage**: High-performance memory-mapped partitions (persistent)
+    - **Use case**: "What error did we debug yesterday?"
+
+=== "🧬 Semantic Memory"
+
+    **Biological analog: Neocortex**
+    
+    Distilled, permanent world knowledge and facts. Created by consolidation (sleep cycles) from episodic clusters, or directly by the user. Supports two modes:
+    
+    - **Partitioned Mode** (default): Rolling partition files with parallel retrieval.
+    - **Single-File Mode**: In-memory slab for light deployments.
+    
+    - **Capacity**: Unbounded in partitioned mode (configurable per-partition, default: 10,000 records)
+    - **Recall**: Parallel scan across partitions using virtual threads
+    - **Compaction**: Per-partition rebuilds performed live during operation
+    - **Use case**: "The user prefers dark mode."
+
+=== "⚙️ Procedural Memory"
+
+    **Biological analog: Basal Ganglia**
+    
+    Learned procedures, rules, and behavioral guidelines. A small, append-only store for rules that shape the agent's reasoning.
+    
+    - **Capacity**: Configurable (default: 500 records)
+    - **Storage**: In-memory segment (persistent via write-ahead log replay)
+    - **Use case**: "Always use exponential backoff for retries."
 
 ---
 
 ## The Biological Metaphor
 
-Spector Memory maps every major cognitive subsystem from neuroscience to a dedicated Java package:
+Spector Memory maps every major cognitive subsystem from neuroscience to a dedicated system package:
 
 ```mermaid
 graph TB
     subgraph "🧠 Spector Memory"
-        SM[SpectorMemory<br/>Façade] --> CT[CognitiveIngestionTarget<br/>Cognitive remember]
-        SM --> RP[RecallPipeline<br/>Parallel recall]
+        SM[SpectorMemory<br/>Façade]:::core --> CT[CognitiveIngestionTarget<br/>Cognitive remember]:::core
+        SM --> RP[RecallPipeline<br/>Parallel recall]:::core
         
         subgraph "Cortex — Tier Stores"
-            TR[TierRouter] --> WM[Working<br/>Prefrontal Cortex]
-            TR --> EM[Episodic<br/>Hippocampus]
-            TR --> SE[Semantic<br/>Neocortex]
-            TR --> PR[Procedural<br/>Basal Ganglia]
+            TR[TierRouter]:::core --> WM[Working<br/>Prefrontal Cortex]:::working
+            TR --> EM[Episodic<br/>Hippocampus]:::episodic
+            TR --> SE[Semantic<br/>Neocortex]:::semantic
+            TR --> PR[Procedural<br/>Basal Ganglia]:::procedural
         end
         
         subgraph "Synapse — Scoring"
-            CS[CognitiveScorer<br/>6-phase SIMD] --> STE[SynapticTagEncoder<br/>Bloom Filter]
-            CS --> DS[DecayStrategy<br/>Temporal Decay]
+            CS[CognitiveScorer<br/>6-phase SIMD]:::synapse --> STE[SynapticTagEncoder<br/>Bloom Filter]:::synapse
+            CS --> DS[DecayStrategy<br/>Temporal Decay]:::synapse
         end
         
         subgraph "Neuromodulators"
-            SD[SurpriseDetector<br/>Dopamine] --> FP[FlashbulbPolicy]
-            VT[ValenceTracker<br/>Amygdala]
-            HP[HabituationPenalty<br/>Anti-filter bubble]
-            SS[SuppressionSet<br/>Inhibition]
+            SD[SurpriseDetector<br/>Dopamine]:::synapse --> FP[FlashbulbPolicy]:::synapse
+            VT[ValenceTracker<br/>Amygdala]:::synapse
+            HP[HabituationPenalty<br/>Anti-filter bubble]:::synapse
+            SS[SuppressionSet<br/>Inhibition]:::synapse
         end
         
         subgraph "3-Layer Cognitive Graph"
-            HG[HebbianGraph<br/>Layer 1: Association]
-            EG[EntityGraph<br/>Layer 2: Knowledge]
-            TC[TemporalChain<br/>Layer 3: Causal]
-            CA[CoActivationTracker<br/>STDP Learning]
+            HG[HebbianGraph<br/>Layer 1: Association]:::core
+            EG[EntityGraph<br/>Layer 2: Knowledge]:::core
+            TC[TemporalChain<br/>Layer 3: Causal]:::core
+            CA[CoActivationTracker<br/>STDP Learning]:::core
         end
         
         subgraph "Consolidation"
-            RD[ReflectDaemon<br/>Sleep Consolidation]
-            TCC[TombstoneCompactor<br/>Synaptic Pruning]
+            RD[ReflectDaemon<br/>Sleep Consolidation]:::core
+            TCC[TombstoneCompactor<br/>Synaptic Pruning]:::core
         end
         
         CT --> TR
@@ -84,54 +112,25 @@ graph TB
 
 ---
 
-## The 4-Tier Memory Architecture
+## What Makes This Different
 
-Just as the human brain has distinct memory systems, Spector organizes memories into four cognitive tiers:
+Every AI memory solution today wraps a scripting layer around Postgres/pgvector or a standard vector database. They suffer from:
 
-=== "🧪 Working Memory"
+- **Network latency**: 50-200ms per query (HTTP → DB → HTTP)
+- **Global Interpreter Lock**: Sequential embedding and scoring under a lock
+- **Post-filtering trap**: Retrieve top-K by similarity, then filter by importance or time — losing old but critical memories
 
-    **Biological analog: Prefrontal Cortex**
-    
-    Volatile, limited-capacity buffer for the current task context. Circular buffer — oldest entries are evicted when full.
-    
-    - **Capacity**: Configurable (default: 100 records)
-    - **Storage**: In-memory `Arena.ofShared()` segment
-    - **Use case**: "What was the user just talking about?"
+Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-heap memory store** with hardware-accelerated scoring. The result:
 
-=== "📝 Episodic Memory"
+| Metric | Traditional Python Layer | **Spector Memory** |
+|---|---|---|
+| Query latency (1M memories) | 50-200ms | **0.13ms** † |
+| GC pauses | Unpredictable | **≤0.01%** (100% off-heap) † |
+| Scoring pipeline | Post-filter (lossy) | **Fused SIMD** (lossless) |
+| Concurrent queries | Lock-limited | **61,000 QPS** (Virtual Threads) † |
+| Memory per record | ~500B (Object wrappers) | **Compact binary header + vector** |
 
-    **Biological analog: Hippocampus**
-    
-    Time-stamped event records. Partitioned by day, backed by mmap'd files for persistence across JVM restarts. Supports sleep consolidation into semantic memory.
-    
-    - **Capacity**: Unbounded (partitioned, mmap-backed)
-    - **Storage**: `FileChannel.map()` with 64-byte metadata header per partition
-    - **Use case**: "What error did we debug yesterday?"
-
-=== "🧬 Semantic Memory"
-
-    **Biological analog: Neocortex**
-    
-    Distilled, permanent knowledge. Created by sleep consolidation (ReflectDaemon) from episodic clusters, or directly by the user. Supports two storage modes:
-    
-    - **Single-file** (in-memory mode): Fixed-capacity slab via `Arena.ofShared()`
-    - **Partitioned** (DISK mode, default): Rolling `semantic-NNN.mem` files with parallel per-partition recall via virtual threads
-    
-    - **Capacity**: Unbounded in partitioned mode (configurable per-partition, default: 10,000 records)
-    - **Recall**: Parallel scan — each partition searched on its own virtual thread
-    - **Compaction**: Per-partition rebuild (live during operation)
-    - **Migration**: Auto-migrates from single-file on first startup
-    - **Use case**: "The user prefers dark mode."
-
-=== "⚙️ Procedural Memory"
-
-    **Biological analog: Basal Ganglia**
-    
-    Learned procedures, rules, and patterns. Small, append-only store for procedural knowledge.
-    
-    - **Capacity**: Configurable (default: 500 records)
-    - **Storage**: In-memory `Arena.ofShared()` segment
-    - **Use case**: "Always use exponential backoff for retries."
+† *Measured on Intel Core Ultra 9 285K, Java 25, AVX2. See [Benchmarks](performance.md).*
 
 ---
 

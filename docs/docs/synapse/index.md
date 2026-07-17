@@ -12,81 +12,238 @@ description: "Spector Synapse is the agentic orchestration layer — cognitive c
 
 ## What is Synapse?
 
-Spector Synapse is the **agentic application layer** built on top of the Spector cognitive memory engine. It transforms Spector from a memory library into a fully autonomous AI agent platform.
+Spector Synapse is the **unified application server and agentic gateway** built on top of the Spector cognitive memory engine. It transforms Spector from an embedded Java library into a standalone, network-accessible AI agent platform and hybrid search server.
 
 | Spector Memory | Spector Synapse |
 |:---|:---|
-| Stores and recalls memories | Orchestrates conversations with memory |
-| 16 neuroscience mechanisms | Agentic reasoning graphs |
-| Java library (embed anywhere) | Spring Boot 4 server (deploy as service) |
-| Off-heap, SIMD-accelerated | LLM-powered, tool-equipped agents |
-| Passive (respond to API calls) | Active (plan, reflect, act autonomously) |
+| Stores and recalls memories | Orchestrates conversations and API gateways |
+| 16 neuroscience mechanisms | Agentic reasoning graphs & REST/gRPC endpoints |
+| Java library (embed anywhere) | Standalone Spring Boot 4 application server |
+| Off-heap, SIMD-accelerated | Unified gateway (Search, Memory, RAG, Agents) |
+| Passive (responds to API calls) | Active (runnable server + autonomous agents) |
 
 ---
 
-## Key Capabilities
+## Agent Soul & User Salience Profile
 
-### 🧠 Cognitive Chat
+Spector Synapse models agentic interactions through two distinct, complementary cognitive configurations that shape how an agent behaves and what it remembers.
 
-Every conversation is memory-primed. Before the LLM generates a response, Synapse:
+### The Agent Soul
+The **Agent Soul** represents the persistent identity and character of the AI agent. It defines the agent's baseline model of self, including:
+*   **Purpose & Mission**: The primary objective or goal the agent is designed to achieve.
+*   **Personality & Tone**: The behavioral characteristics, communication style, and emotional baseline.
+*   **Expertise Domains**: Specific areas of knowledge where the agent has specialized capability.
+*   **Core Values & Ethical Guardrails**: Guiding principles and strict safety boundaries that cannot be bypassed or self-modified.
 
-1. **Recalls** relevant memories from the user's conversation history
-2. **Primes** the LLM context with recalled memories (context priming)
-3. **Generates** the response with full cognitive context
-4. **Remembers** the conversation turn as a new memory
-5. **Reflects** periodically — extracting insights, relationships, and patterns
-6. **Summarizes** long conversations to prevent context window overflow
+### The User Salience Profile
+The [User Salience Profile](../memory/salience-importance.md) represents the personalization filter configured for the human interacting with the system. It defines what concepts, topics, and rules matter to that user. It is expressed in natural language interests (boosts) and disinterests (dampeners) that modify memory importance scores dynamically at recall and ingestion time.
+
+### How They Complement Each Other
+The Agent Soul and the User Salience Profile form a **Personalized Cognitive Loop**:
+
+```mermaid
+graph LR
+    UserQuery[User Query]:::info --> RecallFilters[User Salience Profile<br/><i>Retrieval Filter</i>]:::synapse
+    RecallFilters --> MemoryRecall[Cognitive Memory Recall]:::core
+    MemoryRecall --> RetrievedMemories[Retrieved Memories]:::core
+    RetrievedMemories --> AgentBehavior[Agent Soul<br/><i>Behavior & Style Governor</i>]:::synapse
+    AgentBehavior --> AgentResponse[Character-Aligned Response]:::info
+```
+
+1.  **The User Salience Profile acts as the Retrieval Filter (What to remember)**: It determines *which* memories are retrieved from the cognitive store by boosting topics the user cares about and suppressing noise.
+2.  **The Agent Soul acts as the Response Governor (How to behave)**: Once the relevant memories are surfaced, the Agent Soul shapes the reasoning process, tool usage, and tone to generate a response that remains consistent with the agent's persona.
+
+Together, they ensure the agent's actions are highly personalized to the user's focus areas while remaining character-consistent and ethically bounded.
+
+---
+
+## Submodule Architecture & Core Flows
+
+Synapse is divided into modular submodules, each responsible for a distinct aspect of agentic lifecycle, communication, and synchronization.
+
+```mermaid
+graph TD
+    subgraph synapse["⚡ Spector Synapse"]
+        AC[Agentic Chat Graph]:::synapse
+        DE[Dynamic Graph Builder]:::synapse
+        MB[Memory Bridge]:::synapse
+        PR[LLM Provider Registry]:::synapse
+        DC[Connector Sync Engine]:::synapse
+        PL[Plugin Manager]:::synapse
+    end
+
+    cortex["🧬 Cortex UI (Angular 22)"]:::cortex -->|REST / SSE| synapse
+    synapse -->|Java API| core["🧠 Spector Core"]:::core
+
+    DC -->|Sync| MB
+    AC -->|Read/Write| MB
+    MB -->|FAÇADE API| core
+```
+
+### 1. Agentic Chat Graph
+The `AgenticChatGraph` defines the reasoning loop of an autonomous agent. When a user sends a message, the agent does not merely generate a completion; it runs an iterative loop:
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant Chat as Chat Service
-    participant Memory as Spector Memory
+    participant Chat as Agentic Chat Graph
+    participant MB as Memory Bridge
     participant LLM as LLM Provider
-    participant Reflect as Reflector
+    participant Tool as Tool Executor
 
     User->>Chat: Send message
-    Chat->>Memory: recall(message)
-    Memory-->>Chat: Relevant memories
-    Chat->>Chat: Prime context with memories
-    Chat->>LLM: Generate response
-    LLM-->>Chat: Response
-    Chat->>Memory: remember(turn)
-    Chat-->>User: Response
-
-    Note over Chat,Reflect: Periodically after N turns...
-    Chat->>Reflect: Extract insights
-    Reflect->>Memory: remember(reflections)
-    Reflect->>Memory: reinforce(related memories)
+    Chat->>MB: Recall context & memories
+    MB-->>Chat: Memory-primed state
+    
+    loop Reasoning Cycle (max N iterations)
+        Chat->>LLM: Analyze state & decide next action (Thought)
+        LLM-->>Chat: Thought / Action (e.g., Tool Call)
+        
+        alt Tool Call Needed
+            Chat->>Tool: Execute Tool (Action)
+            Tool-->>Chat: Tool Result (Observation)
+        else Generate Final Response
+            Chat->>User: Stream Response / Complete turn
+        end
+    end
+    
+    Chat->>MB: Store conversation turn
+    Chat->>MB: Reflect & reinforce memories (async)
 ```
 
-This creates agents that genuinely *know* their users — remembering preferences, past conversations, emotional states, and evolving relationships over time.
+1.  **Recall**: Surfacing relevant semantic, episodic, and working memories via the Memory Bridge.
+2.  **Thought**: Deciding whether the user query can be answered directly or if tools are required.
+3.  **Action**: Executing approved tools and returning results back into the agent's state as observations.
+4.  **Evaluate / Generate**: Iterating until a satisfying response is compiled, then returning the response to the user.
+5.  **Consolidate**: Recording the interaction to episodic memory and strengthening related neural pathways.
 
-### 🤖 Autonomous Agent Framework
+---
 
-Agents in Synapse have a **soul** — a persistent identity (the `AgentSoul`) that shapes their behavior:
+### 2. Dynamic Agent Execution
+Instead of hardcoding graph topologies, Synapse includes the `DynamicGraphBuilder`. This engine compiles agent graphs dynamically at runtime from JSON-based `FlowSpec` definitions.
 
 ```mermaid
-classDiagram
-    class AgentSoul {
-        +String name = "Aria"
-        +String purpose = "ABA therapy companion"
-        +String personality = "warm, patient"
-        +List~String~ expertise = ["autism", "ABA"]
-        +List~String~ coreValues = ["empathy", "evidence"]
-        +List~String~ ethicalGuardrails 🔒
-        +String emotionalBaseline = "calm"
-        +String model = "llama3.2"
-        +List~String~ tools
-        +float[] expertiseEmbedding
-        +float[] purposeEmbedding
-    }
-    note for AgentSoul "ethicalGuardrails are immutable —\nthe agent cannot modify them"
+graph TD
+    FlowSpec[JSON FlowSpec Definition]:::info --> Parser[Flow Parser]:::synapse
+    Parser --> Compiler[Graph Compiler]:::synapse
+    Compiler --> State[State Initialization]:::core
+    State --> Runner[Cognitive Graph Runner]:::synapse
+    Runner --> Execution[Runtime Execution Loop]:::success
 ```
 
-**Biological analog**: Just as the brain's Default Mode Network (DMN) maintains a persistent self-model, the `AgentSoul` defines **who the agent is** — and this identity persists across sessions, influencing memory encoding, retrieval, and response generation.
+This allows users to define custom agents, tool mappings, step execution ordering, and validation criteria on the fly, entirely via REST APIs without rebuilding the application server.
 
-### 🔧 14 Built-in Agent Tools
+---
+
+### 3. Memory Bridge
+The **Memory Bridge** connects Spring Boot's application layer (managing HTTP requests, chat sessions, and connection pools) with the off-heap Spector core memory engine.
+
+```mermaid
+graph TD
+    AppLayer[Spring Chat Session]:::synapse -->|1. Request Recall| Bridge[Memory Bridge]:::synapse
+    Bridge -->|2. Parallel Scan| CoreEngine[Spector Core Engine]:::core
+    CoreEngine -->|3. Quantized Vectors + Headers| Bridge
+    Bridge -->|4. Format Context| AppLayer
+    AppLayer -->|5. Commit Turn| Bridge
+    Bridge -->|6. WAL Write & Ingest| CoreEngine
+```
+
+It manages context priming (populating the LLM context window with recalled memories prior to execution) and handles asynchronous memory consolidation (consolidating episodic memories into permanent semantic nodes during reflection sleep cycles).
+
+---
+
+### 4. LLM Provider Registry
+The LLM Provider Registry acts as the routing and abstraction gateway for language models.
+
+```mermaid
+graph TD
+    Request[Agent LLM Request]:::synapse --> Registry[LLM Provider Registry]:::synapse
+    Registry --> Router{Model Router}:::synapse
+    Router -->|Ollama - Local| M1[Ollama Server]:::success
+    Router -->|OpenAI - Remote| M2[OpenAI Gateway]:::success
+    Router -->|Anthropic - Remote| M3[Anthropic Gateway]:::success
+
+    Registry -.->|Health Checks| Health{Status Monitor}:::synapse
+    Health -->|Ping / Check Latency| M1 & M2 & M3
+```
+
+It supports multi-provider registration (local Ollama instances, external OpenAI/Anthropic gateways), conducts background health monitoring, and automatically reroutes requests to failover providers if an endpoint experiences downtime.
+
+---
+
+### 5. Data Connectors
+The Connector Sync Engine schedules and executes background synchronization jobs via a plugin-based SPI.
+
+```mermaid
+graph TD
+    SyncEngine[Connector Sync Engine]:::synapse -->|Execute Job| SPI[Connector SPI]:::synapse
+    SPI -->|Pull| Slack[Slack Connector]:::success
+    SPI -->|Pull| GitHub[GitHub Connector]:::success
+    SPI -->|Pull| Notion[Notion Connector]:::success
+
+    Slack & GitHub & Notion -->|Raw Data| Parser[Ingestion Parser]:::synapse
+    Parser -->|Embed & Quantize| MB[Memory Bridge]:::synapse
+    MB -->|Store| Core[Spector Core]:::core
+```
+
+It fetches data from external workspace tools (Slack history, GitHub PRs/issues, Notion pages), processes and chunks the payloads, and ingests them directly into episodic and semantic memory tiers so they are instantly searchable.
+
+---
+
+### 6. Runtime Plugin System
+The Plugin SPI allows developers to extend Synapse capabilities at runtime without restarting the service. By loading external JAR plugins, developers can register custom tools, extend the LLM provider registry, or implement custom connector templates dynamically.
+
+---
+
+## Observability & Tracing
+
+Because agent loops are non-deterministic, understanding why an agent made a decision requires detailed tracing. Synapse exposes comprehensive tracing data at the session level:
+
+### State Tracing Elements
+When an agent executes, it populates three core structures in the state log:
+*   **`AgentThought`**: The internal reasoning path generated by the LLM prior to taking action.
+*   **`AgentAction`**: The tool selected for execution, including its input parameters.
+*   **`AgentObservation`**: The raw output returned by the tool, which is fed back into the reasoning loop.
+
+### Inspecting Traces
+1.  **Cortex UI Integration**: The Cortex Dashboard displays these steps in real-time as an interactive neural timeline, highlighting scoring weights, tool execution steps, and memory activation.
+2.  **API Log Access**: Developers can query the session history endpoint `/api/v1/chat/sessions/{id}/messages` to retrieve the full step-by-step trace of thoughts, actions, and observations.
+3.  **Spring Logging System**: Synapse outputs detailed execution spans via SLF4J, allowing external tracing tools (like OpenTelemetry or Jaeger) to monitor latency and routing across agent steps.
+
+---
+
+## Failure Recovery & Loop Prevention
+
+Synapse implements strict guardrails to guarantee the reliability and safety of autonomous agent loops:
+
+### 1. Loop and Iteration Limits
+To prevent an agent from entering infinite reasoning loops, the `AgenticChatGraph` enforces a hard limit on maximum iterations per turn (default: `10` iterations). If the agent fails to compile a final answer within this limit, the loop is terminated, and a graceful fallback message is returned.
+
+### 2. Tool Execution Fail-Safes
+*   **Sandboxing**: System and Shell execution tools (`shell_execute`) require explicit user authorization tokens or must be disabled via configuration.
+*   **Fallback Prompts**: If a tool fails (e.g., a network timeout or file access error), the exception is parsed, formatted into a structured `AgentObservation`, and returned to the LLM. The agent is trained to recognize the error and attempt a workaround or report the failure cleanly.
+*   **Write-Protection**: Synapse enforces read-only access on default connectors and file configurations to prevent unauthorized modifications by the agent.
+
+### 3. Provider Failover and Timeouts
+Synapse virtual threads manage LLM calls independently. If a provider endpoint goes offline or times out (configured via `SPECTOR_OLLAMA_TIMEOUT`), the registry intercepts the failure, reports it to the agent's runner, and switches to the designated fallback model automatically.
+
+---
+
+## Workflows vs. Autonomous Agents
+
+Developers must choose the correct execution pattern based on their task constraints:
+
+| Feature | Deterministic Workflows | Autonomous Agents |
+|:---|:---|:---|
+| **Control Flow** | Hardcoded in the graph topology | Dynamically decided by the LLM |
+| **Flexibility** | Low — follows strict steps | High — adapts to runtime inputs |
+| **Looping** | Cyclic transitions must be predefined | Natural loop cycle (reason → act) |
+| **Use Cases** | Ingestion pipelines, document parsing, fixed RAG | Coding assistants, customer support, open-ended research |
+| **Configuration** | Built using static Java/DSL chains | Defined via JSON `FlowSpec` or agent templates |
+
+---
+
+## 🔧 14 Built-in Agent Tools
 
 Agents can take action in the real world through tools:
 
@@ -108,182 +265,6 @@ Agents can take action in the real world through tools:
 | `current_time` | Utility | Get current date and time |
 
 Tools are categorized (`READ`, `WRITE`, `SYSTEM`) with write-protection for safety.
-
-### 🔀 LangGraph4j Cognitive Graphs
-
-Agent reasoning flows are defined as **directed graphs** using [LangGraph4j](https://github.com/bsc-lang/langgraph4j):
-
-```mermaid
-graph LR
-    START --> Retrieve
-    Retrieve --> Generate
-    Generate --> Evaluate
-    Evaluate -->|"needs more info"| Retrieve
-    Evaluate -->|"needs tools"| ToolExec["Tool Execution"]
-    ToolExec --> Generate
-    Evaluate -->|"good enough"| END
-```
-
-Built-in graph patterns include:
-
-- **Agentic Chat Graph** — Retrieve → Generate → Tool → Evaluate loop
-- **Cognitive RAG** — Memory-primed retrieval-augmented generation
-- **Coordinator Graph** — Multi-agent orchestration with planner, executor, evaluator
-- **Dynamic Graph Builder** — Construct graphs from JSON `FlowSpec` definitions at runtime
-
-### 🧩 Agent Templates
-
-6 pre-built agent templates for common use cases:
-
-| Template | Description |
-|:---------|:------------|
-| **Conversation Agent** | General-purpose conversational AI with memory |
-| **Research Agent** | Web research + memory synthesis |
-| **Code Generation** | Code writing with file system access |
-| **Content Creation** | Long-form content with research and iteration |
-| **Customer Support** | Knowledge-base backed support agent |
-| **Data Analysis** | Data querying and visualization |
-
-Templates define the agent's soul, tools, flow graph, and execution policies — all as JSON.
-
-### 🔌 Connector Framework
-
-Bring external data into cognitive memory through connectors:
-
-- **Slack** — channel history, messages
-- **Email** — inbox/sent messages
-- **GitHub** — issues, PRs, comments
-- **Google Drive** — documents, spreadsheets
-- **Notion** — pages, databases
-- **Custom** — build your own via the connector SPI
-
-### 🌐 LLM Provider Management
-
-Multi-provider LLM abstraction with health checking:
-
-- **Ollama** (local, default) — llama3.2, qwen, mistral, etc.
-- Provider registry with health checks and failover
-- Configurable per-agent model selection
-
-### 🔌 MCP Endpoint
-
-Model Context Protocol (MCP) compatible HTTP endpoint for tool discovery and invocation — allows external AI systems to discover and use Synapse's tools.
-
-### 🔌 Plugin SPI
-
-Runtime plugin system for extending Synapse:
-
-```java
-public interface SynapsePlugin {
-    String id();
-    void onLoad(PluginContext context);
-    void onUnload();
-    List<AgentTool> tools();
-}
-```
-
----
-
-## Architecture
-
-```mermaid
-graph TD
-    subgraph cortex["🧬 Cortex UI — Angular 22"]
-        chat_ui["Chat"]
-        memories_ui["Memories"]
-        agents_ui["Agents"]
-        connectors_ui["Connectors"]
-        settings_ui["Settings"]
-    end
-
-    cortex -->|"HTTP / WebSocket"| synapse
-
-    subgraph synapse["⚡ Spector Synapse — Spring Boot 4 + Armeria"]
-        direction TB
-        subgraph services["Application Layer"]
-            chat["Chat Service\n· Context priming\n· Summarizer\n· Reflector"]
-            agent["Agent Graph\n· LangGraph4j\n· Tool execution\n· Templates"]
-            provider["Provider Registry\n· Ollama bridge\n· Health checks\n· Failover"]
-        end
-        subgraph integration["Integration Layer"]
-            bridge["Memory Bridge\n· recall → cognitive memory\n· remember → store\n· reinforce → strengthen"]
-            connector["Connector SPI\n· Templates\n· Sync engine\n· Scheduling"]
-        end
-        subgraph extension["Extension Layer"]
-            plugin["Plugin SPI\n· Load / Unload\n· Custom tools"]
-            mcp_ep["MCP Endpoint\n· Tool discovery\n· Tool invocation"]
-        end
-        services --> integration
-        integration --> extension
-    end
-
-    synapse -->|"Java API"| core
-
-    subgraph core["🧠 Spector Core"]
-        engine["engine"]
-        memory["memory"]
-        rag["rag"]
-        embed["embed"]
-        ingestion["ingestion"]
-        gpu["gpu"]
-    end
-
-    style cortex fill:#1a1a2e,stroke:#7c3aed,color:#e0e0e0
-    style synapse fill:#16213e,stroke:#0ea5e9,color:#e0e0e0
-    style core fill:#1a2e1a,stroke:#22c55e,color:#e0e0e0
-```
-
----
-
-## Cognitive Conversation Engines
-
-### Conversation Summarizer
-
-When conversations grow beyond a configurable length, the summarizer automatically:
-
-1. Extracts key topics, decisions, and action items
-2. Compresses the conversation into a summary memory
-3. Stores the summary in cognitive memory for future recall
-4. Replaces the full history with the summary in the LLM context
-
-This prevents context window overflow while preserving essential information.
-
-### Conversation Reflector
-
-After significant interactions, the reflector:
-
-1. Analyzes the conversation for insights, patterns, and relationships
-2. Extracts user preferences, emotional states, and behavioral patterns
-3. Creates reflection memories tagged for long-term retention
-4. Strengthens relevant existing memories via Hebbian reinforcement
-
-This is how agents develop genuine understanding of their users over time.
-
----
-
-## What's Coming
-
-### Near-Term (In Progress)
-
-- [ ] **Streaming responses** — real-time token streaming via Server-Sent Events
-- [ ] **Multi-agent coordination** — agents collaborating on complex tasks
-- [ ] **Conversation branching** — fork conversations for exploration
-- [ ] **Agent marketplace** — community-contributed agent templates
-- [ ] **Voice channel adapter** — speech-to-text + text-to-speech integration
-
-### Medium-Term (Planned)
-
-- [ ] **Emotional intelligence** — agents that detect and respond to user emotional states
-- [ ] **Proactive memory** — agents that surface relevant memories unprompted
-- [ ] **Scheduled actions** — agents that execute tasks on schedules
-- [ ] **Multi-modal tools** — image analysis, code execution, data visualization
-- [ ] **Fine-tuning pipeline** — continuous learning from conversation outcomes
-
-### Long-Term (Vision)
-
-- [ ] **Federated agents** — agents across organizations sharing knowledge safely
-- [ ] **Embodied agents** — integration with robotics and IoT
-- [ ] **Cognitive simulation** — replay and simulate cognitive states for debugging
 
 ---
 
@@ -326,6 +307,13 @@ All settings are configurable via environment variables:
 
 | Endpoint | Method | Description |
 |:---------|:-------|:------------|
+| `/api/v1/engine/search` | POST | Hybrid search (Vector + Keyword) with RRF |
+| `/api/v1/engine/ingest` | POST | Ingest raw text payload |
+| `/api/v1/engine/ingest/file` | POST | Auto-discover and ingest local directories |
+| `/api/v1/engine/ingest/bulk` | POST | Bulk JSON document ingestion |
+| `/api/v1/engine/delete` | POST | Delete documents from indices |
+| `/api/v1/engine/status` | GET | Retrieve search index stats & health |
+| `/api/v1/engine/rag` | POST | Execute retrieval-augmented generation (RAG) |
 | `/api/v1/chat/sessions` | POST | Create chat session |
 | `/api/v1/chat/sessions/{id}/messages` | POST | Send message |
 | `/api/v1/memory` | GET/POST | List/create memories |

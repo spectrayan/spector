@@ -1,1 +1,1 @@
---8<-- "spector-gpu/README.md"
+--8<-- "memory/spector-gpu/README.md"
