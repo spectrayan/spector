@@ -78,6 +78,7 @@
 
         <!-- ── Memory: Cognitive engine (flagship) ── -->
         <module>memory/spector-embed-api</module>
+        <module>memory/spector-provider-api</module>
         <module>memory/spector-embed-ollama</module>
         <module>memory/spector-index</module>
         <module>memory/spector-query</module>
@@ -205,6 +206,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-embed-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-provider-api</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
