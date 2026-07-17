@@ -42,9 +42,9 @@ import java.util.Map;
  *
  * <p>Supports two modes, auto-detected from the flags provided:</p>
  * <ul>
- *   <li><strong>Remote</strong> â€” {@code --content} or {@code --file}: sends a single
+ *   <li><strong>Remote</strong>  --  {@code --content} or {@code --file}: sends a single
  *       document to a running Spector server via HTTP.</li>
- *   <li><strong>Local batch</strong> â€” {@code --root}: discovers and ingests files
+ *   <li><strong>Local batch</strong>  --  {@code --root}: discovers and ingests files
  *       locally through {@link SpectorRuntime}, honoring {@code spector.yml} config.</li>
  * </ul>
  *
@@ -63,7 +63,7 @@ import java.util.Map;
 )
 class IngestCommand extends BaseCommand {
 
-    // â”€â”€ Remote mode options â”€â”€
+    // -€-€ Remote mode options -€-€
     @CommandLine.Option(names = {"--id"}, description = "Document ID (auto-generated if not provided).")
     private String documentId;
 
@@ -76,7 +76,7 @@ class IngestCommand extends BaseCommand {
     @CommandLine.Option(names = {"--file"}, description = "Path to file to ingest. Remote mode.")
     private Path file;
 
-    // â”€â”€ Local batch mode options â”€â”€
+    // -€-€ Local batch mode options -€-€
     @CommandLine.Option(names = {"--root"}, description = "Root directory for local batch ingestion.")
     private Path rootDir;
 
@@ -94,7 +94,7 @@ class IngestCommand extends BaseCommand {
         if (rootDir != null) {
             runLocalBatch();
         } else if (configFile != null) {
-            // Config provided â€” check if it has a root-directory for local batch
+            // Config provided  --  check if it has a root-directory for local batch
             var props = SpectorProperties.builder().configFile(configFile).build();
             var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
             if (ingestionConfig.rootDirectory() != null) {
@@ -111,10 +111,10 @@ class IngestCommand extends BaseCommand {
         }
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Local Batch Mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Local Batch Mode -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     private void runLocalBatch() {
-        // â”€â”€ Build config from spector.yml + CLI overrides â”€â”€
+        // -€-€ Build config from spector.yml + CLI overrides -€-€
         SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
 
         if (configFile != null) propsBuilder.configFile(configFile);
@@ -128,15 +128,15 @@ class IngestCommand extends BaseCommand {
 
         SpectorProperties props = propsBuilder.build();
 
-        // â”€â”€ Read configs â”€â”€
+        // -€-€ Read configs -€-€
         var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
         var embedConfig = SpectorConfigFactory.embeddingDefaults(props);
         var engineConfig = SpectorConfigFactory.engineDefaults(props);
         var mode = SpectorConfigFactory.mode(props);
         Path root = ingestionConfig.rootDirectory().toAbsolutePath().normalize();
 
-        // â”€â”€ Banner â”€â”€
-        out().printf("===================================================%n");
+        // -€-€ Banner -€-€
+        out().printf("========================================%n");
         out().printf("  Spector Ingestion (local batch)%n");
         out().printf("  Mode:    %s%n", mode);
         out().printf("  Root:    %s%n", root);
@@ -147,9 +147,9 @@ class IngestCommand extends BaseCommand {
         out().printf("  Threads: %d parallel, %d retries (delay: %dms)%n",
                 ingestionConfig.parallelism(), ingestionConfig.maxRetries(),
                 ingestionConfig.retryDelayMs());
-        out().printf("===================================================%n%n");
+        out().printf("========================================%n%n");
 
-        // â”€â”€ Create embedder + probe dims â”€â”€
+        // -€-€ Create embedder + probe dims -€-€
         EmbeddingProvider embedder = EmbeddingProviderFactory.create(
                 embedConfig.baseUrl(), embedConfig.model());
         int dims = embedder.embed("probe").dimensions();
@@ -159,7 +159,7 @@ class IngestCommand extends BaseCommand {
         propsBuilder.override("spector.memory.dimensions", String.valueOf(dims));
         props = propsBuilder.build();
 
-        // â”€â”€ Create text generation provider for LLM tag extraction (if configured) â”€â”€
+        // -€-€ Create text generation provider for LLM tag extraction (if configured) -€-€
         LlmProvider textGenProvider = null;
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
@@ -171,7 +171,7 @@ class IngestCommand extends BaseCommand {
             out().printf("[Tags] LLM extraction: %s @ %s%n", tagModel, embedConfig.baseUrl());
         }
 
-        // â”€â”€ Create runtime + ingest â”€â”€
+        // -€-€ Create runtime + ingest -€-€
         try (SpectorRuntime runtime = SpectorRuntime.from(props, embedder, textGenProvider)) {
             long startMs = System.currentTimeMillis();
 
@@ -211,7 +211,7 @@ class IngestCommand extends BaseCommand {
             int failures = (int) results.stream().filter(r -> !r.isFullSuccess()).count();
             long elapsed = System.currentTimeMillis() - startMs;
 
-            out().printf("%n===================================================%n");
+            out().printf("%n========================================%n");
             out().printf("  Ingestion Complete%n");
             out().printf("  Mode:     %s%n", runtime.mode());
             out().printf("  Files:    %d%n", files);
@@ -220,11 +220,11 @@ class IngestCommand extends BaseCommand {
             out().printf("  Docs:     %d (in %s)%n", runtime.ingestion().count(),
                     runtime.mode().name().toLowerCase());
             out().printf("  Time:     %dms%n", elapsed);
-            out().printf("===================================================%n");
+            out().printf("========================================%n");
         }
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Remote Mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Remote Mode -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     private void runRemote() {
         String text = resolveContent();

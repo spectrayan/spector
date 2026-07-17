@@ -60,7 +60,7 @@ class ReflectDaemonClusteringTest {
         embeddingProvider = new MockEmbeddingProvider(DIMS);
     }
 
-    // â”€â”€ V3.1: Centroid-Based Clustering â”€â”€
+    // -€-€ V3.1: Centroid-Based Clustering -€-€
 
     @Test
     void clustersBycentroidIdAndPromotes() {
@@ -70,7 +70,7 @@ class ReflectDaemonClusteringTest {
             // Create 20 memories across 3 centroids (ids: 1, 2, 3)
             // Cluster 1: 8 records (above min=5)
             // Cluster 2: 7 records (above min=5)
-            // Cluster 3: 3 records (below min=5 â€” should NOT promote)
+            // Cluster 3: 3 records (below min=5  --  should NOT promote)
             // Unassigned (centroid 0): 2 records
             int[] centroidAssignments = {
                     1, 1, 1, 1, 1, 1, 1, 1,  // 8 records for centroid 1
@@ -102,9 +102,9 @@ class ReflectDaemonClusteringTest {
 
             ReflectReport report = daemon.runCycle(episodicStore, semanticStore);
 
-            // Should promote 2 clusters (centroid 1 and 2, both â‰¥ 5 records)
-            // Centroid 3 has only 3 records â€” below threshold
-            // Centroid 0 has only 2 records â€” below threshold
+            // Should promote 2 clusters (centroid 1 and 2, both  >=  5 records)
+            // Centroid 3 has only 3 records  --  below threshold
+            // Centroid 0 has only 2 records  --  below threshold
             assertThat(report.consolidatedCount()).isEqualTo(2);
             assertThat(semanticStore.size()).isEqualTo(2);
         }
@@ -153,7 +153,7 @@ class ReflectDaemonClusteringTest {
         try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
              SemanticMemoryStore semanticStore = new SemanticMemoryStore(VEC_BYTES, 100)) {
 
-            // Create 5 memories with importance â‰¥ 1.0
+            // Create 5 memories with importance  >=  1.0
             for (int i = 0; i < 5; i++) {
                 CognitiveHeader header = new CognitiveHeader(
                         System.currentTimeMillis(),
@@ -164,7 +164,7 @@ class ReflectDaemonClusteringTest {
                 episodicStore.append(header, makeVec(i));
             }
 
-            // V1 mode â€” no centroid router
+            // V1 mode  --  no centroid router
             ReflectDaemon daemon = new ReflectDaemon(CircadianPolicy.DEFAULT);
 
             ReflectReport report = daemon.runCycle(episodicStore, semanticStore);
@@ -233,13 +233,13 @@ class ReflectDaemonClusteringTest {
             ReflectReport report1 = daemon.runCycle(episodicStore, semanticStore);
             assertThat(report1.consolidatedCount()).isEqualTo(1);
 
-            // Second reflect â€” records are already consolidated, nothing new
+            // Second reflect  --  records are already consolidated, nothing new
             ReflectReport report2 = daemon.runCycle(episodicStore, semanticStore);
             assertThat(report2.consolidatedCount()).isEqualTo(0);
         }
     }
 
-    // â”€â”€ Mock Providers â”€â”€
+    // -€-€ Mock Providers -€-€
 
     static class MockEmbeddingProvider implements EmbeddingProvider {
         private final int dims;
@@ -280,7 +280,7 @@ class ReflectDaemonClusteringTest {
         @Override public boolean isAvailable() { return true; }
     }
 
-    // â”€â”€ Helpers â”€â”€
+    // -€-€ Helpers -€-€
 
     private byte[] makeVec(int seed) {
         byte[] vec = new byte[VEC_BYTES];

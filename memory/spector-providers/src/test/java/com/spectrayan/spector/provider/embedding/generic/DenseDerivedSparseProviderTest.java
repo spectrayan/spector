@@ -154,7 +154,7 @@ class DenseDerivedSparseProviderTest {
 
         @Test
         void singleCharTermsFiltered() {
-            // "I am a test" Ã¢â‚¬â€ "I", "a" should be filtered (< 2 chars)
+            // "I am a test"  --  "I", "a" should be filtered (< 2 chars)
             var provider = new DenseDerivedSparseProvider(fakeProvider, 0.0f);
             SparseEmbeddingResult result = provider.encode("I am a test");
             result.weights().keySet().forEach(term ->

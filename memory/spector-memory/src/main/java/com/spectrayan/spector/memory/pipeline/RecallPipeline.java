@@ -110,11 +110,11 @@ import com.spectrayan.spector.index.ColBERTReranker.RerankResult;
  * <h3>Performance: Parallel Tier Scanning</h3>
  * <p>Step 3 fans out tier scans as parallel tasks via
  * {@link ConcurrentTasks#forkJoinAll}. Each scan operates on a disjoint
- * off-heap {@link MemorySegment} â€” zero contention. With 4 tiers + N episodic
+ * off-heap {@link MemorySegment}  --  zero contention. With 4 tiers + N episodic
  * partitions, recall latency = max(tier_latency) instead of sum(tier_latencies).</p>
  *
  * <h3>Performance: Async Post-Recall Hooks</h3>
- * <p>Steps 7â€“8 (LTP reconsolidation, Hebbian co-activation) fire on Virtual Threads
+ * <p>Steps 7 - 8 (LTP reconsolidation, Hebbian co-activation) fire on Virtual Threads
  * so the caller doesn't block on post-recall bookkeeping.</p>
  *
  * <h3>Design Patterns</h3>
@@ -138,32 +138,32 @@ public final class RecallPipeline {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
     private final SemanticRecallStrategy semanticRecallStrategy; // nullable
-    private final CoActivationTracker coActivationTracker; // nullable â€” for STDP causal boost
+    private final CoActivationTracker coActivationTracker; // nullable  --  for STDP causal boost
     private final GraphScoringPolicy graphScoringPolicy;
     private final GraphExpansionStage graphExpansionStage;
 
     private final List<RecallListener> listeners = new ArrayList<>();
 
-    // â”€â”€ 3-Layer Cognitive Graph (all nullable) â”€â”€
+    // -€-€ 3-Layer Cognitive Graph (all nullable) -€-€
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
     private final EntityExtractor entityExtractor;
 
-    // â”€â”€ BM25 Text Search (nullable â€” graceful degradation) â”€â”€
+    // -€-€ BM25 Text Search (nullable  --  graceful degradation) -€-€
     private final MemoryBM25Index bm25Index;
 
-    // â”€â”€ SPLADE Sparse Search (nullable â€” graceful degradation) â”€â”€
+    // -€-€ SPLADE Sparse Search (nullable  --  graceful degradation) -€-€
     private final MemorySpladeIndex spladeIndex;
     private final SparseEmbeddingProvider spladeProvider;
     private volatile boolean spladeWarnLogged = false;
 
-    // â”€â”€ ColBERT v2 Reranker (nullable â€” graceful degradation) â”€â”€
+    // -€-€ ColBERT v2 Reranker (nullable  --  graceful degradation) -€-€
     private final ColBERTReranker colbertReranker;
     private volatile boolean colbertWarnLogged = false;
 
-    // â”€â”€ Neurodivergent: Lateral feedback tracking â”€â”€
-    // Maps memoryId â†’ RetrievalMode for the most recent recall.
+    // -€-€ Neurodivergent: Lateral feedback tracking -€-€
+    // Maps memoryId  ->  RetrievalMode for the most recent recall.
     // Used by SpectorMemory.reinforce()/suppress() to feed LateralEvaluator.
     // Entries expire implicitly via size cap (oldest evicted at 2000).
     private final ConcurrentHashMap<String, RetrievalMode> recentRetrievalModes
@@ -171,14 +171,14 @@ public final class RecallPipeline {
     private static final int RETRIEVAL_MODE_CACHE_MAX = 2000;
     private RecallOptions lastRecallOptions; // for detecting hyperfocus mode
 
-    // â”€â”€ Executive Dysfunction: Associative recall context history â”€â”€
+    // -€-€ Executive Dysfunction: Associative recall context history -€-€
     private final RecallHistory recallHistory;
 
-    // â”€â”€ Semantic Satiation: Anti-looping cache â”€â”€
+    // -€-€ Semantic Satiation: Anti-looping cache -€-€
     // Bounded cache of last N result IDs. Any result that appears in this
-    // hot cache gets a 0.5Ã— penalty, breaking exact-query loops.
+    // hot cache gets a 0.5x penalty, breaking exact-query loops.
     // Uses ConcurrentHashMap to avoid virtual thread pinning (ADR-005).
-    // Size-bounded via eviction on put â€” acceptable for a 10-entry cache.
+    // Size-bounded via eviction on put  --  acceptable for a 10-entry cache.
     private static final int SATIATION_CACHE_SIZE = 10;
     private static final float SATIATION_PENALTY = 0.5f;
     private final ConcurrentHashMap<String, Long> satiationCache = new ConcurrentHashMap<>(16);
@@ -204,7 +204,7 @@ public final class RecallPipeline {
     /**
      * Creates a recall pipeline with optional fused semantic recall.
      *
-     * @param semanticRecallStrategy nullable â€” when provided, semantic recall uses
+     * @param semanticRecallStrategy nullable  --  when provided, semantic recall uses
      *                                HNSW vector search fused with cognitive scoring
      */
     public RecallPipeline(EmbeddingProvider embeddingProvider,
@@ -227,9 +227,9 @@ public final class RecallPipeline {
     /**
      * Creates a recall pipeline with optional fused semantic recall and STDP.
      *
-     * @param semanticRecallStrategy nullable â€” when provided, semantic recall uses
+     * @param semanticRecallStrategy nullable  --  when provided, semantic recall uses
      *                                HNSW vector search fused with cognitive scoring
-     * @param coActivationTracker    nullable â€” when provided, STDP causal boost is applied
+     * @param coActivationTracker    nullable  --  when provided, STDP causal boost is applied
      */
     public RecallPipeline(EmbeddingProvider embeddingProvider,
                            TierRouter tierRouter,
@@ -294,7 +294,7 @@ public final class RecallPipeline {
         this.colbertReranker = colbertReranker;
         this.recallHistory = null;
 
-        // â”€â”€ Delegate graph expansion to focused stage class â”€â”€
+        // -€-€ Delegate graph expansion to focused stage class -€-€
         this.graphExpansionStage = new GraphExpansionStage(
                 hebbianGraph, temporalChain, entityGraph, entityExtractor,
                 this.graphScoringPolicy, index, tierRouter,
@@ -347,7 +347,7 @@ public final class RecallPipeline {
         this.colbertReranker = colbertReranker;
         this.recallHistory = recallHistory;
 
-        // â”€â”€ Delegate graph expansion to focused stage class â”€â”€
+        // -€-€ Delegate graph expansion to focused stage class -€-€
         this.graphExpansionStage = new GraphExpansionStage(
                 hebbianGraph, temporalChain, entityGraph, entityExtractor,
                 this.graphScoringPolicy, index, tierRouter,
@@ -423,7 +423,7 @@ public final class RecallPipeline {
             }
         }
 
-        // Step 3b: BM25 text search â€” parallel to tier scans
+        // Step 3b: BM25 text search  --  parallel to tier scans
         if (bm25Index != null && options.enableTextSearch()
                 && options.textSearchMode() != TextSearchMode.VECTOR_ONLY) {
             try {
@@ -456,15 +456,15 @@ public final class RecallPipeline {
                 }
             } else if (!spladeWarnLogged) {
                 log.warn("SPLADE search requested (mode={}) but SparseEmbeddingProvider/SpladeIndex " +
-                         "not configured â€” degrading to BM25", options.textSearchMode());
+                         "not configured  --  degrading to BM25", options.textSearchMode());
                 spladeWarnLogged = true;
             }
         }
 
-        // Step 4: Filter suppressed memories (inhibition) â€” always active
+        // Step 4: Filter suppressed memories (inhibition)  --  always active
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
-        // â”€â”€ Steps 5-5e: Cognitive post-processing â”€â”€
+        // -€-€ Steps 5-5e: Cognitive post-processing -€-€
         // In SIMILARITY mode, skip ALL cognitive scoring modifications:
         // habituation, causal boost, Hebbian, temporal chains, entity graph.
         // This ensures benchmarks measure pure retrieval quality.
@@ -480,7 +480,7 @@ public final class RecallPipeline {
             float iorPenalty = habituationPenalty.computeInhibitionOfReturn(r.id(), nowMs);
             float combinedPenalty = Math.min(habPenalty, iorPenalty); // stronger suppression wins
 
-            // Semantic Satiation: 0.5Ã— penalty for results in the hot LRU cache
+            // Semantic Satiation: 0.5x penalty for results in the hot LRU cache
             if (satiationCache.containsKey(r.id())) {
                 combinedPenalty *= SATIATION_PENALTY;
             }
@@ -506,12 +506,12 @@ public final class RecallPipeline {
             }
         }
 
-        // Step 5b: STDP causal boost â€” cross-boost results whose tags are causally linked
+        // Step 5b: STDP causal boost  --  cross-boost results whose tags are causally linked
         // For each result, check if earlier results' tags predict its tags (via STDP edges).
         // This promotes memories that form causal chains.
         if (coActivationTracker != null && allResults.size() >= 2) {
             // Use tags from the first few results as "context tags" to boost subsequent results
-            // (imperative loop â€” avoids Stream API allocation overhead in hot path)
+            // (imperative loop  --  avoids Stream API allocation overhead in hot path)
             Set<String> contextTagSet = new HashSet<>();
             int contextLimit = Math.min(3, allResults.size());
             for (int cl = 0; cl < contextLimit; cl++) {
@@ -595,7 +595,7 @@ public final class RecallPipeline {
                             allResults = new ArrayList<>(allResults.subList(0, options.topK()));
                         }
 
-                        log.debug("ColBERT reranked {} candidates â†’ {} results",
+                        log.debug("ColBERT reranked {} candidates  ->  {} results",
                                 rerankerDepth, allResults.size());
                     }
                 } catch (RuntimeException e) {
@@ -603,7 +603,7 @@ public final class RecallPipeline {
                 }
             } else if (!colbertWarnLogged) {
                 log.warn("ColBERT reranking requested (mode={}) but ColBERTReranker " +
-                         "not configured â€” skipping rerank step", options.textSearchMode());
+                         "not configured  --  skipping rerank step", options.textSearchMode());
                 colbertWarnLogged = true;
             }
         }
@@ -630,7 +630,7 @@ public final class RecallPipeline {
             // Step 8c: Cache retrieval modes for lateral feedback (reinforce/suppress)
             if (recentRetrievalModes.size() > RETRIEVAL_MODE_CACHE_MAX) {
                 // Evict ~25% of entries instead of clearing everything.
-                // ConcurrentHashMap iteration order is arbitrary, which is fine â€”
+                // ConcurrentHashMap iteration order is arbitrary, which is fine  -- 
                 // retrieval modes are ephemeral session state.
                 int toRemove = RETRIEVAL_MODE_CACHE_MAX / 4;
                 var iter = recentRetrievalModes.keySet().iterator();
@@ -645,7 +645,7 @@ public final class RecallPipeline {
                 }
             }
 
-            // Step 8b: Update semantic satiation cache (bounded via eviction â€” ADR-005)
+            // Step 8b: Update semantic satiation cache (bounded via eviction  --  ADR-005)
             long nowForSatiation = System.currentTimeMillis();
             for (CognitiveResult r : allResults) {
                 if (r.id() != null) {
@@ -686,7 +686,7 @@ public final class RecallPipeline {
             }
         }
 
-        // â”€â”€ Pipeline Tracing (opt-in) â”€â”€
+        // -€-€ Pipeline Tracing (opt-in) -€-€
         // When enableTrace is true, attach a RecallTrace to each result showing
         // how its score evolved through the cognitive pipeline phases.
         if (options.enableTrace() && !allResults.isEmpty()) {
@@ -695,12 +695,12 @@ public final class RecallPipeline {
                 CognitiveResult r = allResults.get(i);
                 RecallTrace.Builder traceBuilder = new RecallTrace.Builder(r.id());
 
-                // Phase 1: Cognitive Score (fused Î±Ã—similarity + Î²Ã—importanceÃ—decay)
+                // Phase 1: Cognitive Score (fused alphaxsimilarity + betaximportancexdecay)
                 if (r.hasBreakdown()) {
                     ScoreBreakdown bd = r.breakdown();
                     traceBuilder.addStep("COGNITIVE_SCORE", 0f, bd.finalScore(),
                             0, totalCandidates,
-                            String.format("Î±=%.2f, sim=%.3f, Î²=%.2f, impDecay=%.3f, tagBoost=%.2f",
+                            String.format("alpha=%.2f, sim=%.3f, beta=%.2f, impDecay=%.3f, tagBoost=%.2f",
                                     options.alpha(), bd.similarity(),
                                     options.beta(), bd.importanceDecay(), bd.tagBoostFactor()));
 
@@ -730,7 +730,7 @@ public final class RecallPipeline {
                                 String.format("alignment=%.4f", bd.valenceAlignment()));
                     }
                 } else {
-                    // No breakdown â€” just record final score
+                    // No breakdown  --  just record final score
                     traceBuilder.addStep("COGNITIVE_SCORE", 0f, r.score(),
                             0, totalCandidates, "no breakdown available");
                 }
@@ -748,17 +748,17 @@ public final class RecallPipeline {
         return allResults;
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // BM25 FUSION â€” merges keyword results with vector results
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // BM25 FUSION  --  merges keyword results with vector results
+    // ==============================================================
 
     /**
      * Fuses BM25 text search candidates with existing vector recall results.
      *
      * <p>Three cases:</p>
      * <ol>
-     *   <li><b>Both paths</b>: vector result gets a Î³Â·bm25Score additive boost</li>
-     *   <li><b>BM25-only</b>: creates a new CognitiveResult with score = Î³Â·bm25Score</li>
+     *   <li><b>Both paths</b>: vector result gets a Î³ ·bm25Score additive boost</li>
+     *   <li><b>BM25-only</b>: creates a new CognitiveResult with score = Î³ ·bm25Score</li>
      *   <li><b>Vector-only</b>: unmodified (no BM25 boost)</li>
      * </ol>
      *
@@ -770,14 +770,14 @@ public final class RecallPipeline {
     private void fuseBM25Candidates(List<CognitiveResult> vectorResults,
                                      List<BM25Candidate> bm25Hits,
                                      RecallOptions options, long nowMs) {
-        // â”€â”€ Reciprocal Rank Fusion (RRF) â”€â”€
-        // Industry-standard fusion: RRF_score(d) = Î£ 1/(k + rank(d))
+        // -€-€ Reciprocal Rank Fusion (RRF) -€-€
+        // Industry-standard fusion: RRF_score(d) = sum 1/(k + rank(d))
         // where k=60 prevents top-1 from dominating. Used by Elasticsearch,
         // Weaviate, Qdrant. Much better than additive score fusion because
         // it normalizes heterogeneous score distributions.
         final int RRF_K = 60;
 
-        // Build rank maps: id â†’ rank (1-based)
+        // Build rank maps: id  ->  rank (1-based)
         Map<String, Integer> vectorRanks = new java.util.LinkedHashMap<>();
         for (int i = 0; i < vectorResults.size(); i++) {
             String id = vectorResults.get(i).id();
@@ -834,7 +834,7 @@ public final class RecallPipeline {
                         existing.retrievalMode(), existing.breakdown(), existing.trace(),
                         existing.sourceModality(), existing.metadata()));
             } else {
-                // BM25-only result â€” create from index metadata
+                // BM25-only result  --  create from index metadata
                 String text = index.text(id);
                 if (text == null || text.isEmpty()) continue;
 
@@ -858,19 +858,19 @@ public final class RecallPipeline {
         // Sort by RRF score descending
         vectorResults.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed());
 
-        log.debug("RRF fused {} vector + {} BM25 candidates â†’ {} unique results",
+        log.debug("RRF fused {} vector + {} BM25 candidates  ->  {} unique results",
                 vectorRanks.size(), bm25Ranks.size(), vectorResults.size());
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // PARALLEL SCANNING â€” builds Callable tasks for each tier/partition
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // PARALLEL SCANNING  --  builds Callable tasks for each tier/partition
+    // ==============================================================
 
     private List<Callable<List<CognitiveResult>>> buildScanTasks(
             float[] queryVector, RecallOptions options, long nowMs, MemoryType[] targetTypes) {
         List<Callable<List<CognitiveResult>>> tasks = new ArrayList<>();
 
-        // Working Memory scan â€” use visibleCount() for SWMR safety
+        // Working Memory scan  --  use visibleCount() for SWMR safety
         if (TierRouter.shouldScan(MemoryType.WORKING, targetTypes)
                 && tierRouter.working().visibleCount() > 0) {
             tasks.add(() -> {
@@ -887,7 +887,7 @@ public final class RecallPipeline {
             });
         }
 
-        // Episodic Memory â€” one task per partition (disjoint segments â†’ zero contention)
+        // Episodic Memory  --  one task per partition (disjoint segments  ->  zero contention)
         if (TierRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
             for (EpisodicPartition partition : tierRouter.episodic().partitions()) {
                 if (partition.visibleCount() > 0) {
@@ -907,11 +907,11 @@ public final class RecallPipeline {
             }
         }
 
-        // Semantic Memory â€” fused HNSW+cognitive if strategy available, else header slab
+        // Semantic Memory  --  fused HNSW+cognitive if strategy available, else header slab
         if (TierRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)) {
             if (tierRouter.semantic() != null && tierRouter.semantic().visibleCount() > 0) {
                 if (semanticRecallStrategy != null && semanticRecallStrategy.isAvailable()) {
-                    // Fused pipeline: HNSW search â†’ cognitive re-ranking
+                    // Fused pipeline: HNSW search  ->  cognitive re-ranking
                     tasks.add(() -> semanticRecallStrategy.recall(queryVector, options, nowMs));
                 } else {
                     // Fallback: full-record slab scan (with tag/valence filters)
@@ -992,9 +992,9 @@ public final class RecallPipeline {
         return results;
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // SCORING HELPERS â€” return lists (for parallel composition)
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // SCORING HELPERS  --  return lists (for parallel composition)
+    // ==============================================================
 
     private List<CognitiveResult> scoreStoreToList(MemorySegment segment, int recordCount,
                                                      CognitiveRecordLayout layout, float[] queryVector,
@@ -1006,7 +1006,7 @@ public final class RecallPipeline {
 
         List<CognitiveResult> results = new ArrayList<>(scored.size());
         for (ScoredRecord sr : scored) {
-            // P8: Header already captured during scoring â€” no off-heap re-read
+            // P8: Header already captured during scoring  --  no off-heap re-read
             results.add(headerToResult(sr, sr.header(), type));
         }
         return results;
@@ -1031,7 +1031,7 @@ public final class RecallPipeline {
 
             // Phase 2: Synaptic tag gating (was missing for semantic tier)
             if (queryTagMask != 0) {
-                if ((header.synapticTags() & queryTagMask) == 0) continue; // zero overlap â†’ skip
+                if ((header.synapticTags() & queryTagMask) == 0) continue; // zero overlap  ->  skip
             }
 
             // Phase 3: Valence filter (was missing for semantic tier)
@@ -1081,14 +1081,14 @@ public final class RecallPipeline {
             mode = RetrievalMode.STANDARD;
         }
 
-        // â”€â”€ ScoreBreakdown: re-derive components from header â”€â”€
+        // -€-€ ScoreBreakdown: re-derive components from header -€-€
         // Uses the same formula as CognitiveScorer Phase 6.
-        // Note: these are approximations â€” the scorer's strictness/arousal/storageBoost
+        // Note: these are approximations  --  the scorer's strictness/arousal/storageBoost
         // values are folded into the fused score. We capture what we can from the header.
         float importanceDecay = header.importance() * ltpDecay;
         // Breakdown: individual multipliers default to 1.0 (no effect)
         // habituationPenalty and graphBoost are applied post-scorer in the pipeline
-        // and updated in-place on CognitiveResult â€” we record 1.0 here and
+        // and updated in-place on CognitiveResult  --  we record 1.0 here and
         // the pipeline adjusts them when it applies those factors.
         ScoreBreakdown breakdown = new ScoreBreakdown(
                 /* similarity */       Math.max(0, sr.score() > 0 ? sr.score() : 0),
@@ -1138,9 +1138,9 @@ public final class RecallPipeline {
 
 
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // WAL REPLAY â€” Point-in-Time Recall
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // WAL REPLAY  --  Point-in-Time Recall
+    // ==============================================================
 
     /**
      * Performs recall against a reconstructed point-in-time memory state.
@@ -1149,7 +1149,7 @@ public final class RecallPipeline {
      * off-heap segment, runs a simplified linear scan, and disposes all
      * ephemeral state after returning results.</p>
      *
-     * <p>Always operates in OBSERVE mode â€” no mutations to the live state.</p>
+     * <p>Always operates in OBSERVE mode  --  no mutations to the live state.</p>
      *
      * @param queryText the query text
      * @param options   recall options (must have recallMode=REPLAY and replayTimestamp set)
@@ -1234,16 +1234,16 @@ public final class RecallPipeline {
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // PROFILE HEADER WRITE â€” stamps profile ordinal at byte 60
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // PROFILE HEADER WRITE  --  stamps profile ordinal at byte 60
+    // ==============================================================
 
     /**
      * Writes the CognitiveProfile ordinal to byte 60 of each result's synaptic header.
      *
      * <p>This enables the ReinforcementHandler to read which profile produced
      * each result during reinforce() calls, allowing the ProfileAdaptor to
-     * learn contextâ†’profile mappings.</p>
+     * learn context -> profile mappings.</p>
      */
     private void writeProfileOrdinalToResults(List<CognitiveResult> results, RecallOptions options) {
         CognitiveProfile profile = options.profile();
@@ -1262,15 +1262,15 @@ public final class RecallPipeline {
                             profileOrdinal);
                 }
             } catch (RuntimeException e) {
-                // Non-critical â€” don't fail recall for header writes
+                // Non-critical  --  don't fail recall for header writes
                 log.trace("Failed to write profile ordinal for '{}': {}", result.id(), e.getMessage());
             }
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // ASSOCIATIVE RECALL â€” bottom-up context-driven retrieval
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // ASSOCIATIVE RECALL  --  bottom-up context-driven retrieval
+    // ==============================================================
 
     /**
      * Associative recall for Executive Dysfunction profile.
@@ -1298,7 +1298,7 @@ public final class RecallPipeline {
         Map<String, Float> contextTags = recallHistory.weightedRecentTags(20, 0.85f);
 
         if (contextTags.isEmpty()) {
-            // Cold start â€” fall back to standard cognitive recall with low Î± (more importance-driven)
+            // Cold start  --  fall back to standard cognitive recall with low alpha (more importance-driven)
             log.debug("Associative recall: cold start (no history), falling back to COGNITIVE");
             RecallOptions fallback = RecallOptions.builder()
                     .topK(options.topK())
@@ -1320,7 +1320,7 @@ public final class RecallPipeline {
                 // Get tags causally associated with this context tag
                 List<String> associated = coActivationTracker.getAssociatedTags(ctxTag, 5);
                 for (String predTag : associated) {
-                    // Each associated tag gets 1.0 Ã— recency weight
+                    // Each associated tag gets 1.0 x recency weight
                     predictedTags.merge(predTag, recencyWeight, Float::sum);
                 }
             }

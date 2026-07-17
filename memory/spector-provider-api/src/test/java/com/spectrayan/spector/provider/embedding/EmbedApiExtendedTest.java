@@ -28,7 +28,7 @@ import com.spectrayan.spector.provider.embedding.SpectorEmbeddingUnavailableExce
 import com.spectrayan.spector.provider.embedding.SpectorEmbeddingTimeoutException;
 
 /**
- * Tests for embed-api DTOs Ã¢â‚¬â€ EmbeddingResult, GenerationOptions,
+ * Tests for embed-api DTOs  --  EmbeddingResult, GenerationOptions,
  * SparseEmbeddingResult, TokenEmbeddingResult, PipelineEmbeddingResult.
  */
 @DisplayName("Embed API DTOs")

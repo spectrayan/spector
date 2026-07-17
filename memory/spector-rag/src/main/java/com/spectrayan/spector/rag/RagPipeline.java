@@ -35,10 +35,10 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
 
 /**
- * Full RAG pipeline orchestrator: query â†’ embed â†’ retrieve â†’ assemble context.
+ * Full RAG pipeline orchestrator: query  ->  embed  ->  retrieve  ->  assemble context.
  *
  * <p>Coordinates the end-to-end RAG flow using synchronous calls on virtual threads.
- * No reactive framework needed â€” virtual threads handle the I/O-bound embedding call
+ * No reactive framework needed  --  virtual threads handle the I/O-bound embedding call
  * efficiently while the search and assembly steps are CPU-bound and fast.</p>
  *
  * <h3>Pipeline Steps</h3>

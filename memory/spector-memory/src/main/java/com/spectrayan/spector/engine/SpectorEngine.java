@@ -50,7 +50,7 @@ import java.util.function.Function;
  */
 public interface SpectorEngine extends AutoCloseable {
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Ingestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Ingestion -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Ingests a single document with its text content and vector embedding. */
     void ingest(String id, String content, float[] vector);
@@ -99,7 +99,7 @@ public interface SpectorEngine extends AutoCloseable {
     int ingestFileAuto(Path path, String documentId,
                        int chunkSize, int overlap) throws IOException;
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Search -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Executes a search query. */
     SearchResponse search(SearchQuery query);
@@ -116,7 +116,7 @@ public interface SpectorEngine extends AutoCloseable {
     /** Auto-embed search: embeds the query text and performs hybrid search. */
     SearchResponse search(String text, int topK);
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ GPU-Accelerated Batch Operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ GPU-Accelerated Batch Operations -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Computes batch cosine similarities using GPU if available, CPU SIMD otherwise. */
     float[] batchCosineSimilarity(float[] query, float[] database, int n, int dims);
@@ -133,12 +133,12 @@ public interface SpectorEngine extends AutoCloseable {
     /** Returns true if LLM re-ranking is active. */
     boolean isRerankerActive();
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Admin Interface â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Admin Interface -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Returns the administrative interface for accessing internal subsystems.
      *
-     * <p>Typical SDK consumers should not need this â€” it provides access to
+     * <p>Typical SDK consumers should not need this  --  it provides access to
      * document store, vector store, vector index, embedding provider, and
      * re-ranker for operational monitoring, tuning, and advanced integrations.</p>
      *
@@ -147,7 +147,7 @@ public interface SpectorEngine extends AutoCloseable {
      */
     SpectorEngineAdmin admin();
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Deprecated Accessors (use admin() instead) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Deprecated Accessors (use admin() instead) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** @deprecated Use {@link #admin()}.{@link SpectorEngineAdmin#config() config()} instead. */
     @Deprecated(since = "1.0.0", forRemoval = true) SpectorConfig config();

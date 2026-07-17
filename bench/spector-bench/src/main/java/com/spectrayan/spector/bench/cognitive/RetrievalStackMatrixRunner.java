@@ -37,18 +37,18 @@ import com.spectrayan.spector.memory.model.TextSearchMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 
 /**
- * Retrieval stack matrix runner â€” tests all {@link TextSearchMode} values
+ * Retrieval stack matrix runner  --  tests all {@link TextSearchMode} values
  * across all queries to measure nDCG and latency for each retrieval configuration.
  *
  * <h3>Modes Tested</h3>
  * <ul>
- *   <li>{@code HYBRID} â€” BM25 + Vector (default)</li>
- *   <li>{@code VECTOR_ONLY} â€” Pure semantic similarity</li>
- *   <li>{@code KEYWORD_ONLY} â€” Pure BM25 keyword search</li>
- *   <li>{@code SPLADE} â€” SPLADE learned sparse retrieval only (if available)</li>
- *   <li>{@code SPLADE_HYBRID} â€” SPLADE + Vector (if available)</li>
- *   <li>{@code COLBERT_RERANK} â€” ColBERT reranking (if available)</li>
- *   <li>{@code FULL_STACK} â€” All layers active (if available)</li>
+ *   <li>{@code HYBRID}  --  BM25 + Vector (default)</li>
+ *   <li>{@code VECTOR_ONLY}  --  Pure semantic similarity</li>
+ *   <li>{@code KEYWORD_ONLY}  --  Pure BM25 keyword search</li>
+ *   <li>{@code SPLADE}  --  SPLADE learned sparse retrieval only (if available)</li>
+ *   <li>{@code SPLADE_HYBRID}  --  SPLADE + Vector (if available)</li>
+ *   <li>{@code COLBERT_RERANK}  --  ColBERT reranking (if available)</li>
+ *   <li>{@code FULL_STACK}  --  All layers active (if available)</li>
  * </ul>
  *
  * <h3>Output</h3>
@@ -85,7 +85,7 @@ public final class RetrievalStackMatrixRunner {
      * Executes the retrieval stack matrix test.
      */
     public void run() {
-        log.info("â•â•â• Retrieval Stack Matrix Test â•â•â•");
+        log.info("=== Retrieval Stack Matrix Test ===");
 
         DatasetLoader loader = new DatasetLoader();
         LoadedDataset dataset = loader.load(datasetDir);
@@ -99,7 +99,7 @@ public final class RetrievalStackMatrixRunner {
 
             MetricsComputer metrics = new MetricsComputer();
 
-            // Modes to test â€” only include modes that don't require missing providers
+            // Modes to test  --  only include modes that don't require missing providers
             TextSearchMode[] modes = {
                     TextSearchMode.HYBRID,
                     TextSearchMode.VECTOR_ONLY,
@@ -150,12 +150,12 @@ public final class RetrievalStackMatrixRunner {
                 }
 
                 results.put(mode, new ModeResult(ndcgs, latenciesNs, failed));
-                log.info("  {} â†’ nDCG={:.4f}, queries={}, failed={}",
+                log.info("  {}  ->  nDCG={:.4f}, queries={}, failed={}",
                         mode, mean(ndcgs), ndcgs.size(), failed);
             }
 
             writeReport(results);
-            log.info("â•â•â• Retrieval Stack Matrix Complete â•â•â•");
+            log.info("=== Retrieval Stack Matrix Complete ===");
 
         } catch (Exception e) {
             log.error("Retrieval stack matrix failed: {}", e.getMessage(), e);
@@ -189,12 +189,12 @@ public final class RetrievalStackMatrixRunner {
             log.info("Retrieval stack matrix written to {}", outFile);
 
             // Console summary
-            System.out.println("\nâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            System.out.println("\n==================================================================");
             System.out.println("  RETRIEVAL STACK MATRIX");
-            System.out.println("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            System.out.println("==================================================================");
             System.out.printf("  %-20s  %8s  %10s  %10s  %5s%n",
                     "Mode", "nDCG", "p50 (ms)", "p99 (ms)", "OK");
-            System.out.println("  " + "â”€".repeat(60));
+            System.out.println("  " + "-€".repeat(60));
 
             for (var entry : results.entrySet()) {
                 ModeResult r = entry.getValue();
@@ -205,7 +205,7 @@ public final class RetrievalStackMatrixRunner {
                         percentileMs(r.latenciesNs(), 0.99),
                         r.ndcgs().size());
             }
-            System.out.println("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n");
+            System.out.println("==================================================================\n");
 
         } catch (IOException e) {
             log.error("Failed to write retrieval matrix report: {}", e.getMessage(), e);

@@ -48,12 +48,12 @@ class ColBERTRerankerTest {
         reranker = new ColBERTReranker(new MockTokenEmbeddingProvider(TOKEN_DIMS));
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Reranking â€” happy path
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // Reranking  --  happy path
+    // ==============================================================
 
     @Test
-    @DisplayName("Rerank â€” candidate with higher MaxSim moves to top")
+    @DisplayName("Rerank  --  candidate with higher MaxSim moves to top")
     void rerank_orderChanges() {
         // "java virtual machine" should match "java virtual" query better
         // than "python programming" because of token overlap
@@ -71,7 +71,7 @@ class ColBERTRerankerTest {
     }
 
     @Test
-    @DisplayName("Rerank â€” combined score formula: Î±Â·maxSim + (1-Î±)Â·firstStage")
+    @DisplayName("Rerank  --  combined score formula: alpha ·maxSim + (1-alpha) ·firstStage")
     void rerank_combinesScores() {
         var candidates = List.of(
                 new RerankCandidate("d1", "exact match terms", 0.8f)
@@ -86,7 +86,7 @@ class ColBERTRerankerTest {
     }
 
     @Test
-    @DisplayName("Rerank â€” Î±=0.0 uses first-stage only")
+    @DisplayName("Rerank  --  alpha=0.0 uses first-stage only")
     void rerank_alpha0_firstStageOnly() {
         var candidates = List.of(
                 new RerankCandidate("high-first", "unrelated text", 0.9f),
@@ -95,12 +95,12 @@ class ColBERTRerankerTest {
 
         List<RerankResult> results = reranker.rerank("exact query terms", candidates, 10, 0.0f);
 
-        // Î±=0 means only first-stage score matters
+        // alpha=0 means only first-stage score matters
         assertThat(results.getFirst().id()).isEqualTo("high-first");
     }
 
     @Test
-    @DisplayName("Rerank â€” Î±=1.0 uses MaxSim only")
+    @DisplayName("Rerank  --  alpha=1.0 uses MaxSim only")
     void rerank_alpha1_maxSimOnly() {
         var candidates = List.of(
                 new RerankCandidate("high-first", "unrelated text", 0.9f),
@@ -109,14 +109,14 @@ class ColBERTRerankerTest {
 
         List<RerankResult> results = reranker.rerank("matching query exactly", candidates, 10, 1.0f);
 
-        // Î±=1 means only ColBERT MaxSim matters
+        // alpha=1 means only ColBERT MaxSim matters
         assertThat(results.getFirst().id()).isEqualTo("low-first");
         assertThat(results.getFirst().combinedScore())
                 .isCloseTo(results.getFirst().maxSimScore(), within(1e-5f));
     }
 
     @Test
-    @DisplayName("Rerank â€” topK limits results")
+    @DisplayName("Rerank  --  topK limits results")
     void rerank_topKLimits() {
         var candidates = List.of(
                 new RerankCandidate("d1", "text one", 0.9f),
@@ -130,19 +130,19 @@ class ColBERTRerankerTest {
         assertThat(results).hasSize(3);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // Negative / Edge cases
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("Rerank â€” empty candidates returns empty")
+    @DisplayName("Rerank  --  empty candidates returns empty")
     void rerank_emptyCandidates() {
         List<RerankResult> results = reranker.rerank("query", List.of(), 10);
         assertThat(results).isEmpty();
     }
 
     @Test
-    @DisplayName("Rerank â€” single candidate returned with combined score")
+    @DisplayName("Rerank  --  single candidate returned with combined score")
     void rerank_singleCandidate() {
         var candidates = List.of(
                 new RerankCandidate("only", "single document text", 0.7f)
@@ -154,7 +154,7 @@ class ColBERTRerankerTest {
     }
 
     @Test
-    @DisplayName("Rerank â€” provider exception keeps first-stage score")
+    @DisplayName("Rerank  --  provider exception keeps first-stage score")
     void rerank_providerException() {
         var failingReranker = new ColBERTReranker(new FailingTokenEmbeddingProvider());
 
@@ -162,29 +162,29 @@ class ColBERTRerankerTest {
                 new RerankCandidate("d1", "some text", 0.8f)
         );
 
-        // Should not throw â€” graceful degradation
+        // Should not throw  --  graceful degradation
         List<RerankResult> results = failingReranker.rerank("query", candidates, 10);
         assertThat(results).hasSize(1);
-        // MaxSim should be 0 (provider failed), so combined = (1-Î±) * firstStage
+        // MaxSim should be 0 (provider failed), so combined = (1-alpha) * firstStage
         assertThat(results.getFirst().maxSimScore()).isEqualTo(0f);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // MaxSim scoring â€” mathematical correctness
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // MaxSim scoring  --  mathematical correctness
+    // ==============================================================
 
     @Test
-    @DisplayName("maxSimScore â€” identical vectors â†’ score = numTokens")
+    @DisplayName("maxSimScore  --  identical vectors  ->  score = numTokens")
     void maxSimScore_identicalVectors() {
         // Each token vector dot-product with itself = 1.0 (unit vectors)
         float[][] tokens = makeUnitVectors(3, 128);
         float score = ColBERTReranker.maxSimScore(tokens, tokens);
-        // sum of max dot products for each query token = 3 Ã— 1.0 = 3.0
+        // sum of max dot products for each query token = 3 x 1.0 = 3.0
         assertThat(score).isCloseTo(3.0f, within(0.01f));
     }
 
     @Test
-    @DisplayName("maxSimScore â€” orthogonal vectors â†’ score â‰ˆ 0")
+    @DisplayName("maxSimScore  --  orthogonal vectors  ->  score  ~=  0")
     void maxSimScore_orthogonalVectors() {
         // Construct two orthogonal sets by using different basis vectors
         float[][] qTokens = {{1, 0, 0, 0}, {0, 1, 0, 0}};
@@ -195,7 +195,7 @@ class ColBERTRerankerTest {
     }
 
     @Test
-    @DisplayName("maxSimScore â€” single token each â†’ equals dot product")
+    @DisplayName("maxSimScore  --  single token each  ->  equals dot product")
     void maxSimScore_singleTokenEach() {
         float[][] qTokens = {{1.0f, 2.0f, 3.0f}};
         float[][] dTokens = {{4.0f, 5.0f, 6.0f}};
@@ -205,12 +205,12 @@ class ColBERTRerankerTest {
         assertThat(score).isCloseTo(32.0f, within(0.01f));
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // SIMD dot product â€” correctness
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // SIMD dot product  --  correctness
+    // ==============================================================
 
     @Test
-    @DisplayName("simdDotProduct â€” matches scalar reference for 128-dim")
+    @DisplayName("simdDotProduct  --  matches scalar reference for 128-dim")
     void simdDotProduct_matchesScalar() {
         int dims = 128;
         Random rng = new Random(42);
@@ -230,13 +230,13 @@ class ColBERTRerankerTest {
     }
 
     @Test
-    @DisplayName("simdDotProduct â€” empty vectors â†’ 0.0")
+    @DisplayName("simdDotProduct  --  empty vectors  ->  0.0")
     void simdDotProduct_emptyVectors() {
         assertThat(ColBERTReranker.simdDotProduct(new float[0], new float[0]))
                 .isEqualTo(0.0f);
     }
 
-    // â”€â”€ Test helpers â”€â”€
+    // -€-€ Test helpers -€-€
 
     /** Creates n unit vectors of given dimensionality. */
     private static float[][] makeUnitVectors(int n, int dims) {
@@ -254,7 +254,7 @@ class ColBERTRerankerTest {
         return vecs;
     }
 
-    // â”€â”€ Mock providers â”€â”€
+    // -€-€ Mock providers -€-€
 
     /**
      * Deterministic mock that produces hash-seeded, normalized per-token embeddings.
@@ -298,7 +298,7 @@ class ColBERTRerankerTest {
     }
 
     /**
-     * Token embedding provider that always throws â€” for testing graceful degradation.
+     * Token embedding provider that always throws  --  for testing graceful degradation.
      */
     static class FailingTokenEmbeddingProvider implements TokenEmbeddingProvider {
 

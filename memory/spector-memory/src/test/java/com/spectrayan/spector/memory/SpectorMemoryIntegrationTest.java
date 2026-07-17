@@ -60,7 +60,7 @@ class SpectorMemoryIntegrationTest {
         memory.close();
     }
 
-    // â”€â”€ V1: Core Pipeline â”€â”€
+    // -€-€ V1: Core Pipeline -€-€
 
     @Test
     void rememberAndRecall() throws Exception {
@@ -116,7 +116,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(memory.memoryCount(MemoryType.WORKING)).isEqualTo(1);
     }
 
-    // â”€â”€ V2: Reinforcement & Suppression â”€â”€
+    // -€-€ V2: Reinforcement & Suppression -€-€
 
     @Test
     void reinforceUpdatesValence() throws Exception {
@@ -163,7 +163,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(memory.suppression().isSuppressed("suppress-then-allow")).isFalse();
     }
 
-    // â”€â”€ V2: Metamemory â”€â”€
+    // -€-€ V2: Metamemory -€-€
 
     @Test
     void introspectReturnsInsight() throws Exception {
@@ -177,7 +177,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(insight.recommendation()).isNotBlank();
     }
 
-    // â”€â”€ V3: Prospective Memory â”€â”€
+    // -€-€ V3: Prospective Memory -€-€
 
     @Test
     void scheduleReminderAppearsInRecall() throws Exception {
@@ -194,7 +194,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(hasProspective).isTrue();
     }
 
-    // â”€â”€ V2: Reflect â”€â”€
+    // -€-€ V2: Reflect -€-€
 
     @Test
     void reflectReturnsReport() throws Exception {
@@ -208,7 +208,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(report.duration()).isNotNull();
     }
 
-    // â”€â”€ V2: WAL â”€â”€
+    // -€-€ V2: WAL -€-€
 
     @Test
     void walTracksAllMutations() throws Exception {
@@ -223,7 +223,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(memory.wal().size()).isGreaterThanOrEqualTo(4);
     }
 
-    // â”€â”€ V2: Hebbian Co-Activation â”€â”€
+    // -€-€ V2: Hebbian Co-Activation -€-€
 
     @Test
     void hebbianTracksCoActivation() throws Exception {
@@ -240,7 +240,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(memory.coActivation()).isNotNull();
     }
 
-    // â”€â”€ V2: Habituation â”€â”€
+    // -€-€ V2: Habituation -€-€
 
     @Test
     void habituationPenalizesRepeatResults() throws Exception {
@@ -251,7 +251,7 @@ class SpectorMemoryIntegrationTest {
         List<CognitiveResult> first = memory.recall("common topic");
         float firstScore = first.isEmpty() ? 0 : first.getFirst().score();
 
-        // Second recall â€” habituation should reduce score
+        // Second recall  --  habituation should reduce score
         List<CognitiveResult> second = memory.recall("common topic");
         float secondScore = second.isEmpty() ? 0 : second.getFirst().score();
 
@@ -260,7 +260,7 @@ class SpectorMemoryIntegrationTest {
         }
     }
 
-    // â”€â”€ Mock Provider â”€â”€
+    // -€-€ Mock Provider -€-€
 
     /**
      * Deterministic mock that produces hash-based vectors.

@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link EmbeddingProviderFactory} â€” reflection-based factory
+ * Tests for {@link EmbeddingProviderFactory}  --  reflection-based factory
  * for Ollama embedding provider.
  */
 @DisplayName("EmbeddingProviderFactory")

@@ -34,11 +34,11 @@ import java.util.List;
  *
  * <h3>MaxSim Scoring</h3>
  * <pre>
- *   score(Q, D) = Î£_i  max_j  dot(q_i, d_j)
+ *   score(Q, D) = sum_i  max_j  dot(q_i, d_j)
  *
  *   For each query token q_i, find the document token d_j with maximum
  *   dot-product similarity, then sum across all query tokens. This provides
- *   token-level grounding â€” the model verifies that specific query terms
+ *   token-level grounding  --  the model verifies that specific query terms
  *   are actually present in the document.
  * </pre>
  *
@@ -63,7 +63,7 @@ import java.util.List;
  * <p>With 128-dim embeddings and AVX-512:
  * <ul>
  *   <li>Single dot product: ~8 SIMD iterations (~3ns)</li>
- *   <li>MaxSim for 10-token query Ã— 200-token doc: ~600Âµs</li>
+ *   <li>MaxSim for 10-token query x 200-token doc: ~600us</li>
  *   <li>Reranking 50 candidates: ~30ms total</li>
  * </ul></p>
  */
@@ -92,7 +92,7 @@ public final class ColBERTReranker {
      * @param id              document identifier
      * @param maxSimScore     ColBERT MaxSim score
      * @param firstStageScore original first-stage score
-     * @param combinedScore   fused score: Î±Â·maxSim + (1-Î±)Â·firstStage
+     * @param combinedScore   fused score: alpha ·maxSim + (1-alpha) ·firstStage
      */
     public record RerankResult(String id, float maxSimScore,
                                float firstStageScore, float combinedScore)
@@ -182,7 +182,7 @@ public final class ColBERTReranker {
                 }
 
                 if (docEmbeddings == null) {
-                    // Cache miss â€” encode via provider
+                    // Cache miss  --  encode via provider
                     TokenEmbeddingResult docTokens = provider.encode(candidate.text());
                     if (docTokens.tokenCount() == 0) {
                         results.add(new RerankResult(candidate.id(), 0f,
@@ -259,7 +259,7 @@ public final class ColBERTReranker {
      *
      * @param a first vector
      * @param b second vector (must be same length as a)
-     * @return dot product: Î£ a[i] Ã— b[i]
+     * @return dot product: sum a[i] x b[i]
      */
     static float simdDotProduct(float[] a, float[] b) {
         int n = Math.min(a.length, b.length);

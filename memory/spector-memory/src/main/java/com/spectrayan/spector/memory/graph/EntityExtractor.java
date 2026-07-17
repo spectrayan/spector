@@ -24,8 +24,8 @@ import java.util.List;
  *
  * <h3>Implementations</h3>
  * <ul>
- *   <li>{@link LlmEntityExtractor} â€” LLM-powered extraction via LlmProvider</li>
- *   <li>{@link NoOpEntityExtractor} â€” returns empty list (when extraction is disabled)</li>
+ *   <li>{@link LlmEntityExtractor}  --  LLM-powered extraction via LlmProvider</li>
+ *   <li>{@link NoOpEntityExtractor}  --  returns empty list (when extraction is disabled)</li>
  * </ul>
  *
  * @see ExtractedEntity

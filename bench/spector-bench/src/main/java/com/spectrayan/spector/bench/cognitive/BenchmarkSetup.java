@@ -46,7 +46,7 @@ import com.spectrayan.spector.memory.temporal.TemporalChain;
  * Bootstraps a {@link SpectorMemory} instance populated with the benchmark corpus.
  *
  * <p>Configures graphs (Hebbian, Temporal, Entity) from dataset definitions.
- * Uses {@code RecallMode.OBSERVE} semantics â€” the memory instance is read-only
+ * Uses {@code RecallMode.OBSERVE} semantics  --  the memory instance is read-only
  * after setup completes, preventing side effects during benchmark queries.</p>
  *
  * <p>Implements {@link AutoCloseable} to ensure off-heap resources (Arena-backed
@@ -137,17 +137,17 @@ public final class BenchmarkSetup implements AutoCloseable {
         if (memory.hebbianGraph() != null) {
             loadHebbianEdges(memory.hebbianGraph(), dataset.hebbianEdges(), idToSlot);
         } else {
-            log.warn("HebbianGraph is null â€” skipping {} edge definitions", dataset.hebbianEdges().size());
+            log.warn("HebbianGraph is null  --  skipping {} edge definitions", dataset.hebbianEdges().size());
         }
         if (memory.temporalChain() != null) {
             loadTemporalChains(memory.temporalChain(), dataset.temporalChains(), idToSlot);
         } else {
-            log.warn("TemporalChain is null â€” skipping {} chain definitions", dataset.temporalChains().size());
+            log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
         }
         if (memory.entityGraph() != null) {
             loadEntityGraph(memory.entityGraph(), dataset.entityRelations(), corpus);
         } else {
-            log.warn("EntityGraph is null â€” skipping {} entity relation definitions", dataset.entityRelations().size());
+            log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
         }
 
         log.info("Benchmark memory setup complete: hebbian edges={}, temporal chains={}, entity relations={}",
@@ -189,7 +189,7 @@ public final class BenchmarkSetup implements AutoCloseable {
 
             if (slotA == null || slotB == null) {
                 skipped++;
-                log.warn("Skipping Hebbian edge: missing ID(s) â€” A='{}' ({}), B='{}' ({})",
+                log.warn("Skipping Hebbian edge: missing ID(s)  --  A='{}' ({}), B='{}' ({})",
                         edge.memoryIdA(), slotA != null ? "found" : "MISSING",
                         edge.memoryIdB(), slotB != null ? "found" : "MISSING");
                 continue;
@@ -257,7 +257,7 @@ public final class BenchmarkSetup implements AutoCloseable {
      *
      * @param graph     the entity graph to populate
      * @param relations entity relation definitions from the dataset
-     * @param corpus    the corpus records (used for entity mention â†’ memory linking)
+     * @param corpus    the corpus records (used for entity mention  ->  memory linking)
      */
     void loadEntityGraph(EntityGraph graph, List<EntityRelation> relations,
                          List<BenchmarkCorpusRecord> corpus) {
@@ -270,7 +270,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         int relationsLoaded = 0;
 
         for (EntityRelation relation : relations) {
-            // Pass type strings directly â€” TypeRegistry auto-registers unknown types
+            // Pass type strings directly  --  TypeRegistry auto-registers unknown types
             int fromEntityId = graph.addEntity(relation.fromEntity().name(), relation.fromEntity().type());
             if (fromEntityId < 0) {
                 log.warn("Failed to add from-entity '{}' to graph", relation.fromEntity().name());

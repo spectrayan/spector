@@ -179,7 +179,7 @@ class ParallelEmbeddingPipelineTest {
         };
 
         var pipeline = new ParallelEmbeddingPipeline(partialFail);
-        // Batch 1: ["fail_text"] Ã¢â‚¬â€ will fail; Batch 2: ["good_text"] Ã¢â‚¬â€ will succeed
+        // Batch 1: ["fail_text"]  --  will fail; Batch 2: ["good_text"]  --  will succeed
         List<PipelineEmbeddingResult> results = pipeline.embed(
                 List.of("fail_text", "good_text"), new EmbedConfig(1, 0));
 
@@ -214,7 +214,7 @@ class ParallelEmbeddingPipelineTest {
         List<String> texts = List.of("a", "b", "c", "d", "e");
         pipeline.embed(texts, new EmbedConfig(2, 0));
 
-        // 5 texts with batch size 2 Ã¢â€ â€™ batches of [2, 2, 1]
+        // 5 texts with batch size 2 -  ->  batches of [2, 2, 1]
         assertThat(batchSizes).hasSize(3);
         assertThat(batchSizes).containsExactlyInAnyOrder(2, 2, 1);
     }

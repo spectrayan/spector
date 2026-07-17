@@ -173,7 +173,7 @@ class OllamaLlmProviderTest {
             var options = GenerationOptions.builder()
                     .maxTokens(0)
                     .build();
-            // Should not fail on building the request body â€” fails on connection
+            // Should not fail on building the request body  --  fails on connection
             assertThatThrownBy(() -> provider.generate("test prompt", options))
                     .isInstanceOf(LlmProvider.GenerationException.class);
         }

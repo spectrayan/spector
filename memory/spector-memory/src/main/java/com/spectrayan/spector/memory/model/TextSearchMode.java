@@ -22,7 +22,7 @@ package com.spectrayan.spector.memory.model;
  *   Layer 3: SPLADE / Li-LSR       (learned sparse retrieval)
  *   Layer 2: BM25                  (keyword search, SIMD-accelerated)
  *   Layer 1: Dense Vector           (HNSW semantic similarity)
- *   â”€â”€â”€â”€â”€â”€â”€ RRF Fusion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ (merges all layer signals)
+ *   -€-€-€-€-€-€-€ RRF Fusion -€-€-€-€-€-€-€-€-€-€-€ (merges all layer signals)
  * </pre>
  *
  * <h3>Modes</h3>
@@ -50,25 +50,25 @@ public enum TextSearchMode {
     /**
      * Parallel vector + BM25 keyword search with fused scoring.
      * <p>Vector candidates get a BM25 boost when they also match keywords.
-     * BM25-only candidates are scored as {@code Î³Â·bm25Score + Î²Â·importanceÂ·decay}.</p>
+     * BM25-only candidates are scored as {@code Î³ ·bm25Score + beta ·importance ·decay}.</p>
      * <p>This is the default mode.</p>
      */
     HYBRID,
 
     /**
-     * BM25 keyword search only â€” no vector similarity computation.
+     * BM25 keyword search only  --  no vector similarity computation.
      * <p>Useful for exact-term queries (names, error codes, IDs).</p>
      */
     KEYWORD_ONLY,
 
     /**
-     * Vector similarity search only â€” no BM25 keyword boost.
+     * Vector similarity search only  --  no BM25 keyword boost.
      * <p>Equivalent to the pre-text-search behavior.</p>
      */
     VECTOR_ONLY,
 
     /**
-     * SPLADE learned sparse retrieval only â€” no BM25, no vector.
+     * SPLADE learned sparse retrieval only  --  no BM25, no vector.
      * <p>Neural term expansion captures synonyms and related concepts
      * that BM25 misses. Requires a configured
      * {@link com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider}.</p>
@@ -85,7 +85,7 @@ public enum TextSearchMode {
 
     /**
      * Li-LSR inference-free sparse retrieval.
-     * <p>Uses precomputed lookup tables for query encoding â€” no neural model
+     * <p>Uses precomputed lookup tables for query encoding  --  no neural model
      * needed at query time. Fastest sparse retrieval option.</p>
      */
     LI_LSR,
@@ -107,7 +107,7 @@ public enum TextSearchMode {
      */
     FULL_STACK;
 
-    // â”€â”€ Convenience query methods â”€â”€
+    // -€-€ Convenience query methods -€-€
 
     /** Returns true if this mode uses BM25 keyword search. */
     public boolean usesBM25() {

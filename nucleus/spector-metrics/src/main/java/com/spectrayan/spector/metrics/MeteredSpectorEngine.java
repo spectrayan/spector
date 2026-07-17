@@ -70,12 +70,12 @@ public class MeteredSpectorEngine implements SpectorEngine {
 
     private final SpectorEngine delegate;
 
-    // â”€â”€ Timers â”€â”€
+    // -€-€ Timers -€-€
     private final Timer searchTimer;
     private final Timer ingestTimer;
     private final Timer batchIngestTimer;
 
-    // â”€â”€ Counters â”€â”€
+    // -€-€ Counters -€-€
     private final Counter searchCounter;
     private final Counter ingestCounter;
     private final Counter deleteCounter;
@@ -128,7 +128,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
         return delegate;
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Ingestion (metered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Ingestion (metered) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     @Override
     public void ingest(String id, String content, float[] vector) {
@@ -247,7 +247,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
         }
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Search (metered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Search (metered) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     @Override
     public SearchResponse search(SearchQuery query) {
@@ -259,9 +259,9 @@ public class MeteredSpectorEngine implements SpectorEngine {
                 query.text(),
                 query.mode() != null ? query.mode().name() : "HYBRID",
                 response.totalHits(),
-                0, 0, 0, 0, 0, // funnel counts â€” populated by RecallPipeline via GraphPulseTelemetry
+                0, 0, 0, 0, 0, // funnel counts  --  populated by RecallPipeline via GraphPulseTelemetry
                 response.size(),
-                response.queryTimeMs() * 1_000)); // ms â†’ Âµs
+                response.queryTimeMs() * 1_000)); // ms  ->  us
 
         return response;
     }
@@ -290,7 +290,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
         return searchTimer.record(() -> delegate.search(text, topK));
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ GPU (pass-through) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ GPU (pass-through) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     @Override
     public float[] batchCosineSimilarity(float[] query, float[] database, int n, int dims) {
@@ -300,7 +300,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
     @Override
     public boolean isGpuActive() { return delegate.isGpuActive(); }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Admin + Accessors (pass-through) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Admin + Accessors (pass-through) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     @Override public com.spectrayan.spector.engine.SpectorEngineAdmin admin() { return delegate.admin(); }
 
@@ -315,7 +315,7 @@ public class MeteredSpectorEngine implements SpectorEngine {
     @Override public boolean isRerankerActive() { return delegate.isRerankerActive(); }
     @Override public EngineIngestionTarget target() { return delegate.target(); }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Lifecycle -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     @Override
     public void close() {

@@ -1,66 +1,66 @@
-# âš¡ Spector MCP Server
+# ⚡ Spector MCP Server
 
 **Agent-native search and cognitive memory integration for the Spector AI Memory Backbone.**
 
-Give any AI agent (Claude Desktop, Cursor, autonomous agents) instant access to Spector's SIMD-accelerated vector search engine and cognitive memory â€” with zero network overhead. The MCP server runs in-process via `SpectorRuntime`, calling the engine and memory directly on virtual threads for **88Âµs p50** query latency.
+Give any AI agent (Claude Desktop, Cursor, autonomous agents) instant access to Spector's SIMD-accelerated vector search engine and cognitive memory — with zero network overhead. The MCP server runs in-process via `SpectorRuntime`, calling the engine and memory directly on virtual threads for **88µs p50** query latency.
 
 ## Architecture
 
 ```
-AI Agent ──JSON-RPC (stdio)──► SpectorMcpServer (thin orchestrator)
+AI Agent --JSON-RPC (stdio)----> SpectorMcpServer (thin orchestrator)
                                 ├── SpectorRuntime
-AI Agent ──JSON-RPC (HTTP)──►   │   ├── SpectorEngine (search, ingest, RAG)
-  POST /mcp                     │   └── SpectorMemory (cognitive – optional)
-                                â”œâ”€â”€ SpectorToolRegistry
-                                â”‚   â”œâ”€â”€ EngineSearchTool  â”€â”€â–º engine.search()
-                                â”‚   â”œâ”€â”€ EngineHybridSearchTool    â”€â”€â–º engine.keywordSearch()
-                                â”‚   â”œâ”€â”€ EngineRagTool        â”€â”€â–º engine.search() + formatting
-                                â”‚   â”œâ”€â”€ EngineIngestTool  â”€â”€â–º engine.ingest()
-                                â”‚   â”œâ”€â”€ EngineDeleteTool  â”€â”€â–º engine.delete()
-                                â”‚   â”œâ”€â”€ EngineStatusTool    â”€â”€â–º engine metadata
-                                â”‚   â”œâ”€â”€ MemoryRememberTool    â”€â”€â–º memory.remember()
-                                â”‚   â”œâ”€â”€ MemoryRecallTool       â”€â”€â–º memory.recall()
-                                â”‚   â”œâ”€â”€ MemoryStatusTool        â”€â”€â–º memory.introspect()
-                                â”‚   â”œâ”€â”€ MemoryReinforceTool     â”€â”€â–º memory.reinforce()
-                                â”‚   â”œâ”€â”€ MemoryForgetTool        â”€â”€â–º memory.forget()
-                                â”‚   â”œâ”€â”€ MemoryIntrospectTool    â”€â”€â–º memory.introspect()
-                                â”‚   â””â”€â”€ MemoryScratchpadTool â”€â”€â–º memory.remember()
-                                â”œâ”€â”€ SpectorResourceProvider
-                                â””â”€â”€ SpectorPromptProvider
+AI Agent --JSON-RPC (HTTP)----> │   ├── SpectorEngine (search, ingest, RAG)
+  POST /mcp                     │   └── SpectorMemory (cognitive - optional)
+                                ├── SpectorToolRegistry
+                                │   ├── EngineSearchTool  ──► engine.search()
+                                │   ├── EngineHybridSearchTool    ──► engine.keywordSearch()
+                                │   ├── EngineRagTool        ──► engine.search() + formatting
+                                │   ├── EngineIngestTool  ──► engine.ingest()
+                                │   ├── EngineDeleteTool  ──► engine.delete()
+                                │   ├── EngineStatusTool    ──► engine metadata
+                                │   ├── MemoryRememberTool    ──► memory.remember()
+                                │   ├── MemoryRecallTool       ──► memory.recall()
+                                │   ├── MemoryStatusTool        ──► memory.introspect()
+                                │   ├── MemoryReinforceTool     ──► memory.reinforce()
+                                │   ├── MemoryForgetTool        ──► memory.forget()
+                                │   ├── MemoryIntrospectTool    ──► memory.introspect()
+                                │   └── MemoryScratchpadTool ──► memory.remember()
+                                ├── SpectorResourceProvider
+                                └── SpectorPromptProvider
 
-Total overhead: 88Âµs p50 per query (23â€“113Ã— faster than Python MCP servers)
+Total overhead: 88µs p50 per query (23-113x faster than Python MCP servers)
 ```
 
 ### Module Structure
 
 ```
 spector-mcp/src/main/java/com/spectrayan/spector/mcp/
-â”œâ”€â”€ SpectorMcpServer.java          â† Thin orchestrator (accepts SpectorRuntime)
-â”œâ”€â”€ SpectorMcpMain.java            â† CLI entry point
-â”œâ”€â”€ schema/
-â”‚   â””â”€â”€ ToolSchemaBuilder.java     â† Type-safe fluent builder for JSON schemas
-â”œâ”€â”€ tools/
-â”‚   â”œâ”€â”€ McpToolHandler.java        â† Abstract base with timing, error handling
-â”‚   â”œâ”€â”€ SpectorToolRegistry.java   â† Tool discovery & registration
-â”‚   â”œâ”€â”€ EngineSearchTool.java
-â”‚   â”œâ”€â”€ EngineHybridSearchTool.java
-â”‚   â”œâ”€â”€ EngineRagTool.java
-â”‚   â”œâ”€â”€ EngineIngestTool.java
-â”‚   â”œâ”€â”€ EngineDeleteTool.java
-â”‚   â”œâ”€â”€ EngineStatusTool.java
-â”‚   â”œâ”€â”€ MemoryRememberTool.java
-â”‚   â”œâ”€â”€ MemoryRecallTool.java
-â”‚   â”œâ”€â”€ MemoryStatusTool.java
-â”‚   â”œâ”€â”€ MemoryReinforceTool.java
-â”‚   â”œâ”€â”€ MemoryForgetTool.java
-â”‚   â”œâ”€â”€ MemoryIntrospectTool.java
-â”‚   â””â”€â”€ MemoryScratchpadTool.java
-â”œâ”€â”€ resources/
-â”‚   â””â”€â”€ SpectorResourceProvider.java
-â”œâ”€â”€ prompts/
-â”‚   â””â”€â”€ SpectorPromptProvider.java
-â””â”€â”€ util/
-    â””â”€â”€ ResultFormatter.java
+├── SpectorMcpServer.java          ← Thin orchestrator (accepts SpectorRuntime)
+├── SpectorMcpMain.java            ← CLI entry point
+├── schema/
+│   └── ToolSchemaBuilder.java     ← Type-safe fluent builder for JSON schemas
+├── tools/
+│   ├── McpToolHandler.java        ← Abstract base with timing, error handling
+│   ├── SpectorToolRegistry.java   ← Tool discovery & registration
+│   ├── EngineSearchTool.java
+│   ├── EngineHybridSearchTool.java
+│   ├── EngineRagTool.java
+│   ├── EngineIngestTool.java
+│   ├── EngineDeleteTool.java
+│   ├── EngineStatusTool.java
+│   ├── MemoryRememberTool.java
+│   ├── MemoryRecallTool.java
+│   ├── MemoryStatusTool.java
+│   ├── MemoryReinforceTool.java
+│   ├── MemoryForgetTool.java
+│   ├── MemoryIntrospectTool.java
+│   └── MemoryScratchpadTool.java
+├── resources/
+│   └── SpectorResourceProvider.java
+├── prompts/
+│   └── SpectorPromptProvider.java
+└── util/
+    └── ResultFormatter.java
 ```
 
 ## MCP Tools
@@ -154,9 +154,9 @@ Add to your `claude_desktop_config.json`:
 
 | Feature | Python Vector DB MCP | **Spector MCP** |
 |:---|:---|:---|
-| Search latency | 2â€“10ms (network + Python GIL) | **88Âµs p50** (in-process SIMD) |
+| Search latency | 2 - 10ms (network + Python GIL) | **88us p50** (in-process SIMD) |
 | Network overhead | HTTP/gRPC round-trip | **Zero** (direct method call) |
-| GC pauses | Python/JVM heap pressure | **â‰¤0.01%** (100% off-heap Panama) |
+| GC pauses | Python/JVM heap pressure | ** <= 0.01%** (100% off-heap Panama) |
 | Concurrent queries | Limited by Python GIL | **61,000 QPS** (Virtual Threads) |
 | Dependencies | Python framework stack | **Single JAR** (zero Python) |
 | Cognitive memory | External service (Mem0, Zep) | **Built-in** (opt-in via config) |
@@ -185,20 +185,20 @@ public final class MyTool extends McpToolHandler {
     }
 }
 
-// 2. Register in SpectorToolRegistry.handlers() â€” one line:
+// 2. Register in SpectorToolRegistry.handlers()  --  one line:
 List.of(
     new EngineSearchTool(),
     // ... existing tools ...
-    new MyTool()  // â† add here
+    new MyTool()  //  <-  add here
 );
 ```
 
 ### Key Design Decisions
 
-- **Template Method** (`McpToolHandler`) â€” timing, error handling, and arg parsing in the base class
-- **Builder Pattern** (`ToolSchemaBuilder`) â€” type-safe JSON schema, no nested `Map.of()`
-- **Open/Closed Principle** (`SpectorToolRegistry`) â€” add a tool = 1 class + 1 line
-- **Zero runtime overhead** â€” schemas built once, reused forever
+- **Template Method** (`McpToolHandler`)  --  timing, error handling, and arg parsing in the base class
+- **Builder Pattern** (`ToolSchemaBuilder`)  --  type-safe JSON schema, no nested `Map.of()`
+- **Open/Closed Principle** (`SpectorToolRegistry`)  --  add a tool = 1 class + 1 line
+- **Zero runtime overhead**  --  schemas built once, reused forever
 
 ## Protocol Support
 

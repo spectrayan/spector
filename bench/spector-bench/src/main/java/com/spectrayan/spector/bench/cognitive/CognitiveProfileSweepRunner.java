@@ -76,7 +76,7 @@ public final class CognitiveProfileSweepRunner {
      * Executes the full profile sweep.
      */
     public void run() {
-        log.info("â•â•â• Cognitive Profile Sweep â•â•â•");
+        log.info("=== Cognitive Profile Sweep ===");
 
         // Load dataset
         DatasetLoader loader = new DatasetLoader();
@@ -91,7 +91,7 @@ public final class CognitiveProfileSweepRunner {
 
             CognitiveProfile[] profiles = CognitiveProfile.values();
 
-            // Matrix: queryId â†’ (profile â†’ nDCG)
+            // Matrix: queryId  ->  (profile  ->  nDCG)
             Map<String, Map<String, Double>> matrix = new LinkedHashMap<>();
             // Per-profile aggregate nDCG lists
             Map<String, List<Double>> profileNdcgs = new LinkedHashMap<>();
@@ -138,7 +138,7 @@ public final class CognitiveProfileSweepRunner {
 
             // Write results
             writeMatrix(matrix, profileNdcgs, profiles, dataset);
-            log.info("â•â•â• Profile Sweep Complete â•â•â•");
+            log.info("=== Profile Sweep Complete ===");
 
         } catch (Exception e) {
             log.error("Profile sweep failed: {}", e.getMessage(), e);
@@ -207,16 +207,16 @@ public final class CognitiveProfileSweepRunner {
             log.info("Profile sweep matrix written to {}", outFile);
 
             // Print summary to console
-            System.out.println("\nâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            System.out.println("\n==================================================");
             System.out.println("  PROFILE SWEEP SUMMARY");
-            System.out.println("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            System.out.println("==================================================");
             for (CognitiveProfile p : profiles) {
                 List<Double> ndcgs = profileNdcgs.get(p.name());
                 double mean = ndcgs.stream().mapToDouble(d -> d).average().orElse(0.0);
-                String marker = p.name().equals(bestOverall) ? " â˜… BEST" : "";
+                String marker = p.name().equals(bestOverall) ? " [ ]… BEST" : "";
                 System.out.printf("  %-25s  nDCG: %.4f%s%n", p.name(), mean, marker);
             }
-            System.out.println("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n");
+            System.out.println("==================================================\n");
 
         } catch (IOException e) {
             log.error("Failed to write profile sweep matrix: {}", e.getMessage(), e);

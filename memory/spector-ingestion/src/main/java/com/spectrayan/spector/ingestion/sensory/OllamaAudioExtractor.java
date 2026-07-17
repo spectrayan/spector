@@ -64,7 +64,7 @@ public final class OllamaAudioExtractor implements AudioTranscriptExtractor {
             Listen to this audio carefully and provide a complete, accurate transcription.
             Include all spoken words and identify different speakers if present.
             Format the output as plain text with paragraph breaks at natural pauses.
-            Do not add commentary or analysis â€” only transcribe what is spoken.
+            Do not add commentary or analysis  --  only transcribe what is spoken.
             """;
 
     private final LlmProvider llm;
@@ -137,7 +137,7 @@ public final class OllamaAudioExtractor implements AudioTranscriptExtractor {
         if (mimeType != null) metadata.put("content_type", mimeType);
         metadata.put("file_size_bytes", String.valueOf(fileSize));
 
-        log.info("Transcribed {}B audio â†’ {}B text using {}", fileSize, transcript.length(), modelName);
+        log.info("Transcribed {}B audio  ->  {}B text using {}", fileSize, transcript.length(), modelName);
 
         return Stream.of(new ExtractionChunk("transcript-0", transcript.strip(), metadata));
     }

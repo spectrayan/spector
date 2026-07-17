@@ -41,8 +41,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <h3>What This Tests</h3>
  * <p>Unlike component-level concurrency tests (which exercise individual indexes),
- * these tests verify the <b>full ingestion â†’ indexing â†’ retrieval pipeline</b>
- * under concurrent load â€” the actual production hot path.</p>
+ * these tests verify the <b>full ingestion  ->  indexing  ->  retrieval pipeline</b>
+ * under concurrent load  --  the actual production hot path.</p>
  *
  * <p>Simulates multiple concurrent HTTP handlers accessing the same
  * {@code SpectorMemory} instance: parallel ingestion, recall during ingest,
@@ -50,11 +50,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <h3>Coverage</h3>
  * <ul>
- *   <li>Concurrent {@code remember()} â€” no data loss, no corruption</li>
+ *   <li>Concurrent {@code remember()}  --  no data loss, no corruption</li>
  *   <li>Concurrent {@code recall()} during ongoing ingestion</li>
- *   <li>Concurrent {@code recall()} on the same query â€” identical results</li>
- *   <li>Concurrent {@code forget()} during recall â€” no stale results</li>
- *   <li>Concurrent {@code suppress()} during recall â€” exclusion enforced</li>
+ *   <li>Concurrent {@code recall()} on the same query  --  identical results</li>
+ *   <li>Concurrent {@code forget()} during recall  --  no stale results</li>
+ *   <li>Concurrent {@code suppress()} during recall  --  exclusion enforced</li>
  *   <li>Partition roll triggered by working memory overflow during concurrent access</li>
  * </ul>
  *
@@ -85,12 +85,12 @@ class ConcurrentPipelineTest {
         if (memory != null) memory.close();
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // 1. Concurrent Ingestion â€” No Data Loss
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // 1. Concurrent Ingestion  --  No Data Loss
+    // ==============================================================
 
     @RepeatedTest(3)
-    @DisplayName("Concurrent ingest â€” 20 writers Ã— 10 memories = 200 total, no loss")
+    @DisplayName("Concurrent ingest  --  20 writers x 10 memories = 200 total, no loss")
     void concurrentIngest_noDataLoss() throws InterruptedException {
         int writerCount = 20;
         int memoriesPerWriter = 10;
@@ -130,12 +130,12 @@ class ConcurrentPipelineTest {
         assertThat(memory.totalMemories()).as("All memories ingested").isEqualTo(totalExpected);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // 2. Concurrent Recall During Ingestion
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @RepeatedTest(3)
-    @DisplayName("Concurrent recall during ingest â€” readers get valid results, no CME")
+    @DisplayName("Concurrent recall during ingest  --  readers get valid results, no CME")
     void concurrentRecall_duringIngest() throws InterruptedException {
         // Pre-seed some memories so readers have something to find
         seedMemories(20);
@@ -201,12 +201,12 @@ class ConcurrentPipelineTest {
         assertThat(resultCounts.get()).as("Readers got some results").isGreaterThan(0);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // 3. Concurrent Recall â€” Same Query, Consistent Results
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // 3. Concurrent Recall  --  Same Query, Consistent Results
+    // ==============================================================
 
     @RepeatedTest(3)
-    @DisplayName("Concurrent recall â€” 30 readers, same query, all get valid results")
+    @DisplayName("Concurrent recall  --  30 readers, same query, all get valid results")
     void concurrentRecall_sameQuery() throws InterruptedException {
         seedMemories(30);
 
@@ -251,12 +251,12 @@ class ConcurrentPipelineTest {
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // 4. Concurrent Forget During Recall
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @RepeatedTest(3)
-    @DisplayName("Concurrent forget during recall â€” forgotten IDs eventually excluded")
+    @DisplayName("Concurrent forget during recall  --  forgotten IDs eventually excluded")
     void concurrentForget_duringRecall() throws InterruptedException {
         seedMemories(50);
         Set<String> forgottenIds = new CopyOnWriteArraySet<>();
@@ -267,7 +267,7 @@ class ConcurrentPipelineTest {
         var done = new CountDownLatch(forgetterCount + readerCount);
         var errors = new CopyOnWriteArrayList<Throwable>();
 
-        // Forgetters â€” forget IDs 0-14
+        // Forgetters  --  forget IDs 0-14
         for (int f = 0; f < forgetterCount; f++) {
             final int fId = f;
             Thread.startVirtualThread(() -> {
@@ -286,7 +286,7 @@ class ConcurrentPipelineTest {
             });
         }
 
-        // Readers â€” recall should not crash
+        // Readers  --  recall should not crash
         for (int r = 0; r < readerCount; r++) {
             Thread.startVirtualThread(() -> {
                 try {
@@ -321,12 +321,12 @@ class ConcurrentPipelineTest {
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // 5. Concurrent Suppress During Recall
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @RepeatedTest(3)
-    @DisplayName("Concurrent suppress during recall â€” suppressed IDs excluded")
+    @DisplayName("Concurrent suppress during recall  --  suppressed IDs excluded")
     void concurrentSuppress_duringRecall() throws InterruptedException {
         seedMemories(50);
         Set<String> suppressedIds = new CopyOnWriteArraySet<>();
@@ -390,12 +390,12 @@ class ConcurrentPipelineTest {
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // 6. Partition Roll During Concurrent Access
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("Working memory overflow triggers roll â€” no data loss during concurrent access")
+    @DisplayName("Working memory overflow triggers roll  --  no data loss during concurrent access")
     void partitionRoll_duringConcurrentAccess() throws InterruptedException {
         // Create a memory with very small working capacity to force rolls
         memory.close();
@@ -403,7 +403,7 @@ class ConcurrentPipelineTest {
                 .dimensions(DIMENSIONS)
                 .embeddingProvider(new DeterministicEmbeddingProvider(DIMENSIONS))
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
-                .workingCapacity(5) // tiny â€” forces frequent workingâ†’episodic rolls
+                .workingCapacity(5) // tiny  --  forces frequent working -> episodic rolls
                 .episodicPartitionCapacity(50)
                 .semanticCapacity(50)
                 .proceduralCapacity(50)
@@ -415,7 +415,7 @@ class ConcurrentPipelineTest {
         var done = new CountDownLatch(writerCount + readerCount);
         var errors = new CopyOnWriteArrayList<Throwable>();
 
-        // Writers â€” flood working memory to trigger rolls
+        // Writers  --  flood working memory to trigger rolls
         for (int w = 0; w < writerCount; w++) {
             final int wId = w;
             Thread.startVirtualThread(() -> {
@@ -435,7 +435,7 @@ class ConcurrentPipelineTest {
             });
         }
 
-        // Readers â€” recall during rolls
+        // Readers  --  recall during rolls
         for (int r = 0; r < readerCount; r++) {
             Thread.startVirtualThread(() -> {
                 try {
@@ -461,16 +461,16 @@ class ConcurrentPipelineTest {
         assertThat(done.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
         assertThat(errors).as("No exceptions during partition roll").isEmpty();
 
-        // Verify total memories â€” some may have rolled from workingâ†’episodic
+        // Verify total memories  --  some may have rolled from working -> episodic
         assertThat(memory.totalMemories()).as("All memories survived roll").isGreaterThan(0);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // 7. Concurrent Mixed Operations
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @RepeatedTest(3)
-    @DisplayName("Concurrent mixed ops â€” remember + recall + forget + reinforce simultaneously")
+    @DisplayName("Concurrent mixed ops  --  remember + recall + forget + reinforce simultaneously")
     void concurrentMixedOps() throws InterruptedException {
         seedMemories(30);
 
@@ -553,7 +553,7 @@ class ConcurrentPipelineTest {
         assertThat(errors).as("No exceptions during mixed concurrent ops").isEmpty();
     }
 
-    // â”€â”€ Helpers â”€â”€
+    // -€-€ Helpers -€-€
 
     private void seedMemories(int count) {
         try {
@@ -576,7 +576,7 @@ class ConcurrentPipelineTest {
 
     /**
      * Deterministic embedding provider that produces hash-based unit vectors.
-     * Same text â†’ same vector, making tests reproducible.
+     * Same text  ->  same vector, making tests reproducible.
      */
     static class DeterministicEmbeddingProvider implements EmbeddingProvider {
 

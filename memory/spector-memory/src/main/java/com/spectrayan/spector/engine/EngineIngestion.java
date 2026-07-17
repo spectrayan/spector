@@ -109,7 +109,7 @@ final class EngineIngestion {
         }
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Core Ingestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Core Ingestion -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Ingests a single document with its text content and vector embedding.
@@ -188,7 +188,7 @@ final class EngineIngestion {
         return false;
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Large Document Ingestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Large Document Ingestion -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Ingests a large document by splitting it into overlapping chunks.
@@ -206,7 +206,7 @@ final class EngineIngestion {
                       TextChunker chunker) {
         var chunks = chunker.chunk(id, content);
 
-        // Store lightweight metadata only â€” full content is redundant since each
+        // Store lightweight metadata only  --  full content is redundant since each
         // chunk is individually stored in VectorStore + KeywordIndex.
         // This avoids holding O(content_size) on the Java heap per document.
         documentStore.put(Document.of(id, "[chunked: " + chunks.size() + " chunks]"));
@@ -276,7 +276,7 @@ final class EngineIngestion {
         return chunks.size();
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Auto-Embed Ingestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Auto-Embed Ingestion -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Ingests a document with automatic embedding generation. */
     void ingest(String id, String content) {
@@ -306,7 +306,7 @@ final class EngineIngestion {
                 text -> embeddingProvider.embed(text).vector(), chunkSize, overlap);
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Training â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Training -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     private void trainAndFlushIvfPq() {
         if (!(vectorIndex instanceof IvfPqIndex ivfPq)) return;

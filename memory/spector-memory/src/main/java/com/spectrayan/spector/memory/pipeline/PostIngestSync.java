@@ -44,7 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Post-ingest index synchronization stage â€” handles steps 7b through 9d
+ * Post-ingest index synchronization stage  --  handles steps 7b through 9d
  * of the cognitive ingestion pipeline.
  *
  * <h3>Responsibilities</h3>
@@ -71,7 +71,7 @@ final class PostIngestSync {
 
     private static final Logger log = LoggerFactory.getLogger(PostIngestSync.class);
 
-    // â”€â”€ Subsystem references (all nullable except index, wal) â”€â”€
+    // -€-€ Subsystem references (all nullable except index, wal) -€-€
     private volatile TierRouter tierRouter;
     private final MemoryIndex index;
     private final MemoryWal wal;
@@ -217,7 +217,7 @@ final class PostIngestSync {
      *
      * @param id        memory ID
      * @param text      memory content
-     * @param memoryIdx memory index for entityâ†’memory linking
+     * @param memoryIdx memory index for entity -> memory linking
      */
     void syncEntityExtraction(String id, String text, int memoryIdx) {
         if (entityExtractor != null && entityGraph != null && entityExtractor.isAvailable()) {
@@ -239,7 +239,7 @@ final class PostIngestSync {
      * Populates the entity graph with pre-extracted entities (Step 9d override).
      *
      * @param entities  pre-extracted entities
-     * @param memoryIdx memory index for entityâ†’memory linking
+     * @param memoryIdx memory index for entity -> memory linking
      * @param id        memory ID (for logging)
      */
     void syncPreExtractedEntities(List<ExtractedEntity> entities, int memoryIdx, String id) {
@@ -267,7 +267,7 @@ final class PostIngestSync {
                     hebbianGraph.strengthen(memoryIdx, targetIdx, edgeHint.weight());
                 }
             } catch (RuntimeException e) {
-                log.warn("Failed to apply Hebbian edge hint {} â†’ {}: {}",
+                log.warn("Failed to apply Hebbian edge hint {}  ->  {}: {}",
                         id, edgeHint.targetMemoryId(), e.getMessage());
             }
         }
@@ -289,15 +289,15 @@ final class PostIngestSync {
                     temporalChain.link(memoryIdx, predIdx, linkHint.sessionId());
                 }
             } catch (RuntimeException e) {
-                log.warn("Failed to apply temporal link hint {} â†’ {}: {}",
+                log.warn("Failed to apply temporal link hint {}  ->  {}: {}",
                         id, linkHint.predecessorMemoryId(), e.getMessage());
             }
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // PRIVATE HELPERS
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     private com.spectrayan.spector.memory.cortex.TextDataStore.TextPosition syncTextIndex(
             String id, String text, MemoryType type) {
@@ -358,7 +358,7 @@ final class PostIngestSync {
             }
         }
         if (entitiesAdded > 0) {
-            log.info("[Ingest] '{}' â†’ {} entities, {} relations added to EntityGraph",
+            log.info("[Ingest] '{}'  ->  {} entities, {} relations added to EntityGraph",
                     id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
                     entitiesAdded, relationsAdded);
 

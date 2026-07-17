@@ -43,8 +43,8 @@ import java.util.List;
 /**
  * Fluent builder for creating {@link SpectorMemory} instances.
  *
- * <p>Configures all subsystems â€” embedding, persistence, graphs, quantization,
- * entity extraction, text search, encryption, and multimodal attachments â€”
+ * <p>Configures all subsystems  --  embedding, persistence, graphs, quantization,
+ * entity extraction, text search, encryption, and multimodal attachments  -- 
  * before assembling a {@link DefaultSpectorMemory}.</p>
  *
  * <p>Usage:</p>
@@ -62,7 +62,7 @@ import java.util.List;
  */
 public final class SpectorMemoryBuilder {
 
-    // â”€â”€ Core configuration â”€â”€
+    // -€-€ Core configuration -€-€
     int dimensions;
     EmbeddingProvider embeddingProvider;
     Path persistencePath;
@@ -89,7 +89,7 @@ public final class SpectorMemoryBuilder {
     TagExtractor tagExtractor;
     CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
 
-    // â”€â”€ 3-Layer Cognitive Graph configuration â”€â”€
+    // -€-€ 3-Layer Cognitive Graph configuration -€-€
     int hebbianGraphCapacity = 0;
     int temporalChainCapacity = 0;
     EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
@@ -103,50 +103,50 @@ public final class SpectorMemoryBuilder {
     boolean hyperEntityGraphEnabled = true;
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
 
-    // â”€â”€ Edge importance configuration â”€â”€
+    // -€-€ Edge importance configuration -€-€
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
     int hebbianMaxDegree = HebbianGraph.DEFAULT_MAX_DEGREE;
     int entityMaxDegree = EntityGraph.DEFAULT_MAX_DEGREE;
 
-    // â”€â”€ ID generation strategy â”€â”€
+    // -€-€ ID generation strategy -€-€
     IdStrategy idStrategy = IdStrategy.TSID;
     MemoryIdGenerator idGenerator;
 
-    // â”€â”€ SPLADE + ColBERT providers â”€â”€
+    // -€-€ SPLADE + ColBERT providers -€-€
     SparseEmbeddingProvider SparseEmbeddingProvider;
     TokenEmbeddingProvider tokenEmbeddingProvider;
 
-    // â”€â”€ Checkpoint daemon configuration â”€â”€
+    // -€-€ Checkpoint daemon configuration -€-€
     int checkpointIntervalSeconds = 30;
 
-    // â”€â”€ Chunking for remember() â”€â”€
+    // -€-€ Chunking for remember() -€-€
     TextChunker chunker = new TextChunker(2500, 200);
 
-    // â”€â”€ Embedding pipeline batch size â”€â”€
+    // -€-€ Embedding pipeline batch size -€-€
     int embedBatchSize = 32;
 
-    // â”€â”€ Salience profile provider (enterprise SPI) â”€â”€
+    // -€-€ Salience profile provider (enterprise SPI) -€-€
     SalienceProfileProvider salienceProfileProvider;
 
-    // â”€â”€ Data encryption SPI â”€â”€
+    // -€-€ Data encryption SPI -€-€
     DataEncryptor dataEncryptor = DataEncryptor.NOOP;
 
-    // â”€â”€ Multimodal attachment processing â”€â”€
+    // -€-€ Multimodal attachment processing -€-€
     List<SensoryExtractor> sensoryExtractors = List.of();
     AssetStore assetStore;
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // FACTORY
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     /** Creates a new builder instance. */
     public static SpectorMemoryBuilder create() { return new SpectorMemoryBuilder(); }
 
     SpectorMemoryBuilder() {}
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // FLUENT SETTERS
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     public SpectorMemoryBuilder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
     public SpectorMemoryBuilder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
@@ -189,7 +189,7 @@ public final class SpectorMemoryBuilder {
     /** ICNU fusion weights for neurodivergent importance computation (default: IcnuWeights.DEFAULT). */
     public SpectorMemoryBuilder icnuWeights(IcnuWeights w) { this.icnuWeights = w; return this; }
 
-    /** Enable lossless consolidation â€” pin source episodes during REM sleep (default: false). */
+    /** Enable lossless consolidation  --  pin source episodes during REM sleep (default: false). */
     public SpectorMemoryBuilder pinSourceEpisodes(boolean pin) { this.pinSourceEpisodes = pin; return this; }
 
     /** Maximum number of pinned records (default: 10,000). */
@@ -201,7 +201,7 @@ public final class SpectorMemoryBuilder {
     /** Cognitive profile configuration (default: all profiles enabled). */
     public SpectorMemoryBuilder profileConfig(CognitiveProfileConfig config) { this.profileConfig = config; return this; }
 
-    // â”€â”€ 3-Layer Cognitive Graph configuration â”€â”€
+    // -€-€ 3-Layer Cognitive Graph configuration -€-€
 
     /** Hebbian graph capacity (default: same as episodicPartitionCapacity). */
     public SpectorMemoryBuilder hebbianGraphCapacity(int c) { this.hebbianGraphCapacity = c; return this; }
@@ -215,7 +215,7 @@ public final class SpectorMemoryBuilder {
     /** Custom entity extractor (used when mode = CUSTOM). */
     public SpectorMemoryBuilder entityExtractor(EntityExtractor extractor) { this.entityExtractor = extractor; return this; }
 
-    /** Entity graph capacity â€” max entities (default: 50,000). */
+    /** Entity graph capacity  --  max entities (default: 50,000). */
     public SpectorMemoryBuilder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
 
     /** Enable/disable the HyperEntityGraph layer (default: true). */
@@ -230,10 +230,10 @@ public final class SpectorMemoryBuilder {
     /** LLM generation options for entity extraction (temperature, maxTokens, topP). */
     public SpectorMemoryBuilder llmGenerationOptions(GenerationOptions opts) { this.llmGenerationOptions = opts; return this; }
 
-    /** Graph scoring policy â€” configurable weights for cognitive graph steps (default: GraphScoringPolicy.DEFAULT). */
+    /** Graph scoring policy  --  configurable weights for cognitive graph steps (default: GraphScoringPolicy.DEFAULT). */
     public SpectorMemoryBuilder graphScoringPolicy(GraphScoringPolicy policy) { this.graphScoringPolicy = policy; return this; }
 
-    /** Temporal chain retention in days â€” links older than this are pruned during reflect() (default: 7). */
+    /** Temporal chain retention in days  --  links older than this are pruned during reflect() (default: 7). */
     public SpectorMemoryBuilder temporalRetentionDays(int days) { this.temporalRetentionDays = days; return this; }
 
     /** Checkpoint interval in seconds (default: 30). Set to 0 to disable automatic checkpointing. */
@@ -258,12 +258,12 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder cognitiveProfiles(String configValue) { this.profileConfig = CognitiveProfileConfig.fromConfigValue(configValue); return this; }
 
-    // â”€â”€ ID Generation â”€â”€
+    // -€-€ ID Generation -€-€
 
     /**
      * Sets the ID generation strategy for auto-generated memory IDs.
      *
-     * <p>Default: {@link IdStrategy#TSID} â€” 13-char time-sorted, distributed-safe.
+     * <p>Default: {@link IdStrategy#TSID}  --  13-char time-sorted, distributed-safe.
      * This is only used when {@link SpectorMemory#remember(String, MemoryType, MemorySource, String...)}
      * is called without an explicit ID.</p>
      *
@@ -340,7 +340,7 @@ public final class SpectorMemoryBuilder {
      * Sets the salience profile provider for user-configurable importance scoring.
      *
      * <p>Enterprise callers supply a {@link TenantSalienceResolver} that merges
-     * tenant â†’ agent â†’ user profiles. The effective profile is applied during
+     * tenant  ->  agent  ->  user profiles. The effective profile is applied during
      * ingestion (ICNU weights + topic boost) and optionally at recall time
      * (alpha/beta override).</p>
      *
@@ -352,9 +352,9 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // BUILD
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     /**
      * Builds and returns a fully-initialized {@link SpectorMemory} instance.

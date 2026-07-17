@@ -30,7 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Tests for {@link ColBERTTokenCache} â€” off-heap token embedding cache.
+ * Tests for {@link ColBERTTokenCache}  --  off-heap token embedding cache.
  *
  * <p>Covers put/get round-trip, LRU eviction, invalidation,
  * off-heap byte accounting, concurrent access, and edge cases.</p>
@@ -50,12 +50,12 @@ class ColBERTTokenCacheTest {
         cache.close();
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // Put / Get round-trip
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("Put and get â€” exact round-trip")
+    @DisplayName("Put and get  --  exact round-trip")
     void putGet_exactRoundTrip() {
         float[][] original = makeTokenEmbeddings(5, DIMS, 42);
         cache.put("doc-1", original);
@@ -72,13 +72,13 @@ class ColBERTTokenCacheTest {
     }
 
     @Test
-    @DisplayName("Get â€” cache miss returns null")
+    @DisplayName("Get  --  cache miss returns null")
     void get_cacheMissReturnsNull() {
         assertThat(cache.get("nonexistent")).isNull();
     }
 
     @Test
-    @DisplayName("Contains â€” true after put, false before")
+    @DisplayName("Contains  --  true after put, false before")
     void contains_correctAfterPut() {
         assertThat(cache.contains("doc-1")).isFalse();
         cache.put("doc-1", makeTokenEmbeddings(3, DIMS, 1));
@@ -86,7 +86,7 @@ class ColBERTTokenCacheTest {
     }
 
     @Test
-    @DisplayName("Size â€” tracks entry count")
+    @DisplayName("Size  --  tracks entry count")
     void size_tracksEntryCount() {
         assertThat(cache.size()).isEqualTo(0);
         cache.put("a", makeTokenEmbeddings(2, DIMS, 1));
@@ -95,7 +95,7 @@ class ColBERTTokenCacheTest {
     }
 
     @Test
-    @DisplayName("Put â€” overwrite existing entry")
+    @DisplayName("Put  --  overwrite existing entry")
     void put_overwriteExisting() {
         cache.put("doc-1", makeTokenEmbeddings(5, DIMS, 42));
         cache.put("doc-1", makeTokenEmbeddings(3, DIMS, 99)); // smaller
@@ -105,12 +105,12 @@ class ColBERTTokenCacheTest {
         assertThat(cache.size()).isEqualTo(1);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // LRU Eviction
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("LRU eviction â€” oldest entry evicted when full")
+    @DisplayName("LRU eviction  --  oldest entry evicted when full")
     void lru_evictsOldest() {
         // Fill to capacity (5)
         for (int i = 0; i < 5; i++) {
@@ -118,7 +118,7 @@ class ColBERTTokenCacheTest {
         }
         assertThat(cache.size()).isEqualTo(5);
 
-        // Insert one more â€” doc-0 (oldest) should be evicted
+        // Insert one more  --  doc-0 (oldest) should be evicted
         cache.put("doc-5", makeTokenEmbeddings(2, DIMS, 5));
 
         assertThat(cache.size()).isEqualTo(5);
@@ -127,7 +127,7 @@ class ColBERTTokenCacheTest {
     }
 
     @Test
-    @DisplayName("LRU eviction â€” accessed entries survive eviction")
+    @DisplayName("LRU eviction  --  accessed entries survive eviction")
     void lru_accessedEntrySurvives() {
         // Fill to capacity
         for (int i = 0; i < 5; i++) {
@@ -137,41 +137,41 @@ class ColBERTTokenCacheTest {
         // Access doc-0 to make it recent
         cache.get("doc-0");
 
-        // Insert new entry â€” doc-1 (now oldest accessed) should be evicted
+        // Insert new entry  --  doc-1 (now oldest accessed) should be evicted
         cache.put("doc-5", makeTokenEmbeddings(2, DIMS, 5));
 
         assertThat(cache.contains("doc-0")).isTrue(); // survived due to access
         assertThat(cache.contains("doc-1")).isFalse(); // evicted (oldest un-accessed)
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // Off-heap accounting
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("offHeapBytes â€” tracks allocated memory")
+    @DisplayName("offHeapBytes  --  tracks allocated memory")
     void offHeapBytes_tracksMemory() {
         assertThat(cache.offHeapBytes()).isEqualTo(0);
 
-        cache.put("d1", makeTokenEmbeddings(10, DIMS, 1)); // 10 Ã— 128 Ã— 4 = 5120
+        cache.put("d1", makeTokenEmbeddings(10, DIMS, 1)); // 10 x 128 x 4 = 5120
         assertThat(cache.offHeapBytes()).isEqualTo(10L * DIMS * Float.BYTES);
 
-        cache.put("d2", makeTokenEmbeddings(5, DIMS, 2)); // 5 Ã— 128 Ã— 4 = 2560
+        cache.put("d2", makeTokenEmbeddings(5, DIMS, 2)); // 5 x 128 x 4 = 2560
         assertThat(cache.offHeapBytes()).isEqualTo(15L * DIMS * Float.BYTES);
     }
 
     @Test
-    @DisplayName("tokenDims â€” returns configured dimensionality")
+    @DisplayName("tokenDims  --  returns configured dimensionality")
     void tokenDims_returnsConfigured() {
         assertThat(cache.tokenDims()).isEqualTo(DIMS);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // Invalidation
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("Invalidate â€” removes entry")
+    @DisplayName("Invalidate  --  removes entry")
     void invalidate_removesEntry() {
         cache.put("doc-1", makeTokenEmbeddings(3, DIMS, 1));
         assertThat(cache.contains("doc-1")).isTrue();
@@ -182,32 +182,32 @@ class ColBERTTokenCacheTest {
     }
 
     @Test
-    @DisplayName("Invalidate â€” no-op for missing key")
+    @DisplayName("Invalidate  --  no-op for missing key")
     void invalidate_noOpForMissing() {
         cache.invalidate("nonexistent"); // should not throw
         assertThat(cache.size()).isEqualTo(0);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // Edge cases
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("Put null embeddings â€” no-op")
+    @DisplayName("Put null embeddings  --  no-op")
     void put_nullEmbeddings_noOp() {
         cache.put("doc-1", null);
         assertThat(cache.size()).isEqualTo(0);
     }
 
     @Test
-    @DisplayName("Put empty embeddings â€” no-op")
+    @DisplayName("Put empty embeddings  --  no-op")
     void put_emptyEmbeddings_noOp() {
         cache.put("doc-1", new float[0][]);
         assertThat(cache.size()).isEqualTo(0);
     }
 
     @Test
-    @DisplayName("Single token embedding â€” round trips correctly")
+    @DisplayName("Single token embedding  --  round trips correctly")
     void singleTokenEmbedding() {
         float[][] single = {{1.0f, 2.0f, 3.0f}};
         // Use 3-dim cache for this test
@@ -222,7 +222,7 @@ class ColBERTTokenCacheTest {
     }
 
     @Test
-    @DisplayName("Close â€” clears all entries")
+    @DisplayName("Close  --  clears all entries")
     void close_clearsAll() {
         cache.put("d1", makeTokenEmbeddings(3, DIMS, 1));
         cache.put("d2", makeTokenEmbeddings(3, DIMS, 2));
@@ -230,12 +230,12 @@ class ColBERTTokenCacheTest {
         assertThat(cache.size()).isEqualTo(0);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // ColBERTReranker integration (cache wiring)
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("ColBERTReranker with cache â€” cache hit avoids re-encoding")
+    @DisplayName("ColBERTReranker with cache  --  cache hit avoids re-encoding")
     void rerankerWithCache_cacheHitWorks() {
         try (var tokenCache = new ColBERTTokenCache(DIMS, 100)) {
             var countingProvider = new CountingTokenProvider(DIMS);
@@ -245,11 +245,11 @@ class ColBERTTokenCacheTest {
                     new ColBERTReranker.RerankCandidate("doc-1", "hello world", 0.5f)
             );
 
-            // First call â€” should encode query + doc (2 calls)
+            // First call  --  should encode query + doc (2 calls)
             reranker.rerank("query text", candidates, 10);
             int firstCallCount = countingProvider.encodeCount();
 
-            // Second call same docs â€” doc should be cached, only query re-encoded
+            // Second call same docs  --  doc should be cached, only query re-encoded
             reranker.rerank("different query", candidates, 10);
             int secondCallCount = countingProvider.encodeCount() - firstCallCount;
 
@@ -260,12 +260,12 @@ class ColBERTTokenCacheTest {
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // Concurrency
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @RepeatedTest(3)
-    @DisplayName("Concurrent put/get â€” no crashes or data corruption")
+    @DisplayName("Concurrent put/get  --  no crashes or data corruption")
     void concurrentPutGet() throws InterruptedException {
         try (var bigCache = new ColBERTTokenCache(DIMS, 100)) {
             int threadCount = 20;
@@ -300,7 +300,7 @@ class ColBERTTokenCacheTest {
         }
     }
 
-    // â”€â”€ Test helpers â”€â”€
+    // -€-€ Test helpers -€-€
 
     private static float[][] makeTokenEmbeddings(int tokens, int dims, int seed) {
         float[][] emb = new float[tokens][dims];

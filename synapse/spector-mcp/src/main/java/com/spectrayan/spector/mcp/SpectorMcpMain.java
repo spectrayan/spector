@@ -60,13 +60,13 @@ public class SpectorMcpMain {
     private static final Logger log = LoggerFactory.getLogger(SpectorMcpMain.class);
 
     public static void main(String[] args) {
-        // â”€â”€ Handle --help â”€â”€
+        // -€-€ Handle --help -€-€
         if (hasFlag(args, "--help") || hasFlag(args, "-h")) {
             printHelp();
             return;
         }
 
-        // â”€â”€ Load hierarchical configuration â”€â”€
+        // -€-€ Load hierarchical configuration -€-€
         SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
 
         // Explicit config file
@@ -141,7 +141,7 @@ public class SpectorMcpMain {
                 propsBuilder.override("spector.memory.persistence-path",
                         odysseusDataDir + "/memory");
             }
-            // Odysseus category â†’ tier mapping: default ingestion to SEMANTIC
+            // Odysseus category  ->  tier mapping: default ingestion to SEMANTIC
             // (facts, contacts, preferences). EPISODIC for events via agent skill.
             propsBuilder.override("spector.memory.default-ingestion-tier", "SEMANTIC");
             log.info("[Spector MCP] Odysseus mode: memory enabled, disk persistence, SEMANTIC default tier");
@@ -149,13 +149,13 @@ public class SpectorMcpMain {
 
         SpectorProperties props = propsBuilder.build();
 
-        // â”€â”€ Create embedding provider â”€â”€
+        // -€-€ Create embedding provider -€-€
         var embedDefaults = SpectorConfigFactory.embeddingDefaults(props);
         EmbeddingProvider embedder = EmbeddingProviderFactory.create(
                 embedDefaults.baseUrl(), embedDefaults.model());
         log.info("[Spector MCP] Embedding: {} @ {}", embedDefaults.model(), embedDefaults.baseUrl());
 
-        // â”€â”€ Create text generation provider for LLM tag extraction (if configured) â”€â”€
+        // -€-€ Create text generation provider for LLM tag extraction (if configured) -€-€
         LlmProvider textGenProvider = null;
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
@@ -167,10 +167,10 @@ public class SpectorMcpMain {
             log.info("[Spector MCP] LLM tag extraction: {} @ {}", tagModel, embedDefaults.baseUrl());
         }
 
-        // â”€â”€ Create runtime (engine + optional memory) â”€â”€
+        // -€-€ Create runtime (engine + optional memory) -€-€
         SpectorRuntime runtime = SpectorRuntime.from(props, embedder, textGenProvider);
 
-        // â”€â”€ Start the MCP server (STDIO for CLI use) â”€â”€
+        // -€-€ Start the MCP server (STDIO for CLI use) -€-€
         // For HTTP/SSE transport, use SpectorNode with mcpEnabled=true instead.
         SpectorMcpServer server = new SpectorMcpServer(runtime);
 
@@ -186,7 +186,7 @@ public class SpectorMcpMain {
 
 
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ CLI Parsing Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ CLI Parsing Helpers -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     private static String getStringArg(String[] args, String name, String defaultValue) {
         for (int i = 0; i < args.length - 1; i++) {
@@ -216,7 +216,7 @@ public class SpectorMcpMain {
 
     private static void printHelp() {
         System.err.println("""
-                âš¡ Spector MCP Server â€” AI-Native Memory Backbone
+                Warning¡ Spector MCP Server  --  AI-Native Memory Backbone
                 
                 Usage:
                   java --add-modules jdk.incubator.vector -jar spector-mcp.jar [options]

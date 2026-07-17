@@ -31,7 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Per-partition SPLADE index manager for learned sparse retrieval.
  *
  * <h3>Architecture</h3>
- * <p>Mirrors {@link MemoryBM25Index} â€” maintains an array of {@link SpladeIndex}
+ * <p>Mirrors {@link MemoryBM25Index}  --  maintains an array of {@link SpladeIndex}
  * instances, one per memory partition. On recall, searches all partitions in parallel
  * and merges results by inner-product score. On startup, each partition's SPLADE
  * index is rebuilt from stored sparse vectors.</p>
@@ -97,7 +97,7 @@ public final class MemorySpladeIndex implements AutoCloseable {
      *
      * @param partitionIndex the target partition
      * @param id             memory identifier
-     * @param sparseVec      SPLADE-encoded sparse vector: term â†’ neural weight
+     * @param sparseVec      SPLADE-encoded sparse vector: term  ->  neural weight
      */
     public void index(int partitionIndex, String id, Map<String, Float> sparseVec) {
         ensurePartition(partitionIndex);
@@ -174,7 +174,7 @@ public final class MemorySpladeIndex implements AutoCloseable {
      * Rebuilds a single partition's SPLADE index from stored sparse vectors.
      *
      * @param partitionIndex the partition to rebuild
-     * @param sparseVecs     map of memory ID â†’ SPLADE sparse vector
+     * @param sparseVecs     map of memory ID  ->  SPLADE sparse vector
      */
     public void rebuildPartition(int partitionIndex, Map<String, Map<String, Float>> sparseVecs) {
         ensurePartition(partitionIndex);
@@ -228,7 +228,7 @@ public final class MemorySpladeIndex implements AutoCloseable {
         partitions.clear();
     }
 
-    // â”€â”€ Internal helpers â”€â”€
+    // -€-€ Internal helpers -€-€
 
     private void ensurePartition(int partitionIndex) {
         while (partitions.size() <= partitionIndex) {

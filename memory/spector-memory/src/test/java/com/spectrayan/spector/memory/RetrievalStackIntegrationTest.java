@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration tests for the 4-Layer Retrieval Stack.
  *
  * <p>Tests the interaction between BM25, SPLADE, vector (simulated via mock scores),
- * and ColBERT layers â€” the same flow that the {@code RecallPipeline} executes.</p>
+ * and ColBERT layers  --  the same flow that the {@code RecallPipeline} executes.</p>
  *
  * <p>Uses mock SPI providers for deterministic, fast tests without ONNX models.</p>
  */
@@ -83,12 +83,12 @@ class RetrievalStackIntegrationTest {
         spladeIndex.close();
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // Layer integration tests
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("BM25 search â€” returns keyword matches")
+    @DisplayName("BM25 search  --  returns keyword matches")
     void bm25_returnsKeywordMatches() {
         List<BM25Candidate> results = bm25Index.search("java exception", 10);
 
@@ -98,7 +98,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("SPLADE search â€” returns semantically expanded matches")
+    @DisplayName("SPLADE search  --  returns semantically expanded matches")
     void splade_returnsSpladeResults() {
         SparseEmbeddingResult querySparse = spladeProvider.encode("java exception");
         List<SpladeCandidate> results = spladeIndex.search(
@@ -111,7 +111,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("RRF fusion â€” BM25 + SPLADE candidates merged and deduped")
+    @DisplayName("RRF fusion  --  BM25 + SPLADE candidates merged and deduped")
     void rrfFusion_mergesBM25AndSplade() {
         // Simulate the pipeline's RRF fusion step
         List<BM25Candidate> bm25Results = bm25Index.search("java error", 10);
@@ -141,7 +141,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("ColBERT reranking â€” changes first-stage order")
+    @DisplayName("ColBERT reranking  --  changes first-stage order")
     void colbertRerank_changesOrder() {
         // First-stage results: intentionally wrong order
         List<RerankCandidate> firstStage = List.of(
@@ -160,7 +160,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("Full stack flow â€” BM25 â†’ SPLADE â†’ fuse â†’ ColBERT rerank")
+    @DisplayName("Full stack flow  --  BM25  ->  SPLADE  ->  fuse  ->  ColBERT rerank")
     void fullStack_allLayers() {
         String query = "java error handling";
 
@@ -209,12 +209,12 @@ class RetrievalStackIntegrationTest {
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
     // Graceful degradation
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
 
     @Test
-    @DisplayName("Null SPLADE provider â€” BM25 still works")
+    @DisplayName("Null SPLADE provider  --  BM25 still works")
     void nullSplade_bm25StillWorks() {
         // Simulate the pipeline's null-check pattern
         MemorySpladeIndex nullSpladeIndex = null;
@@ -233,7 +233,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("Null ColBERT reranker â€” first-stage results preserved")
+    @DisplayName("Null ColBERT reranker  --  first-stage results preserved")
     void nullColbert_firstStagePreserved() {
         ColBERTReranker nullReranker = null;
 
@@ -249,7 +249,7 @@ class RetrievalStackIntegrationTest {
     }
 
     @Test
-    @DisplayName("TextSearchMode gates â€” only requested layers activate")
+    @DisplayName("TextSearchMode gates  --  only requested layers activate")
     void textSearchMode_gatesLayers() {
         // KEYWORD_ONLY should not activate SPLADE or ColBERT
         TextSearchMode mode = TextSearchMode.KEYWORD_ONLY;
@@ -264,7 +264,7 @@ class RetrievalStackIntegrationTest {
         assertThat(runColBERT).isFalse();
     }
 
-    // â”€â”€ Mock providers â”€â”€
+    // -€-€ Mock providers -€-€
 
     /**
      * Mock sparse encoding provider that uses simple term-frequency extraction.

@@ -48,7 +48,7 @@ import java.util.regex.Pattern;
  * returns an empty list (graceful degradation).</p>
  *
  * <h3>Performance Note</h3>
- * <p>LLM inference adds ~500msâ€“2s per memory. Use this extractor for
+ * <p>LLM inference adds ~500ms - 2s per memory. Use this extractor for
  * high-value ingestion where entity quality justifies the latency.</p>
  *
  * @see EntityExtractor
@@ -244,7 +244,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
             return List.of();
         }
 
-        // Parse relations â€” with format auto-detection.
+        // Parse relations  --  with format auto-detection.
         // Expected format: RELATION: source | RELATION_TYPE | target
         // But many models produce: RELATION: RELATION_TYPE | source_or_desc | target
         // We detect the swap by checking whether group(1) looks like a SCREAMING_SNAKE_CASE
@@ -274,7 +274,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
                 relTypeStr = g1.toUpperCase(Locale.ROOT).replaceAll("[- ]+", "_");
                 source = g2;
                 target = g3;
-                log.debug("[EntityExtract] Fixed swapped relation format: {} | {} | {} â†’ {} â†’ {} â†’ {}",
+                log.debug("[EntityExtract] Fixed swapped relation format: {} | {} | {}  ->  {}  ->  {}  ->  {}",
                         g1, g2, g3, source, relTypeStr, target);
             } else {
                 // Standard format: RELATION: source | RELATION_TYPE | target
@@ -303,7 +303,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
                 String target = twoFieldMatcher.group(2).trim();
 
                 // Try to decompose: find which entity name is a prefix of the merged type
-                // e.g., JOHN_SMITH_REPORTS_TO â†’ source=John_Smith, type=REPORTS_TO
+                // e.g., JOHN_SMITH_REPORTS_TO  ->  source=John_Smith, type=REPORTS_TO
                 String source = null;
                 String relTypeStr = mergedType;
                 String mergedUpper = mergedType.toUpperCase(Locale.ROOT);
@@ -323,12 +323,12 @@ public final class LlmEntityExtractor implements EntityExtractor {
                         || entityNameSet.contains(target.replace("_", " ").toLowerCase(Locale.ROOT));
 
                 if (source != null && targetIsEntity) {
-                    log.debug("[EntityExtract] Decomposed 2-field relation: {} | {} â†’ {} | {} | {}",
+                    log.debug("[EntityExtract] Decomposed 2-field relation: {} | {}  ->  {} | {} | {}",
                             mergedType, target, source, relTypeStr, target);
                     relations.add(new RelationTriple(source, relTypeStr, target));
                     relationCount++;
                 } else if (targetIsEntity) {
-                    // Can't decompose source â€” use RELATED_TO with first entity as source
+                    // Can't decompose source  --  use RELATED_TO with first entity as source
                     log.debug("[EntityExtract] 2-field relation with unknown source: {} | {}",
                             mergedType, target);
                 }

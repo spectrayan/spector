@@ -68,9 +68,9 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *
  * <h3>Bean Hierarchy</h3>
  * <ul>
- *   <li>{@code SpectorEngine} â€” metered wrapper (if metrics enabled) around {@code DefaultSpectorEngine}</li>
- *   <li>{@code SpectorMemory} â€” metered wrapper (if metrics enabled) around {@code DefaultSpectorMemory}</li>
- *   <li>{@code SpectorVectorStore} â€” Spring AI VectorStore bridge (if Spring AI on classpath)</li>
+ *   <li>{@code SpectorEngine}  --  metered wrapper (if metrics enabled) around {@code DefaultSpectorEngine}</li>
+ *   <li>{@code SpectorMemory}  --  metered wrapper (if metrics enabled) around {@code DefaultSpectorMemory}</li>
+ *   <li>{@code SpectorVectorStore}  --  Spring AI VectorStore bridge (if Spring AI on classpath)</li>
  * </ul>
  *
  * @see SpectorConfigProperties
@@ -154,7 +154,7 @@ public class SpectorAutoConfiguration {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));
         }
 
-        // â”€â”€ Entity extraction (LLM if LlmProvider is present) â”€â”€
+        // -€-€ Entity extraction (LLM if LlmProvider is present) -€-€
         LlmProvider textGen = textGenProvider.getIfAvailable();
         if (textGen != null) {
             builder.entityExtractionMode(EntityExtractionMode.LLM);
@@ -163,14 +163,14 @@ public class SpectorAutoConfiguration {
             builder.entityExtractionMode(EntityExtractionMode.NONE);
         }
 
-        // â”€â”€ Salience profile provider (user-driven importance modulation) â”€â”€
+        // -€-€ Salience profile provider (user-driven importance modulation) -€-€
         SalienceProfileProvider salience = salienceProvider.getIfAvailable();
         if (salience != null) {
             builder.salienceProfileProvider(salience);
             log.info("SpectorMemory: user salience profile provider wired");
         }
 
-        // â”€â”€ SPLADE + ColBERT providers (auto-created from embedding provider) â”€â”€
+        // -€-€ SPLADE + ColBERT providers (auto-created from embedding provider) -€-€
         if (memoryProps.isSpladeEnabled()) {
             builder.SparseEmbeddingProvider(
                     new com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider(embedder));

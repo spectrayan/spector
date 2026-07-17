@@ -39,7 +39,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * focused, single-responsibility components. Manages:</p>
  * <ul>
  *   <li>Hybrid, keyword, and vector search via {@link HybridSearchOrchestrator}</li>
- *   <li>Auto-embed search (text â†’ embedding â†’ hybrid search)</li>
+ *   <li>Auto-embed search (text  ->  embedding  ->  hybrid search)</li>
  *   <li>GPU-accelerated batch similarity (with CPU fallback)</li>
  * </ul>
  */
@@ -60,14 +60,14 @@ final class EngineSearch {
         this.gpuBatchSimilarity = gpuBatchSimilarity;
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Search -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Executes a search query. Reports SIMD telemetry per query if enabled.
      *
      * <p>Duration is sourced from {@link SearchResponse#queryTimeMs()} which
      * is recorded by the Micrometer timer in {@code MeteredSpectorEngine}.
-     * No manual {@code System.nanoTime()} â€” Micrometer is the single source of truth.</p>
+     * No manual {@code System.nanoTime()}  --  Micrometer is the single source of truth.</p>
      */
     SearchResponse search(SearchQuery query) {
         SearchResponse response = orchestrator.search(query);
@@ -75,7 +75,7 @@ final class EngineSearch {
                 config.similarityFunction().name(),
                 SimdCapability.PREFERRED_SPECIES.length(),
                 response.totalHits(),
-                response.queryTimeMs() * 1_000_000)); // ms â†’ nanos
+                response.queryTimeMs() * 1_000_000)); // ms  ->  nanos
         return response;
     }
 
@@ -103,7 +103,7 @@ final class EngineSearch {
         return hybridSearch(text, queryVector, topK);
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ GPU-Accelerated Batch Operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ GPU-Accelerated Batch Operations -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Computes batch cosine similarities using GPU if available, CPU SIMD otherwise.

@@ -43,7 +43,7 @@ import com.spectrayan.spector.memory.model.RecallOptions;
  *
  * <p>This replaces the randomly-generated qrels with relevance judgments
  * based on actual retrieval. Each query's top-20 results are graded:
- * top 1-3 â†’ relevance 3, 4-8 â†’ relevance 2, 9-20 â†’ relevance 1.</p>
+ * top 1-3  ->  relevance 3, 4-8  ->  relevance 2, 9-20  ->  relevance 1.</p>
  *
  * <h3>Usage</h3>
  * <pre>{@code

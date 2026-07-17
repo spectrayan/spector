@@ -41,7 +41,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <h3>Thread Safety</h3>
  * <p>Uses {@code synchronized} on the class lock. JUnit 5 test classes call
- * {@link #get()} from their {@code @BeforeAll} methods â€” all of which run on
+ * {@link #get()} from their {@code @BeforeAll} methods  --  all of which run on
  * the same thread in the default sequential executor.</p>
  */
 public final class E2EMemoryContext {
@@ -118,7 +118,7 @@ public final class E2EMemoryContext {
     public synchronized void ingestIfNeeded() {
         if (ingested) return;
 
-        log.info("â•â•â• Ingesting {} seed memories â•â•â•", seedMemories.size());
+        log.info("=== Ingesting {} seed memories ===", seedMemories.size());
         long start = System.currentTimeMillis();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -129,19 +129,19 @@ public final class E2EMemoryContext {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         long elapsed = System.currentTimeMillis() - start;
-        log.info("âœ… Ingested {} memories in {}ms ({}ms/memory)",
+        log.info("[x] Ingested {} memories in {}ms ({}ms/memory)",
                 seedMemories.size(), elapsed,
                 String.format("%.1f", (double) elapsed / seedMemories.size()));
 
         ingested = true;
     }
 
-    // â”€â”€ Initialization â”€â”€
+    // -€-€ Initialization -€-€
 
     private static void initialize() {
-        log.info("â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
-        log.info("â•‘  Spector Memory E2E â€” Initializing shared context           â•‘");
-        log.info("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+        log.info("=”===============================================================—");
+        log.info("=‘  Spector Memory E2E  --  Initializing shared context           =‘");
+        log.info("=š===============================================================");
 
         // Load seed data from markdown files
         seedMemories = E2ESeedData.loadAll();

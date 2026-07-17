@@ -67,47 +67,47 @@ public record RecallOptions(
         float beta,
         float tagRelevanceBoost,
         int semanticCandidateMultiplier,
-        // â”€â”€ Neurodivergent: Hyperfocus â”€â”€
+        // -€-€ Neurodivergent: Hyperfocus -€-€
         long hyperfocusMask,
         float hyperfocusBoost,
-        // â”€â”€ Neurodivergent: Lateral Retrieval â”€â”€
+        // -€-€ Neurodivergent: Lateral Retrieval -€-€
         boolean lateralMode,
         float lateralDistanceThreshold,
         int lateralMaxResults,
         float lateralMinTagOverlap,
-        // â”€â”€ Enhanced Scoring â”€â”€
+        // -€-€ Enhanced Scoring -€-€
         float strictnessCoefficient,
-        // â”€â”€ Valence Alignment (State-Dependent Recall) â”€â”€
+        // -€-€ Valence Alignment (State-Dependent Recall) -€-€
         byte queryValence,
         boolean enableValenceAlignment,
-        // â”€â”€ Two-Factor Memory (Bjork & Bjork) â”€â”€
+        // -€-€ Two-Factor Memory (Bjork & Bjork) -€-€
         com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig,
-        // â”€â”€ Recall Mode (Statefulness Control) â”€â”€
+        // -€-€ Recall Mode (Statefulness Control) -€-€
         RecallMode recallMode,
-        // â”€â”€ Text Search (BM25 Hybrid) â”€â”€
+        // -€-€ Text Search (BM25 Hybrid) -€-€
         float gamma,
         boolean enableTextSearch,
         TextSearchMode textSearchMode,
-        // â”€â”€ Scoring Mode â”€â”€
+        // -€-€ Scoring Mode -€-€
         ScoringMode scoringMode,
-        // â”€â”€ Entity Hints (Pre-Extracted Entities) â”€â”€
+        // -€-€ Entity Hints (Pre-Extracted Entities) -€-€
         List<ExtractedEntity> entityHints,
-        // â”€â”€ Pipeline Tracing â”€â”€
+        // -€-€ Pipeline Tracing -€-€
         boolean enableTrace,
-        // â”€â”€ Temporal Gating â”€â”€
+        // -€-€ Temporal Gating -€-€
         Long minTimestamp,
         Long maxTimestamp,
-        // â”€â”€ Graph Expansion Gating â”€â”€
+        // -€-€ Graph Expansion Gating -€-€
         float graphExpansionThreshold,
-        // â”€â”€ WAL Replay (Time-Travel) â”€â”€
+        // -€-€ WAL Replay (Time-Travel) -€-€
         Instant replayTimestamp,
         int maxReplayEvents,
-        // â”€â”€ Reranker (ColBERT v2) â”€â”€
+        // -€-€ Reranker (ColBERT v2) -€-€
         boolean enableReranker,
         int rerankerDepth,
-        // â”€â”€ Auto-Profile Detection â”€â”€
+        // -€-€ Auto-Profile Detection -€-€
         boolean autoProfile,
-        // â”€â”€ Resolved Profile (for header stamping) â”€â”€
+        // -€-€ Resolved Profile (for header stamping) -€-€
         CognitiveProfile resolvedProfile
 ) {
 
@@ -121,9 +121,9 @@ public record RecallOptions(
         return new Builder();
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Composed sub-record accessors â€” progressive migration API
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // Composed sub-record accessors  --  progressive migration API
+    // ==============================================================
 
     /** Returns filter parameters as a composed {@link FilterOptions}. */
     public FilterOptions filter() {
@@ -185,65 +185,65 @@ public record RecallOptions(
         private byte minValence = Byte.MIN_VALUE;
         private byte maxValence = Byte.MAX_VALUE;
         private float alpha = 0.6f;  // similarity weight
-        private float beta = 0.4f;   // importance Ã— decay weight
+        private float beta = 0.4f;   // importance x decay weight
         private float tagRelevanceBoost = 0.3f;  // weighted tag overlap boost
         private int semanticCandidateMultiplier = 3; // HNSW over-fetch for semantic
 
-        // â”€â”€ Text Search (BM25 Hybrid) â”€â”€
+        // -€-€ Text Search (BM25 Hybrid) -€-€
         private float gamma = 0.3f;                             // BM25 weight in fused score
         private boolean enableTextSearch = true;                 // enable BM25 parallel path
         private TextSearchMode textSearchMode = TextSearchMode.HYBRID; // search mode
 
-        // â”€â”€ Scoring Mode â”€â”€
+        // -€-€ Scoring Mode -€-€
         private ScoringMode scoringMode = ScoringMode.COGNITIVE; // default: full cognitive
 
-        // â”€â”€ Entity Hints â”€â”€
+        // -€-€ Entity Hints -€-€
         private List<ExtractedEntity> entityHints = List.of(); // default: empty (use EntityExtractor)
 
-        // â”€â”€ Pipeline Tracing â”€â”€
+        // -€-€ Pipeline Tracing -€-€
         private boolean enableTrace = false; // default: off (no allocation overhead)
 
-        // â”€â”€ Temporal Gating â”€â”€
+        // -€-€ Temporal Gating -€-€
         private Long minTimestamp = null;
         private Long maxTimestamp = null;
 
-        // â”€â”€ Graph Expansion Gating â”€â”€
+        // -€-€ Graph Expansion Gating -€-€
         private float graphExpansionThreshold = 0.40f; // default: expand when max similarity < 0.40
 
-        // â”€â”€ WAL Replay (Time-Travel) â”€â”€
+        // -€-€ WAL Replay (Time-Travel) -€-€
         private Instant replayTimestamp = null;    // null = disabled
         private int maxReplayEvents = 100_000;     // cap to prevent OOM on large WALs
 
-        // â”€â”€ Reranker (ColBERT v2) â”€â”€
+        // -€-€ Reranker (ColBERT v2) -€-€
         private boolean enableReranker = false;     // default: off (requires TokenEmbeddingProvider)
         private int rerankerDepth = 50;             // rerank top-50 first-stage candidates
 
-        // â”€â”€ Auto-Profile Detection â”€â”€
+        // -€-€ Auto-Profile Detection -€-€
         private boolean autoProfile = false;         // default: off (use explicit profile)
         private CognitiveProfile resolvedProfile = null; // set when profile() is called
 
-        // â”€â”€ Neurodivergent: Hyperfocus â”€â”€
+        // -€-€ Neurodivergent: Hyperfocus -€-€
         private long hyperfocusMask = 0L;       // 0 = disabled
         private float hyperfocusBoost = 1.0f;   // post-score multiplier
 
-        // â”€â”€ Neurodivergent: Lateral Retrieval â”€â”€
+        // -€-€ Neurodivergent: Lateral Retrieval -€-€
         private boolean lateralMode = false;
         private float lateralDistanceThreshold = 1.2f;
         private int lateralMaxResults = -1;      // -1 = topK/3
         private float lateralMinTagOverlap = 0.5f;
 
-        // â”€â”€ Enhanced Scoring â”€â”€
+        // -€-€ Enhanced Scoring -€-€
         private float strictnessCoefficient = 1.0f; // 1.0 = standard, 10.0 = Heaviside cliff
 
-        // â”€â”€ Valence Alignment (State-Dependent Recall) â”€â”€
+        // -€-€ Valence Alignment (State-Dependent Recall) -€-€
         private byte queryValence = 0;              // 0 = neutral
         private boolean enableValenceAlignment = false;
 
-        // â”€â”€ Two-Factor Memory (Bjork & Bjork) â”€â”€
+        // -€-€ Two-Factor Memory (Bjork & Bjork) -€-€
         private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
                 = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
 
-        // â”€â”€ Recall Mode â”€â”€
+        // -€-€ Recall Mode -€-€
         private RecallMode recallMode = RecallMode.LEARN;
 
         /**
@@ -300,7 +300,7 @@ public record RecallOptions(
         }
 
         /**
-         * Minimum importance threshold â€” memories below this are skipped.
+         * Minimum importance threshold  --  memories below this are skipped.
          */
         public Builder minImportance(float minImportance) {
             this.minImportance = minImportance;
@@ -341,7 +341,7 @@ public record RecallOptions(
         }
 
         /**
-         * Scoring weight for importance Ã— decay (default: 0.4).
+         * Scoring weight for importance x decay (default: 0.4).
          */
         public Builder beta(float beta) {
             this.beta = beta;
@@ -367,7 +367,7 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Neurodivergent: Hyperfocus â”€â”€
+        // -€-€ Neurodivergent: Hyperfocus -€-€
 
         /**
          * Sets the hyperfocus Bloom filter mask from raw long value.
@@ -397,10 +397,10 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Neurodivergent: Lateral Retrieval â”€â”€
+        // -€-€ Neurodivergent: Lateral Retrieval -€-€
 
         /**
-         * Enables lateral/orthogonal retrieval â€” finds tag-matched but semantically
+         * Enables lateral/orthogonal retrieval  --  finds tag-matched but semantically
          * distant memories for cross-domain insight (default: false).
          */
         public Builder lateralMode(boolean enabled) {
@@ -410,7 +410,7 @@ public record RecallOptions(
 
         /**
          * Minimum L2 distance for a memory to qualify as a lateral candidate (default: 1.2).
-         * Higher values â†’ only very distant memories are considered lateral.
+         * Higher values  ->  only very distant memories are considered lateral.
          */
         public Builder lateralDistanceThreshold(float threshold) {
             this.lateralDistanceThreshold = threshold;
@@ -435,11 +435,11 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Enhanced Scoring â”€â”€
+        // -€-€ Enhanced Scoring -€-€
 
         /**
          * Strictness coefficient for the similarity function (default: 1.0).
-         * Higher values create a steeper "cliff" â€” near-matches score well,
+         * Higher values create a steeper "cliff"  --  near-matches score well,
          * slightly vague matches plummet. Use 10.0 for SYSTEMATIZER / THE_EXECUTOR.
          */
         public Builder strictnessCoefficient(float k) {
@@ -447,7 +447,7 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Valence Alignment (State-Dependent Recall) â”€â”€
+        // -€-€ Valence Alignment (State-Dependent Recall) -€-€
 
         /**
          * Sets the query's emotional valence for state-dependent recall.
@@ -467,15 +467,15 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Recall Mode â”€â”€
+        // -€-€ Recall Mode -€-€
 
         /**
-         * Sets the recall mode â€” controls whether recall mutates memory state.
+         * Sets the recall mode  --  controls whether recall mutates memory state.
          *
          * <ul>
-         *   <li>{@link RecallMode#LEARN} (default): Full biological memory â€” recall
+         *   <li>{@link RecallMode#LEARN} (default): Full biological memory  --  recall
          *       fires LTP, Hebbian, habituation, ACT-R timestamps.</li>
-         *   <li>{@link RecallMode#OBSERVE}: Pure read â€” no side effects.
+         *   <li>{@link RecallMode#OBSERVE}: Pure read  --  no side effects.
          *       Same query always returns the same results.</li>
          * </ul>
          *
@@ -514,7 +514,7 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Text Search (BM25 Hybrid) â”€â”€
+        // -€-€ Text Search (BM25 Hybrid) -€-€
 
         /**
          * BM25 weight in the fused cognitive score (default: 0.3).
@@ -568,7 +568,7 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Auto-Profile Detection â”€â”€
+        // -€-€ Auto-Profile Detection -€-€
 
         /**
          * Enables automatic profile detection from recall context tags.
@@ -595,7 +595,7 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Entity Hints â”€â”€
+        // -€-€ Entity Hints -€-€
 
         /**
          * Pre-extracted entities for entity graph traversal at recall time.
@@ -620,7 +620,7 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Pipeline Tracing â”€â”€
+        // -€-€ Pipeline Tracing -€-€
 
         /**
          * Enables per-result pipeline scoring trace (default: false).
@@ -638,10 +638,10 @@ public record RecallOptions(
             return this;
         }
 
-        // â”€â”€ Temporal Gating â”€â”€
+        // -€-€ Temporal Gating -€-€
 
         /**
-         * Minimum timestamp (inclusive) â€” memories older than this are skipped.
+         * Minimum timestamp (inclusive)  --  memories older than this are skipped.
          */
         public Builder minTimestamp(Long minTimestamp) {
             this.minTimestamp = minTimestamp;
@@ -649,18 +649,18 @@ public record RecallOptions(
         }
 
         /**
-         * Maximum timestamp (inclusive) â€” memories newer than this are skipped.
+         * Maximum timestamp (inclusive)  --  memories newer than this are skipped.
          */
         public Builder maxTimestamp(Long maxTimestamp) {
             this.maxTimestamp = maxTimestamp;
             return this;
         }
 
-        // â”€â”€ Graph Expansion Gating â”€â”€
+        // -€-€ Graph Expansion Gating -€-€
 
         /**
          * Maximum direct similarity score below which graph expansion is triggered (default: 0.40).
-         * When the best direct result has similarity â‰¥ this threshold, graph expansion
+         * When the best direct result has similarity  >=  this threshold, graph expansion
          * (Hebbian, temporal, entity) is skipped to avoid diluting strong results.
          * Set to 0.0 to disable graph expansion entirely, or 1.0 to always expand.
          */
@@ -693,9 +693,9 @@ public record RecallOptions(
         }
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Validation â€” detect conflicting parameter combinations
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ==============================================================
+    // Validation  --  detect conflicting parameter combinations
+    // ==============================================================
 
     private static final Logger VALIDATION_LOG = LoggerFactory.getLogger(RecallOptions.class);
 
@@ -704,7 +704,7 @@ public record RecallOptions(
      *
      * <p>Returns a list of warning messages describing detected conflicts.
      * Also logs each warning via {@code java.util.logging}. The recall operation
-     * proceeds regardless â€” these are advisory, not blocking.</p>
+     * proceeds regardless  --  these are advisory, not blocking.</p>
      *
      * <h4>Detected Conflicts</h4>
      * <ul>
@@ -713,7 +713,7 @@ public record RecallOptions(
      *       two features fight each other.</li>
      *   <li><b>hyperfocusMask + lateralMode</b>: Hyperfocus narrows attention to a
      *       specific topic, while lateral mode broadens it. Use one or the other.</li>
-     *   <li><b>Î± + Î² â‰  1.0</b>: Scoring weights should typically sum to 1.0.
+     *   <li><b>alpha + beta  !=  1.0</b>: Scoring weights should typically sum to 1.0.
      *       Other values produce unnormalized scores.</li>
      * </ul>
      *
@@ -725,7 +725,7 @@ public record RecallOptions(
         // 1. lateralMode + high strictness are contradictory
         if (lateralMode && strictnessCoefficient > 5.0f) {
             String msg = "lateralMode=true + strictnessCoefficient=" + strictnessCoefficient
-                    + " is contradictory â€” lateral finds distant matches, high strictness rejects them. "
+                    + " is contradictory  --  lateral finds distant matches, high strictness rejects them. "
                     + "Consider using one or the other.";
             warnings.add(msg);
             VALIDATION_LOG.warn(msg);
@@ -733,17 +733,17 @@ public record RecallOptions(
 
         // 2. hyperfocusMask + lateralMode are contradictory
         if (hyperfocusMask != 0 && lateralMode) {
-            String msg = "hyperfocusMask is set + lateralMode=true â€” hyperfocus narrows attention "
+            String msg = "hyperfocusMask is set + lateralMode=true  --  hyperfocus narrows attention "
                     + "to a specific topic, lateral mode broadens it. Consider using one or the other.";
             warnings.add(msg);
             VALIDATION_LOG.warn(msg);
         }
 
-        // 3. Î± + Î² should sum to ~1.0
+        // 3. alpha + beta should sum to ~1.0
         float sum = alpha + beta;
         if (Math.abs(sum - 1.0f) > 0.01f) {
             String msg = "alpha (" + alpha + ") + beta (" + beta + ") = " + sum
-                    + " â€” scoring weights don't sum to 1.0. Scores may be unnormalized.";
+                    + "  --  scoring weights don't sum to 1.0. Scores may be unnormalized.";
             warnings.add(msg);
             VALIDATION_LOG.warn(msg);
         }
