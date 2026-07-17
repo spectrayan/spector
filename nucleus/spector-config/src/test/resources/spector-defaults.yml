@@ -40,7 +40,21 @@ spector:
     oversampling-factor: 3
     kmeans-iterations: 25
 
-  # ─── Embedding ───
+  # ─── Multi-LLM Provider Defaults ───
+  provider:
+    embedding:
+      type: ollama
+      model: nomic-embed-text
+      base-url: http://localhost:11434
+      api-key: ""
+      dimensions: 0
+    generation:
+      type: ollama
+      model: ""
+      base-url: http://localhost:11434
+      api-key: ""
+
+  # ─── Embedding (Legacy) ───
   embedding:
     model: nomic-embed-text
     base-url: http://localhost:11434

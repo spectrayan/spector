@@ -48,7 +48,7 @@ public final class EmbeddingProviderFactory {
             config = withBaseUrl.invoke(config, baseUrl);
 
             var providerClass = Class.forName(
-                    "com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider");
+                    "com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider");
             var constructor = providerClass.getConstructor(configClass);
             return (EmbeddingProvider) constructor.newInstance(config);
         } catch (ClassNotFoundException e) {

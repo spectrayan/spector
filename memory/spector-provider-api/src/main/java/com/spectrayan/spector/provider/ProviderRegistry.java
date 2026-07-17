@@ -119,4 +119,29 @@ public interface ProviderRegistry extends AutoCloseable {
      * @return health check result
      */
     ProviderHealth health(String name);
+
+    /** Returns the name of the currently active embedding provider. */
+    Optional<String> activeEmbeddingName();
+
+    /** Returns the name of the currently active generation provider. */
+    Optional<String> activeGenerationName();
+
+    /** Returns the names of all registered embedding providers. */
+    default Set<String> embeddingProviderNames() {
+        return embeddingNames();
+    }
+
+    /** Returns the names of all registered generation providers. */
+    default Set<String> generationProviderNames() {
+        return generationNames();
+    }
+
+    /** Tests connectivity for a named embedding provider. */
+    ProviderHealth checkEmbeddingHealth(String name);
+
+    /** Tests connectivity for a named generation provider. */
+    ProviderHealth checkGenerationHealth(String name);
+
+    /** Returns health status for all registered providers. */
+    java.util.Map<String, ProviderHealth> allHealth();
 }

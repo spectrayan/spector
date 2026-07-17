@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index.spectrum;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.config.HnswParams;
 import com.spectrayan.spector.index.ScoredResult;
 

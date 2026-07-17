@@ -97,11 +97,7 @@
             <artifactId>spector-memory</artifactId>
         </dependency>
 
-        <!-- ── Spector Embedding Ollama (SPLADE + ColBERT providers) ── -->
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
-        </dependency>
+        <!-- ── LLM and Embedding Providers ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-providers</artifactId>

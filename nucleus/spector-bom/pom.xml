@@ -43,20 +43,10 @@
                 <version>${project.version}</version>
             </dependency>
 
-            <!-- ── Embedding Layer ── -->
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-embed-api</artifactId>
-                <version>${project.version}</version>
-            </dependency>
+            <!-- ── Provider/Embedding Layer ── -->
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-provider-api</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-embed-ollama</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

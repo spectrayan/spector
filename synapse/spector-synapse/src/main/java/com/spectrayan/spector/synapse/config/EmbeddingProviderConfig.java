@@ -12,10 +12,12 @@
  */
 package com.spectrayan.spector.synapse.config;
 
+import com.spectrayan.spector.provider.DefaultProviderRegistry;
+import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.embed.EmbeddingConfig;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.TextGenerationProvider;
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +42,12 @@ public class EmbeddingProviderConfig {
     private static final Logger log = LoggerFactory.getLogger(EmbeddingProviderConfig.class);
 
     @Bean
+    @ConditionalOnMissingBean(ProviderRegistry.class)
+    ProviderRegistry providerRegistry() {
+        return new DefaultProviderRegistry();
+    }
+
+    @Bean
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     EmbeddingProvider embeddingProvider(SynapseProperties props) {
         EmbeddingConfig config = EmbeddingConfig
@@ -59,9 +67,9 @@ public class EmbeddingProviderConfig {
 
     @Bean
     @ConditionalOnMissingBean(TextGenerationProvider.class)
-    TextGenerationProvider textGenerationProvider(com.spectrayan.spector.synapse.provider.ProviderRegistry providerRegistry, SynapseProperties props) {
+    TextGenerationProvider textGenerationProvider(ProviderRegistry providerRegistry, SynapseProperties props) {
         try {
-            var llm = new com.spectrayan.spector.embed.ollama.OllamaLlmProvider(
+            var llm = new com.spectrayan.spector.provider.ollama.OllamaLlmProvider(
                     props.ollama().model(), props.ollama().baseUrl(), java.time.Duration.ofSeconds(300));
             providerRegistry.registerGeneration("ollama", llm);
             log.info("[EmbeddingProvider] Registered default Ollama text generation provider: model={}, baseUrl={}, timeout=300s",

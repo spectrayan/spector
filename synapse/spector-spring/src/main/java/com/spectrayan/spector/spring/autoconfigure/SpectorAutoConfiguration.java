@@ -173,11 +173,11 @@ public class SpectorAutoConfiguration {
         // ── SPLADE + ColBERT providers (auto-created from embedding provider) ──
         if (memoryProps.isSpladeEnabled()) {
             builder.sparseEncodingProvider(
-                    new com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider(embedder));
+                    new com.spectrayan.spector.provider.ollama.OllamaSparseEncodingProvider(embedder));
         }
         if (memoryProps.isColbertEnabled()) {
             builder.tokenEmbeddingProvider(
-                    new com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider(embedder));
+                    new com.spectrayan.spector.provider.ollama.OllamaTokenEmbeddingProvider(embedder));
         }
 
         SpectorMemory raw = builder.build();

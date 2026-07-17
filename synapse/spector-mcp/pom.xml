@@ -40,11 +40,7 @@
             <artifactId>spector-ingestion</artifactId>
         </dependency>
 
-        <!-- ── Ollama Embedding + Text Generation Provider ── -->
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
-        </dependency>
+        <!-- ── LLM and Embedding Providers ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-providers</artifactId>

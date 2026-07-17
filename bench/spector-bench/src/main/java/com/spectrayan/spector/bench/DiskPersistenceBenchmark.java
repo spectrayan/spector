@@ -20,7 +20,7 @@ import com.spectrayan.spector.config.PersistenceMode;
 import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;

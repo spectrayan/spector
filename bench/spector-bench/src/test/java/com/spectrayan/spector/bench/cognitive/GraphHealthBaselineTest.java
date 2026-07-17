@@ -39,7 +39,7 @@ import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
 import com.spectrayan.spector.bench.cognitive.model.PersonaDef;
 import com.spectrayan.spector.bench.cognitive.model.TemporalChainDef;
 import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.ReflectReport;
 

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.provider;
 
+import com.spectrayan.spector.provider.ProviderHealth;
+import com.spectrayan.spector.provider.ProviderRegistry;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

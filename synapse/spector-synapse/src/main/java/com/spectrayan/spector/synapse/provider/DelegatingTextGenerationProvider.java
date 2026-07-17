@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.provider;
 
 import com.spectrayan.spector.embed.GenerationOptions;
 import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.ProviderRegistry;
 
 /**
  * Delegating implementation of {@link TextGenerationProvider} that routes requests

@@ -24,7 +24,7 @@ import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.TextGenerationProvider;
-import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 import com.spectrayan.spector.ingestion.EmbeddingProviderFactory;
 import com.spectrayan.spector.runtime.IngestionHandler;
 import com.spectrayan.spector.runtime.SpectorRuntime;

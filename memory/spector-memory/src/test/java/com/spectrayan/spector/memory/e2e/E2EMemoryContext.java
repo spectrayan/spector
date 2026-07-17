@@ -12,10 +12,10 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
-import com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
+import com.spectrayan.spector.provider.ollama.OllamaSparseEncodingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaTokenEmbeddingProvider;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;

@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.*;
 
 import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.EmbeddingResult;
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import org.junit.jupiter.api.*;

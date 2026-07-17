@@ -30,7 +30,7 @@ import com.spectrayan.spector.bench.cognitive.DatasetLoader.LoadedDataset;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.TextSearchMode;

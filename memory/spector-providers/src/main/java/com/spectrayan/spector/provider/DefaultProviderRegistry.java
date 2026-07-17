@@ -177,6 +177,40 @@ public class DefaultProviderRegistry implements ProviderRegistry {
         activeGenerationName = null;
     }
 
+    @Override
+    public Optional<String> activeEmbeddingName() {
+        return Optional.ofNullable(activeEmbeddingName);
+    }
+
+    @Override
+    public Optional<String> activeGenerationName() {
+        return Optional.ofNullable(activeGenerationName);
+    }
+
+    @Override
+    public ProviderHealth checkEmbeddingHealth(String name) {
+        EmbeddingProvider provider = embeddingProviders.get(name);
+        return provider != null ? checkEmbeddingProviderHealth(name, provider) : ProviderHealth.unknown(name);
+    }
+
+    @Override
+    public ProviderHealth checkGenerationHealth(String name) {
+        TextGenerationProvider provider = generationProviders.get(name);
+        return provider != null ? checkGenerationProviderHealth(name, provider) : ProviderHealth.unknown(name);
+    }
+
+    @Override
+    public Map<String, ProviderHealth> allHealth() {
+        Map<String, ProviderHealth> results = new java.util.HashMap<>();
+        for (String name : embeddingProviders.keySet()) {
+            results.put("embedding:" + name, checkEmbeddingHealth(name));
+        }
+        for (String name : generationProviders.keySet()) {
+            results.put("generation:" + name, checkGenerationHealth(name));
+        }
+        return results;
+    }
+
     // ─────────────── Private helpers ───────────────
 
     private ProviderHealth checkEmbeddingProviderHealth(String name, EmbeddingProvider provider) {

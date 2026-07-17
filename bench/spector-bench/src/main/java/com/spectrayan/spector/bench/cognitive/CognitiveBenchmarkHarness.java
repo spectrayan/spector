@@ -39,7 +39,7 @@ import com.spectrayan.spector.bench.cognitive.model.BenchmarkExitCode;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;

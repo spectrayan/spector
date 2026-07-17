@@ -46,10 +46,6 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.spectrayan</groupId>
             <artifactId>spector-providers</artifactId>
         </dependency>
 

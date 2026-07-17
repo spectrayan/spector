@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.ingestion.sensory.TikaTextExtractor;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemory;

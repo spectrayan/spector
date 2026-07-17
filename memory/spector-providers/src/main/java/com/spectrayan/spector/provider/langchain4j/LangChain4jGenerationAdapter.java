@@ -79,12 +79,12 @@ public class LangChain4jGenerationAdapter implements TextGenerationProvider {
 
         // Build per-request parameters from GenerationOptions
         var paramsBuilder = ChatRequestParameters.builder();
-        paramsBuilder.temperature(options.temperature());
+        paramsBuilder.temperature((double) options.temperature());
 
         if (options.maxTokens() > 0) {
             paramsBuilder.maxOutputTokens(options.maxTokens());
         }
-        paramsBuilder.topP(options.topP());
+        paramsBuilder.topP((double) options.topP());
 
         if (options.stopSequences() != null && options.stopSequences().length > 0) {
             paramsBuilder.stopSequences(List.of(options.stopSequences()));

@@ -26,10 +26,6 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.spectrayan</groupId>
             <artifactId>spector-provider-api</artifactId>
         </dependency>
         <dependency>
