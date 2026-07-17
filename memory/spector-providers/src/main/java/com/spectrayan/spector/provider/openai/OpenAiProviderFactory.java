@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.provider.openai;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
@@ -87,7 +87,7 @@ public class OpenAiProviderFactory implements ProviderFactory {
     }
 
     @Override
-    public Optional<TextGenerationProvider> createGenerationProvider(ProviderConfig config) {
+    public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         var builder = OpenAiChatModel.builder()
                 .apiKey(config.apiKey())
                 .modelName(config.model())

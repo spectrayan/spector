@@ -15,9 +15,9 @@
  */
 package com.spectrayan.spector.provider.ollama;
 
-import com.spectrayan.spector.embed.EmbeddingConfig;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.commons.error.SpectorEmbeddingException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;

@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.provider;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

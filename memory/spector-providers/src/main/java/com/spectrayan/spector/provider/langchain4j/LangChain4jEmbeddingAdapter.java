@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.provider.langchain4j;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;

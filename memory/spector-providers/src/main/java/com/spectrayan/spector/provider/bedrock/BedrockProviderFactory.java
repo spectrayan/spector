@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.provider.bedrock;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
@@ -66,7 +66,7 @@ public class BedrockProviderFactory implements ProviderFactory {
     }
 
     @Override
-    public Optional<TextGenerationProvider> createGenerationProvider(ProviderConfig config) {
+    public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         // Bedrock requires the langchain4j-amazon-bedrock module.
         // When available, uncomment and use:
         //

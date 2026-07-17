@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.provider;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +50,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
     private static final Logger log = LoggerFactory.getLogger(DefaultProviderRegistry.class);
 
     private final Map<String, EmbeddingProvider> embeddingProviders = new ConcurrentHashMap<>();
-    private final Map<String, TextGenerationProvider> generationProviders = new ConcurrentHashMap<>();
+    private final Map<String, LlmProvider> generationProviders = new ConcurrentHashMap<>();
 
     private final ReentrantReadWriteLock embeddingLock = new ReentrantReadWriteLock();
     private final ReentrantReadWriteLock generationLock = new ReentrantReadWriteLock();
@@ -106,7 +106,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
     // ─────────────── Generation ───────────────
 
     @Override
-    public void registerGeneration(String name, TextGenerationProvider provider) {
+    public void registerGeneration(String name, LlmProvider provider) {
         generationProviders.put(name, provider);
         log.info("Registered generation provider: {} (model={})", name, provider.modelName());
 
@@ -116,7 +116,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
     }
 
     @Override
-    public Optional<TextGenerationProvider> activeGeneration() {
+    public Optional<LlmProvider> activeGeneration() {
         generationLock.readLock().lock();
         try {
             String name = activeGenerationName;
@@ -157,7 +157,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
             return checkEmbeddingProviderHealth(name, embeddingProvider);
         }
 
-        TextGenerationProvider generationProvider = generationProviders.get(name);
+        LlmProvider generationProvider = generationProviders.get(name);
         if (generationProvider != null) {
             return checkGenerationProviderHealth(name, generationProvider);
         }
@@ -195,7 +195,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
 
     @Override
     public ProviderHealth checkGenerationHealth(String name) {
-        TextGenerationProvider provider = generationProviders.get(name);
+        LlmProvider provider = generationProviders.get(name);
         return provider != null ? checkGenerationProviderHealth(name, provider) : ProviderHealth.unknown(name);
     }
 
@@ -225,7 +225,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
         }
     }
 
-    private ProviderHealth checkGenerationProviderHealth(String name, TextGenerationProvider provider) {
+    private ProviderHealth checkGenerationProviderHealth(String name, LlmProvider provider) {
         Instant start = Instant.now();
         try {
             if (provider.isAvailable()) {

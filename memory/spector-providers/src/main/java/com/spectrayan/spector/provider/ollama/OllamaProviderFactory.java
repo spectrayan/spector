@@ -15,9 +15,9 @@
  */
 package com.spectrayan.spector.provider.ollama;
 
-import com.spectrayan.spector.embed.EmbeddingConfig;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 
@@ -83,7 +83,7 @@ public class OllamaProviderFactory implements ProviderFactory {
     }
 
     @Override
-    public Optional<TextGenerationProvider> createGenerationProvider(ProviderConfig config) {
+    public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         String baseUrl = config.hasBaseUrl() ? config.baseUrl() : DEFAULT_BASE_URL;
         int timeout = Integer.parseInt(config.property("timeout", "60"));
 

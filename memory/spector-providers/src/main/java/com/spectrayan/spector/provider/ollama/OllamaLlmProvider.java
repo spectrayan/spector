@@ -15,12 +15,14 @@
  */
 package com.spectrayan.spector.provider.ollama;
 
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.model.*;
+
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
+import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.ollama.OllamaChatModel;
-import dev.langchain4j.data.message.UserMessage;
 
 import java.time.Duration;
 import java.util.List;
@@ -30,7 +32,7 @@ import java.util.concurrent.Semaphore;
 /**
  * Text generation provider backed by a local Ollama server, utilizing LangChain4j.
  */
-public class OllamaLlmProvider implements TextGenerationProvider {
+public class OllamaLlmProvider implements LlmProvider {
 
     private final String model;
     private final String baseUrl;
@@ -62,15 +64,9 @@ public class OllamaLlmProvider implements TextGenerationProvider {
     }
 
     @Override
-    public String generate(String prompt) {
-        return generate(prompt, GenerationOptions.DEFAULT);
-    }
-
-    @Override
-    public String generate(String prompt, GenerationOptions options) {
-        if (prompt == null || prompt.isBlank()) {
-            throw new GenerationException("prompt must not be null or blank");
-        }
+    public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+        Objects.requireNonNull(request, "request must not be null");
+        var actualOptions = options != null ? options : GenerationOptions.DEFAULT;
 
         try {
             llmGate.acquire();
@@ -80,27 +76,44 @@ public class OllamaLlmProvider implements TextGenerationProvider {
         }
 
         try {
-            if (options == null) {
-                return delegate.chat(prompt);
+            // Build parameters from GenerationOptions
+            var paramsBuilder = ChatRequestParameters.builder();
+            paramsBuilder.temperature((double) actualOptions.temperature());
+
+            if (actualOptions.maxTokens() > 0) {
+                paramsBuilder.maxOutputTokens(actualOptions.maxTokens());
+            }
+            paramsBuilder.topP((double) actualOptions.topP());
+
+            if (actualOptions.stopSequences() != null && actualOptions.stopSequences().length > 0) {
+                paramsBuilder.stopSequences(List.of(actualOptions.stopSequences()));
             }
 
-            var paramsBuilder = ChatRequestParameters.builder();
-            paramsBuilder.temperature((double) options.temperature());
-            if (options.maxTokens() > 0) {
-                paramsBuilder.maxOutputTokens(options.maxTokens());
+            if (request.responseJsonSchema() != null && !request.responseJsonSchema().isBlank()) {
+                paramsBuilder.responseFormat(ResponseFormat.JSON);
             }
-            paramsBuilder.topP((double) options.topP());
-            if (options.stopSequences() != null && options.stopSequences().length > 0) {
-                paramsBuilder.stopSequences(List.of(options.stopSequences()));
-            }
+
+            // Map Spector messages to LangChain4j messages
+            List<dev.langchain4j.data.message.ChatMessage> langChainMessages = request.messages().stream()
+                    .map(this::mapMessage)
+                    .filter(Objects::nonNull)
+                    .toList();
 
             var chatRequest = ChatRequest.builder()
-                    .messages(List.of(UserMessage.from(prompt)))
+                    .messages(langChainMessages)
                     .parameters(paramsBuilder.build())
                     .build();
 
             var response = delegate.chat(chatRequest);
-            return response.aiMessage().text();
+
+            int inputTokens = 0;
+            int outputTokens = 0;
+            if (response.tokenUsage() != null) {
+                inputTokens = response.tokenUsage().inputTokenCount() != null ? response.tokenUsage().inputTokenCount() : 0;
+                outputTokens = response.tokenUsage().outputTokenCount() != null ? response.tokenUsage().outputTokenCount() : 0;
+            }
+
+            return new LlmResponse(response.aiMessage().text(), inputTokens, outputTokens, model);
         } catch (Exception e) {
             if (e.getMessage() != null && (e.getMessage().contains("ConnectException") || e.getMessage().contains("UnknownHostException") || e.getMessage().contains("Connection refused"))) {
                 throw new GenerationException("Ollama server unavailable at " + baseUrl, e);
@@ -109,6 +122,40 @@ public class OllamaLlmProvider implements TextGenerationProvider {
         } finally {
             llmGate.release();
         }
+    }
+
+    private dev.langchain4j.data.message.ChatMessage mapMessage(ChatMessage message) {
+        switch (message.role()) {
+            case SYSTEM:
+                return dev.langchain4j.data.message.SystemMessage.from(message.text());
+            case AI:
+                return dev.langchain4j.data.message.AiMessage.from(message.text());
+            case TOOL:
+                return dev.langchain4j.data.message.UserMessage.from(message.text());
+            case USER:
+            default:
+                List<dev.langchain4j.data.message.Content> contents = message.content().stream()
+                        .map(this::mapContentBlock)
+                        .filter(Objects::nonNull)
+                        .toList();
+                return dev.langchain4j.data.message.UserMessage.from(contents);
+        }
+    }
+
+    private dev.langchain4j.data.message.Content mapContentBlock(ContentBlock block) {
+        if (block instanceof TextContent txt) {
+            return dev.langchain4j.data.message.TextContent.from(txt.text());
+        } else if (block instanceof ImageContent img) {
+            if (img.hasData()) {
+                return dev.langchain4j.data.message.ImageContent.from(
+                        java.util.Base64.getEncoder().encodeToString(img.data()),
+                        img.mimeType()
+                );
+            } else if (img.hasUrl()) {
+                return dev.langchain4j.data.message.ImageContent.from(img.url());
+            }
+        }
+        return null;
     }
 
     @Override
