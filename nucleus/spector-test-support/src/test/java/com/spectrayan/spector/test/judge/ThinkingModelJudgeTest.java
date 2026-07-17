@@ -222,7 +222,12 @@ class ThinkingModelJudgeTest {
         LlmProvider mockLlm = new LlmProvider() {
             @Override
             public LlmResponse generate(LlmRequest request, GenerationOptions options) {
-                return new LlmResponse(fixedResponse, 0, 0, "mock-thinking-model");
+                return new LlmResponse(fixedResponse == null ? "" : fixedResponse, 0, 0, "mock-thinking-model");
+            }
+
+            @Override
+            public String generate(String prompt) {
+                return fixedResponse;
             }
 
             @Override
