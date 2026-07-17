@@ -306,7 +306,11 @@ class OllamaAudioExtractorTest {
         return new LlmProvider() {
             @Override
             public LlmResponse generate(LlmRequest request, GenerationOptions options) {
-                return new LlmResponse(fixedResponse, 0, 0, "mock-audio-model");
+                return new LlmResponse(fixedResponse == null ? "" : fixedResponse, 0, 0, "mock-audio-model");
+            }
+            @Override
+            public String generate(String prompt) {
+                return fixedResponse;
             }
             @Override
             public String modelName() {
