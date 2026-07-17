@@ -66,8 +66,6 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
         List<EmbeddingResult> termResults = embeddingProvider.embedBatch(terms);
 
         // Project/slice terms to target token dimensions
-        int denseDims = embeddingProvider.dimensions();
-
         float[][] matrix = new float[terms.size()][tokenDimensions];
         for (int i = 0; i < terms.size(); i++) {
             float[] denseVector = termResults.get(i).vector();

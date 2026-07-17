@@ -33,6 +33,8 @@ import dev.langchain4j.model.azure.AzureOpenAiEmbeddingModel;
 import java.time.Duration;
 import java.util.Optional;
 
+import com.spectrayan.spector.commons.ParseUtils;
+
 /**
  * Factory for creating Azure OpenAI embedding and generation providers.
  *
@@ -58,12 +60,12 @@ public class AzureOpenAiProviderFactory implements ProviderFactory {
     @Override
     public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
         String deploymentName = config.property("deploymentName", config.model());
+        long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
 
         var builder = AzureOpenAiEmbeddingModel.builder()
                 .apiKey(config.apiKey())
                 .deploymentName(deploymentName)
-                .timeout(Duration.ofSeconds(
-                        Long.parseLong(config.property("timeout", "30"))));
+                .timeout(Duration.ofSeconds(timeoutSeconds));
 
         if (config.hasBaseUrl()) {
             builder.endpoint(config.baseUrl());
@@ -98,20 +100,22 @@ public class AzureOpenAiProviderFactory implements ProviderFactory {
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
         String deploymentName = config.property("deploymentName", config.model());
+        long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 60L);
 
         var builder = AzureOpenAiChatModel.builder()
                 .apiKey(config.apiKey())
                 .deploymentName(deploymentName)
-                .timeout(Duration.ofSeconds(
-                        Long.parseLong(config.property("timeout", "60"))));
+                .timeout(Duration.ofSeconds(timeoutSeconds));
 
         if (config.hasBaseUrl()) {
             builder.endpoint(config.baseUrl());
         }
-        config.property("temperature").ifPresent(t ->
-                builder.temperature(Double.parseDouble(t)));
-        config.property("maxTokens").ifPresent(t ->
-                builder.maxTokens(Integer.parseInt(t)));
+        config.property("temperature")
+                .flatMap(ParseUtils::parseDouble)
+                .ifPresent(builder::temperature);
+        config.property("maxTokens")
+                .flatMap(ParseUtils::parseInteger)
+                .ifPresent(builder::maxTokens);
 
         // Apply proxy if specified
         String genHost = config.properties().get("proxyHost");
@@ -133,4 +137,5 @@ public class AzureOpenAiProviderFactory implements ProviderFactory {
 
         return Optional.of(new LangChain4jGenerationAdapter(builder.build(), config.model()));
     }
+
 }

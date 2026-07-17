@@ -63,7 +63,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
     @Override
     public void registerEmbedding(String name, EmbeddingProvider provider) {
         embeddingProviders.put(name, provider);
-        log.info("Registered embedding provider: {} (model={})", name, provider.modelName());
+        log.info("Registered embedding provider: {} (model={})", sanitize(name), sanitize(provider.modelName()));
 
         // Auto-activate first registered provider
         if (activeEmbeddingName == null) {
@@ -92,7 +92,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
         try {
             String previous = activeEmbeddingName;
             activeEmbeddingName = name;
-            log.info("Active embedding provider switched: {} → {}", previous, name);
+            log.info("Active embedding provider switched: {} -> {}", sanitize(previous), sanitize(name));
         } finally {
             embeddingLock.writeLock().unlock();
         }
@@ -108,7 +108,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
     @Override
     public void registerGeneration(String name, LlmProvider provider) {
         generationProviders.put(name, provider);
-        log.info("Registered generation provider: {} (model={})", name, provider.modelName());
+        log.info("Registered generation provider: {} (model={})", sanitize(name), sanitize(provider.modelName()));
 
         if (activeGenerationName == null) {
             activateGeneration(name);
@@ -136,7 +136,7 @@ public class DefaultProviderRegistry implements ProviderRegistry {
         try {
             String previous = activeGenerationName;
             activeGenerationName = name;
-            log.info("Active generation provider switched: {} → {}", previous, name);
+            log.info("Active generation provider switched: {} -> {}", sanitize(previous), sanitize(name));
         } finally {
             generationLock.writeLock().unlock();
         }
@@ -239,5 +239,12 @@ public class DefaultProviderRegistry implements ProviderRegistry {
             Duration latency = Duration.between(start, Instant.now());
             return ProviderHealth.unhealthy(name, latency, e.getMessage());
         }
+    }
+
+    private static String sanitize(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.replace('\n', '_').replace('\r', '_');
     }
 }

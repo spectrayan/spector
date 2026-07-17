@@ -116,9 +116,9 @@ public class LlmTestJudge {
         return llm;
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===================================================
     //  Judgment methods
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===================================================
 
     /**
      * Judges whether recall results are semantically relevant to the query.
@@ -159,9 +159,9 @@ public class LlmTestJudge {
         return executeJudgment(query, resultTexts.size(), prompt);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===================================================
     //  Core execution
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===================================================
 
     private JudgeVerdict executeJudgment(String query, int resultCount, String prompt) {
         GenerationOptions options = GenerationOptions.builder()
@@ -178,16 +178,16 @@ public class LlmTestJudge {
 
                 JudgeVerdict verdict = parseVerdict(rawResponse, query, resultCount, latencyMs);
                 if (verdict != null) {
-                    log.info("LLM Judge [{}]: {} (confidence={}, latency={}ms) â€” {}",
+                    log.info("LLM Judge [{}]: {} (confidence={}, latency={}ms)  --  {}",
                             llm.modelName(),
-                            verdict.relevant() ? "âœ… RELEVANT" : "âŒ NOT_RELEVANT",
+                            verdict.relevant() ? "[x] RELEVANT" : "[ ] NOT_RELEVANT",
                             String.format("%.2f", verdict.confidence()),
                             verdict.latencyMs(),
                             verdict.reasoning());
                     return verdict;
                 }
 
-                log.warn("LLM Judge: Failed to parse verdict on attempt {} â€” raw: {}",
+                log.warn("LLM Judge: Failed to parse verdict on attempt {}  --  raw: {}",
                         attempt + 1, truncate(rawResponse, 200));
 
             } catch (LlmProvider.GenerationException e) {
@@ -204,9 +204,9 @@ public class LlmTestJudge {
         return JudgeVerdict.parseFailure(query, "All retry attempts failed", latencyMs);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===================================================
     //  Response parsing
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===================================================
 
     /**
      * Parses the LLM's JSON verdict from its response.

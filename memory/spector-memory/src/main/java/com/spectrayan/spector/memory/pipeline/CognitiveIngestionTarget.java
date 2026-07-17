@@ -63,14 +63,14 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Cognitive memory implementation of {@link IngestionTarget}.
  *
  * <p>Receives pre-embedded chunks from the unified {@link com.spectrayan.spector.ingestion.IngestionPipeline}
- * and performs the cognitive processing pipeline (steps 2â€“9):</p>
+ * and performs the cognitive processing pipeline (steps 2 - 9):</p>
  *
  * <pre>
  *   Step  1b: Auto-extract synaptic tags (via pluggable {@link TagExtractor})
- *   Step  2: Encode synaptic tags â†’ 64-bit Bloom filter
- *   Step  3: Compute surprise â†’ auto-set importance (Dopamine engine)
- *   Step 3b: ICNU fusion â€” blend LLM hints (I/C/U) with native novelty (N)
- *   Step  4: Flashbulb check â€” extreme surprise gets full fidelity
+ *   Step  2: Encode synaptic tags  ->  64-bit Bloom filter
+ *   Step  3: Compute surprise  ->  auto-set importance (Dopamine engine)
+ *   Step 3b: ICNU fusion  --  blend LLM hints (I/C/U) with native novelty (N)
+ *   Step  4: Flashbulb check  --  extreme surprise gets full fidelity
  *   Step  5: Quantize vector to INT8 via calibrated ScalarQuantizer
  *   Step  6: Build cognitive header
  *   Step  7: Route to tier store and write
@@ -84,8 +84,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <h3>Two Entry Points</h3>
  * <ul>
- *   <li>{@link #ingest(String, String, float[])} â€” from unified pipeline (bulk, auto-extracts tags)</li>
- *   <li>{@link #ingestCognitive} â€” from {@code SpectorMemory.remember()} (full cognitive params)</li>
+ *   <li>{@link #ingest(String, String, float[])}  --  from unified pipeline (bulk, auto-extracts tags)</li>
+ *   <li>{@link #ingestCognitive}  --  from {@code SpectorMemory.remember()} (full cognitive params)</li>
  * </ul>
  *
  * <h3>Thread Safety</h3>
@@ -104,40 +104,40 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final MemoryWal wal;
     private final WorkingMemoryStore workingStore;  // nullable
     private final IcnuWeights icnuWeights;
-    private final VectorIndex semanticIndex;  // nullable â€” HNSW for semantic recall
+    private final VectorIndex semanticIndex;  // nullable  --  HNSW for semantic recall
     private final TagExtractor tagExtractor;
     private final boolean normalizeAtIngest;
 
-    // â”€â”€ Graph components (all nullable â€” graceful degradation) â”€â”€
+    // -€-€ Graph components (all nullable  --  graceful degradation) -€-€
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityExtractor entityExtractor;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
 
-    // â”€â”€ BM25 Text Search (nullable â€” graceful degradation) â”€â”€
+    // -€-€ BM25 Text Search (nullable  --  graceful degradation) -€-€
     private final MemoryBM25Index bm25Index;
     private final TextDataStore textDataStore;
     private final int activePartitionIndex;
 
-    // â”€â”€ SPLADE Sparse Search (nullable â€” graceful degradation) â”€â”€
+    // -€-€ SPLADE Sparse Search (nullable  --  graceful degradation) -€-€
     private final MemorySpladeIndex spladeIndex;
     private final SparseEmbeddingProvider spladeProvider;
 
-    // â”€â”€ Data Encryption SPI (NOOP in OSS mode) â”€â”€
+    // -€-€ Data Encryption SPI (NOOP in OSS mode) -€-€
     private final DataEncryptor encryptor;
 
-    // â”€â”€ Salience Profile (NEUTRAL in OSS mode) â”€â”€
+    // -€-€ Salience Profile (NEUTRAL in OSS mode) -€-€
     private volatile SalienceProfile salienceProfile;
 
-    // â”€â”€ Session tracking for Hebbian co-ingestion and temporal chains â”€â”€
+    // -€-€ Session tracking for Hebbian co-ingestion and temporal chains -€-€
     private final AtomicInteger lastIngestedMemoryIdx = new AtomicInteger(-1);
     private volatile int currentSessionId = 0;
 
-    // â”€â”€ Post-ingest index synchronization stage â”€â”€
+    // -€-€ Post-ingest index synchronization stage -€-€
     private final PostIngestSync postIngestSync;
 
-    // â”€â”€ Partition rolling callback (nullable) â”€â”€
+    // -€-€ Partition rolling callback (nullable) -€-€
     private volatile Runnable partitionRollCallback;
 
     public CognitiveIngestionTarget(ScalarQuantizer quantizer,
@@ -264,7 +264,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     }
 
     /**
-     * Legacy constructor â€” defaults normalizeAtIngest to {@code true}, no graph components.
+     * Legacy constructor  --  defaults normalizeAtIngest to {@code true}, no graph components.
      */
     public CognitiveIngestionTarget(ScalarQuantizer quantizer,
                                      SurpriseDetector surpriseDetector,
@@ -284,9 +284,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 null, null);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // IngestionTarget â€” from unified pipeline (bulk ingestion)
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===============================================================
+    // IngestionTarget  --  from unified pipeline (bulk ingestion)
+    // ===============================================================
 
     /**
      * Ingests a pre-embedded chunk using SEMANTIC defaults.
@@ -303,7 +303,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         String[] tags = extraction.tags();
         long tagMs = (System.nanoTime() - tagStartNs) / 1_000_000;
 
-        log.info("[Ingest] '{}' â†’ {} tags in {}ms via {} [{}]{}",
+        log.info("[Ingest] '{}'  ->  {} tags in {}ms via {} [{}]{}",
                 id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
                 tags.length, tagMs,
                 tagExtractor.getClass().getSimpleName(),
@@ -321,9 +321,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 tags, MemorySource.OBSERVED, hints);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Full cognitive entry point â€” from SpectorMemory.remember()
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===============================================================
+    // Full cognitive entry point  --  from SpectorMemory.remember()
+    // ===============================================================
 
     /**
      * Full cognitive ingestion with all parameters.
@@ -342,7 +342,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public void ingestCognitive(String id, String text, float[] vector,
                                  MemoryType type, String[] tags,
                                  MemorySource source, IngestionHints hints) {
-        // â”€â”€ Dedup guard: skip if this ID is already indexed â”€â”€
+        // -€-€ Dedup guard: skip if this ID is already indexed -€-€
         // The MemoryIndex (loaded from disk on startup) tracks all known IDs.
         // Without this check, re-ingesting the same files would:
         //   - Append orphaned records to tier stores (semantic.mem grows)
@@ -350,7 +350,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         //   - Append redundant WAL entries
         // The VectorStore.put() already deduplicates, but tier stores do not.
         if (index.locate(id) != null) {
-            log.debug("Skipping duplicate memory '{}' â€” already indexed", id);
+            log.debug("Skipping duplicate memory '{}'  --  already indexed", sanitize(id));
             return;
         }
 
@@ -362,10 +362,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             vector = l2Normalize(vector);
         }
 
-        // Step 5 (early): Quantize vector to INT8 â€” needed for WM distance scan
+        // Step 5 (early): Quantize vector to INT8  --  needed for WM distance scan
         byte[] quantized = quantizer.encode(vector);
 
-        // Step 3: Compute surprise â†’ auto-set importance (Dopamine engine)
+        // Step 3: Compute surprise  ->  auto-set importance (Dopamine engine)
         float nearestDist;
         if (workingStore != null && workingStore.count() > 0) {
             nearestDist = workingStore.nearestDistance(
@@ -375,7 +375,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         }
 
         float importance;
-        // Step 3b: ICNU fusion â€” blend LLM hints with native novelty
+        // Step 3b: ICNU fusion  --  blend LLM hints with native novelty
         // Use salience profile's ICNU weights if configured, otherwise system default
         IcnuWeights effectiveIcnuWeights = salienceProfile.hasIcnuOverride()
                 ? salienceProfile.icnuWeights() : icnuWeights;
@@ -388,11 +388,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             // Gaming detection logging
             if (hints.interest() == 1.0f && hints.challenge() == 1.0f
                     && hints.urgency() == 1.0f) {
-                log.warn("ICNU anomaly: all-max hints for '{}' (I=1.0, C=1.0, U=1.0) â€” possible gaming", id);
+                log.warn("ICNU anomaly: all-max hints for '{}' (I=1.0, C=1.0, U=1.0)  --  possible gaming", sanitize(id));
             }
 
             log.debug("ICNU: id={}, I={}, C={}, N={}, U={}, fused={}",
-                    id, hints.interest(), hints.challenge(), noveltyNorm,
+                    sanitize(id), hints.interest(), hints.challenge(), noveltyNorm,
                     hints.urgency(), importance);
         } else {
             importance = surpriseDetector.computeImportance(nearestDist);
@@ -429,7 +429,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                     id, preBoost, importance, agentBoost);
         }
 
-        // Step 4: Flashbulb check â€” extreme surprise gets full fidelity
+        // Step 4: Flashbulb check  --  extreme surprise gets full fidelity
         double zScore = surpriseDetector.stats().zScore(nearestDist);
         var flashbulb = flashbulbPolicy.evaluate(zScore);
         byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
@@ -455,13 +455,13 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             offset = tierRouter.write(type, header, quantized);
         } catch (SpectorMemoryTierFullException e) {
             if (partitionRollCallback != null) {
-                log.info("Tier {} full ({} records) â€” rolling to new partition",
+                log.info("Tier {} full ({} records)  --  rolling to new partition",
                         type, e.getCapacity());
                 partitionRollCallback.run();
                 // Retry with the new router (swapped by callback)
                 offset = tierRouter.write(type, header, quantized);
             } else {
-                throw e;  // No rolling configured â€” propagate
+                throw e;  // No rolling configured  --  propagate
             }
         }
 
@@ -486,9 +486,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 id, type, importance, tags.length, storeIndex, source);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Migration entry point â€” preserves full cognitive state
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===============================================================
+    // Migration entry point  --  preserves full cognitive state
+    // ===============================================================
 
     /**
      * Migration-aware ingestion that preserves the original {@link CognitiveHeader}.
@@ -497,12 +497,12 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
      * while preserving all cognitive metadata (importance, recall count, valence,
      * arousal, storage strength, flags, timestamps). Bypasses:
      * <ul>
-     *   <li>Surprise detection (step 3) â€” importance already computed</li>
-     *   <li>Flashbulb check (step 4) â€” pinned flag already set</li>
-     *   <li>ICNU fusion (step 3b) â€” importance already fused</li>
+     *   <li>Surprise detection (step 3)  --  importance already computed</li>
+     *   <li>Flashbulb check (step 4)  --  pinned flag already set</li>
+     *   <li>ICNU fusion (step 3b)  --  importance already fused</li>
      * </ul>
      *
-     * <p>The dedup guard is <em>not</em> bypassed â€” caller must remove
+     * <p>The dedup guard is <em>not</em> bypassed  --  caller must remove
      * the old index entry before calling this method.</p>
      *
      * @param id             unique memory identifier (preserved from source)
@@ -517,9 +517,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                            MemoryType type, String[] tags,
                                            MemorySource source,
                                            CognitiveHeader preservedHeader) {
-        // Dedup guard â€” same as normal ingestion
+        // Dedup guard  --  same as normal ingestion
         if (index.locate(id) != null) {
-            log.debug("Migration: skipping duplicate '{}' â€” already indexed", id);
+            log.debug("Migration: skipping duplicate '{}'  --  already indexed", id);
             return;
         }
 
@@ -534,19 +534,19 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 5: Quantize vector to INT8
         byte[] quantized = quantizer.encode(vector);
 
-        // Step 6: Build header â€” preserve original fields, recompute vector-derived ones
+        // Step 6: Build header  --  preserve original fields, recompute vector-derived ones
         float l2Norm = computeL2Norm(vector);
         CognitiveHeader header = new CognitiveHeader(
-                preservedHeader.timestampMs(),       // âœ… original timestamp
+                preservedHeader.timestampMs(),       // [x] original timestamp
                 synapticTags,                        // ðŸ”„ re-encoded (same tags)
                 l2Norm,                              // ðŸ”„ from new vector
-                preservedHeader.importance(),         // âœ… original importance
-                preservedHeader.agentRecallCount(),   // âœ… original recall count
+                preservedHeader.importance(),         // [x] original importance
+                preservedHeader.agentRecallCount(),   // [x] original recall count
                 (short) 0,                           // ðŸ”„ centroidId recomputed
-                preservedHeader.valence(),            // âœ… original valence
-                preservedHeader.flags(),              // âœ… original flags
-                preservedHeader.arousal(),            // âœ… original arousal
-                preservedHeader.storageStrength()     // âœ… original storage strength
+                preservedHeader.valence(),            // [x] original valence
+                preservedHeader.flags(),              // [x] original flags
+                preservedHeader.arousal(),            // [x] original arousal
+                preservedHeader.storageStrength()     // [x] original storage strength
         );
 
         // Step 7: Route to tier store and write
@@ -555,7 +555,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             offset = tierRouter.write(type, header, quantized);
         } catch (SpectorMemoryTierFullException e) {
             if (partitionRollCallback != null) {
-                log.info("Migration: tier {} full â€” rolling partition", type);
+                log.info("Migration: tier {} full  --  rolling partition", type);
                 partitionRollCallback.run();
                 offset = tierRouter.write(type, header, quantized);
             } else {
@@ -603,7 +603,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             return;
         }
 
-        // Delegate core ingestion with hints â€” BUT we need to control entity extraction.
+        // Delegate core ingestion with hints  --  BUT we need to control entity extraction.
         // If context has pre-extracted entities, we skip entity extraction in the base method
         // by temporarily using a flag approach. Instead, we inline the logic here.
 
@@ -616,7 +616,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Dedup guard
         if (index.locate(id) != null) {
-            log.debug("Skipping duplicate memory '{}' â€” already indexed", id);
+            log.debug("Skipping duplicate memory '{}'  --  already indexed", sanitize(id));
             return;
         }
 
@@ -631,7 +631,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 5 (early): Quantize vector to INT8
         byte[] quantized = quantizer.encode(vector);
 
-        // Step 3: Compute surprise â†’ importance
+        // Step 3: Compute surprise  ->  importance
         float nearestDist;
         if (workingStore != null && workingStore.count() > 0) {
             nearestDist = workingStore.nearestDistance(
@@ -753,7 +753,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 context.hasTemporalLinks() ? context.temporalLinks().size() : 0);
     }
 
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // ===============================================================
 
     /**
      * Encodes tags using the active encryptor (keyed HMAC or standard MurmurHash).
@@ -776,11 +776,18 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     /**
      * Returns a new L2-normalized copy of the vector.
      * Required for Parabolic RBF scoring to work correctly
-     * (L2Â²=2.0 only equals orthogonality when â€–uâ€– = â€–vâ€– = 1).
+     * (L2 ²=2.0 only equals orthogonality when ||u|| = ||v|| = 1).
      */
     private static float[] l2Normalize(float[] vector) {
         float norm = computeL2Norm(vector);
         if (norm == 0f || Math.abs(norm - 1.0f) < 1e-6f) return vector; // already normalized or zero
         return VectorOps.normalize(vector);
+    }
+
+    private static String sanitize(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.replace('\n', '_').replace('\r', '_');
     }
 }

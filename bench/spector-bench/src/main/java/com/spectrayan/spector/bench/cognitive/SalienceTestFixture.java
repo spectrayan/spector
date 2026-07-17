@@ -37,16 +37,16 @@ import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.SpectorMemory;
 
 /**
- * Salience test fixture â€” measures the effect of interest boosting and
+ * Salience test fixture  --  measures the effect of interest boosting and
  * disinterest dampening on retrieval quality.
  *
  * <h3>Test Conditions</h3>
  * <ol>
- *   <li><b>NEUTRAL</b> â€” No salience profile (control)</li>
- *   <li><b>DATASET_PROFILE</b> â€” Salience profile from persona.json</li>
- *   <li><b>INTEREST_BOOST</b> â€” Critical interest on topic matching top queries</li>
- *   <li><b>DISINTEREST_DAMPEN</b> â€” Ignore disinterest on distractor topics</li>
- *   <li><b>MIXED</b> â€” Combined interest boost + disinterest dampening</li>
+ *   <li><b>NEUTRAL</b>  --  No salience profile (control)</li>
+ *   <li><b>DATASET_PROFILE</b>  --  Salience profile from persona.json</li>
+ *   <li><b>INTEREST_BOOST</b>  --  Critical interest on topic matching top queries</li>
+ *   <li><b>DISINTEREST_DAMPEN</b>  --  Ignore disinterest on distractor topics</li>
+ *   <li><b>MIXED</b>  --  Combined interest boost + disinterest dampening</li>
  * </ol>
  *
  * <h3>Output</h3>
@@ -94,7 +94,7 @@ public final class SalienceTestFixture {
      * Executes the salience test fixture.
      */
     public void run() {
-        log.info("â•â•â• Salience Test Fixture â•â•â•");
+        log.info("=== Salience Test Fixture ===");
 
         DatasetLoader loader = new DatasetLoader();
         LoadedDataset dataset = loader.load(datasetDir);
@@ -153,7 +153,7 @@ public final class SalienceTestFixture {
                         .mapToDouble(f -> f).average().orElse(1.0);
 
                 results.put(condition, new ConditionResult(meanNdcg, meanBoost, ndcgs.size()));
-                log.info("  {} â†’ nDCG={:.4f}, topicBoost={:.3f}", condition, meanNdcg, meanBoost);
+                log.info("  {}  ->  nDCG={}, topicBoost={}", condition, String.format("%.4f", meanNdcg), String.format("%.3f", meanBoost));
             }
 
             // Restore original profile
@@ -162,7 +162,7 @@ public final class SalienceTestFixture {
             }
 
             writeReport(results);
-            log.info("â•â•â• Salience Test Fixture Complete â•â•â•");
+            log.info("=== Salience Test Fixture Complete ===");
 
         } catch (Exception e) {
             log.error("Salience test failed: {}", e.getMessage(), e);
@@ -240,24 +240,24 @@ public final class SalienceTestFixture {
             log.info("Salience test report written to {}", outFile);
 
             // Console summary
-            System.out.println("\nâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            System.out.println("\n==============================================================");
             System.out.println("  SALIENCE TEST RESULTS");
             System.out.printf("  Baseline (NEUTRAL) nDCG: %.4f%n", neutralNdcg);
-            System.out.println("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            System.out.println("==============================================================");
             System.out.printf("  %-22s  %8s  %8s  %8s  %8s%n",
                     "Condition", "nDCG", "Î”", "%Î”", "Boost");
-            System.out.println("  " + "â”€".repeat(58));
+            System.out.println("  " + "-€".repeat(58));
 
             for (SalienceCondition c : SalienceCondition.values()) {
                 ConditionResult r = results.get(c);
                 double delta = r.meanNdcg() - neutralNdcg;
                 double pct = neutralNdcg > 0 ? (delta / neutralNdcg) * 100.0 : 0.0;
-                String marker = c == SalienceCondition.NEUTRAL ? " â—†" :
-                        (pct > 5 ? " âœ“" : pct < -5 ? " âš " : "");
+                String marker = c == SalienceCondition.NEUTRAL ? "  * " :
+                        (pct > 5 ? " [x]" : pct < -5 ? " Warning" : "");
                 System.out.printf("  %-22s  %8.4f  %+8.4f  %+7.1f%%  %8.3f%s%n",
                         c.name(), r.meanNdcg(), delta, pct, r.meanTopicBoost(), marker);
             }
-            System.out.println("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n");
+            System.out.println("==============================================================\n");
 
         } catch (IOException e) {
             log.error("Failed to write salience test report: {}", e.getMessage(), e);
