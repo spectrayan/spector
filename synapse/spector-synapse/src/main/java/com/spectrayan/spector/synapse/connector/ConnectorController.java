@@ -17,6 +17,7 @@ import com.spectrayan.spector.synapse.connector.ConnectorDto.ExecutionRecord;
 import com.spectrayan.spector.synapse.connector.ConnectorDto.RouteConfig;
 import com.spectrayan.spector.synapse.connector.ConnectorDto.RouteStatus;
 import com.spectrayan.spector.synapse.connector.ConnectorDto.TemplateDescriptor;
+import com.spectrayan.spector.synapse.config.FeatureGate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -40,9 +41,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * Connector management REST API.
  *
  * <p>Manages connector templates, route instances, and connection testing.</p>
+ *
+ * <p>Gated by the {@code connectorsEnabled} feature flag — returns HTTP 404
+ * when connectors are disabled.</p>
  */
 @RestController
 @RequestMapping("/api/v1/connectors")
+@FeatureGate("connectorsEnabled")
 public class ConnectorController {
 
     private static final Logger log = LoggerFactory.getLogger(ConnectorController.class);

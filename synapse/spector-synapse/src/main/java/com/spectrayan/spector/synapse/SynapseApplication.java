@@ -18,6 +18,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
+import com.spectrayan.spector.synapse.config.FeatureFlags;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 
 /**
@@ -37,9 +38,10 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
  *
  * @see com.spectrayan.spector.synapse.config.WebConfig
  * @see com.spectrayan.spector.synapse.config.SynapseProperties
+ * @see com.spectrayan.spector.synapse.config.FeatureFlags
  */
 @SpringBootApplication
-@EnableConfigurationProperties(SynapseProperties.class)
+@EnableConfigurationProperties({SynapseProperties.class, FeatureFlags.class})
 public class SynapseApplication {
 
     private static final Logger log = LoggerFactory.getLogger(SynapseApplication.class);

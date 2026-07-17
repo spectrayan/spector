@@ -12,6 +12,7 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 import { routes } from './app.routes';
 import { ThemeService } from './core/services/theme.service';
 import { MockDataService } from './core/services/mock-data.service';
+import { FeatureFlagService } from './core/services/feature-flag.service';
 
 
 export const appConfig: ApplicationConfig = {
@@ -21,6 +22,12 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withViewTransitions()),
     provideAnimationsAsync(),
     provideHttpClient(withFetch(), withInterceptors([])),
+
+    // Load feature flags from Synapse backend before app renders
+    provideAppInitializer(() => {
+      const featureFlagService = inject(FeatureFlagService);
+      return featureFlagService.loadFlags();
+    }),
 
     // Initialize theme and mock data simulation on startup
     provideAppInitializer(() => {

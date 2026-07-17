@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -30,9 +31,17 @@ public class WebConfig implements WebMvcConfigurer {
     private static final Logger log = LoggerFactory.getLogger(WebConfig.class);
 
     private final SynapseProperties props;
+    private final FeatureGateInterceptor featureGateInterceptor;
 
-    public WebConfig(SynapseProperties props) {
+    public WebConfig(SynapseProperties props, FeatureGateInterceptor featureGateInterceptor) {
         this.props = props;
+        this.featureGateInterceptor = featureGateInterceptor;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(featureGateInterceptor)
+                .addPathPatterns("/api/**");
     }
 
     @Override
@@ -45,7 +54,7 @@ public class WebConfig implements WebMvcConfigurer {
 
         registry.addMapping("/**")
                 .allowedOriginPatterns(originArray)
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("Content-Type", "Authorization", "X-API-Key")
                 .exposedHeaders("Content-Type")
                 .allowCredentials(true)

@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.agent;
 
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import com.spectrayan.spector.synapse.agent.graph.AgenticChatGraph;
+import com.spectrayan.spector.synapse.config.FeatureGate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,9 +34,12 @@ import java.util.Map;
  * Agent management REST API.
  *
  * <p>CRUD operations for agent souls, tool listing, and agent execution.</p>
+ * <p>Gated by the {@code agentChatEnabled} feature flag — returns HTTP 404
+ * when agent chat is disabled.</p>
  */
 @RestController
 @RequestMapping({"/api/v1/agents", "/api/v1/agent"})
+@FeatureGate("agentChatEnabled")
 public class AgentController {
 
     private final CognitiveSoulService soulService;

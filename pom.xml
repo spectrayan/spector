@@ -104,8 +104,8 @@
     <!-- ───────────────────────── Properties ───────────────────────── -->
     <properties>
         <!-- CI-friendly version (single source of truth) -->
-        <revision>1.0.0-SNAPSHOT</revision>
-        <changelist>-SNAPSHOT</changelist>
+        <revision>0.1.0-alpha</revision>
+        <changelist></changelist>
 
         <!-- Java -->
         <java.version>25</java.version>

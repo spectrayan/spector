@@ -17,6 +17,17 @@
 
 FROM eclipse-temurin:25-jre-alpine
 
+LABEL maintainer="Spectrayan <team@spectrayan.com>"
+LABEL org.opencontainers.image.title="Spector"
+LABEL org.opencontainers.image.description="Spector is a zero-overhead, agent-ready AI memory backbone and search engine. It leverages Java Project Panama FFM for zero-GC off-heap storage, Java Vector API for CPU SIMD-accelerated vector search (AVX2/AVX-512/NEON), and features a 4-tier cognitive memory architecture (Working, Episodic, Semantic, Procedural) with sleep consolidation and Hebbian co-activation. Includes a built-in Model Context Protocol (MCP) server for native AI agent tool use."
+LABEL org.opencontainers.image.version="0.1.0-alpha"
+LABEL org.opencontainers.image.vendor="Spectrayan"
+LABEL org.opencontainers.image.url="https://github.com/spectrayan/spector"
+LABEL org.opencontainers.image.source="https://github.com/spectrayan/spector"
+LABEL org.opencontainers.image.licenses="Apache-2.0 AND BSL-1.1"
+LABEL org.opencontainers.image.documentation="https://spectrayan.github.io/spector/"
+LABEL org.opencontainers.image.categories="database, vector-search, artificial-intelligence, machine-learning, mcp, cognitive-computing"
+
 # Install Nginx and tini for proper signal handling
 RUN apk add --no-cache nginx tini
 
