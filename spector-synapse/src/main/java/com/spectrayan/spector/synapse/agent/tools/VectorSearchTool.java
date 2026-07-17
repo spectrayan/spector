@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -40,10 +41,10 @@ import com.spectrayan.spector.synapse.agent.AgentTool;
 @Component
 public class VectorSearchTool implements AgentTool {
 
-    private final SpectorMemory memory;
+    private final ObjectProvider<SpectorMemory> memoryProvider;
 
-    public VectorSearchTool(SpectorMemory memory) {
-        this.memory = memory;
+    public VectorSearchTool(ObjectProvider<SpectorMemory> memoryProvider) {
+        this.memoryProvider = memoryProvider;
     }
 
     @Override
@@ -115,6 +116,11 @@ public class VectorSearchTool implements AgentTool {
     @Override
     public String execute(Map<String, Object> arguments) {
         try {
+            SpectorMemory memory = memoryProvider.getIfAvailable();
+            if (memory == null) {
+                return "Error: Spector memory engine is not available (running in stub mode).";
+            }
+
             String query = getRequiredString(arguments, "query");
             int topK = getOptionalInt(arguments, "top_k", 10);
             double minSimilarity = getOptionalDouble(arguments, "min_similarity", 0.7);

@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.ObjectProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -40,13 +41,17 @@ import com.spectrayan.spector.synapse.agent.AgentTool;
 class VectorSearchToolTest {
 
     @Mock
+    private ObjectProvider<SpectorMemory> memoryProvider;
+
+    @Mock
     private SpectorMemory memory;
 
     private VectorSearchTool tool;
 
     @BeforeEach
     void setUp() {
-        tool = new VectorSearchTool(memory);
+        lenient().when(memoryProvider.getIfAvailable()).thenReturn(memory);
+        tool = new VectorSearchTool(memoryProvider);
     }
 
     @Test
@@ -199,5 +204,20 @@ class VectorSearchToolTest {
 
         String response = tool.execute(args);
         assertTrue(response.contains("none met min_similarity"));
+    }
+
+    @Test
+    void testExecuteWhenMemoryEngineNotAvailable() {
+        // Arrange
+        reset(memoryProvider);
+        when(memoryProvider.getIfAvailable()).thenReturn(null);
+        Map<String, Object> args = Map.of("query", "test query");
+
+        // Act
+        String response = tool.execute(args);
+
+        // Assert
+        assertNotNull(response);
+        assertTrue(response.contains("Spector memory engine is not available"));
     }
 }
