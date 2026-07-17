@@ -314,15 +314,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     rememberChunked(id, text, type, source, hints, null, tags);
                 } else {
                     String[] finalTags = tags;
-                    var tagExtractor = cognitiveTarget.tagExtractor();
-                    if (tagExtractor != null) {
-                        String[] contentTags = tagExtractor.extract(id, text);
-                        var mergedSet = new java.util.LinkedHashSet<String>();
-                        if (tags != null) {
-                            for (String t : tags) mergedSet.add(t);
+                    if (tags == null || tags.length == 0) {
+                        var tagExtractor = cognitiveTarget.tagExtractor();
+                        if (tagExtractor != null) {
+                            finalTags = tagExtractor.extract(id, text);
                         }
-                        for (String ct : contentTags) mergedSet.add(ct);
-                        finalTags = mergedSet.toArray(String[]::new);
                     }
                     float[] vector = embeddingProvider.embed(text).vector();
                     cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
@@ -380,15 +376,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     rememberChunked(id, text, type, source, null, context, tags);
                 } else {
                     String[] finalTags = tags;
-                    var tagExtractor = cognitiveTarget.tagExtractor();
-                    if (tagExtractor != null) {
-                        String[] contentTags = tagExtractor.extract(id, text);
-                        var mergedSet = new java.util.LinkedHashSet<String>();
-                        if (tags != null) {
-                            for (String t : tags) mergedSet.add(t);
+                    if (tags == null || tags.length == 0) {
+                        var tagExtractor = cognitiveTarget.tagExtractor();
+                        if (tagExtractor != null) {
+                            finalTags = tagExtractor.extract(id, text);
                         }
-                        for (String ct : contentTags) mergedSet.add(ct);
-                        finalTags = mergedSet.toArray(String[]::new);
                     }
                     float[] vector = embeddingProvider.embed(text).vector();
                     cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, context);
