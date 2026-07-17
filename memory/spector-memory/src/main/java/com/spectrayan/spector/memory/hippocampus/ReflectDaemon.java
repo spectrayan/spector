@@ -23,9 +23,9 @@ import com.spectrayan.spector.memory.cortex.TierStore;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
-import com.spectrayan.spector.embed.GenerationOptions;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.core.similarity.VectorOps;
 
 import org.slf4j.Logger;
@@ -50,14 +50,14 @@ import java.util.stream.Collectors;
  * for consolidation. Dense clusters of related episodes are compressed into
  * permanent semantic facts. Weak, isolated memories are pruned.</p>
  *
- * <h3>Two-Phase Sleep Cycle — NREM + REM Mapping</h3>
+ * <h3>Two-Phase Sleep Cycle  --  NREM + REM Mapping</h3>
  *
  * <table border="1">
  *   <tr><th>Spector Phase</th><th>Sleep Stage</th><th>Neuroscience Mechanism</th><th>Implementation</th></tr>
  *   <tr>
  *     <td><b>Deep Sleep</b></td>
  *     <td>NREM Stage 3-4 (Slow-Wave Sleep)</td>
- *     <td><b>Synaptic Homeostasis Hypothesis (SHY)</b> — Tononi &amp; Cirelli, 2003.
+ *     <td><b>Synaptic Homeostasis Hypothesis (SHY)</b>  --  Tononi &amp; Cirelli, 2003.
  *         During waking hours, synapses are strengthened by learning (LTP).
  *         During SWS, global synaptic downscaling occurs: weak synapses are
  *         pruned while strong ones are preserved. This prevents saturation
@@ -74,10 +74,10 @@ import java.util.stream.Collectors;
  *         the hippocampus replays episodic traces while the neocortex
  *         integrates them into existing knowledge schemas. Related episodes
  *         are generalized into semantic facts (gist extraction). This is
- *         why "sleeping on it" helps problem-solving — REM finds patterns
+ *         why "sleeping on it" helps problem-solving  --  REM finds patterns
  *         across disparate episodes.</td>
  *     <td>Cluster episodic memories by IVF centroid proximity. Dense
- *         clusters (≥5 episodes) are synthesized into semantic facts via
+ *         clusters ( >= 5 episodes) are synthesized into semantic facts via
  *         LLM summarization or highest-importance promotion. Source
  *         episodes are tombstoned (unless {@code pinSourceEpisodes=true}
  *         for lossless consolidation).</td>
@@ -94,9 +94,9 @@ import java.util.stream.Collectors;
  * <h3>V3: IVF Centroid Clustering + LLM Synthesis</h3>
  * <ul>
  *   <li>Groups non-consolidated episodic records by {@code centroid_id}</li>
- *   <li>Processes clusters ≥ {@code minClusterSize} (default: 5)</li>
+ *   <li>Processes clusters  >=  {@code minClusterSize} (default: 5)</li>
  *   <li>Extracts common synaptic tags via bitmap AND</li>
- *   <li>When {@code TextGenerationProvider} is available:
+ *   <li>When {@code LlmProvider} is available:
  *       sends cluster texts to LLM for factual summarization</li>
  *   <li>When no LLM: falls back to highest-importance selection</li>
  * </ul>
@@ -112,13 +112,13 @@ public final class ReflectDaemon {
     private final TombstoneCompactor compactor;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    // ── Optional providers (null = graceful fallback to basic behavior) ──
+    // -€-€ Optional providers (null = graceful fallback to basic behavior) -€-€
     private final CentroidRouter centroidRouter;
-    private final TextGenerationProvider textGenerator;
+    private final LlmProvider textGenerator;
     private final EmbeddingProvider embeddingProvider;
     private final int minClusterSize;
 
-    // ── Neurodivergent: Lossless Consolidation ──
+    // -€-€ Neurodivergent: Lossless Consolidation -€-€
     private final boolean pinSourceEpisodes;
     private final int pinnedQuota;
     private int pinnedCount = 0; // tracks pinned records across cycles
@@ -133,7 +133,7 @@ public final class ReflectDaemon {
      * @param minClusterSize     minimum cluster size for consolidation (default: 5)
      */
     public ReflectDaemon(CircadianPolicy policy, CentroidRouter centroidRouter,
-                          TextGenerationProvider textGenerator, EmbeddingProvider embeddingProvider,
+                          LlmProvider textGenerator, EmbeddingProvider embeddingProvider,
                           int minClusterSize, boolean pinSourceEpisodes, int pinnedQuota) {
         this.policy = policy;
         this.compactor = new TombstoneCompactor(policy.tombstoneThreshold());
@@ -149,7 +149,7 @@ public final class ReflectDaemon {
      * Creates a ReflectDaemon with full V3 capabilities (no lossless consolidation).
      */
     public ReflectDaemon(CircadianPolicy policy, CentroidRouter centroidRouter,
-                          TextGenerationProvider textGenerator, EmbeddingProvider embeddingProvider,
+                          LlmProvider textGenerator, EmbeddingProvider embeddingProvider,
                           int minClusterSize) {
         this(policy, centroidRouter, textGenerator, embeddingProvider,
                 minClusterSize, false, 10_000);
@@ -159,7 +159,7 @@ public final class ReflectDaemon {
      * Creates a ReflectDaemon with optional V3 providers and default cluster size.
      */
     public ReflectDaemon(CircadianPolicy policy, CentroidRouter centroidRouter,
-                          TextGenerationProvider textGenerator, EmbeddingProvider embeddingProvider) {
+                          LlmProvider textGenerator, EmbeddingProvider embeddingProvider) {
         this(policy, centroidRouter, textGenerator, embeddingProvider, DEFAULT_MIN_CLUSTER_SIZE);
     }
 
@@ -180,7 +180,7 @@ public final class ReflectDaemon {
     /**
      * Runs a single synchronous reflection cycle.
      *
-     * <p>Backward-compatible overload — delegates with null
+     * <p>Backward-compatible overload  --  delegates with null
      * text lookup (falls back to basic behavior).</p>
      *
      * @param episodicStore the episodic memory store to scan
@@ -204,7 +204,7 @@ public final class ReflectDaemon {
                                    TierStore semanticStore,
                                    Function<Long, String> textLookup) {
         if (!running.compareAndSet(false, true)) {
-            log.warn("Reflection cycle already in progress — skipping");
+            log.warn("Reflection cycle already in progress  --  skipping");
             return ReflectReport.EMPTY;
         }
 
@@ -216,8 +216,8 @@ public final class ReflectDaemon {
         try {
             long nowMs = System.currentTimeMillis();
 
-            // ── Phase 1: Deep Sleep (Synaptic Pruning) — parallel partitions ──
-            log.info("Deep Sleep starting — scanning {} partitions",
+            // -€-€ Phase 1: Deep Sleep (Synaptic Pruning)  --  parallel partitions -€-€
+            log.info("Deep Sleep starting  --  scanning {} partitions",
                     episodicStore.partitionCount());
 
             List<EpisodicPartition> allPartitions = episodicStore.partitions();
@@ -247,11 +247,11 @@ public final class ReflectDaemon {
                 }
             }
 
-            // Compaction check (sequential — involves atomic partition swap)
+            // Compaction check (sequential  --  involves atomic partition swap)
             for (EpisodicPartition partition : allPartitions) {
                 if (compactor.shouldCompact(partition)) {
                     String key = episodicStore.keyForPartition(partition);
-                    log.info("Partition {} exceeds tombstone threshold ({:.0f}%) — compacting",
+                    log.info("Partition {} exceeds tombstone threshold ({:.0f}%)  --  compacting",
                             partition.path(), partition.tombstoneRatio() * 100);
 
                     if (key != null) {
@@ -270,8 +270,8 @@ public final class ReflectDaemon {
                 }
             }
 
-            // ── Phase 2: REM Sleep (Dreaming/Synthesis) — parallel partitions ──
-            log.info("REM Sleep starting — looking for dense episodic clusters");
+            // -€-€ Phase 2: REM Sleep (Dreaming/Synthesis)  --  parallel partitions -€-€
+            log.info("REM Sleep starting  --  looking for dense episodic clusters");
 
             try {
                 List<Callable<Integer>> remTasks = new ArrayList<>(allPartitions.size());
@@ -316,7 +316,7 @@ public final class ReflectDaemon {
         }
     }
 
-    // ── V3: IVF Centroid-Based Clustering + LLM Synthesis ──
+    // -€-€ V3: IVF Centroid-Based Clustering + LLM Synthesis -€-€
 
     /**
      * Clusters non-consolidated records by centroid ID and promotes dense clusters.
@@ -324,11 +324,11 @@ public final class ReflectDaemon {
      * <p>Algorithm:</p>
      * <ol>
      *   <li>Group records by {@code centroid_id} (read from header at offset 24)</li>
-     *   <li>Filter: only process clusters ≥ {@code minClusterSize}</li>
+     *   <li>Filter: only process clusters  >=  {@code minClusterSize}</li>
      *   <li>For each dense cluster:
      *     <ul>
      *       <li>Compute common synaptic tags via bitmap AND</li>
-     *       <li>If TextGenerationProvider available: synthesize factual summary</li>
+     *       <li>If LlmProvider available: synthesize factual summary</li>
      *       <li>If no LLM: select highest-importance record as representative</li>
      *     </ul>
      *   </li>
@@ -371,10 +371,10 @@ public final class ReflectDaemon {
             int centroidId = entry.getKey();
             log.debug("REM: Processing cluster {} ({} records)", centroidId, clusterIndices.size());
 
-            // Step 2.5: Proactive Interference — decay near-duplicates within cluster
+            // Step 2.5: Proactive Interference  --  decay near-duplicates within cluster
             int degraded = applyProactiveInterference(partition, clusterIndices);
             if (degraded > 0) {
-                log.debug("REM: Cluster {} — {} near-duplicates had importance decayed",
+                log.debug("REM: Cluster {}  --  {} near-duplicates had importance decayed",
                         centroidId, degraded);
             }
 
@@ -428,7 +428,7 @@ public final class ReflectDaemon {
                     long offset = partition.recordOffset(idx);
                     layout.markConsolidated(segment, offset);
 
-                    // Neurodivergent: Lossless consolidation — pin source episodes
+                    // Neurodivergent: Lossless consolidation  --  pin source episodes
                     // to preserve encyclopedic detail alongside the semantic fact.
                     if (pinSourceEpisodes && pinnedCount < pinnedQuota) {
                         layout.pin(segment, offset);
@@ -436,7 +436,7 @@ public final class ReflectDaemon {
                     }
                 }
 
-                log.debug("REM: Cluster {} consolidated ({} records → 1 semantic fact, importance={})",
+                log.debug("REM: Cluster {} consolidated ({} records  ->  1 semantic fact, importance={})",
                         centroidId, clusterIndices.size(), maxImportance);
             }
         }
@@ -444,13 +444,13 @@ public final class ReflectDaemon {
         return totalPromoted;
     }
 
-    // ── Proactive Interference ──
+    // -€-€ Proactive Interference -€-€
 
-    /** Maximum records to compare per cluster (bounds O(N²) cost). */
+    /** Maximum records to compare per cluster (bounds O(N ²) cost). */
     private static final int MAX_INTERFERENCE_CANDIDATES = 20;
 
     /**
-     * Proactive Interference — competitive degradation of near-duplicate memories.
+     * Proactive Interference  --  competitive degradation of near-duplicate memories.
      *
      * <h3>Biological Analog</h3>
      * <p>New memories overwrite old similar ones (retroactive interference). In the
@@ -462,12 +462,12 @@ public final class ReflectDaemon {
      * {@code interferenceThreshold} L2 distance. For each pair, the older
      * record's importance is multiplied by {@code interferenceDecayFactor}
      * (default: 0.7 = 30% reduction per cycle). This is less violent than
-     * halving agent_recall_count — the old memory fades naturally via importance
+     * halving agent_recall_count  --  the old memory fades naturally via importance
      * decay rather than losing its entire recall history.</p>
      *
      * <h3>Performance</h3>
      * <p>Caps comparisons at the top-{@value #MAX_INTERFERENCE_CANDIDATES}
-     * records by importance (descending) to bound the O(N²/cluster) cost.
+     * records by importance (descending) to bound the O(N ²/cluster) cost.
      * For a cluster of 50 records, this reduces comparisons from 1,225 to 190.</p>
      *
      * @param partition       the episodic partition being processed
@@ -511,7 +511,7 @@ public final class ReflectDaemon {
                 if (SynapticHeaderConstants.isTombstoned(headerB.flags())) continue;
 
                 // Compute L2 distance between quantized vectors.
-                // Read A's quantized bytes → dequantize to float[] → compare against B.
+                // Read A's quantized bytes  ->  dequantize to float[]  ->  compare against B.
                 // This allocates a float[] per pair, acceptable since this runs during sleep.
                 int vecBytes = layout.quantizedVecBytes();
                 float[] vecA = new float[vecBytes];
@@ -539,7 +539,7 @@ public final class ReflectDaemon {
                     degradedCount++;
 
                     log.trace("Proactive interference: decayed importance at offset {} " +
-                            "from {} → {} (L2={}, threshold={})",
+                            "from {}  ->  {} (L2={}, threshold={})",
                             olderOffset, olderImportance, decayed, dist, threshold);
                 }
             }
@@ -567,7 +567,7 @@ public final class ReflectDaemon {
             String synthesized = textGenerator.generate(prompt, GenerationOptions.CONCISE);
 
             if (synthesized == null || synthesized.isBlank()) {
-                log.warn("REM: LLM returned empty synthesis — falling back to selection");
+                log.warn("REM: LLM returned empty synthesis  --  falling back to selection");
                 return null;
             }
 
@@ -594,7 +594,7 @@ public final class ReflectDaemon {
                     0, (short) 0, (byte) 0, semanticFlags);
 
         } catch (Exception e) {
-            log.warn("REM: LLM synthesis failed: {} — falling back to selection", e.getMessage());
+            log.warn("REM: LLM synthesis failed: {}  --  falling back to selection", e.getMessage());
             return null;
         }
     }
@@ -618,7 +618,7 @@ public final class ReflectDaemon {
                 semanticFlags);
     }
 
-    // ── Simple Highest-Importance Promotion (fallback path) ──
+    // -€-€ Simple Highest-Importance Promotion (fallback path) -€-€
 
     /**
      * Promotes the highest-importance non-consolidated memory from a partition
@@ -663,7 +663,7 @@ public final class ReflectDaemon {
             // Mark the episodic original as consolidated
             layout.markConsolidated(segment, offset);
 
-            // Neurodivergent: Lossless consolidation — pin promoted source
+            // Neurodivergent: Lossless consolidation  --  pin promoted source
             if (pinSourceEpisodes && pinnedCount < pinnedQuota) {
                 layout.pin(segment, offset);
                 pinnedCount++;

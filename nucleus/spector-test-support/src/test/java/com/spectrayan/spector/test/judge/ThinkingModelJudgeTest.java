@@ -15,8 +15,10 @@
  */
 package com.spectrayan.spector.test.judge;
 
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.model.LlmRequest;
+import com.spectrayan.spector.provider.model.LlmResponse;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,14 +33,14 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>Thinking models (gemma4, qwen3) wrap their reasoning in {@code <think>} tags.
  * The judge must extract JSON verdicts from these responses regardless of where
- * the JSON appears — outside or inside the thinking block.</p>
+ * the JSON appears  --  outside or inside the thinking block.</p>
  */
-@DisplayName("LlmTestJudge — Thinking Model Support")
+@DisplayName("LlmTestJudge  --  Thinking Model Support")
 class ThinkingModelJudgeTest {
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // STANDARD RESPONSES (non-thinking models)
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("Standard Responses")
@@ -76,9 +78,9 @@ class ThinkingModelJudgeTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // THINKING MODEL RESPONSES
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("Thinking Model Responses")
@@ -146,9 +148,9 @@ class ThinkingModelJudgeTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // EDGE CASES
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("Edge Cases")
@@ -193,7 +195,7 @@ class ThinkingModelJudgeTest {
             var judge = createJudge("{\"confidence\": 0.9, \"reasoning\": \"Has confidence but no relevant\"}");
             JudgeVerdict verdict = judge.judgeRelevance("test", List.of("r"), "any");
 
-            // JSON_EXTRACT regex requires "relevant" field — without it, treated as parse failure
+            // JSON_EXTRACT regex requires "relevant" field  --  without it, treated as parse failure
             assertTrue(verdict.relevant()); // parseFailure returns true (soft fail)
             assertEquals(0f, verdict.confidence(), 0.01);
         }
@@ -209,18 +211,18 @@ class ThinkingModelJudgeTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // HELPERS
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     /**
      * Creates a judge backed by a mock LLM that always returns the given response.
      */
     private LlmTestJudge createJudge(String fixedResponse) {
-        TextGenerationProvider mockLlm = new TextGenerationProvider() {
+        LlmProvider mockLlm = new LlmProvider() {
             @Override
-            public String generate(String prompt, GenerationOptions options) {
-                return fixedResponse;
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                return new LlmResponse(fixedResponse == null ? "" : fixedResponse, 0, 0, "mock-thinking-model");
             }
 
             @Override

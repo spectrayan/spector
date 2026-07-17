@@ -43,14 +43,15 @@
             <artifactId>spector-memory</artifactId>
         </dependency>
 
-        <!-- ── Embedding API ── -->
+        <!-- ── Embedding/Provider API ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-api</artifactId>
+            <artifactId>spector-provider-api</artifactId>
         </dependency>
+        <!-- ── Provider SPI (auto-discovery, multi-LLM support) ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
+            <artifactId>spector-providers</artifactId>
         </dependency>
 
         <!-- ── Query types for mode-aware routing ── -->

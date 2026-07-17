@@ -17,8 +17,8 @@ import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.amygdala.Valence;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,7 +60,7 @@ class SpectorMemoryIntegrationTest {
         memory.close();
     }
 
-    // ── V1: Core Pipeline ──
+    // -€-€ V1: Core Pipeline -€-€
 
     @Test
     void rememberAndRecall() throws Exception {
@@ -116,7 +116,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(memory.memoryCount(MemoryType.WORKING)).isEqualTo(1);
     }
 
-    // ── V2: Reinforcement & Suppression ──
+    // -€-€ V2: Reinforcement & Suppression -€-€
 
     @Test
     void reinforceUpdatesValence() throws Exception {
@@ -163,7 +163,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(memory.suppression().isSuppressed("suppress-then-allow")).isFalse();
     }
 
-    // ── V2: Metamemory ──
+    // -€-€ V2: Metamemory -€-€
 
     @Test
     void introspectReturnsInsight() throws Exception {
@@ -177,7 +177,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(insight.recommendation()).isNotBlank();
     }
 
-    // ── V3: Prospective Memory ──
+    // -€-€ V3: Prospective Memory -€-€
 
     @Test
     void scheduleReminderAppearsInRecall() throws Exception {
@@ -194,7 +194,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(hasProspective).isTrue();
     }
 
-    // ── V2: Reflect ──
+    // -€-€ V2: Reflect -€-€
 
     @Test
     void reflectReturnsReport() throws Exception {
@@ -208,7 +208,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(report.duration()).isNotNull();
     }
 
-    // ── V2: WAL ──
+    // -€-€ V2: WAL -€-€
 
     @Test
     void walTracksAllMutations() throws Exception {
@@ -223,7 +223,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(memory.wal().size()).isGreaterThanOrEqualTo(4);
     }
 
-    // ── V2: Hebbian Co-Activation ──
+    // -€-€ V2: Hebbian Co-Activation -€-€
 
     @Test
     void hebbianTracksCoActivation() throws Exception {
@@ -240,7 +240,7 @@ class SpectorMemoryIntegrationTest {
         assertThat(memory.coActivation()).isNotNull();
     }
 
-    // ── V2: Habituation ──
+    // -€-€ V2: Habituation -€-€
 
     @Test
     void habituationPenalizesRepeatResults() throws Exception {
@@ -251,7 +251,7 @@ class SpectorMemoryIntegrationTest {
         List<CognitiveResult> first = memory.recall("common topic");
         float firstScore = first.isEmpty() ? 0 : first.getFirst().score();
 
-        // Second recall — habituation should reduce score
+        // Second recall  --  habituation should reduce score
         List<CognitiveResult> second = memory.recall("common topic");
         float secondScore = second.isEmpty() ? 0 : second.getFirst().score();
 
@@ -260,7 +260,7 @@ class SpectorMemoryIntegrationTest {
         }
     }
 
-    // ── Mock Provider ──
+    // -€-€ Mock Provider -€-€
 
     /**
      * Deterministic mock that produces hash-based vectors.

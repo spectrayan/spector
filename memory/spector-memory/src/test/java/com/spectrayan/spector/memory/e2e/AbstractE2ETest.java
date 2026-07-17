@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.e2e.E2ESeedData.SeedMemory;

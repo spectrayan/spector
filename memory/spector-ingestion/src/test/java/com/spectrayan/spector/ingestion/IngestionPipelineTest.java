@@ -30,13 +30,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.spectrayan.spector.commons.TextChunker;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
 
 /**
- * Tests for {@link IngestionPipeline} — builder, direct ingest, chunked ingest,
+ * Tests for {@link IngestionPipeline}  --  builder, direct ingest, chunked ingest,
  * pre-embedded ingest, and negative scenarios.
  */
 @DisplayName("IngestionPipeline")
@@ -55,16 +55,16 @@ class IngestionPipelineTest {
     void setUp() {
         // Default: embedder returns sample vector for any text
         lenient().when(mockEmbedder.embed(anyString())).thenReturn(EmbeddingResult.of(sampleVector, "test-model"));
-        // ParallelEmbeddingPipeline calls embedBatch() — Mockito doesn't invoke default methods
+        // ParallelEmbeddingPipeline calls embedBatch()  --  Mockito doesn't invoke default methods
         lenient().when(mockEmbedder.embedBatch(anyList())).thenAnswer(invocation -> {
             List<String> texts = invocation.getArgument(0);
             return texts.stream().map(t -> EmbeddingResult.of(sampleVector, "test-model")).toList();
         });
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Builder
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("builder")
@@ -104,9 +104,9 @@ class IngestionPipelineTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Direct Ingest (text)
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("direct ingest")
@@ -149,9 +149,9 @@ class IngestionPipelineTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Pre-embedded Ingest
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("pre-embedded ingest")
@@ -176,9 +176,9 @@ class IngestionPipelineTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Negative Scenarios
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("negative scenarios")
@@ -220,9 +220,9 @@ class IngestionPipelineTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Chunked Ingest
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("chunked ingest")

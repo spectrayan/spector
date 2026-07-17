@@ -124,7 +124,7 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
+            <artifactId>spector-providers</artifactId>
         </dependency>
         <!-- Spring auto-configuration (spector-spring module): provides the managed
              SpectorMemory and SpectorEngine beans with optional Micrometer metrics

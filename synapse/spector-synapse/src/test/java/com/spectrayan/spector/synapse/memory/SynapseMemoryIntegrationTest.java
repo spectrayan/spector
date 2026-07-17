@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 import com.spectrayan.spector.synapse.memory.MemoryDto.*;
 import com.spectrayan.spector.test.judge.LlmAssertions;
 import com.spectrayan.spector.test.judge.LlmTestJudge;

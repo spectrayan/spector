@@ -13,10 +13,15 @@
 spector:
   mode: memory
 
-  ollama:
-    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://host.docker.internal:11434}
-    model: ${SPECTOR_OLLAMA_MODEL:qwen3.5:latest}
-    embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:qwen3-embedding:0.6b}
+  provider:
+    embedding:
+      type: ollama
+      model: ${SPECTOR_OLLAMA_EMBED_MODEL:qwen3-embedding:0.6b}
+      base-url: ${SPECTOR_OLLAMA_BASE_URL:http://host.docker.internal:11434}
+    generation:
+      type: ollama
+      model: ${SPECTOR_OLLAMA_MODEL:qwen3.5:latest}
+      base-url: ${SPECTOR_OLLAMA_BASE_URL:http://host.docker.internal:11434}
 
   engine:
     dimensions: 1024
@@ -26,6 +31,7 @@ spector:
     persistence-mode: DISK
     data-directory: /data/index
 
+  # Legacy fallback configuration
   embedding:
     model: qwen3-embedding:0.6b
     base-url: http://host.docker.internal:11434

@@ -15,8 +15,10 @@
  */
 package com.spectrayan.spector.ingestion.sensory;
 
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.model.LlmRequest;
+import com.spectrayan.spector.provider.model.LlmResponse;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,14 +47,14 @@ class OllamaAudioExtractorTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        // Create a fake audio file (not real audio — just bytes for testing the extraction flow)
+        // Create a fake audio file (not real audio  --  just bytes for testing the extraction flow)
         fakeAudioFile = tempDir.resolve("interview.mp3");
         Files.write(fakeAudioFile, "fake-mp3-header-bytes-for-testing".getBytes());
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // SUCCESSFUL TRANSCRIPTION
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("Transcription")
@@ -107,9 +109,9 @@ class OllamaAudioExtractorTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // MIME TYPE SUPPORT
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("MIME Support")
@@ -177,9 +179,9 @@ class OllamaAudioExtractorTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // EDGE CASES
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("Edge Cases")
@@ -238,13 +240,9 @@ class OllamaAudioExtractorTest {
         @Test
         @DisplayName("LLM generation failure throws IOException")
         void llmFailureThrows() {
-            TextGenerationProvider failingLlm = new TextGenerationProvider() {
+            LlmProvider failingLlm = new LlmProvider() {
                 @Override
-                public String generate(String prompt, GenerationOptions options) {
-                    throw new GenerationException("Model crashed", new RuntimeException());
-                }
-                @Override
-                public String generate(String prompt) {
+                public LlmResponse generate(LlmRequest request, GenerationOptions options) {
                     throw new GenerationException("Model crashed", new RuntimeException());
                 }
                 @Override
@@ -265,9 +263,9 @@ class OllamaAudioExtractorTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // AVAILABILITY
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @DisplayName("isAvailable delegates to LLM provider")
@@ -283,12 +281,12 @@ class OllamaAudioExtractorTest {
         assertEquals("mock-audio-model", extractor.transcriptionModel());
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // NULL MIME TYPE
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
-    @DisplayName("Null mime type still works — content_type omitted from metadata")
+    @DisplayName("Null mime type still works  --  content_type omitted from metadata")
     void nullMimeTypeWorks() throws IOException {
         var extractor = new OllamaAudioExtractor(mockLlm("Transcribed with null mime."));
 
@@ -300,15 +298,15 @@ class OllamaAudioExtractorTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // HELPERS
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
-    private static TextGenerationProvider mockLlm(String fixedResponse) {
-        return new TextGenerationProvider() {
+    private static LlmProvider mockLlm(String fixedResponse) {
+        return new LlmProvider() {
             @Override
-            public String generate(String prompt, GenerationOptions options) {
-                return fixedResponse;
+            public LlmResponse generate(LlmRequest request, GenerationOptions options) {
+                return new LlmResponse(fixedResponse == null ? "" : fixedResponse, 0, 0, "mock-audio-model");
             }
             @Override
             public String generate(String prompt) {

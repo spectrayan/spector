@@ -15,9 +15,9 @@
  */
 package com.spectrayan.spector.ingestion;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.commons.error.SpectorEmbeddingException;
-import com.spectrayan.spector.embed.error.SpectorEmbeddingUnavailableException;
+import com.spectrayan.spector.provider.embedding.SpectorEmbeddingUnavailableException;
 import com.spectrayan.spector.commons.error.SpectorServerException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
@@ -41,14 +41,14 @@ public final class EmbeddingProviderFactory {
      */
     public static EmbeddingProvider create(String baseUrl, String model) {
         try {
-            var configClass = Class.forName("com.spectrayan.spector.embed.EmbeddingConfig");
+            var configClass = Class.forName("com.spectrayan.spector.provider.embedding.EmbeddingConfig");
             var ollamaFactory = configClass.getMethod("ollama", String.class);
             Object config = ollamaFactory.invoke(null, model);
             var withBaseUrl = configClass.getMethod("withBaseUrl", String.class);
             config = withBaseUrl.invoke(config, baseUrl);
 
             var providerClass = Class.forName(
-                    "com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider");
+                    "com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider");
             var constructor = providerClass.getConstructor(configClass);
             return (EmbeddingProvider) constructor.newInstance(config);
         } catch (ClassNotFoundException e) {

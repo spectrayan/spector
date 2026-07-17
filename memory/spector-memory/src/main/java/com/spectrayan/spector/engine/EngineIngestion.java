@@ -28,7 +28,7 @@ import com.spectrayan.spector.commons.TextChunker;
 import com.spectrayan.spector.commons.TokenChunker;
 import com.spectrayan.spector.config.IndexType;
 import com.spectrayan.spector.config.SpectorConfig;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.index.ivf.IvfPqIndex;
@@ -109,7 +109,7 @@ final class EngineIngestion {
         }
     }
 
-    // ─────────────── Core Ingestion ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Core Ingestion -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Ingests a single document with its text content and vector embedding.
@@ -188,7 +188,7 @@ final class EngineIngestion {
         return false;
     }
 
-    // ─────────────── Large Document Ingestion ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Large Document Ingestion -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Ingests a large document by splitting it into overlapping chunks.
@@ -206,7 +206,7 @@ final class EngineIngestion {
                       TextChunker chunker) {
         var chunks = chunker.chunk(id, content);
 
-        // Store lightweight metadata only — full content is redundant since each
+        // Store lightweight metadata only  --  full content is redundant since each
         // chunk is individually stored in VectorStore + KeywordIndex.
         // This avoids holding O(content_size) on the Java heap per document.
         documentStore.put(Document.of(id, "[chunked: " + chunks.size() + " chunks]"));
@@ -276,7 +276,7 @@ final class EngineIngestion {
         return chunks.size();
     }
 
-    // ─────────────── Auto-Embed Ingestion ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Auto-Embed Ingestion -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Ingests a document with automatic embedding generation. */
     void ingest(String id, String content) {
@@ -306,7 +306,7 @@ final class EngineIngestion {
                 text -> embeddingProvider.embed(text).vector(), chunkSize, overlap);
     }
 
-    // ─────────────── Training ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Training -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     private void trainAndFlushIvfPq() {
         if (!(vectorIndex instanceof IvfPqIndex ivfPq)) return;

@@ -20,12 +20,12 @@ import java.util.List;
  * <p>Implementations analyze text to identify named entities and their relationships.
  * This follows the same pluggable pattern as
  * {@link com.spectrayan.spector.memory.pipeline.TagExtractor} and
- * {@link com.spectrayan.spector.embed.EmbeddingProvider}.</p>
+ * {@link com.spectrayan.spector.provider.embedding.EmbeddingProvider}.</p>
  *
  * <h3>Implementations</h3>
  * <ul>
- *   <li>{@link LlmEntityExtractor} — LLM-powered extraction via TextGenerationProvider</li>
- *   <li>{@link NoOpEntityExtractor} — returns empty list (when extraction is disabled)</li>
+ *   <li>{@link LlmEntityExtractor}  --  LLM-powered extraction via LlmProvider</li>
+ *   <li>{@link NoOpEntityExtractor}  --  returns empty list (when extraction is disabled)</li>
  * </ul>
  *
  * @see ExtractedEntity

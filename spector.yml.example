@@ -15,6 +15,28 @@ spector:
     persistence-mode: DISK
     data-directory: .spector-data
 
+  # ─── Multi-LLM Provider Configuration (NEW) ───
+  # Configure embedding and generation (LLM) providers.
+  # Supported types: ollama | openai | google | anthropic | mistral | azure | bedrock
+  provider:
+    embedding:
+      type: ollama
+      model: nomic-embed-text
+      base-url: http://localhost:11434
+      # api-key: ${OPENAI_API_KEY:} # Required for cloud providers
+      # dimensions: 768            # Optional: override auto-detected dimensions
+    
+    generation:
+      type: ollama
+      model: llama3.2
+      base-url: http://localhost:11434
+      # api-key: ${ANTHROPIC_API_KEY:} # Required for cloud providers
+      # properties:
+      #   temperature: 0.7
+      #   max-tokens: 2048
+
+  # ─── Legacy Embedding Configuration (Deprecated) ───
+  # Still supported for backward compatibility — implicitly maps to type: ollama.
   embedding:
     model: nomic-embed-text
     base-url: http://localhost:11434

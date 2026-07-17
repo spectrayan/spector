@@ -25,12 +25,14 @@ import com.spectrayan.spector.config.PersistenceMode;
 import com.spectrayan.spector.config.HnswParams;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
-import com.spectrayan.spector.embed.SparseEncodingProvider;
-import com.spectrayan.spector.embed.TokenEmbeddingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
+import com.spectrayan.spector.provider.ProviderConfig;
+import com.spectrayan.spector.provider.ProviderDiscovery;
+import com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider;
+import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider;
 import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.commons.TextChunker;
@@ -46,19 +48,19 @@ import com.spectrayan.spector.memory.pipeline.TagExtractor;
  *
  * <p><strong>This is the single entry point for all Spector consumers.</strong>
  * It creates, wires, and exposes the subsystem services. No business logic
- * lives here — each service owns its domain.</p>
+ * lives here  --  each service owns its domain.</p>
  *
  * <h3>Services</h3>
  * <ul>
- *   <li>{@link #search()} — mode-aware search (engine or memory)</li>
- *   <li>{@link #ingestion()} — mode-aware ingestion (text, file, directory)</li>
- *   <li>{@link #memoryHandler()} — cognitive memory operations (remember, recall, suppress, etc.)</li>
+ *   <li>{@link #search()}  --  mode-aware search (engine or memory)</li>
+ *   <li>{@link #ingestion()}  --  mode-aware ingestion (text, file, directory)</li>
+ *   <li>{@link #memoryHandler()}  --  cognitive memory operations (remember, recall, suppress, etc.)</li>
  * </ul>
  *
  * <h3>Direct Subsystem Access</h3>
  * <ul>
- *   <li>{@link #engine()} — vector search engine (always available)</li>
- *   <li>{@link #memory()} — cognitive memory (null if not enabled)</li>
+ *   <li>{@link #engine()}  --  vector search engine (always available)</li>
+ *   <li>{@link #memory()}  --  cognitive memory (null if not enabled)</li>
  * </ul>
  *
  * <h3>Usage</h3>
@@ -78,13 +80,13 @@ public final class SpectorRuntime implements AutoCloseable {
     private final SpectorMemory memory;  // nullable
     private final SpectorProperties properties;
     private final SpectorMode mode;
-    private final TextChunker sharedChunker;  // nullable — shared by memory + ingestion pipeline
+    private final TextChunker sharedChunker;  // nullable  --  shared by memory + ingestion pipeline
 
-    // Shared provider singletons (nullable) — reused across all tenants in Enterprise
-    private final SparseEncodingProvider sparseEncodingProvider;
+    // Shared provider singletons (nullable)  --  reused across all tenants in Enterprise
+    private final SparseEmbeddingProvider SparseEmbeddingProvider;
     private final TokenEmbeddingProvider tokenEmbeddingProvider;
 
-    // Lazily created services — double-checked locking for thread safety.
+    // Lazily created services  --  double-checked locking for thread safety.
     // The volatile + ReentrantLock pattern ensures exactly-once initialization
     // even under concurrent access from virtual threads (ADR-005: no synchronized).
     private volatile SearchHandler searchService;
@@ -95,18 +97,76 @@ public final class SpectorRuntime implements AutoCloseable {
     private SpectorRuntime(SpectorEngine engine, SpectorMemory memory,
                            SpectorProperties properties, SpectorMode mode,
                            TextChunker sharedChunker,
-                           SparseEncodingProvider sparseEncodingProvider,
+                           SparseEmbeddingProvider SparseEmbeddingProvider,
                            TokenEmbeddingProvider tokenEmbeddingProvider) {
         this.engine = engine;
         this.memory = memory;
         this.properties = properties;
         this.mode = mode;
         this.sharedChunker = sharedChunker;
-        this.sparseEncodingProvider = sparseEncodingProvider;
+        this.SparseEmbeddingProvider = SparseEmbeddingProvider;
         this.tokenEmbeddingProvider = tokenEmbeddingProvider;
     }
 
-    // ─────────────── Factory ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Factory -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+
+    /**
+     * Creates a runtime with auto-discovered providers from configuration.
+     *
+     * <p>Uses {@link ProviderDiscovery} (ServiceLoader) to discover available
+     * {@link com.spectrayan.spector.provider.ProviderFactory} implementations
+     * and creates embedding/generation providers from config. This is the
+     * preferred entry point for new code  --  no hardcoded provider wiring.</p>
+     *
+     * @param props hierarchical configuration
+     * @return initialized runtime (caller must close)
+     * @throws IllegalStateException if no embedding provider matches the configured type
+     */
+    public static SpectorRuntime from(SpectorProperties props) {
+        var providerDefaults = SpectorConfigFactory.providerDefaults(props);
+
+        // Build embedding provider config and discover via ServiceLoader
+        var embConfig = new ProviderConfig(
+                providerDefaults.embeddingType(),
+                providerDefaults.embeddingType(),
+                providerDefaults.embeddingModel(),
+                providerDefaults.embeddingApiKey(),
+                providerDefaults.embeddingBaseUrl(),
+                providerDefaults.embeddingDimensions(),
+                java.util.Map.of());
+
+        var registry = ProviderDiscovery.discover(java.util.List.of(embConfig));
+
+        var embedder = registry.activeEmbedding()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No embedding provider found for type: " + providerDefaults.embeddingType()
+                        + ". Available factories: " + ProviderDiscovery.discoverFactories().keySet()));
+
+        log.info("[Runtime] Auto-discovered embedding provider: {} (model={})",
+                providerDefaults.embeddingType(), providerDefaults.embeddingModel());
+
+        // Build generation provider config (optional  --  only if model is specified)
+        LlmProvider textGen = null;
+        if (!providerDefaults.generationModel().isBlank()) {
+            var genConfig = new ProviderConfig(
+                    providerDefaults.generationType() + "-gen",
+                    providerDefaults.generationType(),
+                    providerDefaults.generationModel(),
+                    providerDefaults.generationApiKey(),
+                    providerDefaults.generationBaseUrl(),
+                    0,
+                    java.util.Map.of());
+
+            var genRegistry = ProviderDiscovery.discover(java.util.List.of(genConfig));
+            textGen = genRegistry.activeGeneration().orElse(null);
+            if (textGen != null) {
+                log.info("[Runtime] Auto-discovered generation provider: {} (model={})",
+                        providerDefaults.generationType(), providerDefaults.generationModel());
+            }
+        }
+
+        return from(props, embedder, textGen);
+    }
 
     /**
      * Creates a runtime from configuration and embedding provider.
@@ -135,17 +195,17 @@ public final class SpectorRuntime implements AutoCloseable {
      * @return initialized runtime (caller must close)
      */
     public static SpectorRuntime from(SpectorProperties props, EmbeddingProvider embedder,
-                                      TextGenerationProvider textGenProvider) {
+                                      LlmProvider textGenProvider) {
         SpectorMode mode = SpectorConfigFactory.mode(props);
 
-        // ── Read memory config early (needed to configure engine in MEMORY mode) ──
+        // -€-€ Read memory config early (needed to configure engine in MEMORY mode) -€-€
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         boolean memoryEnabled = memoryConfig.enabled() || mode.memoryEnabled();
 
-        // ── Engine ──
+        // -€-€ Engine -€-€
         SpectorConfig engineConfig = SpectorConfig.from(props);
         // Engine manages its own index/store for search workloads (document
-        // indexing, RAG). Memory is fully decoupled — uses dir-level partitions
+        // indexing, RAG). Memory is fully decoupled  --  uses dir-level partitions
         // with its own .mem files. The two no longer share HNSW or VectorStore.
         if (mode.memoryEnabled() && memoryEnabled) {
             java.nio.file.Path indexDir = memoryConfig.persistencePath()
@@ -163,17 +223,17 @@ public final class SpectorRuntime implements AutoCloseable {
                 engineConfig.persistenceMode(), engineConfig.dataDirectory(),
                 mode);
 
-        // ── Memory (opt-in or auto-enabled in MEMORY mode) ──
+        // -€-€ Memory (opt-in or auto-enabled in MEMORY mode) -€-€
         SpectorMemory memory = null;
 
-        // ── Shared TextChunker — used by both memory.remember() and IngestionPipeline ──
+        // -€-€ Shared TextChunker  --  used by both memory.remember() and IngestionPipeline -€-€
         var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
         var textChunker = new TextChunker(ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
         log.info("[Runtime] TextChunker: chunkSize={}, overlap={}",
                 ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
 
-        // ── Shared SPLADE + ColBERT provider singletons (set if memory is enabled) ──
-        SparseEncodingProvider sharedSpladeProvider = null;
+        // -€-€ Shared SPLADE + ColBERT provider singletons (set if memory is enabled) -€-€
+        SparseEmbeddingProvider sharedSpladeProvider = null;
         TokenEmbeddingProvider sharedColbertProvider = null;
 
         if (memoryEnabled) {
@@ -188,14 +248,14 @@ public final class SpectorRuntime implements AutoCloseable {
                     .temporalChainCapacity(memoryConfig.capacity())
                     .chunker(textChunker);
 
-            // ── Entity extraction (LLM when available, otherwise disabled) ──
+            // -€-€ Entity extraction (LLM when available, otherwise disabled) -€-€
             if (textGenProvider != null) {
                 memoryBuilder.entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode.LLM)
-                        .textGenerationProvider(textGenProvider);
+                        .LlmProvider(textGenProvider);
                 // Pass configured LLM generation options
                 var llmConfig = memoryConfig.llm();
                 if (llmConfig != null) {
-                    var genOpts = com.spectrayan.spector.embed.GenerationOptions.builder()
+                    var genOpts = com.spectrayan.spector.provider.generation.GenerationOptions.builder()
                             .temperature(llmConfig.temperature())
                             .maxTokens(llmConfig.maxTokens())
                             .topP(llmConfig.topP())
@@ -207,27 +267,27 @@ public final class SpectorRuntime implements AutoCloseable {
                 log.info("[Runtime] Entity extraction: LLM (model={})", textGenProvider.modelName());
             } else {
                 memoryBuilder.entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode.NONE);
-                log.info("[Runtime] Entity extraction: NONE (no TextGenerationProvider)");
+                log.info("[Runtime] Entity extraction: NONE (no LlmProvider)");
             }
 
-            // ── SPLADE + ColBERT providers (shared singletons) ──
+            // -€-€ SPLADE + ColBERT providers (shared singletons) -€-€
 
             if (memoryConfig.spladeEnabled()) {
-                sharedSpladeProvider = new OllamaSparseEncodingProvider(embedder);
-                memoryBuilder.sparseEncodingProvider(sharedSpladeProvider);
+                sharedSpladeProvider = new DenseDerivedSparseProvider(embedder);
+                memoryBuilder.SparseEmbeddingProvider(sharedSpladeProvider);
                 log.info("[Runtime] SPLADE provider: {}", sharedSpladeProvider.modelName());
             } else {
                 log.info("[Runtime] SPLADE sparse indexing is disabled via configuration");
             }
             if (memoryConfig.colbertEnabled()) {
-                sharedColbertProvider = new OllamaTokenEmbeddingProvider(embedder);
+                sharedColbertProvider = new DenseDerivedTokenProvider(embedder);
                 memoryBuilder.tokenEmbeddingProvider(sharedColbertProvider);
                 log.info("[Runtime] ColBERT provider: {}", sharedColbertProvider.modelName());
             } else {
                 log.info("[Runtime] ColBERT reranking is disabled via configuration");
             }
 
-            // ── Create HNSW index for memory's semantic recall ──
+            // -€-€ Create HNSW index for memory's semantic recall -€-€
             // Without this, SemanticRecallStrategy falls back to header-only scoring
             // which cannot compute vector similarity (VECTOR_ONLY search is broken).
             var hnswConfig = SpectorConfigFactory.hnswDefaults(props);
@@ -243,7 +303,7 @@ public final class SpectorRuntime implements AutoCloseable {
             // Memory manages its own vector storage via dir-level partitions.
             // Engine's vectorStore and HNSW index are NOT shared with memory.
 
-            // ── Tag extractor (content, llm, or none) ──
+            // -€-€ Tag extractor (content, llm, or none) -€-€
             String tagMode = memoryConfig.tagExtractor().toLowerCase();
             switch (tagMode) {
                 case "llm" -> {
@@ -251,7 +311,7 @@ public final class SpectorRuntime implements AutoCloseable {
                         memoryBuilder.tagExtractor(new LlmTagExtractor(textGenProvider));
                         log.info("[Runtime] Tag extractor: LLM (model={})", textGenProvider.modelName());
                     } else {
-                        log.warn("[Runtime] tag-extractor=llm but no TextGenerationProvider supplied, falling back to content");
+                        log.warn("[Runtime] tag-extractor=llm but no LlmProvider supplied, falling back to content");
                     }
                 }
                 case "none" -> {
@@ -261,7 +321,7 @@ public final class SpectorRuntime implements AutoCloseable {
                 default -> log.info("[Runtime] Tag extractor: content (keyword-based)");
             }
 
-            // ── Embedding batch size from config ──
+            // -€-€ Embedding batch size from config -€-€
             var embedConfigDefaults = SpectorConfigFactory.embeddingDefaults(props);
             memoryBuilder.embedBatchSize(embedConfigDefaults.batchSize());
             log.info("[Runtime] Embedding batch size: {}", embedConfigDefaults.batchSize());
@@ -282,7 +342,7 @@ public final class SpectorRuntime implements AutoCloseable {
         return new SpectorRuntime(engine, null, props, SpectorMode.SEARCH, null, null, null);
     }
 
-    // ─────────────── Service Accessors ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Service Accessors -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Returns the mode-aware search service. */
     public SearchHandler search() {
@@ -327,7 +387,7 @@ public final class SpectorRuntime implements AutoCloseable {
 
                     // Build unified pipeline from config
                     var embedDefaults = SpectorConfigFactory.embeddingDefaults(properties);
-                    var embedConfig = new com.spectrayan.spector.embed.EmbedConfig(
+                    var embedConfig = new com.spectrayan.spector.provider.embedding.EmbedConfig(
                             embedDefaults.batchSize(), embedDefaults.maxRetries());
 
                     var pipeline = com.spectrayan.spector.ingestion.IngestionPipeline.builder()
@@ -376,7 +436,7 @@ public final class SpectorRuntime implements AutoCloseable {
         return java.util.Optional.of(svc);
     }
 
-    // ─────────────── Direct Subsystem Access ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Direct Subsystem Access -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Returns the search engine (never null). */
     public SpectorEngine engine() { return engine; }
@@ -397,23 +457,23 @@ public final class SpectorRuntime implements AutoCloseable {
      * Returns the shared SPLADE sparse encoding provider, or empty if disabled.
      *
      * <p>Enterprise callers should reuse this singleton instead of creating
-     * per-tenant instances — the provider is stateless and thread-safe.</p>
+     * per-tenant instances  --  the provider is stateless and thread-safe.</p>
      */
-    public java.util.Optional<SparseEncodingProvider> sparseEncodingProvider() {
-        return java.util.Optional.ofNullable(sparseEncodingProvider);
+    public java.util.Optional<SparseEmbeddingProvider> SparseEmbeddingProvider() {
+        return java.util.Optional.ofNullable(SparseEmbeddingProvider);
     }
 
     /**
      * Returns the shared ColBERT token embedding provider, or empty if disabled.
      *
      * <p>Enterprise callers should reuse this singleton instead of creating
-     * per-tenant instances — the provider is stateless and thread-safe.</p>
+     * per-tenant instances  --  the provider is stateless and thread-safe.</p>
      */
     public java.util.Optional<TokenEmbeddingProvider> tokenEmbeddingProvider() {
         return java.util.Optional.ofNullable(tokenEmbeddingProvider);
     }
 
-    // ─────────────── Lifecycle ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Lifecycle -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     @Override
     public void close() {

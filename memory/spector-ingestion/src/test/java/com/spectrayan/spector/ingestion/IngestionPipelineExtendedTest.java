@@ -25,13 +25,13 @@ import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.commons.TextChunker;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
 /**
  * Extended tests for {@link IngestionPipeline}.
  */
-@DisplayName("IngestionPipeline — Extended Coverage")
+@DisplayName("IngestionPipeline  --  Extended Coverage")
 class IngestionPipelineExtendedTest {
 
     private IngestionTarget mockTarget;
@@ -47,9 +47,9 @@ class IngestionPipelineExtendedTest {
         return EmbeddingResult.of(new float[dims], "test-model");
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Builder
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("Builder")
@@ -86,9 +86,9 @@ class IngestionPipelineExtendedTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Pre-embedded ingest
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("pre-embedded ingest")
@@ -121,9 +121,9 @@ class IngestionPipelineExtendedTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Direct ingest
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("direct ingest")
@@ -161,9 +161,9 @@ class IngestionPipelineExtendedTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Chunked ingest
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("shouldChunk behavior")
@@ -174,7 +174,7 @@ class IngestionPipelineExtendedTest {
         void noChukerDirectPath() {
             when(mockProvider.embed(anyString())).thenReturn(stubEmbedding(3));
 
-            // No chunker configured → always direct path regardless of length
+            // No chunker configured  ->  always direct path regardless of length
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockProvider)
@@ -188,9 +188,9 @@ class IngestionPipelineExtendedTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // EmbeddingProviderFactory
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @DisplayName("factory creates embedding provider")
@@ -202,9 +202,9 @@ class IngestionPipelineExtendedTest {
         assertThat(provider).isNotNull();
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // IngestionTarget default methods
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Nested
     @DisplayName("IngestionTarget defaults")

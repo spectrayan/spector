@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.TextChunk;
 import com.spectrayan.spector.commons.WordTokenizer;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.query.HybridSearchOrchestrator;
 import com.spectrayan.spector.query.SearchQuery;
@@ -35,10 +35,10 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
 
 /**
- * Full RAG pipeline orchestrator: query → embed → retrieve → assemble context.
+ * Full RAG pipeline orchestrator: query  ->  embed  ->  retrieve  ->  assemble context.
  *
  * <p>Coordinates the end-to-end RAG flow using synchronous calls on virtual threads.
- * No reactive framework needed — virtual threads handle the I/O-bound embedding call
+ * No reactive framework needed  --  virtual threads handle the I/O-bound embedding call
  * efficiently while the search and assembly steps are CPU-bound and fast.</p>
  *
  * <h3>Pipeline Steps</h3>

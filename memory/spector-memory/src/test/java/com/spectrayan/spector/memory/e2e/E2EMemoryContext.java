@@ -12,10 +12,10 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
-import com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
+import com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider;
+import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -41,7 +41,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <h3>Thread Safety</h3>
  * <p>Uses {@code synchronized} on the class lock. JUnit 5 test classes call
- * {@link #get()} from their {@code @BeforeAll} methods — all of which run on
+ * {@link #get()} from their {@code @BeforeAll} methods  --  all of which run on
  * the same thread in the default sequential executor.</p>
  */
 public final class E2EMemoryContext {
@@ -118,7 +118,7 @@ public final class E2EMemoryContext {
     public synchronized void ingestIfNeeded() {
         if (ingested) return;
 
-        log.info("═══ Ingesting {} seed memories ═══", seedMemories.size());
+        log.info("=== Ingesting {} seed memories ===", seedMemories.size());
         long start = System.currentTimeMillis();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -129,19 +129,19 @@ public final class E2EMemoryContext {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         long elapsed = System.currentTimeMillis() - start;
-        log.info("✅ Ingested {} memories in {}ms ({}ms/memory)",
+        log.info("[x] Ingested {} memories in {}ms ({}ms/memory)",
                 seedMemories.size(), elapsed,
                 String.format("%.1f", (double) elapsed / seedMemories.size()));
 
         ingested = true;
     }
 
-    // ── Initialization ──
+    // -€-€ Initialization -€-€
 
     private static void initialize() {
-        log.info("╔══════════════════════════════════════════════════════════════╗");
-        log.info("║  Spector Memory E2E — Initializing shared context           ║");
-        log.info("╚══════════════════════════════════════════════════════════════╝");
+        log.info("=”===============================================================—");
+        log.info("=‘  Spector Memory E2E  --  Initializing shared context           =‘");
+        log.info("=š===============================================================");
 
         // Load seed data from markdown files
         seedMemories = E2ESeedData.loadAll();
@@ -153,14 +153,14 @@ public final class E2EMemoryContext {
         log.info("Embedding model: {} ({}D)", EMBEDDING_MODEL, dims);
 
         // Create SPLADE + ColBERT providers (reuse the same embedding provider)
-        var sparseProvider = new OllamaSparseEncodingProvider(embeddingProvider);
-        var tokenProvider = new OllamaTokenEmbeddingProvider(embeddingProvider);
+        var sparseProvider = new DenseDerivedSparseProvider(embeddingProvider);
+        var tokenProvider = new DenseDerivedTokenProvider(embeddingProvider);
 
         // Build the memory system with all subsystems enabled
         memory = DefaultSpectorMemory.builder()
                 .dimensions(dims)
                 .embeddingProvider(embeddingProvider)
-                .sparseEncodingProvider(sparseProvider)
+                .SparseEmbeddingProvider(sparseProvider)
                 .tokenEmbeddingProvider(tokenProvider)
                 .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
                 .workingCapacity(50)

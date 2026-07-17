@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 import com.spectrayan.spector.ingestion.sensory.OllamaAudioExtractor;
 import com.spectrayan.spector.ingestion.sensory.OllamaVisionExtractor;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>Requires:</p>
  * <ul>
- *   <li>{@code OLLAMA_LIVE=true} — running Ollama instance</li>
+ *   <li>{@code OLLAMA_LIVE=true}  --  running Ollama instance</li>
  *   <li>An audio-capable Ollama model (e.g., "gemma4" with audio support)</li>
  * </ul>
  *
@@ -67,11 +67,11 @@ class AudioIngestionE2ETest {
         boolean ollamaLive = "true".equalsIgnoreCase(System.getenv("OLLAMA_LIVE"))
                 || "true".equalsIgnoreCase(System.getProperty("OLLAMA_LIVE"));
         Assumptions.assumeTrue(ollamaLive,
-                "Skipping audio E2E — set OLLAMA_LIVE=true to run");
+                "Skipping audio E2E  --  set OLLAMA_LIVE=true to run");
 
         var embeddingProvider = OllamaEmbeddingProvider.create("nomic-embed-text");
 
-        // Audio extractor — requires a TextGenerationProvider
+        // Audio extractor  --  requires a LlmProvider
         OllamaLlmProvider audioLlm = OllamaLlmProvider.create("gemma4");
         audioExtractor = new OllamaAudioExtractor(audioLlm);
         audioModelAvailable = audioExtractor.isAvailable();
@@ -98,12 +98,12 @@ class AudioIngestionE2ETest {
                 .sensoryExtractors(List.of(visionExtractor, tikaExtractor, audioExtractor))
                 .build();
 
-        log.info("AudioIngestionE2E initialized — audioModel={}", audioModelAvailable);
+        log.info("AudioIngestionE2E initialized  --  audioModel={}", audioModelAvailable);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // PIPELINE INTEGRATION (No live model required)
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(1)
@@ -145,7 +145,7 @@ class AudioIngestionE2ETest {
                 .metadata(SourceModality.ATTACHMENTS_KEY, wav1.toAbsolutePath().toString())
                 .sourceModality(SourceModality.AUDIO)
                 .build();
-        String id1 = memory.remember("First audio recording — morning briefing",
+        String id1 = memory.remember("First audio recording  --  morning briefing",
                 MemoryType.EPISODIC, MemorySource.USER_STATED, ctx1,
                 "audio", "morning").join();
 
@@ -153,7 +153,7 @@ class AudioIngestionE2ETest {
                 .metadata(SourceModality.ATTACHMENTS_KEY, wav2.toAbsolutePath().toString())
                 .sourceModality(SourceModality.AUDIO)
                 .build();
-        String id2 = memory.remember("Second audio recording — afternoon review",
+        String id2 = memory.remember("Second audio recording  --  afternoon review",
                 MemoryType.EPISODIC, MemorySource.USER_STATED, ctx2,
                 "audio", "afternoon").join();
 
@@ -191,9 +191,9 @@ class AudioIngestionE2ETest {
         log.info("Cross-modal recall: {} results for 'project architecture'", results.size());
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // LIVE TRANSCRIPTION (Requires audio-capable model)
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(10)
@@ -213,11 +213,11 @@ class AudioIngestionE2ETest {
                 for (var chunk : chunkList) {
                     assertNotNull(chunk.text(), "Chunk text should not be null");
                     log.info("Audio chunk [{}]: {}", chunk.chunkId(),
-                            chunk.text().length() > 100 ? chunk.text().substring(0, 100) + "…" : chunk.text());
+                            chunk.text().length() > 100 ? chunk.text().substring(0, 100) + "..." : chunk.text());
                 }
             } else {
                 // Empty is acceptable for non-speech audio (pure tone)
-                log.info("Audio model returned empty for non-speech audio — expected for sine wave");
+                log.info("Audio model returned empty for non-speech audio  --  expected for sine wave");
             }
         }
     }
@@ -240,9 +240,9 @@ class AudioIngestionE2ETest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // EDGE CASES
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(20)
@@ -275,9 +275,9 @@ class AudioIngestionE2ETest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // HELPERS
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     private static Path resolveTestResource(String relativePath) {
         var url = AudioIngestionE2ETest.class.getClassLoader().getResource(relativePath);

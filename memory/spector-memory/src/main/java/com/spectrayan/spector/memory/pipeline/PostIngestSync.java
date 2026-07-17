@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
-import com.spectrayan.spector.embed.SparseEncodingProvider;
-import com.spectrayan.spector.embed.SparseEncodingResult;
+import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.SparseEmbeddingResult;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
@@ -44,7 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Post-ingest index synchronization stage — handles steps 7b through 9d
+ * Post-ingest index synchronization stage  --  handles steps 7b through 9d
  * of the cognitive ingestion pipeline.
  *
  * <h3>Responsibilities</h3>
@@ -71,7 +71,7 @@ final class PostIngestSync {
 
     private static final Logger log = LoggerFactory.getLogger(PostIngestSync.class);
 
-    // ── Subsystem references (all nullable except index, wal) ──
+    // -€-€ Subsystem references (all nullable except index, wal) -€-€
     private volatile TierRouter tierRouter;
     private final MemoryIndex index;
     private final MemoryWal wal;
@@ -84,7 +84,7 @@ final class PostIngestSync {
     private final TextDataStore textDataStore;
     private final int activePartitionIndex;
     private final MemorySpladeIndex spladeIndex;
-    private final SparseEncodingProvider spladeProvider;
+    private final SparseEmbeddingProvider spladeProvider;
     private final DataEncryptor encryptor;
     private final HyperEntityGraph hyperEntityGraph;
 
@@ -94,7 +94,7 @@ final class PostIngestSync {
                    EntityExtractor entityExtractor, EntityGraph entityGraph,
                    MemoryBM25Index bm25Index, TextDataStore textDataStore,
                    int activePartitionIndex,
-                   MemorySpladeIndex spladeIndex, SparseEncodingProvider spladeProvider,
+                   MemorySpladeIndex spladeIndex, SparseEmbeddingProvider spladeProvider,
                    DataEncryptor encryptor,
                    HyperEntityGraph hyperEntityGraph) {
         this.tierRouter = tierRouter;
@@ -217,7 +217,7 @@ final class PostIngestSync {
      *
      * @param id        memory ID
      * @param text      memory content
-     * @param memoryIdx memory index for entity→memory linking
+     * @param memoryIdx memory index for entity -> memory linking
      */
     void syncEntityExtraction(String id, String text, int memoryIdx) {
         if (entityExtractor != null && entityGraph != null && entityExtractor.isAvailable()) {
@@ -239,7 +239,7 @@ final class PostIngestSync {
      * Populates the entity graph with pre-extracted entities (Step 9d override).
      *
      * @param entities  pre-extracted entities
-     * @param memoryIdx memory index for entity→memory linking
+     * @param memoryIdx memory index for entity -> memory linking
      * @param id        memory ID (for logging)
      */
     void syncPreExtractedEntities(List<ExtractedEntity> entities, int memoryIdx, String id) {
@@ -267,7 +267,7 @@ final class PostIngestSync {
                     hebbianGraph.strengthen(memoryIdx, targetIdx, edgeHint.weight());
                 }
             } catch (RuntimeException e) {
-                log.warn("Failed to apply Hebbian edge hint {} → {}: {}",
+                log.warn("Failed to apply Hebbian edge hint {}  ->  {}: {}",
                         id, edgeHint.targetMemoryId(), e.getMessage());
             }
         }
@@ -289,15 +289,15 @@ final class PostIngestSync {
                     temporalChain.link(memoryIdx, predIdx, linkHint.sessionId());
                 }
             } catch (RuntimeException e) {
-                log.warn("Failed to apply temporal link hint {} → {}: {}",
+                log.warn("Failed to apply temporal link hint {}  ->  {}: {}",
                         id, linkHint.predecessorMemoryId(), e.getMessage());
             }
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // PRIVATE HELPERS
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     private com.spectrayan.spector.memory.cortex.TextDataStore.TextPosition syncTextIndex(
             String id, String text, MemoryType type) {
@@ -327,7 +327,7 @@ final class PostIngestSync {
     private void syncSpladeIndex(String id, String text) {
         if (spladeIndex != null && spladeProvider != null && activePartitionIndex >= 0) {
             try {
-                SparseEncodingResult sparse = spladeProvider.encode(text);
+                SparseEmbeddingResult sparse = spladeProvider.encode(text);
                 spladeIndex.index(activePartitionIndex, id, sparse.weights());
             } catch (RuntimeException e) {
                 log.warn("Failed SPLADE index for '{}': {}", id, e.getMessage());
@@ -358,7 +358,7 @@ final class PostIngestSync {
             }
         }
         if (entitiesAdded > 0) {
-            log.info("[Ingest] '{}' → {} entities, {} relations added to EntityGraph",
+            log.info("[Ingest] '{}'  ->  {} entities, {} relations added to EntityGraph",
                     id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
                     entitiesAdded, relationsAdded);
 

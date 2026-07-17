@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.test.judge;
 
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
 /**
  * LLM-based test judge for semantic validation of recall results.
  *
- * <p>Sends structured prompts to a {@link TextGenerationProvider} and parses
+ * <p>Sends structured prompts to a {@link LlmProvider} and parses
  * the LLM's JSON verdict to determine whether test results meet expectations.</p>
  *
  * <h3>Usage</h3>
@@ -51,7 +51,7 @@ import java.util.regex.Pattern;
  * }</pre>
  *
  * <h3>Thread Safety</h3>
- * <p>This class is thread-safe if the underlying {@link TextGenerationProvider} is.</p>
+ * <p>This class is thread-safe if the underlying {@link LlmProvider} is.</p>
  *
  * @see JudgeVerdict
  * @see JudgePromptTemplates
@@ -65,12 +65,12 @@ public class LlmTestJudge {
     private static final Pattern JSON_EXTRACT = Pattern.compile(
             "\\{\\s*\"relevant\"\\s*:\\s*(true|false).*?\\}", Pattern.DOTALL);
 
-    private final TextGenerationProvider llm;
+    private final LlmProvider llm;
     private final float temperature;
     private final int maxRetries;
     private final float confidenceThreshold;
 
-    private LlmTestJudge(TextGenerationProvider llm, float temperature,
+    private LlmTestJudge(LlmProvider llm, float temperature,
                           int maxRetries, float confidenceThreshold) {
         this.llm = llm;
         this.temperature = temperature;
@@ -84,7 +84,7 @@ public class LlmTestJudge {
      * @param llm the text generation provider
      * @return configured judge
      */
-    public static LlmTestJudge create(TextGenerationProvider llm) {
+    public static LlmTestJudge create(LlmProvider llm) {
         return new LlmTestJudge(llm, 0.1f, 2, 0.6f);
     }
 
@@ -112,13 +112,13 @@ public class LlmTestJudge {
     /**
      * Returns the underlying LLM provider.
      */
-    public TextGenerationProvider llm() {
+    public LlmProvider llm() {
         return llm;
     }
 
-    // ═══════════════════════════════════════════════════
+    // ===================================================
     //  Judgment methods
-    // ═══════════════════════════════════════════════════
+    // ===================================================
 
     /**
      * Judges whether recall results are semantically relevant to the query.
@@ -159,9 +159,9 @@ public class LlmTestJudge {
         return executeJudgment(query, resultTexts.size(), prompt);
     }
 
-    // ═══════════════════════════════════════════════════
+    // ===================================================
     //  Core execution
-    // ═══════════════════════════════════════════════════
+    // ===================================================
 
     private JudgeVerdict executeJudgment(String query, int resultCount, String prompt) {
         GenerationOptions options = GenerationOptions.builder()
@@ -178,19 +178,19 @@ public class LlmTestJudge {
 
                 JudgeVerdict verdict = parseVerdict(rawResponse, query, resultCount, latencyMs);
                 if (verdict != null) {
-                    log.info("LLM Judge [{}]: {} (confidence={}, latency={}ms) — {}",
+                    log.info("LLM Judge [{}]: {} (confidence={}, latency={}ms)  --  {}",
                             llm.modelName(),
-                            verdict.relevant() ? "✅ RELEVANT" : "❌ NOT_RELEVANT",
+                            verdict.relevant() ? "[x] RELEVANT" : "[ ] NOT_RELEVANT",
                             String.format("%.2f", verdict.confidence()),
                             verdict.latencyMs(),
                             verdict.reasoning());
                     return verdict;
                 }
 
-                log.warn("LLM Judge: Failed to parse verdict on attempt {} — raw: {}",
+                log.warn("LLM Judge: Failed to parse verdict on attempt {}  --  raw: {}",
                         attempt + 1, truncate(rawResponse, 200));
 
-            } catch (TextGenerationProvider.GenerationException e) {
+            } catch (LlmProvider.GenerationException e) {
                 long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
                 log.warn("LLM Judge: Generation failed on attempt {}: {}", attempt + 1, e.getMessage());
 
@@ -204,9 +204,9 @@ public class LlmTestJudge {
         return JudgeVerdict.parseFailure(query, "All retry attempts failed", latencyMs);
     }
 
-    // ═══════════════════════════════════════════════════
+    // ===================================================
     //  Response parsing
-    // ═══════════════════════════════════════════════════
+    // ===================================================
 
     /**
      * Parses the LLM's JSON verdict from its response.

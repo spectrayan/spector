@@ -12,23 +12,23 @@
  */
 package com.spectrayan.spector.memory.test;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
 import java.util.Random;
 
 /**
  * Deterministic fake embedding provider for unit and integration tests.
  *
- * <p>Generates 384-dimensional vectors from text hashes — same text always
+ * <p>Generates 384-dimensional vectors from text hashes  --  same text always
  * produces the same vector, enabling deterministic similarity tests without
  * any network calls.</p>
  *
  * <h3>Properties</h3>
  * <ul>
- *   <li><b>Deterministic</b>: identical text → identical vector</li>
- *   <li><b>Different texts → different vectors</b>: hash seeding ensures distinct outputs</li>
- *   <li><b>Normalized</b>: L2 norm ≈ 1.0 (±0.01)</li>
+ *   <li><b>Deterministic</b>: identical text  ->  identical vector</li>
+ *   <li><b>Different texts  ->  different vectors</b>: hash seeding ensures distinct outputs</li>
+ *   <li><b>Normalized</b>: L2 norm  ~=  1.0 ( ±0.01)</li>
  *   <li><b>Thread-safe</b>: no shared mutable state</li>
  *   <li><b>Instant</b>: no I/O or network calls</li>
  * </ul>

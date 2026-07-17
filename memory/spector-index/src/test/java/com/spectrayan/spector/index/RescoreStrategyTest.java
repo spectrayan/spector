@@ -74,7 +74,7 @@ class RescoreStrategyTest {
     void rescoreReturnsTopKByExactDistance() {
         RescoreStrategy strategy = new RescoreStrategy(3);
 
-        // Simulate 6 candidates from quantized search (k=2, factor=3 â†’ 6 candidates)
+        // Simulate 6 candidates from quantized search (k=2, factor=3  ->  6 candidates)
         List<ScoredResult> quantizedCandidates = List.of(
                 new ScoredResult("a", 0, 0.9f),
                 new ScoredResult("b", 1, 0.8f),
@@ -84,7 +84,7 @@ class RescoreStrategyTest {
                 new ScoredResult("f", 5, 0.4f)
         );
 
-        // Exact distances differ from quantized scores â€” "e" and "c" are actually closest
+        // Exact distances differ from quantized scores  --  "e" and "c" are actually closest
         float[] exactDistances = {0.50f, 0.80f, 0.10f, 0.70f, 0.05f, 0.60f};
 
         float[] query = {1.0f, 2.0f};

@@ -17,8 +17,8 @@ package com.spectrayan.spector.index;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.embed.TokenEmbeddingProvider;
-import com.spectrayan.spector.embed.TokenEmbeddingResult;
+import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.TokenEmbeddingResult;
 import com.spectrayan.spector.index.ColBERTReranker.RerankCandidate;
 import com.spectrayan.spector.index.ColBERTReranker.RerankResult;
 
@@ -35,13 +35,13 @@ import java.util.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class RetrievalBenchmarkTest {
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // SIMD Score Accumulator
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(1)
-    @DisplayName("SIMD addArrays — 100K elements under 1ms")
+    @DisplayName("SIMD addArrays  --  100K elements under 1ms")
     void simd_addArrays_100K_under_1ms() {
         int n = 100_000;
         float[] dst = new float[n];
@@ -64,13 +64,13 @@ class RetrievalBenchmarkTest {
         SIMDScoreAccumulator.addArrays(dst, src, n);
         long elapsed = System.nanoTime() - start;
 
-        System.out.printf("SIMD addArrays 100K: %,d µs%n", elapsed / 1000);
+        System.out.printf("SIMD addArrays 100K: %,d us%n", elapsed / 1000);
         assertThat(elapsed / 1_000_000).as("100K addArrays < 1ms").isLessThan(1);
     }
 
     @Test
     @Order(2)
-    @DisplayName("SIMD fmaArrays — 100K elements under 1ms")
+    @DisplayName("SIMD fmaArrays  --  100K elements under 1ms")
     void simd_fmaArrays_100K_under_1ms() {
         int n = 100_000;
         float[] dst = new float[n];
@@ -92,13 +92,13 @@ class RetrievalBenchmarkTest {
         SIMDScoreAccumulator.fmaArrays(dst, src, 0.5f, n);
         long elapsed = System.nanoTime() - start;
 
-        System.out.printf("SIMD fmaArrays 100K: %,d µs%n", elapsed / 1000);
+        System.out.printf("SIMD fmaArrays 100K: %,d us%n", elapsed / 1000);
         assertThat(elapsed / 1_000_000).as("100K fmaArrays < 1ms").isLessThan(1);
     }
 
     @Test
     @Order(3)
-    @DisplayName("SIMD maxValue — 100K elements under 500µs")
+    @DisplayName("SIMD maxValue  --  100K elements under 500us")
     void simd_maxValue_100K_under_500us() {
         int n = 100_000;
         float[] arr = new float[n];
@@ -114,17 +114,17 @@ class RetrievalBenchmarkTest {
         float max = SIMDScoreAccumulator.maxValue(arr, n);
         long elapsed = System.nanoTime() - start;
 
-        System.out.printf("SIMD maxValue 100K: %,d µs (max=%.4f)%n", elapsed / 1000, max);
-        assertThat(elapsed / 1000).as("100K maxValue < 500µs").isLessThan(500);
+        System.out.printf("SIMD maxValue 100K: %,d us (max=%.4f)%n", elapsed / 1000, max);
+        assertThat(elapsed / 1000).as("100K maxValue < 500us").isLessThan(500);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // SpladeIndex
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(4)
-    @DisplayName("SpladeIndex — 10K docs, single query under 5ms")
+    @DisplayName("SpladeIndex  --  10K docs, single query under 5ms")
     void splade_10K_search_under_5ms() {
         SpladeIndex index = new SpladeIndex();
         Random rng = new Random(42);
@@ -153,7 +153,7 @@ class RetrievalBenchmarkTest {
         ScoredResult[] results = index.searchSparse(query, 10);
         long elapsed = System.nanoTime() - start;
 
-        System.out.printf("SpladeIndex 10K search: %,d µs → %d results%n",
+        System.out.printf("SpladeIndex 10K search: %,d us  ->  %d results%n",
                 elapsed / 1000, results.length);
         assertThat(elapsed / 1_000_000).as("10K SPLADE search < 5ms").isLessThan(5);
         assertThat(results).isNotEmpty();
@@ -163,7 +163,7 @@ class RetrievalBenchmarkTest {
 
     @Test
     @Order(5)
-    @DisplayName("SpladeIndex — bulk index 1K docs × 100 terms under 500ms")
+    @DisplayName("SpladeIndex  --  bulk index 1K docs x 100 terms under 500ms")
     void splade_bulkIndex_1K_under_500ms() {
         SpladeIndex index = new SpladeIndex();
         Random rng = new Random(42);
@@ -183,7 +183,7 @@ class RetrievalBenchmarkTest {
         }
         long elapsed = System.nanoTime() - start;
 
-        System.out.printf("SpladeIndex bulk 1K×100: %,d ms (%d docs)%n",
+        System.out.printf("SpladeIndex bulk 1Kx100: %,d ms (%d docs)%n",
                 elapsed / 1_000_000, index.size());
         assertThat(elapsed / 1_000_000).as("1K bulk index < 500ms").isLessThan(500);
         assertThat(index.size()).isEqualTo(1000);
@@ -191,13 +191,13 @@ class RetrievalBenchmarkTest {
         index.close();
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // ColBERT MaxSim
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(6)
-    @DisplayName("ColBERT MaxSim — rerank 50 candidates × 128-dim under 50ms")
+    @DisplayName("ColBERT MaxSim  --  rerank 50 candidates x 128-dim under 50ms")
     void colbert_maxSim_50_under_50ms() {
         int tokenDims = 128;
         var provider = new BenchmarkTokenProvider(tokenDims);
@@ -220,17 +220,17 @@ class RetrievalBenchmarkTest {
         List<RerankResult> results = reranker.rerank("search query terms", candidates, 10);
         long elapsed = System.nanoTime() - start;
 
-        System.out.printf("ColBERT rerank 50×%d-dim: %,d ms → %d results%n",
+        System.out.printf("ColBERT rerank 50x%d-dim: %,d ms  ->  %d results%n",
                 tokenDims, elapsed / 1_000_000, results.size());
         assertThat(elapsed / 1_000_000).as("50 candidates reranking < 50ms").isLessThan(50);
         assertThat(results).hasSize(10);
     }
 
-    // ── Benchmark token provider ──
+    // -€-€ Benchmark token provider -€-€
 
     /**
      * Fast deterministic token embedding provider for benchmarks.
-     * Uses hash-seeded random vectors — not unit-normalized (speed over accuracy).
+     * Uses hash-seeded random vectors  --  not unit-normalized (speed over accuracy).
      */
     static class BenchmarkTokenProvider implements TokenEmbeddingProvider {
         private final int dims;

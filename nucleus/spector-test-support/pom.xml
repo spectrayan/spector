@@ -25,16 +25,16 @@
     </properties>
 
     <dependencies>
-        <!-- Spector embed API (TextGenerationProvider interface) -->
+        <!-- Spector provider API (TextGenerationProvider interface) -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-api</artifactId>
+            <artifactId>spector-provider-api</artifactId>
         </dependency>
 
-        <!-- Spector embed Ollama (OllamaLlmProvider) -->
+        <!-- Spector providers (OllamaLlmProvider) -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
+            <artifactId>spector-providers</artifactId>
         </dependency>
 
         <!-- Jackson for JSON verdict parsing -->

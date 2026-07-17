@@ -40,10 +40,10 @@
             <artifactId>spector-ingestion</artifactId>
         </dependency>
 
-        <!-- ── Ollama Embedding + Text Generation Provider ── -->
+        <!-- ── LLM and Embedding Providers ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
+            <artifactId>spector-providers</artifactId>
         </dependency>
 
         <!-- ── Official Anthropic MCP Java SDK ── -->

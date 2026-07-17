@@ -17,8 +17,8 @@ import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -70,9 +70,9 @@ class MemoryEnhancementTest {
         memory.close();
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // P1: Zeigarnik Effect
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("Zeigarnik Effect")
@@ -99,7 +99,7 @@ class MemoryEnhancementTest {
 
             // Memory should still be findable (it's recent)
             List<CognitiveResult> results = memory.recall("database migration");
-            // The resolved flag is set — verify it doesn't crash
+            // The resolved flag is set  --  verify it doesn't crash
             assertThat(results).isNotNull();
         }
 
@@ -112,7 +112,7 @@ class MemoryEnhancementTest {
             memory.markResolved("task-reopen");
             memory.markUnresolved("task-reopen");
 
-            // Memory is back to unresolved — should still appear
+            // Memory is back to unresolved  --  should still appear
             List<CognitiveResult> results = memory.recall("monitoring dashboard");
             assertThat(results).isNotEmpty();
         }
@@ -126,9 +126,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // P1: Strictness Coefficient
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("Strictness Coefficient")
@@ -160,9 +160,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // P2: Bit-Shift Reconsolidation
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("Bit-Shift Reconsolidation")
@@ -199,9 +199,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // P2: Valence Alignment
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("Valence Alignment")
@@ -236,9 +236,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // P2: Semantic Satiation (Anti-Looping)
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("Semantic Satiation")
@@ -254,7 +254,7 @@ class MemoryEnhancementTest {
             List<CognitiveResult> first = memory.recall("kubernetes scheduling");
             float firstScore = first.isEmpty() ? 0 : first.getFirst().score();
 
-            // Second recall — satiation + habituation should reduce score
+            // Second recall  --  satiation + habituation should reduce score
             List<CognitiveResult> second = memory.recall("kubernetes scheduling");
             float secondScore = second.isEmpty() ? 0 : second.getFirst().score();
 
@@ -264,9 +264,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // P3: New Cognitive Profiles
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("New Cognitive Profiles")
@@ -321,9 +321,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // Cognitive Profile Configuration (Operational Feature Flags)
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("Cognitive Profile Configuration")
@@ -402,9 +402,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // Config YAML Parsing (fromConfigValue)
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("Config YAML Parsing")
@@ -473,9 +473,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // SynapticHeaderConstants Zeigarnik Flag
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     @Nested
     @DisplayName("SynapticHeader FLAG_RESOLVED")
@@ -513,9 +513,9 @@ class MemoryEnhancementTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // Mock Embedding Provider (deterministic, normalized)
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     /**
      * Deterministic mock that produces hash-based, L2-normalized vectors.

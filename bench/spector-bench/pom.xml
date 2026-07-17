@@ -46,7 +46,7 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
+            <artifactId>spector-providers</artifactId>
         </dependency>
 
         <!-- JMH -->

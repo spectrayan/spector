@@ -6,7 +6,7 @@ Extract the following information in EXACTLY this format (one per line):
    FACT: field=<field_name> value=<value> action=add
 
    Valid fields: name, preference, occupation, location, interest, expertise, communication_style
-   Example: FACT: field=name value=Bharat action=add
+   Example: FACT: field=name value=John action=add
    Example: FACT: field=interest value=machine learning action=add
 
 2. KNOWLEDGE — important facts, conclusions, or decisions worth remembering:

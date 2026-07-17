@@ -31,17 +31,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * EVALUATE node — asks the LLM to assess retrieved context sufficiency.
+ * EVALUATE node  --  asks the LLM to assess retrieved context sufficiency.
  *
  * <p>Sets the {@code decision} channel to one of:</p>
  * <ul>
- *   <li>{@code GENERATE} — context is sufficient, proceed to answer generation</li>
- *   <li>{@code REQUERY} — context is insufficient, refine query and retrieve again</li>
- *   <li>{@code USE_TOOLS} — context is insufficient, call tools to fetch more data</li>
+ *   <li>{@code GENERATE}  --  context is sufficient, proceed to answer generation</li>
+ *   <li>{@code REQUERY}  --  context is insufficient, refine query and retrieve again</li>
+ *   <li>{@code USE_TOOLS}  --  context is insufficient, call tools to fetch more data</li>
  * </ul>
  *
  * <p>Uses the {@link LlmBridge} (Spring AI / LangChain4j) for LLM calls instead of
- * the enterprise {@code TextGenerationProvider}.</p>
+ * the enterprise {@code LlmProvider}.</p>
  */
 public final class EvaluateNode implements NodeAction<CognitiveState> {
 
@@ -93,7 +93,7 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
     public Map<String, Object> apply(CognitiveState state) {
         List<String> contextEntries = state.context();
 
-        // Phase 6 (P2): Context pruning — deduplicate and apply sliding window
+        // Phase 6 (P2): Context pruning  --  deduplicate and apply sliding window
         List<String> prunedContext = pruneContext(contextEntries);
 
         String contextText = prunedContext.isEmpty()
@@ -118,13 +118,13 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
         String response = llmBridge.generate(prompt);
         log.debug("[EvaluateNode] LLM response: {}", truncate(response, 200));
 
-        // Parse decision — check USE_TOOLS first (most specific)
+        // Parse decision  --  check USE_TOOLS first (most specific)
         Matcher useToolsMatcher = USE_TOOLS_PATTERN.matcher(response);
         if (useToolsMatcher.find() && !toolNames.isEmpty()) {
             String toolCallsStr = useToolsMatcher.group(1).trim();
             List<String> toolCallsList = parseToolCalls(toolCallsStr);
             if (!toolCallsList.isEmpty()) {
-                log.info("[EvaluateNode] USE_TOOLS → {}", toolCallsList);
+                log.info("[EvaluateNode] USE_TOOLS  ->  {}", toolCallsList);
                 return Map.of(
                         "decision", "USE_TOOLS",
                         "tool_calls", toolCallsList
@@ -135,7 +135,7 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
         Matcher requeryMatcher = REQUERY_PATTERN.matcher(response);
         if (requeryMatcher.find()) {
             String refinedQuery = requeryMatcher.group(1).trim();
-            log.info("[EvaluateNode] REQUERY → '{}'", refinedQuery);
+            log.info("[EvaluateNode] REQUERY  ->  '{}'", refinedQuery);
             return Map.of(
                     "decision", "REQUERY",
                     "query", refinedQuery
@@ -195,7 +195,7 @@ public final class EvaluateNode implements NodeAction<CognitiveState> {
         // Deduplicate while preserving insertion order
         var deduped = new ArrayList<>(new LinkedHashSet<>(entries));
 
-        // Sliding window — keep only the last N entries
+        // Sliding window  --  keep only the last N entries
         if (deduped.size() > MAX_CONTEXT_ENTRIES) {
             int pruned = deduped.size() - MAX_CONTEXT_ENTRIES;
             log.debug("[EvaluateNode] Pruned {} duplicate/old context entries", pruned);

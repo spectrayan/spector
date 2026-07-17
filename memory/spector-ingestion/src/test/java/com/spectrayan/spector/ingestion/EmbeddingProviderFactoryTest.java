@@ -17,14 +17,14 @@ package com.spectrayan.spector.ingestion;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link EmbeddingProviderFactory} — reflection-based factory
+ * Tests for {@link EmbeddingProviderFactory}  --  reflection-based factory
  * for Ollama embedding provider.
  */
 @DisplayName("EmbeddingProviderFactory")

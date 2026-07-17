@@ -97,10 +97,10 @@
             <artifactId>spector-memory</artifactId>
         </dependency>
 
-        <!-- ── Spector Embedding Ollama (SPLADE + ColBERT providers) ── -->
+        <!-- ── LLM and Embedding Providers ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
+            <artifactId>spector-providers</artifactId>
         </dependency>
 
         <!-- ── Spring Boot Auto-Configuration ── -->

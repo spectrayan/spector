@@ -14,9 +14,9 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.model.*;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
-import com.spectrayan.spector.embed.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import org.junit.jupiter.api.*;
@@ -34,13 +34,13 @@ import java.util.concurrent.TimeUnit;
  * Integration tests for the retrieval stack using real Ollama embeddings.
  *
  * <h3>What This Tests</h3>
- * <p>Validates the full ingest → index → recall pipeline using production-grade
+ * <p>Validates the full ingest  ->  index  ->  recall pipeline using production-grade
  * embeddings from Ollama's {@code qwen3-embedding} model. Unlike unit tests that
  * use mock embeddings with random vectors, these tests verify that:
  * <ul>
  *   <li>BM25 keyword search works correctly alongside real vector search</li>
  *   <li>Hybrid mode (BM25 + Vector) produces meaningful fusion results</li>
- *   <li>Text search mode switching (HYBRID → KEYWORD_ONLY → VECTOR_ONLY) works</li>
+ *   <li>Text search mode switching (HYBRID  ->  KEYWORD_ONLY  ->  VECTOR_ONLY) works</li>
  *   <li>Concurrent recall with real embeddings doesn't crash</li>
  *   <li>Relevance ordering is semantically meaningful (not just hash-coincidence)</li>
  * </ul>
@@ -95,13 +95,13 @@ class OllamaRetrievalStackTest {
         if (memory != null) memory.close();
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // BM25 Keyword Search with Real Vectors
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(1)
-    @DisplayName("BM25 keyword recall — exact-term matches found in keyword-only mode")
+    @DisplayName("BM25 keyword recall  --  exact-term matches found in keyword-only mode")
     void bm25_keywordRecall() throws Exception {
         memory.remember("kw-java", "Java uses garbage collection for automatic memory management.",
                 MemoryType.EPISODIC, MemorySource.OBSERVED, "java").get(30, TimeUnit.SECONDS);
@@ -132,7 +132,7 @@ class OllamaRetrievalStackTest {
 
     @Test
     @Order(2)
-    @DisplayName("BM25 no false positives — unrelated query returns empty or very low scores")
+    @DisplayName("BM25 no false positives  --  unrelated query returns empty or very low scores")
     void bm25_noFalsePositives() throws Exception {
         memory.remember("fp-java", "Java is a strongly typed programming language.",
                 MemoryType.EPISODIC, MemorySource.OBSERVED, "java").get(30, TimeUnit.SECONDS);
@@ -163,13 +163,13 @@ class OllamaRetrievalStackTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // Hybrid Mode — BM25 + Vector
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
+    // Hybrid Mode  --  BM25 + Vector
+    // ==============================================================
 
     @Test
     @Order(3)
-    @DisplayName("Hybrid recall — combines keyword AND semantic matches")
+    @DisplayName("Hybrid recall  --  combines keyword AND semantic matches")
     void hybrid_recall() throws Exception {
         // Keyword-matchable
         memory.remember("h-exact", "PostgreSQL connection pool exhausted during peak traffic.",
@@ -201,13 +201,13 @@ class OllamaRetrievalStackTest {
         assertThat(foundSemantic).as("Hybrid should include semantic match").isTrue();
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Vector-Only Semantic Search
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(4)
-    @DisplayName("Vector-only recall — semantic similarity with real embeddings")
+    @DisplayName("Vector-only recall  --  semantic similarity with real embeddings")
     void vectorOnly_semanticSimilarity() throws Exception {
         memory.remember("v-direct", "The Kubernetes autoscaler adjusts pod count based on CPU utilization metrics.",
                 MemoryType.EPISODIC, MemorySource.OBSERVED, "k8s").get(30, TimeUnit.SECONDS);
@@ -240,13 +240,13 @@ class OllamaRetrievalStackTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Text Search Mode Switching
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(5)
-    @DisplayName("Text search mode switching — HYBRID, KEYWORD_ONLY, VECTOR_ONLY all work")
+    @DisplayName("Text search mode switching  --  HYBRID, KEYWORD_ONLY, VECTOR_ONLY all work")
     void textSearchModeSwitching() throws Exception {
         memory.remember("ts-1", "Spring Boot auto-configuration resolves beans using conditional annotations.",
                 MemoryType.EPISODIC, MemorySource.OBSERVED, "spring").get(30, TimeUnit.SECONDS);
@@ -279,13 +279,13 @@ class OllamaRetrievalStackTest {
         assertThat(vector).as("VECTOR_ONLY should return results").isNotEmpty();
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Concurrent Recall with Real Embeddings
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(6)
-    @DisplayName("Concurrent recall — 5 threads, real Ollama embeddings, no crashes")
+    @DisplayName("Concurrent recall  --  5 threads, real Ollama embeddings, no crashes")
     void concurrentRecall_realEmbeddings() throws Exception {
         // Seed data
         String[] topics = {
@@ -342,13 +342,13 @@ class OllamaRetrievalStackTest {
         assertThat(errors).as("No exceptions during concurrent recall with real embeddings").isEmpty();
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // Full E2E: Ingest 50 → Recall with Relevance Ordering
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
+    // Full E2E: Ingest 50  ->  Recall with Relevance Ordering
+    // ==============================================================
 
     @Test
     @Order(7)
-    @DisplayName("E2E 50-doc ingest + recall — real embeddings, verify relevance ordering")
+    @DisplayName("E2E 50-doc ingest + recall  --  real embeddings, verify relevance ordering")
     void ingestRecall_e2e_50docs() throws Exception {
         String[] domainTopics = {
                 "Java virtual threads provide lightweight concurrency using Project Loom",
@@ -366,7 +366,7 @@ class OllamaRetrievalStackTest {
         System.out.println("\n=== E2E: Ingesting 50 memories with real embeddings ===");
         long ingestStart = System.nanoTime();
         for (int i = 0; i < 50; i++) {
-            String text = domainTopics[i % domainTopics.length] + " — instance " + i;
+            String text = domainTopics[i % domainTopics.length] + "  --  instance " + i;
             MemoryType type = switch (i % 4) {
                 case 0 -> MemoryType.WORKING;
                 case 1 -> MemoryType.EPISODIC;
@@ -418,13 +418,13 @@ class OllamaRetrievalStackTest {
         assertThat(totalResults).isGreaterThan(0);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Cross-Tier Recall with Text Search Modes
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(8)
-    @DisplayName("Cross-tier keyword recall — BM25 finds matches across all memory tiers")
+    @DisplayName("Cross-tier keyword recall  --  BM25 finds matches across all memory tiers")
     void crossTier_keywordRecall() throws Exception {
         memory.remember("ct-w", "Working on fixing the NullPointerException in the authentication module.",
                 MemoryType.WORKING, "auth", "error").get(30, TimeUnit.SECONDS);
@@ -450,7 +450,7 @@ class OllamaRetrievalStackTest {
         assertThat(tiers.size()).as("Results should span at least 3 tiers").isGreaterThanOrEqualTo(3);
     }
 
-    // ── Helpers ──
+    // -€-€ Helpers -€-€
 
     private static void printResults(List<CognitiveResult> results) {
         for (int i = 0; i < results.size(); i++) {

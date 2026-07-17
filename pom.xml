@@ -77,8 +77,8 @@
         <module>nucleus/spector-test-support</module>
 
         <!-- ── Memory: Cognitive engine (flagship) ── -->
-        <module>memory/spector-embed-api</module>
-        <module>memory/spector-embed-ollama</module>
+        <module>memory/spector-provider-api</module>
+        <module>memory/spector-providers</module>
         <module>memory/spector-index</module>
         <module>memory/spector-query</module>
         <module>memory/spector-gpu</module>
@@ -130,6 +130,7 @@
         <snakeyaml.version>2.3</snakeyaml.version>
         <micrometer.version>1.14.5</micrometer.version>
         <armeria.version>1.39.1</armeria.version>
+        <langchain4j.version>1.17.1</langchain4j.version>
 
         <!-- Test dependency versions -->
         <junit.version>5.11.4</junit.version>
@@ -204,12 +205,12 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
-                <artifactId>spector-embed-api</artifactId>
+                <artifactId>spector-provider-api</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
-                <artifactId>spector-embed-ollama</artifactId>
+                <artifactId>spector-providers</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
@@ -311,6 +312,15 @@
                 <groupId>com.fasterxml.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
                 <version>${jackson2.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ── LangChain4j BOM (aligns all langchain4j modules) ── -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-bom</artifactId>
+                <version>${langchain4j.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

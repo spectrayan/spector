@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.ingestion.sensory;
 
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,10 +64,10 @@ public final class OllamaAudioExtractor implements AudioTranscriptExtractor {
             Listen to this audio carefully and provide a complete, accurate transcription.
             Include all spoken words and identify different speakers if present.
             Format the output as plain text with paragraph breaks at natural pauses.
-            Do not add commentary or analysis — only transcribe what is spoken.
+            Do not add commentary or analysis  --  only transcribe what is spoken.
             """;
 
-    private final TextGenerationProvider llm;
+    private final LlmProvider llm;
     private final String modelName;
 
     /**
@@ -75,7 +75,7 @@ public final class OllamaAudioExtractor implements AudioTranscriptExtractor {
      *
      * @param llm the text generation provider (must support audio input)
      */
-    public OllamaAudioExtractor(TextGenerationProvider llm) {
+    public OllamaAudioExtractor(LlmProvider llm) {
         if (llm == null) throw new IllegalArgumentException("LLM provider is required");
         this.llm = llm;
         this.modelName = llm.modelName();
@@ -117,7 +117,7 @@ public final class OllamaAudioExtractor implements AudioTranscriptExtractor {
         String transcript;
         try {
             transcript = llm.generate(prompt);
-        } catch (TextGenerationProvider.GenerationException e) {
+        } catch (LlmProvider.GenerationException e) {
             throw new IOException("Audio transcription failed for " + source.getFileName() +
                     ": " + e.getMessage(), e);
         }
@@ -137,7 +137,7 @@ public final class OllamaAudioExtractor implements AudioTranscriptExtractor {
         if (mimeType != null) metadata.put("content_type", mimeType);
         metadata.put("file_size_bytes", String.valueOf(fileSize));
 
-        log.info("Transcribed {}B audio → {}B text using {}", fileSize, transcript.length(), modelName);
+        log.info("Transcribed {}B audio  ->  {}B text using {}", fileSize, transcript.length(), modelName);
 
         return Stream.of(new ExtractionChunk("transcript-0", transcript.strip(), metadata));
     }

@@ -25,8 +25,8 @@ import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
@@ -38,7 +38,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Performance benchmark tests verifying the optimizations P1–P12.
+ * Performance benchmark tests verifying the optimizations P1 - P12.
  *
  * <p>Each test measures wall-clock time to validate that optimizations
  * achieve expected performance characteristics. Uses deterministic mock
@@ -50,13 +50,13 @@ class PerformanceBenchmarkTest {
     private static final int DIMS = 128;
     private static final int LARGE_COUNT = 50_000;
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // P1: O(1) Reverse Index vs O(n) scan
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(1)
-    @DisplayName("P1: MemoryIndex.findIdByOffset — O(1) reverse lookup at 50K entries")
+    @DisplayName("P1: MemoryIndex.findIdByOffset  --  O(1) reverse lookup at 50K entries")
     void p1_reverseIndexIsConstantTime() {
         MemoryIndex index = new MemoryIndex();
 
@@ -89,21 +89,21 @@ class PerformanceBenchmarkTest {
         long elapsed = System.nanoTime() - start;
 
         double avgNs = (double) elapsed / offsets.length;
-        System.out.printf("P1: 10K lookups in %,d µs (avg %.0f ns/lookup, found=%d)%n",
+        System.out.printf("P1: 10K lookups in %,d us (avg %.0f ns/lookup, found=%d)%n",
                 elapsed / 1000, avgNs, found);
 
-        // O(1) should be < 1µs per lookup (vs ~50µs for O(n) at 50K)
-        assertThat(avgNs).as("O(1) reverse lookup should be under 1µs").isLessThan(1_000);
+        // O(1) should be < 1us per lookup (vs ~50us for O(n) at 50K)
+        assertThat(avgNs).as("O(1) reverse lookup should be under 1us").isLessThan(1_000);
         assertThat(found).isEqualTo(10_000);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // P8: ScoredRecord carries CognitiveHeader (no double read)
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(2)
-    @DisplayName("P8: ScoredRecord carries CognitiveHeader — no re-read needed")
+    @DisplayName("P8: ScoredRecord carries CognitiveHeader  --  no re-read needed")
     void p8_scoredRecordContainsHeader() {
         CognitiveHeader header = new CognitiveHeader(
                 System.currentTimeMillis(), 0x1234L, 1.0f, 0.8f,
@@ -118,13 +118,13 @@ class PerformanceBenchmarkTest {
         assertThat(sr.header().centroidId()).isEqualTo((short) 42);
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // P3: SIMD Euclidean — benchmarks quantized distance
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
+    // P3: SIMD Euclidean  --  benchmarks quantized distance
+    // ==============================================================
 
     @Test
     @Order(3)
-    @DisplayName("P3: SIMD Euclidean distance — 768-dim × 10K vectors under 150ms")
+    @DisplayName("P3: SIMD Euclidean distance  --  768-dim x 10K vectors under 150ms")
     void p3_simdEuclideanDistance768Dim() {
         int dims = 768;
         int count = 10_000;
@@ -166,21 +166,21 @@ class PerformanceBenchmarkTest {
             long elapsed = System.nanoTime() - start;
 
             double avgUs = (double) elapsed / count / 1000;
-            System.out.printf("P3: 10K × 768-dim L2 in %,d ms (avg %.1f µs/vector, checksum=%.2f)%n",
+            System.out.printf("P3: 10K x 768-dim L2 in %,d ms (avg %.1f us/vector, checksum=%.2f)%n",
                     elapsed / 1_000_000, avgUs, totalDist);
 
-            // 10K × 768-dim should complete in < 150ms with SIMD (with headroom for slower/virtualized test runners)
-            assertThat(elapsed / 1_000_000).as("SIMD L2 10K×768d should be under 150ms").isLessThan(150);
+            // 10K x 768-dim should complete in < 150ms with SIMD (with headroom for slower/virtualized test runners)
+            assertThat(elapsed / 1_000_000).as("SIMD L2 10Kx768d should be under 150ms").isLessThan(150);
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // P7: Batch habituation penalty
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(4)
-    @DisplayName("P7: Batch habituation penalty — 1K IDs under 1ms")
+    @DisplayName("P7: Batch habituation penalty  --  1K IDs under 1ms")
     void p7_batchHabituationPenalty() {
         HabituationPenalty penalty = new HabituationPenalty();
         String[] ids = new String[1000];
@@ -194,20 +194,20 @@ class PerformanceBenchmarkTest {
         float[] results = penalty.recordAndComputeBatch(ids);
         long elapsed = System.nanoTime() - start;
 
-        System.out.printf("P7: Batch 1K penalties in %,d µs%n", elapsed / 1000);
+        System.out.printf("P7: Batch 1K penalties in %,d us%n", elapsed / 1000);
 
         assertThat(results).hasSize(1000);
         assertThat(results[0]).isEqualTo(1.0f); // first time = no penalty
         assertThat(elapsed / 1000).as("Batch 1K should be under 1ms").isLessThan(1000);
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // P12: TierRouter.totalCount — direct sum
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
+    // P12: TierRouter.totalCount  --  direct sum
+    // ==============================================================
 
     @Test
     @Order(5)
-    @DisplayName("P12: TierRouter.totalCount — 100K calls under 10ms (no Stream)")
+    @DisplayName("P12: TierRouter.totalCount  --  100K calls under 10ms (no Stream)")
     void p12_totalCountDirectSum() {
         int quantizedVecBytes = 32;
         var working = new WorkingMemoryStore(quantizedVecBytes, 10);
@@ -230,7 +230,7 @@ class PerformanceBenchmarkTest {
             }
             long elapsed = System.nanoTime() - start;
 
-            System.out.printf("P12: 100K totalCount() in %,d µs (sum=%d)%n",
+            System.out.printf("P12: 100K totalCount() in %,d us (sum=%d)%n",
                     elapsed / 1000, sum);
 
             assertThat(elapsed / 1_000_000).as("100K totalCount should be under 50ms").isLessThan(50);
@@ -239,13 +239,13 @@ class PerformanceBenchmarkTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // CognitiveScorer — 6-phase pipeline timing at scale
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
+    // CognitiveScorer  --  6-phase pipeline timing at scale
+    // ==============================================================
 
     @Test
     @Order(6)
-    @DisplayName("CognitiveScorer: 10K records × 128-dim — full 6-phase scoring under 20ms")
+    @DisplayName("CognitiveScorer: 10K records x 128-dim  --  full 6-phase scoring under 20ms")
     void cognitiveScorer_fullPipelineTiming() {
         int dims = DIMS;
         int count = 10_000;
@@ -299,18 +299,18 @@ class PerformanceBenchmarkTest {
                     System.currentTimeMillis(), 0L, mins, scales);
             long elapsed = System.nanoTime() - start;
 
-            System.out.printf("CognitiveScorer: %d records × %d-dim in %,d µs → %d results%n",
+            System.out.printf("CognitiveScorer: %d records x %d-dim in %,d us  ->  %d results%n",
                     count, dims, elapsed / 1000, results.size());
 
             assertThat(results).hasSize(10);
             assertThat(results.getFirst().header()).isNotNull(); // P8: header present
-            assertThat(elapsed / 1_000_000).as("10K × 128d scoring < 20ms").isLessThan(20);
+            assertThat(elapsed / 1_000_000).as("10K x 128d scoring < 20ms").isLessThan(20);
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // Full SpectorMemory ingest + recall throughput
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     @Test
     @Order(7)
@@ -365,7 +365,7 @@ class PerformanceBenchmarkTest {
         }
     }
 
-    // ── Mock Provider ──
+    // -€-€ Mock Provider -€-€
 
     static class MockEmbeddingProvider implements EmbeddingProvider {
         private final int dims;

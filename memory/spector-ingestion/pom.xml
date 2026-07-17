@@ -28,16 +28,15 @@
             <artifactId>spector-config</artifactId>
         </dependency>
 
-        <!-- ── Embedding API (EmbeddingProvider interface) ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-api</artifactId>
+            <artifactId>spector-provider-api</artifactId>
         </dependency>
 
-        <!-- ── Ollama Embedding Provider (runtime — loaded via reflection) ── -->
+        <!-- ── Providers (runtime — loaded via reflection) ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
+            <artifactId>spector-providers</artifactId>
             <scope>runtime</scope>
         </dependency>
         <dependency>

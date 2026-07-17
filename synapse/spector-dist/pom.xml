@@ -55,10 +55,10 @@
             <artifactId>spector-cli</artifactId>
         </dependency>
 
-        <!-- ── Runtime: Ollama embedding provider ── -->
+        <!-- ── Runtime: LLM and Embedding Providers ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-ollama</artifactId>
+            <artifactId>spector-providers</artifactId>
             <scope>runtime</scope>
         </dependency>
 

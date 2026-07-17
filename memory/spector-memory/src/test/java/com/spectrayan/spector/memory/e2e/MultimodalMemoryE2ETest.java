@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.e2e;
 
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.ollama.OllamaLlmProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 import com.spectrayan.spector.ingestion.sensory.AssetStore;
 import com.spectrayan.spector.ingestion.sensory.LocalAssetStore;
 import com.spectrayan.spector.ingestion.sensory.OllamaVisionExtractor;
@@ -571,7 +571,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
                 .build();
 
         String audioId = memory.remember(
-                "Team standup: discussed the multimodal memory feature. Bharath wants image "
+                "Team standup: discussed the multimodal memory feature. the lead developer wants image "
                         + "and video support. Target is to ship by end of sprint.",
                 MemoryType.EPISODIC, MemorySource.OBSERVED, audioCtx, "meeting", "standup").join();
 

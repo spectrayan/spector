@@ -1,0 +1,15 @@
+@if (showToolbar()) {
+  <div class="preview-toolbar">
+    <span class="preview-badge">
+      <span class="preview-badge-icon">👁</span> Preview
+    </span>
+    <div class="toolbar-spacer"></div>
+  </div>
+}
+<div
+  #previewContainer
+  class="preview-host prose"
+  [style.min-height]="height()"
+  [style.max-height]="'calc(100vh - 200px)'"
+  [innerHTML]="renderedHtml()"
+></div>

@@ -36,18 +36,18 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * <h3>Architecture</h3>
  * <p>Unlike {@link BM25Index} which computes term weights from corpus statistics
  * (TF-IDF), SpladeIndex accepts pre-computed neural term weights from a
- * {@link com.spectrayan.spector.embed.SparseEncodingProvider}. This enables
- * <b>learned term expansion</b> — the model discovers that "car" should also
+ * {@link com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider}. This enables
+ * <b>learned term expansion</b>  --  the model discovers that "car" should also
  * match "vehicle" and "automobile", capturing semantic relationships that
  * BM25 misses entirely.</p>
  *
  * <h3>Scoring</h3>
  * <p>SPLADE scoring is inner-product between query and document sparse vectors:
  * <pre>
- *   score(Q, D) = Σ_t∈Q∩D  q_weight(t) × d_weight(t)
+ *   score(Q, D) = sum_t in ˆQ in ©D  q_weight(t) x d_weight(t)
  * </pre>
- * This is fundamentally simpler than BM25 — no IDF, no document length
- * normalization — because the neural model has already learned to produce
+ * This is fundamentally simpler than BM25  --  no IDF, no document length
+ * normalization  --  because the neural model has already learned to produce
  * properly calibrated weights.</p>
  *
  * <h3>Index Structure</h3>
@@ -55,7 +55,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * {@link BM25Index}, but stores neural weights ({@code float}) instead of
  * raw term frequencies ({@code int}):
  * <pre>
- *   term → WeightedPostingList {
+ *   term  ->  WeightedPostingList {
  *       int[] docIndices;       // document index
  *       float[] docWeights;     // neural weight for this term in this document
  *   }
@@ -67,7 +67,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  *
  * <p>For multi-term queries above the parallel threshold, each term's postings
  * are scored independently on virtual threads, then merged via
- * {@link SIMDScoreAccumulator#addArrays} — the same pattern used by
+ * {@link SIMDScoreAccumulator#addArrays}  --  the same pattern used by
  * {@link BM25Index}. This provides SIMD-accelerated score merging
  * while the per-term scatter-access scoring loop remains scalar
  * (data-dependent indexing doesn't vectorize).</p>
@@ -77,16 +77,16 @@ public class SpladeIndex implements KeywordIndex {
     private static final Logger log = LoggerFactory.getLogger(SpladeIndex.class);
 
     /** Threshold: use parallel term scoring when total postings exceed this.
-     * Matches the strategy in {@link BM25Index} — virtual thread scheduling
+     * Matches the strategy in {@link BM25Index}  --  virtual thread scheduling
      * overhead only pays off for large posting lists. */
     private static final int PARALLEL_POSTING_THRESHOLD = 15_000;
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    // ── Weighted inverted index ──
+    // -€-€ Weighted inverted index -€-€
     private final Map<String, WeightedPostingList> invertedIndex;
 
-    // ── Document metadata ──
+    // -€-€ Document metadata -€-€
     private final List<String> docIds;
     private final Map<String, Integer> docIdToIndex;
     private int totalDocs;
@@ -146,7 +146,7 @@ public class SpladeIndex implements KeywordIndex {
      * Indexes a document using its pre-computed SPLADE sparse vector.
      *
      * @param id          the document identifier
-     * @param sparseVec   SPLADE-encoded sparse vector: term → neural weight
+     * @param sparseVec   SPLADE-encoded sparse vector: term  ->  neural weight
      */
     public void indexSparse(String id, Map<String, Float> sparseVec) {
         rwLock.writeLock().lock();
@@ -198,13 +198,13 @@ public class SpladeIndex implements KeywordIndex {
      *
      * <p><b>Note:</b> This text-based index method is a compatibility shim.
      * For SPLADE, use {@link #indexSparse(String, Map)} with pre-computed
-     * sparse vectors from a {@link com.spectrayan.spector.embed.SparseEncodingProvider}.</p>
+     * sparse vectors from a {@link com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider}.</p>
      */
     @Override
     public void index(String id, String content) {
         // Compatibility shim: creates a trivial sparse vector from raw terms.
         // In production, callers should use indexSparse() with neural vectors.
-        log.warn("SpladeIndex.index(String) called without sparse encoding — "
+        log.warn("SpladeIndex.index(String) called without sparse encoding  --  "
                 + "using trivial term weights. Use indexSparse() for proper SPLADE indexing.");
 
         Map<String, Float> trivialSparse = new HashMap<>();
@@ -263,7 +263,7 @@ public class SpladeIndex implements KeywordIndex {
         }
     }
 
-    // ─────────────── Internal scoring ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Internal scoring -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     private ScoredResult[] searchSparseInternal(Map<String, Float> querySparse, int k) {
         if (querySparse.isEmpty() || totalDocs == 0) {
@@ -272,7 +272,7 @@ public class SpladeIndex implements KeywordIndex {
 
         final int n = docIds.size();
 
-        // ── Collect valid terms and estimate total postings ──
+        // -€-€ Collect valid terms and estimate total postings -€-€
         int totalPostings = 0;
         List<Map.Entry<String, Float>> validTerms = new ArrayList<>(querySparse.size());
         for (var qEntry : querySparse.entrySet()) {
@@ -286,7 +286,7 @@ public class SpladeIndex implements KeywordIndex {
             return new ScoredResult[0];
         }
 
-        // ── Score: parallel + SIMD merge for large workloads, sequential otherwise ──
+        // -€-€ Score: parallel + SIMD merge for large workloads, sequential otherwise -€-€
         float[] scores;
         if (validTerms.size() > 1 && totalPostings >= PARALLEL_POSTING_THRESHOLD) {
             scores = scoreTermsParallel(validTerms, n);
@@ -294,7 +294,7 @@ public class SpladeIndex implements KeywordIndex {
             scores = scoreTermsSequential(validTerms, n);
         }
 
-        // ── Top-K extraction via bounded min-heap ──
+        // -€-€ Top-K extraction via bounded min-heap -€-€
         return extractTopK(scores, n, k);
     }
 
@@ -352,7 +352,7 @@ public class SpladeIndex implements KeywordIndex {
     }
 
     /**
-     * Inner scoring loop — accumulates weighted inner-product scores.
+     * Inner scoring loop  --  accumulates weighted inner-product scores.
      *
      * <p>Iterates the posting list for a single term, multiplying query weight
      * by document weight and accumulating into the scores array. This is

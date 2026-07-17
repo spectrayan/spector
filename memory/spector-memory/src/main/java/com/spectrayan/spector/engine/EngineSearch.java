@@ -23,7 +23,7 @@ import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.events.SimdKernelTelemetry;
 import com.spectrayan.spector.events.TelemetryScope;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.gpu.GpuBatchSimilarity;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.query.HybridSearchOrchestrator;
@@ -39,7 +39,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * focused, single-responsibility components. Manages:</p>
  * <ul>
  *   <li>Hybrid, keyword, and vector search via {@link HybridSearchOrchestrator}</li>
- *   <li>Auto-embed search (text → embedding → hybrid search)</li>
+ *   <li>Auto-embed search (text  ->  embedding  ->  hybrid search)</li>
  *   <li>GPU-accelerated batch similarity (with CPU fallback)</li>
  * </ul>
  */
@@ -60,14 +60,14 @@ final class EngineSearch {
         this.gpuBatchSimilarity = gpuBatchSimilarity;
     }
 
-    // ─────────────── Search ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Search -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Executes a search query. Reports SIMD telemetry per query if enabled.
      *
      * <p>Duration is sourced from {@link SearchResponse#queryTimeMs()} which
      * is recorded by the Micrometer timer in {@code MeteredSpectorEngine}.
-     * No manual {@code System.nanoTime()} — Micrometer is the single source of truth.</p>
+     * No manual {@code System.nanoTime()}  --  Micrometer is the single source of truth.</p>
      */
     SearchResponse search(SearchQuery query) {
         SearchResponse response = orchestrator.search(query);
@@ -75,7 +75,7 @@ final class EngineSearch {
                 config.similarityFunction().name(),
                 SimdCapability.PREFERRED_SPECIES.length(),
                 response.totalHits(),
-                response.queryTimeMs() * 1_000_000)); // ms → nanos
+                response.queryTimeMs() * 1_000_000)); // ms  ->  nanos
         return response;
     }
 
@@ -103,7 +103,7 @@ final class EngineSearch {
         return hybridSearch(text, queryVector, topK);
     }
 
-    // ─────────────── GPU-Accelerated Batch Operations ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ GPU-Accelerated Batch Operations -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Computes batch cosine similarities using GPU if available, CPU SIMD otherwise.

@@ -14,11 +14,11 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.commons.TextChunker;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.GenerationOptions;
-import com.spectrayan.spector.embed.SparseEncodingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
-import com.spectrayan.spector.embed.TokenEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
 import com.spectrayan.spector.ingestion.sensory.AssetStore;
 import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
@@ -43,8 +43,8 @@ import java.util.List;
 /**
  * Fluent builder for creating {@link SpectorMemory} instances.
  *
- * <p>Configures all subsystems — embedding, persistence, graphs, quantization,
- * entity extraction, text search, encryption, and multimodal attachments —
+ * <p>Configures all subsystems  --  embedding, persistence, graphs, quantization,
+ * entity extraction, text search, encryption, and multimodal attachments  -- 
  * before assembling a {@link DefaultSpectorMemory}.</p>
  *
  * <p>Usage:</p>
@@ -62,7 +62,7 @@ import java.util.List;
  */
 public final class SpectorMemoryBuilder {
 
-    // ── Core configuration ──
+    // -€-€ Core configuration -€-€
     int dimensions;
     EmbeddingProvider embeddingProvider;
     Path persistencePath;
@@ -78,7 +78,7 @@ public final class SpectorMemoryBuilder {
     double flashbulbThreshold = 3.0;
     float valenceLearningRate = 0.3f;
     float deduplicationRadius = 0.05f;
-    TextGenerationProvider textGenerationProvider;
+    LlmProvider LlmProvider;
     ScalarQuantizer quantizer;
     com.spectrayan.spector.index.VectorIndex semanticIndex;
     long inhibitionTtlMs = 300_000L;
@@ -89,7 +89,7 @@ public final class SpectorMemoryBuilder {
     TagExtractor tagExtractor;
     CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
 
-    // ── 3-Layer Cognitive Graph configuration ──
+    // -€-€ 3-Layer Cognitive Graph configuration -€-€
     int hebbianGraphCapacity = 0;
     int temporalChainCapacity = 0;
     EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
@@ -103,50 +103,50 @@ public final class SpectorMemoryBuilder {
     boolean hyperEntityGraphEnabled = true;
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
 
-    // ── Edge importance configuration ──
+    // -€-€ Edge importance configuration -€-€
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
     int hebbianMaxDegree = HebbianGraph.DEFAULT_MAX_DEGREE;
     int entityMaxDegree = EntityGraph.DEFAULT_MAX_DEGREE;
 
-    // ── ID generation strategy ──
+    // -€-€ ID generation strategy -€-€
     IdStrategy idStrategy = IdStrategy.TSID;
     MemoryIdGenerator idGenerator;
 
-    // ── SPLADE + ColBERT providers ──
-    SparseEncodingProvider sparseEncodingProvider;
+    // -€-€ SPLADE + ColBERT providers -€-€
+    SparseEmbeddingProvider SparseEmbeddingProvider;
     TokenEmbeddingProvider tokenEmbeddingProvider;
 
-    // ── Checkpoint daemon configuration ──
+    // -€-€ Checkpoint daemon configuration -€-€
     int checkpointIntervalSeconds = 30;
 
-    // ── Chunking for remember() ──
+    // -€-€ Chunking for remember() -€-€
     TextChunker chunker = new TextChunker(2500, 200);
 
-    // ── Embedding pipeline batch size ──
+    // -€-€ Embedding pipeline batch size -€-€
     int embedBatchSize = 32;
 
-    // ── Salience profile provider (enterprise SPI) ──
+    // -€-€ Salience profile provider (enterprise SPI) -€-€
     SalienceProfileProvider salienceProfileProvider;
 
-    // ── Data encryption SPI ──
+    // -€-€ Data encryption SPI -€-€
     DataEncryptor dataEncryptor = DataEncryptor.NOOP;
 
-    // ── Multimodal attachment processing ──
+    // -€-€ Multimodal attachment processing -€-€
     List<SensoryExtractor> sensoryExtractors = List.of();
     AssetStore assetStore;
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // FACTORY
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     /** Creates a new builder instance. */
     public static SpectorMemoryBuilder create() { return new SpectorMemoryBuilder(); }
 
     SpectorMemoryBuilder() {}
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // FLUENT SETTERS
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     public SpectorMemoryBuilder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
     public SpectorMemoryBuilder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
@@ -173,7 +173,7 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder flashbulbThreshold(double t) { this.flashbulbThreshold = t; return this; }
     public SpectorMemoryBuilder valenceLearningRate(float r) { this.valenceLearningRate = r; return this; }
     public SpectorMemoryBuilder deduplicationRadius(float r) { this.deduplicationRadius = r; return this; }
-    public SpectorMemoryBuilder textGenerationProvider(TextGenerationProvider p) { this.textGenerationProvider = p; return this; }
+    public SpectorMemoryBuilder LlmProvider(LlmProvider p) { this.LlmProvider = p; return this; }
     public SpectorMemoryBuilder quantizer(ScalarQuantizer quantizer) { this.quantizer = quantizer; return this; }
 
     /** Optional HNSW/IVF index for fused semantic recall (default: null = header-only fallback). */
@@ -189,7 +189,7 @@ public final class SpectorMemoryBuilder {
     /** ICNU fusion weights for neurodivergent importance computation (default: IcnuWeights.DEFAULT). */
     public SpectorMemoryBuilder icnuWeights(IcnuWeights w) { this.icnuWeights = w; return this; }
 
-    /** Enable lossless consolidation — pin source episodes during REM sleep (default: false). */
+    /** Enable lossless consolidation  --  pin source episodes during REM sleep (default: false). */
     public SpectorMemoryBuilder pinSourceEpisodes(boolean pin) { this.pinSourceEpisodes = pin; return this; }
 
     /** Maximum number of pinned records (default: 10,000). */
@@ -201,7 +201,7 @@ public final class SpectorMemoryBuilder {
     /** Cognitive profile configuration (default: all profiles enabled). */
     public SpectorMemoryBuilder profileConfig(CognitiveProfileConfig config) { this.profileConfig = config; return this; }
 
-    // ── 3-Layer Cognitive Graph configuration ──
+    // -€-€ 3-Layer Cognitive Graph configuration -€-€
 
     /** Hebbian graph capacity (default: same as episodicPartitionCapacity). */
     public SpectorMemoryBuilder hebbianGraphCapacity(int c) { this.hebbianGraphCapacity = c; return this; }
@@ -215,7 +215,7 @@ public final class SpectorMemoryBuilder {
     /** Custom entity extractor (used when mode = CUSTOM). */
     public SpectorMemoryBuilder entityExtractor(EntityExtractor extractor) { this.entityExtractor = extractor; return this; }
 
-    /** Entity graph capacity — max entities (default: 50,000). */
+    /** Entity graph capacity  --  max entities (default: 50,000). */
     public SpectorMemoryBuilder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
 
     /** Enable/disable the HyperEntityGraph layer (default: true). */
@@ -230,10 +230,10 @@ public final class SpectorMemoryBuilder {
     /** LLM generation options for entity extraction (temperature, maxTokens, topP). */
     public SpectorMemoryBuilder llmGenerationOptions(GenerationOptions opts) { this.llmGenerationOptions = opts; return this; }
 
-    /** Graph scoring policy — configurable weights for cognitive graph steps (default: GraphScoringPolicy.DEFAULT). */
+    /** Graph scoring policy  --  configurable weights for cognitive graph steps (default: GraphScoringPolicy.DEFAULT). */
     public SpectorMemoryBuilder graphScoringPolicy(GraphScoringPolicy policy) { this.graphScoringPolicy = policy; return this; }
 
-    /** Temporal chain retention in days — links older than this are pruned during reflect() (default: 7). */
+    /** Temporal chain retention in days  --  links older than this are pruned during reflect() (default: 7). */
     public SpectorMemoryBuilder temporalRetentionDays(int days) { this.temporalRetentionDays = days; return this; }
 
     /** Checkpoint interval in seconds (default: 30). Set to 0 to disable automatic checkpointing. */
@@ -258,12 +258,12 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder cognitiveProfiles(String configValue) { this.profileConfig = CognitiveProfileConfig.fromConfigValue(configValue); return this; }
 
-    // ── ID Generation ──
+    // -€-€ ID Generation -€-€
 
     /**
      * Sets the ID generation strategy for auto-generated memory IDs.
      *
-     * <p>Default: {@link IdStrategy#TSID} — 13-char time-sorted, distributed-safe.
+     * <p>Default: {@link IdStrategy#TSID}  --  13-char time-sorted, distributed-safe.
      * This is only used when {@link SpectorMemory#remember(String, MemoryType, MemorySource, String...)}
      * is called without an explicit ID.</p>
      *
@@ -290,10 +290,10 @@ public final class SpectorMemoryBuilder {
      * into both the ingestion and recall pipelines, enabling SPLADE, SPLADE_HYBRID,
      * and FULL_STACK text search modes.</p>
      *
-     * @param provider the sparse encoding provider (e.g., OllamaSparseEncodingProvider)
+     * @param provider the sparse encoding provider (e.g., OllamaSparseEmbeddingProvider)
      * @return this builder
      */
-    public SpectorMemoryBuilder sparseEncodingProvider(SparseEncodingProvider provider) { this.sparseEncodingProvider = provider; return this; }
+    public SpectorMemoryBuilder SparseEmbeddingProvider(SparseEmbeddingProvider provider) { this.SparseEmbeddingProvider = provider; return this; }
 
     /**
      * Sets the token embedding provider for ColBERT reranking.
@@ -302,7 +302,7 @@ public final class SpectorMemoryBuilder {
      * is automatically created and wired into the recall pipeline, enabling
      * COLBERT_RERANK and FULL_STACK text search modes.</p>
      *
-     * @param provider the token embedding provider (e.g., OllamaTokenEmbeddingProvider)
+     * @param provider the token embedding provider (e.g., DenseDerivedTokenProvider)
      * @return this builder
      */
     public SpectorMemoryBuilder tokenEmbeddingProvider(TokenEmbeddingProvider provider) { this.tokenEmbeddingProvider = provider; return this; }
@@ -340,7 +340,7 @@ public final class SpectorMemoryBuilder {
      * Sets the salience profile provider for user-configurable importance scoring.
      *
      * <p>Enterprise callers supply a {@link TenantSalienceResolver} that merges
-     * tenant → agent → user profiles. The effective profile is applied during
+     * tenant  ->  agent  ->  user profiles. The effective profile is applied during
      * ingestion (ICNU weights + topic boost) and optionally at recall time
      * (alpha/beta override).</p>
      *
@@ -352,9 +352,9 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
     // BUILD
-    // ══════════════════════════════════════════════════════════════
+    // ==============================================================
 
     /**
      * Builds and returns a fully-initialized {@link SpectorMemory} instance.

@@ -32,7 +32,7 @@ import io.modelcontextprotocol.spec.McpSchema;
  * Semantic similarity search via SIMD-accelerated vector index.
  *
  * <p>Queries are automatically embedded into vectors using the configured
- * {@link com.spectrayan.spector.embed.EmbeddingProvider} and matched
+ * {@link com.spectrayan.spector.provider.embedding.EmbeddingProvider} and matched
  * against the HNSW/IVF-SVASQ index for sub-millisecond latency.</p>
  */
 public final class EngineSearchTool extends McpToolHandler {

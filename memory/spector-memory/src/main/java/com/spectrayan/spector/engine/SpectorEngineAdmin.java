@@ -16,7 +16,7 @@
 package com.spectrayan.spector.engine;
 
 import com.spectrayan.spector.config.SpectorConfig;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.query.ranking.Reranker;
 import com.spectrayan.spector.storage.DocumentStore;

@@ -16,8 +16,8 @@
 package com.spectrayan.spector.spring.autoconfigure;
 
 import com.spectrayan.spector.config.SpectorConfig;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
@@ -68,9 +68,9 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *
  * <h3>Bean Hierarchy</h3>
  * <ul>
- *   <li>{@code SpectorEngine} — metered wrapper (if metrics enabled) around {@code DefaultSpectorEngine}</li>
- *   <li>{@code SpectorMemory} — metered wrapper (if metrics enabled) around {@code DefaultSpectorMemory}</li>
- *   <li>{@code SpectorVectorStore} — Spring AI VectorStore bridge (if Spring AI on classpath)</li>
+ *   <li>{@code SpectorEngine}  --  metered wrapper (if metrics enabled) around {@code DefaultSpectorEngine}</li>
+ *   <li>{@code SpectorMemory}  --  metered wrapper (if metrics enabled) around {@code DefaultSpectorMemory}</li>
+ *   <li>{@code SpectorVectorStore}  --  Spring AI VectorStore bridge (if Spring AI on classpath)</li>
  * </ul>
  *
  * @see SpectorConfigProperties
@@ -129,7 +129,7 @@ public class SpectorAutoConfiguration {
     @ConditionalOnProperty(prefix = "spector.memory", name = "enabled", havingValue = "true")
     SpectorMemory spectorMemory(SpectorConfigProperties props,
                                  ObjectProvider<EmbeddingProvider> embedderProvider,
-                                 ObjectProvider<TextGenerationProvider> textGenProvider,
+                                 ObjectProvider<LlmProvider> textGenProvider,
                                  ObjectProvider<MeterRegistry> registryProvider,
                                  ObjectProvider<SalienceProfileProvider> salienceProvider) {
 
@@ -154,30 +154,30 @@ public class SpectorAutoConfiguration {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));
         }
 
-        // ── Entity extraction (LLM if TextGenerationProvider is present) ──
-        TextGenerationProvider textGen = textGenProvider.getIfAvailable();
+        // -€-€ Entity extraction (LLM if LlmProvider is present) -€-€
+        LlmProvider textGen = textGenProvider.getIfAvailable();
         if (textGen != null) {
             builder.entityExtractionMode(EntityExtractionMode.LLM);
-            builder.textGenerationProvider(textGen);
+            builder.LlmProvider(textGen);
         } else {
             builder.entityExtractionMode(EntityExtractionMode.NONE);
         }
 
-        // ── Salience profile provider (user-driven importance modulation) ──
+        // -€-€ Salience profile provider (user-driven importance modulation) -€-€
         SalienceProfileProvider salience = salienceProvider.getIfAvailable();
         if (salience != null) {
             builder.salienceProfileProvider(salience);
             log.info("SpectorMemory: user salience profile provider wired");
         }
 
-        // ── SPLADE + ColBERT providers (auto-created from embedding provider) ──
+        // -€-€ SPLADE + ColBERT providers (auto-created from embedding provider) -€-€
         if (memoryProps.isSpladeEnabled()) {
-            builder.sparseEncodingProvider(
-                    new com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider(embedder));
+            builder.SparseEmbeddingProvider(
+                    new com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider(embedder));
         }
         if (memoryProps.isColbertEnabled()) {
             builder.tokenEmbeddingProvider(
-                    new com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider(embedder));
+                    new com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider(embedder));
         }
 
         SpectorMemory raw = builder.build();
@@ -193,5 +193,42 @@ public class SpectorAutoConfiguration {
         }
 
         return raw;
+    }
+
+    @org.springframework.context.annotation.Configuration
+    static class SpringHttpClientAutoConfiguration {
+        SpringHttpClientAutoConfiguration(org.springframework.context.ApplicationContext context) {
+            // 1. Try to find and register RestClient.Builder
+            try {
+                Class<?> restClientBuilderClass = Class.forName("org.springframework.web.client.RestClient$Builder");
+                Object provider = context.getBeanProvider(restClientBuilderClass);
+                java.lang.reflect.Method getIfAvailable = provider.getClass().getMethod("getIfAvailable");
+                Object builder = getIfAvailable.invoke(provider);
+                if (builder != null) {
+                    log.info("[Spector] Auto-registering Spring RestClient.Builder in LangChain4jHelper");
+                    com.spectrayan.spector.provider.langchain4j.LangChain4jHelper.setSpringRestClientBuilder(builder);
+                }
+            } catch (ClassNotFoundException e) {
+                // RestClient is not on the classpath
+            } catch (Exception e) {
+                log.warn("[Spector] Failed to auto-register RestClient.Builder: {}", e.getMessage());
+            }
+
+            // 2. Try to find and register WebClient.Builder
+            try {
+                Class<?> webClientBuilderClass = Class.forName("org.springframework.web.reactive.function.client.WebClient$Builder");
+                Object provider = context.getBeanProvider(webClientBuilderClass);
+                java.lang.reflect.Method getIfAvailable = provider.getClass().getMethod("getIfAvailable");
+                Object builder = getIfAvailable.invoke(provider);
+                if (builder != null) {
+                    log.info("[Spector] Auto-registering Spring WebClient.Builder in LangChain4jHelper");
+                    com.spectrayan.spector.provider.langchain4j.LangChain4jHelper.setSpringWebClientBuilder(builder);
+                }
+            } catch (ClassNotFoundException e) {
+                // WebClient is not on the classpath
+            } catch (Exception e) {
+                log.warn("[Spector] Failed to auto-register WebClient.Builder: {}", e.getMessage());
+            }
+        }
     }
 }

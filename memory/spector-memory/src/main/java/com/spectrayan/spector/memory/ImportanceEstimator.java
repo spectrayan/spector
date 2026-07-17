@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
@@ -36,10 +36,10 @@ import org.slf4j.LoggerFactory;
  * <p>Computes importance for a candidate memory <b>without modifying any state</b>.
  * The pipeline fuses four signals:</p>
  * <ol>
- *   <li><b>Novelty</b> — Welford z-score from {@link SurpriseDetector} (peek, not update)</li>
- *   <li><b>ICNU Fusion</b> — Interest/Challenge/Novelty/Urgency weights from {@link IcnuWeights}</li>
- *   <li><b>Flashbulb</b> — extreme-surprise detection from {@link FlashbulbPolicy}</li>
- *   <li><b>Nearest neighbour</b> — distance to closest existing memory (diversity signal)</li>
+ *   <li><b>Novelty</b>  --  Welford z-score from {@link SurpriseDetector} (peek, not update)</li>
+ *   <li><b>ICNU Fusion</b>  --  Interest/Challenge/Novelty/Urgency weights from {@link IcnuWeights}</li>
+ *   <li><b>Flashbulb</b>  --  extreme-surprise detection from {@link FlashbulbPolicy}</li>
+ *   <li><b>Nearest neighbour</b>  --  distance to closest existing memory (diversity signal)</li>
  * </ol>
  *
  * <p>Thread-safe: all reads are against immutable or thread-safe subsystems.</p>
@@ -90,7 +90,7 @@ final class ImportanceEstimator {
                 vector = VectorOps.normalize(vector);
             }
 
-            // Step 2: Compute nearest distance (read-only — don't update stats)
+            // Step 2: Compute nearest distance (read-only  --  don't update stats)
             float nearestDist;
             var workingStore = tierRouter.working();
             if (workingStore != null && workingStore.count() > 0) {
@@ -101,7 +101,7 @@ final class ImportanceEstimator {
                 nearestDist = VectorOps.magnitude(vector);
             }
 
-            // Step 3: Compute novelty (read-only peek — don't modify Welford stats)
+            // Step 3: Compute novelty (read-only peek  --  don't modify Welford stats)
             double zScore = surpriseDetector.stats().count() >= 20
                     ? surpriseDetector.stats().zScore(nearestDist) : 0.0;
             float noveltyOnlyImportance = surpriseDetector.stats().count() >= 20

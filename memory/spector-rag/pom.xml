@@ -26,7 +26,7 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-embed-api</artifactId>
+            <artifactId>spector-provider-api</artifactId>
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>

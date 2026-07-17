@@ -21,7 +21,7 @@ import com.spectrayan.spector.config.PersistenceMode;
 import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.embed.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.gpu.GpuBatchSimilarity;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.index.DiskHnswWriter;
@@ -78,11 +78,11 @@ import java.nio.file.Path;
  *
  * <h3>Design Patterns</h3>
  * <ul>
- * <li><b>Facade</b> — unified API over 6+ subsystems</li>
- * <li><b>Builder</b> — fluent construction via {@link Builder}</li>
- * <li><b>Abstract Factory</b> — component assembly via
+ * <li><b>Facade</b>  --  unified API over 6+ subsystems</li>
+ * <li><b>Builder</b>  --  fluent construction via {@link Builder}</li>
+ * <li><b>Abstract Factory</b>  --  component assembly via
  * {@link EngineComponentFactory}</li>
- * <li><b>Delegation</b> — ingestion → {@link EngineIngestion}, search →
+ * <li><b>Delegation</b>  --  ingestion  ->  {@link EngineIngestion}, search  -> 
  * {@link EngineSearch}</li>
  * </ul>
  */
@@ -106,7 +106,7 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
     private final EngineIngestionTarget ingestionTarget;
     private final EngineSearch search;
 
-    // ─────────────── Construction ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Construction -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Creates and initializes a new engine with the given configuration.
@@ -152,7 +152,7 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
                 config.rerankerEnabled() ? config.rerankerModel() : "disabled",
                 SimdCapability.report());
 
-        // ── Assemble components via Abstract Factory ──
+        // -€-€ Assemble components via Abstract Factory -€-€
         EngineComponents components = factory.create(config);
 
         this.vectorStore = components.vectorStore();
@@ -164,11 +164,11 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
                 ? gpu
                 : null;
 
-        // ── Wire orchestrator with optional re-ranker ──
+        // -€-€ Wire orchestrator with optional re-ranker -€-€
         var orchestrator = new HybridSearchOrchestrator(
                 keywordIndex, vectorIndex, reranker, documentStore);
 
-        // ── Create delegates ──
+        // -€-€ Create delegates -€-€
         this.ingestion = new EngineIngestion(config, vectorStore, documentStore,
                 vectorIndex, keywordIndex, embeddingProvider);
         this.ingestionTarget = new EngineIngestionTarget(config, vectorStore, documentStore,
@@ -188,7 +188,7 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
         return new Builder();
     }
 
-    // ─────────────── Ingestion Target ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Ingestion Target -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Returns the engine's ingestion target for use with the unified
@@ -199,7 +199,7 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
         return ingestionTarget;
     }
 
-    // ─────────────── Ingestion (delegated) ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Ingestion (delegated) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Ingests a single document with its text content and vector embedding. */
     @Override
@@ -300,7 +300,7 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
         return ingestion.ingestFileAuto(path, documentId, chunkSize, overlap);
     }
 
-    // ─────────────── Search (delegated) ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Search (delegated) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Executes a search query. */
     @Override
@@ -337,7 +337,7 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
         return search.search(text, topK);
     }
 
-    // ─────────────── GPU-Accelerated Batch Operations ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ GPU-Accelerated Batch Operations -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /**
      * Computes batch cosine similarities using GPU if available, CPU SIMD
@@ -355,11 +355,11 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
         return search.isGpuActive();
     }
 
-    // ─────────────── Admin Interface ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Admin Interface -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     @Override public SpectorEngineAdmin admin() { return this; }
 
-    // ─────────────── Accessors (satisfies both SpectorEngine + SpectorEngineAdmin) ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Accessors (satisfies both SpectorEngine + SpectorEngineAdmin) -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     /** Returns the engine configuration. */
     @Override
@@ -415,7 +415,7 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
         return reranker != null;
     }
 
-    // ─────────────── Lifecycle ───────────────
+    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Lifecycle -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
     @Override
     public synchronized void close() {
@@ -492,9 +492,9 @@ public class DefaultSpectorEngine implements SpectorEngine, SpectorEngineAdmin {
             throw new SpectorServerException(ErrorCode.ENGINE_CLOSED);
     }
 
-    // ═════════════════════════════════════════════════════════════════
+    // =================================================================
     // Builder Pattern
-    // ═════════════════════════════════════════════════════════════════
+    // =================================================================
 
     /**
      * Fluent builder for constructing {@link DefaultSpectorEngine} instances.

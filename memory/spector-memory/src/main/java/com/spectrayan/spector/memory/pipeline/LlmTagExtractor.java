@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pipeline;
 
 import com.spectrayan.spector.commons.ResourceUtils;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,12 +23,12 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * LLM-powered tag extractor that uses a {@link TextGenerationProvider}
+ * LLM-powered tag extractor that uses a {@link LlmProvider}
  * to extract semantic tags from document content.
  *
  * <h3>How It Works</h3>
  * <p>
- * Sends a structured prompt to the LLM asking it to identify 5–10
+ * Sends a structured prompt to the LLM asking it to identify 5 - 10
  * contextual tags from the text. The LLM returns comma-separated tags
  * which are parsed into the synaptic tag array.
  * </p>
@@ -41,21 +41,21 @@ import java.util.Set;
  *
  * <h3>Performance Note</h3>
  * <p>
- * LLM inference adds ~500ms–2s per chunk. Use this extractor for
+ * LLM inference adds ~500ms - 2s per chunk. Use this extractor for
  * high-value ingestion (e.g., user-provided documents) where tag quality
  * justifies the latency. For bulk ingestion of thousands of files,
  * {@link ContentTagExtractor} is recommended.
  * </p>
  *
  * @see TagExtractor
- * @see TextGenerationProvider
+ * @see LlmProvider
  */
 public final class LlmTagExtractor implements TagExtractor {
 
     private static final Logger log = LoggerFactory.getLogger(LlmTagExtractor.class);
 
     private static final int MAX_TAGS = 15;
-    /** Max length for a single tag — anything longer is almost certainly prompt leakage. */
+    /** Max length for a single tag  --  anything longer is almost certainly prompt leakage. */
     private static final int MAX_TAG_LENGTH = 50;
 
     /**
@@ -75,7 +75,7 @@ public final class LlmTagExtractor implements TagExtractor {
     );
 
     /**
-     * Substrings that indicate prompt leakage — if a tag contains any of these,
+     * Substrings that indicate prompt leakage  --  if a tag contains any of these,
      * the LLM is echoing its instructions instead of extracting from the text.
      */
     private static final Set<String> PROMPT_LEAK_FRAGMENTS = Set.of(
@@ -93,7 +93,7 @@ public final class LlmTagExtractor implements TagExtractor {
     /**
      * Patterns to extract valence/arousal values embedded in the tag stream.
      * Models sometimes output: "cleanliness/valence-105/arousal-234" or
-     * "hairvalence-56arousal-192" — these patterns catch all variants:
+     * "hairvalence-56arousal-192"  --  these patterns catch all variants:
      * "valence-56", "valence:-56", "valence56", embedded mid-word.
      */
     private static final java.util.regex.Pattern EMBEDDED_VALENCE = java.util.regex.Pattern.compile(
@@ -104,7 +104,7 @@ public final class LlmTagExtractor implements TagExtractor {
     /** Classpath path to the tag extraction prompt template. */
     private static final String PROMPT_RESOURCE = "prompts/tag-extraction.txt";
 
-    private final TextGenerationProvider generator;
+    private final LlmProvider generator;
     private final TagExtractor fallback;
 
     /**
@@ -112,7 +112,7 @@ public final class LlmTagExtractor implements TagExtractor {
      *
      * @param generator the text generation provider (e.g., Ollama)
      */
-    public LlmTagExtractor(TextGenerationProvider generator) {
+    public LlmTagExtractor(LlmProvider generator) {
         this(generator, new ContentTagExtractor());
     }
 
@@ -122,7 +122,7 @@ public final class LlmTagExtractor implements TagExtractor {
      * @param generator the text generation provider
      * @param fallback  fallback extractor for when LLM is unavailable
      */
-    public LlmTagExtractor(TextGenerationProvider generator, TagExtractor fallback) {
+    public LlmTagExtractor(LlmProvider generator, TagExtractor fallback) {
         this.generator = generator;
         this.fallback = fallback;
     }
@@ -152,7 +152,7 @@ public final class LlmTagExtractor implements TagExtractor {
             }
 
             String prompt = String.format(promptTemplate, cleanText);
-            log.debug("[TagExtract] LLM prompt for '{}': {} chars (text: {} → {})",
+            log.debug("[TagExtract] LLM prompt for '{}': {} chars (text: {}  ->  {})",
                     truncId(id), prompt.length(), text != null ? text.length() : 0, cleanText.length());
 
             String response = generator.generate(prompt);
@@ -203,12 +203,12 @@ public final class LlmTagExtractor implements TagExtractor {
                 boolean hasSlashTags = response.contains("/") && response.chars().filter(c -> c == '/').count() >= 2;
 
                 if (hasSlashTags) {
-                    // Model produced slash-separated tags — normalize to comma-separated
+                    // Model produced slash-separated tags  --  normalize to comma-separated
                     log.debug("[TagExtract] LLM response for '{}' uses slash-separated format, normalizing", truncId(id));
                     tagLine = response.replace("/", ",");
                 } else if (!response.contains(",") && !response.contains(";") && response.length() > 100) {
                     // Safety: if the response has no commas/semicolons/slashes and is very long,
-                    // the model likely echoed the prompt — fall back immediately
+                    // the model likely echoed the prompt  --  fall back immediately
                     log.warn("[TagExtract] LLM response for '{}' appears to be prompt echo ({}chars, no delimiters), using fallback. Response: {}",
                             truncId(id), response.length(),
                             response.length() > 300 ? response.substring(0, 300) + "..." : response);
@@ -218,9 +218,9 @@ public final class LlmTagExtractor implements TagExtractor {
                 }
             }
 
-            // ── Smart extraction of valence/arousal embedded in the tag stream ──
+            // -€-€ Smart extraction of valence/arousal embedded in the tag stream -€-€
             // Models sometimes concatenate everything: "cleanliness/valence-105/arousal-234"
-            // which after slash→comma becomes "cleanliness,valence-105,arousal-234"
+            // which after slash -> comma becomes "cleanliness,valence-105,arousal-234"
             // or even merged: "cleanlinessvalence-105arousal-234"
             // We extract valence/arousal values before splitting tags.
             if (valence == 0) {
@@ -330,7 +330,7 @@ public final class LlmTagExtractor implements TagExtractor {
         s = s.replaceAll("`([^`]+)`", "$1");
         // Remove images: ![alt](url)
         s = s.replaceAll("!\\[([^]]*)]\\([^)]+\\)", "$1");
-        // Remove links: [text](url) → text
+        // Remove links: [text](url)  ->  text
         s = s.replaceAll("\\[([^]]*)]\\([^)]+\\)", "$1");
         // Remove HTML tags
         s = s.replaceAll("<[^>]+>", " ");

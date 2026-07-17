@@ -25,16 +25,16 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.StreamingChunker;
 import com.spectrayan.spector.commons.TextChunker;
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.EmbedConfig;
-import com.spectrayan.spector.embed.ParallelEmbeddingPipeline;
-import com.spectrayan.spector.embed.PipelineEmbeddingResult;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbedConfig;
+import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
+import com.spectrayan.spector.provider.embedding.PipelineEmbeddingResult;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 /**
- * Unified ingestion pipeline: chunk → embed → store.
+ * Unified ingestion pipeline: chunk  ->  embed  ->  store.
  *
  * <p>Configured via a {@link Builder} and exposes a single {@link #ingest}
  * entry point. The pipeline decides the strategy (direct, chunked, streaming)
@@ -42,10 +42,10 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
  *
  * <h3>Strategy Selection</h3>
  * <ul>
- *   <li><b>Direct</b>: content ≤ chunkThreshold or no chunker configured</li>
+ *   <li><b>Direct</b>: content  <=  chunkThreshold or no chunker configured</li>
  *   <li><b>Chunked</b>: content > chunkThreshold and chunker configured</li>
- *   <li><b>Streaming</b>: file path provided — reads lazily via {@link StreamingChunker}</li>
- *   <li><b>Pre-embedded</b>: vector provided — skips embedding entirely</li>
+ *   <li><b>Streaming</b>: file path provided  --  reads lazily via {@link StreamingChunker}</li>
+ *   <li><b>Pre-embedded</b>: vector provided  --  skips embedding entirely</li>
  * </ul>
  *
  * <h3>Usage</h3>
@@ -97,17 +97,17 @@ public class IngestionPipeline {
         return new Builder();
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // PUBLIC API — single ingest() method with overloads
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
+    // PUBLIC API  --  single ingest() method with overloads
+    // ===============================================================
 
     /**
      * Ingests text content with auto-embedding.
      *
      * <p>The pipeline automatically selects the strategy based on configuration:
      * <ul>
-     *   <li>If content length > chunkThreshold and a chunker is configured → chunk then embed</li>
-     *   <li>Otherwise → embed the entire text as a single document</li>
+     *   <li>If content length > chunkThreshold and a chunker is configured  ->  chunk then embed</li>
+     *   <li>Otherwise  ->  embed the entire text as a single document</li>
      * </ul>
      *
      * @param id      document ID
@@ -128,7 +128,7 @@ public class IngestionPipeline {
     /**
      * Ingests text content with a pre-computed embedding vector.
      *
-     * <p>Skips embedding entirely — the provided vector is passed directly
+     * <p>Skips embedding entirely  --  the provided vector is passed directly
      * to the target. No chunking is applied (pre-embedded implies the
      * caller has already handled chunking if needed).</p>
      *
@@ -150,7 +150,7 @@ public class IngestionPipeline {
      * Ingests a file by streaming its content chunk-by-chunk.
      *
      * <p>Uses {@link StreamingChunker} for bounded-memory file processing.
-     * Each chunk is embedded and stored independently — the full file content
+     * Each chunk is embedded and stored independently  --  the full file content
      * is never held in memory.</p>
      *
      * @param file       path to the text file
@@ -188,17 +188,17 @@ public class IngestionPipeline {
         target.onBatchComplete();
 
         long elapsed = (System.nanoTime() - start) / 1_000_000;
-        log.info("Stream-ingested '{}' → {} chunks ({} failed) in {}ms",
+        log.info("Stream-ingested '{}'  ->  {} chunks ({} failed) in {}ms",
                 file.getFileName(), count, failures.size(), elapsed);
         return IngestionResult.chunked(documentId, count, failures, elapsed);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // INTERNAL STRATEGIES — selected by ingest() based on config
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
+    // INTERNAL STRATEGIES  --  selected by ingest() based on config
+    // ===============================================================
 
     /**
-     * Direct single-document ingestion: embed → store.
+     * Direct single-document ingestion: embed  ->  store.
      */
     private IngestionResult directIngest(String id, String content, long startNanos) {
         float[] vector = embeddingProvider.embed(content).vector();
@@ -247,9 +247,9 @@ public class IngestionPipeline {
         return IngestionResult.chunked(id, stored, failures, elapsed);
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // INTERNAL HELPERS
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     private boolean shouldChunk(String content) {
         return chunker != null && content.length() > chunkThreshold;
@@ -271,9 +271,9 @@ public class IngestionPipeline {
         return chunker;
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     // BUILDER
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     /**
      * Builder for {@link IngestionPipeline}.
