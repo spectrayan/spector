@@ -52,6 +52,11 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-embed-ollama</artifactId>
         </dependency>
+        <!-- ── Provider SPI (auto-discovery, multi-LLM support) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-providers</artifactId>
+        </dependency>
 
         <!-- ── Query types for mode-aware routing ── -->
         <dependency>

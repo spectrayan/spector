@@ -29,8 +29,10 @@ import com.spectrayan.spector.embed.EmbeddingProvider;
 import com.spectrayan.spector.embed.TextGenerationProvider;
 import com.spectrayan.spector.embed.SparseEncodingProvider;
 import com.spectrayan.spector.embed.TokenEmbeddingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaSparseEncodingProvider;
-import com.spectrayan.spector.embed.ollama.OllamaTokenEmbeddingProvider;
+import com.spectrayan.spector.provider.ProviderConfig;
+import com.spectrayan.spector.provider.ProviderDiscovery;
+import com.spectrayan.spector.provider.ollama.OllamaSparseEncodingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaTokenEmbeddingProvider;
 import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.engine.DefaultSpectorEngine;
 import com.spectrayan.spector.commons.TextChunker;
@@ -107,6 +109,64 @@ public final class SpectorRuntime implements AutoCloseable {
     }
 
     // ─────────────── Factory ───────────────
+
+    /**
+     * Creates a runtime with auto-discovered providers from configuration.
+     *
+     * <p>Uses {@link ProviderDiscovery} (ServiceLoader) to discover available
+     * {@link com.spectrayan.spector.provider.ProviderFactory} implementations
+     * and creates embedding/generation providers from config. This is the
+     * preferred entry point for new code — no hardcoded provider wiring.</p>
+     *
+     * @param props hierarchical configuration
+     * @return initialized runtime (caller must close)
+     * @throws IllegalStateException if no embedding provider matches the configured type
+     */
+    public static SpectorRuntime from(SpectorProperties props) {
+        var providerDefaults = SpectorConfigFactory.providerDefaults(props);
+
+        // Build embedding provider config and discover via ServiceLoader
+        var embConfig = new ProviderConfig(
+                providerDefaults.embeddingType(),
+                providerDefaults.embeddingType(),
+                providerDefaults.embeddingModel(),
+                providerDefaults.embeddingApiKey(),
+                providerDefaults.embeddingBaseUrl(),
+                providerDefaults.embeddingDimensions(),
+                java.util.Map.of());
+
+        var registry = ProviderDiscovery.discover(java.util.List.of(embConfig));
+
+        var embedder = registry.activeEmbedding()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No embedding provider found for type: " + providerDefaults.embeddingType()
+                        + ". Available factories: " + ProviderDiscovery.discoverFactories().keySet()));
+
+        log.info("[Runtime] Auto-discovered embedding provider: {} (model={})",
+                providerDefaults.embeddingType(), providerDefaults.embeddingModel());
+
+        // Build generation provider config (optional — only if model is specified)
+        TextGenerationProvider textGen = null;
+        if (!providerDefaults.generationModel().isBlank()) {
+            var genConfig = new ProviderConfig(
+                    providerDefaults.generationType() + "-gen",
+                    providerDefaults.generationType(),
+                    providerDefaults.generationModel(),
+                    providerDefaults.generationApiKey(),
+                    providerDefaults.generationBaseUrl(),
+                    0,
+                    java.util.Map.of());
+
+            var genRegistry = ProviderDiscovery.discover(java.util.List.of(genConfig));
+            textGen = genRegistry.activeGeneration().orElse(null);
+            if (textGen != null) {
+                log.info("[Runtime] Auto-discovered generation provider: {} (model={})",
+                        providerDefaults.generationType(), providerDefaults.generationModel());
+            }
+        }
+
+        return from(props, embedder, textGen);
+    }
 
     /**
      * Creates a runtime from configuration and embedding provider.

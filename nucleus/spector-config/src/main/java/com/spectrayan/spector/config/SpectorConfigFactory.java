@@ -383,5 +383,67 @@ public final class SpectorConfigFactory {
                 props.getInt("spector.ingestion.retry-delay-ms", 2000)
         );
     }
+
+    // ─────────────── Provider Defaults ───────────────
+
+    /**
+     * Default values for LLM/embedding provider configuration.
+     *
+     * <p>Parsed from {@code spector.provider.embedding.*} and
+     * {@code spector.provider.generation.*} config sections. Falls back
+     * to the legacy {@code spector.embedding.*} section for backward
+     * compatibility.</p>
+     *
+     * <p><strong>Note:</strong> This record uses simple types only — no
+     * dependency on {@code spector-provider-api}. The runtime layer
+     * converts these values into {@code ProviderConfig} instances.</p>
+     *
+     * @param embeddingType       provider type (e.g., "ollama", "openai")
+     * @param embeddingModel      model identifier
+     * @param embeddingApiKey     API key (empty for local providers)
+     * @param embeddingBaseUrl    API base URL
+     * @param embeddingDimensions vector dimensions (0 = model default)
+     * @param generationType      generation provider type
+     * @param generationModel     generation model identifier
+     * @param generationApiKey    generation API key
+     * @param generationBaseUrl   generation API base URL
+     */
+    public record ProviderDefaults(
+            String embeddingType, String embeddingModel, String embeddingApiKey,
+            String embeddingBaseUrl, int embeddingDimensions,
+            String generationType, String generationModel, String generationApiKey,
+            String generationBaseUrl
+    ) {}
+
+    /**
+     * Loads provider defaults from properties.
+     *
+     * <p>Checks new-style config keys first, then falls back to legacy
+     * embedding section keys for backward compatibility.</p>
+     *
+     * @param props hierarchical configuration
+     * @return resolved provider defaults
+     */
+    public static ProviderDefaults providerDefaults(SpectorProperties props) {
+        // Check new-style config first, fall back to legacy embedding section
+        String embType = props.getString("spector.provider.embedding.type",
+                props.getString("spector.embedding.base-url", "").contains("localhost")
+                        ? "ollama" : "ollama");
+        String embModel = props.getString("spector.provider.embedding.model",
+                props.getString("spector.embedding.model", "nomic-embed-text"));
+        String embApiKey = props.getString("spector.provider.embedding.api-key", "");
+        String embBaseUrl = props.getString("spector.provider.embedding.base-url",
+                props.getString("spector.embedding.base-url", "http://localhost:11434"));
+        int embDims = props.getInt("spector.provider.embedding.dimensions", 0);
+
+        String genType = props.getString("spector.provider.generation.type", embType);
+        String genModel = props.getString("spector.provider.generation.model", "");
+        String genApiKey = props.getString("spector.provider.generation.api-key", embApiKey);
+        String genBaseUrl = props.getString("spector.provider.generation.base-url", embBaseUrl);
+
+        return new ProviderDefaults(
+                embType, embModel, embApiKey, embBaseUrl, embDims,
+                genType, genModel, genApiKey, genBaseUrl);
+    }
 }
 
