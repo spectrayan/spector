@@ -23,6 +23,7 @@ import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.SessionsResponse;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.ToolsResponse;
 import com.spectrayan.spector.synapse.agent.chat.service.ChatService;
 import com.spectrayan.spector.synapse.agent.graph.AgentChatListener;
+import com.spectrayan.spector.synapse.config.FeatureGate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +43,9 @@ import org.springframework.web.bind.annotation.RestController;
  * All request/response types use proper Java record DTOs from
  * {@link com.spectrayan.spector.synapse.agent.chat.dto.ChatDto}.</p>
  *
+ * <p>Gated by the {@code chatEnabled} feature flag — returns HTTP 404
+ * when chat is disabled (e.g., Ollama not detected).</p>
+ *
  * <h3>Endpoints</h3>
  * <ul>
  *   <li>{@code POST /api/v1/chat} — main agentic chat</li>
@@ -54,6 +58,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/chat")
+@FeatureGate("chatEnabled")
 public class ChatController {
 
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);

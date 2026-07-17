@@ -12,6 +12,25 @@ spector:
   port: ${SPECTOR_PORT:7070}
   api-key: ${SPECTOR_API_KEY:spector-dev-key}
   data-dir: ${SPECTOR_DATA_DIR:./spector-data}
+
+  # ── Feature Flags (v0.1.0-alpha) ──
+  # Internal-only flags. Users cannot toggle from UI.
+  # LLM-dependent features auto-enable when Ollama is detected.
+  features:
+    chat-enabled: ${SPECTOR_CHAT_ENABLED:false}
+    agent-chat-enabled: ${SPECTOR_AGENT_CHAT_ENABLED:false}
+    agent-workspaces-enabled: ${SPECTOR_AGENT_WORKSPACES_ENABLED:false}
+    tag-extraction-enabled: ${SPECTOR_TAG_EXTRACTION_ENABLED:true}
+    entity-extraction-enabled: ${SPECTOR_ENTITY_EXTRACTION_ENABLED:true}
+    reflection-enabled: ${SPECTOR_REFLECTION_ENABLED:true}
+    gpu-acceleration-enabled: ${SPECTOR_GPU_ENABLED:false}
+    cluster-mode-enabled: ${SPECTOR_CLUSTER_ENABLED:false}
+    connectors-enabled: ${SPECTOR_CONNECTORS_ENABLED:false}
+    benchmarks-enabled: ${SPECTOR_BENCHMARKS_ENABLED:false}
+    advanced-visualizations-enabled: true
+    governance-enabled: true
+    mcp-server-enabled: true
+
   cors:
     allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200}
 
@@ -86,4 +105,4 @@ info:
   app:
     name: Spector Synapse
     description: The central nervous system for cognitive memory
-    version: ${revision:1.0.0-SNAPSHOT}
+    version: ${revision:0.1.0-alpha}

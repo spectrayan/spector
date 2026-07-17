@@ -63,6 +63,24 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(404, "Not Found", ex.getMessage()));
     }
 
+    @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestNotUsableException.class)
+    public void handleAsyncDisconnect(org.springframework.web.context.request.async.AsyncRequestNotUsableException ex) {
+        log.debug("[Error] Async client disconnected: {}", ex.getMessage());
+    }
+
+    @ExceptionHandler(java.io.IOException.class)
+    public ResponseEntity<ErrorResponse> handleIOException(java.io.IOException ex) {
+        String msg = ex.getMessage();
+        if (msg != null && (msg.toLowerCase().contains("broken pipe") || msg.toLowerCase().contains("connection reset"))) {
+            log.debug("[Error] Client disconnected abruptly: {}", msg);
+            return null; // Client has disconnected, no response is needed
+        }
+        log.error("[Error] I/O error occurred", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(500, "Internal Server Error", ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         log.error("[Error] Internal server error", ex);
