@@ -13,8 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.spectrayan.spector.provider.model;
 
 /**
- * Embedding-specific exception types.
+ * Audio block in a multimodal message.
  */
-package com.spectrayan.spector.embed.error;
+public record AudioContent(
+        byte[] data,
+        String mimeType,
+        String url
+) implements ContentBlock {
+
+    @Override
+    public Type type() {
+        return Type.AUDIO;
+    }
+
+    public boolean hasData() {
+        return data != null && data.length > 0;
+    }
+
+    public boolean hasUrl() {
+        return url != null && !url.isBlank();
+    }
+}

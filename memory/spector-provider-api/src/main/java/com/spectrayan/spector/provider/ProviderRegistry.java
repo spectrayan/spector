@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.provider;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import java.util.Optional;
 import java.util.Set;
@@ -64,7 +64,7 @@ public interface ProviderRegistry extends AutoCloseable {
      * @param provider the generation provider instance
      * @throws IllegalArgumentException if name is null, blank, or already registered
      */
-    void registerGeneration(String name, TextGenerationProvider provider);
+    void registerGeneration(String name, LlmProvider provider);
 
     /**
      * Returns the currently active embedding provider.
@@ -78,7 +78,7 @@ public interface ProviderRegistry extends AutoCloseable {
      *
      * @return the active generation provider, or empty if none is activated
      */
-    Optional<TextGenerationProvider> activeGeneration();
+    Optional<LlmProvider> activeGeneration();
 
     /**
      * Activates the embedding provider with the given name.

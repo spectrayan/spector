@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.embed;
+package com.spectrayan.spector.provider.embedding;
 
 import java.time.Duration;
 
@@ -58,26 +58,23 @@ public record EmbeddingConfig(
     }
 
     /**
-     * Returns a new config with a different timeout.
+     * Returns a new config with a different request timeout.
      */
     public EmbeddingConfig withTimeout(Duration timeout) {
         return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
     }
 
     /**
-     * Returns a new config with a different batch size.
+     * Returns a new config with a different batch size limit.
      */
     public EmbeddingConfig withBatchSize(int batchSize) {
         return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
     }
 
     /**
-     * Returns a new config with a different max concurrent limit.
-     *
-     * @param maxConcurrent max concurrent HTTP calls (0 = unlimited)
+     * Returns a new config with a different concurrency limit.
      */
     public EmbeddingConfig withMaxConcurrent(int maxConcurrent) {
         return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
     }
 }
-

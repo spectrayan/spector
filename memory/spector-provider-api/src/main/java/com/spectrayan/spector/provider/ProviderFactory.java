@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.provider;
 
-import com.spectrayan.spector.embed.EmbeddingProvider;
-import com.spectrayan.spector.embed.TextGenerationProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import java.util.Optional;
 
@@ -98,5 +98,5 @@ public interface ProviderFactory {
      * @return a generation provider, or empty if generation is not supported or config is invalid
      * @throws IllegalArgumentException if config is invalid for this provider type
      */
-    Optional<TextGenerationProvider> createGenerationProvider(ProviderConfig config);
+    Optional<LlmProvider> createGenerationProvider(ProviderConfig config);
 }

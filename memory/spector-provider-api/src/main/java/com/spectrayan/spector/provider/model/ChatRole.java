@@ -13,8 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.spectrayan.spector.provider.model;
 
 /**
- * Embedding provider SPI — the contract for pluggable text-to-vector implementations.
+ * Role of a message in a multimodal chat conversation.
  */
-package com.spectrayan.spector.embed;
+public enum ChatRole {
+    SYSTEM,
+    USER,
+    AI,
+    TOOL
+}
