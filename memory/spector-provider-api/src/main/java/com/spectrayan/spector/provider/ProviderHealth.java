@@ -94,6 +94,18 @@ public record ProviderHealth(
     }
 
     /**
+     * Creates an unhealthy result with latency and a diagnostic message.
+     *
+     * @param name    provider name
+     * @param latency measured latency before failure
+     * @param message diagnostic message describing the failure
+     * @return an unhealthy {@link ProviderHealth}
+     */
+    public static ProviderHealth unhealthy(String name, Duration latency, String message) {
+        return new ProviderHealth(name, Status.UNHEALTHY, latency, message, Instant.now());
+    }
+
+    /**
      * Creates an unknown-status result (not yet checked).
      *
      * @param name provider name
