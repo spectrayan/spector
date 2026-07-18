@@ -21,6 +21,7 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * </ul>
  */
 class PdfReaderToolTest {
+
+    private static final PDType1Font HELVETICA = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+    private static final PDType1Font HELVETICA_BOLD = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
 
     private static final PdfReaderTool tool = new PdfReaderTool();
 
@@ -632,7 +636,7 @@ class PdfReaderToolTest {
             doc.addPage(page);
             try (var cs = new PDPageContentStream(doc, page)) {
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA, 12);
+                cs.setFont(HELVETICA, 12);
                 cs.newLineAtOffset(72, 700);
                 cs.showText("Hello, Spector!");
                 cs.endText();
@@ -660,7 +664,7 @@ class PdfReaderToolTest {
             doc.addPage(page);
             try (var cs = new PDPageContentStream(doc, page)) {
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA, 12);
+                cs.setFont(HELVETICA, 12);
                 cs.newLineAtOffset(72, 700);
                 cs.showText("Secret content");
                 cs.endText();
@@ -684,7 +688,7 @@ class PdfReaderToolTest {
                 doc.addPage(page);
                 try (var cs = new PDPageContentStream(doc, page)) {
                     cs.beginText();
-                    cs.setFont(PDType1Font.HELVETICA, 12);
+                    cs.setFont(HELVETICA, 12);
                     cs.newLineAtOffset(72, 700);
                     cs.showText("Page " + i + " content");
                     cs.endText();
@@ -733,13 +737,13 @@ class PdfReaderToolTest {
 
                 // Header row
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA_BOLD, 10);
+                cs.setFont(HELVETICA_BOLD, 10);
                 cs.newLineAtOffset(startX + 5, startY - 17);
                 cs.showText("Name");
                 cs.endText();
 
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA_BOLD, 10);
+                cs.setFont(HELVETICA_BOLD, 10);
                 cs.newLineAtOffset(startX + cellWidth + 5, startY - 17);
                 cs.showText("Value");
                 cs.endText();
@@ -749,7 +753,7 @@ class PdfReaderToolTest {
                 for (int r = 0; r < data.length; r++) {
                     for (int c = 0; c < data[r].length; c++) {
                         cs.beginText();
-                        cs.setFont(PDType1Font.HELVETICA, 10);
+                        cs.setFont(HELVETICA, 10);
                         cs.newLineAtOffset(
                                 startX + c * cellWidth + 5,
                                 startY - (r + 2) * cellHeight + 8);
@@ -791,7 +795,7 @@ class PdfReaderToolTest {
 
                 // Title
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA_BOLD, 18);
+                cs.setFont(HELVETICA_BOLD, 18);
                 cs.newLineAtOffset(72, y);
                 cs.showText("Spector Architecture Overview");
                 cs.endText();
@@ -799,7 +803,7 @@ class PdfReaderToolTest {
 
                 // Paragraph 1
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA, 11);
+                cs.setFont(HELVETICA, 11);
                 cs.newLineAtOffset(72, y);
                 cs.setLeading(leading);
                 cs.showText("Spector is a cognitive search engine designed to provide");
@@ -812,7 +816,7 @@ class PdfReaderToolTest {
 
                 // Paragraph 2
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA, 11);
+                cs.setFont(HELVETICA, 11);
                 cs.newLineAtOffset(72, y);
                 cs.setLeading(leading);
                 cs.showText("The system is built on a modular Java architecture with");
@@ -834,7 +838,7 @@ class PdfReaderToolTest {
 
                 // Section title
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA_BOLD, 14);
+                cs.setFont(HELVETICA_BOLD, 14);
                 cs.newLineAtOffset(72, y);
                 cs.showText("The Synapse Module");
                 cs.endText();
@@ -842,7 +846,7 @@ class PdfReaderToolTest {
 
                 // Paragraph
                 cs.beginText();
-                cs.setFont(PDType1Font.HELVETICA, 11);
+                cs.setFont(HELVETICA, 11);
                 cs.newLineAtOffset(72, y);
                 cs.setLeading(leading);
                 cs.showText("The Synapse module serves as the central nervous system of");
