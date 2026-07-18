@@ -31,7 +31,7 @@ jobs:
           path-to-signatures: 'cla-signatures.json'
           path-to-document: 'https://github.com/spectrayan/spector/blob/main/CLA.md'
           branch: 'cla-signatures'
-          allowlist: 'sbharatjoshi,dependabot[bot],github-actions[bot]'
+          allowlist: 'sbharatjoshi,dependabot[bot],github-actions[bot],forgespectrayan,jarvispectrayan,titanspectrayan,novaspectrayan,atlasspectrayan,nexuspectrayan'
           custom-notsigned-prcomment: |
             Thank you for your contribution! Before we can review this PR, we need you to sign our Contributor License Agreement (CLA).
 
