@@ -282,13 +282,13 @@ public class MeteredSpectorMemory implements SpectorMemory {
     private MemorySnapshotTelemetry captureMemorySnapshot(String phase, String cycleId) {
         return new MemorySnapshotTelemetry(
                 phase, cycleId,
-                delegate.hebbianGraph() != null ? delegate.hebbianGraph().totalEdges() : 0,
-                delegate.temporalChain() != null ? delegate.temporalChain().capacity() : 0,
-                delegate.entityGraph() != null ? delegate.entityGraph().entityCount() : 0,
-                delegate.entityGraph() != null ? delegate.entityGraph().edgeCount() : 0,
+                delegate.admin().hebbianGraph() != null ? delegate.admin().hebbianGraph().totalEdges() : 0,
+                delegate.admin().temporalChain() != null ? delegate.admin().temporalChain().capacity() : 0,
+                delegate.admin().entityGraph() != null ? delegate.admin().entityGraph().entityCount() : 0,
+                delegate.admin().entityGraph() != null ? delegate.admin().entityGraph().edgeCount() : 0,
                 0L, // offHeapBytes — from Micrometer gauge
                 0,  // tombstoneCount — TBD
-                delegate.coActivation() != null ? delegate.coActivation().pairCount() : 0,
+                delegate.admin().coActivation() != null ? delegate.admin().coActivation().pairCount() : 0,
                 0); // stdpEdges — TBD
     }
 
@@ -360,7 +360,6 @@ public class MeteredSpectorMemory implements SpectorMemory {
 
     @Override public int totalMemories() { return delegate.totalMemories(); }
     @Override public int memoryCount(MemoryType type) { return delegate.memoryCount(type); }
-    @Override public int decay(Duration olderThan, float factor) { return delegate.decay(olderThan, factor); }
 
     @Override
     public java.util.List<com.spectrayan.spector.memory.model.CognitiveRecord> browse(String... tags) {
@@ -384,20 +383,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
 
     @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return delegate.admin(); }
 
-    @Override public CoActivationTracker coActivation() { return delegate.coActivation(); }
-    @Override public MemoryWal wal() { return delegate.wal(); }
-    @Override public ProspectiveScheduler prospective() { return delegate.prospective(); }
-    @Override public SuppressionSet suppression() { return delegate.suppression(); }
-    @Override public HabituationPenalty habituation() { return delegate.habituation(); }
-    @Override public ScalarQuantizer quantizer() { return delegate.quantizer(); }
-    @Override public CognitiveIngestionTarget cognitiveTarget() { return delegate.cognitiveTarget(); }
-    @Override public RecallPipeline recallPipeline() { return delegate.recallPipeline(); }
-    @Override public TierRouter tierRouter() { return delegate.tierRouter(); }
-    @Override public MemoryIndex index() { return delegate.index(); }
-    @Override public LateralEvaluator lateralEvaluator() { return delegate.lateralEvaluator(); }
-    @Override public HebbianGraphBase hebbianGraph() { return delegate.hebbianGraph(); }
-    @Override public TemporalChain temporalChain() { return delegate.temporalChain(); }
-    @Override public EntityGraph entityGraph() { return delegate.entityGraph(); }
+
 
     // ── Salience Profile (pass-through) ──
 
