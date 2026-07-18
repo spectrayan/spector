@@ -354,13 +354,6 @@ class SpectorConfigTest {
     class SpectorModeTests {
 
         @Test
-        @DisplayName("SEARCH enables engine only")
-        void searchMode() {
-            assertThat(SpectorMode.SEARCH.engineEnabled()).isTrue();
-            assertThat(SpectorMode.SEARCH.memoryEnabled()).isFalse();
-        }
-
-        @Test
         @DisplayName("MEMORY enables memory only")
         void memoryMode() {
             assertThat(SpectorMode.MEMORY.engineEnabled()).isFalse();
@@ -368,16 +361,9 @@ class SpectorConfigTest {
         }
 
         @Test
-        @DisplayName("HYBRID enables both")
-        void hybridMode() {
-            assertThat(SpectorMode.HYBRID.engineEnabled()).isTrue();
-            assertThat(SpectorMode.HYBRID.memoryEnabled()).isTrue();
-        }
-
-        @Test
         @DisplayName("all enum values exist")
         void allValues() {
-            assertThat(SpectorMode.values()).hasSize(3);
+            assertThat(SpectorMode.values()).hasSize(1);
         }
     }
 
