@@ -73,7 +73,7 @@ public class CalculatorTool implements AgentTool {
         try {
             double result = evaluateExpression(expr);
             log.debug("[CalculatorTool] {} = {}", args.get("expression"), result);
-            if (result == Math.floor(result) && !Double.isInfinite(result)) {
+            if (result == Math.floor(result) && !Double.isInfinite(result) && result >= Long.MIN_VALUE && result <= Long.MAX_VALUE) {
                 return args.get("expression") + " = " + (long) result;
             }
             return args.get("expression") + " = " + result;

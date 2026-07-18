@@ -72,6 +72,7 @@ public class HttpRequestTool implements AgentTool {
         }
 
         try {
+            validateUrl(url);
             HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(30));
@@ -91,6 +92,27 @@ public class HttpRequestTool implements AgentTool {
         } catch (Exception e) {
             log.warn("[HttpRequest] Failed {} {}: {}", method, url, e.getMessage());
             return "Error: " + e.getMessage();
+        }
+    }
+
+    private void validateUrl(String urlString) throws Exception {
+        URI uri = new URI(urlString);
+        String scheme = uri.getScheme();
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            throw new IllegalArgumentException("Only HTTP and HTTPS protocols are supported");
+        }
+
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new IllegalArgumentException("Invalid host in URL");
+        }
+
+        // Resolve host to IPs
+        java.net.InetAddress[] addresses = java.net.InetAddress.getAllByName(host);
+        for (java.net.InetAddress addr : addresses) {
+            if (addr.isLoopbackAddress() || addr.isSiteLocalAddress() || addr.isLinkLocalAddress() || addr.isAnyLocalAddress()) {
+                throw new SecurityException("Access to local/private IP address is blocked: " + addr.getHostAddress());
+            }
         }
     }
 }

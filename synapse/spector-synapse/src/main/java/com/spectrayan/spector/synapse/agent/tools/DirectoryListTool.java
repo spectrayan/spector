@@ -68,7 +68,12 @@ public class DirectoryListTool implements AgentTool {
         var pathArg = args.get("path");
         if (pathArg == null) return "Error: Missing required argument: path";
 
-        Path dir = Path.of(pathArg.toString()).toAbsolutePath().normalize();
+        Path dir;
+        try {
+            dir = PathSafety.validatePath(pathArg.toString());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
         if (!Files.isDirectory(dir)) return "Error: Not a directory: " + pathArg;
 
         boolean recursive = Boolean.parseBoolean(String.valueOf(args.getOrDefault("recursive", "false")));

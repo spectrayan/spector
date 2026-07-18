@@ -76,13 +76,23 @@ public class ShellExecutionTool implements AgentTool {
         try {
             ProcessBuilder pb = new ProcessBuilder();
             String os = System.getProperty("os.name").toLowerCase();
+            String shell;
+            String flag;
             if (os.contains("win")) {
-                pb.command("cmd.exe", "/c", command);
+                String comspec = System.getenv("COMSPEC");
+                shell = (comspec != null && !comspec.isBlank()) ? comspec : "C:\\Windows\\System32\\cmd.exe";
+                flag = "/c";
             } else {
-                pb.command("sh", "-c", command);
+                shell = "/bin/sh";
+                flag = "-c";
             }
 
+            // codeql[java/command-line-injection] - Suppressed: This is a shell execution tool designed to run arbitrary agent commands, gated by client-side HITL approval.
+            // codeql[java/relative-path-command] - Suppressed: Absolute shell executable resolved above.
+            pb.command(shell, flag, command);
+
             if (workDir != null && !workDir.isBlank()) {
+                // Ensure workDir is validated against path traversal if needed, but ProcessBuilder handles directory change
                 pb.directory(new java.io.File(workDir));
             }
 

@@ -76,15 +76,25 @@ public class FileSearchTool implements AgentTool {
         var pathArg = args.get("path");
         if (pathArg == null) return "Error: Missing required argument: path";
 
-        Path dirPath = Path.of(pathArg.toString()).toAbsolutePath().normalize();
+        Path dirPath;
+        try {
+            dirPath = PathSafety.validatePath(pathArg.toString());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
         if (!Files.isDirectory(dirPath)) return "Error: Not a directory: " + pathArg;
 
         boolean isRegex = Boolean.parseBoolean(String.valueOf(args.getOrDefault("isRegex", "false")));
         String filePattern = args.get("filePattern") != null ? args.get("filePattern").toString() : null;
 
-        Pattern pattern = isRegex
-                ? Pattern.compile(query, Pattern.MULTILINE)
-                : Pattern.compile(Pattern.quote(query), Pattern.CASE_INSENSITIVE);
+        Pattern pattern;
+        try {
+            pattern = isRegex
+                    ? Pattern.compile(query, Pattern.MULTILINE)
+                    : Pattern.compile(Pattern.quote(query), Pattern.CASE_INSENSITIVE);
+        } catch (java.util.regex.PatternSyntaxException e) {
+            return "Error: Invalid regular expression pattern: " + e.getMessage();
+        }
 
         var matches = new ArrayList<String>();
 

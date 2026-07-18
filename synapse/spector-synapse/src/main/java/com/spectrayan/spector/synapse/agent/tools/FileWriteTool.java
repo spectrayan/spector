@@ -68,12 +68,12 @@ public class FileWriteTool implements AgentTool {
             return "Error: 'path' and 'content' arguments are required";
         }
         try {
-            Path filePath = Path.of(path);
+            Path filePath = PathSafety.validatePath(path);
             Files.createDirectories(filePath.getParent());
             Files.writeString(filePath, content);
-            log.info("[FileWrite] Wrote {} bytes to {}", content.length(), path);
-            return "File written successfully: " + path;
-        } catch (IOException e) {
+            log.info("[FileWrite] Wrote {} bytes to {}", content.length(), filePath);
+            return "File written successfully: " + filePath;
+        } catch (Exception e) {
             log.warn("[FileWrite] Failed to write {}: {}", path, e.getMessage());
             return "Error writing file: " + e.getMessage();
         }

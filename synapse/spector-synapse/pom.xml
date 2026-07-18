@@ -124,6 +124,10 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
+            <artifactId>spector-index</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
             <artifactId>spector-providers</artifactId>
         </dependency>
         <!-- Spring auto-configuration (spector-spring module): provides the managed
