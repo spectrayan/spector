@@ -43,7 +43,7 @@ class SpectorVectorStoreTest {
 
     private SpectorMemory memory;
     private SpectorVectorStore vectorStore;
-    private static final int DIMS = 4;
+    private static final int DIMS = 8;
 
     @BeforeEach
     void setUp() {
@@ -84,8 +84,8 @@ class SpectorVectorStoreTest {
     @Test
     void addDocuments_storesDocumentsSuccessfully() {
         List<Document> docs = List.of(
-                createDocument("doc-1", "Hello world", new float[]{0.1f, 0.2f, 0.3f, 0.4f}),
-                createDocument("doc-2", "Goodbye world", new float[]{0.5f, 0.6f, 0.7f, 0.8f})
+                createDocument("doc-1", "Hello world", new float[]{0.1f, 0.2f, 0.3f, 0.4f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-2", "Goodbye world", new float[]{0.5f, 0.6f, 0.7f, 0.8f, 0.0f, 0.0f, 0.0f, 0.0f})
         );
 
         vectorStore.add(docs);
@@ -108,8 +108,8 @@ class SpectorVectorStoreTest {
     @Test
     void delete_removesDocuments() {
         List<Document> docs = List.of(
-                createDocument("doc-1", "Hello", new float[]{0.1f, 0.2f, 0.3f, 0.4f}),
-                createDocument("doc-2", "World", new float[]{0.5f, 0.6f, 0.7f, 0.8f})
+                createDocument("doc-1", "Hello", new float[]{0.1f, 0.2f, 0.3f, 0.4f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-2", "World", new float[]{0.5f, 0.6f, 0.7f, 0.8f, 0.0f, 0.0f, 0.0f, 0.0f})
         );
         vectorStore.add(docs);
 
@@ -134,14 +134,14 @@ class SpectorVectorStoreTest {
     @Test
     void similaritySearch_returnsResultsInDescendingScoreOrder() {
         List<Document> docs = List.of(
-                createDocument("doc-1", "First", new float[]{1.0f, 0.0f, 0.0f, 0.0f}),
-                createDocument("doc-2", "Second", new float[]{0.0f, 1.0f, 0.0f, 0.0f}),
-                createDocument("doc-3", "Third", new float[]{0.5f, 0.5f, 0.0f, 0.0f})
+                createDocument("doc-1", "First", new float[]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-2", "Second", new float[]{0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-3", "Third", new float[]{0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f})
         );
         vectorStore.add(docs);
 
         // Direct vector search close to doc-1
-        float[] query = {1.0f, 0.0f, 0.0f, 0.0f};
+        float[] query = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         List<Document> results = vectorStore.similaritySearch(query, 3, 0.0, null);
 
         assertThat(results).isNotEmpty();
@@ -160,11 +160,11 @@ class SpectorVectorStoreTest {
         List<Document> docs = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             float val = (i + 1) / 10.0f;
-            docs.add(createDocument("doc-" + i, "Content " + i, new float[]{val, 1 - val, 0.0f, 0.0f}));
+            docs.add(createDocument("doc-" + i, "Content " + i, new float[]{val, 1 - val, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}));
         }
         vectorStore.add(docs);
 
-        float[] query = {1.0f, 0.0f, 0.0f, 0.0f};
+        float[] query = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         List<Document> results = vectorStore.similaritySearch(query, 3, 0.0, null);
 
         assertThat(results.size()).isLessThanOrEqualTo(3);
@@ -185,12 +185,12 @@ class SpectorVectorStoreTest {
     @Test
     void similaritySearch_withSimilarityThreshold_filtersLowScores() {
         List<Document> docs = List.of(
-                createDocument("doc-1", "Close match", new float[]{0.9f, 0.1f, 0.0f, 0.0f}),
-                createDocument("doc-2", "Far match", new float[]{0.0f, 0.0f, 1.0f, 0.0f})
+                createDocument("doc-1", "Close match", new float[]{0.9f, 0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-2", "Far match", new float[]{0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f})
         );
         vectorStore.add(docs);
 
-        float[] query = {1.0f, 0.0f, 0.0f, 0.0f};
+        float[] query = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         List<Document> results = vectorStore.similaritySearch(query, 10, 0.8, null);
 
         // All returned results should have score >= 0.8
