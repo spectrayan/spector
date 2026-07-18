@@ -189,8 +189,8 @@ public final class SpectorMemoryFactory {
         Path resolvedPartitionDir = null;
         if (isDisk && basePath != null) {
             try {
-                java.nio.file.Files.createDirectories(StorageLayout.runtimeDir(basePath));
-                java.nio.file.Files.createDirectories(StorageLayout.partitionsDir(basePath));
+                createDirectoriesSecure(StorageLayout.runtimeDir(basePath));
+                createDirectoriesSecure(StorageLayout.partitionsDir(basePath));
                 resolvedPartitionDir = PartitionManager.discoverOrCreatePartition(basePath);
                 log.info("Active partition: {}", resolvedPartitionDir.getFileName());
             } catch (java.io.IOException e) {
@@ -654,5 +654,16 @@ public final class SpectorMemoryFactory {
         }
 
         return target;
+    }
+
+    private static void createDirectoriesSecure(Path path) throws java.io.IOException {
+        if (java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+            java.nio.file.attribute.FileAttribute<java.util.Set<java.nio.file.attribute.PosixFilePermission>> attrs =
+                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+            java.nio.file.Files.createDirectories(path, attrs);
+        } else {
+            java.nio.file.Files.createDirectories(path);
+        }
     }
 }

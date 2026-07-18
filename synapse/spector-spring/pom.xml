@@ -97,6 +97,12 @@
             <artifactId>spector-memory</artifactId>
         </dependency>
 
+        <!-- ── Spector Index ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-index</artifactId>
+        </dependency>
+
         <!-- ── LLM and Embedding Providers ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>

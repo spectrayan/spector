@@ -1,7 +1,7 @@
 <configuration>
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss} %-5level %logger{20} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss} %-5level %logger{20} - %replace(%msg){'[\r\n]', '_'}%n</pattern>
         </encoder>
     </appender>
 

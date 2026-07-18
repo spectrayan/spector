@@ -37,6 +37,7 @@ public class SecurityConfig {
                                            ApiKeyAuthenticationFilter apiKeyFilter) throws Exception {
         http
                 .cors(cors -> {})  // Enable CORS — delegates to WebMvcConfigurer bean
+                // codeql[java/spring-disabled-csrf-protection] - Disabled because authentication is stateless and cookie-less
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

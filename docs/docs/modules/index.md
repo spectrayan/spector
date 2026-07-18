@@ -23,8 +23,8 @@ graph TB
         index["spector-index<br/><i>HNSW + IVF-PQ + BM25</i>"]
         query["spector-query<br/><i>Hybrid + RRF + rerank</i>"]
         gpu["spector-gpu<br/><i>CUDA via Panama FFM</i>"]
-        embedApi["spector-embed-api<br/><i>Embedding SPI</i>"]
-        embedOllama["spector-embed-ollama<br/><i>Ollama provider</i>"]
+        providerApi["spector-provider-api<br/><i>Provider SPI</i>"]
+        providers["spector-providers<br/><i>AI Providers</i>"]
         ingestion["spector-ingestion<br/><i>File ingest pipeline</i>"]
         rag["spector-rag<br/><i>RAG pipeline</i>"]
     end
@@ -170,8 +170,8 @@ graph TD
 
 | Module | Description |
 |:---|:---|
-| [spector-embed-api](spector-embed-api.md) | Embedding provider SPI — model-agnostic interface |
-| [spector-embed-ollama](spector-embed-ollama.md) | Ollama embedding implementation |
+| [spector-provider-api](spector-provider-api.md) | LLM and embedding provider SPI — model-agnostic interfaces |
+| [spector-providers](spector-providers.md) | Out-of-the-box LLM and embedding providers (Ollama, OpenAI, Google, Anthropic, Mistral, Azure) |
 
 ### Search Layer
 

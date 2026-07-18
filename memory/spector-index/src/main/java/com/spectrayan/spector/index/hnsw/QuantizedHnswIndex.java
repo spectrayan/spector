@@ -461,10 +461,10 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
         // Phase 2: Search at layer 0 using quantized distance (if strategy is ready)
         NeighborQueue candidates;
         if (strategy != null) {
-            int effectiveEf = oversamplingFactor > 1
-                    ? Math.max(ef, oversamplingFactor * k)
-                    : ef;
-            candidates = searchLayerQuantized(query, currentNode, effectiveEf);
+             int effectiveEf = oversamplingFactor > 1
+                     ? Math.max(ef, (int) Math.min(Integer.MAX_VALUE, (long) oversamplingFactor * k))
+                     : ef;
+             candidates = searchLayerQuantized(query, currentNode, effectiveEf);
         } else {
             // No strategy yet (pre-calibration phase) — use exact float distances
             candidates = searchLayer(query, currentNode, ef, 0);

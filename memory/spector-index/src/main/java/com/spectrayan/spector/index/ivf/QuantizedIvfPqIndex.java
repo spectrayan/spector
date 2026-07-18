@@ -284,7 +284,7 @@ public class QuantizedIvfPqIndex implements VectorIndex {
         if (totalVectors == 0) return new ScoredResult[0];
 
         int effectiveK = oversamplingFactor > 1
-                ? Math.min(oversamplingFactor * k, totalVectors)
+                ? Math.min((int) Math.min(Integer.MAX_VALUE, (long) oversamplingFactor * k), totalVectors)
                 : k;
 
         int[] probeClusters = findNearestClusters(query, nprobe);

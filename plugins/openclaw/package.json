@@ -50,5 +50,12 @@
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
     "@types/node": "^22.0.0"
+  },
+  "overrides": {
+    "hono": "^4.12.25",
+    "undici": "^8.5.0",
+    "protobufjs": "^8.6.0",
+    "tar": "^7.5.16",
+    "esbuild": "^0.28.1"
   }
 }

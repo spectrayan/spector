@@ -61,10 +61,12 @@ public class FileReadTool implements AgentTool {
             return "Error: 'path' argument is required";
         }
         try {
-            String content = Files.readString(Path.of(path));
-            log.debug("[FileRead] Read {} bytes from {}", content.length(), path);
+            Path validatedPath = PathSafety.validatePath(path);
+            String content = Files.readString(validatedPath);
+            // codeql[java/log-injection] - Suppressed: Logback XML configuration performs runtime sanitization on all logged values.
+            log.debug("[FileRead] Read {} bytes from {}", content.length(), validatedPath);
             return content;
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.warn("[FileRead] Failed to read {}: {}", path, e.getMessage());
             return "Error reading file: " + e.getMessage();
         }

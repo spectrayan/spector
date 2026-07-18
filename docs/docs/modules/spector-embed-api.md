@@ -1,1 +1,0 @@
---8<-- "memory/spector-embed-api/README.md"

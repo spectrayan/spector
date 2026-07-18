@@ -304,7 +304,7 @@ public final class SpectorIndex implements VectorIndex {
         //
         // The user's similarityFunction is still used for centroid routing
         // (nearestCentroid) where it operates in absolute space.
-        int oversample = Math.max(k, k * config.oversamplingFactor());
+        int oversample = Math.max(k, (int) Math.min(Integer.MAX_VALUE, (long) k * config.oversamplingFactor()));
 
         // Array-based global top-K — zero GC during the merge (consistent with flatScan pattern)
         // L2 distance: lower is better → sentinel is POSITIVE_INFINITY

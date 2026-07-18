@@ -103,7 +103,12 @@ public class PdfReaderTool implements AgentTool {
             return "Error: Missing required argument: file_path";
         }
 
-        Path path = Path.of(filePath).toAbsolutePath().normalize();
+        Path path;
+        try {
+            path = PathSafety.validatePath(filePath);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
         if (!Files.exists(path)) {
             return "Error: File not found: " + filePath;
         }
