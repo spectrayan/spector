@@ -16,10 +16,8 @@
 package com.spectrayan.spector.spring.autoconfigure;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -28,50 +26,22 @@ import org.springframework.stereotype.Component;
 /**
  * Spring Boot Actuator health indicator for Spector.
  *
- * <p>Reports engine status, document count, SIMD capability, and optional
- * memory tier counts at {@code /actuator/health}.</p>
- *
- * <h3>Example Output</h3>
- * <pre>{@code
- *   "spector": {
- *     "status": "UP",
- *     "details": {
- *       "engine.documents": 42000,
- *       "engine.gpu": false,
- *       "engine.reranker": false,
- *       "engine.embedding": "nomic-embed-text",
- *       "simd": "AVX-512 (512-bit, preferred species: 16 floats)",
- *       "memory.total": 1500,
- *       "memory.episodic": 800,
- *       "memory.semantic": 700
- *     }
- *   }
- * }</pre>
+ * <p>Reports SIMD capability and cognitive memory tier counts at {@code /actuator/health}.</p>
  */
 @Component
-@ConditionalOnClass({HealthIndicator.class, SpectorEngine.class})
+@ConditionalOnClass({HealthIndicator.class, SpectorMemory.class})
 public class SpectorHealthIndicator implements HealthIndicator {
 
-    private final SpectorEngine engine;
-    private final SpectorMemory memory; // nullable
+    private final SpectorMemory memory;
 
-    public SpectorHealthIndicator(SpectorEngine engine,
-                                   ObjectProvider<SpectorMemory> memoryProvider) {
-        this.engine = engine;
-        this.memory = memoryProvider.getIfAvailable();
+    public SpectorHealthIndicator(SpectorMemory memory) {
+        this.memory = memory;
     }
 
     @Override
     public Health health() {
         try {
             var builder = Health.up()
-                    .withDetail("engine.documents", engine.documentCount())
-                    .withDetail("engine.gpu", engine.isGpuActive())
-                    .withDetail("engine.reranker", engine.isRerankerActive())
-                    .withDetail("engine.embedding",
-                            engine.hasEmbeddingProvider()
-                                    ? engine.embeddingProvider().modelName()
-                                    : "none")
                     .withDetail("simd", SimdCapability.report());
 
             if (memory != null) {

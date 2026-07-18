@@ -15,11 +15,16 @@
  */
 package org.springframework.ai.vectorstore.spector;
 
-import com.spectrayan.spector.engine.SpectorEngine;
+import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
@@ -32,27 +37,47 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link SpectorVectorStore} using an embedded SpectorEngine.
+ * Unit tests for {@link SpectorVectorStore} using an embedded SpectorMemory.
  */
 class SpectorVectorStoreTest {
 
-    private SpectorEngine engine;
+    private SpectorMemory memory;
     private SpectorVectorStore vectorStore;
     private static final int DIMS = 4;
 
     @BeforeEach
     void setUp() {
-        engine = SpectorEngine.builder()
+        EmbeddingProvider embeddingProvider = Mockito.mock(EmbeddingProvider.class);
+        Mockito.when(embeddingProvider.dimensions()).thenReturn(DIMS);
+        Mockito.when(embeddingProvider.modelName()).thenReturn("mock-embed");
+        Mockito.when(embeddingProvider.embed(Mockito.anyString()))
+                .thenAnswer(invocation -> {
+                    String text = invocation.getArgument(0);
+                    float[] vec = new float[DIMS];
+                    int hash = text.hashCode();
+                    for (int i = 0; i < DIMS; i++) {
+                        vec[i] = ((hash >> (i * 8)) & 0xFF) / 255.0f;
+                    }
+                    return new EmbeddingResult(vec, 1, "mock-embed");
+                });
+
+        memory = DefaultSpectorMemory.builder()
                 .dimensions(DIMS)
-                .capacity(100)
+                .embeddingProvider(embeddingProvider)
+                .semanticCapacity(100)
+                .hebbianGraphCapacity(100)
+                .temporalChainCapacity(100)
+                .entityGraphCapacity(100)
+                .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
                 .build();
-        vectorStore = new SpectorVectorStore(engine);
+
+        vectorStore = new SpectorVectorStore(memory);
     }
 
     @AfterEach
     void tearDown() {
-        if (engine != null) {
-            engine.close();
+        if (memory != null) {
+            memory.close();
         }
     }
 
@@ -65,19 +90,19 @@ class SpectorVectorStoreTest {
 
         vectorStore.add(docs);
 
-        assertThat(engine.documentCount()).isEqualTo(2);
+        assertThat(memory.totalMemories()).isEqualTo(2);
     }
 
     @Test
     void addEmptyList_doesNothing() {
         vectorStore.add(List.of());
-        assertThat(engine.documentCount()).isZero();
+        assertThat(memory.totalMemories()).isZero();
     }
 
     @Test
     void addNull_doesNothing() {
         vectorStore.add(null);
-        assertThat(engine.documentCount()).isZero();
+        assertThat(memory.totalMemories()).isZero();
     }
 
     @Test
@@ -90,8 +115,8 @@ class SpectorVectorStoreTest {
 
         vectorStore.delete(List.of("doc-1"));
 
-        // Engine should still have doc-2
-        assertThat(engine.documentCount()).isLessThanOrEqualTo(2);
+        // Memory should still have doc-2
+        assertThat(memory.totalMemories()).isLessThanOrEqualTo(2);
     }
 
     @Test

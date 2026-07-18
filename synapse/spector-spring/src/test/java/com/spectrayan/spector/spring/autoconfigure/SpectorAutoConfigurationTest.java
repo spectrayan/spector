@@ -15,11 +15,13 @@
  */
 package com.spectrayan.spector.spring.autoconfigure;
 
-import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.metrics.MeteredSpectorEngine;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.metrics.MeteredSpectorMemory;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -33,29 +35,41 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SpectorAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(SpectorAutoConfiguration.class));
+            .withConfiguration(AutoConfigurations.of(SpectorAutoConfiguration.class))
+            .withUserConfiguration(TestDependenciesConfiguration.class);
 
     @Test
-    void defaultConfiguration_createsEngineBean() {
+    void defaultConfiguration_createsMemoryBean() {
         this.contextRunner
-                .withPropertyValues("spector.engine.dimensions=384")
+                .withPropertyValues("spector.memory.dimensions=384")
                 .run(context -> {
-                    assertThat(context).hasSingleBean(SpectorEngine.class);
-                    SpectorEngine engine = context.getBean(SpectorEngine.class);
-                    assertThat(engine.config().dimensions()).isEqualTo(384);
+                    assertThat(context).hasSingleBean(SpectorMemory.class);
+                    SpectorMemory memory = context.getBean(SpectorMemory.class);
+                    assertThat(memory).isNotNull();
                 });
     }
 
     @Test
-    void withMeterRegistry_wrapsEngineWithMeteredDecorator() {
+    void withMeterRegistry_wrapsMemoryWithMeteredDecorator() {
         this.contextRunner
                 .withUserConfiguration(TestMeterRegistryConfiguration.class)
-                .withPropertyValues("spector.engine.dimensions=384", "spector.metrics.enabled=true")
+                .withPropertyValues("spector.memory.dimensions=384", "spector.metrics.enabled=true")
                 .run(context -> {
-                    assertThat(context).hasSingleBean(SpectorEngine.class);
-                    SpectorEngine engine = context.getBean(SpectorEngine.class);
-                    assertThat(engine).isInstanceOf(MeteredSpectorEngine.class);
+                    assertThat(context).hasSingleBean(SpectorMemory.class);
+                    SpectorMemory memory = context.getBean(SpectorMemory.class);
+                    assertThat(memory).isInstanceOf(MeteredSpectorMemory.class);
                 });
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class TestDependenciesConfiguration {
+        @Bean
+        EmbeddingProvider embeddingProvider() {
+            EmbeddingProvider mock = Mockito.mock(EmbeddingProvider.class);
+            Mockito.when(mock.dimensions()).thenReturn(384);
+            Mockito.when(mock.modelName()).thenReturn("mock-embed");
+            return mock;
+        }
     }
 
     @Configuration(proxyBeanMethods = false)
