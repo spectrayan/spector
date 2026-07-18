@@ -19,12 +19,32 @@
         <spector.module.name>com.spectrayan.spector.spring</spector.module.name>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Boot BOM -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring AI BOM -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Spring AI Vector Store (VectorStore, SearchRequest, Filter) -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-vector-store</artifactId>
-            <version>2.0.0-M4</version>
             <exclusions>
                 <exclusion>
                     <groupId>*</groupId>
@@ -37,7 +57,6 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-commons</artifactId>
-            <version>2.0.0-M4</version>
             <exclusions>
                 <exclusion>
                     <groupId>*</groupId>
@@ -50,7 +69,6 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
-            <version>7.0.7</version>
             <exclusions>
                 <exclusion>
                     <groupId>*</groupId>
@@ -107,7 +125,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
-            <version>3.5.3</version>
             <optional>true</optional>
         </dependency>
 
@@ -115,7 +132,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-actuator</artifactId>
-            <version>3.5.3</version>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ── Spring Boot Health (for custom HealthIndicators in Spring Boot 4) ── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-health</artifactId>
             <optional>true</optional>
         </dependency>
 
@@ -136,7 +159,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <version>3.5.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
