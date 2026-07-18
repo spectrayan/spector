@@ -1,0 +1,61 @@
+# Stale Issue & PR Management
+# Automatically labels and closes dormant issues and PRs.
+
+name: Stale Issues & PRs
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v10
+        with:
+          # Issue configuration
+          days-before-issue-stale: 30
+          days-before-issue-close: 14
+          stale-issue-label: 'stale'
+          stale-issue-message: |
+            This issue has been automatically marked as **stale** because it has not had activity in 30 days.
+
+            If you're still working on this or it's still relevant, please leave a comment and we'll keep it open. Otherwise, it will be closed in 14 days.
+
+            No pressure — life happens! You can always reopen or create a new issue later. 🙂
+          close-issue-message: |
+            This issue has been closed due to inactivity. If you'd like to revisit it, feel free to reopen or create a new issue.
+
+            Thanks for your interest in Spector! 🙏
+
+          # PR configuration
+          days-before-pr-stale: 21
+          days-before-pr-close: 14
+          stale-pr-label: 'stale'
+          stale-pr-message: |
+            This pull request has been automatically marked as **stale** because it has not had activity in 21 days.
+
+            If you're still working on this, please push an update or leave a comment and we'll keep it open. Otherwise, it will be closed in 14 days.
+
+            Need help? Feel free to ask — we're happy to assist! 🤝
+          close-pr-message: |
+            This pull request has been closed due to inactivity. If you'd like to continue this work, feel free to reopen or open a new PR.
+
+            Thanks for the effort! 🙏
+
+          # Exemptions
+          exempt-issue-labels: 'P0,P1,pinned,security'
+          exempt-pr-labels: 'P0,P1,pinned,security'
+          exempt-all-milestones: true
+
+          # Don't close issues/PRs assigned to someone
+          exempt-all-assignees: true
+
+          # Operations per run (GitHub API rate limiting)
+          operations-per-run: 50

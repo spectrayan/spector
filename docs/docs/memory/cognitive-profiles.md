@@ -1,6 +1,11 @@
-﻿# Cognitive Profiles
+---
+title: "Cognitive Profiles — Adaptive Retrieval Modes"
+description: "Cognitive profile system: BALANCED, DEBUGGING, HYPERFOCUS, DIVERGENT, CRITICAL, and other retrieval modes that adapt scoring to different cognitive tasks."
+---
 
-Cognitive profiles are **pre-configured scoring presets** that modulate how the memory system prioritizes, retrieves, and consolidates information. They act as a thalamic filter â€” adjusting the balance between similarity-driven and importance-driven recall to match different task contexts.
+# Cognitive Profiles
+
+Cognitive profiles are **pre-configured scoring presets** that modulate how the memory system prioritizes, retrieves, and consolidates information. They act as a thalamic filter — adjusting the balance between similarity-driven and importance-driven recall to match different task contexts.
 
 ## How Profiles Work
 
@@ -12,73 +17,86 @@ $$
 
 Where:
 
-- **Î± (alpha)** â€” Weight on vector similarity (how close is this memory to the query?)
-- **Î² (beta)** â€” Weight on learned importance (how important was this memory at ingestion?)
-- **Î± + Î² = 1.0** â€” Always normalized
+- **α (alpha)** — Weight on vector similarity (how close is this memory to the query?)
+- **β (beta)** — Weight on learned importance (how important was this memory at ingestion?)
+- **α + β = 1.0** — Always normalized
 
-A profile sets Î±, Î², and optional modifiers (hyperfocus boost, lateral mode, episode pinning) to bias the scoring pipeline for a specific cognitive strategy.
+A profile sets α, β, and optional modifiers (hyperfocus boost, lateral mode, episode pinning) to bias the scoring pipeline for a specific cognitive strategy.
 
 ## Built-in Profiles
 
 ### Standard Profiles
 
-| Profile | Î± | Î² | Valence Filter | Best For |
+| Profile | α | β | Valence Filter | Best For |
 |:---|:---:|:---:|:---:|:---|
 | `BALANCED` | 0.6 | 0.4 | All | General-purpose recall |
 | `EXPLORING` | 0.8 | 0.2 | All | Broad discovery, creative exploration |
-| `DEBUGGING` | 0.3 | 0.7 | Negative only (â‰¤ -10) | Precise error-matching, diagnostic search |
-| `RECALLING` | 0.4 | 0.6 | Positive only (â‰¥ +10) | Retrieving proven solutions and successes |
+| `DEBUGGING` | 0.3 | 0.7 | Negative only (≤ -10) | Precise error-matching, diagnostic search |
+| `RECALLING` | 0.4 | 0.6 | Positive only (≥ +10) | Retrieving proven solutions and successes |
 | `CRITICAL` | 0.2 | 0.8 | All | Security audits, compliance checks, high-stakes |
 
-### Advanced Profiles â€” Neurodivergent
+### Advanced Profiles — Neurodivergent
 
-These profiles go beyond Î±/Î² tuning â€” they activate specialized scoring mechanics in the [6-Phase Pipeline](scoring-pipeline.md) and model specific neurocognitive patterns.
+These profiles go beyond α/β tuning — they activate specialized scoring mechanics in the [6-Phase Pipeline](scoring-pipeline.md) and model specific neurocognitive patterns.
 
-| Profile | Î± | Î² | Biological Analog | Special Mechanics |
+| Profile | α | β | Biological Analog | Special Mechanics |
 |:---|:---:|:---:|:---|:---|
-| `HYPERFOCUS` | 1.0 | 0.0 | Monotropism | [Focus Mode](focus-mode.md) â€” Zero decay, strict tag gate, boost multiplier |
-| `SYSTEMATIZER` | 0.3 | 0.7 | Bottom-up processing (autism) | [Systemizer](focus-mode.md#systemizer) â€” Pins source episodes during consolidation |
-| `DIVERGENT` | 0.8 | 0.2 | Reduced Latent Inhibition (ADHD) | [Explorer](lateral-retrieval.md) â€” Lateral cross-domain retrieval |
+| `HYPERFOCUS` | 1.0 | 0.0 | Monotropism | [Focus Mode](focus-mode.md) — Zero decay, strict tag gate, boost multiplier |
+| `SYSTEMATIZER` | 0.3 | 0.7 | Bottom-up processing (autism) | [Systemizer](focus-mode.md#systemizer) — Pins source episodes during consolidation |
+| `DIVERGENT` | 0.8 | 0.2 | Reduced Latent Inhibition (ADHD) | [Explorer](lateral-retrieval.md) — Lateral cross-domain retrieval |
 | `PARANOID_SENTINEL` | 0.2 | 0.8 | Amygdala threat-detection | Negative-only valence, mood-congruent threat recall |
 | `THE_EXECUTOR` | 0.3 | 0.7 | Prefrontal executive function | Heaviside Cliff (strictness=10.0), no lateral retrieval |
 | `HIGHLY_SENSITIVE` | 0.7 | 0.3 | Sensory Processing Sensitivity | Low flashbulb threshold, strong lateral inhibition |
 | `DEFAULT_MODE_NETWORK` | 0.2 | 0.8 | Brain's resting state network | Skips Working + Episodic, Semantic + Procedural only |
+| `EXECUTIVE_DYSFUNCTION` | 0.3 | 0.7 | Prefrontal executive dysfunction | Hebbian-first associative recall, bypasses vector similarity |
+
+---
+
+## Self-Tuning Retrieval (`profile=auto`)
+
+When `profile` is set to `"auto"`, Spector activates the **ProfileAdaptor** contextual bandit. It deterministically hashes the current synaptic filter tags and queries its reinforcement stats. 
+
+- **Epsilon-greedy exploration:** The system selects the best performing profile for the tag context 90% of the time, and randomly explores alternative profiles 10% of the time to avoid local optima.
+- **Cold start fallback:** If there are fewer than 10 reinforcement signals for a tag context, it falls back to the configured `SalienceProfile` default profile, and finally to `BALANCED`.
+- **Durable reinforcement:** Learned stats are snapshotted to the `coactivation.tracker` (COAX v2) file on engine shutdown.
 
 ---
 
 ## New Profile Deep Dives
 
-### PARANOID_SENTINEL â€” Amygdala Threat Detection
+### PARANOID_SENTINEL — Amygdala Threat Detection
 
 **Biological analog:** The amygdala's threat-detection circuitry, which filters sensory input for potential dangers and amplifies recall of negative experiences (mood-congruent memory bias).
 
-**Use case:** SRE agents, security auditors, compliance monitors. Only surfaces memories associated with negative outcomes â€” errors, failures, security incidents, regressions.
+**Use case:** SRE agents, security auditors, compliance monitors. Only surfaces memories associated with negative outcomes — errors, failures, security incidents, regressions.
 
-```java
-PARANOID_SENTINEL(0.2f, 0.8f, Byte.MIN_VALUE, (byte) -1)
-//                 Î±      Î²    minValence     maxValence
-```
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.2 | Low similarity weight — severity matters more than closeness |
+| β | 0.8 | High importance weight — prioritize severe failures |
+| Valence range | [-128, -1] | **Negative memories only** — successes are invisible |
 
 **How it works:**
 
-- **Valence range [-128, -1]:** Only negative memories pass the valence filter in Phase 3 of the scorer. Successes, neutral logs, and positive outcomes are invisible.
-- **Î±=0.2, Î²=0.8:** Importance-dominated â€” the severity of the past failure matters more than how closely it matches the current query.
-- **Valence alignment:** Query valence is set to -128 (maximum threat), triggering mood-congruent recall amplification.
+- Only negative memories pass the valence filter in Phase 3 of the scorer. Successes, neutral logs, and positive outcomes are invisible.
+- Importance-dominated — the severity of the past failure matters more than how closely it matches the current query.
+- Query valence is set to -128 (maximum threat), triggering mood-congruent recall amplification.
 
 !!! example "Scenario"
-    Agent query: "deployment configuration" â†’ BALANCED returns general config docs. PARANOID_SENTINEL returns only the config-related incidents: the time a bad config caused a 4-hour outage, the security CVE from an exposed config file, the memory leak from misconfigured thread pool.
+    Agent query: "deployment configuration" → BALANCED returns general config docs. PARANOID_SENTINEL returns only the config-related incidents: the time a bad config caused a 4-hour outage, the security CVE from an exposed config file, the memory leak from misconfigured thread pool.
 
-### THE_EXECUTOR â€” Prefrontal Executive Function
+### THE_EXECUTOR — Prefrontal Executive Function
 
-**Biological analog:** The prefrontal cortex in full executive function mode â€” goal-directed, no tangential exploration, pure task completion.
+**Biological analog:** The prefrontal cortex in full executive function mode — goal-directed, no tangential exploration, pure task completion.
 
 **Use case:** Devin-style agentic task runners. Combined with Zeigarnik Effect (`markUnresolved()`) for tracking open tasks that resist decay.
 
-```java
-THE_EXECUTOR(0.3f, 0.7f, Byte.MIN_VALUE, Byte.MAX_VALUE)
-// + strictnessCoefficient = 10.0
-// + lateralMode = false
-```
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.3 | Moderate similarity weight |
+| β | 0.7 | High importance weight |
+| Strictness coefficient | 10.0 | Heaviside Cliff — 95% of candidates score near zero |
+| Lateral mode | disabled | No cross-domain exploration |
 
 **How it works:**
 
@@ -88,78 +106,92 @@ $$
 \text{similarity} = \frac{1}{1 + d_{L2} \times 10.0}
 $$
 
-At strictness=1.0 (default), this is a gentle hyperbola. At strictness=10.0, it's a **cliff** â€” 95% of candidates score near zero, and only the closest matches survive.
+At strictness=1.0 (default), this is a gentle hyperbola. At strictness=10.0, it's a **cliff** — 95% of candidates score near zero, and only the closest matches survive.
 
 - **Lateral retrieval disabled:** No DIVERGENT-style cross-domain exploration. Results must be directly relevant.
-- **Zeigarnik integration:** Unresolved tasks (flagged via `markUnresolved()`) resist time-decay entirely â€” their decay bucket is clamped to 0.
+- **Zeigarnik integration:** Unresolved tasks (flagged via `markUnresolved()`) resist time-decay entirely — their decay bucket is clamped to 0.
 
-### HIGHLY_SENSITIVE â€” Sensory Processing Sensitivity
+### HIGHLY_SENSITIVE — Sensory Processing Sensitivity
 
 **Biological analog:** Enhanced sensory processing depth (Aron & Aron, 1997). The highly sensitive brain processes stimuli more deeply, captures finer environmental details, and has a lower threshold for emotional activation.
 
-```java
-HIGHLY_SENSITIVE(0.7f, 0.3f, Byte.MIN_VALUE, Byte.MAX_VALUE)
-// + flashbulbThreshold = 2.0 (default: 3.0)
-// + inhibitionFloor = 0.3 (stronger lateral inhibition)
-// + minImportance = 0.01
-```
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.7 | High similarity weight — capture nuanced matches |
+| β | 0.3 | Lower importance weight |
+| Flashbulb threshold | 2.0 (default: 3.0) | Pins more moments as permanent memories |
+| Inhibition floor | 0.3 | Stronger lateral inhibition — memories stay distinct |
+| Min importance | 0.01 | Nothing is too small to remember |
 
 **How it works:**
 
 - **Lower flashbulb threshold (2.0 vs 3.0):** Captures more "important" moments as flashbulb memories. Events that BALANCED would consider routine, HIGHLY_SENSITIVE pins permanently.
 - **Stronger lateral inhibition (0.3 floor):** Less interference between memories. Each memory maintains its distinctiveness rather than blurring with similar neighbors.
 - **minImportance=0.01:** Nothing is too small to remember. Subtle signals that other profiles would round down to zero are preserved.
-- **Î±=0.7:** Similarity-leaning â€” captures nuanced matches that importance-dominated profiles would miss.
 
 !!! tip "Ideal for"
-    Medical reasoning, quality assurance, code review, accessibility testing â€” anywhere subtle signals could be critical.
+    Medical reasoning, quality assurance, code review, accessibility testing — anywhere subtle signals could be critical.
 
-### DEFAULT_MODE_NETWORK â€” "Shower Thoughts"
+### DEFAULT_MODE_NETWORK — "Shower Thoughts"
 
 **Biological analog:** The brain's default mode network (DMN), which activates during rest, mind-wandering, and unfocused cognition. The DMN surfaces deep, consolidated knowledge rather than recent events.
 
-```java
-DEFAULT_MODE_NETWORK(0.2f, 0.8f, Byte.MIN_VALUE, Byte.MAX_VALUE)
-// + memoryTypes = {SEMANTIC, PROCEDURAL}
-// + skipTiers = {WORKING, EPISODIC}
-```
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.2 | Low similarity weight |
+| β | 0.8 | High importance weight — deep knowledge |
+| Searched tiers | Semantic + Procedural only | Skips Working + Episodic |
 
 **How it works:**
 
 - **Skips Working and Episodic tiers entirely.** Only Semantic (consolidated facts) and Procedural (learned procedures) are searched.
-- **Î±=0.2, Î²=0.8:** Importance-dominated. The DMN isn't looking for direct matches â€” it surfaces whatever the agent "knows deeply" about a topic.
+- **α=0.2, β=0.8:** Importance-dominated. The DMN isn't looking for direct matches — it surfaces whatever the agent "knows deeply" about a topic.
 - **No recency bias:** Since Episodic is skipped, all results are from long-term consolidated memory. No "what happened today" noise.
 
 !!! example "Scenario"
-    Agent is stuck on a performance problem â†’ switches to DEFAULT_MODE_NETWORK â†’ surfaces a deep architectural principle from 3 months ago that reframes the problem entirely. This is the computational equivalent of "sleeping on it."
+    Agent is stuck on a performance problem → switches to DEFAULT_MODE_NETWORK → surfaces a deep architectural principle from 3 months ago that reframes the problem entirely. This is the computational equivalent of "sleeping on it."
+
+### EXECUTIVE_DYSFUNCTION — Hebbian-First Associative Recall
+
+**Biological analog:** Prefrontal cortex executive dysfunction. When top-down goal-directed query formulation struggles, bottom-up associative retrieval via the hippocampus and basal ganglia remains intact. Memories surface through directed Spike-Timing-Dependent Plasticity (STDP) causal chains rather than vector query matching.
+
+**Use case:** Agents struggling with ambiguous inputs or unable to formulate clear semantic queries, relying instead on associative context transitions.
+
+| Parameter | Value | Effect |
+|:---|:---:|:---|
+| α | 0.3 | Moderate similarity weight (used as tie-breaker only) |
+| β | 0.7 | High importance weight |
+| Scoring mode | `ASSOCIATIVE` | **Hebbian-first pipeline routing** |
+| Lateral mode | enabled | Aggressive graph expansion across associations |
+| Expansion threshold | 0.80 | Aggressively expand candidate retrieval via STDP edges |
+
+**How it works:**
+
+- **Hippocampal Replay Seed:** Rather than searching vectors from a query, the system extracts the last 20 context tags from a sliding `RecallHistory` buffer.
+- **STDP Predictive Association:** It queries the `CoActivationTracker` for directed STDP edges leading *from* those recent context tags, predicting the next logical tag set.
+- **Tag-Gated Semantic Recall:** It runs a standard recall scan using these predicted tags as a strict synaptic Bloom filter.
+- **STDP Rescoring:** Retrieved candidates are boosted based on their Hebbian predictive strength and recency decay.
 
 ---
 
 ## Usage
 
-### Via CognitiveProfile Enum
+### Via Profile Preset
 
-```java
-// Simple: use a profile preset
-List<CognitiveResult> results = memory.recall("database deadlock", CognitiveProfile.HYPERFOCUS);
+```
+memory.recall("database deadlock", profile: HYPERFOCUS)
 ```
 
-### Via RecallOptions Builder
+### Via Recall Options
 
-```java
-// Advanced: profile + custom overrides
-var options = RecallOptions.builder()
-    .profile(CognitiveProfile.DIVERGENT)
-    .topK(20)
-    .lateralDistanceThreshold(1.5f)  // override default
-    .build();
-
-List<CognitiveResult> results = memory.recall("performance optimization", options);
+```
+memory.recall("performance optimization",
+    profile: DIVERGENT,
+    topK: 20,
+    lateralDistanceThreshold: 1.5)
 ```
 
 ### Via MCP Tool
-
-The `memory_recall` MCP tool accepts a `profile` parameter:
 
 ```json
 {
@@ -203,42 +235,28 @@ Agents can dynamically switch profiles during a conversation:
 
 1. **Start with `BALANCED`** for general context
 2. **Switch to `HYPERFOCUS`** when a specific topic is identified (e.g., user mentions "database deadlock")
-3. **Switch to `DIVERGENT`** when stuck â€” lateral results may surface unexpected solutions
+3. **Switch to `DIVERGENT`** when stuck — lateral results may surface unexpected solutions
 4. **Switch to `SYSTEMATIZER`** when building a comprehensive knowledge base
 
-The `HyperfocusState` object supports TTL-based activation with agent self-extension:
+The hyperfocus system supports TTL-based activation with agent self-extension:
 
-```java
-// Agent detects a focused topic
-memory.hyperfocusState().activateFromTags("database", "deadlock");
+```mermaid
+flowchart LR
+    DETECT["Agent detects<br/>focused topic"] --> ACTIVATE["Activate hyperfocus<br/><i>tags: database, deadlock</i>"]
+    ACTIVATE --> BOOST["Matching memories<br/>get boost multiplier"]
+    BOOST --> CHECK{"Topic continues?"}
+    CHECK -->|"Yes"| EXTEND["Extend TTL"]
+    CHECK -->|"No — TTL expires"| DEACTIVATE["Auto-deactivate<br/><i>default: 30 min</i>"]
 
-// Agent extends focus when the topic continues
-memory.hyperfocusState().extend();
-
-// Focus automatically expires after TTL (default: 30 minutes)
-```
-
----
-
-## Custom Profiles
-
-You can create custom profiles by using `RecallOptions.builder()` directly:
-
-```java
-var customProfile = RecallOptions.builder()
-    .alpha(0.9f)
-    .beta(0.1f)
-    .hyperfocusMask("java", "concurrency")
-    .hyperfocusBoost(2.0f)
-    .lateralMode(false)
-    .build();
+    style ACTIVATE fill:#e74c3c,color:white
+    style DEACTIVATE fill:#95a5a6,color:white
 ```
 
 ---
 
 ## Result Metadata
 
-Each `CognitiveResult` carries a `RetrievalMode` indicating how it was retrieved:
+Each result carries a retrieval mode indicating how it was retrieved:
 
 | Mode | Meaning |
 |:---|:---|
@@ -246,22 +264,13 @@ Each `CognitiveResult` carries a `RetrievalMode` indicating how it was retrieved
 | `LATERAL` | Cross-domain retrieval via the Explorer dual-heap |
 | `HYPERFOCUS` | Tag-matched with zero decay and boost multiplier |
 
-```java
-for (CognitiveResult r : results) {
-    if (r.isLateral()) {
-        // Cross-domain insight â€” consider carefully
-    } else if (r.isHyperfocused()) {
-        // Focused match â€” high confidence
-    }
-}
-```
+Agents can use this metadata to adjust their reasoning — for example, treating `LATERAL` results with more caution, or presenting `HYPERFOCUS` results with higher confidence.
 
 ## What's Next
 
-- [Focus Mode](focus-mode.md) â€” Deep dive on HYPERFOCUS and SYSTEMATIZER
-- [Explorer â€” Lateral Retrieval](lateral-retrieval.md) â€” Cross-domain dual-heap mechanics
-- [Importance Fusion (ICNU)](importance-fusion.md) â€” Sigmoid-gated importance with dopaminergic IÃ—N interaction
-- [Synapse â€” Tags & Scoring](synapse.md) â€” Versioned header layouts (V1/V2/V3) and arousal-modulated decay
-- [Hebbian â€” Association Learning](hebbian.md) â€” STDP with directed causal edges
-- [Labs â€” Research Roadmap](../labs/roadmap.md) â€” Neuromodulatory Gain, Executive Dysfunction Profile
-
+- [Focus Mode](focus-mode.md) — Deep dive on HYPERFOCUS and SYSTEMATIZER
+- [Explorer — Lateral Retrieval](lateral-retrieval.md) — Cross-domain dual-heap mechanics
+- [Importance Fusion (ICNU)](importance-fusion.md) — Sigmoid-gated importance with dopaminergic I×N interaction
+- [Synapse — Tags & Scoring](synapse.md) — Versioned header layouts (V1/V2/V3) and arousal-modulated decay
+- [Hebbian — Association Learning](hebbian.md) — STDP with directed causal edges
+- [Labs — Research Roadmap](../labs/roadmap.md) — Neuromodulatory Gain, Executive Dysfunction Profile

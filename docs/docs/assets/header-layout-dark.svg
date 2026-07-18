@@ -1,0 +1,445 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320">
+  <g transform="translate(0.5,0.5)" text-anchor="middle" font-size="14" font-family="sans-serif" font-weight="normal">
+    <g transform="translate(4,21)">
+      <g stroke="black" stroke-width="1" stroke-linecap="round">
+        <line x2="1191"/>
+        <line x1="1191" x2="1191" y2="41"/>
+        <line x2="1191" y1="41" y2="41"/>
+        <line y2="41"/>
+        <line x1="74" x2="74" y2="41"/>
+        <line x1="149" x2="149" y2="41"/>
+        <line x1="223" x2="223" y2="41"/>
+        <line x1="298" x2="298" y2="41"/>
+        <line x1="372" x2="372" y2="5"/>
+        <line x1="372" x2="372" y1="41" y2="36"/>
+        <line x1="447" x2="447" y2="5"/>
+        <line x1="447" x2="447" y1="41" y2="36"/>
+        <line x1="521" x2="521" y2="5"/>
+        <line x1="521" x2="521" y1="41" y2="36"/>
+        <line x1="596" x2="596" y2="41"/>
+        <line x1="670" x2="670" y2="5"/>
+        <line x1="670" x2="670" y1="41" y2="36"/>
+        <line x1="744" x2="744" y2="5"/>
+        <line x1="744" x2="744" y1="41" y2="36"/>
+        <line x1="819" x2="819" y2="5"/>
+        <line x1="819" x2="819" y1="41" y2="36"/>
+        <line x1="893" x2="893" y2="5"/>
+        <line x1="893" x2="893" y1="41" y2="36"/>
+        <line x1="968" x2="968" y2="5"/>
+        <line x1="968" x2="968" y1="41" y2="36"/>
+        <line x1="1042" x2="1042" y2="5"/>
+        <line x1="1042" x2="1042" y1="41" y2="36"/>
+        <line x1="1117" x2="1117" y2="5"/>
+        <line x1="1117" x2="1117" y1="41" y2="36"/>
+      </g>
+      <g>
+        <g>
+          <rect width="74" height="41" field="ver" style="fill-opacity:0.35;fill:#00ffd5"/>
+          <rect x="74" width="74" height="41" field="flags" style="fill-opacity:0.35;fill:#00ffd5"/>
+          <rect x="149" width="74" height="41" field="valence" style="fill-opacity:0.35;fill:#aaff00"/>
+          <rect x="223" width="74" height="41" field="arousal" style="fill-opacity:0.35;fill:#aaff00"/>
+          <rect x="298" width="298" height="41" field="importance" style="fill-opacity:0.35;fill:#ff0000"/>
+          <rect x="596" width="596" height="41" field="timestamp_ms" style="fill-opacity:0.35;fill:#ffbf00"/>
+        </g>
+        <g transform="translate(37,-11)">
+          <g transform="translate(0)">
+            <text y="6" fill="#e0e0e0">0</text>
+          </g>
+          <g transform="translate(74)">
+            <text y="6" fill="#e0e0e0">1</text>
+          </g>
+          <g transform="translate(149)">
+            <text y="6" fill="#e0e0e0">2</text>
+          </g>
+          <g transform="translate(223)">
+            <text y="6" fill="#e0e0e0">3</text>
+          </g>
+          <g transform="translate(298)">
+            <text y="6" fill="#e0e0e0">4</text>
+          </g>
+          <g transform="translate(521)">
+            <text y="6" fill="#e0e0e0">7</text>
+          </g>
+          <g transform="translate(596)">
+            <text y="6" fill="#e0e0e0">8</text>
+          </g>
+          <g transform="translate(1117)">
+            <text y="6" fill="#e0e0e0">15</text>
+          </g>
+        </g>
+        <g transform="translate(37,20)">
+          <g transform="translate(0)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>ver</tspan>
+            </text>
+          </g>
+          <g transform="translate(74)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>flags</tspan>
+            </text>
+          </g>
+          <g transform="translate(149)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>valence</tspan>
+            </text>
+          </g>
+          <g transform="translate(223)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>arousal</tspan>
+            </text>
+          </g>
+          <g transform="translate(409)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>importance</tspan>
+            </text>
+          </g>
+          <g transform="translate(856)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>timestamp_ms</tspan>
+            </text>
+          </g>
+        </g>
+        <g transform="translate(37,49)">
+          <g transform="translate(0)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>1B</tspan>
+            </text>
+          </g>
+          <g transform="translate(74)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>1B</tspan>
+            </text>
+          </g>
+          <g transform="translate(149)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>1B</tspan>
+            </text>
+          </g>
+          <g transform="translate(223)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>1B</tspan>
+            </text>
+          </g>
+          <g transform="translate(409)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>float</tspan>
+            </text>
+          </g>
+          <g transform="translate(856)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>long</tspan>
+            </text>
+          </g>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(4,101)">
+      <g stroke="black" stroke-width="1" stroke-linecap="round">
+        <line x2="1191"/>
+        <line x1="1191" x2="1191" y2="41"/>
+        <line x2="1191" y1="41" y2="41"/>
+        <line y2="41"/>
+        <line x1="74" x2="74" y2="5"/>
+        <line x1="74" x2="74" y1="41" y2="36"/>
+        <line x1="149" x2="149" y2="5"/>
+        <line x1="149" x2="149" y1="41" y2="36"/>
+        <line x1="223" x2="223" y2="5"/>
+        <line x1="223" x2="223" y1="41" y2="36"/>
+        <line x1="298" x2="298" y2="41"/>
+        <line x1="372" x2="372" y2="5"/>
+        <line x1="372" x2="372" y1="41" y2="36"/>
+        <line x1="447" x2="447" y2="5"/>
+        <line x1="447" x2="447" y1="41" y2="36"/>
+        <line x1="521" x2="521" y2="5"/>
+        <line x1="521" x2="521" y1="41" y2="36"/>
+        <line x1="596" x2="596" y2="41"/>
+        <line x1="670" x2="670" y2="5"/>
+        <line x1="670" x2="670" y1="41" y2="36"/>
+        <line x1="744" x2="744" y2="5"/>
+        <line x1="744" x2="744" y1="41" y2="36"/>
+        <line x1="819" x2="819" y2="5"/>
+        <line x1="819" x2="819" y1="41" y2="36"/>
+        <line x1="893" x2="893" y2="5"/>
+        <line x1="893" x2="893" y1="41" y2="36"/>
+        <line x1="968" x2="968" y2="5"/>
+        <line x1="968" x2="968" y1="41" y2="36"/>
+        <line x1="1042" x2="1042" y2="5"/>
+        <line x1="1042" x2="1042" y1="41" y2="36"/>
+        <line x1="1117" x2="1117" y2="5"/>
+        <line x1="1117" x2="1117" y1="41" y2="36"/>
+      </g>
+      <g>
+        <g>
+          <rect width="298" height="41" field="agent_recall_count" style="fill-opacity:0.35;fill:#00ff19"/>
+          <rect x="298" width="298" height="41" field="exact_norm" style="fill-opacity:0.35;fill:#ff0000"/>
+          <rect x="596" width="596" height="41" field="synaptic_tags" style="fill-opacity:0.35;fill:#ffbf00"/>
+        </g>
+        <g transform="translate(37,-11)">
+          <g transform="translate(0)">
+            <text y="6" fill="#e0e0e0">16</text>
+          </g>
+          <g transform="translate(223)">
+            <text y="6" fill="#e0e0e0">19</text>
+          </g>
+          <g transform="translate(298)">
+            <text y="6" fill="#e0e0e0">20</text>
+          </g>
+          <g transform="translate(521)">
+            <text y="6" fill="#e0e0e0">23</text>
+          </g>
+          <g transform="translate(596)">
+            <text y="6" fill="#e0e0e0">24</text>
+          </g>
+          <g transform="translate(1117)">
+            <text y="6" fill="#e0e0e0">31</text>
+          </g>
+        </g>
+        <g transform="translate(37,20)">
+          <g transform="translate(112)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>agent_recall_count</tspan>
+            </text>
+          </g>
+          <g transform="translate(409)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>exact_norm</tspan>
+            </text>
+          </g>
+          <g transform="translate(856)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>synaptic_tags</tspan>
+            </text>
+          </g>
+        </g>
+        <g transform="translate(37,49)">
+          <g transform="translate(112)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>int</tspan>
+            </text>
+          </g>
+          <g transform="translate(409)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>float</tspan>
+            </text>
+          </g>
+          <g transform="translate(856)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>long</tspan>
+            </text>
+          </g>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(4,181)">
+      <g stroke="black" stroke-width="1" stroke-linecap="round">
+        <line x2="1191"/>
+        <line x1="1191" x2="1191" y2="41"/>
+        <line x2="1191" y1="41" y2="41"/>
+        <line y2="41"/>
+        <line x1="74" x2="74" y2="5"/>
+        <line x1="74" x2="74" y1="41" y2="36"/>
+        <line x1="149" x2="149" y2="41"/>
+        <line x1="223" x2="223" y2="5"/>
+        <line x1="223" x2="223" y1="41" y2="36"/>
+        <line x1="298" x2="298" y2="41"/>
+        <line x1="372" x2="372" y2="5"/>
+        <line x1="372" x2="372" y1="41" y2="36"/>
+        <line x1="447" x2="447" y2="5"/>
+        <line x1="447" x2="447" y1="41" y2="36"/>
+        <line x1="521" x2="521" y2="5"/>
+        <line x1="521" x2="521" y1="41" y2="36"/>
+        <line x1="596" x2="596" y2="41"/>
+        <line x1="670" x2="670" y2="5"/>
+        <line x1="670" x2="670" y1="41" y2="36"/>
+        <line x1="744" x2="744" y2="5"/>
+        <line x1="744" x2="744" y1="41" y2="36"/>
+        <line x1="819" x2="819" y2="5"/>
+        <line x1="819" x2="819" y1="41" y2="36"/>
+        <line x1="893" x2="893" y2="41"/>
+        <line x1="968" x2="968" y2="5"/>
+        <line x1="968" x2="968" y1="41" y2="36"/>
+        <line x1="1042" x2="1042" y2="5"/>
+        <line x1="1042" x2="1042" y1="41" y2="36"/>
+        <line x1="1117" x2="1117" y2="5"/>
+        <line x1="1117" x2="1117" y1="41" y2="36"/>
+      </g>
+      <g>
+        <g>
+          <rect width="149" height="41" field="centroid_id" style="fill-opacity:0.35;fill:#00ff19"/>
+          <rect x="149" width="149" height="41" field="pad" style="fill-opacity:0.35;fill:#006aff"/>
+          <rect x="298" width="298" height="41" field="storage_strength" style="fill-opacity:0.35;fill:#ff0000"/>
+          <rect x="596" width="298" height="41" field="spector_recall_cnt" style="fill-opacity:0.35;fill:#00ff19"/>
+          <rect x="893" width="298" height="41" field="reserved_f1" style="fill-opacity:0.35;fill:#006aff"/>
+        </g>
+        <g transform="translate(37,-11)">
+          <g transform="translate(0)">
+            <text y="6" fill="#e0e0e0">32</text>
+          </g>
+          <g transform="translate(74)">
+            <text y="6" fill="#e0e0e0">33</text>
+          </g>
+          <g transform="translate(149)">
+            <text y="6" fill="#e0e0e0">34</text>
+          </g>
+          <g transform="translate(223)">
+            <text y="6" fill="#e0e0e0">35</text>
+          </g>
+          <g transform="translate(298)">
+            <text y="6" fill="#e0e0e0">36</text>
+          </g>
+          <g transform="translate(521)">
+            <text y="6" fill="#e0e0e0">39</text>
+          </g>
+          <g transform="translate(596)">
+            <text y="6" fill="#e0e0e0">40</text>
+          </g>
+          <g transform="translate(819)">
+            <text y="6" fill="#e0e0e0">43</text>
+          </g>
+          <g transform="translate(893)">
+            <text y="6" fill="#e0e0e0">44</text>
+          </g>
+          <g transform="translate(1117)">
+            <text y="6" fill="#e0e0e0">47</text>
+          </g>
+        </g>
+        <g transform="translate(37,20)">
+          <g transform="translate(37)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>centroid_id</tspan>
+            </text>
+          </g>
+          <g transform="translate(186)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>pad</tspan>
+            </text>
+          </g>
+          <g transform="translate(409)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>storage_strength</tspan>
+            </text>
+          </g>
+          <g transform="translate(707)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>spector_recall_cnt</tspan>
+            </text>
+          </g>
+          <g transform="translate(1005)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>reserved_f1</tspan>
+            </text>
+          </g>
+        </g>
+        <g transform="translate(37,49)">
+          <g transform="translate(37)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>short</tspan>
+            </text>
+          </g>
+          <g transform="translate(186)">
+            <text y="6" fill="#e0e0e0">
+              <tspan></tspan>
+            </text>
+          </g>
+          <g transform="translate(409)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>float</tspan>
+            </text>
+          </g>
+          <g transform="translate(707)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>int</tspan>
+            </text>
+          </g>
+          <g transform="translate(1005)">
+            <text y="6" fill="#e0e0e0">
+              <tspan></tspan>
+            </text>
+          </g>
+        </g>
+      </g>
+    </g>
+    <g transform="translate(4,261)">
+      <g stroke="black" stroke-width="1" stroke-linecap="round">
+        <line x2="1191"/>
+        <line x1="1191" x2="1191" y2="41"/>
+        <line x2="1191" y1="41" y2="41"/>
+        <line y2="41"/>
+        <line x1="74" x2="74" y2="5"/>
+        <line x1="74" x2="74" y1="41" y2="36"/>
+        <line x1="149" x2="149" y2="5"/>
+        <line x1="149" x2="149" y1="41" y2="36"/>
+        <line x1="223" x2="223" y2="5"/>
+        <line x1="223" x2="223" y1="41" y2="36"/>
+        <line x1="298" x2="298" y2="5"/>
+        <line x1="298" x2="298" y1="41" y2="36"/>
+        <line x1="372" x2="372" y2="5"/>
+        <line x1="372" x2="372" y1="41" y2="36"/>
+        <line x1="447" x2="447" y2="5"/>
+        <line x1="447" x2="447" y1="41" y2="36"/>
+        <line x1="521" x2="521" y2="5"/>
+        <line x1="521" x2="521" y1="41" y2="36"/>
+        <line x1="596" x2="596" y2="41"/>
+        <line x1="670" x2="670" y2="5"/>
+        <line x1="670" x2="670" y1="41" y2="36"/>
+        <line x1="744" x2="744" y2="5"/>
+        <line x1="744" x2="744" y1="41" y2="36"/>
+        <line x1="819" x2="819" y2="5"/>
+        <line x1="819" x2="819" y1="41" y2="36"/>
+        <line x1="893" x2="893" y2="5"/>
+        <line x1="893" x2="893" y1="41" y2="36"/>
+        <line x1="968" x2="968" y2="5"/>
+        <line x1="968" x2="968" y1="41" y2="36"/>
+        <line x1="1042" x2="1042" y2="5"/>
+        <line x1="1042" x2="1042" y1="41" y2="36"/>
+        <line x1="1117" x2="1117" y2="5"/>
+        <line x1="1117" x2="1117" y1="41" y2="36"/>
+      </g>
+      <g>
+        <g>
+          <rect width="596" height="41" field="last_auto_ltp" style="fill-opacity:0.35;fill:#ffbf00"/>
+          <rect x="596" width="596" height="41" field="reserved_l1" style="fill-opacity:0.35;fill:#006aff"/>
+        </g>
+        <g transform="translate(37,-11)">
+          <g transform="translate(0)">
+            <text y="6" fill="#e0e0e0">48</text>
+          </g>
+          <g transform="translate(521)">
+            <text y="6" fill="#e0e0e0">55</text>
+          </g>
+          <g transform="translate(596)">
+            <text y="6" fill="#e0e0e0">56</text>
+          </g>
+          <g transform="translate(1117)">
+            <text y="6" fill="#e0e0e0">63</text>
+          </g>
+        </g>
+        <g transform="translate(37,20)">
+          <g transform="translate(261)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>last_auto_ltp</tspan>
+            </text>
+          </g>
+          <g transform="translate(856)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>reserved_l1</tspan>
+            </text>
+          </g>
+        </g>
+        <g transform="translate(37,49)">
+          <g transform="translate(261)">
+            <text y="6" fill="#e0e0e0">
+              <tspan>long</tspan>
+            </text>
+          </g>
+          <g transform="translate(856)">
+            <text y="6" fill="#e0e0e0">
+              <tspan></tspan>
+            </text>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
+

@@ -1,0 +1,83 @@
+{
+  "id": "conversation-agent",
+  "name": "Conversation Agent (ReAct Loop)",
+  "description": "Full ReAct (Reason-Act-Observe) loop agent with dynamic tool dispatch and post-conversation reflection. The default agentic chat workflow.",
+  "category": "core",
+  "tags": ["conversation", "react", "reasoning", "multi-turn", "tool-use", "reflection"],
+  "flowSpec": {
+    "version": "1.0",
+    "id": "conversation-agent",
+    "name": "Conversation Agent (ReAct Loop)",
+    "entry_point": "recall_context",
+    "nodes": {
+      "recall_context": {
+        "type": "TOOL",
+        "description": "Recall relevant memories and past interactions",
+        "tool_name": "memory_recall"
+      },
+      "think": {
+        "type": "AGENT",
+        "description": "ReAct reasoning step — produce Thought + Action or Final Answer",
+        "agent": "reasoner"
+      },
+      "select_tool": {
+        "type": "FUNCTION",
+        "description": "Parse the tool name and arguments from the LLM output"
+      },
+      "execute_tool": {
+        "type": "TOOL",
+        "description": "Dynamic tool dispatch via ToolRegistry",
+        "tool_name": "__dynamic__"
+      },
+      "observe": {
+        "type": "FUNCTION",
+        "description": "Format tool output as an observation for the next reasoning step"
+      },
+      "reflect": {
+        "type": "AGENT",
+        "description": "Extract learnings and facts from the conversation",
+        "agent": "reflector"
+      },
+      "remember": {
+        "type": "TOOL",
+        "description": "Save extracted learnings to semantic memory",
+        "tool_name": "memory_remember"
+      }
+    },
+    "edges": [
+      {"from": "recall_context", "to": "think"},
+      {"from": "select_tool", "to": "execute_tool"},
+      {"from": "execute_tool", "to": "observe"},
+      {"from": "observe", "to": "think"},
+      {"from": "reflect", "to": "remember"}
+    ],
+    "conditional_edges": [
+      {
+        "from": "think",
+        "conditions": {
+          "use_tool": "select_tool",
+          "final_answer": "reflect"
+        }
+      }
+    ],
+    "agents": [
+      {
+        "id": "reasoner",
+        "model": "default",
+        "system_prompt": "You are a reasoning agent using the ReAct framework. For each step, output Thought + Action or Thought + Final Answer.",
+        "tools": ["__all__"]
+      },
+      {
+        "id": "reflector",
+        "model": "default",
+        "system_prompt": "You are a reflection specialist. Extract key facts, patterns, and corrections from the conversation for memory storage.",
+        "tools": []
+      }
+    ],
+    "policy": {
+      "max_iterations": 15,
+      "timeout_ms": 180000,
+      "max_tokens": 6000
+    }
+  }
+}

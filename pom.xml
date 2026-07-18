@@ -6,7 +6,7 @@
 
     <groupId>com.spectrayan</groupId>
     <artifactId>spector</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
 
     <name>Spector</name>
@@ -17,39 +17,96 @@
         <license>
             <name>Apache License, Version 2.0</name>
             <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
         </license>
     </licenses>
 
+    <developers>
+        <developer>
+            <id>maintainers</id>
+            <name>Spectrayan Maintainers</name>
+            <email>support@spectrayan.com</email>
+            <organization>spectrayan</organization>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/spectrayan/spector.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/spectrayan/spector.git</developerConnection>
+        <tag>HEAD</tag>
+        <url>https://github.com/spectrayan/spector</url>
+    </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/spectrayan/spector</url>
+        </repository>
+        <snapshotRepository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/spectrayan/spector</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+    <repositories>
+        <repository>
+            <id>spectrayan-github-server-sent-events</id>
+            <name>Spectrayan GitHub Packages</name>
+            <url>https://maven.pkg.github.com/spectrayan/server-sent-events</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <!-- ───────────────────────── Modules ───────────────────────── -->
     <modules>
-        <module>spector-commons</module>
-        <module>spector-core</module>
-        <module>spector-config</module>
-        <module>spector-storage</module>
-        <module>spector-index</module>
-        <module>spector-query</module>
-        <module>spector-embed-api</module>
-        <module>spector-embed-ollama</module>
-        <module>spector-test-support</module>
-        <module>spector-gpu</module>
-        <module>spector-rag</module>
-        <module>spector-engine</module>
-        <module>spector-ingestion</module>
-        <module>spector-memory</module>
-        <module>spector-events</module>
-        <module>spector-metrics</module>
-        <module>spector-runtime</module>
-        <module>spector-node</module>
-        <module>spector-bench</module>
-        <module>spector-cli</module>
-        <module>spector-client</module>
-        <module>spector-spring</module>
-        <module>spector-mcp</module>
-        <module>spector-dist</module>
+        <!-- ── Nucleus: Foundation layer ── -->
+        <module>nucleus/spector-bom</module>
+        <module>nucleus/spector-commons</module>
+        <module>nucleus/spector-core</module>
+        <module>nucleus/spector-config</module>
+        <module>nucleus/spector-storage</module>
+        <module>nucleus/spector-events</module>
+        <module>nucleus/spector-metrics</module>
+        <module>nucleus/spector-test-support</module>
+
+        <!-- ── Memory: Cognitive engine (flagship) ── -->
+        <module>memory/spector-provider-api</module>
+        <module>memory/spector-providers</module>
+        <module>memory/spector-index</module>
+        <module>memory/spector-query</module>
+        <module>memory/spector-gpu</module>
+        <module>memory/spector-rag</module>
+        <module>memory/spector-ingestion</module>
+        <module>memory/spector-memory</module>
+
+        <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
+        <module>synapse/spector-runtime</module>
+        <module>synapse/spector-mcp</module>
+        <module>synapse/spector-cli</module>
+        <module>synapse/spector-client</module>
+        <module>synapse/spector-spring</module>
+        <module>synapse/spector-synapse</module>
+        <module>synapse/spector-dist</module>
+
+        <!-- ── Bench: Benchmarks ── -->
+        <module>bench/spector-bench</module>
+
+        <!-- NOTE: cortex/spector-cortex is Angular 22 (no Maven POM) — built separately -->
     </modules>
 
     <!-- ───────────────────────── Properties ───────────────────────── -->
     <properties>
+        <!-- CI-friendly version (single source of truth) -->
+        <revision>0.1.0-alpha</revision>
+        <changelist></changelist>
+
         <!-- Java -->
         <java.version>25</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -62,32 +119,44 @@
 
         <!-- Dependency versions -->
         <javalin.version>6.6.0</javalin.version>
-        <jackson.version>3.1.3</jackson.version>
-        <jackson2.version>2.21.3</jackson2.version>
+        <jackson.version>3.1.4</jackson.version>
+        <jackson2.version>2.22.1</jackson2.version>
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.5.18</logback.version>
         <jmh.version>1.37</jmh.version>
         <mcp-sdk.version>2.0.0-M3</mcp-sdk.version>
-        <commons-configuration2.version>2.15.1</commons-configuration2.version>
-        <commons-beanutils.version>1.9.4</commons-beanutils.version>
+        <commons-configuration2.version>2.15.0</commons-configuration2.version>
+        <commons-beanutils.version>1.11.0</commons-beanutils.version>
         <snakeyaml.version>2.3</snakeyaml.version>
         <micrometer.version>1.14.5</micrometer.version>
-        <armeria.version>1.31.3</armeria.version>
+        <armeria.version>1.39.1</armeria.version>
+        <langchain4j.version>1.17.1</langchain4j.version>
 
         <!-- Test dependency versions -->
         <junit.version>5.11.4</junit.version>
-        <assertj.version>3.27.3</assertj.version>
+        <assertj.version>3.27.7</assertj.version>
+        <mockito.version>5.17.0</mockito.version>
 
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>3.5.3</maven-failsafe-plugin.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
-        <jacoco-plugin.version>0.8.12</jacoco-plugin.version>
+        <jacoco-plugin.version>0.8.15</jacoco-plugin.version>
         <license-maven-plugin.version>5.0.0</license-maven-plugin.version>
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
+
+        <!-- JaCoCo coverage threshold — default 0, modules raise as tests are added (target: 0.80) -->
+        <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
 
         <!-- Reproducible builds: fixed timestamp for deterministic JARs -->
         <project.build.outputTimestamp>2024-01-01T00:00:00Z</project.build.outputTimestamp>
+
+        <!-- Deploy skip by default; release profiles enable it -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <!-- Resolve in CI/locally via env var; keeps IDE happy if not set -->
+        <GPG_PASSPHRASE>${env.GPG_PASSPHRASE}</GPG_PASSPHRASE>
     </properties>
 
     <!-- ───────────────────────── Dependency Management ───────────────────────── -->
@@ -97,113 +166,119 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-config</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-core</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-storage</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-index</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-query</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-engine</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-ingestion</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-rag</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-commons</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
-                <artifactId>spector-embed-api</artifactId>
-                <version>${project.version}</version>
+                <artifactId>spector-provider-api</artifactId>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
-                <artifactId>spector-embed-ollama</artifactId>
-                <version>${project.version}</version>
+                <artifactId>spector-providers</artifactId>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-test-support</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-gpu</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-cluster</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-client</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spring-ai-starter-vector-store-spector</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-mcp</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-synapse</artifactId>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-memory</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
+
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-events</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-metrics</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-node</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-runtime</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-cli</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-bench</artifactId>
+                <version>${revision}</version>
             </dependency>
 
             <!-- ── Micrometer (Observability) ── -->
@@ -232,11 +307,22 @@
                 <version>${jackson.version}</version>
             </dependency>
 
-            <!-- ── Jackson 2.x (required by Javalin 6.x which uses com.fasterxml.jackson) ── -->
+            <!-- ── Jackson 2.x BOM (aligns all com.fasterxml.jackson modules) ── -->
             <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
                 <version>${jackson2.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- ── LangChain4j BOM (aligns all langchain4j modules) ── -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-bom</artifactId>
+                <version>${langchain4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <!-- ── Apache Commons Configuration (hierarchical config) ── -->
@@ -326,6 +412,25 @@
                 <version>${assertj.version}</version>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- JSQL parser (to parse SQL expressions safely)-->
+            <dependency>
+                <groupId>com.github.jsqlparser</groupId>
+                <artifactId>jsqlparser</artifactId>
+                <version>4.9</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -346,6 +451,16 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -375,7 +490,10 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
-                        <argLine>--add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview</argLine>
+                        <!-- ${argLine} placeholder lets JaCoCo inject its agent -->
+                        <argLine>${argLine} --add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
+                        <!-- Exclude functional tests (require external services) -->
+                        <excludedGroups>functional</excludedGroups>
                     </configuration>
                 </plugin>
 
@@ -384,6 +502,13 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
                     <version>${maven-jar-plugin.version}</version>
+                    <configuration>
+                        <archive>
+                            <manifestEntries>
+                                <Automatic-Module-Name>${spector.module.name}</Automatic-Module-Name>
+                            </manifestEntries>
+                        </archive>
+                    </configuration>
                 </plugin>
 
                 <!-- Shade plugin (for server fat jar) -->
@@ -412,6 +537,46 @@
                                 <goal>report</goal>
                             </goals>
                         </execution>
+                        <execution>
+                            <id>check</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <configuration>
+                                <haltOnFailure>false</haltOnFailure>
+                                <rules>
+                                    <rule>
+                                        <element>BUNDLE</element>
+                                        <limits>
+                                            <limit>
+                                                <counter>LINE</counter>
+                                                <value>COVEREDRATIO</value>
+                                                <minimum>${jacoco.minimum.coverage}</minimum>
+                                            </limit>
+                                        </limits>
+                                    </rule>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Failsafe: integration tests (*IT.java, *IntegrationTest.java) -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                    <configuration>
+                        <argLine>${argLine} --add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
+                            </goals>
+                        </execution>
                     </executions>
                 </plugin>
 
@@ -436,6 +601,114 @@
                         <skipExistingHeaders>false</skipExistingHeaders>
                     </configuration>
                 </plugin>
+
+                <!-- Release process and publishing -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <version>3.1.1</version>
+                    <configuration>
+                        <tagNameFormat>@{project.version}</tagNameFormat>
+                        <updateWorkingCopyVersions>true</updateWorkingCopyVersions>
+                        <autoVersionSubmodules>true</autoVersionSubmodules>
+                        <useReleaseProfile>false</useReleaseProfile>
+                        <releaseProfiles>release</releaseProfiles>
+                        <preparationGoals>clean verify</preparationGoals>
+                        <pushChanges>true</pushChanges>
+                        <goals>clean deploy central-publishing:publish</goals>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>3.1.1</version>
+                    <configuration>
+                        <altDeploymentRepository>${mavenAltDeploymentRepository}</altDeploymentRepository>
+                        <altSnapshotDeploymentRepository>${mavenAltSnapshotDeploymentRepository}</altSnapshotDeploymentRepository>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonatype.central</groupId>
+                    <artifactId>central-publishing-maven-plugin</artifactId>
+                    <version>0.9.0</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <publishingServerId>central</publishingServerId>
+                        <autoPublish>true</autoPublish>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.2.4</version>
+                    <executions>
+                        <execution>
+                            <id>sign-artifacts</id>
+                            <goals>
+                                <goal>sign</goal>
+                            </goals>
+                            <configuration>
+                                <gpgArguments>
+                                    <arg>--pinentry-mode</arg>
+                                    <arg>loopback</arg>
+                                </gpgArguments>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.3.0</version>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>jar-no-fork</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.6.3</version>
+                    <configuration>
+                        <additionalOptions>--add-modules ${vector.api.module} --enable-preview</additionalOptions>
+                        <source>${java.version}</source>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Flatten: resolve CI-friendly ${revision} in published POMs -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>${flatten-maven-plugin.version}</version>
+                    <configuration>
+                        <updatePomFile>true</updatePomFile>
+                        <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>flatten</id>
+                            <phase>process-resources</phase>
+                            <goals><goal>flatten</goal></goals>
+                        </execution>
+                        <execution>
+                            <id>flatten.clean</id>
+                            <phase>clean</phase>
+                            <goals><goal>clean</goal></goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -456,7 +729,147 @@
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
+
+    <!-- ───────────────────────── Release Profiles ───────────────────────── -->
+    <profiles>
+        <!-- GA release (e.g., 1.0.0) -->
+        <profile>
+            <id>release</id>
+            <properties>
+                <maven.deploy.skip>false</maven.deploy.skip>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-release-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Milestone releases (e.g., 1.0.0-M1) -->
+        <profile>
+            <id>milestone</id>
+            <properties>
+                <maven.deploy.skip>false</maven.deploy.skip>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-release-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Release Candidates (e.g., 1.0.0-RC1) -->
+        <profile>
+            <id>rc</id>
+            <properties>
+                <maven.deploy.skip>false</maven.deploy.skip>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-release-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Snapshot builds -->
+        <profile>
+            <id>snapshot</id>
+            <properties>
+                <maven.deploy.skip>false</maven.deploy.skip>
+                <gpg.skip>false</gpg.skip>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Synapse module (opt-in: mvn verify -Psynapse) -->
+        <profile>
+            <id>synapse</id>
+            <modules>
+                <module>synapse/spector-synapse</module>
+            </modules>
+        </profile>
+    </profiles>
 
 </project>

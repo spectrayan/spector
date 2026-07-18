@@ -1,0 +1,45 @@
+{
+  "name": "spector-cortex",
+  "version": "0.1.0-alpha",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test"
+  },
+  "private": true,
+  "packageManager": "npm@11.12.1",
+  "dependencies": {
+    "@angular/animations": "^22.0.5",
+    "@angular/cdk": "^22.0.3",
+    "@angular/common": "^22.0.0",
+    "@angular/compiler": "^22.0.0",
+    "@angular/core": "^22.0.0",
+    "@angular/forms": "^22.0.0",
+    "@angular/material": "^22.0.3",
+    "@angular/platform-browser": "^22.0.0",
+    "@angular/router": "^22.0.0",
+    "dompurify": "^3.4.11",
+    "marked": "^18.0.5",
+    "rxjs": "~7.8.0",
+    "three": "^0.184.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.0.5",
+    "@angular/cli": "^22.0.5",
+    "@angular/compiler-cli": "^22.0.0",
+    "@types/dompurify": "^3.0.5",
+    "@types/three": "^0.184.1",
+    "jsdom": "^28.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "dompurify": "^3.4.11",
+    "@babel/core": "^7.29.6",
+    "esbuild": "^0.28.1"
+  }
+}

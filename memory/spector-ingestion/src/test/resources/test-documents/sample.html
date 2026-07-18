@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Architecture Decision: Multimodal Memory</title>
+    <meta name="author" content="Spectrayan Team">
+</head>
+<body>
+    <h1>Architecture Decision Record: Multimodal Memory Support</h1>
+    
+    <h2>Context</h2>
+    <p>Spector needs to support ingestion from multiple source types: text, images, audio, and video. 
+    The core cognitive engine stores only text and vectors, so non-text content must be transformed 
+    into text representations (captions, transcripts) before storage.</p>
+    
+    <h2>Decision</h2>
+    <p>We will implement a <strong>SensoryExtractor SPI</strong> that transforms binary content into 
+    text chunks. The first implementation will use Ollama VLM for image captioning. Future implementations 
+    will support audio (via Whisper) and video (via FFmpeg + VLM).</p>
+    
+    <h2>Consequences</h2>
+    <ul>
+        <li>All non-text content is stored as text captions/transcripts plus URI pointers to original assets</li>
+        <li>The AssetStore SPI provides pluggable storage backends (local, S3, GCS)</li>
+        <li>Source modality is tracked in the binary header flags for SIMD filtering</li>
+    </ul>
+    
+    <table>
+        <tr><th>Format</th><th>Extractor</th><th>Status</th></tr>
+        <tr><td>Image</td><td>OllamaVisionExtractor</td><td>Done</td></tr>
+        <tr><td>PDF</td><td>TikaTextExtractor</td><td>In Progress</td></tr>
+        <tr><td>Audio</td><td>OllamaAudioExtractor</td><td>Planned</td></tr>
+        <tr><td>Video</td><td>FFmpegKeyframeExtractor</td><td>Planned</td></tr>
+    </table>
+</body>
+</html>

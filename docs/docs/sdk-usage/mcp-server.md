@@ -40,7 +40,7 @@ Add the following to your agent's MCP configuration (see per-agent sections belo
 
 ### 3. Start Using
 
-Your AI agent now has access to up to 17 tools. With cognitive memory enabled (`spector.memory.enabled: true`), all tools are registered. In `SEARCH` mode, only the 6 engine tools are available:
+Your AI agent now has access to up to 21 tools. With cognitive memory enabled (`spector.memory.enabled: true`), all tools are registered. In `SEARCH` mode, only the 6 engine tools are available:
 
 - *"Search for documents about SIMD acceleration"* → `engine_search`
 - *"Find articles mentioning 'Panama' and related to memory management"* → `engine_hybrid_search`
@@ -170,9 +170,9 @@ Add to your Cursor MCP settings (`.cursor/mcp.json` in your project, or global s
 }
 ```
 
-### Custom MCP Clients
+### Custom MCP Clients (Stdio)
 
-Any application implementing the [MCP client specification](https://modelcontextprotocol.io/docs/concepts/clients) can connect to Spector. The server communicates via **JSON-RPC 2.0 over stdio** (stdin/stdout).
+Any application implementing the [MCP client specification](https://modelcontextprotocol.io/docs/concepts/clients) can connect to Spector. The stdio transport communicates via **JSON-RPC 2.0 over stdio** (stdin/stdout).
 
 **Key requirements:**
 
@@ -193,6 +193,45 @@ Any application implementing the [MCP client specification](https://modelcontext
 // Client → Server
 {"jsonrpc": "2.0", "method": "notifications/initialized"}
 ```
+
+### Streamable HTTP Clients (Remote Agents)
+
+When Spector runs as a server (via `SpectorNode` or Spector Enterprise), the same MCP tools are available over **Streamable HTTP** at the `/mcp` endpoint. This transport follows the [MCP 2025-03-26 specification](https://modelcontextprotocol.io/) and is implemented by `ArmeriaMcpTransport` on the Armeria HTTP server.
+
+**Endpoint:** `http://localhost:7070/mcp`
+
+| Method | Purpose |
+|:---|:---|
+| `POST /mcp` | JSON-RPC request → JSON response |
+| `GET /mcp` | SSE notification stream (stateful mode only) |
+| `DELETE /mcp` | Session termination (stateful mode only) |
+
+**Modes:**
+
+- **Stateless** (default, recommended) — No `Mcp-Session-Id` header. Server restart doesn't break clients.
+- **Stateful** — `Mcp-Session-Id` header for session tracking. Supports GET (SSE notifications) and DELETE (session teardown).
+
+**Example — initialize and call a tool:**
+
+```bash
+# Step 1: Initialize
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"my-app","version":"1.0"}}}'
+
+# Step 2: Send initialized notification
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+
+# Step 3: Call a tool
+curl -X POST http://localhost:7070/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"engine_status","arguments":{}}}'
+```
+
+> [!TIP]
+> The Streamable HTTP transport is particularly useful for web applications, remote AI agents, and Spector Enterprise's Cortex Dashboard. No process spawning required — just HTTP.
 
 ---
 
@@ -215,13 +254,17 @@ Once connected, your agent has access to these tools:
 
 | Tool | Description |
 |:---|:---|
-| `memory_remember` | Store a cognitive memory with tags and source |
+| `memory_remember` | Store a cognitive memory with tags and source (ID auto-generated) |
 | `memory_recall` | Cognitive recall with fused scoring across tiers |
+| `memory_inspect` | Full cognitive X-ray of a memory (header + vector + metadata) |
+| `memory_browse` | Browse memories by tag (AND semantics, no vector search) |
+| `memory_export` | Bulk JSON export of all live memories |
 | `memory_forget` | Tombstone a memory by ID |
 | `memory_reinforce` | Report positive/negative outcome for a memory |
 | `memory_suppress` | Suppress a memory from recall results |
 | `memory_resolve` | Mark a memory as resolved |
 | `memory_introspect` | Metamemory self-analysis on a topic |
+| `memory_compute_importance` | Read-only importance estimation for text |
 | `memory_scratchpad` | Quick-write to working memory |
 | `memory_reminder` | Schedule a time-triggered reminder |
 | `memory_why_not` | Explain why a memory was not recalled |
@@ -303,5 +346,6 @@ That's it — the tool is automatically available to all connected agents.
 ## See Also
 
 - [MCP Integration Architecture](../architecture/mcp-integration.md) — Module structure, data flow, and performance analysis
+- [Python SDK](python-sdk.md) — Python client wrapping the MCP server
 - [Architecture Overview](../architecture/overview.md) — Full system architecture
 - [REST API Reference](../api-reference/rest-endpoints.md) — Alternative HTTP interface

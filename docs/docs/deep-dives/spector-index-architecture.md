@@ -224,7 +224,7 @@ After HNSW promotion, the number of candidates retrieved per shard is `k × over
 
 ## 🔬 Adaptive Shard Promotion
 
-The adaptive shard design is inspired by the observation from the [original research](../../../new-index-research.md):
+The adaptive shard design is inspired by the observation from the original research:
 
 > *"Scanning a flat, contiguous MemorySegment of SVASQ vectors using an unrolled 256-bit FMA loop utilizes aggressive CPU pre-fetchers. Panama can evaluate roughly 1,000 vectors in < 1 microsecond."*
 

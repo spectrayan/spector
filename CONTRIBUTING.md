@@ -1,6 +1,6 @@
-# Contributing to Spector
+# Contributing to Spector ⚡
 
-Thank you for your interest in contributing to Spector! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Spector! We welcome contributions of all kinds — code, docs, tests, benchmarks, and ideas. **AI-assisted PRs are welcome! 🤖**
 
 ## Table of Contents
 
@@ -8,6 +8,7 @@ Thank you for your interest in contributing to Spector! This document provides g
 - [Contributor License Agreement](#contributor-license-agreement)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
+- [Troubleshooting First-Time Setup](#troubleshooting-first-time-setup)
 - [Making Changes](#making-changes)
 - [Coding Standards](#coding-standards)
 - [Pull Request Process](#pull-request-process)
@@ -24,8 +25,8 @@ By contributing to Spector, you agree that:
 1. **You have the right** to submit the contribution. The code is your original work, or you have permission to submit it under the project's license terms.
 
 2. **You grant Spectrayan** a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contribution under:
-   - The **Apache License 2.0** for all modules except `spector-memory`.
-   - The **Business Source License 1.1** for the `spector-memory` module (which transitions to Apache 2.0 on the Change Date specified in its LICENSE file).
+   - The **Apache License 2.0** for all modules except `spector-memory`, `spector-synapse`, and `spector-cortex`.
+   - The **Business Source License 1.1** for the `spector-memory`, `spector-synapse`, and `spector-cortex` modules (which transition to Apache 2.0 on the Change Date specified in each module's LICENSE file).
 
 3. **You understand** that your contribution becomes part of the project and may be distributed under the project's current or future license terms as described above.
 
@@ -53,6 +54,19 @@ Signed-off-by: Your Name <your.email@example.com>
 4. **Make your changes** with appropriate tests
 5. **Submit a pull request**
 
+### Good First Areas
+
+Not sure where to start? Here are beginner-friendly contribution areas:
+
+- 📖 **Documentation improvements** — fix typos, improve examples, add diagrams
+- 🧪 **Additional test coverage** — especially edge cases in `spector-core` and `spector-index`
+- 🧬 **New embedding providers** — implement the `EmbeddingProvider` SPI for a new service
+- 🖥️ **CLI enhancements** — add new commands or improve output formatting in `spector-cli`
+- 🌱 **Spring AI adapter extensions** — improve the Spring AI integration in `spector-spring`
+- 📊 **Benchmark scenarios** — add new benchmark cases to `spector-bench`
+- 🧠 **Synapse agent tools** — add new agent tools or connector templates to `spector-synapse`
+- 🎨 **Cortex UI components** — build Angular 22 signal-based components for `spector-cortex`
+
 ## Development Setup
 
 ### Prerequisites
@@ -73,7 +87,7 @@ cd spector
 # Verify JDK 25+ is installed
 java -version
 
-# Build the project (full reactor)
+# Build the project (core modules only)
 mvn clean compile
 
 # Run the test suite (212 tests)
@@ -82,6 +96,74 @@ mvn test
 # Run the server (optional)
 mvn exec:java -pl spector-node -Dexec.mainClass="com.spectrayan.spector.server.SpectorNode"
 ```
+
+### Building Synapse
+
+The `spector-synapse` module is gated behind a Maven profile and is **not built by default**. To build synapse:
+
+```bash
+# Build core + synapse
+mvn clean compile -Psynapse
+
+# Run synapse tests only
+mvn test -pl spector-synapse -Psynapse
+
+# Full verify including synapse
+mvn verify -Psynapse
+```
+
+> **Note:** You must build core modules first (or use the full reactor with `-Psynapse`) since synapse depends on `spector-engine`, `spector-memory`, and other core modules.
+
+
+## Troubleshooting First-Time Setup
+
+### GitHub Packages Authentication
+
+Some project dependencies are hosted on GitHub Packages. Even though these packages are public, Maven still requires authentication to download them.
+
+If you encounter a `401 Unauthorized` error while resolving dependencies, configure GitHub Packages authentication in your local Maven settings before building the project.
+
+### Configure Maven Authentication
+
+Create (or update) your local Maven settings file at `~/.m2/settings.xml` and add credentials for GitHub Packages.
+
+Example:
+
+```xml
+<settings>
+  <servers>
+    <server>
+      <id>spectrayan-github-server-sent-events</id>
+      <username>YOUR_GITHUB_USERNAME</username>
+      <password>YOUR_GITHUB_PERSONAL_ACCESS_TOKEN</password>
+    </server>
+  </servers>
+</settings>
+```
+
+Your Personal Access Token should include the `read:packages` scope.
+
+### Building from the Repository Root
+
+Always run builds from the repository root so Maven can build and cache all local modules before compiling dependent modules.
+
+For example:
+
+```bash
+mvn clean install -Psynapse -DskipTests
+```
+
+Building from the project root ensures modules such as `spector-test-support` are available locally before other modules attempt to resolve them.
+
+> **Note:** Future releases may publish these dependencies to Maven Central, reducing the need for GitHub Packages authentication during local development.
+
+### Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `401 Unauthorized` | GitHub Packages authentication is missing or invalid. | Configure `~/.m2/settings.xml` with a Personal Access Token that has the `read:packages` scope. |
+| Missing local module dependencies | The project was built from a submodule instead of the repository root. | Run `mvn clean install -Psynapse -DskipTests` from the repository root. |
+
 
 ### SIMD Verification
 
@@ -215,4 +297,4 @@ Use the [Feature Request template](https://github.com/spectrayan/spector/issues/
 
 ---
 
-Thank you for contributing to Spector! ⚡
+Thank you for contributing to Spector! ⚡ Every contribution — no matter how small — makes a difference.

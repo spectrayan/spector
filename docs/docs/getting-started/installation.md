@@ -1,3 +1,8 @@
+---
+title: "Installation — System Requirements & Setup"
+description: "Install Spector: Java 25+, Maven 3.9+, system requirements, build from source, Docker, and platform-specific SIMD configuration."
+---
+
 # Installation
 
 ## System Requirements
@@ -23,21 +28,19 @@ Spector uses incubator modules. The required JVM flags are configured in `pom.xm
 
 ```bash
 java --add-modules jdk.incubator.vector \
-     --enable-native-access=ALL-UNNAMED \
-     -jar spector-node/target/spector-node.jar
+     --enable-native-access=ALL-UNNAMED --enable-preview \
+     -jar spector-dist/target/spector.jar --config spector.yml
 ```
 
 ## Server Configuration
 
-Start with custom port, dimensions, and API key:
+Start with a custom YAML configuration or launch the default configuration:
 
 ```bash
-mvn exec:java -pl spector-node \
-  -Dexec.mainClass="com.spectrayan.spector.server.SpectorNode" \
-  -Dexec.args="7070 384 my-secret-key"
+java --add-modules jdk.incubator.vector \
+     --enable-native-access=ALL-UNNAMED --enable-preview \
+     -jar spector-dist/target/spector.jar --config custom-config.yml
 ```
-
-Arguments: `<port> <dimensions> [api-key]`
 
 ## GPU Support
 

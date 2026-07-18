@@ -11,21 +11,39 @@ The `CognitiveScorer` is the performance-critical inner loop of Spector Memory. 
 
 ## Why Fused Scoring?
 
-### The Truncation Trap
+### The Fundamental Problem
 
-In a standard vector database, you:
+AI memory recall must combine **semantic similarity**, **temporal decay**, **emotional valence**, and **importance** into a single ranking decision. No existing database category can do this natively:
 
-1. Retrieve the top-K nearest vectors by L2 distance
-2. **Then** apply business logic (importance, time, tags) in Java
+=== "SQL / NoSQL Databases"
+    Traditional databases store data in B-tree pages or document collections. When you need cognitive scoring:
 
-This **fails catastrophically** for AI memory:
+    1. **Cache-line destruction**: A 64-byte cognitive header (importance, valence, arousal, tags, timestamps) fits in one CPU cache line. In PostgreSQL or MongoDB, these fields are scattered across variable-width rows and pages — each field access causes a cache miss.
+    2. **Serialization overhead**: Every row must be deserialized from the storage engine's wire format into application objects, creating GC pressure that cripples microsecond-scale workloads.
+    3. **Inexpressible scoring**: The fused cognitive formula — combining power-law temporal decay, Bloom filter tag gating, and SIMD vector distance — cannot be expressed in SQL or aggregation pipelines. You're forced into UDFs (slow) or pulling all candidates into application code (defeats the purpose of the database).
+    4. **Mutation overhead**: Cognitive memory requires constant micro-updates (recall count increments, valence adjustments, habituation tracking). In SQL, each update triggers WAL write amplification and row locking. Spector performs these as lock-free hardware-level atomic swaps.
 
-!!! danger "The Problem"
-    If an AI agent asks *"What is the user's core preference?"*, the most important memory might be 6 months old and slightly less semantically similar than a useless conversation from 5 minutes ago. If you pull the top-100 nearest vectors and *then* sort by importance, the vital 6-month-old memory was already **dropped at step 1**.
+=== "Standard Vector Databases"
+    Vector databases (Pinecone, Weaviate, Qdrant, Milvus, pgvector) solve semantic similarity but fail at cognitive recall:
+
+    1. **Retrieve** the top-K nearest vectors by L2/cosine distance
+    2. **Then** apply business logic (importance, time, tags) in the application layer
+
+    !!! danger "The Truncation Trap"
+        If an AI agent asks *"What is the user's core preference?"*, the most important memory might be 6 months old and slightly less semantically similar than a useless conversation from 5 minutes ago. If you pull the top-100 nearest vectors and *then* sort by importance, the vital 6-month-old memory was already **dropped at step 1** — irreversibly lost before your application code ever sees it.
+
+    This is not a minor inconvenience — it's a **fundamental architectural limitation**. No amount of post-processing can recover candidates that were eliminated during retrieval.
+
+=== "AI Memory Wrappers (Mem0, Zep, Letta)"
+    Memory wrapper systems add a thin layer over existing databases. They inherit all the database limitations above and add more:
+
+    1. **Network hop tax**: Every recall crosses a network boundary (REST API → database), adding 1–5ms of latency to a operation that should take 0.13ms.
+    2. **JSON serialization**: Memories are serialized to JSON for transport, creating allocation pressure and GC pauses.
+    3. **No hardware co-design**: These systems cannot exploit CPU cache-line alignment, SIMD vector instructions, or off-heap memory — they operate one abstraction layer too high.
 
 ### The Fix: Fuse Everything
 
-Spector fuses temporal decay and importance directly into the scoring loop:
+Spector fuses temporal decay and importance directly into the scoring loop — **every memory is evaluated against all signals simultaneously**, in a single cache-friendly off-heap scan:
 
 $$\text{Similarity} = \frac{1}{1 + \text{L2\_Distance}(q, x)}$$
 
@@ -35,47 +53,45 @@ Where $\alpha$ (default: 0.6) and $\beta$ (default: 0.4) are user-configurable s
 
 ---
 
-## The Six Phases
+## The Six Phases — Overview
 
-```java
-for (int i = 0; i < recordCount; i++) {
-    long offset = baseOffset + (long) i * stride;
+```mermaid
+flowchart TD
+    START(["🧠 For each record in off-heap segment"]) --> P1
 
-    // ── Phase 1: Tombstone Check (~1 cycle) ──
-    byte flags = segment.get(LAYOUT_FLAGS, offset + OFFSET_FLAGS);
-    if (isTombstoned(flags)) continue;
+    P1{"Phase 1: Tombstone?<br/><i>~1 cycle — byte read + bit test</i>"}
+    P1 -->|"❌ Dead"| SKIP([Skip])
+    P1 -->|"✅ Live"| P2
 
-    // ── Phase 2: Synaptic Tag Gating (~1 cycle) ──
-    if (queryTagMask != 0) {
-        long recordTags = segment.get(LAYOUT_SYNAPTIC_TAGS, offset + OFFSET_SYNAPTIC_TAGS);
-        if ((recordTags & queryTagMask) != queryTagMask) continue;
-    }
+    P2{"Phase 2: Tag Match?<br/><i>~1 cycle — Bloom AND</i>"}
+    P2 -->|"❌ No overlap"| SKIP
+    P2 -->|"✅ Match"| P3
 
-    // ── Phase 3: Valence Filter (~2 cycles) ──
-    byte valence = segment.get(LAYOUT_VALENCE, offset + OFFSET_VALENCE);
-    if (valence < minValence || valence > maxValence) continue;
+    P3{"Phase 3: Valence OK?<br/><i>~2 cycles — range check</i>"}
+    P3 -->|"❌ Out of range"| SKIP
+    P3 -->|"✅ In range"| P4
 
-    // ── Phase 4: Temporal/Importance Pre-screen (~5 cycles) ──
-    float importance = segment.get(LAYOUT_IMPORTANCE, offset + OFFSET_IMPORTANCE);
-    if (importance < minImportance) continue;
-    long timestamp = segment.get(LAYOUT_TIMESTAMP, offset + OFFSET_TIMESTAMP);
-    short recallCount = segment.get(LAYOUT_RECALL_COUNT, offset + OFFSET_RECALL_COUNT);
-    int adjustedBucket = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
-    if (adjustedBucket >= MAX_BUCKET && importance < 1.0f && !isPinned(flags)) continue;
+    P4{"Phase 4: Important enough?<br/><i>~5 cycles — importance + decay</i>"}
+    P4 -->|"❌ Too old & low"| SKIP
+    P4 -->|"✅ Worth scoring"| P5
 
-    // ── Phase 5: SIMD L2 Distance (~200 cycles) ──
-    float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-        queryVector, segment, layout.vectorOffset(offset),
-        effectiveMins, effectiveScales, quantizedVecBytes);
-    float similarity = 1.0f / (1.0f + l2dist);
+    P5["Phase 5: SIMD L2 Distance<br/><i>~200 cycles — quantized vector math</i>"]
+    P5 --> P6
 
-    // ── Phase 6: Fused Cognitive Score (~7 cycles) ──
-    float decay = DecayStrategy.decay(adjustedBucket);
-    float finalScore = alpha * similarity + beta * importance * decay;
-    
-    heap.insertWithOverflow(offset, finalScore);
-}
+    P6["Phase 6: Fused Cognitive Score<br/><i>~7 cycles — α·sim + β·imp·decay</i>"]
+    P6 --> HEAP(["Insert into min-heap (top-K)"])
+
+    style P1 fill:#4a6fa5,color:white,stroke:#375985
+    style P2 fill:#4a6fa5,color:white,stroke:#375985
+    style P3 fill:#4a6fa5,color:white,stroke:#375985
+    style P4 fill:#4a6fa5,color:white,stroke:#375985
+    style P5 fill:#0984e3,color:white
+    style P6 fill:#00b894,color:white
+    style SKIP fill:#d63031,color:white
+    style HEAP fill:#6c5ce7,color:white
 ```
+
+Each phase reads the **minimum bytes** needed to make its decision. Phases 1–4 read only header fields (1–8 bytes each). The expensive Phase 5 (SIMD vector math, ~200 cycles) only runs on records that survived all four cheap gates.
 
 ---
 
@@ -85,9 +101,14 @@ for (int i = 0; i < recordCount; i++) {
 
 **Cost**: ~1 CPU cycle (single byte read + bit test)
 
-```java
-byte flags = segment.get(LAYOUT_FLAGS, offset + OFFSET_FLAGS);
-if ((flags & 0x01) != 0) continue; // Bit 0 = tombstone
+```mermaid
+flowchart LR
+    READ["Read flags byte<br/>offset 1, 1 byte"] --> CHECK{"Bit 0 set?"}
+    CHECK -->|"Yes → tombstoned"| SKIP(["Skip record"])
+    CHECK -->|"No → alive"| NEXT(["→ Phase 2"])
+
+    style SKIP fill:#d63031,color:white
+    style NEXT fill:#00b894,color:white
 ```
 
 Tombstoned memories are skipped without reading any other fields. When the tombstone ratio in an episodic partition exceeds 30%, the `TombstoneCompactor` triggers a partition rebuild.
@@ -98,9 +119,15 @@ Tombstoned memories are skipped without reading any other fields. When the tombs
 
 **Cost**: ~1 CPU cycle (single `long` read + bitwise AND)
 
-```java
-long recordTags = segment.get(LAYOUT_SYNAPTIC_TAGS, offset + OFFSET_SYNAPTIC_TAGS);
-if ((recordTags & queryTagMask) != queryTagMask) continue;
+```mermaid
+flowchart LR
+    READ["Read synaptic_tags<br/>offset 24, 8 bytes"] --> AND["record AND query"]
+    AND --> CHECK{"Result == query?<br/><i>(containment check)</i>"}
+    CHECK -->|"No → tags don't match"| SKIP(["Skip record"])
+    CHECK -->|"Yes → all query tags present"| NEXT(["→ Phase 3"])
+
+    style SKIP fill:#d63031,color:white
+    style NEXT fill:#00b894,color:white
 ```
 
 !!! info "Bloom Filter Containment"
@@ -123,9 +150,14 @@ The synaptic tag Bloom filter uses MurmurHash3-inspired double hashing with k=3 
 
 **Cost**: ~2 CPU cycles (byte read + 2 comparisons)
 
-```java
-byte valence = segment.get(LAYOUT_VALENCE, offset + OFFSET_VALENCE);
-if (valence < minValence || valence > maxValence) continue;
+```mermaid
+flowchart LR
+    READ["Read valence byte<br/>offset 2, signed"] --> CHECK{"minValence ≤ val ≤ maxValence?"}
+    CHECK -->|"No → wrong emotion"| SKIP(["Skip record"])
+    CHECK -->|"Yes → in range"| NEXT(["→ Phase 4"])
+
+    style SKIP fill:#d63031,color:white
+    style NEXT fill:#00b894,color:white
 ```
 
 Valence represents **emotional coloring** on a scale of -128 to +127:
@@ -143,14 +175,21 @@ Valence represents **emotional coloring** on a scale of -128 to +127:
 
 **Cost**: ~5 CPU cycles (float read + timestamp read + bucket computation)
 
-```java
-float importance = segment.get(LAYOUT_IMPORTANCE, offset + OFFSET_IMPORTANCE);
-if (importance < minImportance) continue;
+```mermaid
+flowchart TD
+    READ_IMP["Read importance<br/>offset 4, float"] --> IMP_CHECK{"importance < minImportance?"}
+    IMP_CHECK -->|"Yes"| SKIP(["Skip record"])
+    IMP_CHECK -->|"No"| READ_TS["Read timestamp + recallCount"]
 
-int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
-int adjustedBucket = DecayStrategy.adjustForReconsolidation(rawBucket, recallCount);
+    READ_TS --> BUCKET["Compute raw decay bucket<br/>from age (12-bucket table)"]
+    BUCKET --> ADJUST["Adjust for reconsolidation<br/><i>bucket >>= recallCount</i><br/>(each recall halves perceived age)"]
 
-if (adjustedBucket >= MAX_BUCKET && importance < 1.0f && !isPinned(flags)) continue;
+    ADJUST --> COMBINED{"adjustedBucket ≥ MAX<br/>AND importance < 1.0<br/>AND NOT pinned?"}
+    COMBINED -->|"Yes → too old, too weak"| SKIP
+    COMBINED -->|"No → worth scoring"| NEXT(["→ Phase 5 (SIMD)"])
+
+    style SKIP fill:#d63031,color:white
+    style NEXT fill:#0984e3,color:white
 ```
 
 **Reconsolidation**: Each recall shifts the decay bucket via bit-shift, simulating how frequently-recalled memories become more durable (Long-Term Potentiation). A memory recalled once is half its bucket index "younger" than its actual age.
@@ -183,17 +222,22 @@ Values are auto-generated by `DecayConfig.computeBuckets()` and configurable via
 
 **Cost**: ~200 CPU cycles (the dominant cost)
 
-```java
-float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-    queryVector, segment, layout.vectorOffset(offset),
-    effectiveMins, effectiveScales, quantizedVecBytes);
-float similarity = 1.0f / (1.0f + l2dist);
+```mermaid
+flowchart LR
+    READ["Read INT8 quantized vector<br/>from off-heap MemorySegment"] --> DEQUANT["Dequantize via calibration<br/><i>float = byte × scale + min</i>"]
+    DEQUANT --> SIMD["SIMD Euclidean distance<br/><i>Java Vector API (AVX2/AVX-512)</i><br/>768 dims in ~200 cycles"]
+    SIMD --> SIM["Convert to similarity<br/><i>sim = 1 / (1 + L2)</i>"]
+    SIM --> NEXT(["→ Phase 6"])
+
+    style READ fill:#4a6fa5,color:white
+    style SIMD fill:#0984e3,color:white
+    style NEXT fill:#00b894,color:white
 ```
 
 This is the expensive operation that phases 1-4 are designed to gate. It:
 
 1. Reads INT8 quantized vector bytes directly from the off-heap `MemorySegment`
-2. Dequantizes via calibration: `float_val = byte_val * scale + min`
+2. Dequantizes via calibration: `float_val = byte_val × scale + min`
 3. Computes Euclidean distance using the Java Vector API (AVX2/AVX-512)
 4. Converts distance to similarity: `1 / (1 + L2)`
 
@@ -205,10 +249,16 @@ This is the expensive operation that phases 1-4 are designed to gate. It:
 
 **Cost**: ~7 CPU cycles (2 multiplies + 1 add + heap insert)
 
-```java
-float decay = DecayStrategy.decay(adjustedBucket);
-float finalScore = alpha * similarity + beta * importance * decay;
-heap.insertWithOverflow(offset, finalScore);
+```mermaid
+flowchart LR
+    DECAY["Lookup decay<br/>from adjusted bucket"] --> FUSE["Fused score =<br/><b>α × similarity + β × importance × decay</b>"]
+    FUSE --> HEAP{"Score > heap minimum?"}
+    HEAP -->|"Yes"| INSERT(["Insert into top-K min-heap"])
+    HEAP -->|"No"| DROP(["Discard — not in top-K"])
+
+    style FUSE fill:#00b894,color:white
+    style INSERT fill:#6c5ce7,color:white
+    style DROP fill:#636e72,color:white
 ```
 
 The final score fuses three signals:
@@ -244,7 +294,7 @@ graph TD
 
 ## Parallel Tier Scanning
 
-The `RecallPipeline` scans all tiers in parallel using `ConcurrentTasks.forkJoinAll()`:
+The `RecallPipeline` scans all tiers in parallel using Virtual Threads:
 
 ```mermaid
 gantt
@@ -274,10 +324,10 @@ Each partition scan runs on a **dedicated Virtual Thread** — disjoint memory s
 After the 6-phase scorer produces a **seed set** (top-K by fused cognitive score), three graph layers expand the result set by discovering memories that the scorer alone couldn't find:
 
 ```mermaid
-graph LR
-    S["Seed Set<br/>(6-Phase Scorer Top-K)"] --> H["Step 5c: Hebbian<br/>Spreading Activation<br/>(depth=2, 0.3× attenuation)"]
-    H --> T["Step 5d: Temporal<br/>Chain Extension<br/>(maxHops=3, 0.8×/0.7×)"]
-    T --> E["Step 5e: Entity<br/>Graph Traversal<br/>(2-hop BFS, 0.25×/hop)"]
+flowchart LR
+    S["Seed Set<br/><i>6-Phase Scorer Top-K</i>"] --> H["Step 5c: Hebbian<br/>Spreading Activation<br/><i>depth=2, 0.3× attenuation</i>"]
+    H --> T["Step 5d: Temporal<br/>Chain Extension<br/><i>maxHops=3, fwd 0.8× / bwd 0.7×</i>"]
+    T --> E["Step 5e: Entity<br/>Graph Traversal<br/><i>2-hop BFS, 0.25×/hop</i>"]
     E --> M["Merge & Dedup<br/>→ Re-sort<br/>→ Final Top-K"]
 
     style S fill:#4a90d9,color:white
@@ -289,21 +339,21 @@ graph LR
 
 ### Step 5c: Hebbian Spreading Activation
 
-For each seed result, `HebbianGraph.activateNeighbors(memoryIdx, depth=2)` traverses the off-heap adjacency list (164B/node, MAX_DEGREE=20). Activated neighbor memories are added to the result set with their score attenuated by **0.3×**.
+For each seed result, the Hebbian graph traverses the off-heap adjacency list (164B/node, MAX_DEGREE=20) with depth=2 BFS. Activated neighbor memories are added to the result set with their score attenuated by **0.3×**.
 
 **Example:** Seed memory "database error" has a strong Hebbian edge (weight: 0.83) to "connection pool settings" → "connection pool settings" is added even though it wasn't in the vector similarity top-K.
 
 ### Step 5d: Temporal Chain Extension
 
-For each seed result, `TemporalChain.followForward(idx, 3)` and `followBackward(idx, 3)` follow session-local linked list pointers. Forward-linked memories get **0.8×** score, backward-linked get **0.7×**.
+For each seed result, the temporal chain follows forward (3 hops) and backward (3 hops) via session-local linked list pointers. Forward-linked memories get **0.8×** score, backward-linked get **0.7×**.
 
 **Example:** Seed memory "deploy failed" → follow forward → "rollback initiated" → "post-mortem notes" — both added to results.
 
 ### Step 5e: Entity Graph Traversal
 
-Entities are extracted from the query text, then looked up in the `EntityGraph`. For each matched entity, a 2-hop BFS with typed edge filtering discovers related entities. Their linked memories are added with **0.25× attenuation per hop**.
+Entities are extracted from the query text, then looked up in the `EntityGraph`. For each matched entity, a 2-hop BFS with typed edge filtering discovers related entities. Their linked memories are added with **0.25× attenuation per hop**, further scaled by the entity's **fan factor** (1/√refCount) — modeling ACT-R spreading activation dilution. High-fan entities (linked to many memories) produce weaker per-link boosts.
 
-**Example:** Query mentions "Alice" → Entity "Alice" → MANAGES → "Project Alpha" → memories mentioning "Project Alpha" are added.
+**Example:** Query mentions "Alice" → Entity "Alice" → MANAGES → "Project Alpha" → memories mentioning "Project Alpha" are added. If "Alice" is linked to 100 memories, her fan factor is 0.1 — preventing ubiquitous entities from flooding the result set.
 
 !!! tip "Graceful Degradation"
     Each graph step is **additive and independently optional**. If a graph component is null (not configured), empty, or throws a `RuntimeException`, the step is a no-op. The system degrades gracefully to vector-only recall. Zero risk of regression.
@@ -317,4 +367,3 @@ Entities are extracted from the query text, then looked up in the `EntityGraph`.
 - :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — Bloom filter and binary layout
 - :material-school: [**Theoretical Foundations**](theoretical-foundations.md) — ACT-R lineage, power law of forgetting, Two-Factor model
 - :material-speedometer: [**Performance**](performance.md) — benchmark results
-

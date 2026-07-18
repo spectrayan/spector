@@ -1,6 +1,6 @@
 ---
 title: "Labs — Experimental Features"
-description: "Research roadmap for Spector's experimental cognitive features: Neuromodulatory Gain Control, Executive Dysfunction Profile, Two-Factor Memory Strength, and Dynamic Quantization Stepping."
+description: "Research roadmap for Spector's experimental cognitive features: 4-Layer Retrieval Stack, SPLARE, ColPali, Neuromodulatory Gain Control, Executive Dysfunction Profile, Two-Factor Memory Strength, and Dynamic Quantization Stepping."
 ---
 
 # 🔬 Labs — Experimental Features
@@ -9,6 +9,8 @@ description: "Research roadmap for Spector's experimental cognitive features: Ne
 >
 > Some features have graduated from Labs into the main release. Others remain
 > under active research and planned for implementation in the `labs` branch.
+>
+> **Recently graduated:** SPLADE sparse retrieval, ColBERT v2 reranking, Two-Factor Memory, ProfileAdaptor Contextual Bandit, and Executive Dysfunction Profile.
 
 ---
 
@@ -161,7 +163,11 @@ public final class NeuromodulatoryState {
 
 ---
 
-## Executive Dysfunction Profile
+## ✅ Executive Dysfunction Profile
+
+!!! success "Graduated to Main Release"
+    Implemented in `CognitiveProfile.EXECUTIVE_DYSFUNCTION`, `ProfileAdaptor`, and `RecallHistory` (graduated in issue #295). It is fully integrated into the `RecallPipeline` as the `ASSOCIATIVE` scoring mode routing path.
+
 
 ### Concept
 
@@ -316,15 +322,19 @@ graph LR
 
 ### Integration with Existing Header Layout
 
-The `storage_strength` field is already present in the V2 (48B) and V3 (64B) header layouts:
+The `storage_strength` field is present in the 64-byte header layout at offset 36:
 
 ```
-V2 Header Layout (48 bytes):
-  [32B core]                     — shared with V1
-  [1B  arousal]        Offset 32 — emotional intensity
-  [3B  padding]        Offset 33 — alignment
-  [4B  storage_str]    Offset 36 — S(t) ← THIS FIELD
-  [8B  reserved]       Offset 40 — future use
+64-Byte Header Layout:
+  [0B   header_version]     Offset 0  — version byte
+  [1B   flags]              Offset 1  — state flags
+  [1B   valence]            Offset 2  — emotional coloring
+  [1B   arousal]            Offset 3  — emotional intensity
+  [4B   importance]         Offset 4  — cognitive importance
+  [8B   timestamp_ms]       Offset 8  — when memory was formed
+  ...                                 — (other core fields)
+  [4B   storage_str]        Offset 36 — S(t) ← THIS FIELD
+  ...                                 — (reserved fields)
 ```
 
 **Current default:** `storage_strength = 1.0f` for all new memories. The field is written and read but not yet used in scoring.
@@ -362,7 +372,7 @@ public void reinforce(String memoryId, byte valence) {
     int recallCount = incrementRecallCount(segment, offset);
     
     // NEW: Two-Factor update
-    if (layout.headerLayout().headerBytes() >= 48) {  // V2+
+    if (layout.headerLayout().headerBytes() >= 64) {
         long timestamp = segment.get(LAYOUT_TIMESTAMP, offset + OFFSET_TIMESTAMP);
         float currentS = segment.get(LAYOUT_STORAGE_STRENGTH, offset + OFFSET_STORAGE_STRENGTH);
         
@@ -392,11 +402,11 @@ These need empirical calibration with real agent workloads. The key question: ho
 
 ### Dependencies & Complexity
 
-- **Dependencies:** V2+ header layout (`storage_strength` field) ✅ **Ready**
+- **Dependencies:** 64-byte header layout (`storage_strength` field) ✅ **Ready**
 - **Complexity:** Medium — ✅ **Implemented**
 - **Implementation details:**
     - `TwoFactorConfig` record: `sGain=0.1`, `sMax=5.0`, `sExponent=0.3`, `enabled=true`
-    - `CognitiveScorer`: Reads `storageStrength` from V2+ header, applies `fastStorageBoost()` using precomputed 64-entry LUT (linear interpolation, <0.2% error)
+    - `CognitiveScorer`: Reads `storageStrength` from header, applies `fastStorageBoost()` using precomputed 64-entry LUT (linear interpolation, <0.2% error)
     - `LtpReconsolidationListener`: Updates `storage_strength` on `reinforce()` calls with `ΔS = S_gain × (1 - R(t))`
     - `RecallOptions`: Includes `TwoFactorConfig` for per-query configuration
     - `DefaultSpectorMemory.Builder`: Exposes `twoFactorConfig(TwoFactorConfig)` builder method
@@ -541,14 +551,244 @@ if (isSQ4(flags)) {
 
 ---
 
+## ✅ SPLADE / Li-LSR Learned Sparse Retrieval
+
+!!! success "Graduated to Main Release"
+    Implemented in `SpladeIndex`, `MemorySpladeIndex` (spector-index/memory), `SparseEncodingProvider` SPI (spector-embed-api). Wired into `CognitiveIngestionTarget` Step 9a-splade and `RecallPipeline` Step 3c.
+
+### Concept
+
+Neural term expansion via learned sparse retrieval. Unlike BM25 which matches exact keywords, SPLADE/Li-LSR models learn to **expand** queries and documents with semantically related terms — e.g., "car" also activates "vehicle", "automobile", "driving".
+
+### Architecture
+
+```
+Ingestion:  text → SparseEncodingProvider.encode() → {term: weight} → SpladeIndex.index()
+Recall:     query → SparseEncodingProvider.encode() → MemorySpladeIndex.search() → RRF fusion
+```
+
+### Components
+
+| Component | Module | Role |
+|:---|:---|:---|
+| `SparseEncodingProvider` | spector-embed-api | SPI for SPLADE/Li-LSR/SPLARE encoding |
+| `SparseEncodingResult` | spector-embed-api | `Map<String, Float>` term-weight result |
+| `SpladeIndex` | spector-index | In-memory inverted index for sparse vectors |
+| `MemorySpladeIndex` | spector-memory | Partition manager with parallel search via `ConcurrentTasks.forkJoinAll` |
+
+### Integration Points
+
+- **Ingestion:** `CognitiveIngestionTarget` Step 9a-splade (after BM25 Step 9a)
+- **Recall:** `RecallPipeline` Step 3c (parallel to BM25, fused via `fuseBM25Candidates` RRF)
+- **Configuration:** `TextSearchMode.SPLADE`, `SPLADE_HYBRID`, `LI_LSR`, `FULL_STACK`
+- **Graceful degradation:** null `SparseEncodingProvider` → silently skipped, WARN logged once
+
+---
+
+## ✅ ColBERT v2 Late Interaction Reranking
+
+!!! success "Graduated to Main Release"
+    Implemented in `ColBERTReranker` (spector-index). SIMD-accelerated MaxSim scoring via Panama `FloatVector`. Wired into `RecallPipeline` Step 6b.
+
+### Concept
+
+Token-level late interaction reranking. Unlike bi-encoders (which compress each document to a single vector), ColBERT stores a vector **per token** and computes relevance via **MaxSim** — the sum of per-query-token maximum similarities across all document tokens.
+
+### MaxSim Scoring
+
+$$
+\text{MaxSim}(q, d) = \sum_{i=1}^{|q|} \max_{j=1}^{|d|} \mathbf{q}_i \cdot \mathbf{d}_j
+$$
+
+### Components
+
+| Component | Module | Role |
+|:---|:---|:---|
+| `TokenEmbeddingProvider` | spector-embed-api | SPI for per-token embedding arrays |
+| `TokenEmbeddingResult` | spector-embed-api | `float[][]` token-level embeddings |
+| `ColBERTReranker` | spector-index | MaxSim scoring + SIMD-accelerated `simdDotProduct` |
+
+### Integration
+
+- **Recall:** `RecallPipeline` Step 6b (after first-stage sort, before final return)
+- **Scoring:** `combinedScore = α·maxSimScore + (1-α)·firstStageScore` (default α=0.7)
+- **Configuration:** `RecallOptions.enableReranker(true).rerankerDepth(50)`
+- **TextSearchMode:** `COLBERT_RERANK` or `FULL_STACK`
+
+---
+
+## 🔬 SPLARE — Sparse Autoencoder Learned Retrieval
+
+### Concept
+
+SPLARE uses sparse autoencoders to extract interpretable sparse features from dense embeddings. Unlike SPLADE which uses a masked language model, SPLARE operates on the embedding space directly, making it model-agnostic and naturally multilingual.
+
+### Proposed Architecture
+
+```mermaid
+flowchart TD
+    subgraph "Dense Embedding"
+        E["EmbeddingProvider.embed()"]
+    end
+    
+    subgraph "Sparse Autoencoder"
+        SAE["Encoder: d → K features"]
+        F["Top-K feature selection"]
+    end
+    
+    subgraph "Sparse Index"
+        SI["SpladeIndex (reused)"]
+    end
+    
+    E --> SAE
+    SAE --> F
+    F --> SI
+    
+    style SAE fill:#9b59b6,color:white
+    style F fill:#9b59b6,color:white
+```
+
+### Advantages over SPLADE
+
+| Aspect | SPLADE | SPLARE |
+|:---|:---|:---|
+| Model dependency | Requires MLM (BERT-family) | Model-agnostic (any embedding) |
+| Vocabulary | WordPiece (~30K) | Learned feature dictionary (configurable) |
+| Multilingual | Requires multilingual MLM | Inherits from base embedder |
+| Interpretability | Token-level (human readable) | Feature-level (less interpretable) |
+| Infrastructure | Needs separate model | Reuses existing `SpladeIndex` |
+
+### Implementation Plan
+
+1. Train sparse autoencoder on embedding provider's dense vectors
+2. Implement `SparseEncodingProvider` adapter that wraps autoencoder inference
+3. Use feature indices + activations as sparse retrieval keys
+4. Index into existing `SpladeIndex` infrastructure (same posting list format)
+
+### Dependencies & Complexity
+
+- **Dependencies:** Sparse autoencoder training pipeline, feature dictionary management
+- **Complexity:** High — autoencoder training requires representative corpus, feature stability across model updates is unknown
+- **Risk:** Feature drift when the base embedding model is updated
+
+---
+
+## 🔬 ColPali — Vision-Language Late Interaction
+
+### Concept
+
+Extend ColBERT's late interaction paradigm to **visual documents** using the ColPali architecture (Faysse et al., 2024). Instead of OCR → text → embed, ColPali directly produces per-patch token embeddings from document images.
+
+### Biological Basis
+
+Human memory doesn't separate "text memory" from "visual memory" — the hippocampal indexing system operates over multi-modal representations. ColPali brings this to Spector: a diagram, a screenshot, or a handwritten note can be retrieved with the same MaxSim infrastructure as text.
+
+### Proposed Architecture
+
+```mermaid
+flowchart TD
+    subgraph "Query Path"
+        QT["Query text"] --> TE["TokenEmbeddingProvider"]
+        TE --> QV["float[][] query tokens"]
+    end
+    
+    subgraph "Document Path"
+        IMG["Document image"] --> VE["VisionPatchProvider"]
+        VE --> PV["float[][] image patches"]
+    end
+    
+    subgraph "Scoring"
+        QV --> MS["MaxSim (SIMD)"]
+        PV --> MS
+        MS --> SC["Combined score"]
+    end
+    
+    style VE fill:#e74c3c,color:white
+    style MS fill:#27ae60,color:white
+```
+
+### Key Design Decisions
+
+| Decision | Choice | Rationale |
+|:---|:---|:---|
+| Vision encoder | PaliGemma / SigLIP | Strong patch-level embeddings, open weights |
+| Patch granularity | 16×16 or 32×32 | Balance quality vs token count |
+| Storage | New `MediaDataStore` | Images require separate storage from text |
+| MaxSim kernel | Reuse `ColBERTReranker` | Same SIMD infrastructure, different input |
+
+### Dependencies & Complexity
+
+- **Dependencies:** Vision encoder model integration, ONNX Runtime or similar inference engine
+- **New SPIs:** `VisionPatchProvider`, multi-modal `MemoryType` extension
+- **Complexity:** Very High — vision encoder integration, image storage lifecycle, multi-modal index management
+- **Estimated effort:** 6-8 weeks
+
+---
+
+## ✅ Hypergraphs & Spectral Sparsification
+
+> **Status**: Hypergraphs — **Graduated** (implemented in `HyperEntityGraph`). Spectral Sparsification — **Research**.
+>
+> **Recently graduated:** HyperEntityGraph off-heap implementation with Panama FFM.
+
+### Concept
+
+Preventing graph node and edge explosion in Spector's Cognitive Architecture through mathematical compression:
+
+1. **Hypergraphs** ✅: Collapsing pairwise relationships into n-body hyperedges. Instead of creating binary edges between entities (e.g. `Alice → ProjectAlpha` and `Alice → OrgX`), a single hyperedge `{Alice, ProjectAlpha, OrgX}` connects all entities with typed roles. This collapses representation complexity by 40-60%.
+2. **Spectral Sparsification** 🔬: Using eigenvalue-guided (effective resistance) sampling to prune Hebbian memory-to-memory edges during the sleep consolidation cycle. This maintains spreading activation recall quality with a 50% lower edge degree limit.
+
+### Biological Basis
+
+Cognitive memory doesn't just store flat pairs; it stores n-body event-based memories (episodes involving multiple entities, locations, and contexts). Furthermore, consolidation processes selectively prune weak associative connections while preserving global topological path connectivity (modeled as spectral sparsification).
+
+### Implemented Architecture
+
+The `HyperEntityGraph` uses three off-heap Panama FFM segments:
+
+```
+Hyperedge Node (32B):
+  [edgeId:4B][type:4B][weight:4B][vertexCount:4B]
+  [vertexOffset:4B][memoryIdx:4B][timestamp:8B]
+
+Vertex Entry (8B):
+  [entityId:4B][roleId:4B]
+
+Incidence Index (4B × entityCapacity):
+  [hyperedgeListOffset] → per-entity list of participating hyperedges
+
+Incidence List Entry (4B):
+  [hyperedgeId]
+```
+
+| Property | Value |
+|---|---|
+| Max vertices per hyperedge | 3-8 entities with typed roles |
+| Max hyperedges per entity | 64 (participation cap, weakest eviction) |
+| Persistence | Binary file ("HYEG" magic, V1) |
+
+### Remaining Work (Spectral Sparsification)
+
+- **Effective Resistance Sparsification**: To be computed during the `ReflectDaemon` background consolidation cycle using randomized SVD/Lanczos approximations.
+- **Dependencies:** Approximate eigenvalue computation library, integration with decay cycle.
+- **Estimated effort:** 2-3 weeks
+
+---
+
 ## Priority Matrix
 
 | Feature | Value | Complexity | Dependencies Ready? | Estimated Effort | Status |
 |:---|:---:|:---:|:---:|:---|:---:|
 | Two-Factor Memory (R+S) | 🟢 High | Medium | ✅ | 1-2 weeks | ✅ Done |
+| SPLADE Sparse Retrieval | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
+| ColBERT v2 Reranking | 🟢 High | High | ✅ | 2-3 weeks | ✅ Done |
 | Executive Dysfunction | 🟡 Medium | Medium | ✅ | 1-2 weeks | 🔜 Planned |
+| Hypergraphs | 🟢 High | High | ✅ | 3-4 weeks | ✅ Done |
+| Spectral Sparsification | 🟢 High | High | ⏳ | 2-3 weeks | 🔬 Research |
 | Neuromodulatory Gain | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |
 | Dynamic Quantization | 🟡 Medium | High | ⏳ | 4-6 weeks | 🔬 Research |
+| SPLARE (Sparse Autoencoders) | 🟡 Medium | High | ⏳ | 3-4 weeks | 🔬 Research |
+| ColPali (Vision-Language) | 🟡 Medium | Very High | ⏳ | 6-8 weeks | 🔬 Research |
 
 ---
 

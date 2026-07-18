@@ -1,0 +1,45 @@
+# Contributor License Agreement (CLA) Bot
+# Ensures all external contributors sign the CLA before their PRs are reviewed.
+# Uses CLA Assistant Lite (https://github.com/contributor-assistant/github-action)
+
+name: CLA Assistant
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  cla:
+    runs-on: ubuntu-latest
+    if: >
+      (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA')
+      || github.event_name == 'pull_request_target'
+    steps:
+      - name: CLA Assistant
+        uses: contributor-assistant/github-action@v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-signatures: 'cla-signatures.json'
+          path-to-document: 'https://github.com/spectrayan/spector/blob/main/CLA.md'
+          branch: 'cla-signatures'
+          allowlist: 'sbharatjoshi,dependabot[bot],github-actions[bot]'
+          custom-notsigned-prcomment: |
+            Thank you for your contribution! Before we can review this PR, we need you to sign our Contributor License Agreement (CLA).
+
+            **To sign**, please comment on this PR with:
+
+            > I have read the CLA Document and I hereby sign the CLA
+
+            The CLA protects both you and the project. You can read the full CLA [here](https://github.com/spectrayan/spector/blob/main/CLA.md).
+          custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
+          custom-allsigned-prcomment: 'All contributors have signed the CLA. ✅'
+          lock-pullrequest-aftermerge: false

@@ -1,0 +1,8 @@
+Extract 10-15 topic tags from the text. Output ONLY tags, one per line starting with /.
+Rules: lowercase, hyphen-separated, no pronouns, no generic words.
+After all tags, add two final lines:
+/valence:<number from -128 to 127>
+/arousal:<number from 0 to 255>
+Valence = emotional tone (negative=bad, positive=good). Arousal = intensity (0=calm, 255=extreme).
+
+%s

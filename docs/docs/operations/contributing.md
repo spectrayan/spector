@@ -56,15 +56,15 @@ graph LR
     end
 
     subgraph "🧠 Intelligence"
-        embedapi["spector-embed-api<br/>Embedding SPI"]
-        embedollama["spector-embed-ollama<br/>Ollama provider"]
+        providerapi["spector-provider-api<br/>Provider SPI"]
+        providers["spector-providers<br/>AI Providers"]
         gpu["spector-gpu<br/>CUDA via Panama"]
     end
 
     subgraph "⚡ Applications"
         engine["spector-engine<br/>Unified facade"]
-        server["spector-node<br/>REST API"]
-        cluster["spector-node<br/>Distributed gRPC"]
+        server["spector-synapse<br/>REST / Spring Web"]
+        cluster["spector-synapse<br/>Distributed coordination"]
         cli["spector-cli<br/>CLI tool"]
         client["spector-client<br/>Java SDK"]
         spring["spector-spring<br/>Spring AI"]

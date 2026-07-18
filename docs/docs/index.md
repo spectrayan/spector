@@ -1,76 +1,72 @@
-# ⚡ Welcome to Spector
+---
+title: "Spector — Zero-Overhead AI Memory & Vector Search"
+description: "Spector is a Java-native AI search engine and cognitive memory system with SIMD-accelerated vector search (88µs), built-in MCP server, and zero dependencies."
+---
 
-> **The Zero-Overhead, Agent-Ready AI Memory Backbone.**
+# ⚡ Spector — The AI Memory Backbone
 
-Welcome to the Spector documentation — your central hub for the high-performance, agent-native AI search engine. Whether you're connecting AI agents via MCP, building RAG pipelines, powering recommendation systems, or need sub-millisecond search with zero infrastructure, you're in the right place.
+> **Zero-overhead, agent-ready AI search and cognitive memory — embedded in a single JVM.**
+
+Spector is a **Java-native AI search engine** and **cognitive memory system** that combines SIMD-accelerated vector search, keyword search (BM25), and biologically-inspired memory consolidation into a single embeddable library. No Docker, no external databases, no Python — just a JAR.
+
+Connect AI agents via the **built-in MCP server** (Claude Desktop, Cursor, custom agents), embed directly in your Spring Boot app, or run standalone. Spector delivers **sub-millisecond search** at scale with **zero garbage collection pressure** thanks to Project Panama off-heap memory.
 
 ---
 
-## 🔥 Why Spector?
+## 🔥 Key Numbers
 
 | Metric | Value |
-|--------|-------|
-| 🤖 MCP Tools | **6 agent-ready tools** (semantic, hybrid, RAG, ingest, delete, status) |
-| ⚡ Vector Search Latency | **0.05 ms** avg @ 10K docs (128-dim) |
-| 🔍 Keyword Search Latency | **0.98 ms** avg @ 100K docs |
-| 🧬 Hybrid Search Latency | **0.17 ms** avg @ 10K docs |
-| 🚀 Vector Throughput | **18,800 queries/sec** @ 10K |
-| 🧵 Concurrent Hybrid | **14,000+ ops/sec** @ 16 threads (384-dim) |
-| 🗜️ IVF-PQ + TurboQuant | **8–32× memory reduction** |
-| ✅ Test Suite | **331+ tests**, all passing |
+|:-------|:------|
+| 🧠 Cognitive Recall | **0.13ms** p50 at 1M memories |
+| ⚡ Vector Search | **88µs** p50 (10K docs, 128-dim) |
+| 🚀 Peak QPS | **61,011** concurrent searches |
+| 🤖 MCP Tools | **13 tools** (6 search + 7 cognitive memory) |
+| 🗜️ Compression | **4×–32×** (SVASQ-8 to IVF-PQ) |
+| ✅ Test Suite | **685+ tests**, all passing |
 | 📦 Dependencies | **Zero** (JDK only) |
 
 ---
 
-## 🗺️ Quick Navigation
+## 🗺️ Choose Your Path
 
-### 🚀 Getting Started
+=== "🚀 I want to use Spector"
 
-| Page | Description |
-|------|-------------|
-| [Getting Started](getting-started/quickstart.md) | Build, run, and search in 5 minutes |
-| [What is Spector](about.md) | Product overview, use cases, and comparisons |
-| [JDK API Status](getting-started/jdk-api-status.md) | Vector API, Panama FFM, and preview feature compatibility |
-| [FAQ](faq.md) | Common questions answered |
+    | Page | What you'll learn |
+    |:-----|:------------------|
+    | [Quick Start](getting-started/quickstart.md) | Build, run, and search in 5 minutes |
+    | [MCP Server Guide](sdk-usage/mcp-server.md) | Connect Claude Desktop, Cursor, or custom agents |
+    | [Installation](getting-started/installation.md) | Prerequisites and setup options |
+    | [Configuration](configuration/parameters.md) | All parameters with tuning advice |
+    | [REST API Reference](api-reference/rest-endpoints.md) | All endpoints with curl examples |
+    | [Cognitive Memory](memory/index.md) | Getting started with AI agent memory |
+    | [Cortex Dashboard](cortex/index.md) | Real-time neural visualization dashboard |
 
-### 🤖 Agent Integration (MCP)
+=== "🧠 I want to understand how it works"
 
-| Page | Description |
-|------|-------------|
-| [MCP Integration Architecture](architecture/mcp-integration.md) | How the MCP server works under the hood |
-| [MCP Server Guide](sdk-usage/mcp-server.md) | Setup for Claude Desktop, Cursor, and custom agents |
+    | Page | What you'll learn |
+    |:-----|:------------------|
+    | [Architecture Overview](architecture/overview.md) | Module diagram, data flow, threading model |
+    | [Core Concepts](architecture/core-concepts.md) | HNSW, IVF-PQ, BM25, RRF, SIMD deep-dives |
+    | [Memory Architecture](memory/architecture.md) | How cognitive memory works under the hood |
+    | [6-Phase Scoring Pipeline](memory/scoring-pipeline.md) | Fused SIMD scoring across memory tiers |
+    | [Cortex Dashboard](cortex/index.md) | Watch your AI's brain think — 12+ live panels |
+    | [SVASQ Quantization](deep-dives/svasq-deep-dive.md) | Our proprietary SIMD-first quantization engine |
+    | [Benchmarks](deep-dives/real-embedding-benchmarks.md) | Empirical sweeps on 4096-dim embeddings |
 
-### 🏗️ Architecture & Concepts
+=== "🤝 I want to contribute"
 
-| Page | Description |
-|------|-------------|
-| [Architecture Overview](architecture/overview.md) | Module diagram, data flow, threading model |
-| [Core Concepts](architecture/core-concepts.md) | HNSW, IVF-PQ, BM25, RRF, SIMD deep-dives |
-| [Ingestion Pipeline](architecture/ingestion-pipeline.md) | Document → chunk → embed → index pipeline |
-| [RAG Pipeline](architecture/rag-pipeline.md) | End-to-end retrieval-augmented generation |
-| [Distributed Mode](architecture/distributed-mode.md) | Clustering, sharding, and replication |
-| [GPU Acceleration](architecture/gpu-acceleration.md) | CUDA setup and kernel details |
-
-### 📖 Reference
-
-| Page | Description |
-|------|-------------|
-| [REST API Reference](api-reference/rest-endpoints.md) | All endpoints with curl examples |
-| [Java SDK Guide](sdk-usage/java-client.md) | Programmatic usage (client + embedded) |
-| [Spring AI Integration](sdk-usage/spring-ai.md) | Spring AI VectorStore adapter |
-| [CLI Reference](cli-reference/spectorctl.md) | `spectorctl` commands |
-| [Configuration Guide](configuration/parameters.md) | All parameters with tuning advice |
-
-### ⚙️ Operations & Community
-
-| Page | Description |
-|------|-------------|
-| [Performance Tuning](operations/performance-tuning.md) | Benchmarks and optimization strategies |
-| [Contributing](operations/contributing.md) | Development setup and PR process |
+    | Page | What you'll learn |
+    |:-----|:------------------|
+    | [Contributing Guide](operations/contributing.md) | Development setup and PR process |
+    | [JDK API Status](getting-started/jdk-api-status.md) | Vector API, Panama FFM compatibility |
+    | [Roadmap](roadmap.md) | What's planned next |
+    | [FAQ](faq.md) | Common questions answered |
 
 ---
 
-## 💡 Highlights at a Glance
+## 💡 How It Works
+
+Spector combines **three search modalities** — semantic vectors, keyword matching, and cognitive scoring — into a single fused pipeline:
 
 ```mermaid
 graph LR
@@ -80,28 +76,36 @@ graph LR
     D --> E["🎯 RRF Fusion"]
     E --> F["🤖 LLM Re-ranking"]
     F --> G["✨ Results"]
-    
+
     H["📄 Document"] --> I["🧩 Chunking"]
     I --> J["🧬 Embedding"]
     J --> C
 ```
 
-> [!TIP]
-> New here? Start with [Getting Started](getting-started/quickstart.md) to build and run your first search in under 5 minutes. Want to connect an AI agent? See the [MCP Server Guide](sdk-usage/mcp-server.md).
+### What Makes Spector Different
+
+- **Embedded deployment** — runs as a library inside your JVM. No Docker, no servers, no network hops.
+- **Agent-native** — 13 MCP tools for search, memory, and cognitive operations. Connect Claude Desktop or Cursor in one config line.
+- **Cognitive memory** — the only system combining power-law decay, Two-Factor strengthening (Bjork & Bjork), emotional valence, and Hebbian association in a single scoring formula.
+- **Zero GC pressure** — all vector data and headers live off-heap via Project Panama. The JVM garbage collector never sees memory records.
+- **SIMD everywhere** — vector distance, quantization, and scoring use Java Vector API (AVX2/AVX-512/NEON) for hardware-accelerated computation.
+
+!!! tip "New here?"
+    Start with [Quick Start](getting-started/quickstart.md) to build and run your first search in under 5 minutes. Want to connect an AI agent? See the [MCP Server Guide](sdk-usage/mcp-server.md).
 
 ---
 
 ## 🌟 Project Stats
 
 | | |
-|---|---|
+|:---|:---|
 | **Language** | Java 25 |
 | **License** | Apache 2.0 · [BSL 1.1](https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE) (memory module) |
-| **Modules** | 18 Maven modules |
+| **Modules** | 25 Maven modules |
 | **Dependencies** | Zero (JDK only) |
 | **SIMD** | AVX2 / AVX-512 / NEON |
 | **GPU** | CUDA via Panama FFM |
-| **MCP** | Built-in, 6 agent-ready tools |
+| **MCP** | Built-in, 13 agent-ready tools |
 | **Distributed** | gRPC fan-out + consistent hashing |
 
 ---

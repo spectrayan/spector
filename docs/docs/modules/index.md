@@ -4,51 +4,52 @@ Spector is organized as a multi-module Maven project. Each module has a focused 
 
 ---
 
-## Architecture
+## Architecture Hierarchy
 
 ```mermaid
-graph LR
-    subgraph "🔬 Foundation"
-        core["spector-core<br/><i>SIMD kernels</i>"]
+graph TB
+    subgraph nucleus["nucleus/ (Foundation & Observability)"]
         commons["spector-commons<br/><i>Chunkers, tokenizer</i>"]
+        core["spector-core<br/><i>SIMD kernels</i>"]
         config["spector-config<br/><i>SpectorConfig + YAML</i>"]
         storage["spector-storage<br/><i>Panama MemorySegment</i>"]
+        events["spector-events<br/><i>Telemetry event bus</i>"]
+        metrics["spector-metrics<br/><i>Micrometer + TelemetryBus</i>"]
+        testsupport["spector-test-support<br/><i>Integration test harnesses</i>"]
     end
 
-    subgraph "🧠 Intelligence"
-        embedApi["spector-embed-api<br/><i>Embedding SPI</i>"]
-        embedOllama["spector-embed-ollama<br/><i>Ollama provider</i>"]
+    subgraph memory["memory/ (Cognitive Memory Engine)"]
+        spectormemory["spector-memory<br/><i>Cognitive store & search facade</i>"]
         index["spector-index<br/><i>HNSW + IVF-PQ + BM25</i>"]
         query["spector-query<br/><i>Hybrid + RRF + rerank</i>"]
         gpu["spector-gpu<br/><i>CUDA via Panama FFM</i>"]
-    end
-
-    subgraph "⚡ Engine"
-        rag["spector-rag<br/><i>RAG pipeline</i>"]
-        engine["spector-engine<br/><i>Search facade</i>"]
+        providerApi["spector-provider-api<br/><i>Provider SPI</i>"]
+        providers["spector-providers<br/><i>AI Providers</i>"]
         ingestion["spector-ingestion<br/><i>File ingest pipeline</i>"]
-        memory["spector-memory<br/><i>Cognitive memory 🧠</i>"]
+        rag["spector-rag<br/><i>RAG pipeline</i>"]
     end
 
-    subgraph "📡 Observability"
-        events["spector-events<br/><i>Telemetry event bus</i>"]
-        metrics["spector-metrics<br/><i>Micrometer + TelemetryBus</i>"]
-        cortex["spector-cortex<br/><i>Neural dashboard (Angular)</i>"]
-    end
-
-    subgraph "🌐 Runtime & Interfaces"
+    subgraph synapse["synapse/ (API, Runtime & CLI Gateways)"]
         runtime["spector-runtime<br/><i>Composition root</i>"]
-        node["spector-node<br/><i>Armeria: REST + gRPC + SSE</i>"]
-        mcp["spector-mcp<br/><i>MCP Server (stdio)</i>"]
-        cli["spector-cli<br/><i>spectorctl</i>"]
+        synapseapp["spector-synapse<br/><i>Armeria REST/gRPC/SSE server</i>"]
+        mcp["spector-mcp<br/><i>MCP Server (stdio/HTTP)</i>"]
+        cli["spector-cli<br/><i>spectorctl CLI</i>"]
         client["spector-client<br/><i>Java SDK</i>"]
-        spring["spector-spring<br/><i>Spring AI</i>"]
+        spring["spector-spring<br/><i>Spring AI VectorStore</i>"]
+        dist["spector-dist<br/><i>Fat JAR distribution</i>"]
     end
 
-    subgraph "📦 Distribution"
-        bench["spector-bench<br/><i>JMH benchmarks</i>"]
-        dist["spector-dist<br/><i>Fat JAR</i>"]
+    subgraph cortex["cortex/ (UI Dashboard)"]
+        spectorcortex["spector-cortex<br/><i>Angular 22 neural UI</i>"]
     end
+
+    subgraph bench["bench/ (Performance)"]
+        spectorbench["spector-bench<br/><i>JMH benchmarks</i>"]
+    end
+
+    nucleus --> memory --> synapse
+    synapse --> cortex
+    memory -.-> bench
 ```
 
 ---
@@ -57,40 +58,33 @@ graph LR
 
 ```mermaid
 graph TD
-    node["🌐 node"] --> runtime["⚡ runtime"]
-    node --> mcp["🤖 mcp"]
-    node --> metrics["📈 metrics"]
-    node --> events["📡 events"]
+    synapseapp["🌐 synapse"] --> runtime["⚡ runtime"]
+    synapseapp --> mcp["🤖 mcp"]
+    synapseapp --> metrics["📈 metrics"]
+    synapseapp --> events["📡 events"]
+    
     mcp --> runtime
     mcp --> ingestion["📥 ingestion"]
     cli["🖥️ cli"] --> runtime
     cli --> client["📦 client"]
 
-    runtime --> engine["⚡ engine"]
     runtime --> memory["🧠 memory"]
     runtime --> ingestion
 
-    engine --> query["🔍 query"]
-    engine --> rag["🤖 rag"]
-    engine --> ingestion
-    engine --> index["📊 index"]
-    engine --> storage["💾 storage"]
-    engine --> embedapi["🧬 embed-api"]
-    engine -.-> gpu["🎮 gpu"]
-
-    memory --> index
-    memory --> storage
-    memory --> ingestion
-    memory --> embedapi
+    memory --> query["🔍 query"]
+    memory --> index["📊 index"]
+    memory --> storage["💾 storage"]
+    memory --> embedapi["🧬 embed-api"]
+    memory -.-> gpu["🎮 gpu"]
+    memory --> rag["🤖 rag"]
     memory --> core["🔬 core"]
 
-    metrics --> engine
     metrics --> memory
     metrics --> events
 
     events --> commons["📄 commons"]
 
-    cortex["🧠 cortex"] -.->|SSE| node
+    cortex["🧠 cortex"] -.->|SSE| synapseapp
 
     ingestion --> config["⚙️ config"]
     ingestion --> embedapi
@@ -115,17 +109,15 @@ graph TD
     dist --> cli
     dist --> runtime
 
-    spring["🌱 spring"] --> engine
-    spring --> memory
+    spring["🌱 spring"] --> memory
     spring --> metrics
-    bench["🧪 bench"] --> engine
-    bench --> memory
+    bench["🧪 bench"] --> memory
 ```
 
 > **Legend:** Solid arrows = compile dependency. Dotted arrows = optional/runtime dependency (`gpu` = optional Maven dep, `cortex` = connects via SSE at runtime).
 
 !!! important "Architecture"
-    `spector-ingestion` defines the `IngestionPipeline` and `IngestionTarget` interface. Both `spector-engine` and `spector-memory` depend on it to implement their `IngestionTarget`. `spector-memory` is fully independent of `spector-engine` — they are peers, wired together only at the `SpectorRuntime` composition root.
+    `spector-ingestion` defines the `IngestionPipeline` and `IngestionTarget` interface. `spector-memory` depends on it to implement both `EngineIngestionTarget` and `CognitiveIngestionTarget`. The entry points route requests to `SpectorRuntime`, which acts as the composition root.
 
 ---
 
@@ -137,29 +129,28 @@ All entry points (MCP, CLI, Server) route through `SpectorRuntime`:
 graph TD
     cli["🖥️ spector-cli<br/><i>SpectorCtl</i>"]
     mcp["🤖 spector-mcp<br/><i>SpectorMcpMain</i>"]
-    node["🌐 spector-node<br/><i>SpectorNode (Armeria)</i>"]
+    synapseapp["🌐 spector-synapse<br/><i>SynapseApplication (Armeria)</i>"]
 
     cli --> runtime
     mcp --> runtime
-    node --> runtime
+    synapseapp --> runtime
 
     runtime["⚡ SpectorRuntime<br/><i>Composition Root</i>"]
 
     runtime --> sh["SearchHandler<br/><i>mode-aware search</i>"]
     runtime --> ih["IngestionHandler<br/><i>delegates to IngestionPipeline</i>"]
 
-    sh --> engine["SpectorEngine"]
-    sh --> memory["SpectorMemory"]
+    sh --> memory["SpectorMemory (under memory/)"]
     ih --> pipeline["IngestionPipeline<br/><i>chunk → embed → store</i>"]
-    pipeline --> engineTarget["EngineIngestionTarget<br/><i>SEARCH mode</i>"]
-    pipeline --> memTarget["CognitiveIngestionTarget<br/><i>MEMORY mode</i>"]
+    pipeline --> engineTarget["EngineIngestionTarget<br/><i>SEARCH mode (under memory/)</i>"]
+    pipeline --> memTarget["CognitiveIngestionTarget<br/><i>MEMORY mode (under memory/)</i>"]
 ```
 
 **SpectorRuntime** is a thin composition root — it creates and wires subsystems but contains no business logic. Each handler owns its domain:
 
 | Handler | Responsibility | Routes to |
 |---------|---------------|-----------|
-| `SearchHandler` | Mode-aware search | Engine (SEARCH mode) or Memory (MEMORY mode) |
+| `SearchHandler` | Mode-aware search & retrieval | SpectorMemory (SEARCH or MEMORY modes) |
 | `IngestionHandler` | Delegates to unified `IngestionPipeline` | Pipeline → `EngineIngestionTarget` or `CognitiveIngestionTarget` |
 
 ---
@@ -179,8 +170,8 @@ graph TD
 
 | Module | Description |
 |:---|:---|
-| [spector-embed-api](spector-embed-api.md) | Embedding provider SPI — model-agnostic interface |
-| [spector-embed-ollama](spector-embed-ollama.md) | Ollama embedding implementation |
+| [spector-provider-api](spector-provider-api.md) | LLM and embedding provider SPI — model-agnostic interfaces |
+| [spector-providers](spector-providers.md) | Out-of-the-box LLM and embedding providers (Ollama, OpenAI, Google, Anthropic, Mistral, Azure) |
 
 ### Search Layer
 
@@ -195,17 +186,16 @@ graph TD
 | Module | Description |
 |:---|:---|
 | [spector-rag](spector-rag.md) | RAG pipeline — retrieval-augmented generation |
-| [spector-engine](spector-engine.md) | Search engine — orchestrates index + RAG + storage |
 | [spector-ingestion](spector-ingestion.md) | Unified ingestion pipeline — `IngestionPipeline` (builder), `IngestionTarget` interface, `FileDiscoveryService` |
-| [spector-memory](spector-memory.md) | Cognitive memory — biologically-inspired agent memory |
+| [spector-memory](spector-memory.md) | Flagship cognitive memory and search engine — off-heap HNSW, BM25 indices, and neuro-inspired scoring/consolidation (incorporates former spector-engine search facade) |
 
 ### Runtime Layer
 
 | Module | Description |
 |:---|:---|
-| [spector-runtime](spector-runtime.md) | Composition root — wires engine + memory + ingestion pipeline, exposes `SearchHandler` and `IngestionHandler` |
-| [spector-mcp](spector-mcp.md) | MCP server — Model Context Protocol integration via stdio |
-| [spector-node](spector-node.md) | Unified node — Armeria HTTP REST + gRPC + SSE events + cluster coordination |
+| [spector-runtime](spector-runtime.md) | Composition root — wires cognitive memory + ingestion pipeline, exposing `SearchHandler` and `IngestionHandler` |
+| [spector-mcp](spector-mcp.md) | MCP server — Model Context Protocol integration via stdio/HTTP |
+| [spector-synapse](spector-synapse.md) | API Gateway and central nervous system — Armeria HTTP REST + gRPC + SSE events + cluster coordination (incorporates former spector-node) |
 
 ### Client Layer
 
@@ -221,6 +211,6 @@ graph TD
 |:---|:---|
 | [spector-events](spector-events.md) | Telemetry — decoupled event bus (`TelemetryBus`, `TelemetryScope`, 12 event types) |
 | [spector-metrics](spector-metrics.md) | Metrics — Micrometer + TelemetryBus instrumentation |
-| [spector-cortex](spector-cortex.md) | Dashboard — Angular 21 real-time neural visualization (10+ cards, THREE.js + Canvas 2D) |
+| [spector-cortex](spector-cortex.md) | ⚠️ **Moved to [spector-enterprise](https://github.com/spectrayan/spector-enterprise)** — Angular 22 neural dashboard |
 | [spector-bench](spector-bench.md) | Benchmarks — JMH performance testing |
 | [spector-dist](spector-dist.md) | Distribution — single fat JAR packaging |

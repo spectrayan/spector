@@ -1,0 +1,49 @@
+# Spector CODEOWNERS
+# Automatically assigns reviewers when PRs touch specific modules.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default — catch-all
+* @sbharatjoshi
+
+# Nucleus (Foundation)
+/nucleus/spector-bom/ @sbharatjoshi
+/nucleus/spector-commons/ @sbharatjoshi
+/nucleus/spector-core/ @sbharatjoshi
+/nucleus/spector-config/ @sbharatjoshi
+/nucleus/spector-storage/ @sbharatjoshi
+/nucleus/spector-events/ @sbharatjoshi
+/nucleus/spector-metrics/ @sbharatjoshi
+/nucleus/spector-test-support/ @sbharatjoshi
+
+# Memory (Intelligence)
+/memory/spector-memory/ @sbharatjoshi
+/memory/spector-index/ @sbharatjoshi
+/memory/spector-query/ @sbharatjoshi
+/memory/spector-gpu/ @sbharatjoshi
+/memory/spector-embed-api/ @sbharatjoshi
+/memory/spector-embed-ollama/ @sbharatjoshi
+/memory/spector-ingestion/ @sbharatjoshi
+/memory/spector-rag/ @sbharatjoshi
+
+# Synapse (Wiring & APIs)
+/synapse/spector-runtime/ @sbharatjoshi
+/synapse/spector-mcp/ @sbharatjoshi
+/synapse/spector-cli/ @sbharatjoshi
+/synapse/spector-client/ @sbharatjoshi
+/synapse/spector-spring/ @sbharatjoshi
+/synapse/spector-synapse/ @sbharatjoshi
+/synapse/spector-dist/ @sbharatjoshi
+
+# Cortex (UI)
+/cortex/spector-cortex/ @sbharatjoshi
+
+# Benchmarks
+/bench/spector-bench/ @sbharatjoshi
+
+# CI/CD, Infrastructure & Docs
+/.github/ @sbharatjoshi
+/deploy/ @sbharatjoshi
+/Dockerfile @sbharatjoshi
+/docker-compose.yml @sbharatjoshi
+/docs/ @sbharatjoshi
+*.md @sbharatjoshi

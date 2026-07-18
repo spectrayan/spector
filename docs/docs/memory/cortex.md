@@ -5,8 +5,6 @@ description: "The 4-tier cognitive memory architecture: Working, Episodic, Seman
 
 # 🧠 Cortex — Tier Stores
 
-> **Package**: `com.spectrayan.spector.memory.cortex`
->
 > **Biological Analog**: The **Cerebral Cortex** — the outer layer of the brain responsible for higher-order cognitive functions. Different cortical regions specialize in different types of memory.
 
 ---
@@ -19,60 +17,22 @@ Human memory is not a single system. Cognitive science identifies distinct memor
 graph TB
     subgraph "TierRouter — Polymorphic Registry"
         direction TB
-        TR["TierStore interface"]
+        TR["TierStore interface"]:::core
     end
     
-    TR --> WM["🧪 Working Memory<br/>WorkingMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Prefrontal Cortex<br/>Volatile circular buffer<br/>~100 records"]
-    TR --> EM["📝 Episodic Memory<br/>EpisodicMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Hippocampus<br/>Time-partitioned mmap<br/>Unbounded"]
-    TR --> SE["🧬 Semantic Memory<br/>SemanticMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Neocortex<br/>Permanent knowledge<br/>~5,000 records"]
-    TR --> PR["⚙️ Procedural Memory<br/>ProceduralMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Basal Ganglia<br/>Learned procedures<br/>~500 records"]
-    
-    style WM fill:#e74c3c,color:white
-    style EM fill:#3498db,color:white
-    style SE fill:#2ecc71,color:white
-    style PR fill:#9b59b6,color:white
+    TR --> WM["🧪 Working Memory<br/>WorkingMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Prefrontal Cortex<br/>Volatile circular buffer<br/>~100 records"]:::working
+    TR --> EM["📝 Episodic Memory<br/>EpisodicMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Hippocampus<br/>Time-partitioned files<br/>Unbounded"]:::episodic
+    TR --> SE["🧬 Semantic Memory<br/>SemanticMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Neocortex<br/>Permanent knowledge<br/>~5,000 records"]:::semantic
+    TR --> PR["⚙️ Procedural Memory<br/>ProceduralMemoryStore<br/>━━━━━━━━━━━━━━━━━<br/>Basal Ganglia<br/>Learned procedures<br/>~500 records"]:::procedural
 ```
 
 ---
 
-## TierStore Interface
+## Polymorphic Tier Routing
 
-All four stores implement a common `TierStore` interface, enabling polymorphic dispatch in the router:
-
-```java
-public interface TierStore extends AutoCloseable {
-    MemoryType type();
-    int size();
-    CognitiveRecordLayout layout();
-    MemorySegment primarySegment();
-    long write(CognitiveHeader header, byte[] quantizedVec);
-}
-```
-
-The `TierRouter` holds an `EnumMap<MemoryType, TierStore>` and dispatches all operations polymorphically:
-
-```java
-// Zero switch statements — polymorphic dispatch
-public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
-    return get(type).write(header, quantized);
-}
-```
+All four stores implement a common `TierStore` interface. The `TierRouter` dispatches operations via an `EnumMap<MemoryType, TierStore>` — zero switch statements, fully polymorphic.
 
 > Adding a new tier (e.g., `FLASH` for ultra-fast scratch memory) requires only: (1) implement `TierStore`, (2) register in `TierRouter`. No changes needed in `SpectorMemory`, `RecallPipeline`, or `CognitiveIngestionTarget`.
-
----
-
-## AbstractTierStore
-
-Three of the four stores (Working, Semantic, Procedural) extend `AbstractTierStore`, which provides:
-
-- **Arena lifecycle**: `Arena.ofShared()` for thread-safe off-heap access
-- **Segment allocation**: 32-byte aligned via `arena.allocate(bytes, 32)`
-- **Layout creation** from quantized vector byte count
-- **Capacity tracking** and size reporting
-- **Close/cleanup** lifecycle
-
-`EpisodicMemoryStore` implements `TierStore` directly because it uses mmap-backed partitions rather than a single Arena-allocated segment.
 
 ---
 
@@ -82,25 +42,15 @@ Three of the four stores (Working, Semantic, Procedural) extend `AbstractTierSto
 
 | Property | Value |
 |---|---|
-| Storage | `Arena.ofShared()` volatile segment |
+| Storage | In-memory segment (volatile) |
 | Capacity | Configurable (default: 100) |
 | Eviction | Circular buffer — oldest entries overwritten |
 | Persistence | **None** — lost on JVM shutdown |
 | Use case | Current task context, recent conversation |
 
-```java
-// Circular buffer write
-public long write(CognitiveHeader header, byte[] quantizedVec) {
-    long offset = (long) (count % capacity) * layout.stride();
-    layout.writeHeader(segment, offset, header);
-    MemorySegment.copy(MemorySegment.ofArray(quantizedVec), 0,
-        segment, layout.vectorOffset(offset), quantizedVec.length);
-    count++;
-    return offset;
-}
-```
+Working memory operates as a circular buffer: when the buffer is full, the oldest entry is overwritten by the newest. This mirrors the human prefrontal cortex where only the most recent context is actively maintained.
 
-**Special capability**: Synaptic tag search without vector math. WorkingMemoryStore supports a `findByTag(mask)` method that scans only the 64-bit Bloom filter field — useful for fast context lookups.
+**Special capability**: Synaptic tag search without vector math — Working Memory supports finding memories by tag alone using the 64-bit Bloom filter field, useful for fast context lookups without embedding the query.
 
 ---
 
@@ -110,7 +60,7 @@ public long write(CognitiveHeader header, byte[] quantizedVec) {
 
 | Property | Value |
 |---|---|
-| Storage | `FileChannel.map()` mmap-backed files |
+| Storage | Memory-mapped files (persistent) |
 | Capacity | Unbounded (1 partition per day, each up to 10,000 records) |
 | Eviction | Tombstone + compaction |
 | Persistence | **Full** — survives JVM restarts |
@@ -118,7 +68,7 @@ public long write(CognitiveHeader header, byte[] quantizedVec) {
 
 ### Partition Lifecycle
 
-Each episodic partition is a memory-mapped file with a 64-byte metadata header:
+Each episodic partition is a structured memory-mapped file with a binary metadata header:
 
 ```
 ┌─── Partition File ─────────────────────────────────────────┐
@@ -131,10 +81,10 @@ Each episodic partition is a memory-mapped file with a 64-byte metadata header:
 │   ├── 4B state (ACTIVE/SEALED/REFLECTABLE/TOMBSTONED/...)  │
 │   ├── 4B stride                                             │
 │   └── 36B reserved                                          │
-├── [Record 0: 32B header + NB vector] ──────────────────────┤
-├── [Record 1: 32B header + NB vector] ──────────────────────┤
+│─── [Record 0: Header + Quantized Vector] ──────────────────┤
+│─── [Record 1: Header + Quantized Vector] ──────────────────┤
 │   ...                                                       │
-└── [Record N-1]  ───────────────────────────────────────────┘
+└─── [Record N-1]  ───────────────────────────────────────────┘
 ```
 
 **Partition state machine**:
@@ -155,27 +105,17 @@ stateDiagram-v2
 
 **Biological Analog**: The **Neocortex** stores distilled, permanent world knowledge — facts, concepts, and generalized rules extracted from repeated experience.
 
-### Single-File Mode (legacy)
-
-| Property | Value |
-|---|---|
-| Storage | Header-only slab (`Arena.ofShared()`) |
-| Capacity | Configurable (default: 5,000) |
-| Eviction | None (permanent) |
-| Persistence | Via WAL replay |
-| Use case | Small deployments or in-memory mode |
-
 ### Partitioned Mode (default for DISK persistence)
 
 | Property | Value |
 |---|---|
-| Storage | Rolling `semantic-NNN.mem` files in `semantic/` directory |
+| Storage | Persistent rolling files |
 | Capacity per partition | Configurable (default: 10,000 records) |
 | Total capacity | Unbounded (new partitions roll automatically) |
 | Eviction | Tombstone + per-partition compaction |
-| Persistence | **Full** — mmap-backed files survive restarts |
+| Persistence | **Full** — persistent files survive restarts |
 | Recall | Parallel per-partition scan via virtual threads |
-| Use case | Production — "The user prefers dark mode", "Java uses garbage collection" |
+| Use case | "The user prefers dark mode", "Java uses garbage collection" |
 
 ```
 .spector/memory/semantic/
@@ -186,16 +126,24 @@ stateDiagram-v2
 
 **Concurrency model**:
 
-- **Reads**: `CopyOnWriteArrayList` provides lock-free snapshot iteration. Each partition is searched independently on its own virtual thread.
-- **Writes**: `ReadWriteLock` — read lock for normal appends, write lock only when rolling to a new partition.
-- **Compaction**: Per-partition rebuild. Other partitions remain readable during compaction.
+- **Reads**: `CopyOnWriteArrayList` provides lock-free snapshot iteration. Each partition is searched independently on its own virtual thread
+- **Writes**: `ReadWriteLock` — read lock for normal appends, write lock only when rolling to a new partition
+- **Compaction**: Per-partition rebuild. Other partitions remain readable during compaction
 
 **Creation**: Semantic memories are created either:
 
 1. **Directly** by the user (`MemoryType.SEMANTIC`)
 2. **By consolidation** — the `ReflectDaemon` clusters similar episodic memories during "sleep" and promotes the cluster centroid to semantic memory
 
-**Migration**: Existing single-file `semantic.mem` stores are automatically migrated to the partitioned format on first startup. The legacy file is renamed to `semantic.mem.migrated` as backup.
+**Migration**: Existing single-file stores are automatically migrated to the partitioned format on first startup.
+
+### Single-File Mode (in-memory)
+
+| Property | Value |
+|---|---|
+| Storage | Fixed-capacity in-memory slab |
+| Capacity | Configurable (default: 5,000) |
+| Use case | Small deployments or in-memory mode |
 
 ---
 
@@ -205,7 +153,7 @@ stateDiagram-v2
 
 | Property | Value |
 |---|---|
-| Storage | `Arena.ofShared()` linear segment |
+| Storage | Linear in-memory segment |
 | Capacity | Configurable (default: 500) |
 | Eviction | None (append-only) |
 | Persistence | Via WAL replay |
@@ -215,35 +163,8 @@ Procedural memories represent **rules and patterns** that the agent has internal
 
 ---
 
-## TierRouter
-
-The `TierRouter` dispatches all operations to the appropriate store via an `EnumMap`:
-
-```java
-public final class TierRouter implements AutoCloseable {
-    private final EnumMap<MemoryType, TierStore> stores = new EnumMap<>(MemoryType.class);
-    
-    // Polymorphic dispatch — zero switch statements
-    public long write(MemoryType type, CognitiveHeader header, byte[] quantized) {
-        return get(type).write(header, quantized);
-    }
-    
-    public MemorySegment segmentFor(MemoryType type) {
-        return get(type).primarySegment();
-    }
-    
-    public static boolean shouldScan(MemoryType type, MemoryType[] targetTypes) {
-        if (targetTypes == null || targetTypes.length == 0) return true;
-        for (MemoryType t : targetTypes) if (t == type) return true;
-        return false;
-    }
-}
-```
-
----
-
 ## Next Steps
 
 - :material-sleep: [**Hippocampus — Sleep Consolidation**](hippocampus.md) — how episodic memories are consolidated into semantic knowledge
-- :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — the 32-byte header and Bloom filter
+- :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — the 64-byte header and Bloom filter
 - :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — the SIMD hot-loop

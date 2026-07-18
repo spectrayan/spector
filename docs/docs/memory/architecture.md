@@ -15,7 +15,7 @@ Spector Memory is organized around a **biological metaphor** where each Java pac
 |---|---|---|
 | `SpectorMemory` | Single entry point for all operations | Configure tiers, capacities, embedding providers |
 | `TierStore` interface | Add new memory tiers | Implement the interface + register in `TierRouter` — no other changes needed |
-| `AbstractTierStore` | Common tier lifecycle | Extend for new off-heap tier stores with Arena/segment management |
+| `AbstractTierStore` | Common tier lifecycle | Base implementation for custom tier storage backends |
 | `RecallListener` | Post-recall hooks | Add async listeners for co-activation tracking, logging, metrics |
 | `CognitiveIngestionTarget` / `RecallPipeline` | Discrete processing steps | Each step is independently testable and replaceable |
 
@@ -229,32 +229,48 @@ graph LR
 
 ---
 
-## The 32-Byte Cognitive Record
+## The 64-Byte Cognitive Record
 
-Every memory is stored as a fixed-size binary record in off-heap memory:
+Every memory is stored as a fixed-size binary record in off-heap memory. The synaptic header occupies exactly **one CPU cache line** (64 bytes) for optimal sequential scan performance:
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                   32-Byte Synaptic Header                 │
-├────────────┬──────────┬──────────┬────────┬──────────────┤
-│ timestamp  │ synaptic │ exactNorm│ import │ centroidId   │
-│ 8 bytes    │ tags     │ 4 bytes  │ ance   │ 4 bytes      │
-│ (offset 0) │ 8 bytes  │ (off 16) │ 4 bytes│ (offset 24)  │
-│            │ (off 8)  │          │(off 20)│              │
-├────────────┴──────────┴──────────┴────────┼──────┬───┬───┤
-│                                           │recall│val│flg│
-│              (continued)                  │count │enc│s  │
-│                                           │2B    │1B │1B │
-│                                           │off 28│o30│o31│
-├───────────────────────────────────────────┴──────┴───┴───┤
-│              Quantized Vector (N bytes)                   │
-│              INT8 values, 32-byte aligned                 │
-└──────────────────────────────────────────────────────────┘
-```
+### Header Diagram
 
-**Total record size** = 32 (header) + N (quantized vector bytes), aligned to 32 bytes.
+![64-Byte Synaptic Header Layout](../assets/header-layout-light.svg#only-light){ width="100%" }
+![64-Byte Synaptic Header Layout](../assets/header-layout-dark.svg#only-dark){ width="100%" }
 
-At 768 dimensions (INT8): **32 + 768 = 800 bytes/memory** — 50,000 memories fit in 40 MB of off-heap RAM.
+### Header Layout (64 bytes — 1× Cache Line)
+
+| Offset | Field | Size | Type | Description |
+|:---:|:---|:---:|:---:|:---|
+| 0 | `header_version` | 1B | byte | Always `1` |
+| 1 | `flags` | 1B | byte | Tombstone, memory type, consolidated, pinned, resolved |
+| 2 | `valence` | 1B | signed byte | Emotional coloring (−128 to +127) |
+| 3 | `arousal` | 1B | unsigned byte | Emotional intensity (0–255) |
+| 4 | `importance` | 4B | float | Base importance score (0.05–10.0) |
+| 8 | `timestamp_ms` | 8B | long | Unix epoch ms when memory was formed |
+| 16 | `agent_recall_count` | 4B | int | LTP reinforcement counter (agent-explicit) |
+| 20 | `exact_norm` | 4B | float | L2 norm of original float vector |
+| 24 | `synaptic_tags` | 8B | long | 64-bit inline Bloom filter |
+| 32 | `centroid_id` | 2B | short | IVF partition routing ID |
+| 34 | `_pad0` | 2B | — | Alignment padding |
+| 36 | `storage_strength` | 4B | float | Two-Factor Memory S(t) (Bjork & Bjork) |
+| 40 | `spector_recall_cnt` | 4B | int | Auto-LTP passive recall counter |
+| 44 | `_reserved_f1` | 4B | float | Reserved for future use |
+| 48 | `last_auto_ltp` | 8B | long | Last auto-LTP timestamp |
+| 56 | `_reserved_l1` | 8B | long | Reserved (future 128-bit tag upper half) |
+| | | **64B** | | **= 1× cache line, 2× AVX2** |
+
+!!! tip "Why 64 bytes?"
+    **Cache-line alignment** eliminates split-line reads during sequential scans. When the scorer iterates over 1M records, each header read hits exactly one cache line — no partial line loads, no false sharing. The 16 bytes of reserved space prevent future migration costs when new fields are added.
+
+After the header, the quantized vector payload follows immediately:
+
+| Component | Size | Notes |
+|:---|:---:|:---|
+| Synaptic Header | 64B | Fixed, cache-line aligned |
+| Quantized Vector | N bytes | INT8 values (1 byte per dimension) |
+| **Total stride** | **64 + N** | At 768-dim: **832 bytes/record** |
+
 
 ---
 

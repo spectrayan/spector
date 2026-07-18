@@ -1,0 +1,56 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.spectrayan.spector.events;
+
+import java.time.Instant;
+
+/**
+ * GPU (CUDA) kernel execution telemetry — emitted per kernel launch
+ * from {@code CudaKernelLauncher}.
+ *
+ * @param streamIndex         CUDA stream index (0 = default)
+ * @param kernelName          kernel function name (e.g., "batch_cosine")
+ * @param durationNanos       elapsed time in nanoseconds
+ * @param gridDimX            grid dimension X
+ * @param gridDimY            grid dimension Y
+ * @param gridDimZ            grid dimension Z
+ * @param blockDimX           block dimension X
+ * @param blockDimY           block dimension Y
+ * @param blockDimZ           block dimension Z
+ * @param memoryTransferBytes total host↔device memory transfer in bytes
+ * @param timestamp           when the event occurred
+ */
+public record GpuKernelTelemetry(
+        int streamIndex,
+        String kernelName,
+        long durationNanos,
+        int gridDimX, int gridDimY, int gridDimZ,
+        int blockDimX, int blockDimY, int blockDimZ,
+        long memoryTransferBytes,
+        Instant timestamp
+) implements SpectorTelemetryEvent {
+    /** Convenience constructor — auto-sets timestamp to now. */
+    public GpuKernelTelemetry(int streamIndex, String kernelName, long durationNanos,
+                               int gridDimX, int gridDimY, int gridDimZ,
+                               int blockDimX, int blockDimY, int blockDimZ,
+                               long memoryTransferBytes) {
+        this(streamIndex, kernelName, durationNanos,
+                gridDimX, gridDimY, gridDimZ,
+                blockDimX, blockDimY, blockDimZ,
+                memoryTransferBytes, Instant.now());
+    }
+    @Override public String eventType() { return "telemetry.gpu.kernel"; }
+}

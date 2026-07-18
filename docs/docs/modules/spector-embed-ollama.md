@@ -1,1 +1,0 @@
---8<-- "spector-embed-ollama/README.md"

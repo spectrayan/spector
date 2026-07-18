@@ -39,11 +39,33 @@
         sequenceNumberColor: '#1e1e2e'
       } : {
         primaryColor: '#dbeafe',
-        primaryTextColor: '#1e3a5f',
+        primaryTextColor: '#1e293b',
         primaryBorderColor: '#93c5fd',
         lineColor: '#6366f1',
         secondaryColor: '#f3e8ff',
-        tertiaryColor: '#fef3c7'
+        tertiaryColor: '#fef3c7',
+        background: '#ffffff',
+        mainBkg: '#dbeafe',
+        nodeBorder: '#93c5fd',
+        clusterBkg: '#f8fafc',
+        clusterBorder: '#cbd5e1',
+        titleColor: '#1e293b',
+        edgeLabelBackground: '#ffffff',
+        noteTextColor: '#1e293b',
+        noteBkgColor: '#fef3c7',
+        noteBorderColor: '#f59e0b',
+        actorTextColor: '#1e293b',
+        actorBkg: '#e0e7ff',
+        actorBorder: '#6366f1',
+        signalColor: '#1e293b',
+        signalTextColor: '#1e293b',
+        labelBoxBkgColor: '#f1f5f9',
+        labelBoxBorderColor: '#cbd5e1',
+        labelTextColor: '#1e293b',
+        loopTextColor: '#475569',
+        activationBorderColor: '#6366f1',
+        activationBkgColor: '#e0e7ff',
+        sequenceNumberColor: '#ffffff'
       }
     };
   }

@@ -1,3 +1,8 @@
+---
+title: "Quick Start — Build and Search in 5 Minutes"
+description: "Get Spector running in 5 minutes. Build from source, start the server, ingest documents, and run your first hybrid vector + keyword search."
+---
+
 # 🚀 Getting Started
 
 > **Go from zero to your first search result in under 5 minutes.** This guide walks you through building Spector from source, starting the server, ingesting documents, and running your first hybrid search.
@@ -54,15 +59,13 @@ SIMD Species: S_256_BIT (AVX2, 8 float lanes)
 
 ## 🖥️ Start the Server
 
-```bash
-# Start on default port 7070 with 384 dimensions
-mvn exec:java -pl spector-node \
-  -Dexec.mainClass="com.spectrayan.spector.server.SpectorNode"
+Start the unified server using the packaged distribution JAR:
 
-# Start with custom port, dimensions, and API key
-mvn exec:java -pl spector-node \
-  -Dexec.mainClass="com.spectrayan.spector.server.SpectorNode" \
-  -Dexec.args="7070 384 my-secret-key"
+```bash
+java --add-modules jdk.incubator.vector \
+  --enable-native-access=ALL-UNNAMED --enable-preview \
+  -jar spector-dist/target/spector.jar \
+  --config spector.yml
 ```
 
 Verify it's running:

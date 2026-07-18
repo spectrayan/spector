@@ -1,1 +1,0 @@
---8<-- "spector-node/README.md"

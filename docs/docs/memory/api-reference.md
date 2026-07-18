@@ -24,6 +24,7 @@ SpectorMemory memory = SpectorMemory.builder()
     .proceduralCapacity(int)                // Procedural memory slots (default: 500)
     .quantizer(ScalarQuantizer)             // Custom quantizer (default: identity)
     .persistenceDir(Path)                   // Episodic mmap directory (default: temp dir)
+    .idStrategy(IdStrategy.TSID)            // Auto-ID strategy: TSID, UUID, SEQUENCE
     .build();
 ```
 
@@ -32,7 +33,11 @@ SpectorMemory memory = SpectorMemory.builder()
 | Method | Return Type | Description |
 |---|---|---|
 | `remember(id, text, type, source, tags...)` | `CompletableFuture<Void>` | Async ingestion — embeds, quantizes, stores, indexes |
+| `remember(text, type, source, tags...)` | `CompletableFuture<String>` | Auto-ID ingestion — generates TSID, returns the ID |
 | `recall(queryText, options)` | `List<CognitiveResult>` | Parallel SIMD-accelerated recall with cognitive scoring |
+| `inspect(id)` | `Optional<CognitiveRecord>` | Full cognitive X-ray: text ↔ header ↔ vector |
+| `browse(tags...)` | `List<CognitiveRecord>` | Tag-based browsing with AND semantics |
+| `exportJson()` | `String` | Bulk JSON export of all live memories |
 | `forget(id)` | `void` | Tombstones a memory (permanent, excluded from all scans) |
 | `suppress(id, reason)` | `void` | Suppresses from recall results (reversible) |
 | `unsuppress(id)` | `void` | Removes suppression |
@@ -153,13 +158,13 @@ boolean hasJava = SynapticTagEncoder.matches(recordTags, "java");
 
 ## CognitiveRecordLayout
 
-Binary layout for the 32-byte header + quantized vector:
+Binary layout for the 64-byte header + quantized vector:
 
 ```java
 CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
 
 // Record stride (header + vector)
-int stride = layout.stride();            // e.g., 800 for 768-dim INT8
+int stride = layout.stride();            // e.g., 832 for 768-dim INT8
 
 // Read/write header
 CognitiveHeader header = layout.readHeader(segment, offset);
@@ -239,8 +244,66 @@ public enum PartitionState {
 
 ---
 
+## CognitiveRecord
+
+Full cognitive snapshot returned by `inspect()` and `browse()`:
+
+```java
+public record CognitiveRecord(
+    String id,
+    String text,
+    MemoryType memoryType,
+    MemorySource source,
+    String[] tags,
+    Instant createdAt,
+    float importance,
+    byte valence,
+    byte arousal,
+    short agentRecallCount,
+    short spectorRecallCount,
+    float storageStrength,
+    boolean tombstoned,
+    boolean consolidated,
+    boolean pinned,
+    boolean resolved,
+    float exactNorm,
+    byte[] quantizedVector
+) {}
+```
+
+---
+
+## IdStrategy
+
+Pluggable auto-ID generation for memories:
+
+```java
+public enum IdStrategy {
+    TSID,       // 13-char Crockford Base32 (default — time-sorted, distributed-safe)
+    UUID,       // Standard UUID v4 (36 chars)
+    SEQUENCE    // Monotonic counter (fastest, single-node only)
+}
+```
+
+Configure via Builder:
+
+```java
+SpectorMemory memory = SpectorMemory.builder()
+    .idStrategy(IdStrategy.TSID)    // use built-in strategy
+    .idGenerator(myCustomGen)       // or provide custom MemoryIdGenerator
+    .build();
+
+// Auto-ID ingestion — returns the generated ID
+String id = memory.remember("User prefers dark mode",
+    MemoryType.SEMANTIC, MemorySource.USER_STATED, "preferences").join();
+// id = "0HJGQK4N00000"
+```
+
+---
+
 ## Next Steps
 
 - :material-rocket: [**Getting Started**](getting-started.md) — set up in 5 minutes
 - :material-brain: [**Architecture**](architecture.md) — how it all fits together
 - :material-speedometer: [**Performance**](performance.md) — benchmark results
+- :material-language-python: [**Python SDK**](../sdk-usage/python-sdk.md) — Python client

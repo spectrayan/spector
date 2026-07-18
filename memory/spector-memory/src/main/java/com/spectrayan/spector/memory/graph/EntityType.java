@@ -1,0 +1,128 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *
+ * Change Date: May 27, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.memory.graph;
+
+/**
+ * Well-known entity types for the knowledge graph.
+ *
+ * <p>Entities extracted from memory text are classified into these categories
+ * to enable typed traversal and filtering in the entity-relationship graph.</p>
+ *
+ * @deprecated Since 1.1.0. Entity types are now open-schema strings managed by
+ * {@link TypeRegistry}. The extraction layer ({@link ExtractedEntity}) accepts
+ * any type string, allowing domain-specific types (e.g., VEHICLE, RECIPE,
+ * MEDICAL_CONDITION) without code changes. This enum is retained only for:
+ * <ul>
+ *   <li>{@link #SEED} — pre-seeding well-known types in {@link TypeRegistry}</li>
+ *   <li>{@link #fromOrdinal(int)} — migrating V1 persisted EntityGraph files</li>
+ * </ul>
+ * New code should use plain {@code String} type names instead of this enum.
+ *
+ * <h3>Category Groups</h3>
+ * <ul>
+ *   <li><b>People &amp; Org:</b> PERSON, ORGANIZATION, TEAM, ROLE</li>
+ *   <li><b>Projects &amp; Products:</b> PROJECT, PRODUCT, TASK</li>
+ *   <li><b>Knowledge:</b> CONCEPT, TOPIC, SKILL, DECISION</li>
+ *   <li><b>Tech:</b> TECHNOLOGY, TOOL, API, ARTIFACT</li>
+ *   <li><b>World:</b> EVENT, LOCATION, DATE_TIME</li>
+ *   <li><b>Process &amp; Data:</b> PROCESS, METRIC, DOCUMENT</li>
+ *   <li><b>Catch-all:</b> OTHER</li>
+ * </ul>
+ */
+@Deprecated(since = "1.1.0", forRemoval = false)
+public enum EntityType {
+
+    // ── People & Organizations ──
+    /** A person: user, colleague, customer, author, etc. */
+    PERSON,
+    /** A company, institution, government body, or formal organization. */
+    ORGANIZATION,
+    /** A team, squad, department, group, or committee. */
+    TEAM,
+    /** A job title, role, or position (e.g., "tech lead", "reviewer"). */
+    ROLE,
+
+    // ── Projects & Products ──
+    /** A project, initiative, or workstream. */
+    PROJECT,
+    /** A software product, service, or SaaS tool. */
+    PRODUCT,
+    /** A task, ticket, issue, bug, or action item. */
+    TASK,
+
+    // ── Knowledge & Decisions ──
+    /** An abstract concept, idea, or theory. */
+    CONCEPT,
+    /** A knowledge domain, subject area, or discipline. */
+    TOPIC,
+    /** A skill, competency, or expertise area. */
+    SKILL,
+    /** An architectural decision, ADR, or policy choice. */
+    DECISION,
+
+    // ── Technology ──
+    /** A programming language, framework, library, or platform. */
+    TECHNOLOGY,
+    /** A tool, utility, or instrument. */
+    TOOL,
+    /** An API, endpoint, interface, or protocol. */
+    API,
+    /** A code file, commit, branch, PR, or configuration artifact. */
+    ARTIFACT,
+
+    // ── World ──
+    /** An event, meeting, conference, incident, or milestone. */
+    EVENT,
+    /** A physical or virtual location, address, or region. */
+    LOCATION,
+    /** A specific date, time, period, or deadline. */
+    DATE_TIME,
+
+    // ── Process & Data ──
+    /** A workflow, pipeline, methodology, or procedure. */
+    PROCESS,
+    /** A KPI, measurement, quantity, or metric. */
+    METRIC,
+    /** A document, file, paper, article, or report. */
+    DOCUMENT,
+
+    // ── Catch-all ──
+    /** Any entity that doesn't fit the above categories. */
+    OTHER;
+
+    // ══════════════════════════════════════════════════════════════
+    // Well-Known Constants (for code readability, UI icons, filtering)
+    // ══════════════════════════════════════════════════════════════
+
+    /** All well-known entity type names, ordered by enum ordinal for registry seeding. */
+    public static final String[] SEED = {
+        "PERSON", "ORGANIZATION", "TEAM", "ROLE",
+        "PROJECT", "PRODUCT", "TASK",
+        "CONCEPT", "TOPIC", "SKILL", "DECISION",
+        "TECHNOLOGY", "TOOL", "API", "ARTIFACT",
+        "EVENT", "LOCATION", "DATE_TIME",
+        "PROCESS", "METRIC", "DOCUMENT",
+        "OTHER"
+    };
+
+    /**
+     * Returns the entity type name for a legacy enum ordinal.
+     * Used for migrating persisted v1 EntityGraph files.
+     *
+     * @param ordinal the enum ordinal (0-based)
+     * @return the type name string, or "OTHER" if out of range
+     */
+    public static String fromOrdinal(int ordinal) {
+        return ordinal >= 0 && ordinal < SEED.length ? SEED[ordinal] : "OTHER";
+    }
+}

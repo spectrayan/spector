@@ -1,0 +1,230 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *
+ * Change Date: May 27, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.memory.pipeline;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Default tag extractor: derives synaptic tags from document path and content.
+ *
+ * <h3>Extraction Strategy</h3>
+ * <ol>
+ *   <li><b>Path-based tags</b>: Splits the document ID by path separators,
+ *       dots, hyphens, and underscores. Each segment longer than 2 characters
+ *       (and not a stop word) becomes a tag.</li>
+ *   <li><b>Content-based tags</b>: Extracts significant words from the first
+ *       N characters of the text. Words must be longer than 4 characters,
+ *       not a stop word, and appear at least once. Top words by length are
+ *       selected (longer words are typically more specific).</li>
+ * </ol>
+ *
+ * <p>Total tags per record are capped at {@link #MAX_TAGS} (default: 10)
+ * to keep the Bloom filter FPR under 0.2% (per analysis doc §19).</p>
+ *
+ * @see TagExtractor
+ */
+public final class ContentTagExtractor implements TagExtractor {
+
+    private static final Logger log = LoggerFactory.getLogger(ContentTagExtractor.class);
+
+    /** Maximum tags per record (Bloom filter sweet spot). */
+    private static final int MAX_TAGS = 10;
+
+    /** Maximum content prefix to scan for keyword extraction. */
+    private static final int CONTENT_SCAN_CHARS = 500;
+
+    /** Maximum content-derived tags (path tags get priority). */
+    private static final int MAX_CONTENT_TAGS = 5;
+
+    /**
+     * Splits path-style document IDs into segments.
+     * Does NOT split on hyphens — compound terms like "ha-scaling-replication"
+     * and "fault-tolerant" should remain intact as single tags.
+     */
+    private static final Pattern PATH_SPLIT_PATTERN = Pattern.compile("[/\\\\.:\\s]+");
+
+    /**
+     * Splits content text into word candidates.
+     * Splits on whitespace, commas, semicolons, pipes, and sentence-ending punctuation.
+     * Preserves hyphens and underscores within words (e.g., "fault-tolerant", "DATE_TIME").
+     */
+    private static final Pattern CONTENT_SPLIT_PATTERN = Pattern.compile("[\\s,;|()\\[\\]{}#*>]+");
+
+    /**
+     * Cleans tag text — keeps alphanumeric, hyphens, and underscores.
+     * Hyphens connect compound terms ("multi-tenant"), underscores connect
+     * entity/relationship types ("DATE_TIME", "WORKS_AT").
+     */
+    private static final Pattern TAG_CLEAN = Pattern.compile("[^a-z0-9_-]");
+    private static final Pattern NUMERIC_ONLY = Pattern.compile("^\\d+$");
+
+    /**
+     * Splits camelCase/PascalCase identifiers into hyphen-separated words.
+     * Examples:
+     *   WhatsAppTelegram  → Whats-App-Telegram  → whatsapp-telegram (after lowercase + clean)
+     *   profileAdaptorSuggest → profile-Adaptor-Suggest → profile-adaptor-suggest
+     *   CognitiveIngestionTarget → Cognitive-Ingestion-Target
+     *   BM25Index → BM25-Index
+     *
+     * Three patterns:
+     *   1. (lower)(Upper) → fooBar → foo-Bar
+     *   2. (Upper)(Upper+lower) → XMLParser → XML-Parser
+     *   3. (letter)(digit) or (digit)(letter) → BM25Index → BM25-Index
+     */
+    private static final Pattern CAMEL_CASE_SPLIT = Pattern.compile(
+            "(?<=[a-z])(?=[A-Z])"
+            + "|(?<=[A-Z])(?=[A-Z][a-z])"
+            + "|(?<=[a-zA-Z])(?=[0-9])"
+            + "|(?<=[0-9])(?=[a-zA-Z])"
+    );
+
+    /** Strips chunk suffixes like "::chunk-3" or "#chunk-12" from document IDs. */
+    private static final Pattern CHUNK_SUFFIX = Pattern.compile("(::chunk-\\d+|#chunk-\\d+)$");
+
+    /** Strips common file extensions from document IDs. */
+    private static final Pattern FILE_EXTENSION = Pattern.compile("\\.(md|txt|java|py|js|ts|json|xml|yaml|yml|html|css|log|csv|pdf|docx?)$", Pattern.CASE_INSENSITIVE);
+
+    /** Common English stop words to exclude from tags. */
+    private static final Set<String> STOP_WORDS = Set.of(
+            "the", "and", "for", "are", "but", "not", "you", "all",
+            "can", "had", "her", "was", "one", "our", "out", "has",
+            "his", "how", "its", "may", "new", "now", "old", "see",
+            "way", "who", "did", "get", "let", "say", "she", "too",
+            "use", "with", "that", "this", "have", "from", "they",
+            "been", "said", "each", "which", "their", "will", "other",
+            "about", "many", "then", "them", "these", "some", "would",
+            "make", "like", "into", "could", "time", "very", "when",
+            "come", "made", "after", "back", "only", "just", "being",
+            "over", "also", "than", "much", "down", "should", "were",
+            "what", "your", "more", "there", "first", "where", "those",
+            "still", "here", "through", "while", "before", "between",
+            "under", "never", "every", "because", "another",
+            // File & ingestion noise words
+            "txt", "file", "doc", "docs", "test", "tests", "src", "main",
+            "java", "class", "chunk", "part", "multipart", "uploaded",
+            "textchunk", "mdchunk", "index", "data", "temp", "tmp"
+    );
+
+    @Override
+    public String[] extract(String id, String text) {
+        Set<String> tags = new LinkedHashSet<>(); // preserve insertion order, deduplicate
+
+        // Phase 1: Path-based tags from document ID
+        extractPathTags(id, tags);
+        int pathTagCount = tags.size();
+
+        // Phase 2: Content-based significant words
+        if (tags.size() < MAX_TAGS && text != null && !text.isBlank()) {
+            extractContentTags(text, tags);
+        }
+        int contentTagCount = tags.size() - pathTagCount;
+
+        // Cap at MAX_TAGS
+        String[] result = tags.stream().limit(MAX_TAGS).toArray(String[]::new);
+
+        String truncId = id != null && id.length() > 60
+                ? "..." + id.substring(id.length() - 57) : id;
+        log.info("[TagExtract] Content extracted {} tags for '{}' (path={}, content={}): [{}]",
+                result.length, truncId, pathTagCount, contentTagCount,
+                String.join(", ", result));
+
+        return result;
+    }
+
+    /**
+     * Extracts tags from document ID path segments.
+     * Strips chunk suffixes and file extensions before splitting.
+     * Preserves hyphens in compound terms.
+     * E.g., "stories/auth/login-flow.txt::chunk-2" → ["stories", "auth", "login-flow"]
+     */
+    private void extractPathTags(String id, Set<String> tags) {
+        if (id == null) return;
+
+        // Strip chunk suffix (e.g., "::chunk-0", "#chunk-3") — internal ingestion artifact
+        String cleanId = CHUNK_SUFFIX.matcher(id).replaceAll("");
+
+        // Strip file extension (e.g., ".md", ".txt") — not meaningful as a tag
+        cleanId = FILE_EXTENSION.matcher(cleanId).replaceAll("");
+
+        String[] parts = PATH_SPLIT_PATTERN.split(cleanId);
+        for (String part : parts) {
+            String clean = TAG_CLEAN.matcher(part.toLowerCase(Locale.ROOT)).replaceAll("");
+            clean = trimSeparators(clean); // trim leading/trailing - _
+            // Skip pure-numeric tokens (chunk indices, temp file IDs, etc.)
+            if (clean.length() > 2 && !STOP_WORDS.contains(clean) && !NUMERIC_ONLY.matcher(clean).matches()) {
+                tags.add(clean);
+            }
+        }
+    }
+
+    /**
+     * Extracts significant keywords from the beginning of the text content.
+     * Preserves hyphens in compound terms ("fault-tolerant", "multi-tenant")
+     * and underscores in identifiers ("DATE_TIME", "WORKS_AT").
+     * Selects longer words first (typically more specific/meaningful).
+     */
+    private void extractContentTags(String text, Set<String> tags) {
+        String prefix = text.length() > CONTENT_SCAN_CHARS
+                ? text.substring(0, CONTENT_SCAN_CHARS) : text;
+
+        String[] words = CONTENT_SPLIT_PATTERN.split(prefix.toLowerCase(Locale.ROOT));
+        List<String> candidates = new ArrayList<>();
+
+        for (String word : words) {
+            // Split camelCase/PascalCase into hyphenated segments BEFORE lowercasing.
+            // e.g., "WhatsAppTelegram" → "Whats-App-Telegram" → "whats-app-telegram"
+            String split = CAMEL_CASE_SPLIT.matcher(word).replaceAll("-");
+            String clean = TAG_CLEAN.matcher(split.toLowerCase(Locale.ROOT)).replaceAll("");
+            clean = trimSeparators(clean); // trim leading/trailing - _
+            // Skip pure-numeric tokens and stop words
+            if (clean.length() > 4 && !STOP_WORDS.contains(clean) && !tags.contains(clean)
+                    && !NUMERIC_ONLY.matcher(clean).matches()) {
+                candidates.add(clean);
+            }
+        }
+
+        // Sort by length descending — longer words are more specific
+        candidates.sort((a, b) -> Integer.compare(b.length(), a.length()));
+
+        // Deduplicate and take top N
+        int added = 0;
+        Set<String> seen = new LinkedHashSet<>();
+        for (String c : candidates) {
+            if (seen.add(c) && tags.add(c)) {
+                added++;
+                if (added >= MAX_CONTENT_TAGS) break;
+            }
+        }
+    }
+
+    private static String trimSeparators(String s) {
+        int start = 0;
+        int end = s.length();
+        while (start < end && (s.charAt(start) == '-' || s.charAt(start) == '_')) {
+            start++;
+        }
+        while (end > start && (s.charAt(end - 1) == '-' || s.charAt(end - 1) == '_')) {
+            end--;
+        }
+        return s.substring(start, end);
+    }
+}

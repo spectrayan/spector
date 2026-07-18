@@ -1,0 +1,12 @@
+{"memoryIdA":"mem-001","memoryIdB":"mem-002","coActivationCount":5}
+{"memoryIdA":"mem-002","memoryIdB":"mem-003","coActivationCount":3}
+{"memoryIdA":"mem-003","memoryIdB":"mem-004","coActivationCount":7}
+{"memoryIdA":"mem-005","memoryIdB":"mem-010","coActivationCount":8}
+{"memoryIdA":"mem-006","memoryIdB":"mem-008","coActivationCount":6}
+{"memoryIdA":"mem-007","memoryIdB":"mem-009","coActivationCount":4}
+{"memoryIdA":"mem-023","memoryIdB":"mem-026","coActivationCount":9}
+{"memoryIdA":"mem-011","memoryIdB":"mem-036","coActivationCount":5}
+{"memoryIdA":"mem-035","memoryIdB":"mem-038","coActivationCount":10}
+{"memoryIdA":"mem-013","memoryIdB":"mem-018","coActivationCount":4}
+{"memoryIdA":"mem-027","memoryIdB":"mem-031","coActivationCount":6}
+{"memoryIdA":"mem-042","memoryIdB":"mem-046","coActivationCount":7}

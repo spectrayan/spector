@@ -1,3 +1,8 @@
+---
+title: "Spector FAQ — Frequently Asked Questions"
+description: "Common questions about Spector: deployment, MCP integration, performance tuning, cognitive memory, Java compatibility, and comparison with other vector databases."
+---
+
 # ❓ FAQ
 
 > **Quick answers to the most common questions about Spector.** Can't find what you're looking for? Check [GitHub Discussions](https://github.com/spectrayan/spector/discussions) or the specific wiki pages linked throughout.
@@ -211,7 +216,7 @@ java \
   --enable-native-access=ALL-UNNAMED \
   -XX:+UseZGC -XX:+ZGenerational \
   -Xmx4g -Xms4g \
-  -jar spector-node.jar
+  -jar spector.jar
 ```
 
 ---
@@ -233,8 +238,11 @@ java \
 **Yes.** Set an API key at server startup:
 
 ```bash
-mvn exec:java -pl spector-node \
-  -Dexec.args="7070 384 my-secret-key"
+# via environment variable
+SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-boot:run
+
+# or via Spring Boot argument
+mvn -Psynapse -pl synapse/spector-synapse spring-boot:run -- --spector.api-key=my-secret-key
 ```
 
 Clients include `X-API-Key: my-secret-key` in requests. Without a key configured, all requests are allowed.

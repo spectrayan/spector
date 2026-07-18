@@ -1,6 +1,6 @@
-﻿# ðŸŽ¯ Use Cases & Configuration Guide
+# 🎯 Use Cases & Configuration Guide
 
-Practical recipes for configuring Spector Memory across real-world scenarios. Each use case shows the **profile**, **knobs**, and **code** you need â€” both via the Java API and the MCP tool interface.
+Practical recipes for configuring Spector Memory across real-world scenarios. Each use case shows the **profile**, **knobs**, and **code** you need — both via the Java API and the MCP tool interface.
 
 ---
 
@@ -8,7 +8,7 @@ Practical recipes for configuring Spector Memory across real-world scenarios. Ea
 
 | I want to... | Profile | Key Knobs |
 |:---|:---|:---|
-| General-purpose recall | `BALANCED` | Default â€” no config needed |
+| General-purpose recall | `BALANCED` | Default — no config needed |
 | Find creative connections | `EXPLORING` | `topK=20` for broader discovery |
 | Debug an error | `DEBUGGING` | Negative valence filter auto-applied |
 | Retrieve proven solutions | `RECALLING` | Positive valence filter auto-applied |
@@ -23,29 +23,29 @@ Practical recipes for configuring Spector Memory across real-world scenarios. Ea
 
 ---
 
-## Use Case 1: Personal Assistant â€” Daily Journaling
+## Use Case 1: Personal Assistant — Daily Journaling
 
 **Scenario:** A user journals daily. The assistant should remember preferences, recall emotional memories when appropriate, and let transient details fade naturally.
 
 ### Ingestion
 
 ```java
-// Important life event â€” high arousal ensures slow decay
+// Important life event — high arousal ensures slow decay
 memory.remember("mem-wedding", "Married Sarah on June 15, 2024 at the beach",
     MemoryType.EPISODIC, MemorySource.USER_STATED,
     IngestionHints.builder()
         .interest(1.0f).urgency(0.2f).challenge(0.1f)
         .valence((byte) 120)    // very positive
-        .arousal((byte) 200)    // high arousal â†’ extreme decay resistance
+        .arousal((byte) 200)    // high arousal → extreme decay resistance
         .build(),
     "family", "wedding", "sarah");
 
-// Transient detail â€” will naturally decay
+// Transient detail — will naturally decay
 memory.remember("mem-coffee", "User wanted oat milk latte at 3pm",
     MemoryType.EPISODIC, MemorySource.OBSERVED,
     "preference", "coffee");
 
-// Permanent fact â€” pin it
+// Permanent fact — pin it
 memory.remember("mem-daughter-bday", "Daughter Emma's birthday is March 15",
     MemoryType.SEMANTIC, MemorySource.USER_STATED,
     "family", "emma", "birthday");
@@ -78,11 +78,14 @@ var results = memory.recall("happy family memories",
 }
 ```
 
-**What happens:** `RECALLING` filters to valence â‰¥ +10, so only positive memories surface. The wedding (valence=+120, high arousal) will score highest because importance Ã— decay resistance is maximized. The coffee preference (low importance, no family tag) is invisible.
+**What happens:** `RECALLING` filters to valence ≥ +10, so only positive memories surface. The wedding (valence=+120, high arousal) will score highest because importance × decay resistance is maximized. The coffee preference (low importance, no family tag) is invisible.
+
+!!! tip "Personalize with Salience Profiles"
+    Configure a [salience profile](salience-importance.md) with `"family"` as a `CRITICAL` interest and `"meeting notes"` as an `IGNORE` disinterest. All family-related memories will automatically receive 2× importance boost at ingestion time — no need to set high arousal manually on every entry.
 
 ---
 
-## Use Case 2: Coding Agent â€” Debugging a Production Issue
+## Use Case 2: Coding Agent — Debugging a Production Issue
 
 **Scenario:** An AI coding agent encounters a database timeout. It needs to recall past failures, not past successes.
 
@@ -111,9 +114,9 @@ var results = memory.recall("database connection timeout",
 }
 ```
 
-**What happens:** `DEBUGGING` sets valence â‰¤ -10, so only negative-outcome memories surface. The Bloom filter pre-screens for `database` + `error` tags. Recent failures score higher (Î²=0.7 importance-dominated).
+**What happens:** `DEBUGGING` sets valence ≤ -10, so only negative-outcome memories surface. The Bloom filter pre-screens for `database` + `error` tags. Recent failures score higher (β=0.7 importance-dominated).
 
-### When the bug is fixed â€” reinforce the solution
+### When the bug is fixed — reinforce the solution
 
 ```java
 memory.reinforce("mem-timeout-fix", (byte) 80);  // positive outcome
@@ -123,7 +126,7 @@ Next time a similar timeout occurs, the fix memory has positive valence and will
 
 ---
 
-## Use Case 3: Security Auditor â€” Threat Hunting
+## Use Case 3: Security Auditor — Threat Hunting
 
 **Scenario:** An SRE agent needs to surface only threats, vulnerabilities, and past incidents.
 
@@ -146,11 +149,11 @@ var results = memory.recall("deployment configuration",
 }
 ```
 
-**What happens:** Only memories with negative valence surface. The query valence is set to -128 (maximum threat), triggering mood-congruent recall amplification. A `BALANCED` query for "deployment configuration" would return general docs â€” `PARANOID_SENTINEL` returns only the config-related incidents.
+**What happens:** Only memories with negative valence surface. The query valence is set to -128 (maximum threat), triggering mood-congruent recall amplification. A `BALANCED` query for "deployment configuration" would return general docs — `PARANOID_SENTINEL` returns only the config-related incidents.
 
 ---
 
-## Use Case 4: Research Agent â€” Deep-Dive with Hyperfocus
+## Use Case 4: Research Agent — Deep-Dive with Hyperfocus
 
 **Scenario:** Agent identifies "database deadlock" as the core topic and needs absolute depth, ignoring time decay.
 
@@ -179,11 +182,11 @@ var results = memory.recall("database deadlock resolution",
 }
 ```
 
-**What happens:** `HYPERFOCUS` sets Î±=1.0 (pure similarity), Î²=0.0 (no importance Ã— decay). Time ceases to matter â€” a 6-month-old deadlock analysis scores as if it was just written. The `hyperfocusMask` acts as a strict equality gate: only memories with **both** `database` AND `deadlock` tags pass.
+**What happens:** `HYPERFOCUS` sets α=1.0 (pure similarity), β=0.0 (no importance × decay). Time ceases to matter — a 6-month-old deadlock analysis scores as if it was just written. The `hyperfocusMask` acts as a strict equality gate: only memories with **both** `database` AND `deadlock` tags pass.
 
 ---
 
-## Use Case 5: Creative Agent â€” Cross-Domain Innovation
+## Use Case 5: Creative Agent — Cross-Domain Innovation
 
 **Scenario:** Agent is stuck on a performance problem. Use lateral retrieval to find unexpected connections.
 
@@ -212,21 +215,21 @@ var results = memory.recall("optimize query throughput",
 }
 ```
 
-**What happens:** `DIVERGENT` enables lateral retrieval â€” the dual-heap system finds memories that are **tag-matched but semantically distant**. You might query about "query throughput" and get a memory about "batching HTTP requests" that shares the `performance` tag but is semantically unrelated. These cross-domain insights are the engine of innovation.
+**What happens:** `DIVERGENT` enables lateral retrieval — the dual-heap system finds memories that are **tag-matched but semantically distant**. You might query about "query throughput" and get a memory about "batching HTTP requests" that shares the `performance` tag but is semantically unrelated. These cross-domain insights are the engine of innovation.
 
 **Result metadata tells you which results are lateral:**
 
 ```java
 for (CognitiveResult r : results) {
     if (r.isLateral()) {
-        System.out.println("ðŸ’¡ Lateral insight: " + r.text());
+        System.out.println("💡 Lateral insight: " + r.text());
     }
 }
 ```
 
 ---
 
-## Use Case 6: Task Runner â€” Precise Execution with Zeigarnik Effect
+## Use Case 6: Task Runner — Precise Execution with Zeigarnik Effect
 
 **Scenario:** A Devin-style agent executing a multi-step task. Needs strict matching and unresolved task tracking.
 
@@ -247,7 +250,7 @@ var results = memory.recall("deployment tasks",
     CognitiveProfile.THE_EXECUTOR);
 ```
 
-**What happens:** `THE_EXECUTOR` uses Heaviside Cliff scoring (strictness=10.0) â€” only near-exact matches survive. Lateral retrieval is disabled. The unresolved task (`task-deploy`) has its decay clamped to 0, so it floats to the top regardless of age.
+**What happens:** `THE_EXECUTOR` uses Heaviside Cliff scoring (strictness=10.0) — only near-exact matches survive. Lateral retrieval is disabled. The unresolved task (`task-deploy`) has its decay clamped to 0, so it floats to the top regardless of age.
 
 ### Complete the task
 
@@ -257,9 +260,9 @@ memory.markResolved("task-deploy");  // Now decays normally
 
 ---
 
-## Use Case 7: Read-Only Analysis â€” OBSERVE Mode
+## Use Case 7: Read-Only Analysis — OBSERVE Mode
 
-**Scenario:** You want to query memories without any side effects â€” no LTP reinforcement, no habituation updates, no Hebbian co-activation.
+**Scenario:** You want to query memories without any side effects — no LTP reinforcement, no habituation updates, no Hebbian co-activation.
 
 **Java API:**
 
@@ -269,7 +272,7 @@ var results = memory.recall("project architecture",
         .recallMode(RecallMode.OBSERVE)
         .topK(10)
         .build());
-// Same query always returns the same results â€” no state changes
+// Same query always returns the same results — no state changes
 ```
 
 **MCP Tool:**
@@ -406,14 +409,14 @@ DefaultSpectorMemory.builder()
 
 ```java
 GraphScoringPolicy policy = new GraphScoringPolicy(
-    0.3f,   // causalBoostWeight     â€” STDP causal boost
-    0.3f,   // hebbianBoostFactor    â€” spreading activation
-    0.8f,   // temporalForwardFactor â€” forward chain attenuation
-    0.7f,   // temporalBackwardFactor â€” backward chain attenuation
-    0.25f,  // entityHopAttenuation  â€” per-hop decay for entity traversal
-    2,      // hebbianMaxDepth       â€” max hops in Hebbian graph
-    3,      // temporalMaxHops       â€” max hops in temporal chain
-    2       // entityMaxHops         â€” max hops in entity BFS
+    0.3f,   // causalBoostWeight     — STDP causal boost
+    0.3f,   // hebbianBoostFactor    — spreading activation
+    0.8f,   // temporalForwardFactor — forward chain attenuation
+    0.7f,   // temporalBackwardFactor — backward chain attenuation
+    0.25f,  // entityHopAttenuation  — per-hop decay for entity traversal
+    2,      // hebbianMaxDepth       — max hops in Hebbian graph
+    3,      // temporalMaxHops       — max hops in temporal chain
+    2       // entityMaxHops         — max hops in entity BFS
 );
 
 DefaultSpectorMemory.builder()
@@ -423,7 +426,7 @@ DefaultSpectorMemory.builder()
 
 ---
 
-## MCP Tool Reference â€” Quick List
+## MCP Tool Reference — Quick List
 
 | Tool | Purpose |
 |:---|:---|
@@ -441,11 +444,64 @@ DefaultSpectorMemory.builder()
 
 ---
 
+## Use Case 9: Enterprise Multi-Tenant — Per-User Namespace Isolation
+
+**Scenario:** A healthcare SaaS platform deploys Spector for multiple hospital tenants. Each tenant has multiple users (doctors, nurses, admins) with completely isolated memory stores and different salience profiles.
+
+### Architecture
+
+Each user gets a physically separate namespace with its own files, encryption keys, and memory instance:
+
+```
+/data/namespaces/
+├── tenant-hospital-a/
+│   ├── dr-smith/          ← Own .mem, text.dat, WAL, DEK
+│   ├── dr-jones/          ← Completely separate files
+│   └── shared-knowledge/  ← Team-wide reference data
+├── tenant-hospital-b/
+│   └── ...                ← Different encryption keys entirely
+```
+
+### Tenant Salience Profile
+
+The tenant admin configures org-wide importance rules:
+
+```json
+{
+  "interests": [
+    { "topic": "patient safety", "level": "CRITICAL" },
+    { "topic": "HIPAA compliance", "level": "HIGH" }
+  ],
+  "disinterests": [
+    { "topic": "administrative overhead", "level": "LOW" }
+  ],
+  "persona": {
+    "valenceBias": -20,
+    "arousalSensitivity": 1.5
+  },
+  "policy": "ADDITIVE_TOPICS"
+}
+```
+
+Individual doctors can add their own specialty interests (e.g., "cardiology" for Dr. Smith) which merge additively with the tenant profile. The tenant's `CRITICAL` interest in "patient safety" is locked and cannot be overridden.
+
+**What happens:** When Dr. Smith ingests a new patient case note mentioning a medication interaction, the note receives:
+
+1. **Base importance** from novelty detection (surprise detector)
+2. **2× boost** from tenant's "patient safety" CRITICAL interest
+3. **Pessimistic valence bias** (-20) amplifies the negative signal (potential adverse reaction)
+4. All stored in Dr. Smith's private namespace with Dr. Smith's DEK
+
+Dr. Jones querying the same hospital's Spector instance **cannot see Dr. Smith's memories** — separate files, separate keys, separate mmap segments.
+
+---
+
 ## What's Next
 
-- [Cognitive Profiles](cognitive-profiles.md) â€” Deep dive on all 12 profiles with biological analogs
-- [Scoring Pipeline](scoring-pipeline.md) â€” The 6-phase SIMD scoring engine
-- [Hebbian Association](hebbian.md) â€” Co-activation learning and spreading activation
-- [Lateral Retrieval](lateral-retrieval.md) â€” Cross-domain dual-heap mechanics
-- [API Reference](api-reference.md) â€” Full Java API documentation
-
+- [Cognitive Profiles](cognitive-profiles.md) — Deep dive on all 12 profiles with biological analogs
+- [Salience & Persona Profiles](salience-importance.md) — Personalized importance with persona-based modulation
+- [Scoring Pipeline](scoring-pipeline.md) — The 6-phase SIMD scoring engine
+- [Hebbian Association](hebbian.md) — Co-activation learning and spreading activation
+- [Lateral Retrieval](lateral-retrieval.md) — Cross-domain dual-heap mechanics
+- [Encryption at Rest](../architecture/encryption-at-rest.md) — Per-tenant/per-user encryption architecture
+- [API Reference](api-reference.md) — Full Java API documentation

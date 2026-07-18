@@ -1,88 +1,194 @@
 ---
-description: End-to-end process for preparing a Spector release — test verification, changelog, version bump, docs, and tagging.
+description: End-to-end release process for Spector Core — pre-flight checks, version bump, publishing, and tagging.
 ---
 
 # Workflow: Release Preparation
 
-End-to-end process for preparing a Spector release — test verification, changelog, version bump, docs, and tagging.
+End-to-end process for preparing a Spector Core release.
+
+## Version Scheme
+
+```
+<major>.<minor>.<patch>[-<qualifier>]
+
+Qualifiers (pre-release):
+  1.0.0-M1      Milestone (early preview, breaking changes expected)
+  1.0.0-RC1     Release Candidate (feature-complete, bug fixes only)
+  1.0.0         GA (General Availability)
+
+Post-GA:
+  1.0.1         Patch (bugfix, no new features)
+  1.1.0         Minor (new features, backward compatible)
+  2.0.0         Major (breaking changes)
+
+Development:
+  1.1.0-SNAPSHOT   Next development version (never released)
+```
 
 ## Trigger
 
-When preparing for a tagged release or the user requests release preparation.
+When preparing for a tagged release, or the user invokes `/release-prep`.
 
-## Steps
+---
 
-### 1. Test Gap Analysis
+## Pre-Flight
 
-Identify modules with missing test coverage:
+### Step 1: Verify Clean Working Tree
 
-```bash
-# Count production vs test files per module
-for dir in spector-*/; do
-  main=$(find "$dir/src/main" -name "*.java" 2>/dev/null | wc -l)
-  test=$(find "$dir/src/test" -name "*.java" 2>/dev/null | wc -l)
-  echo "$dir main=$main test=$test"
-done
+```powershell
+git status --porcelain
+# Must be clean or only expected changes
 ```
 
-Flag critical gaps (0 tests in production modules).
+### Step 2: Decide Release Version
 
-### 2. Full Build
+```powershell
+git log --oneline (git describe --tags --abbrev=0)..HEAD | Select-Object -First 20
+```
 
-```bash
-mvn clean install
+| Changes since last tag | Version bump |
+|------------------------|-------------|
+| Breaking API changes | Major (2.0.0) |
+| New features | Minor (1.1.0) |
+| Bug fixes only | Patch (1.0.1) |
+
+### Step 3: Full Build
+
+```powershell
+mvn -B clean install --no-transfer-progress
 ```
 
 All tests must pass. Zero tolerance for failures.
 
-### 3. Dependency Audit
+### Step 4: SNAPSHOT Dependency Audit
 
-```bash
-# Check for circular dependencies
-grep -rn "import com.spectrayan.spector.engine" spector-memory/src/
-grep -rn "import com.spectrayan.spector.memory" spector-engine/src/
-
-# Verify no SNAPSHOT dependencies in release
-grep -rn "SNAPSHOT" spector-*/pom.xml
+```powershell
+mvn -B dependency:tree --no-transfer-progress 2>&1 |
+  Select-String "SNAPSHOT" | Select-String -NotMatch "com.spectrayan"
 ```
 
-### 4. Generate Changelog
+If any external SNAPSHOT deps are found, the release MUST NOT proceed.
 
-From commit history since last tag:
+### Step 5: Circular Dependency Check
 
-```bash
-git log --oneline $(git describe --tags --abbrev=0)..HEAD
+```powershell
+Select-String -Path "spector-engine/src/main/java/**/*.java" -Pattern "import com.spectrayan.spector.memory" -Recurse
+Select-String -Path "spector-memory/src/main/java/**/*.java" -Pattern "import com.spectrayan.spector.engine" -Recurse
 ```
 
-Group entries by type:
-- **Added** — `feat:` commits
-- **Changed** — `refactor:` commits
-- **Fixed** — `fix:` commits
-- **Performance** — `perf:` commits
-- **Removed** — deletion commits
+### Step 6: License Header Check
 
-Prepend to `CHANGELOG.md` with version header and date.
-
-### 5. Version Bump
-
-Update version in root `pom.xml` (child POMs inherit via parent).
-
-### 6. Update Roadmap
-
-Use update-roadmap skill to mark completed features as done.
-
-### 7. Docs Verification
-
-```bash
-cd docs && python -m mkdocs build --clean
+```powershell
+mvn -B license:check --no-transfer-progress
 ```
 
-Zero warnings for controlled files.
+---
 
-### 8. Tag & Commit
+## Version Bump & Changelog
 
-```bash
+### Step 7: Set Release Version
+
+The `<revision>` property in the root `pom.xml` is the single source of truth.
+
+```powershell
+$RELEASE_VERSION = "1.1.0"
+
+(Get-Content pom.xml) -replace '<revision>[^<]+</revision>', "<revision>$RELEASE_VERSION</revision>" |
+  Set-Content pom.xml
+```
+
+Verify:
+```powershell
+mvn -B help:evaluate -Dexpression=project.version -q -DforceStdout
+# Should print: 1.1.0
+```
+
+### Step 8: Generate Changelog
+
+```powershell
+git log --oneline (git describe --tags --abbrev=0)..HEAD
+```
+
+Group by conventional commit type and prepend to `CHANGELOG.md`:
+```markdown
+## [1.1.0] - 2026-06-17
+### Added
+- ...
+### Fixed
+- ...
+```
+
+---
+
+## Publish
+
+### Step 9: Release Build
+
+```powershell
+# GitHub Packages
+mvn -B clean deploy --no-transfer-progress `
+  -Prelease `
+  -Dmaven.deploy.skip=false `
+  -DaltDeploymentRepository="github::https://maven.pkg.github.com/spectrayan/spector"
+```
+
+For Maven Central:
+```powershell
+mvn -B clean deploy --no-transfer-progress `
+  -Prelease `
+  -Dmaven.deploy.skip=false
+# central-publishing-maven-plugin handles Sonatype staging
+```
+
+### Step 10: Verify Published Artifacts
+
+```powershell
+Select-String -Path "spector-commons/.flattened-pom.xml" -Pattern "version"
+# Should show the release version, NOT ${revision}
+```
+
+---
+
+## Tag & Next Version
+
+### Step 11: Commit, Tag, and Bump
+
+```powershell
+$NEXT_VERSION = "1.2.0-SNAPSHOT"
+
+# Commit release
 git add -A
-git commit -m "chore: prepare release v{version}"
-git tag -a v{version} -m "Release v{version}"
+git commit -m "chore: release $RELEASE_VERSION"
+git tag -a "v$RELEASE_VERSION" -m "Release $RELEASE_VERSION"
+
+# Bump to next SNAPSHOT
+(Get-Content pom.xml) -replace '<revision>[^<]+</revision>', "<revision>$NEXT_VERSION</revision>" |
+  Set-Content pom.xml
+git add pom.xml
+git commit -m "chore: prepare $NEXT_VERSION development"
+
+# Push
+git push origin main --tags
 ```
+
+### Step 12: Create GitHub Release
+
+```powershell
+gh release create "v$RELEASE_VERSION" `
+  --title "Spector $RELEASE_VERSION" `
+  --notes-file CHANGELOG.md
+```
+
+---
+
+## Rollback
+
+```powershell
+git tag -d "v$RELEASE_VERSION"
+git push origin --delete "v$RELEASE_VERSION"
+git revert HEAD~1   # revert SNAPSHOT bump
+git revert HEAD~1   # revert release commit
+git push origin main
+```
+
+GitHub Packages does NOT support deletion of published versions. Publish a patch instead.

@@ -1,0 +1,284 @@
+<div class="control-center-page">
+  <h1 class="page-title">
+    <mat-icon>dashboard_customize</mat-icon>
+    Enterprise Control Center
+  </h1>
+
+  <mat-tab-group animationDuration="300ms">
+    <!-- ── Agents Tab ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon>smart_toy</mat-icon>
+        <span>Agents</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <!-- Register Form -->
+        <mat-card appearance="outlined" class="form-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>person_add</mat-icon>
+            <mat-card-title>Register New Agent</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="name-field">
+                <mat-label>Agent Name</mat-label>
+                <input matInput
+                       [ngModel]="agentName()"
+                       (ngModelChange)="agentName.set($event)"
+                       placeholder="e.g., coder-agent" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="scopes-field">
+                <mat-label>Scopes (comma-separated)</mat-label>
+                <input matInput
+                       [ngModel]="agentScopes()"
+                       (ngModelChange)="agentScopes.set($event)"
+                       placeholder="e.g., code/*, memory/*" />
+              </mat-form-field>
+            </div>
+
+            <mat-form-field appearance="outline" class="desc-field">
+              <mat-label>Description</mat-label>
+              <input matInput
+                     [ngModel]="agentDescription()"
+                     (ngModelChange)="agentDescription.set($event)"
+                     placeholder="Optional description..." />
+            </mat-form-field>
+          </mat-card-content>
+          <mat-card-actions>
+            <button mat-flat-button color="primary"
+                    (click)="registerAgent()"
+                    [disabled]="registering() || !agentName().trim()">
+              @if (registering()) {
+                <mat-spinner diameter="20" />
+              } @else {
+                <mat-icon>add</mat-icon>
+              }
+              Register Agent
+            </button>
+          </mat-card-actions>
+        </mat-card>
+
+        <!-- Agent List -->
+        <h3 class="list-title">
+          Registered Agents ({{ agents().length }})
+          <button mat-icon-button (click)="loadAgents()" matTooltip="Refresh">
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </h3>
+
+        @if (agentsLoading()) {
+          <div class="loading-row">
+            <mat-spinner diameter="24" />
+            <span>Loading agents...</span>
+          </div>
+        } @else if (agents().length > 0) {
+          <div class="item-grid">
+            @for (agent of agents(); track agent.agentId) {
+              <mat-card appearance="outlined" class="item-card">
+                <mat-card-content>
+                  <div class="item-header">
+                    <mat-icon class="agent-icon">smart_toy</mat-icon>
+                    <div>
+                      <span class="item-name">{{ agent.name }}</span>
+                      <span class="item-id">{{ agent.agentId }}</span>
+                    </div>
+                  </div>
+                  @if (agent.description) {
+                    <p class="item-desc">{{ agent.description }}</p>
+                  }
+                  <mat-chip-set class="scope-chips">
+                    @for (scope of agent.scopes; track scope) {
+                      <mat-chip>{{ scope }}</mat-chip>
+                    }
+                  </mat-chip-set>
+                  <span class="item-time">Registered {{ formatTimestamp(agent.createdAt) }}</span>
+                </mat-card-content>
+              </mat-card>
+            }
+          </div>
+        } @else {
+          <mat-card appearance="outlined" class="empty-card">
+            <mat-card-content>
+              <mat-icon>smart_toy</mat-icon>
+              <p>No agents registered. Create your first agent above.</p>
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+    </mat-tab>
+
+    <!-- ── Workspaces Tab ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon>workspaces</mat-icon>
+        <span>Workspaces</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <mat-card appearance="outlined" class="form-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>add_box</mat-icon>
+            <mat-card-title>Create Workspace</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="form-row">
+              <mat-form-field appearance="outline" class="name-field">
+                <mat-label>Workspace Name</mat-label>
+                <input matInput
+                       [ngModel]="wsName()"
+                       (ngModelChange)="wsName.set($event)"
+                       placeholder="e.g., project-alpha" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="desc-field">
+                <mat-label>Description</mat-label>
+                <input matInput
+                       [ngModel]="wsDescription()"
+                       (ngModelChange)="wsDescription.set($event)"
+                       placeholder="Optional..." />
+              </mat-form-field>
+            </div>
+          </mat-card-content>
+          <mat-card-actions>
+            <button mat-flat-button color="primary"
+                    (click)="createWorkspace()"
+                    [disabled]="creatingWs() || !wsName().trim()">
+              @if (creatingWs()) {
+                <mat-spinner diameter="20" />
+              } @else {
+                <mat-icon>add</mat-icon>
+              }
+              Create Workspace
+            </button>
+          </mat-card-actions>
+        </mat-card>
+
+        <h3 class="list-title">
+          Workspaces ({{ workspaces().length }})
+          <button mat-icon-button (click)="loadWorkspaces()" matTooltip="Refresh">
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </h3>
+
+        @if (workspacesLoading()) {
+          <div class="loading-row">
+            <mat-spinner diameter="24" />
+            <span>Loading workspaces...</span>
+          </div>
+        } @else if (workspaces().length > 0) {
+          <div class="item-grid">
+            @for (ws of workspaces(); track ws.workspaceId) {
+              <mat-card appearance="outlined" class="item-card">
+                <mat-card-content>
+                  <div class="item-header">
+                    <mat-icon class="ws-icon">workspaces</mat-icon>
+                    <div>
+                      <span class="item-name">{{ ws.name }}</span>
+                      <span class="item-id">{{ ws.workspaceId }}</span>
+                    </div>
+                  </div>
+                  @if (ws.description) {
+                    <p class="item-desc">{{ ws.description }}</p>
+                  }
+                  <span class="item-time">
+                    Owner: {{ ws.ownerId }} · Created {{ formatTimestamp(ws.createdAt) }}
+                  </span>
+                </mat-card-content>
+              </mat-card>
+            }
+          </div>
+        } @else {
+          <mat-card appearance="outlined" class="empty-card">
+            <mat-card-content>
+              <mat-icon>workspaces</mat-icon>
+              <p>No workspaces yet. Create one to start collaborating.</p>
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+    </mat-tab>
+
+    <!-- ── Benchmarks Tab ── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon>speed</mat-icon>
+        <span>Benchmarks</span>
+      </ng-template>
+
+      <div class="tab-content">
+        <h3 class="list-title">
+          Benchmark Suites ({{ suites().length }})
+          <button mat-icon-button (click)="loadSuites()" matTooltip="Refresh">
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </h3>
+
+        @if (suitesLoading()) {
+          <div class="loading-row">
+            <mat-spinner diameter="24" />
+            <span>Loading benchmark suites...</span>
+          </div>
+        } @else {
+          <div class="benchmark-grid">
+            @for (suite of suites(); track suite.id) {
+              <mat-card appearance="outlined" class="benchmark-card">
+                <mat-card-content>
+                  <div class="bench-header">
+                    <mat-icon class="bench-icon">{{ getSuiteIcon(suite.id) }}</mat-icon>
+                    <div>
+                      <span class="bench-name">{{ suite.name }}</span>
+                      <span class="bench-desc">{{ suite.description }}</span>
+                    </div>
+                  </div>
+                  <span class="bench-est">~{{ suite.estimatedDurationSec }}s</span>
+                </mat-card-content>
+                <mat-card-actions>
+                  <button mat-flat-button color="primary"
+                          (click)="runBenchmark(suite.id)"
+                          [disabled]="benchmarkRunning() !== null">
+                    @if (benchmarkRunning() === suite.id) {
+                      <mat-spinner diameter="20" />
+                      Running...
+                    } @else {
+                      <mat-icon>play_arrow</mat-icon>
+                      Run
+                    }
+                  </button>
+                </mat-card-actions>
+              </mat-card>
+            }
+          </div>
+        }
+
+        <!-- Benchmark Results -->
+        @if (benchmarkResult(); as result) {
+          <mat-card appearance="outlined" class="result-card">
+            <mat-card-header>
+              <mat-icon mat-card-avatar>assessment</mat-icon>
+              <mat-card-title>Results: {{ result.suiteId }}</mat-card-title>
+              <mat-card-subtitle>Completed in {{ result.durationMs }}ms</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="results-grid">
+                @for (entry of result.results | keyvalue; track entry.key) {
+                  <div class="result-item">
+                    <span class="result-key">{{ entry.key }}</span>
+                    <span class="result-value">
+                      @if (entry.value !== null && entry.value !== undefined) {
+                        {{ entry.value }}
+                      } @else {
+                        —
+                      }
+                    </span>
+                  </div>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

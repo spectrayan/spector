@@ -1,0 +1,106 @@
+# ─────────────────────────────────────────────────────────────
+# Spector Synapse — Configuration
+# ─────────────────────────────────────────────────────────────
+# All settings can be overridden via environment variables:
+#   SPECTOR_PORT=7070
+#   SPECTOR_API_KEY=your-secret-key
+#   SPECTOR_DATA_DIR=./spector-data
+#   SPECTOR_OLLAMA_BASE_URL=http://localhost:11434
+# ─────────────────────────────────────────────────────────────
+
+spector:
+  port: ${SPECTOR_PORT:7070}
+  api-key: ${SPECTOR_API_KEY:spector-dev-key}
+  data-dir: ${SPECTOR_DATA_DIR:./spector-data}
+
+  # ── Feature Flags (v0.1.0-alpha) ──
+  # Internal-only flags. Users cannot toggle from UI.
+  # LLM-dependent features auto-enable when Ollama is detected.
+  features:
+    chat-enabled: ${SPECTOR_CHAT_ENABLED:false}
+    agent-chat-enabled: ${SPECTOR_AGENT_CHAT_ENABLED:false}
+    agent-workspaces-enabled: ${SPECTOR_AGENT_WORKSPACES_ENABLED:false}
+    tag-extraction-enabled: ${SPECTOR_TAG_EXTRACTION_ENABLED:true}
+    entity-extraction-enabled: ${SPECTOR_ENTITY_EXTRACTION_ENABLED:true}
+    reflection-enabled: ${SPECTOR_REFLECTION_ENABLED:true}
+    gpu-acceleration-enabled: ${SPECTOR_GPU_ENABLED:false}
+    cluster-mode-enabled: ${SPECTOR_CLUSTER_ENABLED:false}
+    connectors-enabled: ${SPECTOR_CONNECTORS_ENABLED:false}
+    benchmarks-enabled: ${SPECTOR_BENCHMARKS_ENABLED:false}
+    advanced-visualizations-enabled: true
+    governance-enabled: true
+    mcp-server-enabled: true
+
+  cors:
+    allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200}
+
+  # ── Spector Spring Auto-Configuration ──
+  # SpectorAutoConfiguration (spector-spring module) creates a Spring-managed
+  # SpectorMemory bean — with Micrometer metrics wrapping when an actuator
+  # MeterRegistry is present. Replaces manual DefaultSpectorMemory construction.
+  memory:
+    enabled: true
+    max-memories: ${SPECTOR_MAX_MEMORIES:0}
+    dimensions: ${SPECTOR_DIMENSIONS:768}
+    persistence-mode: DISK
+    persistence-path: ${SPECTOR_DATA_DIR:./spector-data}/cognitive
+    capacity: ${SPECTOR_MAX_MEMORIES:10000}
+    splade-enabled: false   # off until Ollama SPLADE model is available
+    colbert-enabled: false  # off until Ollama ColBERT model is available
+  embedding:
+    model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
+    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+    batch-size: 32
+  ollama:
+    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${SPECTOR_OLLAMA_MODEL:llama3.2}
+    embed-model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
+  metrics:
+    enabled: true           # wrap SpectorMemory with Micrometer via Actuator MeterRegistry
+
+spectrayan:
+  sse:
+    server:
+      enabled: true
+      base-path: /api/v1/events
+
+# ── Server (Armeria) ──
+server:
+  port: ${spector.port}
+
+# ── Spring Boot Actuator ──
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+# ── DataSource (H2 file-based) ──
+spring:
+  application:
+    name: spector-synapse
+  jmx:
+    enabled: false
+
+# ── Logging ──
+logging:
+  level:
+    root: INFO
+    com.spectrayan.spector: DEBUG
+    org.springframework.boot: INFO
+    org.flywaydb: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# ── Application Info ──
+info:
+  app:
+    name: Spector Synapse
+    description: The central nervous system for cognitive memory
+    version: ${revision:0.1.0-alpha}

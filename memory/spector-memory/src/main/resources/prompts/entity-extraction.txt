@@ -1,0 +1,22 @@
+Extract key entities and their relationships from the text below.
+
+Rules:
+1. Format must be exactly one entry per line. Do not write any introduction, explanation, or code blocks.
+2. Entities must use the format: ENTITY: name | TYPE
+3. Relationships must use the format: RELATION: source_name | REL_TYPE | target_name
+4. The source_name and target_name in RELATION MUST exactly match the names of entities defined in the ENTITY lines.
+5. REL_TYPE must be in SCREAMING_SNAKE_CASE (e.g. USES, PART_OF, DEVELOPED_BY).
+6. Max %d entities, %d relations.
+
+Example:
+Input text: "Spector uses the Vector API for SIMD acceleration. It runs on Java 25."
+Output:
+ENTITY: Spector | PROJECT
+ENTITY: Vector API | TECHNOLOGY
+ENTITY: Java 25 | TECHNOLOGY
+RELATION: Spector | USES | Vector API
+RELATION: Spector | RUNS_ON | Java 25
+
+[TEXT_START]
+%s
+[TEXT_END]

@@ -1,0 +1,103 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.spectrayan.spector.storage;
+
+import java.util.Optional;
+
+/**
+ * Abstraction for storing and retrieving dense float vectors by string ID.
+ *
+ * <p>Implementations may use on-heap arrays, off-heap Panama {@code MemorySegment}s,
+ * or memory-mapped files. All implementations must be safe for concurrent reads
+ * from virtual threads when using a shared arena.</p>
+ */
+public interface VectorStore extends AutoCloseable {
+
+    /**
+     * Stores a vector under the given ID, replacing any existing entry.
+     *
+     * @param id     unique identifier for the vector
+     * @param vector the float array (must match the store's configured dimensions)
+     * @return the internal integer index assigned to this vector
+     * @throws SpectorValidationException if vector dimensions don't match
+     * @throws SpectorValidationException    if the store is full or closed
+     */
+    int put(String id, float[] vector);
+
+    /**
+     * Retrieves the vector for the given ID.
+     *
+     * @param id the vector identifier
+     * @return an {@code Optional} containing a copy of the stored float array,
+     *         or {@link Optional#empty()} if not found
+     */
+    Optional<float[]> get(String id);
+
+    /**
+     * Retrieves the vector at the given internal index.
+     *
+     * @param index the internal integer index (returned by {@link #put})
+     * @return a copy of the stored float array
+     * @throws SpectorValidationException if index is invalid
+     */
+    float[] getByIndex(int index);
+
+    /**
+     * Retrieves the vector at the given internal index into an existing buffer.
+     *
+     * @param index     the internal integer index
+     * @param dst       destination array
+     * @param dstOffset offset into destination
+     * @throws SpectorValidationException if index is invalid
+     */
+    void getByIndex(int index, float[] dst, int dstOffset);
+
+    /**
+     * Returns the internal index for a given ID, or -1 if not found.
+     *
+     * @param id the vector identifier
+     * @return internal index or -1
+     */
+    int indexOf(String id);
+
+    /**
+     * Returns the number of vectors currently stored.
+     *
+     * @return vector count
+     */
+    int size();
+
+    /**
+     * Returns the dimensionality of vectors in this store.
+     *
+     * @return number of float elements per vector
+     */
+    int dimensions();
+
+    /**
+     * Returns the maximum capacity of this store.
+     *
+     * @return maximum number of vectors
+     */
+    int capacity();
+
+    /**
+     * Returns whether this store has been closed.
+     *
+     * @return true if closed
+     */
+    boolean isClosed();
+}

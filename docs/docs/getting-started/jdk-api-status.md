@@ -110,7 +110,7 @@ The fallback mode uses `Executors.newVirtualThreadPerTaskExecutor()` — fully f
 |:---|:---|:---|
 | Hybrid search fan-out | spector-query | Auto-cancel sibling on failure |
 | Distributed shard fan-out | spector-node | Auto-cancel all on shard failure |
-| Batch embedding | spector-embed-api | Scope-per-call lifecycle |
+| Batch embedding | spector-provider-api | Scope-per-call lifecycle |
 | PQ subspace training | spector-index | All-or-nothing structured scope |
 | BM25 parallel scoring | spector-index | Auto-cancel with sequential fallback |
 

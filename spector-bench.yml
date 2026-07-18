@@ -1,0 +1,47 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Spector — BEIR Benchmark Configuration
+# ═══════════════════════════════════════════════════════════════════════
+# Separate data directory so benchmarks can run while ingestion is active.
+# Uses .spector-bench/ instead of .spector/ to avoid file lock conflicts.
+# ═══════════════════════════════════════════════════════════════════════
+
+spector:
+  mode: memory
+
+  engine:
+    dimensions: 4096
+    capacity: 1000
+    similarity: COSINE
+    index-type: HNSW
+    persistence-mode: DISK
+    data-directory: D:\git\spector-search\.spector-bench\index
+
+  embedding:
+    model: qwen3-embedding:latest
+    base-url: http://localhost:11434
+    timeout: 120s
+    batch-size: 32
+
+  memory:
+    enabled: true
+    persistence-mode: DISK
+    persistence-path: D:\git\spector-search\.spector-bench\memory
+    dimensions: 4096
+    capacity: 15000   # Must fit full corpus (13255 chunks); multi-partition recall is a known TODO
+    decay-enabled: false          # Disable decay for deterministic benchmarks
+    consolidation-interval: 600s  # Long interval — no background consolidation during bench
+    default-ingestion-tier: SEMANTIC
+    hnsw-prefilter: auto
+    tag-extractor: none           # No LLM tags — faster ingestion, pure embedding recall
+
+  hnsw:
+    m: 16
+    ef-construction: 200
+    ef-search: 200
+
+  ingestion:
+    root: D:\git\spector-search\datasets\scifact\corpus-txt
+    pattern: "**/*.txt"
+    chunk-size: 1200
+    chunk-overlap: 400
+    threads: 4

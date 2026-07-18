@@ -1,13 +1,17 @@
 site_name: Spector Documentation
-site_description: The Zero-Overhead, Agent-Ready AI Memory Backbone
+site_description: "Spector — The Zero-Overhead, Agent-Ready AI Memory Backbone. SIMD-accelerated vector search, cognitive memory for AI agents, built-in MCP server, zero dependencies."
 site_url: https://spectrayan.github.io/spector/
 repo_url: https://github.com/spectrayan/spector
 repo_name: spectrayan/spector
+copyright: "Copyright &copy; 2026 Spectrayan — Apache 2.0 / BSL 1.1"
 
 theme:
   name: material
+  custom_dir: overrides
   icon:
     logo: material/lightning-bolt
+  logo: assets/spector-logo-icon.png
+  favicon: assets/spector-favicon.png
   palette:
     - scheme: default
       primary: indigo
@@ -47,8 +51,13 @@ theme:
     - toc.follow                   # TOC follows scroll position
 
 plugins:
-  - search
+  - search:
+      separator: '[\s\-\.]+'        # Better tokenization for compound terms
+      lang: en
   - callouts
+  - tags                            # Tag-based content discovery
+  - minify:                         # Minify HTML for faster page loads
+      minify_html: true
 
 markdown_extensions:
   - pymdownx.arithmatex:
@@ -88,72 +97,51 @@ markdown_extensions:
   - footnotes                  # Footnote references
   - abbr                       # Abbreviation tooltips
   - tables
+  - meta                       # Read front matter for meta tags
   - toc:
       permalink: true
       toc_depth: 3
 
-
+# ═══════════════════════════════════════════════════════════════
+#  Navigation — organized by user intent, max 3 levels deep
+# ═══════════════════════════════════════════════════════════════
 
 nav:
-  - Home: index.md
-  - About: about.md
+  # Tab 1: First impression — "what is this?"
+  - Home:
+      - Welcome: index.md
+      - "Why Spector?": why-spector.md
+      - About: about.md
+
+  # Tab 2: "I want to start using it NOW" (action-oriented)
   - Getting Started:
       - Quick Start: getting-started/quickstart.md
       - Installation: getting-started/installation.md
-      - JDK API Status: getting-started/jdk-api-status.md
-  - Architecture:
-      - System Overview: architecture/overview.md
-      - Core Concepts: architecture/core-concepts.md
-      - MCP Integration: architecture/mcp-integration.md
-      - Ingestion Pipeline: architecture/ingestion-pipeline.md
-      - RAG Pipeline: architecture/rag-pipeline.md
-      - Distributed Mode: architecture/distributed-mode.md
-      - GPU Acceleration: architecture/gpu-acceleration.md
-      - Test Framework & LLM Judge: architecture/test-framework.md
-      - Modules:
-          - Overview: modules/index.md
-          - spector-core: modules/spector-core.md
-          - spector-commons: modules/spector-commons.md
-          - spector-config: modules/spector-config.md
-          - spector-storage: modules/spector-storage.md
-          - spector-embed-api: modules/spector-embed-api.md
-          - spector-embed-ollama: modules/spector-embed-ollama.md
-          - spector-index: modules/spector-index.md
-          - spector-query: modules/spector-query.md
-          - spector-gpu: modules/spector-gpu.md
-          - spector-rag: modules/spector-rag.md
-          - spector-engine: modules/spector-engine.md
-          - spector-ingestion: modules/spector-ingestion.md
-          - spector-memory: modules/spector-memory.md
-          - spector-runtime: modules/spector-runtime.md
-          - spector-node: modules/spector-node.md
-          - spector-mcp: modules/spector-mcp.md
-          - spector-cli: modules/spector-cli.md
-          - spector-client: modules/spector-client.md
-          - spector-spring: modules/spector-spring.md
-          - spector-test-support: modules/spector-test-support.md
-          - spector-metrics: modules/spector-metrics.md
-          - spector-events: modules/spector-events.md
-          - spector-bench: modules/spector-bench.md
-          - spector-dist: modules/spector-dist.md
-          - spector-cortex: modules/spector-cortex.md
-  - Deep Dives:
-      - ANN Search Primer: deep-dives/ann-search-primer.md
-      - HNSW Explained: deep-dives/hnsw-explained.md
-      - SpectorIndex Architecture: deep-dives/spector-index-architecture.md
-      - SVASQ Quantization: deep-dives/svasq-deep-dive.md
-      - Understanding Quantization: deep-dives/understanding-quantization.md
-      - Quantization Comparison: deep-dives/quantization-comparison.md
-      - TurboQuant: deep-dives/turbo-quant.md
-      - Real-Embedding Benchmarks: deep-dives/real-embedding-benchmarks.md
-      - "Whitepaper: SVASQ + SpectorIndex": deep-dives/svasq-spectorindex-whitepaper.md
-  - "🧠 Cognitive Memory":
+      - Developer Guide: getting-started/developer-guide.md
+      - MCP Server: sdk-usage/mcp-server.md
+      - Java SDK: sdk-usage/java-client.md
+      - Python SDK: sdk-usage/python-sdk.md
+      - Spring AI Integration: sdk-usage/spring-ai.md
+      - CLI Reference: cli-reference/spectorctl.md
+      - REST API: api-reference/rest-endpoints.md
+      - Configuration: configuration/parameters.md
+
+  # Tab 3: Cognitive Memory — the differentiator (own tab)
+  - Cognitive Memory:
       - Overview: memory/index.md
       - Getting Started: memory/getting-started.md
       - "Use Cases & Configuration": memory/use-cases.md
-      - Architecture:
-          - System Architecture: memory/architecture.md
-          - The 6-Phase Scoring Pipeline: memory/scoring-pipeline.md
+      - API Reference: memory/api-reference.md
+      - Architecture: memory/architecture.md
+      - The 6-Phase Scoring Pipeline: memory/scoring-pipeline.md
+      - Cognitive Profiles:
+          - Overview: memory/cognitive-profiles.md
+          - "Self-Tuning Adaptor": memory/profile-adaptor.md
+          - "Focus Mode": memory/focus-mode.md
+          - "Explorer — Lateral Retrieval": memory/lateral-retrieval.md
+          - "Importance Fusion (ICNU)": memory/importance-fusion.md
+      - "Salience & Importance":
+          - "Salience & Persona Profiles": memory/salience-importance.md
       - Biological Systems:
           - Overview: memory/biological-systems.md
           - "Cortex — Tier Stores": memory/cortex.md
@@ -168,40 +156,70 @@ nav:
           - "Prospective — Future Intents": memory/prospective.md
           - "Metamemory — Self-Reflection": memory/metamemory.md
           - "Sync — Persistence & Replication": memory/sync.md
-      - Advanced Profiles:
-          - Cognitive Profiles Overview: memory/cognitive-profiles.md
-          - "Focus Mode": memory/focus-mode.md
-          - "Explorer — Lateral Retrieval": memory/lateral-retrieval.md
-          - "Importance Fusion (ICNU)": memory/importance-fusion.md
-      - Deep Dives:
+      - Performance & Internals:
           - "Performance & SIMD": memory/performance.md
           - "Off-Heap Panama Design": memory/panama-design.md
           - "WAL Design": memory/wal-design.md
-      - API Reference: memory/api-reference.md
+      - Cognitive Evaluation: memory/evaluation.md
 
-  - "🧬 Cortex Dashboard":
-      - Overview: cortex/index.md
+  # Tab 4: Synapse & Cortex — the agentic layer (own tab)
+  - "Synapse & Cortex":
+      - "Synapse Overview": synapse/index.md
+      - "Cortex Dashboard & Chat": cortex/index.md
 
-  - Reference:
-      - REST API: api-reference/rest-endpoints.md
-      - MCP Server: sdk-usage/mcp-server.md
-      - Java SDK: sdk-usage/java-client.md
-      - Spring AI Integration: sdk-usage/spring-ai.md
-      - CLI (spectorctl): cli-reference/spectorctl.md
-      - Configuration: configuration/parameters.md
-  - Operations:
+  # Tab 5: Search Engine & Architecture
+  - Architecture:
+      - System Overview: architecture/overview.md
+      - Core Concepts: architecture/core-concepts.md
+      - Ingestion Pipeline: architecture/ingestion-pipeline.md
+      - RAG Pipeline: architecture/rag-pipeline.md
+      - MCP Integration: architecture/mcp-integration.md
+      - Distributed Mode: architecture/distributed-mode.md
+      - Event Notifications: architecture/event-notifications.md
+      - Namespace Sharding: architecture/namespace-sharding.md
+      - GPU Acceleration: architecture/gpu-acceleration.md
       - Performance Tuning: operations/performance-tuning.md
+      - Test Framework & LLM Judge: architecture/test-framework.md
+      - JDK API Status: getting-started/jdk-api-status.md
+      - Security & Data:
+          - "Encryption at Rest": architecture/encryption-at-rest.md
+      - Deep Dives:
+          - ANN Search Primer: deep-dives/ann-search-primer.md
+          - HNSW Explained: deep-dives/hnsw-explained.md
+          - SpectorIndex Architecture: deep-dives/spector-index-architecture.md
+          - SVASQ Quantization: deep-dives/svasq-deep-dive.md
+          - Understanding Quantization: deep-dives/understanding-quantization.md
+          - Quantization Comparison: deep-dives/quantization-comparison.md
+          - TurboQuant: deep-dives/turbo-quant.md
+          - Real-Embedding Benchmarks: deep-dives/real-embedding-benchmarks.md
+          - "Whitepaper: SVASQ + SpectorIndex": deep-dives/svasq-spectorindex-whitepaper.md
+
+  # Tab 6: Community & future
+  - Community:
       - Contributing: operations/contributing.md
-  - FAQ: faq.md
-  - Roadmap: roadmap.md
-  - "🔬 Labs":
-      - labs/index.md
-      - Research Roadmap: labs/roadmap.md
+      - FAQ: faq.md
+      - Roadmap: roadmap.md
+      - "🔬 Labs":
+          - labs/index.md
+          - Research Roadmap: labs/roadmap.md
+
+# ═══════════════════════════════════════════════════════════════
+#  SEO & Social
+# ═══════════════════════════════════════════════════════════════
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/spectrayan/spector
+  # Analytics (uncomment when ready)
+  # analytics:
+  #   provider: google
+  #   property: G-XXXXXXXXXX
+  generator: false              # Remove "Made with Material for MkDocs" footer
 
 extra_css:
   - stylesheets/extra.css
 
 extra_javascript:
-  - javascripts/mermaid-init.js
   - javascripts/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js

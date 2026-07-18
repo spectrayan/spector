@@ -1,0 +1,340 @@
+:host {
+  display: block;
+  animation: fade-in-up 0.3s ease both;
+}
+
+.control-center-page {
+  padding: 28px 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+  color: var(--mat-sys-on-surface);
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+    font-size: 26px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.tab-content {
+  padding: 28px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: fade-in-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.list-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface-variant);
+  letter-spacing: -0.01em;
+}
+
+// ── Forms ──
+
+.form-card {
+  mat-card-header {
+    mat-icon[mat-card-avatar] {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--mat-sys-primary);
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  mat-card-actions { padding: 16px; }
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.name-field { flex: 1; min-width: 200px; }
+.scopes-field { flex: 1; min-width: 200px; }
+.desc-field { width: 100%; }
+
+// ── Item Grid ──
+
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.item-card {
+  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @for $i from 1 through 12 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 60}ms;
+    }
+  }
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.agent-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  color: var(--cortex-semantic);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+
+  .item-card:hover & {
+    transform: scale(1.15) rotate(-5deg);
+  }
+}
+
+.ws-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  color: var(--cortex-temporal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+
+  .item-card:hover & {
+    transform: scale(1.15);
+  }
+}
+
+.item-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.item-id {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--mat-sys-outline);
+  margin-top: 2px;
+}
+
+.item-desc {
+  font-size: 0.85rem;
+  color: var(--mat-sys-on-surface-variant);
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.scope-chips {
+  margin: 10px 0;
+}
+
+.item-time {
+  font-size: 0.7rem;
+  color: var(--mat-sys-outline);
+  letter-spacing: 0.01em;
+}
+
+// ── Benchmarks ──
+
+.benchmark-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.benchmark-card {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @for $i from 1 through 4 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 80}ms;
+    }
+  }
+
+  mat-card-actions { padding: 8px 16px 16px; }
+}
+
+.bench-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.bench-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  color: var(--mat-sys-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+
+  .benchmark-card:hover & {
+    transform: scale(1.15);
+  }
+}
+
+.bench-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+}
+
+.bench-desc {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--mat-sys-on-surface-variant);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.bench-est {
+  font-size: 0.7rem;
+  color: var(--mat-sys-outline);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 4px;
+  display: block;
+}
+
+// ── Results ──
+
+.result-card {
+  margin-top: 20px;
+  animation: scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  border-left: 4px solid var(--mat-sys-primary);
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    border-color: var(--mat-sys-primary);
+    transform: translateY(-2px);
+  }
+}
+
+.result-key {
+  font-size: 0.65rem;
+  color: var(--mat-sys-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.result-value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--mat-sys-on-surface);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.02em;
+}
+
+// ── Shared ──
+
+.loading-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--mat-sys-on-surface-variant);
+  animation: fade-in-up 0.3s ease both;
+}
+
+.empty-card {
+  mat-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px;
+    color: var(--mat-sys-on-surface-variant);
+    text-align: center;
+
+    mat-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+      opacity: 0.4;
+      animation: breathe 3s ease-in-out infinite;
+    }
+
+    p {
+      max-width: 400px;
+      line-height: 1.6;
+    }
+  }
+}
+
+// ── Responsive ──
+@media (max-width: 767px) {
+  .control-center-page {
+    padding: 16px;
+  }
+
+  .item-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .benchmark-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    flex-direction: column;
+
+    .name-field,
+    .scopes-field {
+      min-width: 0;
+    }
+  }
+
+  .results-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -1,0 +1,829 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *
+ * Change Date: May 27, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.memory.index;
+
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.cortex.TextDataStore;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Centralized ID → metadata index for cognitive memories.
+ *
+ * <h3>Responsibility</h3>
+ * <p>Owns the concurrent maps that track memory locations, raw text,
+ * provenance sources, and synaptic tag strings. Provides O(1) lookup by ID
+ * and O(1) reverse-lookup by offset (via dedicated reverse index).</p>
+ *
+ * <h3>Persistence</h3>
+ * <p>Supports binary serialization via {@link #save(Path)} and {@link #load(Path)}.
+ * The file format uses a "MIDX" magic header followed by variable-length records.
+ * On startup, the index can be rebuilt from disk without re-ingestion.</p>
+ *
+ * <h3>Performance: O(1) Reverse Index</h3>
+ * <p>A dedicated {@code reverseIndex} maps {@code (type, offset) → id} for
+ * constant-time reverse lookups during recall result assembly. The key is
+ * computed as {@code (type.ordinal() << 48) | offset}, packing both into
+ * a single {@code long} to avoid String concatenation.</p>
+ *
+ * <h3>Thread Safety</h3>
+ * <p>All maps are {@link ConcurrentHashMap} — safe for concurrent ingestion
+ * (Virtual Threads) and recall (parallel scans).</p>
+ */
+public final class MemoryIndex {
+
+    private static final Logger log = LoggerFactory.getLogger(MemoryIndex.class);
+
+    /** File magic: "MIDX" in ASCII. */
+    private static final int INDEX_MAGIC = 0x4D494458;
+
+    /**
+     * File format version — V4 drops inline text (resolved from text.dat via textOffset/textLength).
+     *
+     * <p>Version history:</p>
+     * <ul>
+     *   <li>V1 — base format (id, location, text, source, tags)</li>
+     *   <li>V2 — adds multimodal metadata map</li>
+     *   <li>V3 — adds textOffset + textLength for off-heap text.dat reads</li>
+     *   <li>V4 — drops inline text body (text resolved via text.dat mmap). ~78% size reduction.</li>
+     * </ul>
+     */
+    private static final int INDEX_VERSION = 4;
+    /** V3 format (inline text + text offsets) — still loadable. */
+    private static final int INDEX_VERSION_V3 = 3;
+    /** V2 format (metadata, no text offsets) — still loadable. */
+    private static final int INDEX_VERSION_V2 = 2;
+    /** V1 format (no metadata, no text offsets) — still loadable. */
+    private static final int INDEX_VERSION_V1 = 1;
+
+    /** File header: 4B magic + 4B version + 4B count + 4B reserved = 16 bytes. */
+    private static final int FILE_HEADER_BYTES = 16;
+
+    /**
+     * Tracks where a memory is physically stored.
+     *
+     * <p>Links three storage layers via the same memory ID:</p>
+     * <ul>
+     *   <li>{@code offset} — byte position in the tier's {@code .mem} file (cognitive header + vector)</li>
+     *   <li>{@code textOffset} / {@code textLength} — byte position in {@code text.dat} (raw text)</li>
+     *   <li>{@code partitionIndex} — partition number (episodic only, -1 otherwise)</li>
+     * </ul>
+     *
+     * @param type            cognitive tier
+     * @param offset          byte offset within the tier's segment (.mem file)
+     * @param partitionIndex  partition index (episodic only, -1 otherwise)
+     * @param textOffset      byte offset of the raw text entry in text.dat (-1 if unknown)
+     * @param textLength      byte length of the UTF-8 encoded text in text.dat (-1 if unknown)
+     */
+    public record MemoryLocation(MemoryType type, long offset, int partitionIndex,
+                                  long textOffset, int textLength) {
+
+        /** Compact constructor for sites without text position (WAL replay, migration). */
+        public MemoryLocation(MemoryType type, long offset, int partitionIndex) {
+            this(type, offset, partitionIndex, -1L, -1);
+        }
+
+        /** Returns true if this location has a valid text.dat offset for direct off-heap reads. */
+        public boolean hasTextPosition() {
+            return textOffset >= 0 && textLength >= 0;
+        }
+    }
+
+    // ── Forward index: id → metadata ──
+    private final ConcurrentHashMap<String, MemoryLocation> locations = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> texts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, MemorySource> sources = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String[]> tags = new ConcurrentHashMap<>();
+
+    // ── Multimodal metadata: id → metadata map  [lazy — only non-empty for multimodal memories] ──
+    private final ConcurrentHashMap<String, Map<String, String>> metadataMap = new ConcurrentHashMap<>();
+
+    // ── Reverse index: (type, offset) → id  [O(1) lookup for recall result assembly] ──
+    private final ConcurrentHashMap<Long, String> reverseIndex = new ConcurrentHashMap<>();
+
+    // ── Off-heap text data store: enables zero-copy text reads from mmap'd text.dat ──
+    private volatile TextDataStore textDataStore;
+
+    // ── Inverted tag index: tag → Set<memId>  [O(1) tag-based lookup for browse()] ──
+    private final ConcurrentHashMap<String, java.util.Set<String>> tagToIds = new ConcurrentHashMap<>();
+
+    // ── Insertion-order tracking: position → id  [maps graph node indices to memory IDs] ──
+    // HebbianGraph, EntityGraph, and TemporalChain use `index.size() - 1` as the node index
+    // at ingestion time, so this list preserves that exact ordering for slot ↔ id mapping.
+    private final java.util.List<String> orderedIds = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+    /**
+     * Computes the reverse-index key from a memory type and byte offset.
+     *
+     * <p>Packs type ordinal into the upper 16 bits and offset into the lower 48 bits.
+     * This supports offsets up to 256 TB per tier — far beyond any practical limit.</p>
+     */
+    private static long reverseKey(MemoryType type, long offset) {
+        return ((long) type.ordinal() << 48) | (offset & 0x0000_FFFF_FFFF_FFFFL);
+    }
+
+    /**
+     * Registers a new memory in the index.
+     *
+     * <p>Maintains both forward (id → metadata) and reverse ((type, offset) → id)
+     * indexes for O(1) lookups in both directions.</p>
+     *
+     * @param id       unique memory identifier
+     * @param location physical storage location
+     * @param text     raw text content
+     * @param source   provenance source
+     * @param tagArray synaptic tag strings
+     */
+    public void register(String id, MemoryLocation location, String text,
+                          MemorySource source, String[] tagArray) {
+        register(id, location, text, source, tagArray, null);
+    }
+
+    /**
+     * Registers a new memory in the index with optional multimodal metadata.
+     *
+     * @param id       unique memory identifier
+     * @param location physical storage location
+     * @param text     raw text content
+     * @param source   provenance source
+     * @param tagArray synaptic tag strings
+     * @param metadata multimodal metadata (nullable — omitted for text-only memories)
+     */
+    public void register(String id, MemoryLocation location, String text,
+                          MemorySource source, String[] tagArray,
+                          Map<String, String> metadata) {
+        locations.put(id, location);
+        // P0 off-heap optimization: skip heap text storage when text.dat position is known.
+        // text() will read directly from the mmap'd segment via TextDataStore.readTextDirect().
+        // The mmap is refreshed after each write() so it always covers new entries.
+        if (!location.hasTextPosition()) {
+            texts.put(id, text);
+        }
+        sources.put(id, source);
+        tags.put(id, tagArray);
+
+        // Only store metadata if non-empty (zero cost for text-only memories)
+        if (metadata != null && !metadata.isEmpty()) {
+            metadataMap.put(id, Map.copyOf(metadata));
+        }
+
+        // O(1) reverse index
+        reverseIndex.put(reverseKey(location.type(), location.offset()), id);
+
+        // Insertion-order tracking (graph slot index = orderedIds position)
+        if (!orderedIds.contains(id)) {
+            orderedIds.add(id);
+        }
+
+        // O(1) inverted tag index — tag → Set<memId>
+        if (tagArray != null) {
+            for (String tag : tagArray) {
+                String normalizedTag = tag.toLowerCase();
+                tagToIds.computeIfAbsent(normalizedTag, _ -> java.util.Collections.newSetFromMap(new ConcurrentHashMap<>()))
+                        .add(id);
+            }
+        }
+    }
+
+    /**
+     * Removes a memory from both forward and reverse indexes.
+     */
+    public void remove(String id) {
+        MemoryLocation loc = locations.remove(id);
+        texts.remove(id);
+        orderedIds.remove(id);
+        sources.remove(id);
+        String[] removedTags = tags.remove(id);
+        metadataMap.remove(id);
+
+        // Clean reverse index
+        if (loc != null) {
+            reverseIndex.remove(reverseKey(loc.type(), loc.offset()));
+        }
+
+        // Clean inverted tag index
+        if (removedTags != null) {
+            for (String tag : removedTags) {
+                String normalizedTag = tag.toLowerCase();
+                var idSet = tagToIds.get(normalizedTag);
+                if (idSet != null) {
+                    idSet.remove(id);
+                    if (idSet.isEmpty()) {
+                        tagToIds.remove(normalizedTag, idSet);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns the physical location for a memory ID, or null if not found.
+     * O(1) via ConcurrentHashMap.
+     */
+    public MemoryLocation locate(String id) {
+        return locations.get(id);
+    }
+
+    /**
+     * Returns the raw text for a memory ID, or empty string if not found.
+     *
+     * <p>Resolution order (P0 off-heap optimization):</p>
+     * <ol>
+     *   <li>Off-heap: read from mmap'd text.dat via {@link TextDataStore#readTextDirect}</li>
+     *   <li>Heap: fall back to the {@code texts} HashMap (V1/V2 indexes, WAL replay)</li>
+     * </ol>
+     */
+    public String text(String id) {
+        // Try off-heap first: check if we have a text.dat position and a live TextDataStore
+        MemoryLocation loc = locations.get(id);
+        if (loc != null && loc.hasTextPosition() && textDataStore != null) {
+            String offHeapText = textDataStore.readTextDirect(loc.textOffset(), loc.textLength());
+            if (offHeapText != null) return offHeapText;
+        }
+        // Fall back to heap HashMap (V1/V2 indexes, WAL replay, in-memory mode)
+        return texts.getOrDefault(id, "");
+    }
+
+    /**
+     * Returns the provenance source for a memory ID.
+     */
+    public MemorySource source(String id) {
+        return sources.getOrDefault(id, MemorySource.OBSERVED);
+    }
+
+    /** Shared empty tags array — avoids heap allocation on every cache miss. */
+    private static final String[] EMPTY_TAGS = new String[0];
+
+    /**
+     * Returns the synaptic tag strings for a memory ID.
+     */
+    public String[] tags(String id) {
+        return tags.getOrDefault(id, EMPTY_TAGS);
+    }
+
+    /**
+     * Returns the set of memory IDs that have the given tag — O(1) lookup.
+     *
+     * <p>Uses the inverted tag index for constant-time retrieval.
+     * Returns an empty set if no memories have the specified tag.</p>
+     *
+     * @param tag the tag to look up (case-insensitive)
+     * @return unmodifiable set of memory IDs with this tag
+     */
+    public java.util.Set<String> idsByTag(String tag) {
+        var ids = tagToIds.get(tag.toLowerCase());
+        return ids != null ? java.util.Collections.unmodifiableSet(ids) : java.util.Set.of();
+    }
+
+    /**
+     * Returns memory IDs matching ALL specified tags (AND semantics) — O(k) where k = smallest tag set.
+     *
+     * <p>Intersects the ID sets from the inverted index. Starts with the smallest set
+     * for optimal intersection performance.</p>
+     *
+     * @param queryTags tags to match (AND semantics)
+     * @return set of memory IDs that contain all specified tags
+     */
+    public java.util.Set<String> idsByAllTags(String... queryTags) {
+        if (queryTags == null || queryTags.length == 0) return java.util.Set.of();
+
+        // Find the smallest set to start intersection
+        java.util.Set<String> smallest = null;
+        for (String tag : queryTags) {
+            var ids = tagToIds.get(tag.toLowerCase());
+            if (ids == null || ids.isEmpty()) return java.util.Set.of(); // no match possible
+            if (smallest == null || ids.size() < smallest.size()) {
+                smallest = ids;
+            }
+        }
+
+        // Intersect with remaining tag sets
+        var result = new java.util.HashSet<>(smallest);
+        for (String tag : queryTags) {
+            var ids = tagToIds.get(tag.toLowerCase());
+            if (ids != smallest) {
+                result.retainAll(ids);
+                if (result.isEmpty()) return java.util.Set.of();
+            }
+        }
+        return java.util.Collections.unmodifiableSet(result);
+    }
+
+    /** Shared empty metadata map — avoids allocation on cache miss. */
+    private static final Map<String, String> EMPTY_METADATA = Map.of();
+
+    /**
+     * Returns the multimodal metadata for a memory ID.
+     *
+     * <p>Returns an empty map for text-only memories (never null).</p>
+     */
+    public Map<String, String> metadata(String id) {
+        return metadataMap.getOrDefault(id, EMPTY_METADATA);
+    }
+
+    /**
+     * Stores or merges metadata for a memory ID after registration.
+     *
+     * <p>Used by file ingestion to attach the source filename, URL, or
+     * other provenance info after the ingestion pipeline completes.
+     * Merges with any existing metadata (won't overwrite unrelated keys).</p>
+     *
+     * @param id       memory identifier (must already be registered)
+     * @param metadata key-value pairs to store (e.g., "fileName" → "readme.md")
+     */
+    public void putMetadata(String id, Map<String, String> metadata) {
+        if (metadata == null || metadata.isEmpty() || !locations.containsKey(id)) return;
+        metadataMap.merge(id, Map.copyOf(metadata), (existing, incoming) -> {
+            var merged = new java.util.HashMap<>(existing);
+            merged.putAll(incoming);
+            return Map.copyOf(merged);
+        });
+    }
+
+    /**
+     * O(1) reverse-lookup: finds the memory ID stored at a given offset in a given tier.
+     *
+     * <p>Uses a dedicated reverse index ({@code ConcurrentHashMap<Long, String>})
+     * instead of the previous O(n) linear scan over the location map.</p>
+     *
+     * @param type   memory tier to search
+     * @param offset byte offset to match
+     * @return the memory ID, or null if not found
+     */
+    public String findIdByOffset(MemoryType type, long offset) {
+        return reverseIndex.get(reverseKey(type, offset));
+    }
+
+    /**
+     * Returns the text for a memory stored at a given offset.
+     * O(1) via reverse index. Uses off-heap resolution when available.
+     */
+    public String findTextByOffset(MemoryType type, long offset) {
+        String id = findIdByOffset(type, offset);
+        return id != null ? text(id) : null;
+    }
+
+    /**
+     * Sets the TextDataStore for off-heap text resolution.
+     *
+     * <p>When set, {@link #text(String)} will read text directly from the mmap'd
+     * text.dat segment instead of the heap HashMap, eliminating ~40MB heap per
+     * 100K memories.</p>
+     *
+     * @param store the TextDataStore (nullable — disables off-heap resolution)
+     */
+    public void setTextDataStore(TextDataStore store) {
+        this.textDataStore = store;
+    }
+
+    /**
+     * Returns the total number of indexed memories.
+     */
+    public int size() {
+        return locations.size();
+    }
+
+    /**
+     * Returns all registered memory IDs.
+     *
+     * <p>Used by WAL replay to iterate over all reconstructed memories.
+     * Returns a snapshot of the key set — safe for concurrent modification.</p>
+     *
+     * @return unmodifiable set of all memory IDs
+     */
+    public java.util.Set<String> allIds() {
+        return java.util.Collections.unmodifiableSet(new java.util.HashSet<>(locations.keySet()));
+    }
+
+    /**
+     * Returns all registered memory IDs in insertion order.
+     */
+    public java.util.List<String> orderedIds() {
+        synchronized (orderedIds) {
+            return new java.util.ArrayList<>(orderedIds);
+        }
+    }
+
+    /**
+     * Returns the raw location map (for iteration in decay, etc.).
+     */
+    public ConcurrentHashMap<String, MemoryLocation> locationMap() {
+        return locations;
+    }
+
+    /**
+     * Returns the graph-slot ordinal mapping: slot index → memory ID.
+     *
+     * <p>HebbianGraph, EntityGraph, and TemporalChain all use {@code index.size() - 1}
+     * at ingestion time as their node index. This method exposes the same insertion-order
+     * mapping so management APIs can translate between slot indices and memory IDs.</p>
+     *
+     * @return bidirectional maps: slotToId (index → memoryId) and idToSlot (memoryId → index)
+     */
+    public void buildGraphSlotMappings(java.util.Map<Integer, String> slotToId,
+                                        java.util.Map<String, Integer> idToSlot) {
+        synchronized (orderedIds) {
+            for (int i = 0; i < orderedIds.size(); i++) {
+                String id = orderedIds.get(i);
+                slotToId.put(i, id);
+                idToSlot.put(id, i);
+            }
+        }
+    }
+
+    /**
+     * Returns a map of memory ID → text for all memories in the specified partition.
+     *
+     * <p>Used on startup to rebuild per-partition BM25 indexes from text data.
+     * Filters the global text map by partition index.</p>
+     *
+     * @param partitionIndex the partition index to filter by
+     * @return map of id → text for that partition (may be empty)
+     */
+    public Map<String, String> textsByPartition(int partitionIndex) {
+        Map<String, String> result = new java.util.HashMap<>();
+        for (Map.Entry<String, MemoryLocation> entry : locations.entrySet()) {
+            if (entry.getValue().partitionIndex() == partitionIndex) {
+                String text = text(entry.getKey());
+                if (text != null && !text.isEmpty()) {
+                    result.put(entry.getKey(), text);
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Returns the total number of indexed memories (alias for quota enforcement).
+     */
+    public int totalCount() {
+        return locations.size();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // COMPACTION SUPPORT
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Relocates a single memory to a new offset within the same tier.
+     *
+     * <p>Called during vacuum compaction when live records are copied to
+     * a new segment. Updates both forward and reverse indexes atomically.</p>
+     *
+     * @param id        the memory ID
+     * @param newOffset the new byte offset in the compacted segment
+     */
+    public void relocate(String id, long newOffset) {
+        MemoryLocation oldLoc = locations.get(id);
+        if (oldLoc == null) return;
+
+        // Remove old reverse entry
+        reverseIndex.remove(reverseKey(oldLoc.type(), oldLoc.offset()));
+
+        // Update forward index with new .mem offset (text.dat position unchanged)
+        MemoryLocation newLoc = new MemoryLocation(oldLoc.type(), newOffset, oldLoc.partitionIndex(),
+                oldLoc.textOffset(), oldLoc.textLength());
+        locations.put(id, newLoc);
+
+        // Add new reverse entry
+        reverseIndex.put(reverseKey(newLoc.type(), newOffset), id);
+    }
+
+    /**
+     * Batch-relocates multiple memories to new offsets.
+     *
+     * <p>More efficient than calling {@link #relocate(String, long)} individually
+     * because it avoids repeated concurrent map overhead for large compactions.</p>
+     *
+     * @param relocations map of memory ID → new byte offset
+     */
+    public void relocateBatch(Map<String, Long> relocations) {
+        for (Map.Entry<String, Long> entry : relocations.entrySet()) {
+            relocate(entry.getKey(), entry.getValue());
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // PERSISTENCE: save / load
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Saves the entire index to a binary file.
+     *
+     * <h3>Binary Format (V4 — inline text omitted)</h3>
+     * <pre>
+     *   [16B header: MIDX magic + version(4) + count + reserved]
+     *   per-entry:
+     *     [4B id_len] [N id_bytes]
+     *     [4B type_ord] [8B offset] [4B partition_index]
+     *     [4B text_len] [N text_bytes]        ← V4: 0 when text.dat offset available; inline fallback otherwise
+     *     [4B source_ord]
+     *     [4B tag_count] { [4B tag_len] [N tag_bytes] }*
+     *     [4B metadata_count] { [4B key_len] [N key_bytes] [4B val_len] [N val_bytes] }*
+     *     [8B textOffset] [4B textLength]      ← position in text.dat for off-heap resolution
+     * </pre>
+     *
+     * <p>V1/V2/V3 files (with inline text) are still loadable for backward compatibility.
+     * On save, V4 always writes text_len=0 since text is resolved from text.dat.</p>
+     *
+     * @param filePath path to write the index file
+     */
+    public void save(Path filePath) {
+        Path parent = filePath.getParent();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException e) {
+                throw new SpectorStorageException(ErrorCode.PARTITION_DIR_FAILED, e, parent);
+            }
+        }
+
+        try (FileChannel ch = FileChannel.open(filePath,
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                StandardOpenOption.TRUNCATE_EXISTING)) {
+
+            // Write file header
+            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
+            header.putInt(INDEX_MAGIC);
+            header.putInt(INDEX_VERSION);
+            header.putInt(locations.size());
+            header.putInt(0); // reserved
+            header.flip();
+            ch.write(header);
+
+            // Write each entry
+            for (Map.Entry<String, MemoryLocation> entry : locations.entrySet()) {
+                String id = entry.getKey();
+                MemoryLocation loc = entry.getValue();
+                String text = text(id);
+                MemorySource source = sources.getOrDefault(id, MemorySource.OBSERVED);
+                String[] tagArray = tags.getOrDefault(id, new String[0]);
+                Map<String, String> meta = metadataMap.getOrDefault(id, Map.of());
+
+                writeEntry(ch, id, loc, text, source, tagArray, meta);
+            }
+
+            ch.force(true);
+            log.info("MemoryIndex saved: {} entries → {}", locations.size(), filePath);
+
+        } catch (IOException e) {
+            throw new SpectorStorageException(ErrorCode.DISK_IO_FAILED, e, "save MemoryIndex: " + filePath);
+        }
+    }
+
+    /**
+     * Loads an index from a binary file, or returns a new empty index
+     * if the file doesn't exist.
+     *
+     * @param filePath path to the index file
+     * @return a populated MemoryIndex (or empty if file missing)
+     */
+    public static MemoryIndex load(Path filePath) {
+        MemoryIndex index = new MemoryIndex();
+
+        if (filePath == null || !Files.exists(filePath)) {
+            log.info("MemoryIndex file not found, starting fresh: {}", filePath);
+            return index;
+        }
+
+        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
+            long fileSize = ch.size();
+            if (fileSize < FILE_HEADER_BYTES) {
+                log.warn("MemoryIndex file too small ({}B), starting fresh", fileSize);
+                return index;
+            }
+
+            // Read file header
+            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
+            ch.read(header);
+            header.flip();
+
+            int magic = header.getInt();
+            int version = header.getInt();
+            int entryCount = header.getInt();
+            header.getInt(); // reserved
+
+            if (magic != INDEX_MAGIC) {
+                log.warn("Invalid MemoryIndex magic: 0x{} (expected 0x{}), starting fresh",
+                        Integer.toHexString(magic), Integer.toHexString(INDEX_MAGIC));
+                return index;
+            }
+            if (version != INDEX_VERSION && version != INDEX_VERSION_V3
+                    && version != INDEX_VERSION_V2 && version != INDEX_VERSION_V1) {
+                log.warn("Unsupported MemoryIndex version: {} (expected {}, {}, {}, or {}), starting fresh",
+                        version, INDEX_VERSION, INDEX_VERSION_V3, INDEX_VERSION_V2, INDEX_VERSION_V1);
+                return index;
+            }
+
+            boolean hasMetadata = (version >= INDEX_VERSION_V2);
+            boolean hasTextPosition = (version >= INDEX_VERSION_V3);
+            boolean hasInlineText = (version < INDEX_VERSION); // V4+ drops inline text
+
+            // Read entries
+            for (int i = 0; i < entryCount; i++) {
+                readEntry(ch, index, hasMetadata, hasTextPosition, hasInlineText);
+            }
+
+            log.info("MemoryIndex loaded: {} entries from {}", index.size(), filePath);
+
+        } catch (IOException e) {
+            log.error("Failed to load MemoryIndex from {}, starting fresh: {}", filePath, e.getMessage());
+        }
+
+        return index;
+    }
+
+    // ── Internal serialization helpers ──
+
+    private void writeEntry(FileChannel ch, String id, MemoryLocation loc,
+                             String text, MemorySource source, String[] tagArray,
+                             Map<String, String> metadata) throws IOException {
+        byte[] idBytes = id.getBytes(StandardCharsets.UTF_8);
+
+        // V4 optimization: skip inline text when text.dat offset is available.
+        // Entries without text.dat position (WAL replay, in-memory, V1/V2 migration)
+        // still write inline text as fallback for lossless round-trip.
+        boolean writeInlineText = !loc.hasTextPosition();
+        byte[] textBytes = writeInlineText ? text.getBytes(StandardCharsets.UTF_8) : null;
+        int textBytesLen = writeInlineText ? textBytes.length : 0;
+
+        // Calculate total size for this entry
+        int size = 4 + idBytes.length      // id
+                + 4 + 8 + 4               // location (type + offset + partitionIndex)
+                + 4 + textBytesLen         // text (0 if off-heap available)
+                + 4                        // source
+                + 4;                       // tag count
+
+        // Pre-compute tag byte arrays
+        byte[][] tagBytesArray = new byte[tagArray.length][];
+        for (int i = 0; i < tagArray.length; i++) {
+            tagBytesArray[i] = tagArray[i].getBytes(StandardCharsets.UTF_8);
+            size += 4 + tagBytesArray[i].length;
+        }
+
+        // V2: metadata map (4B count + entries)
+        size += 4; // metadata count
+        byte[][] metaKeyBytes = new byte[metadata.size()][];
+        byte[][] metaValBytes = new byte[metadata.size()][];
+        int mi = 0;
+        for (Map.Entry<String, String> me : metadata.entrySet()) {
+            metaKeyBytes[mi] = me.getKey().getBytes(StandardCharsets.UTF_8);
+            metaValBytes[mi] = me.getValue().getBytes(StandardCharsets.UTF_8);
+            size += 4 + metaKeyBytes[mi].length + 4 + metaValBytes[mi].length;
+            mi++;
+        }
+
+        ByteBuffer buf = ByteBuffer.allocate(size);
+
+        // ID
+        buf.putInt(idBytes.length);
+        buf.put(idBytes);
+
+        // Location
+        buf.putInt(loc.type().ordinal());
+        buf.putLong(loc.offset());
+        buf.putInt(loc.partitionIndex());
+
+        // Text — V4: zero-length if text.dat offset available; inline fallback otherwise
+        buf.putInt(textBytesLen);
+        if (writeInlineText && textBytesLen > 0) {
+            buf.put(textBytes);
+        }
+
+        // Source
+        buf.putInt(source.ordinal());
+
+        // Tags
+        buf.putInt(tagArray.length);
+        for (byte[] tagBytes : tagBytesArray) {
+            buf.putInt(tagBytes.length);
+            buf.put(tagBytes);
+        }
+
+        // V2: Metadata map
+        buf.putInt(metadata.size());
+        for (int j = 0; j < metaKeyBytes.length; j++) {
+            buf.putInt(metaKeyBytes[j].length);
+            buf.put(metaKeyBytes[j]);
+            buf.putInt(metaValBytes[j].length);
+            buf.put(metaValBytes[j]);
+        }
+
+        // V3: Text position in text.dat (for off-heap reads)
+        ByteBuffer textPosBuf = ByteBuffer.allocate(8 + 4);
+        textPosBuf.putLong(loc.textOffset());
+        textPosBuf.putInt(loc.textLength());
+        textPosBuf.flip();
+
+        buf.flip();
+        ch.write(buf);
+        ch.write(textPosBuf);
+    }
+
+    private static void readEntry(FileChannel ch, MemoryIndex index,
+                                    boolean hasMetadata, boolean hasTextPosition,
+                                    boolean hasInlineText) throws IOException {
+        // ID
+        String id = readString(ch);
+
+        // Location (base: type + offset + partitionIndex)
+        ByteBuffer locBuf = ByteBuffer.allocate(4 + 8 + 4);
+        ch.read(locBuf);
+        locBuf.flip();
+        int typeOrd = locBuf.getInt();
+        long offset = locBuf.getLong();
+        int partitionIndex = locBuf.getInt();
+        MemoryType type = MemoryType.values()[typeOrd];
+
+        // Text — V4: always zero-length (resolved from text.dat); V1-V3: read inline text
+        String text = readString(ch);
+
+        // Source
+        ByteBuffer srcBuf = ByteBuffer.allocate(4);
+        ch.read(srcBuf);
+        srcBuf.flip();
+        int sourceOrd = srcBuf.getInt();
+        MemorySource source = MemorySource.values()[sourceOrd];
+
+        // Tags
+        ByteBuffer tagCountBuf = ByteBuffer.allocate(4);
+        ch.read(tagCountBuf);
+        tagCountBuf.flip();
+        int tagCount = tagCountBuf.getInt();
+        String[] tagArray = new String[tagCount];
+        for (int t = 0; t < tagCount; t++) {
+            tagArray[t] = readString(ch);
+        }
+
+        // V2: Metadata map
+        Map<String, String> metadata = null;
+        if (hasMetadata) {
+            ByteBuffer metaCountBuf = ByteBuffer.allocate(4);
+            ch.read(metaCountBuf);
+            metaCountBuf.flip();
+            int metaCount = metaCountBuf.getInt();
+            if (metaCount > 0) {
+                metadata = new java.util.HashMap<>(metaCount);
+                for (int m = 0; m < metaCount; m++) {
+                    String key = readString(ch);
+                    String value = readString(ch);
+                    metadata.put(key, value);
+                }
+            }
+        }
+
+        // V3: Text position in text.dat
+        long textOffset = -1L;
+        int textLength = -1;
+        if (hasTextPosition) {
+            ByteBuffer tpBuf = ByteBuffer.allocate(8 + 4);
+            ch.read(tpBuf);
+            tpBuf.flip();
+            textOffset = tpBuf.getLong();
+            textLength = tpBuf.getInt();
+        }
+
+        MemoryLocation loc = new MemoryLocation(type, offset, partitionIndex, textOffset, textLength);
+        index.register(id, loc, text, source, tagArray, metadata);
+    }
+
+    private static String readString(FileChannel ch) throws IOException {
+        ByteBuffer lenBuf = ByteBuffer.allocate(4);
+        ch.read(lenBuf);
+        lenBuf.flip();
+        int len = lenBuf.getInt();
+
+        if (len == 0) return "";
+
+        ByteBuffer strBuf = ByteBuffer.allocate(len);
+        ch.read(strBuf);
+        strBuf.flip();
+        return new String(strBuf.array(), 0, len, StandardCharsets.UTF_8);
+    }
+}
+

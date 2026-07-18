@@ -32,6 +32,7 @@ buildNumber.properties
 .mvn/maven.config
 .mvn/wrapper/maven-wrapper.jar
 .mvn
+.flattened-pom.xml
 
 # ──────────── Logs ────────────
 *.log
@@ -60,5 +61,16 @@ RnD
 
 # ──────────── Test data (E2E persistence tests) ────────────
 .test-data/
+spector-data/
 
 openclaw/
+!plugins/openclaw
+
+
+node_modules/
+dist/
+datasets/
+.spector-bench/
+.spector-bench-bge/
+.jqwik
+.jqwik-database

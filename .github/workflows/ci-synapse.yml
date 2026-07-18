@@ -1,0 +1,94 @@
+name: CI — Synapse
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'synapse/spector-synapse/**'
+      - 'cortex/spector-cortex/**'
+      - 'docker-compose.synapse.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'synapse/spector-synapse/**'
+      - 'cortex/spector-cortex/**'
+      - 'docker-compose.synapse.yml'
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ci-synapse-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '25'
+  JAVA_DISTRIBUTION: 'temurin'
+  MAVEN_OPTS: '-Xmx2g'
+  MAVEN_USERNAME: ${{ github.actor }}
+  MAVEN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build-synapse:
+    runs-on: ubuntu-latest
+    name: Build & Test Synapse
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: 'maven'
+          server-id: spectrayan-github-server-sent-events
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_TOKEN
+
+      # ─── Build full reactor with synapse profile ────────────────
+      - name: Build & Test (Core + Synapse)
+        run: |
+          mvn -B clean verify -Psynapse \
+            --no-transfer-progress \
+            -Dsurefire.useSystemClassLoader=false \
+            -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+
+      # ─── License Header Check (BSL 1.1) ────────────────────────────
+      - name: Check BSL license headers
+        run: |
+          mvn -B license:check -pl synapse/spector-synapse -Psynapse \
+            --no-transfer-progress
+
+      # ─── Test Results ──────────────────────────────────────────────
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synapse-test-results
+          path: 'synapse/spector-synapse/target/surefire-reports/*.xml'
+          retention-days: 7
+
+  build-cortex:
+    runs-on: ubuntu-latest
+    name: Build Cortex UI
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'cortex/spector-cortex/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: cortex/spector-cortex
+
+      - name: Build Cortex
+        run: npm run build
+        working-directory: cortex/spector-cortex

@@ -1,0 +1,7 @@
+com.spectrayan.spector.provider.ollama.OllamaProviderFactory
+com.spectrayan.spector.provider.openai.OpenAiProviderFactory
+com.spectrayan.spector.provider.anthropic.AnthropicProviderFactory
+com.spectrayan.spector.provider.google.GoogleProviderFactory
+com.spectrayan.spector.provider.mistral.MistralProviderFactory
+com.spectrayan.spector.provider.azure.AzureOpenAiProviderFactory
+com.spectrayan.spector.provider.bedrock.BedrockProviderFactory

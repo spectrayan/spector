@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.spectrayan</groupId>
+        <artifactId>spector</artifactId>
+        <version>${revision}</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>spector-runtime</artifactId>
+    <name>Spector Runtime</name>
+    <description>
+        Unified application context that composes SpectorEngine (search) and
+        SpectorMemory (cognitive) into a single configurable runtime.
+        All consumers (MCP, API, CLI) depend on this module.
+    </description>
+
+    <properties>
+        <spector.module.name>com.spectrayan.spector.runtime</spector.module.name>
+    </properties>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-config</artifactId>
+        </dependency>
+        <!-- ── Configuration ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-commons</artifactId>
+        </dependency>
+
+
+
+        <!-- ── Cognitive Memory ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-memory</artifactId>
+        </dependency>
+
+        <!-- ── Embedding/Provider API ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-provider-api</artifactId>
+        </dependency>
+        <!-- ── Provider SPI (auto-discovery, multi-LLM support) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-providers</artifactId>
+        </dependency>
+
+        <!-- ── Query types for mode-aware routing ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-query</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-index</artifactId>
+        </dependency>
+
+        <!-- ── Ingestion utilities (file discovery, chunking) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-ingestion</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

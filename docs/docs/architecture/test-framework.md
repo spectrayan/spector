@@ -1,3 +1,8 @@
+---
+title: "Test Framework & LLM Judge — Automated Quality Evaluation"
+description: "Spector's test framework: 685+ automated tests, LLM-as-judge evaluation, cognitive benchmark datasets, and nDCG/MRR/Recall metrics."
+---
+
 # Test Framework & LLM Judge
 
 Spector's testing strategy goes beyond traditional unit tests. The project implements a comprehensive **E2E test framework** with a novel **LLM-as-Judge** system that uses a language model to semantically validate recall results — catching semantic drift and relevance degradation that deterministic assertions cannot detect.
@@ -382,7 +387,7 @@ LLM models are non-deterministic — the same prompt can produce different verdi
 `spector-test-support` is a standalone module rather than test-scoped code inside `spector-memory` because:
 
 1. **Reusability**: Any Spector module can depend on it for LLM-based testing
-2. **Clean dependencies**: The judge framework depends on `spector-embed-api` and `spector-embed-ollama`, not on `spector-memory`
+2. **Clean dependencies**: The judge framework depends on `spector-provider-api` and `spector-providers`, not on `spector-memory`
 3. **Independent versioning**: Test infrastructure evolves on its own schedule
 
 ## Current Metrics

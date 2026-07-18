@@ -1,1 +1,1 @@
---8<-- "spector-dist/README.md"
+--8<-- "synapse/spector-dist/README.md"
