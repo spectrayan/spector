@@ -26,7 +26,6 @@ graph TB
         providerApi["spector-provider-api<br/><i>Provider SPI</i>"]
         providers["spector-providers<br/><i>AI Providers</i>"]
         ingestion["spector-ingestion<br/><i>File ingest pipeline</i>"]
-        rag["spector-rag<br/><i>RAG pipeline</i>"]
     end
 
     subgraph synapse["synapse/ (API, Runtime & CLI Gateways)"]
@@ -185,7 +184,6 @@ graph TD
 
 | Module | Description |
 |:---|:---|
-| [spector-rag](spector-rag.md) | RAG pipeline — retrieval-augmented generation |
 | [spector-ingestion](spector-ingestion.md) | Unified ingestion pipeline — `IngestionPipeline` (builder), `IngestionTarget` interface, `FileDiscoveryService` |
 | [spector-memory](spector-memory.md) | Flagship cognitive memory and search engine — off-heap HNSW, BM25 indices, and neuro-inspired scoring/consolidation (incorporates former spector-engine search facade) |
 

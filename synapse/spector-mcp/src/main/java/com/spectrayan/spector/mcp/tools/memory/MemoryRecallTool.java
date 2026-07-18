@@ -99,9 +99,14 @@ public final class MemoryRecallTool extends MemoryToolHandler {
                         + "OBSERVE: pure read, no side effects, deterministic results.", "LEARN")
                 .optionalString("text_search_mode",
                         "Controls text search retrieval path. "
-                        + "HYBRID (default): parallel vector + BM25 keyword search with fused scoring. "
-                        + "KEYWORD_ONLY: BM25 keyword search only (exact terms, error codes). "
-                        + "VECTOR_ONLY: vector similarity only (no keyword boost).", "HYBRID")
+                        + "HYBRID (default): parallel vector + BM25 keyword search. "
+                        + "KEYWORD_ONLY: BM25 keyword search only. "
+                        + "VECTOR_ONLY: vector similarity only. "
+                        + "SPLADE: SPLADE learned sparse search only. "
+                        + "SPLADE_HYBRID: SPLADE + dense vector search. "
+                        + "LI_LSR: Li-LSR inference-free sparse search. "
+                        + "COLBERT_RERANK: hybrid search + ColBERT late-interaction reranking. "
+                        + "FULL_STACK: vector + BM25 + SPLADE + ColBERT reranking.", "HYBRID")
                 .optionalString("scoring_mode",
                         "Controls how retrieved candidates are ranked. "
                         + "COGNITIVE (default): full biological scoring — importance, decay, tag boost. "

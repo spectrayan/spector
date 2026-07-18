@@ -18,370 +18,112 @@
 
 ---
 
-## 💚 Health & Status
+## 💚 System & Diagnostics
 
-### `GET /health`
+### `GET /api/v1/system/status`
 
-Quick health check for load balancers and monitoring.
-
-```bash
-curl http://localhost:7070/health
-```
-
-**Response `200`:**
-```json
-{"status": "UP"}
-```
-
----
-
-### `GET /api/v1/status`
-
-Engine status including SIMD capabilities, GPU availability, and configuration.
+Quick status check returning system uptime, version, and configured Ollama details.
 
 ```bash
-curl http://localhost:7070/api/v1/status
+curl http://localhost:7070/api/v1/system/status
 ```
 
 **Response `200`:**
 ```json
 {
-  "status": "RUNNING",
-  "simd": "AVX2 (256-bit, 8 lanes)",
-  "gpuAvailable": false,
-  "rerankerEnabled": false,
-  "documentCount": 1250,
-  "dimensions": 384,
-  "capacity": 100000
+  "status": "UP",
+  "version": "1.0.0-SNAPSHOT",
+  "uptime": "2h 15m 30s",
+  "uptimeSeconds": 8130,
+  "port": 7070,
+  "ollamaUrl": "http://localhost:11434",
+  "ollamaModel": "nomic-embed-text"
 }
 ```
 
 ---
 
-### `GET /api/v1/metrics`
+### `GET /api/v1/system/health`
 
-Request metrics including query counts, latencies, and throughput.
+Detailed diagnostics of each subsystem component.
 
 ```bash
-curl http://localhost:7070/api/v1/metrics
+curl http://localhost:7070/api/v1/system/health
 ```
 
 **Response `200`:**
 ```json
 {
-  "totalQueries": 4521,
-  "totalIngestions": 1250,
-  "avgLatencyMs": 0.34,
-  "p99LatencyMs": 1.12,
-  "queriesPerSecond": 8432.5
+  "status": "UP",
+  "uptime": "PT2H15M30S",
+  "timestamp": "2026-07-18T18:23:00Z",
+  "components": {
+    "memory": {
+      "status": "UP",
+      "engine": "SpectorMemory"
+    },
+    "llm": {
+      "status": "CONFIGURED",
+      "model": "llama3.2",
+      "baseUrl": "http://localhost:11434"
+    },
+    "tools": {
+      "status": "UP",
+      "count": 16
+    }
+  }
 }
 ```
 
 ---
 
-## 📥 Ingest Endpoints
+### `GET /api/v1/system/metrics`
 
-### `POST /api/v1/ingest`
-
-Ingest a single document with a pre-computed vector embedding.
+Uptime, JVM heap stats, processors count, and Synapse configuration.
 
 ```bash
-curl -X POST http://localhost:7070/api/v1/ingest \
+curl http://localhost:7070/api/v1/system/metrics
+```
+
+**Response `200`:**
+```json
+{
+  "jvm": {
+    "version": "25",
+    "vendor": "Oracle Corporation",
+    "uptime": "PT2H15M30S",
+    "heap": {
+      "used": "142 MB",
+      "max": "4096 MB",
+      "total": "512 MB"
+    },
+    "processors": 8
+  },
+  "synapse": {
+    "tools": 16,
+    "memoryEngine": "active",
+    "llmModel": "llama3.2"
+  }
+}
+```
+
+---
+
+## 📥 Ingestion Endpoints
+
+### `POST /api/v1/memory`
+
+Ingest a single document with pre-computed vector and metadata.
+
+```bash
+curl -X POST http://localhost:7070/api/v1/memory \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: my-secret-key" \
   -d '{
     "id": "doc-1",
-    "title": "Java Vector API",
-    "content": "SIMD-accelerated search engine on modern JVM",
-    "vector": [0.1, 0.2, 0.3, 0.4, 0.5]
-  }'
-```
-
-**Request Schema:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | ✅ | Unique document identifier |
-| `title` | string | ❌ | Document title |
-| `content` | string | ✅ | Text content for BM25 indexing |
-| `vector` | float[] | ✅ | Embedding vector (must match configured dimensions) |
-| `metadata` | object | ❌ | Arbitrary key-value metadata |
-
-**Response `200`:**
-```json
-{"id": "doc-1", "status": "indexed"}
-```
-
----
-
-### `POST /api/v1/ingest/auto`
-
-Ingest with automatic embedding generation. Requires a configured embedding provider (e.g., Ollama).
-
-```bash
-curl -X POST http://localhost:7070/api/v1/ingest/auto \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "doc-2",
-    "title": "Panama FFM",
-    "content": "Foreign Function and Memory API for zero-copy storage"
-  }'
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | ✅ | Unique document identifier |
-| `title` | string | ❌ | Document title |
-| `content` | string | ✅ | Text content (used for both BM25 and embedding) |
-| `metadata` | object | ❌ | Arbitrary key-value metadata |
-
----
-
-### `POST /api/v1/ingest/bulk`
-
-Ingest multiple documents in a single request.
-
-```bash
-curl -X POST http://localhost:7070/api/v1/ingest/bulk \
-  -H "Content-Type: application/json" \
-  -d '{
-    "documents": [
-      {"id": "d1", "content": "first document", "vector": [0.1, 0.2, 0.3]},
-      {"id": "d2", "content": "second document", "vector": [0.4, 0.5, 0.6]}
-    ]
-  }'
-```
-
-**Response `200`:**
-```json
-{
-  "indexed": 2,
-  "failed": 0,
-  "results": [
-    {"id": "d1", "status": "indexed"},
-    {"id": "d2", "status": "indexed"}
-  ]
-}
-```
-
----
-
-## 🔍 Search Endpoints
-
-### `POST /api/v1/search`
-
-Auto-detecting search endpoint. The mode is determined by which fields you provide:
-
-| Fields Provided | Mode | Engine Used |
-|-----------------|------|-------------|
-| `text` only | 📝 KEYWORD | BM25 |
-| `vector` only | 🧠 VECTOR | HNSW |
-| `text` + `vector` | 🧬 HYBRID | RRF Fusion |
-
-```bash
-curl -X POST http://localhost:7070/api/v1/search \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "vector search engine",
+    "text": "Spector hybrid search engine",
     "vector": [0.1, 0.2, 0.3, 0.4, 0.5],
-    "topK": 10
+    "tags": ["documentation"]
   }'
-```
-
-**Request Schema:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `text` | string | ❌* | Query text for keyword search |
-| `vector` | float[] | ❌* | Query vector for similarity search |
-| `topK` | int | ❌ | Number of results (default: 10, max: 10000) |
-
-> [!IMPORTANT]
-> *At least one of `text` or `vector` must be provided.
-
-**Response `200`:**
-```json
-{
-  "results": [
-    {
-      "id": "doc-1",
-      "score": 0.9523,
-      "title": "Java Vector API",
-      "content": "SIMD-accelerated search engine on modern JVM"
-    }
-  ],
-  "searchMode": "HYBRID",
-  "latencyMs": 0.47,
-  "totalResults": 1
-}
-```
-
----
-
-### `POST /api/v1/vector-search`
-
-Explicit vector-only similarity search.
-
-```bash
-curl -X POST http://localhost:7070/api/v1/vector-search \
-  -H "Content-Type: application/json" \
-  -d '{"vector": [0.1, 0.2, 0.3, 0.4, 0.5], "topK": 10}'
-```
-
-### `POST /api/v1/bm25`
-
-Explicit keyword-only BM25 search.
-
-```bash
-curl -X POST http://localhost:7070/api/v1/bm25 \
-  -H "Content-Type: application/json" \
-  -d '{"text": "SIMD acceleration", "topK": 10}'
-```
-
-### `POST /api/v1/hybrid`
-
-Explicit hybrid search combining vector + keyword via RRF.
-
-```bash
-curl -X POST http://localhost:7070/api/v1/hybrid \
-  -H "Content-Type: application/json" \
-  -d '{"text": "vector search", "vector": [0.1, 0.2, 0.3, 0.4, 0.5], "topK": 10}'
-```
-
----
-
-### `GET /api/v1/search/stream` (SSE)
-
-Streaming search via Server-Sent Events. Results are emitted one-by-one as they become available, enabling progressive display in UIs.
-
-```bash
-curl -N "http://localhost:7070/api/v1/search/stream?text=vector+search&topK=5&mode=HYBRID"
-```
-
-**Query Parameters:**
-
-| Param | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `text` | string | ❌* | — | Query text for keyword/hybrid search |
-| `vector` | string | ❌* | — | Comma-separated floats (e.g., `0.1,0.2,0.3`) |
-| `topK` | int | ❌ | 10 | Number of results |
-| `mode` | string | ❌ | auto-detect | `KEYWORD`, `VECTOR`, or `HYBRID` |
-
-> [!IMPORTANT]
-> *At least one of `text` or `vector` must be provided.
-
-**Event Stream:**
-
-```
-event: result
-data: {"id":"doc-1","score":0.9523,"rank":1}
-
-event: result
-data: {"id":"doc-3","score":0.8741,"rank":2}
-
-event: result
-data: {"id":"doc-7","score":0.8102,"rank":3}
-
-event: done
-data: {"totalHits":3,"queryTimeMs":12,"mode":"HYBRID"}
-```
-
-**Event Types:**
-
-| Event | Description |
-|-------|-------------|
-| `result` | A single search result with id, score, and rank |
-| `done` | Search complete — includes timing and metadata |
-| `error` | An error occurred during search |
-
-> [!TIP]
-> Use the `EventSource` API in browsers or any SSE client library. Results stream immediately as they are scored, giving users instant feedback.
-
-**JavaScript Example:**
-```javascript
-const source = new EventSource('/api/v1/search/stream?text=HNSW+algorithm&topK=5');
-
-source.addEventListener('result', (event) => {
-  const result = JSON.parse(event.data);
-  console.log(`#${result.rank}: ${result.id} (score: ${result.score})`);
-});
-
-source.addEventListener('done', (event) => {
-  const meta = JSON.parse(event.data);
-  console.log(`Search complete in ${meta.queryTimeMs}ms`);
-  source.close();
-});
-```
-
----
-
-## 🤖 RAG (Retrieval-Augmented Generation)
-
-### `POST /api/v1/rag`
-
-Retrieve relevant context for LLM prompting. Performs search, then assembles a context window from matching chunks.
-
-```bash
-curl -X POST http://localhost:7070/api/v1/rag \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "How does HNSW indexing work?",
-    "topK": 5,
-    "tokenLimit": 4096,
-    "searchMode": "hybrid"
-  }'
-```
-
-**Request Schema:**
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `query` | string | ✅ | — | Query text (1–2000 chars) |
-| `topK` | int | ❌ | 5 | Results to retrieve (1–100) |
-| `tokenLimit` | int | ❌ | 4096 | Max context tokens (1–8192) |
-| `searchMode` | string | ❌ | "vector" | `"vector"` or `"hybrid"` |
-
-**Response `200`:**
-```json
-{
-  "context": "Assembled context text from relevant document chunks...",
-  "attributions": [
-    {"documentId": "doc-1", "chunkOffset": 0},
-    {"documentId": "doc-3", "chunkOffset": 2}
-  ],
-  "isEmpty": false
-}
-```
-
----
-
-## 🗑️ Document Management
-
-### `DELETE /api/v1/documents/{id}`
-
-Delete a document by its ID.
-
-```bash
-curl -X DELETE http://localhost:7070/api/v1/documents/doc-1
-```
-
-**Response `200`:**
-```json
-{"id": "doc-1", "deleted": true}
-```
-
----
-
-## 📊 Index Management
-
-### `POST /api/v1/index`
-
-Create or manage indexes.
-
-```bash
-curl -X POST http://localhost:7070/api/v1/index \
-  -H "Content-Type: application/json" \
-  -d '{"action": "create", "name": "my-index", "dimensions": 384}'
 ```
 
 ---

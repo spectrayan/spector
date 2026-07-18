@@ -140,17 +140,15 @@ var config = SpectorConfig.DEFAULT
 
 ---
 
-## 🤖 Reranker Configuration
+## 🚀 ColBERT v2 Reranker Configuration
 
 | Parameter | Default | Range | Description |
 |-----------|---------|-------|-------------|
-| `rerankerEnabled` | false | true/false | Enable LLM re-ranking via Ollama |
-| `rerankerModel` | — | Any Ollama model | Model name (e.g., "llama3.2") |
-| `rerankerEndpoint` | http://localhost:11434 | URL | Ollama API endpoint |
-| `rerankerMaxCandidates` | 20 | 1–100 | Max docs sent to LLM |
+| `enableReranker` | false | true/false | Toggle token-level late interaction reranking |
+| `rerankerDepth` | 20 | 5–100 | Number of first-stage candidates to rerank |
 
-> [!WARNING]
-> Re-ranking adds **100–500ms latency** per query. Use only when precision is critical and latency budget allows.
+> [!TIP]
+> ColBERT reranking executes in off-heap memory using Panama SIMD vector kernels. It typically adds less than 1ms of latency, providing cross-encoder precision with minimal overhead.
 
 ---
 
@@ -190,13 +188,7 @@ SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-b
 
 | Parameter | Default | Options | Description |
 |-----------|---------|---------|-------------|
-| `mode` | `SEARCH` | `SEARCH`, `MEMORY`, `HYBRID` | Which subsystems to initialize |
-
-| Mode | Engine | Memory | MCP Tools |
-|---|---|---|---|
-| `SEARCH` | ✅ | ❌ | 6 engine tools |
-| `MEMORY` | ❌ | ✅ | 11 memory tools |
-| `HYBRID` | ✅ | ✅ | All 17 tools |
+| `mode` | `MEMORY` | `MEMORY` | Unified memory operating mode (incorporates search and cognitive retrieval) |
 
 ### Memory Tier Parameters
 
@@ -207,6 +199,15 @@ SPECTOR_API_KEY=my-secret-key mvn -Psynapse -pl synapse/spector-synapse spring-b
 | `episodicPartitionCapacity` | 10,000 | 1,000–100,000 | Records per episodic partition |
 | `semanticCapacity` | 5,000 | 100–1,000,000 | Single-file semantic capacity (in-memory mode) |
 | `proceduralCapacity` | 500 | 10–100,000 | Procedural memory slots |
+
+### Retrieval Stack Parameters
+
+| Parameter | Default | Options | Description |
+|-----------|---------|---------|-------------|
+| `text-search-mode` | `HYBRID` | `HYBRID`, `KEYWORD_ONLY`, `VECTOR_ONLY`, `SPLADE`, `SPLADE_HYBRID`, `LI_LSR`, `COLBERT_RERANK`, `FULL_STACK` | Active retrieval layers and paths |
+| `bm25-enabled` | `true` | true/false | Enable SIMD-accelerated BM25 keyword matching |
+| `splade-enabled` | `true` | true/false | Enable SPLADE learned sparse retrieval |
+| `colbert-enabled` | `true` | true/false | Enable ColBERT v2 late-interaction reranking |
 
 ### Partitioned Semantic Storage
 
@@ -239,7 +240,7 @@ When enabled, immutable semantic partitions are shipped as snapshots to replica 
 
 ---
 
-## 🤖 RAG Pipeline Configuration
+## 📥 Ingestion & Chunking Configuration
 
 | Parameter | Default | Range | Description |
 |-----------|---------|-------|-------------|
@@ -247,7 +248,6 @@ When enabled, immutable semantic partitions are shipped as snapshots to replica 
 | `overlapTokens` | 50 | 0–maxTokens-1 | Overlap between chunks |
 | `embeddingBatchSize` | 32 | 1–256 | Batch size for embedding generation |
 | `embeddingRetries` | 3 | 0–10 | Retry count for failed batches |
-| `contextTokenLimit` | 4096 | 256–131072 | Max tokens in assembled context |
 
 ---
 

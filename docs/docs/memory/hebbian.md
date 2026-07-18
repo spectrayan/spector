@@ -277,14 +277,15 @@ This is small compared to the vector store (100K × 768-dim × 1B quantized = 75
 
 ## Why This Matters for AI Agents
 
-Traditional vector search treats each query independently. The 3-layer graph creates **emergent intelligence**:
+Traditional vector search treats each query independently. The 4-layer graph creates **emergent intelligence**:
 
 !!! example "Scenario: Multi-Signal Recall"
     1. Agent queries "why is the app slow?"
     2. **Vector search** → finds memory about "application latency"
     3. **Hebbian (Layer 1)** → that memory was co-ingested with "connection pool settings" → adds it to results
-    4. **Temporal (Layer 3)** → follows the chain: connection pool → timeout config → retry backoff → adds all three
     5. **Entity (Layer 2)** → "connection pool" mentions entity "DatabaseService" → traverses DEPENDS_ON edge → finds "Redis cache config" → adds it
+    4. **Temporal (Layer 3)** → follows the chain: connection pool → timeout config → retry backoff → adds all three
+    6. **Event-Episode (Layer 4)** → set-intersects {Alice, Project Alpha, DatabaseService} → recalls Alice's recent DB migration event → adds it
 
     The final result set contains memories that no single retrieval signal could have found alone.
 
@@ -349,6 +350,22 @@ Incidence List Entry (4B):
 ### How It Complements the Binary Entity Graph
 
 The `HyperEntityGraph` works alongside the traditional `EntityGraph`, not as a replacement. Binary edges remain useful for simple pairwise relations, while hyperedges capture **irreducible multi-entity events** — preserving the semantic unity that binary decomposition loses.
+
+---
+
+## 🔗 Graph Expansion Integration
+
+Graph expansion occurs during the later stages of the `RecallPipeline`. After vector, BM25, and sparse search produce the initial top-K seed candidate set, Spector traverses Hebbian, temporal, and entity edges to expand the context.
+
+### Graph Expansion Parameters
+*   **`graphExpansionThreshold` (float)**: The minimum score threshold a neighbor memory must meet to be added to the result set. Neighbors below this threshold are pruned to prevent context dilution. Defaults to `0.7`.
+*   **`enableTrace` (boolean)**: When enabled, the returned trace results will log the exact edge traversed (e.g., Hebbian co-activation, temporal causal step, or entity relation) for each expanded candidate.
+
+### Execution in `RecallPipeline`
+1.  **Seed Set Generation**: Layer 1/2/3 queries produce a seed candidate list.
+2.  **Edge Traversal**: For each seed candidate, Hebbian CSR edges, Temporal chains, and Entity relations are traversed.
+3.  **Threshold Gating**: Neighbor memories are evaluated. If a neighbor's activation score (weighted by edge weight, importance, and temporal decay) exceeds `graphExpansionThreshold`, it is added to the result set.
+4.  **Deduplication & Sorting**: Fused scoring merges the original and expanded candidates, sorting them before returning the final top-K.
 
 ---
 

@@ -523,12 +523,12 @@ HTTP-based MCP transport for remote/cloud deployments. Same 6 tools exposed over
 
 ---
 
-### ✅ 3-Layer Cognitive Graph {#cognitive-graph}
+### ✅ 4-Layer Cognitive Graph {#cognitive-graph}
 
 !!! success "Completed"
     All four phases implemented and merged. 357 tests pass, 0 failures.
 
-Full graph augmentation layer for `spector-memory` — three biologically-inspired graph structures that augment vector recall with associative, temporal, and relational signals.
+Full graph augmentation layer for `spector-memory` — four biologically-inspired graph structures that augment vector recall with associative, temporal, relational, and hyperedge signals.
 
 **Architecture:**
 ```
@@ -840,7 +840,7 @@ RecallOptions.builder()
 | 19 | **Documentation split** | Documentation | Low |
 | 20 | **Native MCP Server** | Agentic AI | Medium |
 | 21 | **Streamable HTTP transport** | Agentic AI | Medium |
-| 22 | **3-Layer Cognitive Graph** | Graph Memory | High |
+| 22 | **4-Layer Cognitive Graph** | Graph Memory | High |
 | 23 | **Cross-layer promotion** | Graph Memory | Medium |
 | 24 | **Entity graph decay + merging + adjacency LTD** | Graph Memory | Medium |
 | 25 | **Graph scoring weights** | Graph Memory | Low |

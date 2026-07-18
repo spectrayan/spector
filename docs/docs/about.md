@@ -1,15 +1,15 @@
 ---
-title: "What is Spector? — AI Search Engine & Cognitive Memory"
-description: "Spector is a Java-native AI search engine combining SIMD-accelerated vector search, BM25 keyword search, and biologically-inspired cognitive memory in a single embeddable library."
+title: "What is Spector? — AI Cognitive Memory Backbone"
+description: "Spector is a Java-native AI cognitive memory system combining dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, and biologically-inspired cognitive memory tiers in a single embeddable library."
 ---
 
 # 🌟 What is Spector?
 
 > **The Zero-Overhead, Agent-Ready AI Memory Backbone.**
 >
-> Legacy search engines bolted vectors onto text databases. Spector is designed from the ground up for modern AI — combining vector similarity, keyword search, and hybrid ranking in a single embeddable library with zero external dependencies. Connect any AI agent via the built-in MCP server, or embed directly in your application.
+> Legacy AI architectures bolted memory onto stateless vector databases. Spector is designed from the ground up for modern AI — combining dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, Hebbian graph structures, and hybrid ranking in a single embeddable library with zero external dependencies. Connect any AI agent via the built-in MCP server, or embed directly in your application.
 
-Spector is an open-source, high-performance search engine built entirely on modern Java 25. It's designed for developers who want sub-millisecond search, native AI agent integration, and zero infrastructure complexity. Drop in a JAR, write a few lines of code, and you have production-grade hybrid search with built-in agent support.
+Spector is an open-source, high-performance cognitive memory system built entirely on modern Java 25. It's designed for developers who want sub-millisecond memory retrieval, native AI agent integration, and zero infrastructure complexity. Drop in a JAR, write a few lines of code, and you have production-grade cognitive memory with built-in agent support.
 
 ---
 
@@ -25,32 +25,27 @@ graph LR
         SDK["📦 Java SDK"]
     end
     
-    subgraph Search Modes
-        A[Vector Search] --> D[Results]
-        B[Keyword Search] --> D
-        C[Hybrid Search] --> D
+    subgraph Recall Modes
+        HYBRID[Hybrid Recall] --> D[RRF Fusion]
+        VECTOR[Dense Recall] --> E[HNSW ANN]
+        KEYWORD[Lexical Recall] --> F[BM25 Scoring]
+        SPLADE[Sparse Recall] --> G[Splade Index]
+        COLBERT[ColBERT Rerank] --> H[MaxSim Rerank]
     end
     
-    subgraph Engines
-        A --> E[HNSW ANN]
-        B --> F[BM25 Scoring]
-        C --> E
-        C --> F
-        C --> G[RRF Fusion]
-    end
+    D & E & F & G & H --> Results[Results]
     
-    MCP --> A & B & C
-    REST --> A & B & C
-    SDK --> A & B & C
+    MCP & REST & SDK --> HYBRID & VECTOR & KEYWORD & SPLADE & COLBERT
 ```
 
-| Mode | How It Works | Best For |
-|------|-------------|----------|
-| **🧠 Vector Search** | HNSW approximate nearest neighbor graphs | Semantic similarity |
-| **📝 Keyword Search** | BM25 scoring with term frequency saturation | Exact term matching |
-| **🧬 Hybrid Search** | Combines both via Reciprocal Rank Fusion | Best-of-both-worlds |
-| **🤖 RAG Pipeline** | Ingest → chunk → embed → retrieve → context assembly | LLM applications |
-| **🏛️ SpectorIndex** | IVF-HNSW-SVASQ adaptive hybrid index | Scale + recall |
+| Mode | Active Layers | How It Works | Best For |
+|------|--------------|-------------|----------|
+| **🧠 Dense Recall** | Dense Vector (HNSW) | HNSW approximate nearest neighbor graphs | Semantic similarity, conceptual queries |
+| **📝 Lexical Recall** | BM25 only | SIMD-accelerated Lucene-style scoring | Exact term matching, error codes, IDs |
+| **🧬 Hybrid Recall** | BM25 + Dense Vector | Parallel execution fused via RRF | General purpose, balanced quality |
+| **📈 Sparse Recall** | SPLADE / Li-LSR | Neural term expansion with inverted indexing | Synonym-aware lexical search |
+| **🚀 ColBERT Rerank** | Vector + BM25 + ColBERT | Late-interaction MaxSim token matching | Maximum precision, grounded context |
+| **🏛️ SpectorIndex** | IVF-HNSW-SVASQ | Adaptive quantized hybrid index | Large scale index compression + recall |
 
 ---
 
@@ -58,11 +53,11 @@ graph LR
 
 ### 🤖 Agent-Native (MCP Protocol)
 
-Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server with 6 tools. AI agents connect directly via JSON-RPC — no Python frameworks, no network round-trips.
+Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server with 16 tools. AI agents connect directly via JSON-RPC — no Python frameworks, no network round-trips.
 
 | Feature | Python Vector DB MCP | **Spector MCP** |
 |:---|:---|:---|
-| Search latency | 2–10ms | **88µs p50** (23–113× faster) † |
+| Recall latency | 2–10ms | **0.13ms p50** (15–75× faster) † |
 | Network overhead | HTTP/gRPC round-trip | **Zero** (in-process) |
 | Concurrent queries | Limited by Python GIL | **61,000 QPS** † |
 | Dependencies | Python framework stack | **Single JAR** |
@@ -92,10 +87,10 @@ Unlike most vector databases that rely on C++, Rust, or Python bindings, Spector
 
 **HNSW** at 100K documents (128 dimensions, top-10, M=16, efSearch=64):
 
-| Search Type | Average Latency | Throughput |
+| Recall Type | Average Latency | Throughput |
 |-------------|----------------|------------|
-| Vector | **0.13 ms** | 7,556 QPS |
-| Keyword | **0.98 ms** | 1,019 QPS |
+| Dense | **0.13 ms** | 7,556 QPS |
+| Lexical | **0.98 ms** | 1,019 QPS |
 | Hybrid | **1.01 ms** | 994 QPS |
 
 **SpectorIndex (IVF-HNSW-SVASQ)** at 10K documents (4096-dim real Qwen3 embeddings):
@@ -143,20 +138,20 @@ Spector offers two quantization paths:
 | Milvus | Go/C++ | 3–10 ms | 10–35 ms |
 
 > [!NOTE]
-> Spector's vector search latency is competitive with native C++ implementations (hnswlib, FAISS) for in-process workloads. Numbers for external systems are from published benchmarks and ann-benchmarks.com. Hardware and configuration differences apply — these are directional comparisons, not controlled A/B tests.
+> Spector's vector recall latency is competitive with native C++ implementations (hnswlib, FAISS) for in-process workloads. Numbers for external systems are from published benchmarks and ann-benchmarks.com. Hardware and configuration differences apply — these are directional comparisons, not controlled A/B tests.
 
 ### Feature Comparison
 
 | Feature | Spector | Elasticsearch | Qdrant | Milvus | hnswlib |
 |---------|---------|--------------|--------|--------|---------| 
 | **Deployment** | Embedded + Server | Cluster only | Server only | Cluster only | Embedded only |
-| **MCP Server** | ✅ Built-in (6 tools) | ❌ | ❌ | ❌ | ❌ |
-| **Hybrid Search** | ✅ RRF built-in | ✅ RRF | ✅ Sparse+Dense | ✅ RRF | ❌ |
+| **MCP Server** | ✅ Built-in (16 tools) | ❌ | ❌ | ❌ | ❌ |
+| **Hybrid Recall** | ✅ RRF built-in | ✅ RRF | ✅ Sparse+Dense | ✅ RRF | ❌ |
 | **Zero Dependencies** | ✅ JDK only | ❌ Heavy stack | ❌ Tokio runtime | ❌ etcd, MinIO, Pulsar | ✅ Header-only |
 | **Virtual Threads** | ✅ Project Loom | ❌ Platform threads | N/A (Rust async) | N/A (Go goroutines) | N/A |
 | **GPU Acceleration** | ✅ CUDA (Panama FFM) | ❌ | ✅ Vulkan (indexing) | ✅ CUDA (search + indexing) | ❌ |
 | **Quantization** | ✅ Scalar INT8 + IVF-PQ | ✅ BBQ + Scalar + DiskBBQ (IVF) | ✅ Scalar + Binary | ✅ IVF-PQ + IVF-SQ | ❌ |
-| **Re-ranking** | ✅ LLM via Ollama | ✅ Elastic Rerank + Inference API | ✅ FastEmbed / ColBERT | ✅ vLLM Ranker + Cross-encoder | ❌ |
+| **Re-ranking** | ✅ ColBERT v2 (FFM SIMD) | ✅ Elastic Rerank + Inference API | ✅ FastEmbed / ColBERT | ✅ vLLM Ranker + Cross-encoder | ❌ |
 | **Distributed** | ✅ gRPC fan-out | ✅ Built-in sharding | ✅ Raft consensus | ✅ gRPC + etcd | ❌ |
 | **SIMD Acceleration** | ✅ Java Vector API | ✅ simdvec (Panama) | ✅ Native SIMD | ✅ AVX/NEON | ✅ AVX/SSE |
 
@@ -171,19 +166,15 @@ Spector offers two quantization paths:
 
 Connect AI agents (Claude, Cursor, custom) directly to Spector via the built-in MCP server. The agent autonomously ingests documents, searches for relevant context, and retrieves information — all with zero Python glue-code. *"Point your LLM at Spector's MCP port, and it instantly has mathematically-perfect long-term memory."*
 
-### 🤖 Retrieval-Augmented Generation (RAG)
+### 🔍 Semantic Search & Recall Applications
 
-Ingest documents (PDF, HTML, Markdown), chunk them with token awareness, generate embeddings, and retrieve relevant context for LLM prompting — all through a single `/api/v1/rag` endpoint or the `engine_rag` MCP tool.
-
-### 🔍 Semantic Search Applications
-
-Power product search, documentation search, code search, or any application where meaning matters more than exact keywords.
+Power product search, documentation recall, code search, or any application where meaning matters more than exact keywords.
 
 ### 💡 Recommendation Systems
 
-Use vector similarity to find items similar to what users have engaged with. Sub-millisecond latency makes real-time recommendations practical.
+Use similarity to find items similar to what users have engaged with. Sub-millisecond latency makes real-time recommendations practical.
 
-### 🏢 Hybrid Enterprise Search
+### 🏢 Hybrid Enterprise Memory
 
 Combine keyword precision (finding exact product SKUs, error codes) with semantic understanding (finding conceptually related documents).
 
@@ -197,10 +188,10 @@ Drop Spector into existing Java applications without infrastructure changes. Per
 
 > [!NOTE]
 > **Choose Spector when:**
-> - You want AI agents to autonomously search your data (MCP integration)
-> - You want sub-millisecond hybrid search without infrastructure complexity
+> - You want AI agents to autonomously manage their memories (MCP integration)
+> - You want sub-millisecond hybrid recall without infrastructure complexity
 > - Your stack is Java/JVM and you want native integration
-> - You need an embedded search library with server-mode option
+> - You need an embedded cognitive memory library with server-mode option
 > - You want GPU acceleration without leaving the JVM
 > - Zero external dependencies matters to your deployment
 
@@ -214,7 +205,7 @@ Drop Spector into existing Java applications without infrastructure changes. Per
 
 ## 🚀 Next Steps
 
-- [Getting Started](getting-started/quickstart.md) — Build and run your first search in 5 minutes
+- [Getting Started](getting-started/quickstart.md) — Build and run your first recall in 5 minutes
 
 - [MCP Server Guide](sdk-usage/mcp-server.md) — Connect an AI agent in 3 steps
 

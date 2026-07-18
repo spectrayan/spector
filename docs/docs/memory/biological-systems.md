@@ -30,7 +30,7 @@ graph TB
     end
 
     subgraph "Association & Learning"
-        HE["🔗 3-Layer Cognitive Graph<br/>Hebbian + Entity + Temporal<br/><i>Off-heap graph structures</i>"]
+        HE["🔗 4-Layer Cognitive Graph<br/>Hebbian + Entity + Temporal + Hyperedge<br/><i>Off-heap graph structures</i>"]
     end
 
     subgraph "Consolidation & Planning"
@@ -60,7 +60,7 @@ graph TB
 | [**Synapse**](synapse.md) | Synaptic junction | Synaptic tagging & capture | 64-bit Bloom filter tag encoding, 32B binary header | Frey & Morris, 1997[^2] |
 | [**Dopamine**](dopamine.md) | Ventral tegmental area | Prediction error signaling | Welford Z-score surprise detection, flashbulb encoding | Schultz, 1997[^3] |
 | [**Amygdala**](amygdala.md) | Amygdala | Emotional memory modulation | Signed valence byte (-128 to +127), emotional filtering | McGaugh, 2004[^4] |
-| [**3-Layer Graph**](hebbian.md) | Cortical networks, Hippocampus | Hebbian learning, STDP, episodic sequences | Off-heap HebbianGraph, EntityGraph, TemporalChain | Hebb, 1949[^5]; Bi & Poo, 2001[^6] |
+| [**4-Layer Graph**](hebbian.md) | Cortical networks, Hippocampus | Hebbian learning, STDP, episodic sequences | Off-heap HebbianGraph, EntityGraph, TemporalChain, HyperEntityGraph | Hebb, 1949[^5]; Bi & Poo, 2001[^6] |
 | [**Habituation**](habituation.md) | Sensory cortex | Response decrement to repetition | Exponential penalty on repeated recall | Thompson & Spencer, 1966[^7] |
 | [**Inhibition**](inhibition.md) | Prefrontal cortex | Inhibition of return | SuppressionSet with TTL-based suppression windows | Klein, 2000[^8] |
 | [**Interference**](interference.md) | Hippocampus | Proactive/retroactive interference | Similarity-based deduplication during ingestion | Underwood, 1957[^9] |
@@ -198,11 +198,11 @@ Where $n$ is the number of times the memory appeared in recent results and $\gam
 
     [:octicons-arrow-right-24: Amygdala](amygdala.md)
 
--   :material-share-variant:{ .lg .middle } **3-Layer Cognitive Graph**
+-   :material-share-variant:{ .lg .middle } **4-Layer Cognitive Graph**
 
     ---
 
-    Hebbian, Entity-Relationship, and Temporal Causal graphs
+    Hebbian, Entity-Relationship, Temporal Causal, and Event-Episode graphs
 
     [:octicons-arrow-right-24: Cognitive Graph](hebbian.md)
 

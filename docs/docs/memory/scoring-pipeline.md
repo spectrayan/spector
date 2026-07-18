@@ -362,7 +362,7 @@ Entities are extracted from the query text, then looked up in the `EntityGraph`.
 
 ## Next Steps
 
-- :material-share-variant: [**3-Layer Cognitive Graph**](hebbian.md) — deep dive into Hebbian, Entity, and Temporal graphs
+- :material-share-variant: [**4-Layer Cognitive Graph**](hebbian.md) — deep dive into Hebbian, Entity, Temporal, and HyperEntity graphs
 - :material-brain: [**Cortex — Tier Stores**](cortex.md) — the 4-tier memory architecture
 - :material-flash: [**Synapse — Tags & Scoring**](synapse.md) — Bloom filter and binary layout
 - :material-school: [**Theoretical Foundations**](theoretical-foundations.md) — ACT-R lineage, power law of forgetting, Two-Factor model

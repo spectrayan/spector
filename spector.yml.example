@@ -49,8 +49,12 @@ spector:
     ef-search: 50
 
   memory:
-    enabled: false
+    enabled: true
     persistence-path: .spector-memory
+    text-search-mode: HYBRID  # Choices: HYBRID, KEYWORD_ONLY, VECTOR_ONLY, SPLADE, SPLADE_HYBRID, LI_LSR, COLBERT_RERANK, FULL_STACK
+    bm25-enabled: true
+    splade-enabled: true
+    colbert-enabled: true
 
   ingestion:
     root-directory: .
