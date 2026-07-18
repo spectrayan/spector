@@ -23,7 +23,6 @@ import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
-import com.spectrayan.spector.ingestion.EmbeddingProviderFactory;
 import com.spectrayan.spector.runtime.SpectorRuntime;
 
 /**
@@ -149,10 +148,11 @@ public class SpectorMcpMain {
 
         SpectorProperties props = propsBuilder.build();
 
-        // -€-€ Create embedding provider -€-€
+        // -,-, Create embedding provider -,-,
         var embedDefaults = SpectorConfigFactory.embeddingDefaults(props);
-        EmbeddingProvider embedder = EmbeddingProviderFactory.create(
-                embedDefaults.baseUrl(), embedDefaults.model());
+        var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", embedDefaults.model(), embedDefaults.baseUrl());
+        var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
+        EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
         log.info("[Spector MCP] Embedding: {} @ {}", embedDefaults.model(), embedDefaults.baseUrl());
 
         // -€-€ Create text generation provider for LLM tag extraction (if configured) -€-€
