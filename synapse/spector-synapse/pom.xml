@@ -220,7 +220,28 @@
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
-
+        <!-- ── Apache Tika (upgraded standard parsers with PDFBox 3.x excluded to align PDFBox 2.x and Tabula) ── -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>3.2.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-parsers-standard-package</artifactId>
+            <version>3.2.2</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.tika</groupId>
+                    <artifactId>tika-parser-pdf-module</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>pdfbox</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
         <!-- ── Tabula (structured table extraction from PDFs) ── -->
         <dependency>
