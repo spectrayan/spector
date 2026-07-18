@@ -45,7 +45,11 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *       engine.ingest(c.chunkId(), c.text(), embeddingOf(c.text()));
  *   }
  * }</pre>
+ *
+ * @deprecated Use {@link com.spectrayan.spector.commons.chunker.SentenceChunker} instead,
+ *             which implements the new {@link com.spectrayan.spector.commons.chunker.TextChunker} SPI.
  */
+@Deprecated(since = "1.1.0", forRemoval = true)
 public class TextChunker {
 
     /** Default chunk size in characters (~128 tokens ≈ 512 chars). */
