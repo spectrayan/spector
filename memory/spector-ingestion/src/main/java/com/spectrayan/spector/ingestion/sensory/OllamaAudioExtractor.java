@@ -16,6 +16,10 @@
 package com.spectrayan.spector.ingestion.sensory;
 
 import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.provider.model.AudioContent;
+import com.spectrayan.spector.provider.model.ChatMessage;
+import com.spectrayan.spector.provider.model.LlmRequest;
+import com.spectrayan.spector.provider.model.TextContent;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,10 +27,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -34,11 +37,11 @@ import java.util.stream.Stream;
  *
  * <p>Uses Ollama models that support audio input (e.g., gemma4 with audio support,
  * qwen2-audio) to transcribe audio files into text. The audio file is encoded
- * as base64 and sent to the model as part of the prompt.</p>
+ * and sent to the model as part of the prompt.</p>
  *
  * <h3>Usage</h3>
  * <pre>{@code
- *   OllamaLlmProvider llm = OllamaLlmProvider.create("gemma4:latest");
+ *   LlmProvider llm = ... // create provider
  *   var extractor = new OllamaAudioExtractor(llm);
  *   
  *   try (Stream<ExtractionChunk> chunks = extractor.extract(audioPath, "audio/mpeg")) {
@@ -101,23 +104,26 @@ public final class OllamaAudioExtractor implements AudioTranscriptExtractor {
 
         log.info("Transcribing audio: {} ({}B, mime={})", source.getFileName(), fileSize, mimeType);
 
-        // Read and base64-encode the audio file
         byte[] audioBytes = Files.readAllBytes(source);
-        String base64Audio = Base64.getEncoder().encodeToString(audioBytes);
 
-        // Build the prompt with audio content
-        // Note: The actual Ollama API call with audio is model-specific.
-        // For now, we use the generate() method and rely on the LLM provider
-        // to handle multimodal input. If the model doesn't support audio,
-        // this will return an error message as the transcription.
         String prompt = TRANSCRIPTION_PROMPT + "\n[Audio file: " + source.getFileName() +
                 ", size: " + fileSize + " bytes, type: " +
                 (mimeType != null ? mimeType : "auto-detect") + "]";
 
         String transcript;
         try {
-            transcript = llm.generate(prompt);
+            var message = ChatMessage.user(
+                new TextContent(prompt),
+                new AudioContent(audioBytes, mimeType, null)
+            );
+            var request = LlmRequest.fromMessages(List.of(message));
+            
+            var response = llm.generate(request);
+            transcript = response.text();
         } catch (LlmProvider.GenerationException e) {
+            throw new IOException("Audio transcription failed for " + source.getFileName() +
+                    ": " + e.getMessage(), e);
+        } catch (Exception e) {
             throw new IOException("Audio transcription failed for " + source.getFileName() +
                     ": " + e.getMessage(), e);
         }
