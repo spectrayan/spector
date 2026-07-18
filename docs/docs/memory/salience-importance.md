@@ -394,7 +394,7 @@ Every time a memory is recalled, its importance gets a small boost — **Hebbian
 Memories that are never recalled gradually lose importance during sleep consolidation cycles. This prevents the memory store from being dominated by old, unused memories.
 
 ### Co-activation Strengthening
-Memories frequently retrieved together form **Hebbian associations** in the 3-layer cognitive graph. These associations create retrieval clusters — recalling one memory pulls related memories along with it.
+Memories frequently retrieved together form **Hebbian associations** in the 4-layer cognitive graph. These associations create retrieval clusters — recalling one memory pulls related memories along with it.
 
 ---
 

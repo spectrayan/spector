@@ -38,7 +38,7 @@ Spring AI dependencies (BOM recommended):
 graph LR
     subgraph "🏠 Embedded Mode"
         A[Your App] --> B[SpectorVectorStore]
-        B --> C[SpectorEngine<br/>In-process, zero latency]
+        B --> C[SpectorMemory<br/>In-process, zero latency]
     end
 
     subgraph "🌐 Remote Mode"
@@ -50,27 +50,29 @@ graph LR
 
 ### 🏠 Embedded Mode (In-Process)
 
-Use the SpectorEngine directly — no network, lowest latency:
+Use `SpectorMemory` directly — no network, lowest latency:
 
 ```java
 import org.springframework.ai.vectorstore.spector.SpectorVectorStore;
-import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.engine.SpectorConfig;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 
 @Configuration
 public class VectorStoreConfig {
 
     @Bean
-    public SpectorEngine spectorEngine() {
-        var config = SpectorConfig.DEFAULT
-            .withDimensions(384)
-            .withCapacity(100_000);
-        return new SpectorEngine(config);
+    public SpectorMemory spectorMemory(EmbeddingProvider embeddingProvider) {
+        return DefaultSpectorMemory.builder()
+            .dimensions(384)
+            .semanticCapacity(100_000)
+            .embeddingProvider(embeddingProvider)
+            .build();
     }
 
     @Bean
-    public VectorStore vectorStore(SpectorEngine engine) {
-        return new SpectorVectorStore(engine);
+    public VectorStore vectorStore(SpectorMemory memory) {
+        return new SpectorVectorStore(memory);
     }
 }
 ```
@@ -328,8 +330,6 @@ public class SearchApp {
 ## 🔗 See Also
 
 - [Java SDK Guide](java-client.md) — Direct SDK usage
-
-- [RAG Pipeline](../architecture/rag-pipeline.md) — How the RAG pipeline works internally
 
 - [REST API Reference](../api-reference/rest-endpoints.md) — Underlying REST endpoints
 

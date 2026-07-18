@@ -17,7 +17,7 @@
 
 ---
 
-Legacy search engines bolted vectors onto text databases. **Spector** is designed from the ground up for modern AI — leveraging Java Project Panama to achieve C++ bare-metal SIMD speeds natively, with a built-in MCP server that turns any AI agent into a search-powered reasoning machine.
+Legacy AI architectures bolted memory onto stateless vector databases. **Spector** is designed from the ground up for modern AI as a unified cognitive memory backbone — leveraging Java Project Panama to achieve C++ bare-metal SIMD speeds natively across dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, and associative Hebbian graph memory, with a built-in MCP server that turns any AI agent into a memory-augmented reasoning machine.
 
 ---
 
@@ -25,7 +25,7 @@ Legacy search engines bolted vectors onto text databases. **Spector** is designe
 
 Spector is structured around a modular, biologically-inspired architecture designed to bridge low-level bare-metal SIMD operations with high-level agent orchestration:
 *   **Nucleus (Foundation)**: Core configurations, off-heap storage layouts (Panama MemorySegment), and standard utilities.
-*   **Memory (Cognitive Engine)**: The flagship vector search and cognitive memory engine containing the 4-tier cortex, Hebbian graph, and sleep consolidation pipelines.
+*   **Memory (Cognitive Engine)**: The flagship hybrid retrieval and cognitive memory system combining dense vector, sparse (SPLADE/Li-LSR), keyword (BM25), 4-layer cognitive graph, and sleep consolidation pipelines.
 *   **Synapse (Gateway & APIs)**: Spring Boot entry points, Armeria-based REST/gRPC gateways, and stdio/HTTP Model Context Protocol (MCP) servers.
 *   **Cortex (UI)**: Three.js and Angular-powered neural dashboard for real-time visualization of memory graphs, decay, and search metrics.
 
@@ -35,16 +35,15 @@ For a comprehensive analysis of the system architecture, data flows, thread sche
 
 ## 🤖 MCP-Native — Built for AI Agents
 
-Spector is an **MCP-native engine** — not an afterthought adapter. The MCP server runs **in-process** with the search engine (zero network, zero serialization), giving agents direct SIMD-accelerated access to 21 tools across search, memory, and RAG.
+Spector is an **MCP-native cognitive memory** — not an afterthought adapter. The MCP server runs **in-process** with the memory system (zero network, zero serialization), giving agents direct SIMD-accelerated access to 16 tools across memory storage, recall, and introspection.
 
 ### Why MCP-Native Matters
 
 | | Spector (MCP-native) | Typical MCP adapter |
 |:---|:---|:---|
-| **Architecture** | Engine + MCP in one JVM | Python wrapper → HTTP → DB |
-| **Search latency** | **88µs** (in-process SIMD) | 5–50ms (network + serialization) |
+| **Architecture** | Memory + MCP in one JVM | Python wrapper → HTTP → DB |
 | **Memory recall** | **0.13ms** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
-| **Tools** | **21** (6 engine + 15 cognitive) | 3–5 basic CRUD |
+| **Tools** | **16** (cognitive memory tools) | 3–5 basic CRUD |
 | **Cognitive features** | Decay, Hebbian, consolidation, valence | Key-value store |
 | **GC pressure** | **Zero** (Panama off-heap) | Full GC overhead |
 
@@ -52,7 +51,7 @@ Spector is an **MCP-native engine** — not an afterthought adapter. The MCP ser
 
 ## 🧠 Cognitive Memory — AI Agents That Actually Remember
 
-Spector Memory is a **biologically-inspired cognitive memory engine** that gives AI agents the ability to **remember**, **forget**, **consolidate**, and **associate** — with microsecond latency and zero garbage collection pressure.
+Spector Memory is a **biologically-inspired cognitive memory system** that gives AI agents the ability to **remember**, **forget**, **consolidate**, and **associate** — with microsecond latency and zero garbage collection pressure.
 
 | Capability | What it does |
 |:---|:---|
@@ -69,13 +68,16 @@ Spector Memory is a **biologically-inspired cognitive memory engine** that gives
 
 ## ✨ Key Capabilities
 
-| Capability | Technology | Performance |
+| Capability | Technology | Performance / Specifications |
 |:---|:---|:---|
-| 🤖 **Agent-Native (MCP)** | Model Context Protocol · 21 tools · stdio + Streamable HTTP | Claude · Cursor · autonomous agents |
-| ⚡ **SIMD Search** | Java Vector API (AVX2/AVX-512/NEON) | 88µs p50 · 61K QPS |
+| 🤖 **Agent-Native (MCP)** | Model Context Protocol · 16 tools · stdio + Streamable HTTP | Claude · Cursor · autonomous agents |
+| ⚡ **SIMD Scoring** | Java Vector API (AVX2/AVX-512/NEON) | 0.13ms p50 recall |
 | 🧊 **Off-Heap Storage** | Panama MemorySegment · zero-copy I/O | 0.01% GC overhead |
 | 🗜️ **Quantization** | SVASQ-8/4 · IVF-PQ · FWHT rotation | 4–32× compression · 99.5% recall |
-| 🔍 **Hybrid Search** | HNSW + BM25 + RRF + LLM re-ranking | Sub-ms latency |
+| 🔍 **Hybrid Retrieval** | 4-Layer Stack: Dense HNSW + BM25 + SPLADE / Li-LSR + ColBERT v2 | Multi-way RRF fusion + MaxSim SIMD reranking |
+| 📄 **Off-Heap Doc Store** | Encrypted `TextDataStore` (AES-256-GCM) | Zero-copy mmap'd `readTextDirect` · zero GC pressure |
+| 🔗 **Cognitive Graphs** | Hebbian co-activation + LLM Entity Graphs | Spreading activation, temporal chains & entity links |
+| 🎛️ **Retrieval Modes** | 8 `TextSearchMode` paths (HYBRID, FULL_STACK, etc.) | Graceful degradation & flexible query optimization |
 | 🖥️ **GPU Acceleration** | CUDA via Panama FFM | Optional · zero-copy transfer |
 | 📦 **Flexible Deployment** | Embedded JAR · Standalone · Distributed | Zero to cluster in one config |
 

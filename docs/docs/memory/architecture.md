@@ -277,6 +277,6 @@ After the header, the quantized vector payload follows immediately:
 ## Next Steps
 
 - :material-lightning-bolt: [**6-Phase Scoring Pipeline**](scoring-pipeline.md) — the SIMD hot-loop that makes it fast
-- :material-share-variant: [**3-Layer Cognitive Graph**](hebbian.md) — Hebbian, Entity, and Temporal graphs
+- :material-share-variant: [**4-Layer Cognitive Graph**](hebbian.md) — Hebbian, Entity, Temporal, and HyperEntity graphs
 - :material-brain: [**Cortex — Tier Stores**](cortex.md) — the 4-tier memory architecture
 - :material-memory: [**Off-Heap Panama Design**](panama-design.md) — zero-GC binary layout

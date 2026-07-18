@@ -1,5 +1,5 @@
 site_name: Spector Documentation
-site_description: "Spector — The Zero-Overhead, Agent-Ready AI Memory Backbone. SIMD-accelerated vector search, cognitive memory for AI agents, built-in MCP server, zero dependencies."
+site_description: "Spector — Zero-Overhead, Agent-Ready AI Cognitive Memory Backbone. Dense vector similarity, BM25 text matching, SPLADE sparse retrieval, Hebbian graph structures, and biologically-inspired cognitive memory tiers."
 site_url: https://spectrayan.github.io/spector/
 repo_url: https://github.com/spectrayan/spector
 repo_name: spectrayan/spector
@@ -134,6 +134,11 @@ nav:
       - API Reference: memory/api-reference.md
       - Architecture: memory/architecture.md
       - The 6-Phase Scoring Pipeline: memory/scoring-pipeline.md
+      - "Retrieval Stack":
+          - Overview: memory/retrieval-overview.md
+          - "Keyword Retrieval (BM25)": memory/bm25.md
+          - "Learned Sparse Search (SPLADE)": memory/splade.md
+          - "Late-Interaction Reranking (ColBERT v2)": memory/colbert.md
       - Cognitive Profiles:
           - Overview: memory/cognitive-profiles.md
           - "Self-Tuning Adaptor": memory/profile-adaptor.md
@@ -149,7 +154,7 @@ nav:
           - "Synapse — Tags & Scoring": memory/synapse.md
           - "Dopamine — Surprise Detection": memory/dopamine.md
           - "Amygdala — Emotional Valence": memory/amygdala.md
-          - "3-Layer Cognitive Graph": memory/hebbian.md
+          - "4-Layer Cognitive Graph": memory/hebbian.md
           - "Habituation — Anti-Filter Bubble": memory/habituation.md
           - "Inhibition — Suppression": memory/inhibition.md
           - "Interference — Deduplication": memory/interference.md
@@ -172,7 +177,6 @@ nav:
       - System Overview: architecture/overview.md
       - Core Concepts: architecture/core-concepts.md
       - Ingestion Pipeline: architecture/ingestion-pipeline.md
-      - RAG Pipeline: architecture/rag-pipeline.md
       - MCP Integration: architecture/mcp-integration.md
       - Distributed Mode: architecture/distributed-mode.md
       - Event Notifications: architecture/event-notifications.md

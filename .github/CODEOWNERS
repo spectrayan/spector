@@ -3,47 +3,47 @@
 # See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default — catch-all
-* @sbharatjoshi
+* @spectrayan/ai-engineering @sbharatjoshi
 
 # Nucleus (Foundation)
-/nucleus/spector-bom/ @sbharatjoshi
-/nucleus/spector-commons/ @sbharatjoshi
-/nucleus/spector-core/ @sbharatjoshi
-/nucleus/spector-config/ @sbharatjoshi
-/nucleus/spector-storage/ @sbharatjoshi
-/nucleus/spector-events/ @sbharatjoshi
-/nucleus/spector-metrics/ @sbharatjoshi
-/nucleus/spector-test-support/ @sbharatjoshi
+/nucleus/spector-bom/ @spectrayan/ai-engineering
+/nucleus/spector-commons/ @spectrayan/ai-engineering
+/nucleus/spector-core/ @spectrayan/ai-engineering
+/nucleus/spector-config/ @spectrayan/ai-engineering
+/nucleus/spector-storage/ @spectrayan/ai-engineering
+/nucleus/spector-events/ @spectrayan/ai-engineering
+/nucleus/spector-metrics/ @spectrayan/ai-engineering
+/nucleus/spector-test-support/ @spectrayan/ai-engineering
 
 # Memory (Intelligence)
-/memory/spector-memory/ @sbharatjoshi
-/memory/spector-index/ @sbharatjoshi
-/memory/spector-query/ @sbharatjoshi
-/memory/spector-gpu/ @sbharatjoshi
-/memory/spector-embed-api/ @sbharatjoshi
-/memory/spector-embed-ollama/ @sbharatjoshi
-/memory/spector-ingestion/ @sbharatjoshi
-/memory/spector-rag/ @sbharatjoshi
+/memory/spector-memory/ @spectrayan/ai-engineering
+/memory/spector-index/ @spectrayan/ai-engineering
+/memory/spector-query/ @spectrayan/ai-engineering
+/memory/spector-gpu/ @spectrayan/ai-engineering
+/memory/spector-embed-api/ @spectrayan/ai-engineering
+/memory/spector-embed-ollama/ @spectrayan/ai-engineering
+/memory/spector-ingestion/ @spectrayan/ai-engineering
+/memory/spector-rag/ @spectrayan/ai-engineering
 
 # Synapse (Wiring & APIs)
-/synapse/spector-runtime/ @sbharatjoshi
-/synapse/spector-mcp/ @sbharatjoshi
-/synapse/spector-cli/ @sbharatjoshi
-/synapse/spector-client/ @sbharatjoshi
-/synapse/spector-spring/ @sbharatjoshi
-/synapse/spector-synapse/ @sbharatjoshi
-/synapse/spector-dist/ @sbharatjoshi
+/synapse/spector-runtime/ @spectrayan/ai-engineering
+/synapse/spector-mcp/ @spectrayan/ai-engineering
+/synapse/spector-cli/ @spectrayan/ai-engineering
+/synapse/spector-client/ @spectrayan/ai-engineering
+/synapse/spector-spring/ @spectrayan/ai-engineering
+/synapse/spector-synapse/ @spectrayan/ai-engineering
+/synapse/spector-dist/ @spectrayan/ai-engineering
 
 # Cortex (UI)
-/cortex/spector-cortex/ @sbharatjoshi
+/cortex/spector-cortex/ @spectrayan/ai-engineering
 
 # Benchmarks
-/bench/spector-bench/ @sbharatjoshi
+/bench/spector-bench/ @spectrayan/ai-engineering
 
 # CI/CD, Infrastructure & Docs
-/.github/ @sbharatjoshi
-/deploy/ @sbharatjoshi
-/Dockerfile @sbharatjoshi
-/docker-compose.yml @sbharatjoshi
-/docs/ @sbharatjoshi
-*.md @sbharatjoshi
+/.github/ @spectrayan/ai-engineering @sbharatjoshi
+/deploy/ @spectrayan/ai-engineering
+/Dockerfile @spectrayan/ai-engineering
+/docker-compose.yml @spectrayan/ai-engineering
+/docs/ @spectrayan/ai-engineering
+*.md @spectrayan/ai-engineering

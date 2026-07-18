@@ -89,10 +89,11 @@ graph TB
             SS[SuppressionSet<br/>Inhibition]:::synapse
         end
         
-        subgraph "3-Layer Cognitive Graph"
+        subgraph "4-Layer Cognitive Graph"
             HG[HebbianGraph<br/>Layer 1: Association]:::core
             EG[EntityGraph<br/>Layer 2: Knowledge]:::core
             TC[TemporalChain<br/>Layer 3: Causal]:::core
+            HEG[HyperEntityGraph<br/>Layer 4: Event-Episode]:::core
             CA[CoActivationTracker<br/>STDP Learning]:::core
         end
         
@@ -107,6 +108,7 @@ graph TB
         RP --> HG
         RP --> TC
         RP --> EG
+        RP --> HEG
     end
 ```
 
@@ -154,11 +156,11 @@ Spector Memory collapses the entire cognitive stack onto a **zero-overhead, off-
 
     [:octicons-arrow-right-24: Scoring Pipeline](scoring-pipeline.md)
 
--   :material-share-variant:{ .lg .middle } **3-Layer Cognitive Graph**
+-   :material-share-variant:{ .lg .middle } **4-Layer Cognitive Graph**
 
     ---
 
-    Hebbian association, LLM-powered entity-relationship knowledge, and temporal causal chains — three graph structures that augment vector recall with multi-hop reasoning
+    Hebbian association, LLM-powered entity-relationship knowledge, temporal causal chains, and event-episode hyperedges — four graph structures that augment vector recall with multi-hop reasoning
 
     [:octicons-arrow-right-24: Cognitive Graph](hebbian.md)
 

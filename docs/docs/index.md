@@ -1,15 +1,15 @@
 ---
-title: "Spector — Zero-Overhead AI Memory & Vector Search"
-description: "Spector is a Java-native AI search engine and cognitive memory system with SIMD-accelerated vector search (88µs), built-in MCP server, and zero dependencies."
+title: "Spector — Zero-Overhead AI Memory & Cognitive Graph"
+description: "Spector is a Java-native AI cognitive memory system combining SIMD-accelerated dense vector similarity, BM25 text matching, SPLADE sparse retrieval, and associative graph capabilities."
 ---
 
 # ⚡ Spector — The AI Memory Backbone
 
-> **Zero-overhead, agent-ready AI search and cognitive memory — embedded in a single JVM.**
+> **Zero-overhead, agent-ready AI cognitive memory — embedded in a single JVM.**
 
-Spector is a **Java-native AI search engine** and **cognitive memory system** that combines SIMD-accelerated vector search, keyword search (BM25), and biologically-inspired memory consolidation into a single embeddable library. No Docker, no external databases, no Python — just a JAR.
+Spector is a **Java-native AI cognitive memory system** that combines SIMD-accelerated dense vector similarity, keyword matching (BM25), SPLADE learned sparse retrieval, associative Hebbian graphs, and biologically-inspired memory consolidation into a single embeddable library. No Docker, no external databases, no Python — just a JAR.
 
-Connect AI agents via the **built-in MCP server** (Claude Desktop, Cursor, custom agents), embed directly in your Spring Boot app, or run standalone. Spector delivers **sub-millisecond search** at scale with **zero garbage collection pressure** thanks to Project Panama off-heap memory.
+Connect AI agents via the **built-in MCP server** (Claude Desktop, Cursor, custom agents), embed directly in your Spring Boot app, or run standalone. Spector delivers **sub-millisecond recall** at scale with **zero garbage collection pressure** thanks to Project Panama off-heap memory.
 
 ---
 
@@ -18,9 +18,9 @@ Connect AI agents via the **built-in MCP server** (Claude Desktop, Cursor, custo
 | Metric | Value |
 |:-------|:------|
 | 🧠 Cognitive Recall | **0.13ms** p50 at 1M memories |
-| ⚡ Vector Search | **88µs** p50 (10K docs, 128-dim) |
-| 🚀 Peak QPS | **61,011** concurrent searches |
-| 🤖 MCP Tools | **13 tools** (6 search + 7 cognitive memory) |
+| ⚡ Similarity Scoring | **88µs** p50 (10K docs, 128-dim) |
+| 🚀 Peak QPS | **61,011** concurrent recalls |
+| 🤖 MCP Tools | **16 tools** (stdio + HTTP Model Context Protocol) |
 | 🗜️ Compression | **4×–32×** (SVASQ-8 to IVF-PQ) |
 | ✅ Test Suite | **685+ tests**, all passing |
 | 📦 Dependencies | **Zero** (JDK only) |

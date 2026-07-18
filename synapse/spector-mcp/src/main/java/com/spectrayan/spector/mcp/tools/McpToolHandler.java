@@ -38,7 +38,7 @@ import io.modelcontextprotocol.spec.McpSchema;
  *   <li>{@link #name()} — the MCP tool name (e.g., {@code "semantic_search"})</li>
  *   <li>{@link #description()} — human-readable description for AI agents</li>
  *   <li>{@link #inputSchema()} — JSON Schema map for tool parameters</li>
- *   <li>{@link #execute(SpectorEngine, Map)} — the actual tool logic</li>
+ *   <li>{@link #execute(SpectorRuntime, Map)} — the actual tool logic</li>
  * </ul>
  *
  * <h3>What the base class provides</h3>

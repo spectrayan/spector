@@ -313,6 +313,12 @@ To extend the MCP server with a custom tool:
 1. **Create a new class** extending `McpToolHandler`:
 
 ```java
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
+import io.modelcontextprotocol.spec.McpSchema;
+import java.util.Map;
+
 public final class MyCustomTool extends McpToolHandler {
     @Override public String name() { return "my_custom_tool"; }
     @Override public String description() { return "Does something useful."; }
@@ -321,19 +327,21 @@ public final class MyCustomTool extends McpToolHandler {
                 .requiredString("input", "The input parameter.")
                 .build();
     }
-    @Override public CallToolResult execute(SpectorEngine engine, Map<String, Object> args) {
+    @Override public McpSchema.CallToolResult execute(SpectorRuntime runtime, Map<String, Object> args) throws Exception {
         String input = requireString(args, "input");
-        // Your logic here
+        // Your custom logic using runtime (e.g. querying memory or search services)
         return textResult("Result: " + input);
     }
 }
 ```
 
-2. **Register it** in `SpectorToolRegistry.handlers()`:
+2. **Register it** in `SpectorToolRegistry`:
 
 ```java
+import com.spectrayan.spector.mcp.tools.memory.MemoryRecallTool;
+
 List.of(
-    new EngineSearchTool(),
+    new MemoryRecallTool(memory),
     // ... existing tools ...
     new MyCustomTool()  // ← add here
 );

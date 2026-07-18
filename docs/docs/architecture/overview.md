@@ -135,7 +135,7 @@ graph LR
 ```mermaid
 graph LR
     subgraph Embedded["Embedded Mode"]
-        lib["SpectorEngine API<br/><i>In-process · zero-network · drop-in JAR</i>"]
+        lib["SpectorRuntime API<br/><i>In-process · zero-network · drop-in JAR</i>"]
     end
 
     subgraph Standalone["Standalone Mode"]
@@ -443,30 +443,33 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Client as 👤 Client
-    participant Engine as ⚡ SpectorEngine
-    participant QB as 🧭 Query Builder
+    participant Memory as 🧠 SpectorMemory
+    participant Pipeline as ⚙️ RecallPipeline
     participant BM25 as 📝 BM25 Search
-    participant HNSW as 🧠 HNSW Search
+    participant HNSW as 🧠 Dense HNSW
+    participant Sparse as 📈 Sparse (SPLADE)
     participant RRF as 🧬 RRF Fusion
-    participant LLM as 🤖 LLM Reranker
+    participant Rerank as 🚀 ColBERT Rerank
+    participant Graph as 🔗 Graph Expansion
 
-    Client->>Engine: Search (text + vector + topK)
-    Engine->>QB: Auto-detect mode
-    Note over QB: text only → KEYWORD<br/>vector only → VECTOR<br/>both → HYBRID
-    par Parallel search on virtual threads
-        QB->>BM25: Keyword search
-        QB->>HNSW: Vector search
+    Client->>Memory: recall(query, options)
+    Memory->>Pipeline: execute(query, options)
+    par Parallel first-stage retrieval on virtual threads
+        Pipeline->>BM25: exact term matching
+        Pipeline->>HNSW: dense semantic search
+        Pipeline->>Sparse: learned sparse search
     end
-    BM25->>RRF: Ranked results
-    HNSW->>RRF: Ranked results
-    RRF->>LLM: Fused top candidates
-    LLM-->>Client: ✨ Final ranked results
+    BM25 & HNSW & Sparse->>RRF: Rank merge
+    RRF->>Rerank: Token-level late interaction MaxSim
+    Rerank->>Graph: Multi-hop graph expansion & gating
+    Graph-->>Client: ✨ Final cognitive memories
 ```
 
-1. **Query Builder** determines search mode from provided fields
-2. **BM25** and **HNSW** searches run in parallel on virtual threads
-3. **RRF Fusion** merges both ranked lists using `1/(k + rank)` scoring
-4. Optional **LLM Reranker** rescores top candidates via Ollama
+1. **Recall Pipeline** receives options (`TextSearchMode`, `RecallMode`, etc.)
+2. **Dense Vector, BM25, and Sparse (SPLADE)** searches run in parallel on virtual threads
+3. **RRF Fusion** merges the ranked lists using reciprocal rank scores
+4. **ColBERT v2 Reranking** scores the top candidates using SIMD MaxSim operations
+5. **Graph Expansion** traverses Hebbian/Entity/Temporal edges for neighbor expansion
 
 ---
 
@@ -478,19 +481,19 @@ sequenceDiagram
     participant MCP as 📡 MCP Transport (stdio / Streamable HTTP)
     participant Handler as 🔧 McpToolHandler
     participant Runtime as ⚡ SpectorRuntime
-    participant Engine as 🔧 SpectorEngine
+    participant Memory as 🧠 SpectorMemory
     participant SIMD as 🔬 SIMD Kernels
 
-    Agent->>MCP: tools/call {"name": "engine_search", "arguments": {"query": "..."}}
-    MCP->>Handler: EngineSearchTool.execute(runtime, args)
-    Handler->>Runtime: runtime.search().query(text, topK)
-    Runtime->>Engine: engine.search(query, topK)
-    Engine->>SIMD: HNSW traversal (off-heap MemorySegment)
-    SIMD-->>Engine: ScoredResult[] (~100µs)
-    Engine-->>Runtime: SearchResponse
-    Runtime-->>Handler: SpectorResult[]
+    Agent->>MCP: tools/call {"name": "memory_recall", "arguments": {"query": "..."}}
+    MCP->>Handler: MemoryRecallTool.execute(runtime, args)
+    Handler->>Runtime: runtime.memory().get()
+    Runtime-->>Handler: SpectorMemory
+    Handler->>Memory: recall(query, options)
+    Memory->>SIMD: 6-phase scoring + Panama off-heap reads
+    SIMD-->>Memory: CognitiveResult[] (~130µs)
+    Memory-->>Handler: List<CognitiveResult>
     Handler-->>MCP: CallToolResult
-    MCP-->>Agent: JSON-RPC response with search results
+    MCP-->>Agent: JSON-RPC response with recalled memories
 ```
 
 The MCP path routes through `SpectorRuntime` — the single composition root that holds both the search engine and optional cognitive memory. The MCP server wraps runtime handler calls with JSON-RPC transport. There is **zero network overhead** because everything runs in the same JVM process.
@@ -600,17 +603,24 @@ graph TD
         PROM["📊 /metrics"]
     end
 
-    subgraph "Service Facades"
-        SS["SearchService"]
-        IS["IngestService"]
-        RS["RagService"]
+    subgraph "REST Controller Layer"
+        MC["MemoryController<br/>/api/v1/memory/*"]
+        SC["SystemController<br/>/api/v1/system/*"]
+        HC["HealthController<br/>/api/v1/system/*"]
     end
 
-    SE --> SS
-    IE --> IS
-    RE --> RS
-    SS & IS --> EB["SpectorEventBus<br/>17 event types"]
-    SS --> ENGINE["⚡ SpectorEngine"]
+    subgraph "Service Layer"
+        MS["MemoryService"]
+    end
+
+    subgraph "Core Runtime"
+        SR["SpectorRuntime"]
+        SM["SpectorMemory"]
+    end
+
+    MC & SC & HC --> MS
+    MS --> SR
+    SR --> SM
 ```
 
 Every request runs on its own virtual thread. The Armeria server handles HTTP REST, gRPC, and SSE events on a single port. API endpoints are registered via the `ApiModule` factory pattern, enabling straightforward API versioning (`/api/v1`, `/api/v2`).

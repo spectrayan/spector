@@ -65,13 +65,6 @@ Spector's development was significantly accelerated by AI-powered coding agents.
 
 ---
 
-## Inspiration
-
-- **[OpenClaw](https://github.com/openclaw/openclaw)** — Documentation structure and README design patterns (Docs by Goal, contributor experience, badge styling).
-- **[Odysseus](https://github.com/pewdiepie-archdaemon/odysseus)** — Concise README formatting, collapsible demo sections, and feature sub-tags.
-
----
-
 ## Full Academic References
 
 1. Anderson, J.R. (1993). *Rules of the Mind*. Hillsdale, NJ: Erlbaum.
@@ -79,11 +72,14 @@ Spector's development was significantly accelerated by AI-powered coding agents.
 3. Bahrick, H.P. (1984). Semantic memory content in permastore. *Journal of Experimental Psychology: General*, 113(1), 1–29.
 4. Bjork, R.A. & Bjork, E.L. (1992). A new theory of disuse and an old theory of stimulus fluctuation. In *From Learning Processes to Cognitive Processes: Essays in Honor of William K. Estes*, 2, 35–67.
 5. Ebbinghaus, H. (1885). *Über das Gedächtnis: Untersuchungen zur experimentellen Psychologie*. Leipzig: Duncker & Humblot.
-6. Hebb, D.O. (1949). *The Organization of Behavior*. New York: Wiley.
-7. Hu, Y. et al. (2025). MemoryOS: Cognitive-Inspired Memory Architecture for AI Agents.
-8. Park, J.S. et al. (2023). Generative Agents: Interactive Simulacra of Human Behavior. *UIST '23*.
-9. Wixted, J.T. (2004). The psychology and neuroscience of forgetting. *Annual Review of Psychology*, 55, 235–269.
-10. Wixted, J.T. & Ebbesen, E.B. (1991). On the form of forgetting. *Psychological Science*, 2(6), 409–415.
+6. Formal, T. et al. (2021). SPLADE: Sparse Lexical and Expansion Model for First Stage Retrieval. *Proceedings of the 44th International ACM SIGIR Conference on Research and Development in Information Retrieval*, 2288–2292.
+7. Hebb, D.O. (1949). *The Organization of Behavior*. New York: Wiley.
+8. Hu, Y. et al. (2025). MemoryOS: Cognitive-Inspired Memory Architecture for AI Agents.
+9. Park, J.S. et al. (2023). Generative Agents: Interactive Simulacra of Human Behavior. *UIST '23*.
+10. Robertson, S.E. et al. (1994). Okapi at TREC-3. *Overview of the Third Text REtrieval Conference (TREC-3)*, 109–126.
+11. Santhanam, K. et al. (2022). ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction. *Proceedings of the 2022 Conference of the North American Chapter of the Association for Computational Linguistics (NAACL)*, 3715–3726.
+12. Wixted, J.T. (2004). The psychology and neuroscience of forgetting. *Annual Review of Psychology*, 55, 235–269.
+13. Wixted, J.T. & Ebbesen, E.B. (1991). On the form of forgetting. *Psychological Science*, 2(6), 409–415.
 
 ---
 

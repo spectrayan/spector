@@ -13,7 +13,7 @@ We evaluated Spector Memory across two distinct benchmark datasets (Balanced Fam
 In all runs, we compare three experimental conditions:
 1. **Baseline**: Pure vector similarity search (nearest-neighbor cosine/L2 distance), similar to standard vector databases.
 2. **Similarity**: The full Spector query pipeline (Bloom filter tag gating, valence range checks, and active-project pre-screening) but ranked using *pure* cosine similarity.
-3. **Cognitive**: The full Spector pipeline, ranking candidates using **fused scoring** (similarity, importance, and temporal decay) and extending results via **3-layer cognitive graph traversal** (Hebbian, Temporal, Entity).
+3. **Cognitive**: The full Spector pipeline, ranking candidates using **fused scoring** (similarity, importance, and temporal decay) and extending results via **4-layer cognitive graph traversal** (Hebbian, Temporal, Entity, and Event-Episode).
 
 ---
 
@@ -154,11 +154,12 @@ Furthermore, different **Cognitive Profiles** filter retrieval based on valence:
 - `DEBUGGING` & `PARANOID_SENTINEL`: Restrict searches to negative valence (filtering out positive/neutral noise to locate errors).
 - `RECALLING`: Focuses only on positive valence (recalling past success patterns).
 
-### IV. The 3-Layer Cognitive Graph
-Standard databases cannot perform associative retrieval without keyword overlap. Spector overcomes this by traversing three interconnected graphs:
+### IV. The 4-Layer Cognitive Graph
+Standard databases cannot perform associative retrieval without keyword overlap. Spector overcomes this by traversing four interconnected graphs:
 1. **Hebbian Graph**: Uses Spike-Timing-Dependent Plasticity (STDP) to link concepts that co-occur in the agent's context. If a user asks about "refinancing," the Hebbian graph might automatically activate associated memories about "personal finance" or "Austin mortgage rates" even if those terms are not in the query text.
-2. **Temporal Chain**: Links chronologically adjacent memories together, enabling the agent to walk forward or backward in time (e.g., *"What did we do right after the server crashed?"*).
-3. **Entity Graph**: Resolves relationship networks (e.g., matching "Sarah" to "wife", or "Vertex Health" to "Greg Holloway") to find multi-hop contextual links.
+2. **Entity Graph**: Resolves relationship networks (e.g., matching "Sarah" to "wife", or "Vertex Health" to "Greg Holloway") to find multi-hop contextual links.
+3. **Temporal Chain**: Links chronologically adjacent memories together, enabling the agent to walk forward or backward in time (e.g., *"What did we do right after the server crashed?"*).
+4. **Event-Episode Graph (Hyperedge)**: Groups multi-entity interactions into single hyperedges to preserve situational context.
 
 ---
 

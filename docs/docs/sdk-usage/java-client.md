@@ -170,58 +170,88 @@ try (SpectorClient client = SpectorClient.builder().build()) {
 
 ---
 
-## ⚡ SpectorEngine (Embedded Usage)
+## ⚡ SpectorRuntime (Embedded Usage)
 
-For applications that want in-process search without network overhead:
+For applications that want in-process hybrid search and cognitive memory without network overhead:
 
-### 🔧 Creating an Engine
+### 🔧 Creating the Runtime
 
 ```java
-import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.engine.SpectorConfig;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import com.spectrayan.spector.config.SpectorProperties;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.ollama.OllamaEmbeddingProvider;
 
-var config = SpectorConfig.DEFAULT
-    .withDimensions(384)
-    .withCapacity(100_000)
-    .withSimilarityFunction(SimilarityFunction.COSINE)
-    .withGpu(true)                                           // optional GPU
-    .withReranker("http://localhost:11434", "llama3.2", 20); // optional LLM
+// Load default properties (overridden by spector.yml if present in the working directory)
+SpectorProperties props = SpectorProperties.load();
 
-try (var engine = new SpectorEngine(config)) {
-    // Engine is ready — sub-millisecond search, zero network overhead
+// Provide an embedding provider instance
+EmbeddingProvider embedder = new OllamaEmbeddingProvider(props.provider().embedding());
+
+try (SpectorRuntime runtime = SpectorRuntime.from(props, embedder)) {
+    // Runtime is ready — zero network overhead, fully embedded inside the JVM
 }
 ```
 
-### 📥 Ingesting
+### 📥 Ingesting Documents
+
+The ingestion handler handles chunking, embedding generation, indexing, and persistence automatically based on configuration:
 
 ```java
-// With pre-computed vector
-engine.ingest("doc-1", "Document content here", embedding);
-// The engine handles BM25 indexing, HNSW insertion, and storage automatically
+// Ingest text content directly
+runtime.ingestion().ingest("doc-1", "Spector is a Java-native hybrid search engine with biologically-inspired cognitive memory.");
+
+// Ingest files from a directory matching a pattern
+runtime.ingestion().ingest(Path.of("/docs"), "**/*.md");
 ```
 
-### 🔍 Searching
+### 🔍 Direct Search
+
+Use the search handler for simple mode-aware querying:
 
 ```java
-// Hybrid search (keyword + vector)
-SearchResponse response = engine.hybridSearch("search query", queryVector, 10);
+import com.spectrayan.spector.runtime.SpectorResult;
 
-// Keyword-only
-SearchResponse response = engine.keywordSearch("exact phrase", 10);
+List<SpectorResult> results = runtime.search().query("search query", 10);
 
-// Vector-only
-SearchResponse response = engine.vectorSearch(queryVector, 10);
-
-// Process results
-for (ScoredResult result : response.results()) {
-    System.out.printf("%s → %.4f%n", result.id(), result.score());
+for (SpectorResult result : results) {
+    System.out.printf("%s → %.4f (Valence: %d)%n", result.id(), result.score(), result.valence());
 }
 ```
 
-### 🗑️ Deleting
+### 🧠 Advanced Cognitive Recall
+
+To access advanced biological scoring, filters, and custom retrieval modes, bypass the simple search facade and query the `SpectorMemory` instance directly using `RecallOptions`:
 
 ```java
-engine.delete("doc-1");
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.TextSearchMode;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+
+if (runtime.hasMemory()) {
+    SpectorMemory memory = runtime.memory().get();
+
+    RecallOptions options = RecallOptions.builder()
+            .topK(5)
+            .textSearchMode(TextSearchMode.FULL_STACK)  // Enable BM25 + SPLADE + dense + ColBERT reranking
+            .enableReranker(true)                       // Force token-level ColBERT MaxSim reranking
+            .minImportance(4.0f)                        // Filter out low-importance trivial noise
+            .build();
+
+    List<CognitiveResult> memories = memory.recall("what was that refinancing issue?", options);
+    for (CognitiveResult mem : memories) {
+        System.out.printf("%s → %.4f (Tier: %s)%n", mem.id(), mem.score(), mem.memoryType());
+    }
+}
+```
+
+### 🗑️ Deleting Memories
+
+```java
+if (runtime.hasMemory()) {
+    runtime.memory().get().forget("doc-1");
+}
 ```
 
 ---

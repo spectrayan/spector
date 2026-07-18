@@ -1,6 +1,6 @@
 # Spector Project Context
 
-Welcome to the **Spector** repository context guide. This document serves as the high-level onboarding and architectural blueprint for Spector, a state-of-the-art vector search engine with biologically-inspired cognitive memory. It acts as the "bridge" linking the actual source code with our agent rules, skills, and workflows.
+Welcome to the **Spector** repository context guide. This document serves as the high-level onboarding and architectural blueprint for Spector, a state-of-the-art cognitive memory backbone combining dense vector similarity, SIMD-accelerated BM25 text matching, SPLADE sparse retrieval, Hebbian graph structures, and biologically-inspired cognitive memory tiers. It acts as the "bridge" linking the actual source code with our agent rules, skills, and workflows.
 
 ---
 
@@ -65,8 +65,6 @@ graph TD
     end
 
     subgraph intelligence ["Intelligence Layer"]
-        rag[spector-rag]
-        engine[spector-engine]
         ingestion[spector-ingestion]
         memory[spector-memory]
         events[spector-events]
@@ -105,8 +103,7 @@ graph TD
 
     %% Boundary rules
     style memory fill:#33a02c,stroke:#111,stroke-width:2px,color:#fff
-    style engine fill:#1f78b4,stroke:#111,stroke-width:2px,color:#fff
-    linkStyle 0,1,2,3,4,5,6,7,8,9,10 stroke:#999,stroke-width:1px;
+    linkStyle 0,1,2,3,4,5,6,7,8 stroke:#999,stroke-width:1px;
 ```
 
 ### Module Responsibilities
@@ -124,13 +121,11 @@ graph TD
     *   `spector-query`: Coordinate scoring and nearest-neighbor calculations.
     *   `spector-gpu`: CUDA-accelerated search operations (where applicable).
 4.  **Intelligence Layer**
-    *   `spector-memory`: Off-heap, biologically-inspired 4-tier cognitive memory.
-    *   `spector-engine`: The main index management and retrieval coordinator.
+    *   `spector-memory`: Off-heap, biologically-inspired 4-tier cognitive memory and hybrid retrieval engine.
     *   `spector-ingestion`: Documents chunking and routing.
-    *   `spector-rag`: Retrieval-Augmented Generation context assembly.
     *   `spector-events`: Reactive publishing-subscription model.
 5.  **Runtime Layer**
-    *   `spector-runtime`: Combines `spector-memory` and `spector-engine` peers.
+    *   `spector-runtime`: Core integration runtime and composition root.
     *   `spector-synapse`: Unified API gateway, Spring Boot application, and clustering/replication coordinator.
     *   `spector-mcp`: Anthropic Model Context Protocol server.
     *   `spector-cli` / `spector-client`: User interfaces and client libraries.
@@ -148,7 +143,7 @@ All agents working on this codebase must understand how our `.agents/` tooling m
 ### File System Rules (`.agents/rules/rules.md`)
 *   **Virtual Threads Safe Concurrency**: Since Spector is built on virtual threads, agents are forbidden from using the `synchronized` keyword. You must use `ReentrantLock` or other non-pinning concurrency utilities.
 *   **Platform-agnostic SIMD**: Lane widths cannot be hardcoded (e.g. AVX-512 vs AVX2); agents must use `FloatVector.SPECIES_PREFERRED` inside `spector-core`, `spector-index`, or `spector-memory/synapse/`.
-*   **The Engine-Memory Independent Peer Rule**: `spector-memory` and `spector-engine` are independent peers. They are never allowed to depend on one another. If you need to wire them together, do so in `spector-runtime`.
+*   **Memory-centric Retrieval Architecture**: Retrieval operations (dense similarity, sparse indexing, BM25, and late interaction reranking) are coordinated inside `spector-memory` using the low-level search indexes from `spector-index`/`spector-query`. Direct index access is isolated to `spector-memory`.
 
 ### Automated Agent Workflows (`.agents/workflows/`)
 Each workflow matches a specific slash command or task trigger. Use them sequentially as listed:

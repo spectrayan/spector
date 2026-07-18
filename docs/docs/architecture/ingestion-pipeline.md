@@ -258,7 +258,6 @@ Extracting ingestion from `SpectorEngine`:
 
 ## 🔗 See Also
 
-- [RAG Pipeline](rag-pipeline.md) — Retrieval and context assembly
 - [Architecture Overview](overview.md) — Module dependency graph
 - [REST API Reference](../api-reference/rest-endpoints.md) — Ingest endpoints
 - [Configuration Guide](../configuration/parameters.md) — Chunking and embedding parameters

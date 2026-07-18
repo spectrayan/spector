@@ -138,6 +138,16 @@ A memory with $S=5.0$ gets a $5^{0.3} = 1.62\times$ multiplier. The default $S=1
 
 ---
 
+## Retrieval Stack Foundations
+
+To generate high-quality candidate memories before applying cognitive scoring and graph traversal, Spector's multi-layer retrieval stack adapts several prominent information retrieval algorithms:
+
+- **BM25 Lexical Matching** (Robertson et al., 1994)[^20]: Evaluates query exact term frequencies relative to document lengths to prevent vocabulary mismatch on strict references (like UUIDs, method names, or error codes).
+- **SPLADE Sparse Retrieval** (Formal et al., 2021)[^21]: Incorporates transformer-based lexical term expansion to match semantically related keywords (synonyms) at first-stage lookup speed.
+- **ColBERT Late Interaction** (Santhanam et al., 2022)[^23]: Computes token-level MaxSim similarities between query and document token matrices, preserving fine-grained phrase structure for reranking.
+
+---
+
 ## Comparison With Other AI Memory Systems
 
 | System | Scoring Model | Decay | Retrieval-Dependent Strengthening | Emotional Memory |
@@ -174,4 +184,10 @@ A memory with $S=5.0$ gets a $5^{0.3} = 1.62\times$ multiplier. The default $S=1
 
 [^19]: Hu, Y. et al. (2025). MemoryOS: Cognitive-Inspired Memory Architecture for AI Agents.
 
+[^20]: Robertson, S. E. et al. (1994). Okapi at TREC-3. *Overview of the Third Text REtrieval Conference (TREC-3)*, 109–126.
+
+[^21]: Formal, T. et al. (2021). SPLADE: Sparse Lexical and Expansion Model for First Stage Retrieval. *SIGIR '21*, 2288–2292.
+
 [^22]: Bahrick, H.P. (1984). Semantic memory content in permastore. *JEP: General*, 113(1), 1–29.
+
+[^23]: Santhanam, K. et al. (2022). ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction. *NAACL '22*, 3715–3726.
