@@ -22,23 +22,8 @@
     <properties>
         <spector.module.name>com.spectrayan.spector.synapse</spector.module.name>
 
-        <!-- Spring Boot 4 (ADR-010: gradual adoption) -->
-        <spring-boot.version>4.0.2</spring-boot.version>
-
-        <!-- Override core's logback 1.5.18 pin — Spring Boot 4.0.2 requires 1.5.25 -->
-        <logback.version>1.5.25</logback.version>
-
         <!-- Armeria (bumped for Spring Boot 4 compatibility) -->
         <armeria.version>1.40.0</armeria.version>
-
-        <!-- LangGraph4j (agentic graph execution) -->
-        <langgraph4j.version>1.8.20</langgraph4j.version>
-
-        <!-- LangChain4j (LLM abstraction) -->
-        <langchain4j.version>1.17.1</langchain4j.version>
-
-        <!-- Spring AI (ChatMemory, Advisors, ToolCallback) -->
-        <spring-ai.version>2.0.0</spring-ai.version>
     </properties>
 
     <dependencyManagement>
@@ -275,7 +260,6 @@
         <dependency>
             <groupId>com.github.jsqlparser</groupId>
             <artifactId>jsqlparser</artifactId>
-            <version>4.9</version>
         </dependency>
 
         <!-- Spring-boot starter JDBC dependency-->
