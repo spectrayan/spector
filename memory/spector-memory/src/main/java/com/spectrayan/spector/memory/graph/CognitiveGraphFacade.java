@@ -177,6 +177,17 @@ public final class CognitiveGraphFacade {
             var visitedIdsSet = new HashSet<String>();
             List<GraphEdge> edges = new ArrayList<>();
 
+            // Build slot-to-entity ID mapping for fast O(1) traversal lookups
+            Map<Integer, List<Integer>> slotToEntities = new java.util.HashMap<>();
+            if (entityGraph != null) {
+                for (int entityId : entityGraph.nameIndex().values()) {
+                    int[] mems = entityGraph.memoriesForEntity(entityId);
+                    for (int m : mems) {
+                        slotToEntities.computeIfAbsent(m, _ -> new ArrayList<>()).add(entityId);
+                    }
+                }
+            }
+
             // BFS traversal
             List<Integer> currentLevel = new ArrayList<>();
             currentLevel.add(startSlot);
@@ -196,15 +207,25 @@ public final class CognitiveGraphFacade {
                     // Temporal neighbors (forward + backward)
                     bfsTemporalNeighbors(currentId, slot, slotToId, visitedIds, visitedIdsSet,
                             nextLevel, edges);
+
+                    // Entity neighbors (shared entities & relationships)
+                    bfsEntityNeighbors(currentId, slot, slotToId, slotToEntities, visitedIds, visitedIdsSet,
+                            nextLevel, edges);
                 }
                 if (nextLevel.isEmpty()) break;
                 currentLevel = nextLevel;
             }
 
+            // Collect any remaining entity edges between any visited nodes
+            collectEntityEdges(slotToId, visitedIdsSet, edges);
+
+            // Deduplicate edges to avoid rendering redundant lines in UI
+            List<GraphEdge> uniqueEdges = edges.stream().distinct().toList();
+
             // Inspect and build nodes
             List<GraphNode> nodes = buildNodes(visitedIds, idToSlot, inspector);
 
-            return new GraphNeighborhood(memoryId, nodes, edges, null);
+            return new GraphNeighborhood(memoryId, nodes, uniqueEdges, null);
         } catch (Exception e) {
             log.error("[CognitiveGraphFacade] Neighborhood query failed for id={}: {}",
                     memoryId, e.getMessage(), e);
@@ -400,6 +421,58 @@ public final class CognitiveGraphFacade {
                         visitedIds.add(nId);
                         visitedIdsSet.add(nId);
                         nextLevel.add(nSlot);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void bfsEntityNeighbors(String currentId, int slot, Map<Integer, String> slotToId,
+                                    Map<Integer, List<Integer>> slotToEntities,
+                                    List<String> visitedIds, HashSet<String> visitedIdsSet,
+                                    List<Integer> nextLevel, List<GraphEdge> edges) {
+        if (entityGraph == null) return;
+        List<Integer> entities = slotToEntities.get(slot);
+        if (entities == null) return;
+        try {
+            for (int entityId : entities) {
+                String entityType = safeEntityType(entityId);
+                int[] mems = entityGraph.memoriesForEntity(entityId);
+
+                // 1. Shared entity links
+                for (int targetSlot : mems) {
+                    if (targetSlot == slot) continue;
+                    String targetId = slotToId.get(targetSlot);
+                    if (targetId != null) {
+                        edges.add(new GraphEdge(
+                                currentId, targetId, "ENTITY", "SHARED_ENTITY",
+                                0.5, entityType, entityType));
+                        if (!visitedIdsSet.contains(targetId)) {
+                            visitedIds.add(targetId);
+                            visitedIdsSet.add(targetId);
+                            nextLevel.add(targetSlot);
+                        }
+                    }
+                }
+
+                // 2. Connected entities
+                var entityEdgeList = entityGraph.edges(entityId);
+                for (var ee : entityEdgeList) {
+                    int targetEntityId = ee.targetEntityId();
+                    String targetEntityType = safeEntityType(targetEntityId);
+                    int[] targetMems = entityGraph.memoriesForEntity(targetEntityId);
+                    for (int targetSlot : targetMems) {
+                        String targetId = slotToId.get(targetSlot);
+                        if (targetId != null) {
+                            edges.add(new GraphEdge(
+                                    currentId, targetId, "ENTITY", ee.relationType(),
+                                    (double) ee.weight(), entityType, targetEntityType));
+                            if (!visitedIdsSet.contains(targetId)) {
+                                visitedIds.add(targetId);
+                                visitedIdsSet.add(targetId);
+                                nextLevel.add(targetSlot);
+                            }
+                        }
                     }
                 }
             }
