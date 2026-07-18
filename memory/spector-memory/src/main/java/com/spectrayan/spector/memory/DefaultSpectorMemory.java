@@ -213,7 +213,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final MemoryBM25Index bm25Index;
 
     // -€-€ Chunking for remember() -€-€
-    private final TextChunker chunker;
+    private final com.spectrayan.spector.commons.chunker.TextChunker chunker;
+    private final com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig;
     private final ParallelEmbeddingPipeline parallelPipeline;
     private final EmbedConfig embedConfig;
 
@@ -258,6 +259,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.daemonSupervisor = bundle.daemonSupervisor();
         this.bm25Index = bundle.bm25Index();
         this.chunker = builder.chunker;
+        this.chunkConfig = builder.chunkConfig;
         this.parallelPipeline = bundle.parallelPipeline();
         this.embedConfig = bundle.embedConfig();
         this.attachmentProcessor = bundle.attachmentProcessor();
@@ -420,7 +422,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
      * Returns true if the text should be chunked before ingestion.
      */
     private boolean shouldChunk(String text) {
-        return chunker != null && text != null && text.length() > chunker.chunkSize();
+        return chunker != null && text != null && text.length() > chunkConfig.maxChunkSize();
     }
 
     /**
@@ -443,14 +445,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                   com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                   IngestionContext context,
                                   String... tags) {
-        var chunks = chunker.chunk(id, text);
+        var chunks = chunker.chunk(id, text, chunkConfig);
         if (chunks.isEmpty()) {
             log.warn("[Remember] Chunker returned empty for '{}' ({} chars), skipping", id, text.length());
             return;
         }
 
         // Parallel-embed all chunks (batch size from config)
-        List<String> chunkTexts = chunks.stream().map(TextChunker.Chunk::text).toList();
+        List<String> chunkTexts = chunks.stream().map(com.spectrayan.spector.commons.chunker.Chunk::text).toList();
         List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(chunkTexts, embedConfig);
 
         // Provenance tags from the caller (e.g., "file-ingest", filename)  --  shared across chunks
@@ -508,7 +510,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         log.info("[Remember] Chunked '{}'  ->  {} chunks stored ({} failed) from {} chars (chunkSize={}, overlap={})",
                 id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
-                stored, failures.size(), text.length(), chunker.chunkSize(), chunker.overlap());
+                stored, failures.size(), text.length(), chunkConfig.maxChunkSize(), chunkConfig.overlap());
     }
 
     /** Sanitizes a memory ID into a valid tag (lowercase, hyphens, no special chars). */

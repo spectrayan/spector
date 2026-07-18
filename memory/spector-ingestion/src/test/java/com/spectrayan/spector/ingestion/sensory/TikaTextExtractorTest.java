@@ -187,7 +187,6 @@ class TikaTextExtractorTest {
             try (Stream<SensoryExtractor.ExtractionChunk> chunks =
                          extractor.extract(mdFile, "text/markdown")) {
                 List<SensoryExtractor.ExtractionChunk> result = chunks.toList();
-
                 assertFalse(result.isEmpty());
                 String text = result.getFirst().text();
                 assertTrue(text.contains("Heading") || text.contains("Spector"));
