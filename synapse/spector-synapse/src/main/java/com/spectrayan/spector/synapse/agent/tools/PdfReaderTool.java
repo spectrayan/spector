@@ -14,23 +14,18 @@ package com.spectrayan.spector.synapse.agent.tools;
 
 import com.spectrayan.spector.synapse.agent.AgentTool;
 
-import org.apache.tika.exception.EncryptedDocumentException;
-import org.apache.tika.metadata.Metadata;
-import org.apache.tika.metadata.TikaCoreProperties;
-import org.apache.tika.parser.AutoDetectParser;
-import org.apache.tika.parser.ParseContext;
-
-import org.apache.tika.sax.BodyContentHandler;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentInformation;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import technology.tabula.ObjectExtractor;
@@ -124,11 +119,11 @@ public class PdfReaderTool implements AgentTool {
 
         try {
             return extractPdf(path, pagesArg, extractTables);
-        } catch (EncryptedDocumentException e) {
+        } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException e) {
             log.warn("[PdfReader] Encrypted PDF: {}", path);
             return "Error: PDF is encrypted or password-protected: " + filePath;
         } catch (Exception e) {
-            // PDFBox and Tika surface encryption errors as various exception types
+            // PDFBox surfaces encryption errors as various exception types
             if (isEncryptionError(e)) {
                 log.warn("[PdfReader] Encrypted PDF: {}", path);
                 return "Error: PDF is encrypted or password-protected: " + filePath;
@@ -164,101 +159,86 @@ public class PdfReaderTool implements AgentTool {
     private String extractPdf(Path path, String pagesArg, boolean extractTables)
             throws Exception {
 
-        var metadata = new Metadata();
-        var handler = new BodyContentHandler(MAX_OUTPUT_CHARS);
-        var parser = new AutoDetectParser();
-        var context = new ParseContext();
+        try (var doc = PDDocument.load(path.toFile())) {
+            int totalPages = doc.getNumberOfPages();
+            int startPage = 1;
+            int endPage = totalPages;
 
-        int totalPages = countPages(path);
-        int startPage = 1;
-        int endPage = totalPages;
+            if (!"all".equalsIgnoreCase(pagesArg)) {
+                int[] range = parsePageRange(pagesArg);
+                startPage = range[0];
+                endPage = range[1];
 
-        if (!"all".equalsIgnoreCase(pagesArg)) {
-            int[] range = parsePageRange(pagesArg);
-            startPage = range[0];
-            endPage = range[1];
-
-            if (startPage > totalPages || endPage > totalPages) {
-                return "Error: Page range %s exceeds document length (%d pages)"
-                        .formatted(pagesArg, totalPages);
+                if (startPage > totalPages || endPage > totalPages) {
+                    return "Error: Page range %s exceeds document length (%d pages)"
+                            .formatted(pagesArg, totalPages);
+                }
             }
+
+            var stripper = new PDFTextStripper();
+            stripper.setStartPage(startPage);
+            stripper.setEndPage(endPage);
+            String textContent = stripper.getText(doc).trim();
+
+            var output = new StringBuilder();
+            output.append("# Document: ").append(path.getFileName()).append("\n\n");
+
+            // Metadata section
+            output.append("## Metadata\n");
+            PDDocumentInformation info = doc.getDocumentInformation();
+            if (info != null) {
+                String title = info.getTitle();
+                if (title != null && !title.isBlank()) {
+                    output.append("- **Title:** ").append(title).append("\n");
+                }
+                String author = info.getAuthor();
+                if (author != null && !author.isBlank()) {
+                    output.append("- **Author:** ").append(author).append("\n");
+                }
+            }
+            if ("all".equalsIgnoreCase(pagesArg)) {
+                output.append("- **Pages:** ").append(totalPages).append("\n");
+            } else {
+                output.append("- **Pages:** ").append(totalPages)
+                        .append(" (showing ").append(startPage)
+                        .append("-").append(endPage).append(")\n");
+            }
+            if (info != null && info.getCreationDate() != null) {
+                String created = DateTimeFormatter.ISO_INSTANT.format(info.getCreationDate().getTime().toInstant());
+                output.append("- **Created:** ").append(created).append("\n");
+            }
+            output.append("\n");
+
+            // Content section
+            output.append("## Content\n\n");
+            if (textContent.isEmpty()) {
+                output.append("_(No extractable text content)_\n");
+            } else {
+                output.append(textContent).append("\n");
+            }
+
+            // Table extraction
+            if (extractTables) {
+                appendTables(output, doc, startPage, endPage);
+            }
+
+            String result = output.toString();
+            if (result.length() > MAX_OUTPUT_CHARS) {
+                result = result.substring(0, MAX_OUTPUT_CHARS)
+                        + "\n\n_(Output truncated at " + MAX_OUTPUT_CHARS + " characters)_";
+            }
+
+            log.debug("[PdfReader] Extracted {} chars from {} (pages {}-{} of {})",
+                    result.length(), path.getFileName(), startPage, endPage, totalPages);
+            return result;
         }
-
-        try (InputStream stream = Files.newInputStream(path)) {
-            parser.parse(stream, handler, metadata, context);
-        }
-
-        String textContent = handler.toString().trim();
-
-        // If page range specified, extract only the relevant portion
-        if (!"all".equalsIgnoreCase(pagesArg) && totalPages > 1) {
-            textContent = extractPageRange(textContent, startPage, endPage, totalPages);
-        }
-
-        var output = new StringBuilder();
-        output.append("# Document: ").append(path.getFileName()).append("\n\n");
-
-        // Metadata section
-        appendMetadata(output, metadata, totalPages, startPage, endPage, pagesArg);
-
-        // Content section
-        output.append("## Content\n\n");
-        if (textContent.isEmpty()) {
-            output.append("_(No extractable text content)_\n");
-        } else {
-            output.append(textContent).append("\n");
-        }
-
-        // Table extraction
-        if (extractTables) {
-            appendTables(output, path, startPage, endPage);
-        }
-
-        String result = output.toString();
-        if (result.length() > MAX_OUTPUT_CHARS) {
-            result = result.substring(0, MAX_OUTPUT_CHARS)
-                    + "\n\n_(Output truncated at " + MAX_OUTPUT_CHARS + " characters)_";
-        }
-
-        log.debug("[PdfReader] Extracted {} chars from {} (pages {}-{} of {})",
-                result.length(), path.getFileName(), startPage, endPage, totalPages);
-        return result;
-    }
-
-    // ── Metadata formatting ───────────────────────────────────────
-
-    private static void appendMetadata(StringBuilder output, Metadata metadata,
-            int totalPages, int startPage, int endPage,
-            String pagesArg) {
-        output.append("## Metadata\n");
-        String title = metadata.get(TikaCoreProperties.TITLE);
-        if (title != null && !title.isBlank()) {
-            output.append("- **Title:** ").append(title).append("\n");
-        }
-        String author = metadata.get(TikaCoreProperties.CREATOR);
-        if (author != null && !author.isBlank()) {
-            output.append("- **Author:** ").append(author).append("\n");
-        }
-        if ("all".equalsIgnoreCase(pagesArg)) {
-            output.append("- **Pages:** ").append(totalPages).append("\n");
-        } else {
-            output.append("- **Pages:** ").append(totalPages)
-                    .append(" (showing ").append(startPage)
-                    .append("-").append(endPage).append(")\n");
-        }
-        String created = metadata.get(TikaCoreProperties.CREATED);
-        if (created != null && !created.isBlank()) {
-            output.append("- **Created:** ").append(created).append("\n");
-        }
-        output.append("\n");
     }
 
     // Table extraction via Tabula
 
-    private static void appendTables(StringBuilder output, Path path,
+    private static void appendTables(StringBuilder output, PDDocument doc,
             int startPage, int endPage) {
-        try (var doc = org.apache.pdfbox.pdmodel.PDDocument.load(path.toFile());
-             var extractor = new ObjectExtractor(doc)) {
+        try (var extractor = new ObjectExtractor(doc)) {
             var algorithm = new SpreadsheetExtractionAlgorithm();
             boolean hasTables = false;
             int tableCount = 0;
@@ -312,14 +292,6 @@ public class PdfReaderTool implements AgentTool {
         }
     }
 
-    // ── Page counting and range parsing ───────────────────────────
-
-    private static int countPages(Path path) throws Exception {
-        try (var doc = org.apache.pdfbox.pdmodel.PDDocument.load(path.toFile())) {
-            return doc.getNumberOfPages();
-        }
-    }
-
     /**
      * Parses a page range string into a [start, end] pair.
      *
@@ -342,36 +314,5 @@ public class PdfReaderTool implements AgentTool {
             throw new IllegalArgumentException("Page must be >= 1: " + page);
         }
         return new int[] { page, page };
-    }
-
-    /**
-     * Extracts an approximate page range from the full extracted text.
-     *
-     * <p>
-     * Tika extracts all text at once; this method splits by estimated
-     * page boundaries using form-feed characters or proportional splitting.
-     * </p>
-     */
-    private static String extractPageRange(String fullText, int startPage,
-            int endPage, int totalPages) {
-        // Tika inserts form-feed characters between pages when available
-        String[] pages = fullText.split("\f");
-        if (pages.length >= totalPages) {
-            // Form-feed based splitting — accurate
-            var sb = new StringBuilder();
-            for (int i = startPage - 1; i < Math.min(endPage, pages.length); i++) {
-                if (!sb.isEmpty())
-                    sb.append("\n\n");
-                sb.append(pages[i].trim());
-            }
-            return sb.toString();
-        }
-
-        // Fallback: proportional splitting for PDFs without form-feeds
-        int totalLen = fullText.length();
-        int charsPerPage = totalLen / totalPages;
-        int startIdx = (startPage - 1) * charsPerPage;
-        int endIdx = Math.min(endPage * charsPerPage, totalLen);
-        return fullText.substring(startIdx, endIdx).trim();
     }
 }
