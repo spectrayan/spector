@@ -30,8 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 
-import com.spectrayan.spector.config.SpectorMode;
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.ingestion.FileDiscoveryService;
 import com.spectrayan.spector.ingestion.IngestionPipeline;
 import com.spectrayan.spector.ingestion.IngestionResult;
@@ -55,16 +53,11 @@ public final class IngestionHandler {
     private static final Logger log = LoggerFactory.getLogger(IngestionHandler.class);
 
     private final IngestionPipeline pipeline;
-    private final SpectorEngine engine;   // for count() and backward-compat
-    private final SpectorMemory memory;   // for count() (nullable)
-    private final SpectorMode mode;
+    private final SpectorMemory memory;
 
-    IngestionHandler(IngestionPipeline pipeline, SpectorEngine engine,
-                     SpectorMemory memory, SpectorMode mode) {
+    IngestionHandler(IngestionPipeline pipeline, SpectorMemory memory) {
         this.pipeline = pipeline;
-        this.engine = engine;
         this.memory = memory;
-        this.mode = mode;
     }
 
     // ─────────────── Text Ingestion ───────────────
@@ -352,9 +345,6 @@ public final class IngestionHandler {
      * Returns the total number of indexed documents/memories.
      */
     public int count() {
-        if (mode == SpectorMode.MEMORY && memory != null) {
-            return memory.totalMemories();
-        }
-        return engine.documentCount();
+        return memory != null ? memory.totalMemories() : 0;
     }
 }

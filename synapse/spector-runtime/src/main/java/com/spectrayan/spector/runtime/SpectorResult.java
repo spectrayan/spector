@@ -20,22 +20,21 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SourceModality;
 
 /**
- * Product-level result type for mode-aware queries.
+ * Product-level result type for cognitive memory queries.
  *
- * <p>Provides a unified view across both search mode and memory mode results.
- * In search mode, only search-specific fields are populated. In memory mode,
- * additional cognitive metadata (importance, age, valence) is included.</p>
+ * <p>Provides a view of memory mode results including cognitive metadata
+ * (importance, age, valence).</p>
  *
- * @param id              document or memory ID
+ * @param id              memory ID
  * @param text            text content
  * @param score           composite relevance score (0.0–1.0)
- * @param rawSimilarity   raw vector similarity (search-mode only, null in memory mode)
- * @param importance      memory importance score (memory-mode only, null in search mode)
- * @param ageDays         age of the memory in days (memory-mode only, null in search mode)
- * @param valence         emotional valence (-128 to 127, memory-mode only, null in search mode)
- * @param mode            which mode produced this result
- * @param tags            associated tags (memory mode, empty array in search mode)
- * @param memoryType      memory tier (memory-mode only, null in search mode)
+ * @param rawSimilarity   raw vector similarity (always null)
+ * @param importance      memory importance score
+ * @param ageDays         age of the memory in days
+ * @param valence         emotional valence (-128 to 127)
+ * @param mode            the operating mode (always MEMORY)
+ * @param tags            associated tags
+ * @param memoryType      memory tier
  * @param sourceModality  what the memory originally was (TEXT, IMAGE, AUDIO, VIDEO)
  * @param sourceUri       URI to the original asset (null for text-only memories)
  */
@@ -53,12 +52,6 @@ public record SpectorResult(
         SourceModality sourceModality,
         String sourceUri
 ) {
-
-    /** Creates a search-mode result (no modality). */
-    public static SpectorResult fromSearch(String id, String text, float score, float similarity) {
-        return new SpectorResult(id, text, score, similarity, null, null, null,
-                SpectorMode.SEARCH, new String[0], null, SourceModality.TEXT, null);
-    }
 
     /** Creates a memory-mode result (backward compatible — defaults to TEXT modality). */
     public static SpectorResult fromMemory(String id, String text, float score,

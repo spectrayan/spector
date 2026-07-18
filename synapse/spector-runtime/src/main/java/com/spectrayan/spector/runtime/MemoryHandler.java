@@ -331,7 +331,7 @@ public final class MemoryHandler {
      * @return number of memories decayed
      */
     public int decay(Duration olderThan, float factor) {
-        return memory.decay(olderThan, factor);
+        return memory.admin().decay(olderThan, factor);
     }
 
     /**
