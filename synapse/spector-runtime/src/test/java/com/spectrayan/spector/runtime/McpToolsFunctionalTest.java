@@ -18,7 +18,6 @@ package com.spectrayan.spector.runtime;
 import static org.assertj.core.api.Assertions.*;
 
 import com.spectrayan.spector.config.SpectorProperties;
-import com.spectrayan.spector.ingestion.EmbeddingProviderFactory;
 import com.spectrayan.spector.memory.*;
 import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
@@ -64,7 +63,9 @@ class McpToolsFunctionalTest {
 
         // Check Ollama connectivity (non-fatal  --  we can still test recall with pre-ingested data)
         try {
-            var embedder = EmbeddingProviderFactory.create(OLLAMA_URL, EMBED_MODEL);
+            var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", EMBED_MODEL, OLLAMA_URL);
+            var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
+            var embedder = registry.activeEmbedding().orElseThrow();
             int dims = embedder.embed("probe").dimensions();
             ollamaAvailable = true;
             System.out.printf("[x] Ollama connected: %d dims from %s%n", dims, EMBED_MODEL);
@@ -89,7 +90,9 @@ class McpToolsFunctionalTest {
 
         // Create runtime  --  with embedder if available, or null-safe for read-only
         if (ollamaAvailable) {
-            var embedder = EmbeddingProviderFactory.create(OLLAMA_URL, EMBED_MODEL);
+            var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", EMBED_MODEL, OLLAMA_URL);
+            var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
+            var embedder = registry.activeEmbedding().orElseThrow();
             runtime = SpectorRuntime.from(props, embedder);
         } else {
             // Create with a stub embedder for read-only access to pre-ingested data

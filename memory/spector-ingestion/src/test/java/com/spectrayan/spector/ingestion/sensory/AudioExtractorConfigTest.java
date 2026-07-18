@@ -36,7 +36,7 @@ class AudioExtractorConfigTest {
         void defaultValues() {
             var cfg = AudioExtractorConfig.DEFAULT;
             assertEquals("gemma4", cfg.model());
-            assertEquals("http://localhost:11434", cfg.baseUrl());
+            assertNull(cfg.baseUrl(), "baseUrl should be null (resolved by ProviderDiscovery)");
             assertEquals(120, cfg.timeoutSeconds());
             assertEquals(0, cfg.maxSegmentSeconds());
             assertNull(cfg.language());
@@ -50,9 +50,10 @@ class AudioExtractorConfigTest {
         }
 
         @Test
-        @DisplayName("effectiveBaseUrl no-op without trailing slash")
+        @DisplayName("effectiveBaseUrl returns null when baseUrl is null")
         void effectiveBaseUrlNoTrail() {
-            assertEquals("http://localhost:11434", AudioExtractorConfig.DEFAULT.effectiveBaseUrl());
+            assertNull(AudioExtractorConfig.DEFAULT.effectiveBaseUrl(),
+                    "effectiveBaseUrl should be null when baseUrl is null");
         }
     }
 
@@ -107,10 +108,10 @@ class AudioExtractorConfigTest {
         }
 
         @Test
-        @DisplayName("Null baseUrl defaults")
+        @DisplayName("Null baseUrl stays null")
         void nullBaseUrlDefaults() {
             var cfg = new AudioExtractorConfig("m", null, 60, 0, null);
-            assertEquals("http://localhost:11434", cfg.baseUrl());
+            assertNull(cfg.baseUrl(), "Null baseUrl should stay null");
         }
 
         @Test
@@ -145,7 +146,7 @@ class AudioExtractorConfigTest {
         @DisplayName("Record equality works")
         void recordEquality() {
             var a = AudioExtractorConfig.DEFAULT;
-            var b = new AudioExtractorConfig("gemma4", "http://localhost:11434", 120, 0, null);
+            var b = new AudioExtractorConfig("gemma4", null, 120, 0, null);
             assertEquals(a, b);
             assertEquals(a.hashCode(), b.hashCode());
         }

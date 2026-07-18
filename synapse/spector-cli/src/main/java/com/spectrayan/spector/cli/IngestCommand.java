@@ -25,7 +25,6 @@ import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
-import com.spectrayan.spector.ingestion.EmbeddingProviderFactory;
 import com.spectrayan.spector.runtime.IngestionHandler;
 import com.spectrayan.spector.runtime.SpectorRuntime;
 import picocli.CommandLine;
@@ -150,8 +149,9 @@ class IngestCommand extends BaseCommand {
         out().printf("========================================%n%n");
 
         // -€-€ Create embedder + probe dims -€-€
-        EmbeddingProvider embedder = EmbeddingProviderFactory.create(
-                embedConfig.baseUrl(), embedConfig.model());
+        var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", embedConfig.model(), embedConfig.baseUrl());
+        var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
+        EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
         int dims = embedder.embed("probe").dimensions();
         out().printf("[Embedding] Dimensions: %d%n%n", dims);
 

@@ -199,7 +199,7 @@ class OllamaVisionExtractorTest {
         @Test
         @DisplayName("Null model defaults to moondream")
         void nullModelDefault() {
-            var ext = new OllamaVisionExtractor(null, null, null);
+            var ext = OllamaVisionExtractor.create(null);
             assertEquals("moondream", ext.model());
         }
     }

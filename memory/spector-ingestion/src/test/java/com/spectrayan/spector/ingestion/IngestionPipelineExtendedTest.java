@@ -188,23 +188,9 @@ class IngestionPipelineExtendedTest {
         }
     }
 
-    // ==============================================================
-    // EmbeddingProviderFactory
-    // ==============================================================
-
-    @Test
-    @DisplayName("factory creates embedding provider")
-    void factoryCreatesProvider() {
-        // Ollama classes are on the test classpath via spector-embed-ollama.
-        // The factory should create the provider successfully (even though
-        // it won't connect to a real server).
-        var provider = EmbeddingProviderFactory.create("http://localhost:11434", "test-model");
-        assertThat(provider).isNotNull();
-    }
-
-    // ==============================================================
+    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // IngestionTarget default methods
-    // ==============================================================
+    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
     @Nested
     @DisplayName("IngestionTarget defaults")

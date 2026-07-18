@@ -37,7 +37,6 @@
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-providers</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>

@@ -80,7 +80,8 @@ public final class SpectorRuntime implements AutoCloseable {
     private final SpectorMemory memory;  // nullable
     private final SpectorProperties properties;
     private final SpectorMode mode;
-    private final TextChunker sharedChunker;  // nullable  --  shared by memory + ingestion pipeline
+    private final com.spectrayan.spector.commons.chunker.TextChunker sharedChunker;  // nullable  --  shared by memory + ingestion pipeline
+    private final com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig; // nullable
 
     // Shared provider singletons (nullable)  --  reused across all tenants in Enterprise
     private final SparseEmbeddingProvider SparseEmbeddingProvider;
@@ -96,7 +97,8 @@ public final class SpectorRuntime implements AutoCloseable {
 
     private SpectorRuntime(SpectorEngine engine, SpectorMemory memory,
                            SpectorProperties properties, SpectorMode mode,
-                           TextChunker sharedChunker,
+                           com.spectrayan.spector.commons.chunker.TextChunker sharedChunker,
+                           com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig,
                            SparseEmbeddingProvider SparseEmbeddingProvider,
                            TokenEmbeddingProvider tokenEmbeddingProvider) {
         this.engine = engine;
@@ -104,6 +106,7 @@ public final class SpectorRuntime implements AutoCloseable {
         this.properties = properties;
         this.mode = mode;
         this.sharedChunker = sharedChunker;
+        this.chunkConfig = chunkConfig;
         this.SparseEmbeddingProvider = SparseEmbeddingProvider;
         this.tokenEmbeddingProvider = tokenEmbeddingProvider;
     }
@@ -228,9 +231,18 @@ public final class SpectorRuntime implements AutoCloseable {
 
         // -€-€ Shared TextChunker  --  used by both memory.remember() and IngestionPipeline -€-€
         var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
-        var textChunker = new TextChunker(ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
-        log.info("[Runtime] TextChunker: chunkSize={}, overlap={}",
-                ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
+        var textChunker = new com.spectrayan.spector.commons.chunker.MarkdownChunker();
+        var chunkConfig = new com.spectrayan.spector.commons.chunker.ChunkConfig(
+                ingestionConfig.chunkSize(),
+                ingestionConfig.chunkOverlap(),
+                "text/markdown",
+                "text/markdown",
+                true,
+                true,
+                false
+        );
+        log.info("[Runtime] TextChunker: SPI Chunker={}, chunkSize={}, overlap={}",
+                textChunker.name(), ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
 
         // -€-€ Shared SPLADE + ColBERT provider singletons (set if memory is enabled) -€-€
         SparseEmbeddingProvider sharedSpladeProvider = null;
@@ -246,7 +258,7 @@ public final class SpectorRuntime implements AutoCloseable {
                     .nodesPerPartition(memoryConfig.nodesPerPartition())
                     .hebbianGraphCapacity(memoryConfig.capacity())
                     .temporalChainCapacity(memoryConfig.capacity())
-                    .chunker(textChunker);
+                    .chunker(textChunker, chunkConfig);
 
             // -€-€ Entity extraction (LLM when available, otherwise disabled) -€-€
             if (textGenProvider != null) {
@@ -331,7 +343,7 @@ public final class SpectorRuntime implements AutoCloseable {
                     memoryConfig.persistenceMode(), memoryConfig.persistencePath());
         }
 
-        return new SpectorRuntime(engine, memory, props, mode, textChunker,
+        return new SpectorRuntime(engine, memory, props, mode, textChunker, chunkConfig,
                 sharedSpladeProvider, sharedColbertProvider);
     }
 
@@ -339,7 +351,7 @@ public final class SpectorRuntime implements AutoCloseable {
      * Creates a runtime with engine only (no memory).
      */
     public static SpectorRuntime engineOnly(SpectorEngine engine, SpectorProperties props) {
-        return new SpectorRuntime(engine, null, props, SpectorMode.SEARCH, null, null, null);
+        return new SpectorRuntime(engine, null, props, SpectorMode.SEARCH, null, null, null, null);
     }
 
     // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Service Accessors -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
@@ -380,10 +392,20 @@ public final class SpectorRuntime implements AutoCloseable {
 
                     // Reuse the shared chunker from runtime construction;
                     // fall back to config-derived chunker for engineOnly() runtimes.
-                    var chunker = sharedChunker != null
+                    var chunkerToUse = sharedChunker != null
                             ? sharedChunker
-                            : new com.spectrayan.spector.commons.TextChunker(
-                                    ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
+                            : new com.spectrayan.spector.commons.chunker.MarkdownChunker();
+                    var configToUse = chunkConfig != null
+                            ? chunkConfig
+                            : new com.spectrayan.spector.commons.chunker.ChunkConfig(
+                                    ingestionConfig.chunkSize(),
+                                    ingestionConfig.chunkOverlap(),
+                                    "text/markdown",
+                                    "text/markdown",
+                                    true,
+                                    true,
+                                    false
+                            );
 
                     // Build unified pipeline from config
                     var embedDefaults = SpectorConfigFactory.embeddingDefaults(properties);
@@ -393,7 +415,8 @@ public final class SpectorRuntime implements AutoCloseable {
                     var pipeline = com.spectrayan.spector.ingestion.IngestionPipeline.builder()
                             .target(target)
                             .embeddingProvider(engine.embeddingProvider())
-                            .chunking(chunker)
+                            .chunker(chunkerToUse)
+                            .chunkConfig(configToUse)
                             .chunkThreshold(ingestionConfig.chunkSize())
                             .embedConfig(embedConfig)
                             .build();

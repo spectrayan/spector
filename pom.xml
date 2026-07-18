@@ -82,7 +82,6 @@
         <module>memory/spector-index</module>
         <module>memory/spector-query</module>
         <module>memory/spector-gpu</module>
-        <module>memory/spector-rag</module>
         <module>memory/spector-ingestion</module>
         <module>memory/spector-memory</module>
 
@@ -191,11 +190,6 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-ingestion</artifactId>
-                <version>${revision}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-rag</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

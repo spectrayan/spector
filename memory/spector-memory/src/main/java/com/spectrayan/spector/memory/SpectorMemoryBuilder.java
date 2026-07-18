@@ -120,7 +120,8 @@ public final class SpectorMemoryBuilder {
     int checkpointIntervalSeconds = 30;
 
     // -€-€ Chunking for remember() -€-€
-    TextChunker chunker = new TextChunker(2500, 200);
+    com.spectrayan.spector.commons.chunker.TextChunker chunker = new com.spectrayan.spector.commons.chunker.MarkdownChunker();
+    com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig = com.spectrayan.spector.commons.chunker.ChunkConfig.markdown(2500, 200);
 
     // -€-€ Embedding pipeline batch size -€-€
     int embedBatchSize = 32;
@@ -135,18 +136,18 @@ public final class SpectorMemoryBuilder {
     List<SensoryExtractor> sensoryExtractors = List.of();
     AssetStore assetStore;
 
-    // ==============================================================
+    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // FACTORY
-    // ==============================================================
+    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
     /** Creates a new builder instance. */
     public static SpectorMemoryBuilder create() { return new SpectorMemoryBuilder(); }
 
     SpectorMemoryBuilder() {}
 
-    // ==============================================================
+    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // FLUENT SETTERS
-    // ==============================================================
+    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
     public SpectorMemoryBuilder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
     public SpectorMemoryBuilder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
@@ -157,8 +158,36 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder persistWorkingMemory(boolean persist) { this.persistWorkingMemory = persist; return this; }
     public SpectorMemoryBuilder reflectPolicy(CircadianPolicy p) { this.circadianPolicy = p; return this; }
 
-    /** Sets the text chunker for remember() auto-chunking (default: TextChunker(2500, 200)). */
-    public SpectorMemoryBuilder chunker(TextChunker chunker) { this.chunker = chunker; return this; }
+    /**
+     * Sets the text chunker for remember() auto-chunking.
+     *
+     * @deprecated Use {@link #chunker(com.spectrayan.spector.commons.chunker.TextChunker, com.spectrayan.spector.commons.chunker.ChunkConfig)} instead.
+     */
+    @Deprecated(since = "1.1.0", forRemoval = true)
+    public SpectorMemoryBuilder chunker(TextChunker chunker) {
+        if (chunker != null) {
+            this.chunker = new com.spectrayan.spector.commons.chunker.SentenceChunker();
+            this.chunkConfig = new com.spectrayan.spector.commons.chunker.ChunkConfig(
+                    chunker.chunkSize(), chunker.overlap(),
+                    "text/plain", "text/plain",
+                    false, false, false
+            );
+        }
+        return this;
+    }
+
+    /**
+     * Sets the text chunker and configuration for remember() auto-chunking.
+     *
+     * @param chunker the SPI text chunker implementation
+     * @param config the chunking configuration
+     */
+    public SpectorMemoryBuilder chunker(com.spectrayan.spector.commons.chunker.TextChunker chunker,
+                                        com.spectrayan.spector.commons.chunker.ChunkConfig config) {
+        this.chunker = chunker != null ? chunker : new com.spectrayan.spector.commons.chunker.MarkdownChunker();
+        this.chunkConfig = config != null ? config : com.spectrayan.spector.commons.chunker.ChunkConfig.DEFAULT;
+        return this;
+    }
 
     /** Sets the embedding batch size for parallel chunk embedding (default: 32). */
     public SpectorMemoryBuilder embedBatchSize(int size) { this.embedBatchSize = size; return this; }

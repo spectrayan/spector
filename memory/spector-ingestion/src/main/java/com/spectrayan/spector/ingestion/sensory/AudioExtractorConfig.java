@@ -36,7 +36,7 @@ public record AudioExtractorConfig(
 ) {
     /** Default configuration for Ollama-based audio extraction. */
     public static final AudioExtractorConfig DEFAULT = new AudioExtractorConfig(
-            "gemma4", "http://localhost:11434", 120, 0, null
+            "gemma4", null, 120, 0, null
     );
 
     /** Creates config with just a model name, using defaults for everything else. */
@@ -59,13 +59,14 @@ public record AudioExtractorConfig(
 
     public AudioExtractorConfig {
         if (model == null || model.isBlank()) model = DEFAULT.model;
-        if (baseUrl == null || baseUrl.isBlank()) baseUrl = DEFAULT.baseUrl;
+        if (baseUrl != null && baseUrl.isBlank()) baseUrl = null;
         if (timeoutSeconds <= 0) timeoutSeconds = DEFAULT.timeoutSeconds;
         if (maxSegmentSeconds < 0) maxSegmentSeconds = 0;
     }
 
     /** Returns the effective base URL, stripping trailing slash. */
     public String effectiveBaseUrl() {
+        if (baseUrl == null) return null;
         return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 }
