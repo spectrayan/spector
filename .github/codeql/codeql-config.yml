@@ -4,6 +4,6 @@ query-filters:
   - exclude:
       id:
         - java/log-injection
-        - java/uncontrolled-command-line
-        - java/regular-expression-injection
+        - java/command-line-injection
+        - java/regex-injection
         - java/polynomial-redos
