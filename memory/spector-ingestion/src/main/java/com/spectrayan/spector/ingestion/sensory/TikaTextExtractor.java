@@ -27,9 +27,15 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import com.spectrayan.spector.commons.chunker.Chunk;
+import com.spectrayan.spector.commons.chunker.ChunkConfig;
+import com.spectrayan.spector.commons.chunker.ChunkerRegistry;
+import com.spectrayan.spector.commons.chunker.MarkdownChunker;
 
 /**
  * Extracts text from documents (PDF, DOCX, HTML, etc.) using Apache Tika.
@@ -77,6 +83,25 @@ public final class TikaTextExtractor implements SensoryExtractor {
     private final Tika tika;
     private final int chunkSize;
     private final int chunkOverlap;
+    private final com.spectrayan.spector.commons.chunker.TextChunker textChunker;
+
+    /**
+     * Creates an extractor with configurable chunk size and a TextChunker SPI implementation.
+     *
+     * @param chunkSize    characters per chunk (default: 800)
+     * @param chunkOverlap overlap between consecutive chunks (default: 100)
+     * @param textChunker  the TextChunker SPI to delegate chunking to (nullable — defaults to MarkdownChunker)
+     */
+    public TikaTextExtractor(int chunkSize, int chunkOverlap,
+                             com.spectrayan.spector.commons.chunker.TextChunker textChunker) {
+        this.tika = new Tika();
+        this.tika.setMaxStringLength(MAX_CONTENT_LENGTH);
+        this.chunkSize = chunkSize > 0 ? chunkSize : 800;
+        this.chunkOverlap = chunkOverlap >= 0 ? chunkOverlap : 100;
+        this.textChunker = textChunker != null ? textChunker : new MarkdownChunker();
+        log.info("TikaTextExtractor initialized: chunkSize={}, overlap={}, chunker={}",
+                this.chunkSize, this.chunkOverlap, this.textChunker.name());
+    }
 
     /**
      * Creates an extractor with configurable chunk size.
@@ -85,16 +110,12 @@ public final class TikaTextExtractor implements SensoryExtractor {
      * @param chunkOverlap overlap between consecutive chunks (default: 100)
      */
     public TikaTextExtractor(int chunkSize, int chunkOverlap) {
-        this.tika = new Tika();
-        this.tika.setMaxStringLength(MAX_CONTENT_LENGTH);
-        this.chunkSize = chunkSize > 0 ? chunkSize : 800;
-        this.chunkOverlap = chunkOverlap >= 0 ? chunkOverlap : 100;
-        log.info("TikaTextExtractor initialized: chunkSize={}, overlap={}", this.chunkSize, this.chunkOverlap);
+        this(chunkSize, chunkOverlap, null);
     }
 
     /** Creates an extractor with default settings (800 char chunks, 100 overlap). */
     public TikaTextExtractor() {
-        this(800, 100);
+        this(800, 100, null);
     }
 
     @Override
@@ -205,43 +226,27 @@ public final class TikaTextExtractor implements SensoryExtractor {
     }
 
     /**
-     * Splits text into overlapping chunks as a lazy stream.
+     * Splits text into chunks using the TextChunker SPI.
+     *
+     * <p>Delegates to the configured {@link com.spectrayan.spector.commons.chunker.TextChunker}
+     * (defaults to {@link MarkdownChunker}) with document format detection based on
+     * the Tika-detected content type.</p>
      */
     private Stream<ExtractionChunk> chunkText(String text, String fileName, Map<String, String> docMetadata) {
-        if (text.length() <= chunkSize) {
-            // Single chunk — no splitting needed
+        // Determine document format for the chunker config
+        String contentType = docMetadata.getOrDefault("content_type", "text/plain");
+        String documentFormat = contentType.contains("markdown") ? "text/markdown" : "text/plain";
+
+        ChunkConfig config = new ChunkConfig(
+                chunkSize, chunkOverlap, documentFormat, contentType,
+                true, true, false);
+
+        List<Chunk> spiChunks = textChunker.chunk(fileName, text, config);
+
+        return spiChunks.stream().map(chunk -> {
             Map<String, String> chunkMeta = new HashMap<>(docMetadata);
-            chunkMeta.put("chunk_index", "0");
-            chunkMeta.put("total_chunks", "1");
-            return Stream.of(new ExtractionChunk("chunk-0", text, chunkMeta));
-        }
-
-        // Build chunks with overlap
-        var chunks = new java.util.ArrayList<ExtractionChunk>();
-        int step = Math.max(1, chunkSize - chunkOverlap);
-        int totalChunks = (int) Math.ceil((double) (text.length() - chunkOverlap) / step);
-        if (totalChunks < 1) totalChunks = 1;
-
-        int idx = 0;
-        int pos = 0;
-        while (pos < text.length()) {
-            int end = Math.min(pos + chunkSize, text.length());
-            String chunkText = text.substring(pos, end).strip();
-
-            if (!chunkText.isEmpty()) {
-                Map<String, String> chunkMeta = new HashMap<>(docMetadata);
-                chunkMeta.put("chunk_index", String.valueOf(idx));
-                chunkMeta.put("total_chunks", String.valueOf(totalChunks));
-                chunks.add(new ExtractionChunk("chunk-" + idx, chunkText, chunkMeta));
-                idx++;
-            }
-
-            pos += step;
-        }
-
-        log.debug("Chunked {} into {} chunks (chunkSize={}, overlap={})",
-                fileName, chunks.size(), chunkSize, chunkOverlap);
-
-        return chunks.stream();
+            chunkMeta.putAll(chunk.metadata());
+            return new ExtractionChunk(chunk.chunkId(), chunk.text(), chunkMeta);
+        });
     }
 }
