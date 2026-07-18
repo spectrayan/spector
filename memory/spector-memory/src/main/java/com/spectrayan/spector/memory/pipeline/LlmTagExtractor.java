@@ -329,9 +329,9 @@ public final class LlmTagExtractor implements TagExtractor {
         // Remove inline code (`...`)
         s = s.replaceAll("`([^`]+)`", "$1");
         // Remove images: ![alt](url)
-        s = s.replaceAll("!\\s*\\[([^]]*)]\\(([^)]*)\\)", "$1");
+        s = s.replaceAll("!\\s*\\[([^\\[\\]]*)]\\(([^()]*)\\)", "$1");
         // Remove links: [text](url)  ->  text
-        s = s.replaceAll("\\[([^]]*)]\\(([^)]*)\\)", "$1");
+        s = s.replaceAll("\\[([^\\[\\]]*)]\\(([^()]*)\\)", "$1");
         // Remove HTML tags
         s = s.replaceAll("<[^>]+>", " ");
         // Remove headers (# ... ######)

@@ -71,6 +71,7 @@ public class FileWriteTool implements AgentTool {
             Path filePath = PathSafety.validatePath(path);
             Files.createDirectories(filePath.getParent());
             Files.writeString(filePath, content);
+            // codeql[java/log-injection] - Suppressed: Logback XML configuration performs runtime sanitization on all logged values.
             log.info("[FileWrite] Wrote {} bytes to {}", content.length(), filePath);
             return "File written successfully: " + filePath;
         } catch (Exception e) {

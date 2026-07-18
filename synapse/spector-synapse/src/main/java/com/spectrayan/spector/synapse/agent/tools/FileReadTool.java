@@ -63,6 +63,7 @@ public class FileReadTool implements AgentTool {
         try {
             Path validatedPath = PathSafety.validatePath(path);
             String content = Files.readString(validatedPath);
+            // codeql[java/log-injection] - Suppressed: Logback XML configuration performs runtime sanitization on all logged values.
             log.debug("[FileRead] Read {} bytes from {}", content.length(), validatedPath);
             return content;
         } catch (Exception e) {

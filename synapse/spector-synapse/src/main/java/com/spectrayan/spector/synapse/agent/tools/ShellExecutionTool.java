@@ -88,6 +88,7 @@ public class ShellExecutionTool implements AgentTool {
             }
 
             // codeql[java/command-line-injection] - Suppressed: This is a shell execution tool designed to run arbitrary agent commands, gated by client-side HITL approval.
+            // codeql[java/uncontrolled-command-line] - Suppressed: This is a shell execution tool designed to run arbitrary agent commands, gated by client-side HITL approval.
             // codeql[java/relative-path-command] - Suppressed: Absolute shell executable resolved above.
             pb.command(shell, flag, command);
 

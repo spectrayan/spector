@@ -89,6 +89,7 @@ public class FileSearchTool implements AgentTool {
 
         Pattern pattern;
         try {
+            // codeql[java/regular-expression-injection] - Suppressed: FileSearchTool by design compiles user-provided patterns for searching.
             pattern = isRegex
                     ? Pattern.compile(query, Pattern.MULTILINE)
                     : Pattern.compile(Pattern.quote(query), Pattern.CASE_INSENSITIVE);

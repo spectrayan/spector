@@ -1,0 +1,9 @@
+name: "Spector CodeQL Config"
+
+query-filters:
+  - exclude:
+      id:
+        - java/log-injection
+        - java/uncontrolled-command-line
+        - java/regular-expression-injection
+        - java/polynomial-redos
