@@ -76,7 +76,6 @@ public final class ContentTagExtractor implements TagExtractor {
      */
     private static final Pattern TAG_CLEAN = Pattern.compile("[^a-z0-9_-]");
     private static final Pattern NUMERIC_ONLY = Pattern.compile("^\\d+$");
-    private static final Pattern LEADING_TRAILING_SEP = Pattern.compile("^[-_]+|[-_]+$");
 
     /**
      * Splits camelCase/PascalCase identifiers into hyphen-separated words.
@@ -169,8 +168,7 @@ public final class ContentTagExtractor implements TagExtractor {
         String[] parts = PATH_SPLIT_PATTERN.split(cleanId);
         for (String part : parts) {
             String clean = TAG_CLEAN.matcher(part.toLowerCase(Locale.ROOT)).replaceAll("");
-            clean = clean.replace('_', '-'); // normalize underscores to hyphens
-            clean = LEADING_TRAILING_SEP.matcher(clean).replaceAll(""); // trim leading/trailing - _
+            clean = trimSeparators(clean); // trim leading/trailing - _
             // Skip pure-numeric tokens (chunk indices, temp file IDs, etc.)
             if (clean.length() > 2 && !STOP_WORDS.contains(clean) && !NUMERIC_ONLY.matcher(clean).matches()) {
                 tags.add(clean);
@@ -196,8 +194,7 @@ public final class ContentTagExtractor implements TagExtractor {
             // e.g., "WhatsAppTelegram" → "Whats-App-Telegram" → "whats-app-telegram"
             String split = CAMEL_CASE_SPLIT.matcher(word).replaceAll("-");
             String clean = TAG_CLEAN.matcher(split.toLowerCase(Locale.ROOT)).replaceAll("");
-            clean = clean.replace('_', '-'); // normalize underscores to hyphens
-            clean = LEADING_TRAILING_SEP.matcher(clean).replaceAll(""); // trim leading/trailing - _
+            clean = trimSeparators(clean); // trim leading/trailing - _
             // Skip pure-numeric tokens and stop words
             if (clean.length() > 4 && !STOP_WORDS.contains(clean) && !tags.contains(clean)
                     && !NUMERIC_ONLY.matcher(clean).matches()) {
@@ -217,5 +214,17 @@ public final class ContentTagExtractor implements TagExtractor {
                 if (added >= MAX_CONTENT_TAGS) break;
             }
         }
+    }
+
+    private static String trimSeparators(String s) {
+        int start = 0;
+        int end = s.length();
+        while (start < end && (s.charAt(start) == '-' || s.charAt(start) == '_')) {
+            start++;
+        }
+        while (end > start && (s.charAt(end - 1) == '-' || s.charAt(end - 1) == '_')) {
+            end--;
+        }
+        return s.substring(start, end);
     }
 }

@@ -325,20 +325,20 @@ public final class LlmTagExtractor implements TagExtractor {
         if (md == null || md.isBlank()) return "";
         String s = md;
         // Remove code fences (```...```)
-        s = s.replaceAll("(?s)```[a-z]*\n.*?```", " ");
+        s = s.replaceAll("(?s)```[a-z]*\\n[^`]*```", " ");
         // Remove inline code (`...`)
         s = s.replaceAll("`([^`]+)`", "$1");
         // Remove images: ![alt](url)
-        s = s.replaceAll("!\\[([^]]*)]\\([^)]+\\)", "$1");
+        s = s.replaceAll("!\\s*\\[([^]]*)]\\(([^)]*)\\)", "$1");
         // Remove links: [text](url)  ->  text
-        s = s.replaceAll("\\[([^]]*)]\\([^)]+\\)", "$1");
+        s = s.replaceAll("\\[([^]]*)]\\(([^)]*)\\)", "$1");
         // Remove HTML tags
         s = s.replaceAll("<[^>]+>", " ");
         // Remove headers (# ... ######)
         s = s.replaceAll("(?m)^#{1,6}\\s+", "");
         // Remove bold/italic markers
-        s = s.replaceAll("\\*{1,3}([^*]+)\\*{1,3}", "$1");
-        s = s.replaceAll("_{1,3}([^_]+)_{1,3}", "$1");
+        s = s.replaceAll("\\*+", "");
+        s = s.replaceAll("_+", "");
         // Remove blockquotes
         s = s.replaceAll("(?m)^>+\\s*", "");
         // Remove horizontal rules
