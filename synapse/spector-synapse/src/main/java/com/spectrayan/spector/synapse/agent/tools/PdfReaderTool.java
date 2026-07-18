@@ -19,7 +19,6 @@ import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.TikaCoreProperties;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
-
 import org.apache.tika.sax.BodyContentHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +29,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import technology.tabula.ObjectExtractor;
@@ -90,7 +88,7 @@ public class PdfReaderTool implements AgentTool {
                                 "description", "Absolute path to the PDF file"),
                         "pages", Map.of("type", "string",
                                 "description", "Page range: 'all', single page (e.g., '3'), "
-                                        + "or range (e.g., '2-8'). Default: 'all'"),
+                                         + "or range (e.g., '2-8'). Default: 'all'"),
                         "extract_tables", Map.of("type", "boolean",
                                 "description", "Extract tables as Markdown (default: false)")),
                 "required", List.of("file_path"));
@@ -262,7 +260,7 @@ public class PdfReaderTool implements AgentTool {
 
     private static void appendTables(StringBuilder output, Path path,
             int startPage, int endPage) {
-        try (var doc = org.apache.pdfbox.pdmodel.PDDocument.load(path.toFile());
+        try (var doc = org.apache.pdfbox.Loader.loadPDF(path.toFile());
              var extractor = new ObjectExtractor(doc)) {
             var algorithm = new SpreadsheetExtractionAlgorithm();
             boolean hasTables = false;
@@ -320,7 +318,7 @@ public class PdfReaderTool implements AgentTool {
     // ── Page counting and range parsing ───────────────────────────
 
     private static int countPages(Path path) throws Exception {
-        try (var doc = org.apache.pdfbox.pdmodel.PDDocument.load(path.toFile())) {
+        try (var doc = org.apache.pdfbox.Loader.loadPDF(path.toFile())) {
             return doc.getNumberOfPages();
         }
     }
