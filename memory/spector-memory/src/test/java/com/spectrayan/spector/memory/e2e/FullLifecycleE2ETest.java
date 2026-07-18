@@ -44,7 +44,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
                 MemoryType.WORKING, MemorySource.OBSERVED,
                 "task", "debugging", "performance").join();
 
-        assertThat(memory.index().locate("lifecycle-task"))
+        assertThat(memory.admin().index().locate("lifecycle-task"))
                 .as("New task memory should be in the index")
                 .isNotNull();
     }
@@ -86,7 +86,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
                 MemoryType.EPISODIC, MemorySource.OBSERVED,
                 "debugging", "database", "fix", "connection-pool").join();
 
-        assertThat(memory.index().locate("lifecycle-finding"))
+        assertThat(memory.admin().index().locate("lifecycle-finding"))
                 .as("Finding should be in the index")
                 .isNotNull();
 
@@ -173,7 +173,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
                 MemoryType.PROCEDURAL, MemorySource.REFLECTED,
                 "procedure", "debugging", "database", "connection-pool").join();
 
-        assertThat(memory.index().locate("lifecycle-procedure"))
+        assertThat(memory.admin().index().locate("lifecycle-procedure"))
                 .as("Learned procedure should be in the index")
                 .isNotNull();
     }
@@ -196,7 +196,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
                     idsOf(results).indexOf("lifecycle-procedure") + 1);
         } else {
             // Verify it still exists in the index
-            assertThat(memory.index().locate("lifecycle-procedure"))
+            assertThat(memory.admin().index().locate("lifecycle-procedure"))
                     .as("Procedure should still be in index even if not in top-K recall")
                     .isNotNull();
             log.info("  ⚠ Procedure not in top-15 recall (model-dependent) but exists in index");
@@ -221,7 +221,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
         String[] lifecycleIds = {"lifecycle-task", "lifecycle-finding", "lifecycle-procedure"};
 
         for (String id : lifecycleIds) {
-            assertThat(memory.index().locate(id))
+            assertThat(memory.admin().index().locate(id))
                     .as("Lifecycle memory '%s' should survive reflect", id)
                     .isNotNull();
         }
@@ -304,7 +304,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
                 after != null ? after.score() : "not found");
 
         // Verify the memory exists in the index and was marked unresolved
-        var location = memory.index().locate(taskId);
+        var location = memory.admin().index().locate(taskId);
         assertThat(location)
                 .as("Unresolved memory should exist in the index")
                 .isNotNull();

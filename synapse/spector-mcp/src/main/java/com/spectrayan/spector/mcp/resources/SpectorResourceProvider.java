@@ -17,7 +17,7 @@ package com.spectrayan.spector.mcp.resources;
 
 import java.util.List;
 
-import com.spectrayan.spector.engine.SpectorEngine;
+import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.mcp.util.ResultFormatter;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -28,11 +28,8 @@ import io.modelcontextprotocol.spec.McpSchema;
  *
  * <p>Resources expose read-only data to MCP clients. Currently provides:</p>
  * <ul>
- *   <li>{@code spector://status} — real-time engine status as JSON</li>
+ *   <li>{@code spector://status} — real-time cognitive memory status as JSON</li>
  * </ul>
- *
- * <p>Resources are defined separately from the server orchestrator
- * for clean separation of concerns and independent extensibility.</p>
  */
 public final class SpectorResourceProvider {
 
@@ -44,31 +41,30 @@ public final class SpectorResourceProvider {
     /**
      * Creates all resource specifications for MCP server registration.
      *
-     * @param engine        the Spector engine instance
+     * @param memory        the Spector memory instance
      * @param serverVersion the server version string
      * @return list of resource specifications
      */
     public static List<McpServerFeatures.SyncResourceSpecification> create(
-            SpectorEngine engine, String serverVersion) {
+            SpectorMemory memory, String serverVersion) {
         return List.of(
-                createStatusResource(engine, serverVersion)
+                createStatusResource(memory, serverVersion)
         );
     }
 
     // ─────────────── Status Resource ───────────────
 
     private static McpServerFeatures.SyncResourceSpecification createStatusResource(
-            SpectorEngine engine, String serverVersion) {
+            SpectorMemory memory, String serverVersion) {
 
-        var resource = McpSchema.Resource.builder(SCHEME + "status", "Engine Status")
-                .description("Real-time Spector engine status including document count, "
-                        + "index type, SIMD capabilities, GPU status, and embedding configuration.")
+        var resource = McpSchema.Resource.builder(SCHEME + "status", "Memory Status")
+                .description("Real-time Spector cognitive memory status including total memories, "
+                        + "tier counts, WAL status, and pending reminders.")
                 .mimeType("application/json")
                 .build();
 
         return new McpServerFeatures.SyncResourceSpecification(resource, (exchange, request) -> {
-            // Build status as a structured map, then serialize to JSON
-            var statusMap = ResultFormatter.buildEngineStatusMap(engine, serverVersion);
+            var statusMap = ResultFormatter.buildMemoryStatusMap(memory, serverVersion);
             String json = mapToJson(statusMap);
 
             return new McpSchema.ReadResourceResult(
@@ -80,12 +76,6 @@ public final class SpectorResourceProvider {
 
     // ─────────────── Internal ───────────────
 
-    /**
-     * Simple JSON serialization for flat maps — avoids adding Jackson
-     * as a direct dependency for the resource provider.
-     *
-     * <p>For nested or complex structures, inject an ObjectMapper instead.</p>
-     */
     private static String mapToJson(java.util.Map<String, Object> map) {
         var sb = new StringBuilder(256);
         sb.append("{\n");
@@ -99,10 +89,13 @@ public final class SpectorResourceProvider {
             } else {
                 sb.append('"').append(val).append('"');
             }
-            if (entries.hasNext()) sb.append(',');
-            sb.append('\n');
+            if (entries.hasNext()) {
+                sb.append(",\n");
+            } else {
+                sb.append("\n");
+            }
         }
-        sb.append('}');
+        sb.append("}");
         return sb.toString();
     }
 }

@@ -15,17 +15,13 @@
  */
 package com.spectrayan.spector.spring.autoconfigure;
 
-import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
-import com.spectrayan.spector.engine.DefaultSpectorEngine;
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.metrics.MeteredSpectorEngine;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;
 import com.spectrayan.spector.metrics.SpectorMetrics;
 
@@ -46,87 +42,23 @@ import com.spectrayan.spector.commons.error.SpectorInternalException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
- * Spring Boot auto-configuration for embedded Spector.
+ * Spring Boot auto-configuration for embedded Spector Cognitive Memory.
  *
- * <p>Automatically creates and wires {@link SpectorEngine} and optionally
- * {@link SpectorMemory} beans when Spector is on the classpath. If a
- * {@link MeterRegistry} is available (e.g., from Spring Boot Actuator),
- * the beans are automatically wrapped with metered decorators for
- * observability through {@code /actuator/metrics}.</p>
- *
- * <h3>Usage</h3>
- * <p>Add {@code spector-spring} to your Spring Boot application's dependencies.
- * Configure via {@code application.yml}:</p>
- * <pre>{@code
- *   spector:
- *     engine:
- *       dimensions: 768
- *       capacity: 100000
- *     metrics:
- *       enabled: true
- * }</pre>
- *
- * <h3>Bean Hierarchy</h3>
- * <ul>
- *   <li>{@code SpectorEngine}  --  metered wrapper (if metrics enabled) around {@code DefaultSpectorEngine}</li>
- *   <li>{@code SpectorMemory}  --  metered wrapper (if metrics enabled) around {@code DefaultSpectorMemory}</li>
- *   <li>{@code SpectorVectorStore}  --  Spring AI VectorStore bridge (if Spring AI on classpath)</li>
- * </ul>
- *
- * @see SpectorConfigProperties
+ * <p>Automatically creates and wires the {@link SpectorMemory} bean when Spector is on the classpath.</p>
  */
 @AutoConfiguration
 @EnableConfigurationProperties(SpectorConfigProperties.class)
-@ConditionalOnClass(SpectorEngine.class)
+@ConditionalOnClass(SpectorMemory.class)
 public class SpectorAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorAutoConfiguration.class);
 
     /**
-     * Creates the core {@link SpectorEngine} bean.
-     *
-     * <p>If a {@link MeterRegistry} is available and metrics are enabled,
-     * the engine is wrapped with a {@link MeteredSpectorEngine} decorator.
-     * Also initializes the global {@link SpectorMetrics} registry.</p>
+     * Creates the {@link SpectorMemory} bean when memory is enabled (default: true).
      */
     @Bean
     @ConditionalOnMissingBean
-    SpectorEngine spectorEngine(SpectorConfigProperties props,
-                                 ObjectProvider<EmbeddingProvider> embedderProvider,
-                                 ObjectProvider<MeterRegistry> registryProvider) {
-
-        SpectorConfig config = props.toEngineConfig();
-        EmbeddingProvider embedder = embedderProvider.getIfAvailable();
-
-        DefaultSpectorEngine raw = new DefaultSpectorEngine(config, embedder);
-        log.info("SpectorEngine auto-configured: dims={}, capacity={}, embedding={}",
-                config.dimensions(), config.capacity(),
-                embedder != null ? embedder.modelName() : "none");
-
-        MeterRegistry registry = registryProvider.getIfAvailable();
-        if (registry != null && props.getMetrics().isEnabled()) {
-            SpectorMetrics.init(registry);
-            log.info("Spector metrics enabled via Spring MeterRegistry");
-            return new MeteredSpectorEngine(raw, registry);
-        }
-
-        return raw;
-    }
-
-    /**
-     * Creates the {@link SpectorMemory} bean when memory is enabled.
-     *
-     * <p>If a {@link SalienceProfileProvider} bean is available (e.g., from the
-     * synapse module), it is wired into the memory builder to enable
-     * user-salience-driven importance modulation, valence/arousal adjustment,
-     * and topic boosting during ingestion and recall.</p>
-     *
-     * <p>Optionally wrapped with {@link MeteredSpectorMemory} when metrics
-     * are available.</p>
-     */
-    @Bean
-    @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "spector.memory", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = "spector.memory", name = "enabled", havingValue = "true", matchIfMissing = true)
     SpectorMemory spectorMemory(SpectorConfigProperties props,
                                  ObjectProvider<EmbeddingProvider> embedderProvider,
                                  ObjectProvider<LlmProvider> textGenProvider,
@@ -189,6 +121,8 @@ public class SpectorAutoConfiguration {
 
         MeterRegistry registry = registryProvider.getIfAvailable();
         if (registry != null && props.getMetrics().isEnabled()) {
+            SpectorMetrics.init(registry);
+            log.info("Spector metrics enabled via Spring MeterRegistry");
             return new MeteredSpectorMemory(raw, registry);
         }
 

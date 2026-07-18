@@ -15,11 +15,16 @@
  */
 package org.springframework.ai.vectorstore.spector;
 
-import com.spectrayan.spector.engine.SpectorEngine;
+import com.spectrayan.spector.memory.DefaultSpectorMemory;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
@@ -32,66 +37,86 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link SpectorVectorStore} using an embedded SpectorEngine.
+ * Unit tests for {@link SpectorVectorStore} using an embedded SpectorMemory.
  */
 class SpectorVectorStoreTest {
 
-    private SpectorEngine engine;
+    private SpectorMemory memory;
     private SpectorVectorStore vectorStore;
-    private static final int DIMS = 4;
+    private static final int DIMS = 8;
 
     @BeforeEach
     void setUp() {
-        engine = SpectorEngine.builder()
+        EmbeddingProvider embeddingProvider = Mockito.mock(EmbeddingProvider.class);
+        Mockito.when(embeddingProvider.dimensions()).thenReturn(DIMS);
+        Mockito.when(embeddingProvider.modelName()).thenReturn("mock-embed");
+        Mockito.when(embeddingProvider.embed(Mockito.anyString()))
+                .thenAnswer(invocation -> {
+                    String text = invocation.getArgument(0);
+                    float[] vec = new float[DIMS];
+                    int hash = text.hashCode();
+                    for (int i = 0; i < DIMS; i++) {
+                        vec[i] = ((hash >> (i * 8)) & 0xFF) / 255.0f;
+                    }
+                    return new EmbeddingResult(vec, 1, "mock-embed");
+                });
+
+        memory = DefaultSpectorMemory.builder()
                 .dimensions(DIMS)
-                .capacity(100)
+                .embeddingProvider(embeddingProvider)
+                .semanticCapacity(100)
+                .hebbianGraphCapacity(100)
+                .temporalChainCapacity(100)
+                .entityGraphCapacity(100)
+                .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
                 .build();
-        vectorStore = new SpectorVectorStore(engine);
+
+        vectorStore = new SpectorVectorStore(memory);
     }
 
     @AfterEach
     void tearDown() {
-        if (engine != null) {
-            engine.close();
+        if (memory != null) {
+            memory.close();
         }
     }
 
     @Test
     void addDocuments_storesDocumentsSuccessfully() {
         List<Document> docs = List.of(
-                createDocument("doc-1", "Hello world", new float[]{0.1f, 0.2f, 0.3f, 0.4f}),
-                createDocument("doc-2", "Goodbye world", new float[]{0.5f, 0.6f, 0.7f, 0.8f})
+                createDocument("doc-1", "Hello world", new float[]{0.1f, 0.2f, 0.3f, 0.4f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-2", "Goodbye world", new float[]{0.5f, 0.6f, 0.7f, 0.8f, 0.0f, 0.0f, 0.0f, 0.0f})
         );
 
         vectorStore.add(docs);
 
-        assertThat(engine.documentCount()).isEqualTo(2);
+        assertThat(memory.totalMemories()).isEqualTo(2);
     }
 
     @Test
     void addEmptyList_doesNothing() {
         vectorStore.add(List.of());
-        assertThat(engine.documentCount()).isZero();
+        assertThat(memory.totalMemories()).isZero();
     }
 
     @Test
     void addNull_doesNothing() {
         vectorStore.add(null);
-        assertThat(engine.documentCount()).isZero();
+        assertThat(memory.totalMemories()).isZero();
     }
 
     @Test
     void delete_removesDocuments() {
         List<Document> docs = List.of(
-                createDocument("doc-1", "Hello", new float[]{0.1f, 0.2f, 0.3f, 0.4f}),
-                createDocument("doc-2", "World", new float[]{0.5f, 0.6f, 0.7f, 0.8f})
+                createDocument("doc-1", "Hello", new float[]{0.1f, 0.2f, 0.3f, 0.4f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-2", "World", new float[]{0.5f, 0.6f, 0.7f, 0.8f, 0.0f, 0.0f, 0.0f, 0.0f})
         );
         vectorStore.add(docs);
 
         vectorStore.delete(List.of("doc-1"));
 
-        // Engine should still have doc-2
-        assertThat(engine.documentCount()).isLessThanOrEqualTo(2);
+        // Memory should still have doc-2
+        assertThat(memory.totalMemories()).isLessThanOrEqualTo(2);
     }
 
     @Test
@@ -109,14 +134,14 @@ class SpectorVectorStoreTest {
     @Test
     void similaritySearch_returnsResultsInDescendingScoreOrder() {
         List<Document> docs = List.of(
-                createDocument("doc-1", "First", new float[]{1.0f, 0.0f, 0.0f, 0.0f}),
-                createDocument("doc-2", "Second", new float[]{0.0f, 1.0f, 0.0f, 0.0f}),
-                createDocument("doc-3", "Third", new float[]{0.5f, 0.5f, 0.0f, 0.0f})
+                createDocument("doc-1", "First", new float[]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-2", "Second", new float[]{0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-3", "Third", new float[]{0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f})
         );
         vectorStore.add(docs);
 
         // Direct vector search close to doc-1
-        float[] query = {1.0f, 0.0f, 0.0f, 0.0f};
+        float[] query = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         List<Document> results = vectorStore.similaritySearch(query, 3, 0.0, null);
 
         assertThat(results).isNotEmpty();
@@ -135,11 +160,11 @@ class SpectorVectorStoreTest {
         List<Document> docs = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             float val = (i + 1) / 10.0f;
-            docs.add(createDocument("doc-" + i, "Content " + i, new float[]{val, 1 - val, 0.0f, 0.0f}));
+            docs.add(createDocument("doc-" + i, "Content " + i, new float[]{val, 1 - val, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}));
         }
         vectorStore.add(docs);
 
-        float[] query = {1.0f, 0.0f, 0.0f, 0.0f};
+        float[] query = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         List<Document> results = vectorStore.similaritySearch(query, 3, 0.0, null);
 
         assertThat(results.size()).isLessThanOrEqualTo(3);
@@ -160,12 +185,12 @@ class SpectorVectorStoreTest {
     @Test
     void similaritySearch_withSimilarityThreshold_filtersLowScores() {
         List<Document> docs = List.of(
-                createDocument("doc-1", "Close match", new float[]{0.9f, 0.1f, 0.0f, 0.0f}),
-                createDocument("doc-2", "Far match", new float[]{0.0f, 0.0f, 1.0f, 0.0f})
+                createDocument("doc-1", "Close match", new float[]{0.9f, 0.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}),
+                createDocument("doc-2", "Far match", new float[]{0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f})
         );
         vectorStore.add(docs);
 
-        float[] query = {1.0f, 0.0f, 0.0f, 0.0f};
+        float[] query = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         List<Document> results = vectorStore.similaritySearch(query, 10, 0.8, null);
 
         // All returned results should have score >= 0.8

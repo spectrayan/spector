@@ -134,18 +134,18 @@ public final class BenchmarkSetup implements AutoCloseable {
         this.idToSlot = idToSlot;
 
         // Load graph structures from dataset definitions (null-safe: subsystems may be unconfigured)
-        if (memory.hebbianGraph() != null) {
-            loadHebbianEdges(memory.hebbianGraph(), dataset.hebbianEdges(), idToSlot);
+        if (memory.admin().hebbianGraph() != null) {
+            loadHebbianEdges(memory.admin().hebbianGraph(), dataset.hebbianEdges(), idToSlot);
         } else {
             log.warn("HebbianGraph is null  --  skipping {} edge definitions", dataset.hebbianEdges().size());
         }
-        if (memory.temporalChain() != null) {
-            loadTemporalChains(memory.temporalChain(), dataset.temporalChains(), idToSlot);
+        if (memory.admin().temporalChain() != null) {
+            loadTemporalChains(memory.admin().temporalChain(), dataset.temporalChains(), idToSlot);
         } else {
             log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
         }
-        if (memory.entityGraph() != null) {
-            loadEntityGraph(memory.entityGraph(), dataset.entityRelations(), corpus);
+        if (memory.admin().entityGraph() != null) {
+            loadEntityGraph(memory.admin().entityGraph(), dataset.entityRelations(), corpus);
         } else {
             log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
         }

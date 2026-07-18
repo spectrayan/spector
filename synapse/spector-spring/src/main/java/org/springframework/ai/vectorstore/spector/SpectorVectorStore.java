@@ -18,9 +18,11 @@ package org.springframework.ai.vectorstore.spector;
 import com.spectrayan.spector.client.SpectorClient;
 import com.spectrayan.spector.client.SpectorConnectionException;
 import com.spectrayan.spector.client.model.IngestRequest;
-import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.index.ScoredResult;
-import com.spectrayan.spector.query.SearchResponse;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoringMode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.commons.error.ErrorCode;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,23 +36,21 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.commons.error.ErrorCode;
 
 /**
  * Spring AI {@link VectorStore} implementation backed by Spector.
  *
  * <p>Supports two modes of operation:
  * <ul>
- *   <li><b>Embedded</b> — uses a local {@link SpectorEngine} instance directly</li>
+ *   <li><b>Embedded</b> — uses a local {@link SpectorMemory} instance directly</li>
  *   <li><b>Remote</b> — communicates with a remote Spector instance via {@link SpectorClient}</li>
  * </ul>
  *
  * <p>Since Spector is a vector-native engine, documents must have their embeddings
  * pre-computed and stored in metadata under the key {@code "embedding"} (as a {@code float[]}).
- * The {@link #similaritySearch(SearchRequest)} method requires a pre-computed query embedding
- * to be stored in the search request's metadata or passed via the query text that the engine
- * can resolve. For direct vector search, use {@link #similaritySearch(float[], int, double, Filter.Expression)}.
+ * The {@link #similaritySearch(SearchRequest)} method performs similarity search using the query
+ * text, routing it to Spector memory. For direct vector search, use
+ * {@link #similaritySearch(float[], int, double, Filter.Expression)}.</p>
  */
 public class SpectorVectorStore implements VectorStore {
 
@@ -59,15 +59,15 @@ public class SpectorVectorStore implements VectorStore {
     /** Metadata key used to store the document embedding vector. */
     public static final String EMBEDDING_METADATA_KEY = "embedding";
 
-    private final SpectorEngine engine;
+    private final SpectorMemory memory;
     private final SpectorClient client;
     private final SpectorFilterExpressionConverter filterConverter;
 
     /**
-     * Creates a SpectorVectorStore backed by an embedded SpectorEngine.
+     * Creates a SpectorVectorStore backed by an embedded SpectorMemory.
      */
-    public SpectorVectorStore(SpectorEngine engine) {
-        this.engine = engine;
+    public SpectorVectorStore(SpectorMemory memory) {
+        this.memory = memory;
         this.client = null;
         this.filterConverter = new SpectorFilterExpressionConverter();
     }
@@ -76,7 +76,7 @@ public class SpectorVectorStore implements VectorStore {
      * Creates a SpectorVectorStore backed by a remote SpectorClient.
      */
     public SpectorVectorStore(SpectorClient client) {
-        this.engine = null;
+        this.memory = null;
         this.client = client;
         this.filterConverter = new SpectorFilterExpressionConverter();
     }
@@ -92,8 +92,8 @@ public class SpectorVectorStore implements VectorStore {
             String content = document.getText() != null ? document.getText() : "";
             float[] embedding = extractEmbedding(document);
 
-            if (engine != null) {
-                engine.ingest(id, content, embedding);
+            if (memory != null) {
+                memory.target().ingest(id, content, embedding);
             } else {
                 try {
                     IngestRequest request = new IngestRequest(id, content, embedding);
@@ -114,8 +114,8 @@ public class SpectorVectorStore implements VectorStore {
         }
 
         for (String id : idList) {
-            if (engine != null) {
-                engine.delete(id);
+            if (memory != null) {
+                memory.forget(id);
             } else {
                 try {
                     client.delete(id);
@@ -130,17 +130,11 @@ public class SpectorVectorStore implements VectorStore {
 
     @Override
     public void delete(Filter.Expression filterExpression) {
-        // Filter-based deletion is not directly supported by Spector engine.
-        // This implementation could be extended to query matching docs and delete them.
         throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "SpectorVectorStore", "filter-based deletion is not yet supported");
     }
 
     @Override
     public List<Document> similaritySearch(SearchRequest request) {
-        // In Spring AI 2.0.x, SearchRequest carries a text query (String).
-        // Since Spector is vector-native and doesn't embed internally,
-        // we look for a pre-computed query embedding in the engine's embedding provider
-        // or return empty if no embedding can be derived.
         String queryText = request.getQuery();
         int topK = request.getTopK();
         Filter.Expression filterExpression = request.getFilterExpression();
@@ -150,11 +144,45 @@ public class SpectorVectorStore implements VectorStore {
             return Collections.emptyList();
         }
 
-        // Spector is vector-native and doesn't embed text internally.
-        // Text-based similarity search requires an external embedding provider.
-        // For now, we cannot convert text to vector without an embedder.
-        LOG.debug("Text-based similarity search not supported without embedding provider; query='{}'", queryText);
-        return Collections.emptyList();
+        List<Document> results;
+        if (memory != null) {
+            var options = RecallOptions.builder()
+                    .topK(topK)
+                    .scoringMode(ScoringMode.SIMILARITY)
+                    .build();
+            var recallResults = memory.recall(queryText, options);
+            results = new ArrayList<>();
+            for (var r : recallResults) {
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("score", (double) r.score());
+                metadata.put("distance", (double) r.score());
+                Document doc = Document.builder()
+                        .id(r.id())
+                        .text(r.text())
+                        .metadata(metadata)
+                        .score((double) r.score())
+                        .build();
+                results.add(doc);
+            }
+            if (filterExpression != null) {
+                results = applyFilter(results, filterExpression);
+            }
+        } else {
+            LOG.debug("Text-based similarity search not supported without embedding provider; query='{}'", queryText);
+            return Collections.emptyList();
+        }
+
+        // Apply similarity threshold if configured
+        if (threshold > 0) {
+            results = results.stream()
+                    .filter(doc -> {
+                        Double score = doc.getScore();
+                        return score != null && score >= threshold;
+                    })
+                    .toList();
+        }
+
+        return results;
     }
 
     /**
@@ -175,9 +203,28 @@ public class SpectorVectorStore implements VectorStore {
 
         List<Document> results;
 
-        if (engine != null) {
-            SearchResponse response = engine.vectorSearch(queryEmbedding, topK);
-            results = mapEngineResults(response, filterExpression);
+        if (memory != null) {
+            var options = RecallOptions.builder()
+                    .topK(topK)
+                    .scoringMode(ScoringMode.SIMILARITY)
+                    .build();
+            var recallResults = memory.admin().recallPipeline().recall(queryEmbedding, options);
+            results = new ArrayList<>();
+            for (var r : recallResults) {
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("score", (double) r.score());
+                metadata.put("distance", (double) r.score());
+                Document doc = Document.builder()
+                        .id(r.id())
+                        .text(r.text())
+                        .metadata(metadata)
+                        .score((double) r.score())
+                        .build();
+                results.add(doc);
+            }
+            if (filterExpression != null) {
+                results = applyFilter(results, filterExpression);
+            }
         } else {
             try {
                 var searchRequest = com.spectrayan.spector.client.model.SearchRequest.vector(queryEmbedding, topK);
@@ -203,34 +250,6 @@ public class SpectorVectorStore implements VectorStore {
     }
 
     // ─── Private Helpers ───
-
-    private List<Document> mapEngineResults(SearchResponse response, Filter.Expression filterExpression) {
-        if (response == null || response.results() == null || response.results().length == 0) {
-            return Collections.emptyList();
-        }
-
-        List<Document> documents = new ArrayList<>();
-        for (ScoredResult result : response.results()) {
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put("score", (double) result.score());
-            metadata.put("distance", (double) result.score());
-
-            Document doc = Document.builder()
-                    .id(result.id())
-                    .text("")
-                    .metadata(metadata)
-                    .score((double) result.score())
-                    .build();
-            documents.add(doc);
-        }
-
-        // Apply filter in memory if expression is present
-        if (filterExpression != null) {
-            documents = applyFilter(documents, filterExpression);
-        }
-
-        return documents;
-    }
 
     private List<Document> mapClientResults(
             com.spectrayan.spector.client.model.SearchResponse response,

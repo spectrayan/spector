@@ -131,27 +131,12 @@ class MeteredSpectorMemoryTest {
 
         assertThat(metered.totalMemories()).isEqualTo(0);
         assertThat(metered.memoryCount(MemoryType.EPISODIC)).isEqualTo(0);
-        assertThat(metered.decay(Duration.ofDays(1), 0.5f)).isEqualTo(0);
 
         metered.browse("tag");
         metered.exportJson();
         metered.estimateImportance("text", null);
 
         metered.admin();
-        metered.coActivation();
-        metered.wal();
-        metered.prospective();
-        metered.suppression();
-        metered.habituation();
-        metered.quantizer();
-        metered.cognitiveTarget();
-        metered.recallPipeline();
-        metered.tierRouter();
-        metered.index();
-        metered.lateralEvaluator();
-        metered.hebbianGraph();
-        metered.temporalChain();
-        metered.entityGraph();
         metered.close();
     }
 
@@ -181,23 +166,10 @@ class MeteredSpectorMemoryTest {
         @Override public CompletableFuture<Void> scratchpad(String text) { return CompletableFuture.completedFuture(null); }
         @Override public int totalMemories() { return 0; }
         @Override public int memoryCount(MemoryType type) { return 0; }
-        @Override public int decay(Duration olderThan, float factor) { return 0; }
-        @Override public CoActivationTracker coActivation() { return null; }
-        @Override public MemoryWal wal() { return null; }
-        @Override public ProspectiveScheduler prospective() { return null; }
-        @Override public SuppressionSet suppression() { return null; }
-        @Override public HabituationPenalty habituation() { return null; }
-        @Override public ScalarQuantizer quantizer() { return null; }
-        @Override public CognitiveIngestionTarget cognitiveTarget() { return null; }
-        @Override public RecallPipeline recallPipeline() { return null; }
-        @Override public TierRouter tierRouter() { return null; }
-        @Override public MemoryIndex index() { return null; }
-        @Override public LateralEvaluator lateralEvaluator() { return null; }
-        @Override public com.spectrayan.spector.memory.graph.EntityGraph entityGraph() { return null; }
-        @Override public com.spectrayan.spector.memory.hebbian.HebbianGraph hebbianGraph() { return null; }
-        @Override public com.spectrayan.spector.memory.temporal.TemporalChain temporalChain() { return null; }
+
         @Override public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) { return null; }
-        @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return null; }
+        private final com.spectrayan.spector.memory.SpectorMemoryAdmin adminMock = org.mockito.Mockito.mock(com.spectrayan.spector.memory.SpectorMemoryAdmin.class);
+        @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return adminMock; }
         @Override public com.spectrayan.spector.memory.model.ImportanceEstimate estimateImportance(String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) { return null; }
         @Override public com.spectrayan.spector.memory.model.CognitiveRecord inspect(String id) { return null; }
         @Override public java.util.List<com.spectrayan.spector.memory.model.CognitiveRecord> browse(String... tags) { return java.util.List.of(); }

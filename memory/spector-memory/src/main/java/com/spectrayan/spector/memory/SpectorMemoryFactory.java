@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralMemoryStore;
 import com.spectrayan.spector.memory.cortex.SemanticMemoryStore;
-import com.spectrayan.spector.memory.cortex.PartitionLayoutMigrator;
+
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
@@ -169,10 +169,6 @@ public final class SpectorMemoryFactory {
             quantizer = ScalarQuantizer.fromBounds(builder.dimensions, defaultMins, defaultMaxs);
         }
 
-        // -€-€ Auto-migrate legacy layout -€-€
-        if (isDisk && basePath != null) {
-            PartitionLayoutMigrator.migrate(basePath);
-        }
 
         // -€-€ Namespace Manager -€-€
         SpectorNamespaceManager namespaceManager;
@@ -233,16 +229,13 @@ public final class SpectorMemoryFactory {
         MemoryIndex index;
         if (isDisk && basePath != null) {
             Path runtimeIndex = StorageLayout.indexMidxRuntime(basePath);
-            Path partitionIndex = resolvedPartitionDir != null ? StorageLayout.indexMidx(resolvedPartitionDir) : null;
-            Path legacyIndex = StorageLayout.legacyIndex(basePath);
+            Path partitionIndex = resolvedPartitionDir != null ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX) : null;
 
-            Path loadFrom = getNewerPath(runtimeIndex, partitionIndex, legacyIndex);
+            Path loadFrom = getNewerPath(runtimeIndex, partitionIndex, null);
             if (loadFrom != null) {
                 index = MemoryIndex.load(loadFrom);
                 if (loadFrom.equals(partitionIndex)) {
                     log.info("Loaded index from partition (newer than runtime index): {}", loadFrom);
-                } else if (loadFrom.equals(legacyIndex)) {
-                    log.info("Loaded legacy index: {}", loadFrom);
                 } else {
                     log.info("Loaded index from runtime: {}", loadFrom);
                 }
@@ -542,8 +535,8 @@ public final class SpectorMemoryFactory {
         DaemonSupervisor daemonSupervisor;
         if (isDisk && basePath != null && builder.checkpointIntervalSeconds > 0) {
             Path indexSavePath = resolvedPartitionDir != null
-                    ? StorageLayout.indexMidx(resolvedPartitionDir)
-                    : basePath.resolve(StorageLayout.LEGACY_FILE_INDEX);
+                    ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX)
+                    : StorageLayout.indexMidxRuntime(basePath);
             checkpointDaemon = new CheckpointDaemon(
                     tierRouter, wal,
                     StorageLayout.checkpointMeta(basePath),

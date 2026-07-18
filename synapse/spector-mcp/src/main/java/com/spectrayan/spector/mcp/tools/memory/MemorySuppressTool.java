@@ -22,7 +22,6 @@ import com.spectrayan.spector.commons.security.SpectorScopes;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 import com.spectrayan.spector.memory.SpectorMemory;
 
@@ -66,7 +65,6 @@ public final class MemorySuppressTool extends MemoryToolHandler {
 
     @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
-                                                       SpectorEngine engine,
                                                        Map<String, Object> args) throws Exception {
         String memoryId = requireString(args, "memory_id");
         String action = requireString(args, "action").toUpperCase();

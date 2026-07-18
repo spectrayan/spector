@@ -22,7 +22,6 @@ import com.spectrayan.spector.commons.security.SpectorScopes;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -119,7 +118,6 @@ public final class MemoryRememberTool extends MemoryToolHandler {
 
     @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
-                                                       SpectorEngine engine,
                                                        Map<String, Object> args) throws Exception {
         String id = optionalString(args, "id", "");
         String text = requireString(args, "text");

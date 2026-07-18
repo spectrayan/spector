@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
@@ -59,7 +58,6 @@ public final class MemoryStatusTool extends MemoryToolHandler {
 
     @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
-                                                       SpectorEngine engine,
                                                        Map<String, Object> args) {
         var sb = new StringBuilder();
         sb.append("🧠 Spector Memory Status\n");
@@ -74,13 +72,13 @@ public final class MemoryStatusTool extends MemoryToolHandler {
         sb.append("  Procedural (Basal Ganglia):   ").append(memory.memoryCount(MemoryType.PROCEDURAL)).append("\n\n");
 
         sb.append("Subsystem Status:\n");
-        sb.append("  WAL Events:          ").append(memory.wal().size()).append("\n");
-        sb.append("  WAL High-Water Mark: ").append(memory.wal().highWaterMark()).append("\n");
-        sb.append("  Suppressed Memories: ").append(memory.suppression().size()).append("\n");
-        sb.append("  Pending Reminders:   ").append(memory.prospective().pendingCount()).append("\n\n");
+        sb.append("  WAL Events:          ").append(memory.admin().wal().size()).append("\n");
+        sb.append("  WAL High-Water Mark: ").append(memory.admin().wal().highWaterMark()).append("\n");
+        sb.append("  Suppressed Memories: ").append(memory.admin().suppression().size()).append("\n");
+        sb.append("  Pending Reminders:   ").append(memory.admin().prospective().pendingCount()).append("\n\n");
 
         // Lateral evaluator metrics
-        LateralEvaluator lateral = memory.lateralEvaluator();
+        LateralEvaluator lateral = memory.admin().lateralEvaluator();
         LateralEvaluator.LateralMetrics metrics = lateral.metrics();
         sb.append("Lateral Retrieval:\n");
         sb.append("  Enabled:    ").append(lateral.isLateralEnabled()).append("\n");

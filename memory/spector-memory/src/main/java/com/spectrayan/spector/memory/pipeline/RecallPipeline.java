@@ -370,6 +370,170 @@ public final class RecallPipeline {
      * @param options   recall configuration
      * @return ranked list of cognitive results
      */
+    /**
+     * Executes cognitive recall directly using a pre-computed query vector.
+     *
+     * @param queryVector the embedded query vector
+     * @param options     recall configuration
+     * @return ranked list of cognitive results
+     */
+    public List<CognitiveResult> recall(float[] queryVector, RecallOptions options) {
+        if (queryVector == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "queryVector"); }
+        if (options == null) options = RecallOptions.DEFAULT;
+
+        log.debug("Recall query vector: topK={}, mode={}", options.topK(), options.recallMode());
+        this.lastRecallOptions = options;
+
+        long nowMs = System.currentTimeMillis();
+        List<CognitiveResult> allResults = new ArrayList<>();
+
+        // Collect due prospective reminders
+        List<Reminder> dueReminders = prospectiveScheduler.collectDue();
+        for (Reminder r : dueReminders) {
+            allResults.add(new CognitiveResult(
+                    r.id(), r.text(), 10.0f, 10.0f, 0f,
+                    (short) 0, (byte) 0, MemoryType.WORKING, MemorySource.PROCEDURAL,
+                    new String[]{"prospective"}, 1.0f, 1.0f));
+        }
+
+        // Parallel tier scanning
+        MemoryType[] targetTypes = options.memoryTypes();
+        List<Callable<List<CognitiveResult>>> scanTasks = buildScanTasks(
+                queryVector, options, nowMs, targetTypes);
+
+        if (!scanTasks.isEmpty()) {
+            try {
+                List<List<CognitiveResult>> tierResults = ConcurrentTasks.forkJoinAll(scanTasks);
+                for (List<CognitiveResult> tier : tierResults) {
+                    allResults.addAll(tier);
+                }
+            } catch (ConcurrentExecutionException e) {
+                log.error("Parallel tier scan failed: {}", e.getMessage(), e);
+                allResults.addAll(sequentialScan(queryVector, options, nowMs, targetTypes));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Recall interrupted during parallel scan");
+                return allResults;
+            }
+        }
+
+        // Filter suppressed memories
+        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
+
+        boolean cognitiveScoring = options.scoringMode() != ScoringMode.SIMILARITY;
+
+        if (cognitiveScoring) {
+            // Apply habituation penalty + inhibition of return + semantic satiation
+            for (int i = 0; i < allResults.size(); i++) {
+                CognitiveResult r = allResults.get(i);
+                float habPenalty = (options.recallMode() == RecallMode.LEARN)
+                        ? habituationPenalty.recordAndComputePenalty(r.id())
+                        : habituationPenalty.currentPenalty(r.id());
+                float iorPenalty = habituationPenalty.computeInhibitionOfReturn(r.id(), nowMs);
+                float combinedPenalty = Math.min(habPenalty, iorPenalty);
+
+                if (satiationCache.containsKey(r.id())) {
+                    combinedPenalty *= SATIATION_PENALTY;
+                }
+
+                if (combinedPenalty < 1.0f) {
+                    float newScore = r.score() * combinedPenalty;
+                    ScoreBreakdown bd = r.breakdown() != null
+                            ? new ScoreBreakdown(
+                                    r.breakdown().similarity(),
+                                    r.breakdown().importanceDecay(),
+                                    r.breakdown().tagBoostFactor(),
+                                    combinedPenalty,
+                                    r.breakdown().graphBoost(),
+                                    r.breakdown().valenceAlignment(),
+                                    newScore)
+                            : null;
+                    allResults.set(i, new CognitiveResult(
+                            r.id(), r.text(), newScore, r.importance(), r.ageDays(),
+                            r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
+                            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
+                            r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
+                }
+            }
+
+            // STDP causal boost
+            if (coActivationTracker != null && allResults.size() >= 2) {
+                Set<String> contextTagSet = new HashSet<>();
+                int contextLimit = Math.min(3, allResults.size());
+                for (int cl = 0; cl < contextLimit; cl++) {
+                    String[] ctxTags = allResults.get(cl).synapticTags();
+                    if (ctxTags != null) {
+                        for (String t : ctxTags) contextTagSet.add(t);
+                    }
+                }
+
+                if (!contextTagSet.isEmpty()) {
+                    List<String> contextTags = new ArrayList<>(contextTagSet);
+                    for (int i = 0; i < allResults.size(); i++) {
+                        CognitiveResult r = allResults.get(i);
+                        if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
+
+                        float predictive = coActivationTracker.getPredictiveStrength(
+                                contextTags, r.synapticTags());
+                        if (predictive > 0) {
+                            float boostedScore = r.score() * (1.0f + predictive * graphScoringPolicy.causalBoostWeight());
+                            allResults.set(i, new CognitiveResult(
+                                    r.id(), r.text(), boostedScore, r.importance(), r.ageDays(),
+                                    r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
+                                    r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
+                                    r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Graph expansion
+        graphExpansionStage.expand(allResults, queryVector, options);
+
+        // Sort and limit
+        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        if (allResults.size() > options.topK()) {
+            allResults = new ArrayList<>(allResults.subList(0, options.topK()));
+        }
+
+        // Fire post-recall listeners
+        if (options.recallMode() == RecallMode.LEARN && !listeners.isEmpty()) {
+            final List<CognitiveResult> finalResults = allResults;
+            for (RecallListener listener : listeners) {
+                ConcurrentTasks.fireAndForget(() -> listener.onRecallComplete(finalResults));
+            }
+        }
+
+        // Ephemeral session state
+        if (options.recallMode() == RecallMode.LEARN) {
+            long recallTs = System.currentTimeMillis();
+            for (CognitiveResult r : allResults) {
+                habituationPenalty.recordRecall(r.id(), recallTs);
+            }
+
+            if (recentRetrievalModes.size() > RETRIEVAL_MODE_CACHE_MAX) {
+                int toRemove = RETRIEVAL_MODE_CACHE_MAX / 4;
+                var iter = recentRetrievalModes.keySet().iterator();
+                for (int i = 0; i < toRemove && iter.hasNext(); i++) {
+                    iter.next();
+                    iter.remove();
+                }
+            }
+            for (CognitiveResult r : allResults) {
+                if (r.id() != null) {
+                    recentRetrievalModes.put(r.id(), r.retrievalMode());
+                }
+            }
+
+            for (CognitiveResult r : allResults) {
+                satiationCache.put(r.id(), nowMs);
+            }
+        }
+
+        return allResults;
+    }
+
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
         if (queryText == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "queryText"); }
         if (options == null) options = RecallOptions.DEFAULT;

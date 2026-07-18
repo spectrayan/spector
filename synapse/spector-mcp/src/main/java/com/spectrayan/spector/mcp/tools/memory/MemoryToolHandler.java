@@ -19,9 +19,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -69,22 +69,20 @@ public abstract class MemoryToolHandler extends McpToolHandler {
      * Executes the memory tool logic.
      *
      * @param memory the cognitive memory instance
-     * @param engine the search engine (for embedding provider access)
      * @param args   the parsed MCP request arguments
      * @return the tool result
      */
     protected abstract McpSchema.CallToolResult executeMemory(SpectorMemory memory,
-                                                               SpectorEngine engine,
                                                                Map<String, Object> args) throws Exception;
 
     @Override
-    public final McpSchema.CallToolResult execute(SpectorEngine engine,
+    public final McpSchema.CallToolResult execute(SpectorRuntime runtime,
                                                     Map<String, Object> args) throws Exception {
         SpectorMemory memory = memoryResolver.get();
         if (memory == null) {
             return errorResult("SpectorMemory is not configured. Start the server with --memory-enabled.");
         }
-        return executeMemory(memory, engine, args);
+        return executeMemory(memory, args);
     }
 
     /**

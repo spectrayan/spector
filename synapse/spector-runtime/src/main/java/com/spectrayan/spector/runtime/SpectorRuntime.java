@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorMode;
 import com.spectrayan.spector.config.SpectorProperties;
-import com.spectrayan.spector.config.PersistenceMode;
 import com.spectrayan.spector.config.HnswParams;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
@@ -33,10 +32,6 @@ import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderDiscovery;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider;
-import com.spectrayan.spector.config.SpectorConfig;
-import com.spectrayan.spector.engine.DefaultSpectorEngine;
-import com.spectrayan.spector.commons.TextChunker;
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -76,8 +71,8 @@ public final class SpectorRuntime implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorRuntime.class);
 
-    private final SpectorEngine engine;
     private final SpectorMemory memory;  // nullable
+    private final EmbeddingProvider embeddingProvider;
     private final SpectorProperties properties;
     private final SpectorMode mode;
     private final com.spectrayan.spector.commons.chunker.TextChunker sharedChunker;  // nullable  --  shared by memory + ingestion pipeline
@@ -95,14 +90,14 @@ public final class SpectorRuntime implements AutoCloseable {
     private volatile MemoryHandler memoryService;
     private final java.util.concurrent.locks.ReentrantLock serviceLock = new java.util.concurrent.locks.ReentrantLock();
 
-    private SpectorRuntime(SpectorEngine engine, SpectorMemory memory,
+    private SpectorRuntime(SpectorMemory memory, EmbeddingProvider embeddingProvider,
                            SpectorProperties properties, SpectorMode mode,
                            com.spectrayan.spector.commons.chunker.TextChunker sharedChunker,
                            com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig,
                            SparseEmbeddingProvider SparseEmbeddingProvider,
                            TokenEmbeddingProvider tokenEmbeddingProvider) {
-        this.engine = engine;
         this.memory = memory;
+        this.embeddingProvider = embeddingProvider;
         this.properties = properties;
         this.mode = mode;
         this.sharedChunker = sharedChunker;
@@ -201,32 +196,11 @@ public final class SpectorRuntime implements AutoCloseable {
                                       LlmProvider textGenProvider) {
         SpectorMode mode = SpectorConfigFactory.mode(props);
 
-        // -€-€ Read memory config early (needed to configure engine in MEMORY mode) -€-€
+        // -€-€ Read memory config early -€-€
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         boolean memoryEnabled = memoryConfig.enabled() || mode.memoryEnabled();
 
-        // -€-€ Engine -€-€
-        SpectorConfig engineConfig = SpectorConfig.from(props);
-        // Engine manages its own index/store for search workloads (document
-        // indexing, RAG). Memory is fully decoupled  --  uses dir-level partitions
-        // with its own .mem files. The two no longer share HNSW or VectorStore.
-        if (mode.memoryEnabled() && memoryEnabled) {
-            java.nio.file.Path indexDir = memoryConfig.persistencePath()
-                    .resolveSibling("index");
-            engineConfig = engineConfig
-                    .withPersistence(PersistenceMode.DISK, indexDir)
-                    .withCapacity(memoryConfig.capacity())
-                    .withNodesPerShard(Math.min(5_000, memoryConfig.capacity()));
-            log.info("[Runtime] Engine: DISK persistence at {}, capacity={}",
-                     indexDir, memoryConfig.capacity());
-        }
-        SpectorEngine engine = new DefaultSpectorEngine(engineConfig, embedder);
-        log.info("[Runtime] Engine: dims={}, index={}, persistence={}, dataDir={}, mode={}",
-                engineConfig.dimensions(), engineConfig.indexType(),
-                engineConfig.persistenceMode(), engineConfig.dataDirectory(),
-                mode);
-
-        // -€-€ Memory (opt-in or auto-enabled in MEMORY mode) -€-€
+        // -€-€ Memory (opt-in or auto-enabled) -€-€
         SpectorMemory memory = null;
 
         // -€-€ Shared TextChunker  --  used by both memory.remember() and IngestionPipeline -€-€
@@ -250,7 +224,7 @@ public final class SpectorRuntime implements AutoCloseable {
 
         if (memoryEnabled) {
             var memoryBuilder = DefaultSpectorMemory.builder()
-                    .dimensions(engineConfig.dimensions())
+                    .dimensions(memoryConfig.dimensions())
                     .embeddingProvider(embedder)
                     .persistenceMode(MemoryPersistenceMode.valueOf(memoryConfig.persistenceMode()))
                     .persistence(memoryConfig.persistencePath())
@@ -300,20 +274,15 @@ public final class SpectorRuntime implements AutoCloseable {
             }
 
             // -€-€ Create HNSW index for memory's semantic recall -€-€
-            // Without this, SemanticRecallStrategy falls back to header-only scoring
-            // which cannot compute vector similarity (VECTOR_ONLY search is broken).
             var hnswConfig = SpectorConfigFactory.hnswDefaults(props);
             var hnswParams = new HnswParams(hnswConfig.m(), hnswConfig.efConstruction(), hnswConfig.efSearch());
             var memoryHnsw = new HnswIndex(
-                    engineConfig.dimensions(), memoryConfig.capacity(),
+                    memoryConfig.dimensions(), memoryConfig.capacity(),
                     SimilarityFunction.COSINE, hnswParams);
             memoryBuilder.semanticIndex(memoryHnsw);
             log.info("[Runtime] Memory HNSW: dims={}, capacity={}, M={}, efC={}, efS={}",
-                    engineConfig.dimensions(), memoryConfig.capacity(),
+                    memoryConfig.dimensions(), memoryConfig.capacity(),
                     hnswConfig.m(), hnswConfig.efConstruction(), hnswConfig.efSearch());
-
-            // Memory manages its own vector storage via dir-level partitions.
-            // Engine's vectorStore and HNSW index are NOT shared with memory.
 
             // -€-€ Tag extractor (content, llm, or none) -€-€
             String tagMode = memoryConfig.tagExtractor().toLowerCase();
@@ -343,15 +312,8 @@ public final class SpectorRuntime implements AutoCloseable {
                     memoryConfig.persistenceMode(), memoryConfig.persistencePath());
         }
 
-        return new SpectorRuntime(engine, memory, props, mode, textChunker, chunkConfig,
+        return new SpectorRuntime(memory, embedder, props, mode, textChunker, chunkConfig,
                 sharedSpladeProvider, sharedColbertProvider);
-    }
-
-    /**
-     * Creates a runtime with engine only (no memory).
-     */
-    public static SpectorRuntime engineOnly(SpectorEngine engine, SpectorProperties props) {
-        return new SpectorRuntime(engine, null, props, SpectorMode.SEARCH, null, null, null, null);
     }
 
     // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Service Accessors -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
@@ -364,7 +326,7 @@ public final class SpectorRuntime implements AutoCloseable {
             try {
                 svc = searchService;
                 if (svc == null) {
-                    svc = new SearchHandler(engine, memory, mode);
+                    svc = new SearchHandler(memory);
                     searchService = svc; // volatile write
                 }
             } finally {
@@ -384,14 +346,11 @@ public final class SpectorRuntime implements AutoCloseable {
                 if (svc == null) {
                     var ingestionConfig = SpectorConfigFactory.ingestionDefaults(properties);
 
-                    // Select target based on mode
+                    // Select target
                     com.spectrayan.spector.ingestion.IngestionTarget target =
-                            (mode.memoryEnabled() && memory != null)
-                            ? memory.target()
-                            : engine.target();
+                            (memory != null) ? memory.target() : null;
 
-                    // Reuse the shared chunker from runtime construction;
-                    // fall back to config-derived chunker for engineOnly() runtimes.
+                    // Reuse the shared chunker
                     var chunkerToUse = sharedChunker != null
                             ? sharedChunker
                             : new com.spectrayan.spector.commons.chunker.MarkdownChunker();
@@ -414,14 +373,14 @@ public final class SpectorRuntime implements AutoCloseable {
 
                     var pipeline = com.spectrayan.spector.ingestion.IngestionPipeline.builder()
                             .target(target)
-                            .embeddingProvider(engine.embeddingProvider())
+                            .embeddingProvider(embeddingProvider)
                             .chunker(chunkerToUse)
                             .chunkConfig(configToUse)
                             .chunkThreshold(ingestionConfig.chunkSize())
                             .embedConfig(embedConfig)
                             .build();
 
-                    svc = new IngestionHandler(pipeline, engine, memory, mode);
+                    svc = new IngestionHandler(pipeline, memory);
                     ingestionService = svc; // volatile write
                 }
             } finally {
@@ -461,9 +420,6 @@ public final class SpectorRuntime implements AutoCloseable {
 
     // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Direct Subsystem Access -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
 
-    /** Returns the search engine (never null). */
-    public SpectorEngine engine() { return engine; }
-
     /** Returns the cognitive memory, or empty if not enabled. */
     public java.util.Optional<SpectorMemory> memory() { return java.util.Optional.ofNullable(memory); }
 
@@ -501,22 +457,12 @@ public final class SpectorRuntime implements AutoCloseable {
     @Override
     public void close() {
         Exception firstException = null;
-        try {
-            engine.close();
-        } catch (Exception e) {
-            log.error("[Runtime] Error closing engine: {}", e.getMessage(), e);
-            firstException = e;
-        }
         if (memory != null) {
             try {
                 memory.close();
             } catch (Exception e) {
                 log.error("[Runtime] Error closing memory: {}", e.getMessage(), e);
-                if (firstException != null) {
-                    firstException.addSuppressed(e);
-                } else {
-                    firstException = e;
-                }
+                firstException = e;
             }
         }
         log.info("[Runtime] Shutdown complete (mode={})", mode);

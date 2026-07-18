@@ -211,34 +211,7 @@ class StorageLayoutTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // Legacy resolvers
-    // ══════════════════════════════════════════════════════════════
 
-    @Nested
-    @DisplayName("legacy path resolvers")
-    class LegacyTests {
-
-        @Test void legacySemanticDir() {
-            assertThat(StorageLayout.legacySemanticDir(BASE)).isEqualTo(BASE.resolve("semantic"));
-        }
-
-        @Test void legacyEpisodicDir() {
-            assertThat(StorageLayout.legacyEpisodicDir(BASE)).isEqualTo(BASE.resolve("episodic"));
-        }
-
-        @Test void legacyIndex() {
-            assertThat(StorageLayout.legacyIndex(BASE)).isEqualTo(BASE.resolve("memory-index.mem"));
-        }
-
-        @Test void legacyProcedural() {
-            assertThat(StorageLayout.legacyProcedural(BASE)).isEqualTo(BASE.resolve("procedural.mem"));
-        }
-
-        @Test void legacySemantic() {
-            assertThat(StorageLayout.legacySemantic(BASE)).isEqualTo(BASE.resolve("semantic.mem"));
-        }
-    }
 
     // ══════════════════════════════════════════════════════════════
     // Constants

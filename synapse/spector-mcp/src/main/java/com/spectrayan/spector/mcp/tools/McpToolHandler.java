@@ -22,7 +22,6 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.runtime.SpectorRuntime;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -92,13 +91,13 @@ public abstract class McpToolHandler {
      * provided by {@link #toToolSpecification}. Implementations should
      * focus purely on business logic — no try/catch or timing needed.</p>
      *
-     * @param engine the Spector engine instance
-     * @param args   the parsed arguments from the MCP request (never null)
+     * @param runtime the Spector runtime instance
+     * @param args    the parsed arguments from the MCP request (never null)
      * @return the tool result
      * @throws ToolArgumentException if a required argument is missing or invalid
      * @throws Exception             for any other failure (will be caught and wrapped)
      */
-    public abstract McpSchema.CallToolResult execute(SpectorEngine engine,
+    public abstract McpSchema.CallToolResult execute(SpectorRuntime runtime,
                                                       Map<String, Object> args) throws Exception;
 
     /**
@@ -124,22 +123,10 @@ public abstract class McpToolHandler {
      * Builds the MCP SDK {@link McpServerFeatures.SyncToolSpecification}
      * for this tool, wrapping the handler with timing and error handling.
      *
-     * @param engine the Spector engine instance
+     * @param runtime the Spector runtime instance
      * @return fully-configured tool specification ready for server registration
      */
-    public final McpServerFeatures.SyncToolSpecification toToolSpecification(SpectorEngine engine) {
-        return toToolSpecification(engine, null);
-    }
-
-    /**
-     * Builds the MCP tool specification with optional runtime for mode-aware routing.
-     *
-     * @param engine  the Spector engine instance
-     * @param runtime the Spector runtime (nullable, for mode-aware tools)
-     * @return fully-configured tool specification
-     */
-    public final McpServerFeatures.SyncToolSpecification toToolSpecification(
-            SpectorEngine engine, SpectorRuntime runtime) {
+    public final McpServerFeatures.SyncToolSpecification toToolSpecification(SpectorRuntime runtime) {
         var tool = McpSchema.Tool.builder(name())
                 .description(description())
                 .inputSchema(inputSchema())
@@ -151,7 +138,7 @@ public abstract class McpToolHandler {
                     : Map.of();
             try {
                 long startNs = System.nanoTime();
-                McpSchema.CallToolResult result = execute(engine, args);
+                McpSchema.CallToolResult result = execute(runtime, args);
                 long elapsedMs = (System.nanoTime() - startNs) / 1_000_000;
 
                 if (log.isDebugEnabled()) {
@@ -231,19 +218,7 @@ public abstract class McpToolHandler {
     //  Precondition Checks
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * Validates that the engine has an embedding provider configured.
-     *
-     * @param engine the engine to check
-     * @throws ToolArgumentException if no embedding provider is available
-     */
-    protected static void requireEmbeddingProvider(SpectorEngine engine) {
-        if (!engine.hasEmbeddingProvider()) {
-            throw new ToolArgumentException(
-                    "This operation requires an embedding provider. "
-                    + "Configure the engine with --ollama-url and --ollama-model.");
-        }
-    }
+
 
     // ═══════════════════════════════════════════════════════════════
     //  Result Factories

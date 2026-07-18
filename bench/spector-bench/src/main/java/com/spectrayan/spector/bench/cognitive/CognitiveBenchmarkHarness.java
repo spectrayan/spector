@@ -228,9 +228,9 @@ public final class CognitiveBenchmarkHarness {
         Map<String, Set<ContributingSubsystem>> perQueryContributions = new LinkedHashMap<>();
 
         // Get graph references for subsystem detection
-        var hebbianGraph = memory.hebbianGraph();
-        var temporalChain = memory.temporalChain();
-        var entityGraph = memory.entityGraph();
+        var hebbianGraph = memory.admin().hebbianGraph();
+        var temporalChain = memory.admin().temporalChain();
+        var entityGraph = memory.admin().entityGraph();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -610,7 +610,7 @@ public final class CognitiveBenchmarkHarness {
      * for baseline scoring.</p>
      */
     private BaselineRetriever createBaselineRetriever(SpectorMemory memory) {
-        TierRouter tierRouter = memory.tierRouter();
+        TierRouter tierRouter = memory.admin().tierRouter();
 
         // Find the tier with the most records
         MemoryType primaryTier = MemoryType.EPISODIC;
@@ -633,12 +633,12 @@ public final class CognitiveBenchmarkHarness {
         int recordCount = store.size();
 
         // Get calibration data from quantizer
-        float[] mins = memory.quantizer().mins();
-        float[] scales = memory.quantizer().scales();
+        float[] mins = memory.admin().quantizer().mins();
+        float[] scales = memory.admin().quantizer().scales();
 
         // Build memory ID array from memory index
         String[] memoryIds = new String[recordCount];
-        var locationMap = memory.index().locationMap();
+        var locationMap = memory.admin().index().locationMap();
         for (var entry : locationMap.entrySet()) {
             var loc = entry.getValue();
             if (loc.type() == primaryTier) {

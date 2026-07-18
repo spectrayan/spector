@@ -67,7 +67,7 @@ class DecayAndLtpE2ETest extends AbstractE2ETest {
         } else {
             // Memory may have shifted out of top-K — verify via WAL that reinforce events were written
             log.info("Memory '{}' shifted out of top-15 after reinforcement — checking WAL", topId);
-            long reinforceEvents = memory.wal().replay(0).stream()
+            long reinforceEvents = memory.admin().wal().replay(0).stream()
                     .filter(e -> e.memoryId().equals(topId))
                     .count();
             assertThat(reinforceEvents)

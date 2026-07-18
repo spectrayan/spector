@@ -28,22 +28,16 @@ package com.spectrayan.spector.config;
  */
 public enum SpectorMode {
 
-    /** Traditional vector search engine. */
-    SEARCH,
-
     /** Cognitive memory mode with decay, consolidation, and importance scoring. */
-    MEMORY,
-
-    /** Both engine and memory subsystems active simultaneously. */
-    HYBRID;
+    MEMORY;
 
     /** Returns true if the engine subsystem should be initialized. */
     public boolean engineEnabled() {
-        return this == SEARCH || this == HYBRID;
+        return false;
     }
 
     /** Returns true if the memory subsystem should be initialized. */
     public boolean memoryEnabled() {
-        return this == MEMORY || this == HYBRID;
+        return true;
     }
 }

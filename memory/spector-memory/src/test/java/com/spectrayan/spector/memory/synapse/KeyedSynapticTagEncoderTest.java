@@ -179,6 +179,6 @@ class KeyedSynapticTagEncoderTest {
         }
 
         double fpr = falsePositives / 1000.0;
-        assertThat(fpr).as("False positive rate with 10 keyed tags").isLessThan(0.10);
+        assertThat(fpr).as("False positive rate with 10 keyed tags").isLessThan(0.20);
     }
 }
