@@ -387,7 +387,7 @@ LLM models are non-deterministic — the same prompt can produce different verdi
 `spector-test-support` is a standalone module rather than test-scoped code inside `spector-memory` because:
 
 1. **Reusability**: Any Spector module can depend on it for LLM-based testing
-2. **Clean dependencies**: The judge framework depends on `spector-embed-api` and `spector-embed-ollama`, not on `spector-memory`
+2. **Clean dependencies**: The judge framework depends on `spector-provider-api` and `spector-providers`, not on `spector-memory`
 3. **Independent versioning**: Test infrastructure evolves on its own schedule
 
 ## Current Metrics

@@ -1,0 +1,1 @@
+--8<-- "memory/spector-provider-api/README.md"

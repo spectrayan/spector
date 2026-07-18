@@ -96,7 +96,7 @@ Spector is a multi-module Maven project. Start with these areas when deciding wh
 | Area | Modules |
 | ---- | ------- |
 | Search, Storage & Core | `nucleus/spector-core`, `nucleus/spector-commons`, `nucleus/spector-config`, `nucleus/spector-storage` |
-| Cognitive Memory & Ingestion | `memory/spector-memory`, `memory/spector-index`, `memory/spector-query`, `memory/spector-gpu`, `memory/spector-rag`, `memory/spector-embed-api`, `memory/spector-embed-ollama`, `memory/spector-ingestion` |
+| Cognitive Memory & Ingestion | `memory/spector-memory`, `memory/spector-index`, `memory/spector-query`, `memory/spector-gpu`, `memory/spector-rag`, `memory/spector-provider-api`, `memory/spector-providers`, `memory/spector-ingestion` |
 | Gateways & Agentic Runtime | `synapse/spector-synapse`, `synapse/spector-mcp`, `synapse/spector-runtime`, `synapse/spector-cli`, `synapse/spector-client`, `synapse/spector-spring`, `synapse/spector-dist` |
 | Observability & Verification | `nucleus/spector-events`, `nucleus/spector-metrics`, `nucleus/spector-test-support`, `bench/spector-bench` |
 

@@ -289,8 +289,8 @@ graph LR
     end
 
     subgraph "🧠 Intelligence"
-        embedapi["spector-embed-api<br/><i>EmbeddingProvider SPI</i>"]
-        embedollama["spector-embed-ollama<br/><i>Ollama provider</i>"]
+        providerapi["spector-provider-api<br/><i>Provider SPI</i>"]
+        providers["spector-providers<br/><i>AI Providers</i>"]
         gpu["spector-gpu<br/><i>Panama FFM + CUDA</i>"]
     end
 
