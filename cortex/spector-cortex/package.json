@@ -20,7 +20,7 @@
     "@angular/material": "^22.0.3",
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
-    "dompurify": "^3.4.5",
+    "dompurify": "^3.4.11",
     "marked": "^18.0.5",
     "rxjs": "~7.8.0",
     "three": "^0.184.0",
@@ -36,5 +36,10 @@
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "dompurify": "^3.4.11",
+    "@babel/core": "^7.29.6",
+    "esbuild": "^0.28.1"
   }
 }
