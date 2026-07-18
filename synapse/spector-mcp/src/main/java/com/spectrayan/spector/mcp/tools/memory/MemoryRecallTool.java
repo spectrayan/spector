@@ -21,7 +21,6 @@ import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 import java.util.List;
 
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.model.ConfidenceBand;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -127,7 +126,6 @@ public final class MemoryRecallTool extends MemoryToolHandler {
 
     @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
-                                                       SpectorEngine engine,
                                                        Map<String, Object> args) throws Exception {
         String query = requireString(args, "query");
         int topK = optionalInt(args, "top_k", 5);

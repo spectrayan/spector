@@ -19,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.mcp.prompts.SpectorPromptProvider;
@@ -39,21 +38,6 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 /**
  * High-performance MCP Server for Spector.
- *
- * <p>Thin orchestrator that assembles tool, resource, and prompt providers
- * into an MCP server. All search operations run in-process with zero
- * network overhead — tool handlers call {@link SpectorEngine} directly.</p>
- *
- * <h3>Transport Modes</h3>
- * <ul>
- *   <li><b>STDIO</b> — JSON-RPC over stdin/stdout (local agents: Claude Desktop, Cursor).
- *       Use {@link #start()} for blocking stdio mode.</li>
- *   <li><b>HTTP/SSE</b> — For Docker/server deployments, use SpectorNode which
- *       embeds the MCP server on the Armeria HTTP stack at {@code /mcp/*}.</li>
- * </ul>
- *
- * @see SpectorMcpMain
- * @see SpectorToolRegistry
  */
 public class SpectorMcpServer {
 
@@ -63,7 +47,7 @@ public class SpectorMcpServer {
     static final String SERVER_VERSION = "1.0.0";
 
     private final SpectorRuntime runtime;
-    private final SpectorEngine engine;
+    private final SpectorMemory memory;
     private volatile McpSyncServer mcpServer;
 
     /**
@@ -71,21 +55,15 @@ public class SpectorMcpServer {
      */
     public SpectorMcpServer(SpectorRuntime runtime) {
         this.runtime = runtime;
-        this.engine = runtime.engine();
+        this.memory = runtime.memory().orElse(null);
     }
 
     /**
      * Starts the MCP server on stdio transport (blocking).
-     *
-     * <p>Blocks indefinitely, reading JSON-RPC messages from stdin
-     * and writing responses to stdout.</p>
      */
     public void start() {
-        log.info("[Spector MCP] Starting server: {}, transport=STDIO, dims={}, indexType={}, embedding={}, {}",
+        log.info("[Spector MCP] Starting server: {}, transport=STDIO, {}",
                 SERVER_NAME,
-                engine.config().dimensions(),
-                engine.config().indexType(),
-                engine.hasEmbeddingProvider() ? "configured" : "none",
                 SimdCapability.report());
 
         McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(
@@ -94,8 +72,6 @@ public class SpectorMcpServer {
 
         mcpServer = buildMcpServer(transportProvider);
 
-        // The SDK handles the stdio read loop internally.
-        // Block the main thread to keep the server alive.
         try {
             Thread.currentThread().join();
         } catch (InterruptedException e) {
@@ -106,17 +82,11 @@ public class SpectorMcpServer {
 
     /**
      * Builds an MCP server on an arbitrary transport.
-     *
-     * <p>Used by SpectorNode to build the MCP server on the Armeria SSE
-     * transport without pulling in a separate HTTP server.</p>
-     *
-     * @param transportProvider the transport to bind to
-     * @return the built MCP server
      */
     public McpSyncServer buildMcpServer(McpServerTransportProvider transportProvider) {
         var toolSpecs  = SpectorToolRegistry.createAll(runtime, SERVER_VERSION);
-        var resources  = SpectorResourceProvider.create(engine, SERVER_VERSION);
-        var prompts    = SpectorPromptProvider.create(engine);
+        var resources  = SpectorResourceProvider.create(memory, SERVER_VERSION);
+        var prompts    = SpectorPromptProvider.create(memory);
 
         mcpServer = McpServer.sync(transportProvider)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
@@ -138,21 +108,13 @@ public class SpectorMcpServer {
 
     /**
      * Builds an MCP server with enterprise memory resolver for tenant isolation.
-     *
-     * <p>Instead of using the runtime's fixed memory instance, tool handlers
-     * are constructed with the provided {@code memoryResolver} which resolves
-     * the active memory per-request. In enterprise mode, this reads
-     * {@code AuthContextHolder} to route to the tenant's isolated workspace.</p>
-     *
-     * @param transportProvider the transport to bind to
-     * @param memoryResolver    per-request memory resolver for tenant isolation
-     * @return the built MCP server
      */
     public McpSyncServer buildMcpServer(McpServerTransportProvider transportProvider,
                                         Supplier<SpectorMemory> memoryResolver) {
         var toolSpecs  = SpectorToolRegistry.createAll(runtime, SERVER_VERSION, memoryResolver);
-        var resources  = SpectorResourceProvider.create(engine, SERVER_VERSION);
-        var prompts    = SpectorPromptProvider.create(engine);
+        var resolvedMemory = memoryResolver != null ? memoryResolver.get() : null;
+        var resources  = SpectorResourceProvider.create(resolvedMemory, SERVER_VERSION);
+        var prompts    = SpectorPromptProvider.create(resolvedMemory);
 
         mcpServer = McpServer.sync(transportProvider)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
@@ -173,12 +135,15 @@ public class SpectorMcpServer {
     }
 
     /**
-     * Stops the MCP server and releases resources.
+     * Stops the MCP server.
      */
     public void stop() {
         if (mcpServer != null) {
-            mcpServer.close();
-            log.info("[Spector MCP] Server stopped");
+            try {
+                mcpServer.close();
+            } catch (Exception e) {
+                log.warn("[Spector MCP] Error closing server: {}", e.getMessage());
+            }
         }
     }
 }

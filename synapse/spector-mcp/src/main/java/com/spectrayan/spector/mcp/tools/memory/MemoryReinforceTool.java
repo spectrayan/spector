@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
 
@@ -68,7 +67,6 @@ public final class MemoryReinforceTool extends MemoryToolHandler {
 
     @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
-                                                       SpectorEngine engine,
                                                        Map<String, Object> args) throws Exception {
         String memoryId = requireString(args, "memory_id");
         String valenceStr = requireString(args, "valence");
@@ -76,7 +74,7 @@ public final class MemoryReinforceTool extends MemoryToolHandler {
         byte valence = parseValence(valenceStr);
 
         // Check if this was a lateral result before reinforcing
-        boolean wasLateral = memory.recallPipeline().wasLateral(memoryId);
+        boolean wasLateral = memory.admin().recallPipeline().wasLateral(memoryId);
 
         memory.reinforce(memoryId, valence);
 

@@ -19,17 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-import com.spectrayan.spector.config.SpectorMode;
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.runtime.SpectorRuntime;
-
-import com.spectrayan.spector.mcp.tools.engine.EngineSearchTool;
-import com.spectrayan.spector.mcp.tools.engine.EngineHybridSearchTool;
-import com.spectrayan.spector.mcp.tools.engine.EngineRagTool;
-import com.spectrayan.spector.mcp.tools.engine.EngineIngestTool;
-import com.spectrayan.spector.mcp.tools.engine.EngineDeleteTool;
-import com.spectrayan.spector.mcp.tools.engine.EngineStatusTool;
 
 import com.spectrayan.spector.mcp.tools.memory.MemoryRememberTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryScratchpadTool;
@@ -51,17 +42,9 @@ import com.spectrayan.spector.mcp.tools.memory.MemorySalienceTool;
 import io.modelcontextprotocol.server.McpServerFeatures;
 
 /**
- * Central registry for all Spector MCP tool handlers.
+ * Central registry for Spector MCP tool handlers.
  *
- * <p>Tools are organized into two sub-packages:</p>
- * <ul>
- *   <li>{@code tools.engine} — search, ingest, RAG, and engine status tools</li>
- *   <li>{@code tools.memory} — cognitive memory tools (remember, recall, forget, etc.)</li>
- * </ul>
- *
- * <p>All tools are instantiated once and reused across requests.
- * The {@link McpToolHandler} base class ensures thread-safe execution
- * on concurrent virtual threads.</p>
+ * <p>Exposes cognitive memory tools (remember, recall, forget, etc.).</p>
  */
 public final class SpectorToolRegistry {
 
@@ -81,21 +64,12 @@ public final class SpectorToolRegistry {
      * Returns tool handlers including memory tools when SpectorMemory is available.
      *
      * @param serverVersion the server version string
-     * @param memory        optional SpectorMemory instance (null if memory is not enabled)
+     * @param memory        optional SpectorMemory instance
      * @return list of tool handlers
      */
     public static List<McpToolHandler> handlers(String serverVersion, SpectorMemory memory) {
         var handlers = new ArrayList<McpToolHandler>();
 
-        // Engine tools (search, ingest, RAG)
-        handlers.add(new EngineSearchTool());
-        handlers.add(new EngineHybridSearchTool());
-        handlers.add(new EngineRagTool());
-        handlers.add(new EngineIngestTool());
-        handlers.add(new EngineDeleteTool());
-        handlers.add(new EngineStatusTool(serverVersion));
-
-        // Memory tools (available when SpectorMemory is configured)
         if (memory != null) {
             handlers.add(new MemoryRememberTool(memory));
             handlers.add(new MemoryScratchpadTool(memory));
@@ -119,62 +93,19 @@ public final class SpectorToolRegistry {
     }
 
     /**
-     * Creates all tool specifications for MCP server registration.
+     * Creates mode-aware tool specifications from a runtime.
      *
-     * @param engine        the Spector engine instance
+     * @param runtime       the Spector runtime
      * @param serverVersion the server version string
-     * @return list of MCP tool specifications ready for server builder
-     */
-    public static List<McpServerFeatures.SyncToolSpecification> createAll(
-            SpectorEngine engine, String serverVersion) {
-        return createAll(engine, serverVersion, null);
-    }
-
-    /**
-     * Creates all tool specifications including memory tools.
-     *
-     * @param engine        the Spector engine instance
-     * @param serverVersion the server version string
-     * @param memory        optional SpectorMemory instance
      * @return list of MCP tool specifications
      */
     public static List<McpServerFeatures.SyncToolSpecification> createAll(
-            SpectorEngine engine, String serverVersion, SpectorMemory memory) {
-        return handlers(serverVersion, memory).stream()
-                .map(handler -> handler.toToolSpecification(engine))
-                .toList();
-    }
-
-    /**
-     * Creates mode-aware tool specifications from a runtime.
-     *
-     * <p>In {@code SEARCH} mode, only engine tools are registered.
-     * In {@code MEMORY} mode, only memory tools are registered.
-     * In {@code HYBRID} mode, both are registered.</p>
-     *
-     * @param runtime       the Spector runtime (engine + optional memory)
-     * @param serverVersion the server version string
-     * @return list of MCP tool specifications filtered by mode
-     */
-    public static List<McpServerFeatures.SyncToolSpecification> createAll(
             SpectorRuntime runtime, String serverVersion) {
-        SpectorMode mode = runtime.mode();
         SpectorMemory memory = runtime.memory().orElse(null);
 
         var handlers = new ArrayList<McpToolHandler>();
 
-        // Engine tools — registered when engine is enabled
-        if (mode.engineEnabled()) {
-            handlers.add(new EngineSearchTool());
-            handlers.add(new EngineHybridSearchTool());
-            handlers.add(new EngineRagTool());
-            handlers.add(new EngineIngestTool());
-            handlers.add(new EngineDeleteTool());
-            handlers.add(new EngineStatusTool(serverVersion));
-        }
-
-        // Memory tools — registered when memory is enabled and available
-        if (mode.memoryEnabled() && memory != null) {
+        if (memory != null) {
             handlers.add(new MemoryRememberTool(memory));
             handlers.add(new MemoryScratchpadTool(memory));
             handlers.add(new MemoryRecallTool(memory));
@@ -194,42 +125,24 @@ public final class SpectorToolRegistry {
         }
 
         return handlers.stream()
-                .map(handler -> handler.toToolSpecification(runtime.engine(), runtime))
+                .map(handler -> handler.toToolSpecification(runtime))
                 .toList();
     }
 
     /**
      * Creates mode-aware tool specifications with an enterprise memory resolver.
      *
-     * <p>Same as {@link #createAll(SpectorRuntime, String)} but uses the provided
-     * {@code memoryResolver} instead of the runtime's fixed memory instance.
-     * The resolver is invoked per-request, allowing the enterprise layer to
-     * route to tenant-isolated memory workspaces via {@code AuthContextHolder}.</p>
-     *
-     * @param runtime        the Spector runtime (engine + optional memory)
+     * @param runtime        the Spector runtime
      * @param serverVersion  the server version string
      * @param memoryResolver per-request memory resolver for tenant isolation
-     * @return list of MCP tool specifications filtered by mode
+     * @return list of MCP tool specifications
      */
     public static List<McpServerFeatures.SyncToolSpecification> createAll(
             SpectorRuntime runtime, String serverVersion,
             Supplier<SpectorMemory> memoryResolver) {
-        SpectorMode mode = runtime.mode();
-
         var handlers = new ArrayList<McpToolHandler>();
 
-        // Engine tools — registered when engine is enabled
-        if (mode.engineEnabled()) {
-            handlers.add(new EngineSearchTool());
-            handlers.add(new EngineHybridSearchTool());
-            handlers.add(new EngineRagTool());
-            handlers.add(new EngineIngestTool());
-            handlers.add(new EngineDeleteTool());
-            handlers.add(new EngineStatusTool(serverVersion));
-        }
-
-        // Memory tools — use resolver for per-request tenant-scoped routing
-        if (mode.memoryEnabled() && memoryResolver != null) {
+        if (memoryResolver != null) {
             handlers.add(new MemoryRememberTool(memoryResolver));
             handlers.add(new MemoryScratchpadTool(memoryResolver));
             handlers.add(new MemoryRecallTool(memoryResolver));
@@ -249,7 +162,7 @@ public final class SpectorToolRegistry {
         }
 
         return handlers.stream()
-                .map(handler -> handler.toToolSpecification(runtime.engine(), runtime))
+                .map(handler -> handler.toToolSpecification(runtime))
                 .toList();
     }
 }

@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
 
-import com.spectrayan.spector.engine.SpectorEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
@@ -65,7 +64,6 @@ public final class MemoryIntrospectTool extends MemoryToolHandler {
 
     @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
-                                                       SpectorEngine engine,
                                                        Map<String, Object> args) throws Exception {
         String topic = requireString(args, "topic");
 

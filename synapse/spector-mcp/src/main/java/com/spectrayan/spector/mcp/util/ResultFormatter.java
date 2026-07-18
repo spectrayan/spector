@@ -16,20 +16,15 @@
 package com.spectrayan.spector.mcp.util;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
-import com.spectrayan.spector.engine.SpectorEngine;
-import com.spectrayan.spector.index.ScoredResult;
-import com.spectrayan.spector.query.SearchResponse;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.CognitiveResult;
 
 /**
  * Shared formatting utilities for MCP tool and resource responses.
- *
- * <p>Centralizes all text and structured-data formatting that was previously
- * scattered across {@code SpectorMcpServer} and {@code SpectorToolProvider}.
- * Methods are stateless, thread-safe, and designed for zero-allocation
- * reuse across concurrent virtual-thread handlers.</p>
  */
 public final class ResultFormatter {
 
@@ -42,34 +37,28 @@ public final class ResultFormatter {
     private ResultFormatter() {} // static utility
 
     // ═══════════════════════════════════════════════════════════════
-    //  Search Results
+    //  Memory Results
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Formats search results for LLM consumption with score and truncated content.
-     *
-     * @param response the search response from the engine
-     * @param engine   the engine instance (for document store lookups)
-     * @return formatted text suitable for MCP tool responses
+     * Formats memory results for LLM consumption with score and truncated content.
      */
-    public static String formatSearchResults(SearchResponse response, SpectorEngine engine) {
-        if (response.results() == null || response.results().length == 0) {
+    public static String formatMemoryResults(List<CognitiveResult> results) {
+        if (results == null || results.isEmpty()) {
             return "No results found.";
         }
 
         var sb = new StringBuilder(1024);
-        sb.append("Found ").append(response.results().length)
-          .append(" results in ").append(response.queryTimeMs()).append("ms:\n\n");
+        sb.append("Found ").append(results.size()).append(" results:\n\n");
 
-        for (ScoredResult r : response.results()) {
+        for (CognitiveResult r : results) {
             sb.append('[').append(r.id()).append("] (score: ");
             appendScore(sb, r.score());
             sb.append(')');
 
-            var doc = engine.documentStore().get(r.id());
-            if (doc != null && doc.content() != null) {
+            if (r.text() != null) {
                 sb.append('\n');
-                appendTruncated(sb, doc.content(), CONTENT_TRUNCATION_LIMIT);
+                appendTruncated(sb, r.text(), CONTENT_TRUNCATION_LIMIT);
             }
             sb.append("\n\n");
         }
@@ -78,92 +67,28 @@ public final class ResultFormatter {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  RAG Context
+    //  Memory Status Map
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Formats search results as RAG context with source attributions.
-     *
-     * @param response the search response
-     * @param engine   the engine instance
-     * @return formatted context block with source citations
+     * Builds a structured map of memory status fields.
      */
-    public static String formatRagContext(SearchResponse response, SpectorEngine engine) {
-        if (response.results() == null || response.results().length == 0) {
-            return "No relevant context found for this query.";
-        }
-
-        var sb = new StringBuilder(2048);
-        sb.append("--- RETRIEVED CONTEXT ---\n\n");
-        int sourceIdx = 0;
-
-        for (ScoredResult r : response.results()) {
-            var doc = engine.documentStore().get(r.id());
-            if (doc != null && doc.content() != null) {
-                sourceIdx++;
-                sb.append("[Source ").append(sourceIdx).append(": ").append(r.id())
-                  .append(" (relevance: ");
-                appendScore(sb, r.score());
-                sb.append(")]\n");
-                sb.append(doc.content());
-                sb.append("\n\n");
-            }
-        }
-
-        sb.append("--- END CONTEXT ---");
-        return sb.toString();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  Engine Status
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Builds a structured map of engine status fields.
-     *
-     * <p>Returns a {@code Map<String, Object>} that can be serialized
-     * to JSON via Jackson or formatted as text — no {@code String.format}
-     * JSON construction.</p>
-     *
-     * @param engine  the engine instance
-     * @param version the server version string
-     * @return ordered map of status fields
-     */
-    public static Map<String, Object> buildEngineStatusMap(SpectorEngine engine, String version) {
+    public static Map<String, Object> buildMemoryStatusMap(SpectorMemory memory, String version) {
         var status = new LinkedHashMap<String, Object>(12);
-        status.put("engine", "spector");
+        status.put("engine", "spector-memory");
         status.put("version", version);
-        status.put("documents", engine.documentCount());
-        status.put("dimensions", engine.config().dimensions());
-        status.put("similarity", engine.config().similarityFunction().name());
-        status.put("indexType", engine.config().indexType().name());
-        status.put("quantization", engine.config().quantization().name());
-        status.put("gpu", engine.isGpuActive() ? "active" : "inactive");
-        status.put("reranker", engine.isRerankerActive() ? "active" : "disabled");
-        status.put("embedding", engine.hasEmbeddingProvider()
-                ? engine.embeddingProvider().modelName() : "none");
+        if (memory != null) {
+            status.put("totalMemories", memory.totalMemories());
+            status.put("workingCount", memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.WORKING));
+            status.put("episodicCount", memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.EPISODIC));
+            status.put("semanticCount", memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.SEMANTIC));
+            status.put("proceduralCount", memory.memoryCount(com.spectrayan.spector.memory.model.MemoryType.PROCEDURAL));
+            status.put("walSize", memory.admin().wal().size());
+            status.put("suppressedCount", memory.admin().suppression().size());
+            status.put("pendingReminders", memory.admin().prospective().pendingCount());
+        }
         status.put("simd", SimdCapability.report());
         return status;
-    }
-
-    /**
-     * Formats engine status as human-readable text for tool responses.
-     *
-     * @param engine  the engine instance
-     * @param version the server version string
-     * @return formatted status text
-     */
-    public static String formatEngineStatus(SpectorEngine engine, String version) {
-        Map<String, Object> status = buildEngineStatusMap(engine, version);
-
-        var sb = new StringBuilder(512);
-        sb.append("Spector Engine Status:\n");
-        sb.append("─────────────────────────────\n");
-        for (var entry : status.entrySet()) {
-            sb.append(String.format("%-15s %s%n",
-                    capitalize(entry.getKey()) + ":", entry.getValue()));
-        }
-        return sb.toString();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -172,11 +97,6 @@ public final class ResultFormatter {
 
     /**
      * Appends a timing footer to a result string.
-     *
-     * @param text      the result text
-     * @param label     operation label (e.g., "Spector SIMD search")
-     * @param elapsedMs elapsed time in milliseconds
-     * @return text with timing footer appended
      */
     public static String withTimingFooter(String text, String label, long elapsedMs) {
         return text + "\n[" + label + " completed in " + elapsedMs + "ms]";
@@ -187,11 +107,9 @@ public final class ResultFormatter {
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * Appends a float score formatted to 4 decimal places without
-     * creating an intermediate String via String.format.
+     * Appends a float score formatted to 4 decimal places.
      */
     private static void appendScore(StringBuilder sb, float score) {
-        // Manual formatting avoids String.format overhead on hot path
         int intPart = (int) score;
         int fracPart = Math.round((score - intPart) * 10_000);
         sb.append(intPart).append('.');
@@ -210,14 +128,5 @@ public final class ResultFormatter {
         } else {
             sb.append(content, 0, maxLength).append(TRUNCATION_SUFFIX);
         }
-    }
-
-    /**
-     * Capitalizes the first letter of a camelCase key for display.
-     * "indexType" → "IndexType", "gpu" → "Gpu"
-     */
-    private static String capitalize(String key) {
-        if (key == null || key.isEmpty()) return key;
-        return Character.toUpperCase(key.charAt(0)) + key.substring(1);
     }
 }
