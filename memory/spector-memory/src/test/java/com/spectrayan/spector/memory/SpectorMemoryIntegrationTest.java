@@ -157,10 +157,10 @@ class SpectorMemoryIntegrationTest {
                 MemoryType.EPISODIC, "test").get(5, TimeUnit.SECONDS);
 
         memory.suppress("suppress-then-allow");
-        assertThat(memory.suppression().isSuppressed("suppress-then-allow")).isTrue();
+        assertThat(memory.admin().suppression().isSuppressed("suppress-then-allow")).isTrue();
 
         memory.unsuppress("suppress-then-allow");
-        assertThat(memory.suppression().isSuppressed("suppress-then-allow")).isFalse();
+        assertThat(memory.admin().suppression().isSuppressed("suppress-then-allow")).isFalse();
     }
 
     // -€-€ V2: Metamemory -€-€
@@ -220,7 +220,7 @@ class SpectorMemoryIntegrationTest {
         memory.reinforce("wal-2", Valence.POSITIVE);
 
         // WAL should have: 2 REMEMBER + 1 FORGET + 1 REINFORCE = 4 events
-        assertThat(memory.wal().size()).isGreaterThanOrEqualTo(4);
+        assertThat(memory.admin().wal().size()).isGreaterThanOrEqualTo(4);
     }
 
     // -€-€ V2: Hebbian Co-Activation -€-€
@@ -237,7 +237,7 @@ class SpectorMemoryIntegrationTest {
 
         // The co-activation tracker should have tracked something
         // (depends on whether results were returned together)
-        assertThat(memory.coActivation()).isNotNull();
+        assertThat(memory.admin().coActivation()).isNotNull();
     }
 
     // -€-€ V2: Habituation -€-€

@@ -282,12 +282,12 @@ class NegativeTestingE2ETest extends AbstractE2ETest {
         memory.unsuppress(uniqueId);
 
         // Verify via index that memory exists and is NOT suppressed
-        var location = memory.index().locate(uniqueId);
+        var location = memory.admin().index().locate(uniqueId);
         assertThat(location)
                 .as("Unsuppressed memory '%s' should still be in the index", uniqueId)
                 .isNotNull();
 
-        assertThat(memory.suppression().isSuppressed(uniqueId))
+        assertThat(memory.admin().suppression().isSuppressed(uniqueId))
                 .as("Unsuppressed memory '%s' should not be in suppression set", uniqueId)
                 .isFalse();
     }

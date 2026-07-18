@@ -477,40 +477,7 @@ public interface SpectorMemory extends AutoCloseable {
      */
     SpectorMemoryAdmin admin();
 
-    // ══════════════════════════════════════════════════════════════
-    // DEPRECATED SUBSYSTEM ACCESSORS (use admin() instead)
-    // ══════════════════════════════════════════════════════════════
 
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#coActivation() coActivation()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) CoActivationTracker coActivation();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#wal() wal()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) MemoryWal wal();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#prospective() prospective()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) ProspectiveScheduler prospective();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#suppression() suppression()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) SuppressionSet suppression();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#habituation() habituation()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) HabituationPenalty habituation();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#quantizer() quantizer()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) ScalarQuantizer quantizer();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#cognitiveTarget() cognitiveTarget()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) CognitiveIngestionTarget cognitiveTarget();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#recallPipeline() recallPipeline()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) RecallPipeline recallPipeline();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#tierRouter() tierRouter()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) TierRouter tierRouter();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#index() index()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) MemoryIndex index();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#lateralEvaluator() lateralEvaluator()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) LateralEvaluator lateralEvaluator();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#hebbianGraph() hebbianGraph()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) HebbianGraphBase hebbianGraph();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#temporalChain() temporalChain()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) TemporalChain temporalChain();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#entityGraph() entityGraph()} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) EntityGraph entityGraph();
-    /** @deprecated Use {@link #admin()}.{@link SpectorMemoryAdmin#decay(Duration, float) decay(Duration, float)} instead. */
-    @Deprecated(since = "1.0.0", forRemoval = true) int decay(Duration olderThan, float factor);
 
     /** Closes the memory system and persists data. */
     @Override

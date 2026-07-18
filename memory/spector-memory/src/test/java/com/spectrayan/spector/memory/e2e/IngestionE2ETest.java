@@ -66,7 +66,7 @@ class IngestionE2ETest extends AbstractE2ETest {
     void allIdsInIndex() {
         int missing = 0;
         for (SeedMemory seed : seedMemories) {
-            var location = memory.index().locate(seed.id());
+            var location = memory.admin().index().locate(seed.id());
             if (location == null) {
                 log.warn("Missing from index: {}", seed.id());
                 missing++;
@@ -91,7 +91,7 @@ class IngestionE2ETest extends AbstractE2ETest {
         };
 
         for (String[] check : checks) {
-            var location = memory.index().locate(check[0]);
+            var location = memory.admin().index().locate(check[0]);
             assertThat(location).as("Memory '%s' should be indexed", check[0]).isNotNull();
             assertThat(location.type().name())
                     .as("Memory '%s' should be in %s tier", check[0], check[1])
@@ -104,7 +104,7 @@ class IngestionE2ETest extends AbstractE2ETest {
     @DisplayName("Memory tier routing matches seed data type")
     void tierRoutingCorrect() {
         for (SeedMemory seed : seedMemories) {
-            var location = memory.index().locate(seed.id());
+            var location = memory.admin().index().locate(seed.id());
             assertThat(location).as("Location for " + seed.id()).isNotNull();
             assertThat(location.type())
                     .as("Tier routing for '%s' should match seed type %s", seed.id(), seed.type())

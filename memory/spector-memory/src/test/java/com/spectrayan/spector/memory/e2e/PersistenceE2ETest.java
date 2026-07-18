@@ -41,7 +41,7 @@ class PersistenceE2ETest extends AbstractE2ETest {
     @Order(1)
     @DisplayName("WAL contains at least one event per ingested memory")
     void walContainsEvents() {
-        int walSize = memory.wal().size();
+        int walSize = memory.admin().wal().size();
         log.info("WAL size: {} events (seed memories: {})", walSize, seedMemories.size());
 
         assertThat(walSize)
@@ -153,9 +153,9 @@ class PersistenceE2ETest extends AbstractE2ETest {
             assertRecallContainsAny(results, "persist-001", "persist-002");
 
             // 6. Verify specific ID is in the reloaded index
-            assertThat(reloaded.index().locate("persist-001"))
+            assertThat(reloaded.admin().index().locate("persist-001"))
                     .as("persist-001 should be in reloaded index").isNotNull();
-            assertThat(reloaded.index().locate("persist-002"))
+            assertThat(reloaded.admin().index().locate("persist-002"))
                     .as("persist-002 should be in reloaded index").isNotNull();
 
             reloaded.close();

@@ -231,30 +231,7 @@ public final class StorageLayout {
     public static final Pattern PARTITION_DIR_PATTERN =
             Pattern.compile("(\\d{" + PARTITION_SEQ_DIGITS + "})_" + "(\\d+)");
 
-    // ═══════════════════════════════════════════════════════════════
-    // Legacy Layout (for migration)
-    // ═══════════════════════════════════════════════════════════════
 
-    /** Legacy semantic partition directory name. */
-    public static final String LEGACY_DIR_SEMANTIC = "semantic";
-
-    /** Legacy episodic partition directory name. */
-    public static final String LEGACY_DIR_EPISODIC = "episodic";
-
-    /** Legacy semantic partition file prefix. */
-    public static final String LEGACY_SEMANTIC_PREFIX = "semantic-";
-
-    /** Legacy semantic partition file extension. */
-    public static final String LEGACY_SEMANTIC_SUFFIX = ".mem";
-
-    /** Legacy global memory index file. */
-    public static final String LEGACY_FILE_INDEX = "memory-index.mem";
-
-    /** Legacy single-file procedural store. */
-    public static final String LEGACY_FILE_PROCEDURAL = "procedural.mem";
-
-    /** Legacy single-file semantic store. */
-    public static final String LEGACY_FILE_SEMANTIC = "semantic.mem";
 
     // ═══════════════════════════════════════════════════════════════
     // Binary Format Magic Numbers
@@ -646,23 +623,6 @@ public final class StorageLayout {
         return crossDir(basePath).resolve(FILE_ENTITY_CROSS);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // Layout Version Detection
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Detects the storage layout version for a given base path.
-     *
-     * @param basePath the persistence root
-     * @return 3 if runtime/ exists, 2 if global/ exists, 1 for legacy flat layout
-     */
-    public static int detectLayoutVersion(Path basePath) {
-        if (java.nio.file.Files.isDirectory(runtimeDir(basePath))) return 3;
-        if (java.nio.file.Files.isDirectory(globalDir(basePath))) return 2;
-        if (java.nio.file.Files.exists(basePath.resolve(LEGACY_FILE_INDEX))) return 1;
-        return 3; // new installation defaults to V3
-    }
-
     // ── WAL resolvers ──
 
     /** Generates a WAL segment file name. */
@@ -673,34 +633,5 @@ public final class StorageLayout {
     /** Resolves a WAL segment file path. */
     public static Path walFile(Path basePath, int seqNo) {
         return walDir(basePath).resolve(walFileName(seqNo));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // Legacy Path Resolvers (for migration)
-    // ═══════════════════════════════════════════════════════════════
-
-    /** Resolves legacy semantic partition directory. */
-    public static Path legacySemanticDir(Path basePath) {
-        return basePath.resolve(LEGACY_DIR_SEMANTIC);
-    }
-
-    /** Resolves legacy episodic partition directory. */
-    public static Path legacyEpisodicDir(Path basePath) {
-        return basePath.resolve(LEGACY_DIR_EPISODIC);
-    }
-
-    /** Resolves legacy global memory index file. */
-    public static Path legacyIndex(Path basePath) {
-        return basePath.resolve(LEGACY_FILE_INDEX);
-    }
-
-    /** Resolves legacy single-file procedural store. */
-    public static Path legacyProcedural(Path basePath) {
-        return basePath.resolve(LEGACY_FILE_PROCEDURAL);
-    }
-
-    /** Resolves legacy single-file semantic store (pre-partitioned). */
-    public static Path legacySemantic(Path basePath) {
-        return basePath.resolve(LEGACY_FILE_SEMANTIC);
     }
 }

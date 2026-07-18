@@ -65,7 +65,7 @@ class InhibitionE2ETest extends AbstractE2ETest {
         memory.unsuppress(targetId);
 
         // The memory should be retrievable again
-        var location = memory.index().locate(targetId);
+        var location = memory.admin().index().locate(targetId);
         assertThat(location)
                 .as("'%s' should still be in the index after unsuppress", targetId)
                 .isNotNull();
@@ -258,10 +258,10 @@ class InhibitionE2ETest extends AbstractE2ETest {
         memory.suppress(id1, "Test multi-suppress");
         memory.suppress(id2, "Test multi-suppress");
 
-        assertThat(memory.suppression().isSuppressed(id1))
+        assertThat(memory.admin().suppression().isSuppressed(id1))
                 .as("'%s' should be suppressed", id1)
                 .isTrue();
-        assertThat(memory.suppression().isSuppressed(id2))
+        assertThat(memory.admin().suppression().isSuppressed(id2))
                 .as("'%s' should be suppressed", id2)
                 .isTrue();
 
@@ -269,7 +269,7 @@ class InhibitionE2ETest extends AbstractE2ETest {
         memory.unsuppress(id1);
         memory.unsuppress(id2);
 
-        assertThat(memory.suppression().isSuppressed(id1))
+        assertThat(memory.admin().suppression().isSuppressed(id1))
                 .as("'%s' should be unsuppressed after cleanup", id1)
                 .isFalse();
     }
