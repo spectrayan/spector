@@ -24,6 +24,8 @@ import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.config.HnswParams;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;
+import com.spectrayan.spector.provider.embedding.EmbeddingCacheConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
@@ -195,6 +197,22 @@ public final class SpectorRuntime implements AutoCloseable {
     public static SpectorRuntime from(SpectorProperties props, EmbeddingProvider embedder,
                                       LlmProvider textGenProvider) {
         SpectorMode mode = SpectorConfigFactory.mode(props);
+
+        // Wrap the embedder with the LRU cache (no-op when disabled or already wrapped)
+        var embedDefaultsForCache = SpectorConfigFactory.embeddingDefaults(props);
+        var embeddingCacheConfig = embedDefaultsForCache.cacheEnabled()
+                ? new EmbeddingCacheConfig(true,
+                        embedDefaultsForCache.cacheMaxSize(),
+                        embedDefaultsForCache.cacheTtl(),
+                        embedDefaultsForCache.cacheStatsLogInterval())
+                : EmbeddingCacheConfig.disabled();
+        embedder = CachingEmbeddingProvider.wrap(embedder, embeddingCacheConfig);
+        if (embeddingCacheConfig.enabled()) {
+            log.info("[Runtime] Embedding cache: enabled (maxSize={}, ttl={})",
+                    embeddingCacheConfig.maxSize(), embeddingCacheConfig.ttl());
+        } else {
+            log.info("[Runtime] Embedding cache: disabled");
+        }
 
         // -€-€ Read memory config early -€-€
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);

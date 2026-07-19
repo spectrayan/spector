@@ -58,6 +58,13 @@ spector:
     timeout: 30s
     batch-size: 32
     max-retries: 3
+    # LRU cache for embedding results — avoids redundant provider calls
+    # when the same text is embedded repeatedly.
+    cache:
+      enabled: true
+      max-size: 1000
+      ttl: 60m
+      stats-log-interval: 5m
 
   # ─── Text Chunking ───
   chunking:
