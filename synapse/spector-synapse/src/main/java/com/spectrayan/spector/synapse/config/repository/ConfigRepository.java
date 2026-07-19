@@ -44,16 +44,9 @@ public class ConfigRepository {
         this.mapper = mapper;
     }
 
-    /**
-     * Gets a scoped config by scope and category.
-     */
     public Optional<ScopedConfig> get(String scope, ConfigCategory category) {
         try {
-            return jdbc.sql("""
-                            SELECT config_json, updated_at, updated_by
-                            FROM scoped_config
-                            WHERE scope = :scope AND category = :category
-                            """)
+            return jdbc.sql("SELECT config_json, updated_at, updated_by FROM scoped_config WHERE scope = :scope AND category = :category")
                     .param("scope", scope)
                     .param("category", category.key())
                     .query((rs, rowNum) -> {
@@ -85,11 +78,7 @@ public class ConfigRepository {
         try {
             String json = mapper.writeValueAsString(config.values());
 
-            jdbc.sql("""
-                            MERGE INTO scoped_config (scope, category, config_json, updated_at, updated_by)
-                            KEY (scope, category)
-                            VALUES (:scope, :category, :json, :updatedAt, :updatedBy)
-                            """)
+            jdbc.sql("MERGE INTO scoped_config (scope, category, config_json, updated_at, updated_by) KEY (scope, category) VALUES (:scope, :category, :json, :updatedAt, :updatedBy)")
                     .param("scope", config.scope())
                     .param("category", config.category().key())
                     .param("json", json)
@@ -118,12 +107,7 @@ public class ConfigRepository {
      * Lists all configs for a given category across all scopes.
      */
     public List<ScopedConfig> findByCategory(ConfigCategory category) {
-        return jdbc.sql("""
-                        SELECT scope, config_json, updated_at, updated_by
-                        FROM scoped_config
-                        WHERE category = :category
-                        ORDER BY scope
-                        """)
+        return jdbc.sql("SELECT scope, config_json, updated_at, updated_by FROM scoped_config WHERE category = :category ORDER BY scope")
                 .param("category", category.key())
                 .query((rs, rowNum) -> {
                     try {

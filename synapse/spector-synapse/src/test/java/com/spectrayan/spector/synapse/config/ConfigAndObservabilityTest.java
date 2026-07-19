@@ -68,6 +68,7 @@ class ConfigAndObservabilityTest {
         when(memory.admin()).thenReturn(memoryAdmin);
         when(memoryAdmin.index()).thenReturn(memoryIndex);
         when(memoryIndex.size()).thenReturn(10);
+        when(memoryIndex.locationMap()).thenReturn(new java.util.concurrent.ConcurrentHashMap<>());
 
         var rec = new com.spectrayan.spector.memory.model.CognitiveRecord(
                 "mem-1", "Test memory content", com.spectrayan.spector.memory.model.MemoryType.SEMANTIC,
@@ -159,5 +160,63 @@ class ConfigAndObservabilityTest {
                 .andExpect(jsonPath("$.buckets", hasSize(6)))
                 .andExpect(jsonPath("$.buckets[0].label", is("< 1 hour")))
                 .andExpect(jsonPath("$.totalMemories", notNullValue()));
+    }
+
+    @Test
+    @DisplayName("GET and PUT /api/v1/salience/user/default — handles unified profile endpoints")
+    void getAndPutUserSalienceProfile_success() throws Exception {
+        // GET profile
+        mvc.perform(get("/api/v1/salience/user/default"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interestsList", hasSize(0)))
+                .andExpect(jsonPath("$.disinterestsList", hasSize(0)))
+                .andExpect(jsonPath("$.icnuWeights.interest", is(0.25)))
+                .andExpect(jsonPath("$.alpha", is(0.6)))
+                .andExpect(jsonPath("$.beta", is(0.4)));
+
+        // PUT profile
+        Map<String, Object> request = Map.of(
+                "interests", Map.of("java", "HIGH"),
+                "disinterests", Map.of("bugs", "IGNORE"),
+                "icnuWeights", Map.of(
+                        "interest", 0.3,
+                        "challenge", 0.1,
+                        "novelty", 0.4,
+                        "urgency", 0.2
+                ),
+                "alpha", 0.5,
+                "beta", 0.5
+        );
+
+        mvc.perform(put("/api/v1/salience/user/default")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("success")));
+
+        // Verify changes applied to GET
+        mvc.perform(get("/api/v1/salience/user/default"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interestsList", hasSize(1)))
+                .andExpect(jsonPath("$.interestsList[0].topic", is("java")))
+                .andExpect(jsonPath("$.interestsList[0].level", is("HIGH")))
+                .andExpect(jsonPath("$.disinterestsList", hasSize(1)))
+                .andExpect(jsonPath("$.disinterestsList[0].topic", is("bugs")))
+                .andExpect(jsonPath("$.disinterestsList[0].level", is("IGNORE")))
+                .andExpect(jsonPath("$.icnuWeights.interest", is(0.3)))
+                .andExpect(jsonPath("$.alpha", is(0.5)))
+                .andExpect(jsonPath("$.beta", is(0.5)));
+    }
+
+    @Test
+    @DisplayName("POST and GET /api/v1/salience/rescore — runs memory rescore status")
+    void rescoreMemories_success() throws Exception {
+        mvc.perform(post("/api/v1/salience/rescore"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("completed")));
+
+        mvc.perform(get("/api/v1/salience/rescore/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("completed")));
     }
 }
