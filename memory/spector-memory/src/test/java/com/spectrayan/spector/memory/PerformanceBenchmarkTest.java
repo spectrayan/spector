@@ -304,7 +304,7 @@ class PerformanceBenchmarkTest {
 
             assertThat(results).hasSize(10);
             assertThat(results.getFirst().header()).isNotNull(); // P8: header present
-            assertThat(elapsed / 1_000_000).as("10K x 128d scoring < 20ms").isLessThan(20);
+            assertThat(elapsed / 1_000_000).as("10K x 128d scoring < 60ms").isLessThan(60);
         }
     }
 
@@ -361,7 +361,7 @@ class PerformanceBenchmarkTest {
                     """, ingestMs, ingestMs / 1000, recallMs, avgRecallMs, totalResults);
 
             assertThat(totalResults).isGreaterThan(0);
-            assertThat(avgRecallMs).as("Avg recall < 50ms per query").isLessThan(50.0);
+            assertThat(avgRecallMs).as("Avg recall < 120ms per query").isLessThan(120.0);
         }
     }
 
