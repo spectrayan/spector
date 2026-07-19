@@ -156,14 +156,18 @@ public class ConfigApplicator {
     private static int intVal(Map<String, Object> map, String key, int def) {
         Object v = map.get(key);
         if (v instanceof Number n) return n.intValue();
-        if (v != null) try { return Integer.parseInt(v.toString()); } catch (NumberFormatException e) {}
+        if (v != null) {
+            return com.spectrayan.spector.commons.ParseUtils.parseInteger(v.toString()).orElse(def);
+        }
         return def;
     }
 
     private static double doubleVal(Map<String, Object> map, String key, double def) {
         Object v = map.get(key);
         if (v instanceof Number n) return n.doubleValue();
-        if (v != null) try { return Double.parseDouble(v.toString()); } catch (NumberFormatException e) {}
+        if (v != null) {
+            return com.spectrayan.spector.commons.ParseUtils.parseDouble(v.toString()).orElse(def);
+        }
         return def;
     }
 
@@ -262,7 +266,11 @@ public class ConfigApplicator {
     private static float floatVal(Map<String, Object> map, String key, float def) {
         Object v = map.get(key);
         if (v instanceof Number n) return n.floatValue();
-        if (v != null) try { return Float.parseFloat(v.toString()); } catch (NumberFormatException e) {}
+        if (v != null) {
+            return com.spectrayan.spector.commons.ParseUtils.parseDouble(v.toString())
+                    .map(Double::floatValue)
+                    .orElse(def);
+        }
         return def;
     }
 
