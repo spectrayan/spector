@@ -78,7 +78,12 @@ public record SynapseProperties(
             if (dimensions < 0) dimensions = 0;
             if (consolidation == null) consolidation = new ConsolidationProperties(21600000L); // 6 hours
         }
+
+        public MemoryProperties(int maxMemories, int dimensions) {
+            this(maxMemories, dimensions, new ConsolidationProperties(21600000L));
+        }
     }
+
 
     /**
      * Consolidation settings.
