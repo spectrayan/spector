@@ -275,6 +275,13 @@ public final class CognitiveScorer {
             if (isTombstoned(flags))
                 continue;
 
+            // ── Phase 1c: Contradiction Gating ──
+            if (!options.includeContradictions()) {
+                byte cFlags = segment.get(LAYOUT_CONSOLIDATION_FLAGS, offset + OFFSET_CONSOLIDATION_FLAGS);
+                if (isContradicted(cFlags))
+                    continue;
+            }
+
             // ── Phase 1b: Temporal gating (absolute timestamp bounds) ──
             long timestamp = segment.get(LAYOUT_TIMESTAMP, offset + OFFSET_TIMESTAMP);
             if (minTimestamp != null && timestamp < minTimestamp)

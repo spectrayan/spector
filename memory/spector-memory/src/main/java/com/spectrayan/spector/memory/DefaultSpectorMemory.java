@@ -56,9 +56,11 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphCsr;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
+import com.spectrayan.spector.memory.consolidation.ConsolidationService;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
+
 import com.spectrayan.spector.memory.interference.SemanticDeduplicator;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
@@ -167,6 +169,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ImportanceEstimator importanceEstimator;
     private final ReflectionOrchestrator reflectionOrchestrator;
     private final ReinforcementHandler reinforcementHandler;
+    private final ConsolidationService consolidationService;
+
 
     // -€-€ Biological Subsystems -€-€
     private final ValenceTracker valenceTracker;
@@ -235,6 +239,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.importanceEstimator = bundle.importanceEstimator();
         this.reflectionOrchestrator = bundle.reflectionOrchestrator();
         this.reinforcementHandler = bundle.reinforcementHandler();
+        this.consolidationService = new ConsolidationService(builder.LlmProvider, this.embeddingProvider);
+
         this.valenceTracker = bundle.valenceTracker();
         this.coActivationTracker = bundle.coActivationTracker();
         this.suppressionSet = bundle.suppressionSet();
@@ -639,6 +645,20 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return reflectionOrchestrator.reflect(partitionManager.tierRouter(), index);
     }
 
+    @Override
+    public void consolidate() {
+        consolidationService.consolidate(
+                partitionManager.tierRouter(),
+                index,
+                quantizer,
+                entityGraph,
+                cognitiveTarget,
+                wal,
+                this::inspect
+        );
+    }
+
+
     // ==============================================================
     // EXTENDED API  --  reinforce / suppress / introspect
     // ==============================================================
@@ -794,6 +814,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         // Read extended fields that aren't in the base CognitiveHeader
         int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
+        byte consolidationFlags = layout.readConsolidationFlags(segment, loc.offset());
 
         // Metadata and suppression state
         var metadata = java.util.Map.<String, String>of();
@@ -804,7 +825,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 header.timestampMs(), header.synapticTags(), header.exactNorm(),
                 header.importance(), header.agentRecallCount(), spectorRecallCount,
                 header.centroidId(), header.valence(), header.arousal(),
-                header.storageStrength(), header.flags(),
+                header.storageStrength(), header.flags(), consolidationFlags,
                 quantizedVec, loc.partitionIndex(), loc.offset(),
                 metadata, suppressed);
     }
@@ -834,6 +855,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 var header = layout.readHeader(segment, loc.offset());
                 if (!SynapticHeaderConstants.isTombstoned(header.flags())) {
                     int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
+                    byte consolidationFlags = layout.readConsolidationFlags(segment, loc.offset());
                     String[] memTags = index.tags(memId);
                     results.add(new CognitiveRecord(
                             memId, index.text(memId), loc.type(),
@@ -841,7 +863,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             header.timestampMs(), header.synapticTags(), header.exactNorm(),
                             header.importance(), header.agentRecallCount(), spectorRecallCount,
                             header.centroidId(), header.valence(), header.arousal(),
-                            header.storageStrength(), header.flags(),
+                            header.storageStrength(), header.flags(), consolidationFlags,
                             null, // no vector for browse (use inspect for full detail)
                             loc.partitionIndex(), loc.offset(),
                             java.util.Map.of(), suppressionSet.isSuppressed(memId)));

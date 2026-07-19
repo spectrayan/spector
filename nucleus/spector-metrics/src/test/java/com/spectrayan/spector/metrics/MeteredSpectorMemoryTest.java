@@ -154,7 +154,9 @@ class MeteredSpectorMemoryTest {
         @Override public List<CognitiveResult> recall(String queryText) { return null; }
         @Override public void forget(String id) {}
         @Override public ReflectReport reflect() { return null; }
+        @Override public void consolidate() {}
         @Override public void reinforce(String memoryId, byte valence) {}
+
         @Override public void suppress(String memoryId, String reason) {}
         @Override public void suppress(String memoryId) {}
         @Override public void unsuppress(String memoryId) {}

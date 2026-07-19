@@ -45,7 +45,8 @@ public record SynapseProperties(
         if (apiKey == null || apiKey.isBlank()) apiKey = "spector-dev-key";
         if (dataDir == null || dataDir.isBlank()) dataDir = "./spector-data";
         if (ollama == null) ollama = new OllamaProperties(null, null, null);
-        if (memory == null) memory = new MemoryProperties(0, 0);
+        if (memory == null) memory = new MemoryProperties(0, 0, null);
+
         if (cors == null) cors = new CorsProperties(null);
     }
 
@@ -69,13 +70,27 @@ public record SynapseProperties(
      *
      * @param maxMemories   maximum number of memories (0 = unlimited)
      * @param dimensions    embedding vector dimensions (0 = auto-detect from provider)
+     * @param consolidation consolidation settings
      */
-    public record MemoryProperties(int maxMemories, int dimensions) {
+    public record MemoryProperties(int maxMemories, int dimensions, ConsolidationProperties consolidation) {
         public MemoryProperties {
             if (maxMemories < 0) maxMemories = 0;
             if (dimensions < 0) dimensions = 0;
+            if (consolidation == null) consolidation = new ConsolidationProperties(21600000L); // 6 hours
         }
     }
+
+    /**
+     * Consolidation settings.
+     *
+     * @param interval consolidation run interval in milliseconds (default: 21600000 ms = 6 hours)
+     */
+    public record ConsolidationProperties(long interval) {
+        public ConsolidationProperties {
+            if (interval <= 0) interval = 21600000L;
+        }
+    }
+
 
     /**
      * CORS settings for the Cortex UI.

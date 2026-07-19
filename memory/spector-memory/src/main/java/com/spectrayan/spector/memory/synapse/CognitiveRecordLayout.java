@@ -228,6 +228,16 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
         headerLayout.markUnresolved(segment, offset);
     }
 
+    /** Reads the consolidation flags byte (offset 34). */
+    public byte readConsolidationFlags(MemorySegment segment, long offset) {
+        return headerLayout.readConsolidationFlags(segment, offset);
+    }
+
+    /** Sets the contradicted flag (bit 0 of consolidation flags byte). */
+    public void markContradicted(MemorySegment segment, long offset) {
+        headerLayout.markContradicted(segment, offset);
+    }
+
     /** Updates the importance field. */
     public void writeImportance(MemorySegment segment, long offset, float importance) {
         headerLayout.writeImportance(segment, offset, importance);

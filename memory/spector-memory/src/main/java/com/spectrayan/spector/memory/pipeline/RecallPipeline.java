@@ -999,8 +999,21 @@ public final class RecallPipeline {
                         existing.sourceModality(), existing.metadata()));
             } else {
                 // BM25-only result  --  create from index metadata
+                if (!options.includeContradictions()) {
+                    MemoryIndex.MemoryLocation loc = index.locate(id);
+                    if (loc != null) {
+                        MemorySegment segment = tierRouter.segmentFor(loc.type());
+                        if (segment != null) {
+                            CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
+                            byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
+                            if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
+                        }
+                    }
+                }
+
                 String text = index.text(id);
                 if (text == null || text.isEmpty()) continue;
+
 
                 MemorySource source = index.source(id);
                 String[] tags = index.tags(id);
@@ -1192,6 +1205,11 @@ public final class RecallPipeline {
 
             byte flags = header.flags();
             if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+
+            if (!options.includeContradictions()) {
+                byte cFlags = layout.readConsolidationFlags(headerSlab, offset);
+                if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
+            }
 
             // Phase 2: Synaptic tag gating (was missing for semantic tier)
             if (queryTagMask != 0) {

@@ -144,6 +144,15 @@ public sealed interface HeaderLayout
      */
     void markUnresolved(MemorySegment seg, long off);
 
+    /** Reads the consolidation flags byte (offset 34). */
+    byte readConsolidationFlags(MemorySegment seg, long off);
+
+    /** Writes the consolidation flags byte (offset 34). */
+    void writeConsolidationFlags(MemorySegment seg, long off, byte consolidationFlags);
+
+    /** Sets the contradicted flag (bit 0 of consolidation flags byte). Atomic/CAS. */
+    void markContradicted(MemorySegment seg, long off);
+
     /**
      * Atomically increments the recall count (LTP reinforcement).
      *

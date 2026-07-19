@@ -114,6 +114,21 @@ public class MemoryAccessObject {
     }
 
     /**
+     * Triggers manual memory consolidation.
+     */
+    public void consolidate() {
+        if (!isAvailable()) return;
+        try {
+            memory.consolidate();
+            log.info("[MemoryAccessObject] Triggered memory consolidation");
+        } catch (Exception e) {
+            log.error("[MemoryAccessObject] Consolidation failed: {}", e.getMessage(), e);
+            throw new IllegalStateException("Memory consolidation failed: " + e.getMessage(), e);
+        }
+    }
+
+
+    /**
      * Reinforce a memory via emotional valence feedback.
      */
     public void reinforce(String id, int valence) {

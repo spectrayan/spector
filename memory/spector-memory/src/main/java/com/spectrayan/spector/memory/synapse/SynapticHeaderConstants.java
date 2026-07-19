@@ -100,6 +100,8 @@ public final class SynapticHeaderConstants {
     /** Offset of centroid_id short (IVF routing). */
     public static final long OFFSET_CENTROID_ID         = 32L;
     // 34-35: alignment padding
+    /** Offset of consolidation flags byte (repurposed from _pad0). */
+    public static final long OFFSET_CONSOLIDATION_FLAGS = 34L;
     /** Offset of storage_strength float (Two-Factor scoring). */
     public static final long OFFSET_STORAGE_STRENGTH    = 36L;
     /** Offset of spector-internal recall count int (auto-LTP). */
@@ -125,6 +127,7 @@ public final class SynapticHeaderConstants {
     public static final ValueLayout.OfFloat LAYOUT_EXACT_NORM         = ValueLayout.JAVA_FLOAT;
     public static final ValueLayout.OfLong  LAYOUT_SYNAPTIC_TAGS      = ValueLayout.JAVA_LONG;
     public static final ValueLayout.OfShort LAYOUT_CENTROID_ID        = ValueLayout.JAVA_SHORT;
+    public static final ValueLayout.OfByte  LAYOUT_CONSOLIDATION_FLAGS = ValueLayout.JAVA_BYTE;
     public static final ValueLayout.OfFloat LAYOUT_STORAGE_STRENGTH   = ValueLayout.JAVA_FLOAT;
     public static final ValueLayout.OfInt   LAYOUT_SPECTOR_RECALL_COUNT = ValueLayout.JAVA_INT;
     public static final ValueLayout.OfLong  LAYOUT_LAST_AUTO_LTP      = ValueLayout.JAVA_LONG;
@@ -156,6 +159,11 @@ public final class SynapticHeaderConstants {
     public static final byte FLAG_MODALITY_MASK  = (byte) 0xC0;
     /** Number of bits to shift to read/write source modality from flags. */
     public static final int  FLAG_MODALITY_SHIFT = 6;
+
+    // ── Consolidation Flags bitmasks (offset 34) ──
+
+    /** Bit 0: Memory has a conflicting near-duplicate in the tier. */
+    public static final byte FLAG_CONTRADICTED = 0x01;
 
     // ── Convenience methods ──
 
@@ -223,5 +231,12 @@ public final class SynapticHeaderConstants {
     public static byte withSourceModality(byte flags, int modalityOrdinal) {
         return (byte) ((flags & ~FLAG_MODALITY_MASK)
                 | ((modalityOrdinal << FLAG_MODALITY_SHIFT) & (FLAG_MODALITY_MASK & 0xFF)));
+    }
+
+    /**
+     * Checks if the contradicted flag is set in the given consolidation flags byte.
+     */
+    public static boolean isContradicted(byte consolidationFlags) {
+        return (consolidationFlags & FLAG_CONTRADICTED) != 0;
     }
 }

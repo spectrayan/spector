@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import com.spectrayan.spector.synapse.config.FeatureFlags;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
@@ -42,7 +43,9 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
  */
 @SpringBootApplication
 @EnableConfigurationProperties({SynapseProperties.class, FeatureFlags.class})
+@EnableScheduling
 public class SynapseApplication {
+
 
     private static final Logger log = LoggerFactory.getLogger(SynapseApplication.class);
 
