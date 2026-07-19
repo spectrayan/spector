@@ -10,18 +10,21 @@ LICENSE STRUCTURE
 
 This repository utilizes a split licensing model:
 
-  1. The "spector-memory" module (located under the spector-memory/ directory)
-     is licensed under the Business Source License 1.1 (BSL 1.1). Under the
-     terms of the BSL 1.1, you are granted non-production use rights, with
-     an Additional Use Grant permitting production use except for offering
-     the module as a managed service or embedding it in a competing AI
-     cognitive memory product. On the Change Date (May 27, 2030), this module
-     automatically transitions to the Apache License 2.0.
-     Please see spector-memory/LICENSE for details.
+  1. The "spector-memory" (located under memory/spector-memory/), "spector-cortex"
+     (located under cortex/spector-cortex/), and "spector-synapse" (located under
+     synapse/spector-synapse/) modules are licensed under the Business Source License
+     1.1 (BSL 1.1). Under the terms of the BSL 1.1, you are granted non-production
+     use rights, with an Additional Use Grant permitting production use except for
+     offering the modules as a managed service, or embedding or integrating them
+     in a competing AI cognitive memory product or service. On the Change Date
+     (May 27, 2030 for spector-memory; July 6, 2030 for spector-cortex and
+     spector-synapse), these modules automatically transition to the Apache License 2.0.
+     Please see the LICENSE files in their respective module directories for details.
 
   2. All other directories, modules, and core infrastructure in this repository
      are licensed under the Apache License 2.0.
      Please see the root LICENSE file for details.
+
 
 ================================================================================
 ATTRIBUTION NOTICE

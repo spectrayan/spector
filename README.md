@@ -224,7 +224,10 @@ We welcome contributions of all kinds — code, docs, tests, benchmarks, and ide
 This repository uses a **split licensing model**:
 
 - **`spector-memory`** — [Business Source License 1.1](memory/spector-memory/LICENSE) (transitions to Apache 2.0 on May 27, 2030)
+- **`spector-cortex`** — [Business Source License 1.1](cortex/spector-cortex/LICENSE) (transitions to Apache 2.0 on July 6, 2030)
+- **`spector-synapse`** — [Business Source License 1.1](synapse/spector-synapse/LICENSE) (transitions to Apache 2.0 on July 6, 2030)
 - **All other modules** — [Apache License 2.0](LICENSE)
+
 
 For branding and trademark guidelines, see the [NOTICE](NOTICE) file.
 
