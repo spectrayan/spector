@@ -61,4 +61,6 @@ spring:
 logging:
   level:
     root: WARN
-    com.spectrayan.spector: INFO
+    com.spectrayan.spector: DEBUG
+    org.flywaydb: INFO
+    org.springframework.jdbc: DEBUG
