@@ -113,9 +113,19 @@ public record ScopedConfig(
         if (val == null) return null;
         if (type.isInstance(val)) return (T) val;
         String str = val.toString();
-        if (type == Integer.class) return type.cast(Integer.parseInt(str));
-        if (type == Long.class) return type.cast(Long.parseLong(str));
-        if (type == Double.class) return type.cast(Double.parseDouble(str));
+        if (type == Integer.class) {
+            return type.cast(com.spectrayan.spector.commons.ParseUtils.parseInteger(str).orElse(null));
+        }
+        if (type == Long.class) {
+            try {
+                return type.cast(Long.parseLong(str.trim()));
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        if (type == Double.class) {
+            return type.cast(com.spectrayan.spector.commons.ParseUtils.parseDouble(str).orElse(null));
+        }
         if (type == Boolean.class) return type.cast(Boolean.parseBoolean(str));
         return type.cast(str);
     }
@@ -129,16 +139,14 @@ public record ScopedConfig(
         Object val = values.get(key);
         if (val == null) return defaultValue;
         if (val instanceof Number n) return n.intValue();
-        try { return Integer.parseInt(val.toString()); }
-        catch (NumberFormatException e) { return defaultValue; }
+        return com.spectrayan.spector.commons.ParseUtils.parseInteger(val.toString()).orElse(defaultValue);
     }
 
     public double doubleValue(String key, double defaultValue) {
         Object val = values.get(key);
         if (val == null) return defaultValue;
         if (val instanceof Number n) return n.doubleValue();
-        try { return Double.parseDouble(val.toString()); }
-        catch (NumberFormatException e) { return defaultValue; }
+        return com.spectrayan.spector.commons.ParseUtils.parseDouble(val.toString()).orElse(defaultValue);
     }
 
     public boolean boolValue(String key, boolean defaultValue) {
