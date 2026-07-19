@@ -17,7 +17,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
 import com.spectrayan.spector.synapse.config.model.ScopedConfig;
 
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -43,30 +42,6 @@ public class ConfigRepository {
     public ConfigRepository(JdbcClient jdbc, ObjectMapper mapper) {
         this.jdbc = jdbc;
         this.mapper = mapper;
-    }
-
-    /**
-     * Initializes the H2 table scoped_config if it does not already exist.
-     */
-    @PostConstruct
-    public void initTable() {
-        try {
-            log.info("Initializing scoped_config database table...");
-            jdbc.sql("""
-                    CREATE TABLE IF NOT EXISTS scoped_config (
-                        scope VARCHAR(255) NOT NULL,
-                        category VARCHAR(255) NOT NULL,
-                        config_json CLOB NOT NULL,
-                        updated_at TIMESTAMP NOT NULL,
-                        updated_by VARCHAR(255),
-                        PRIMARY KEY (scope, category)
-                    )
-                    """).update();
-            log.info("scoped_config database table initialized.");
-        } catch (Exception e) {
-            log.error("Failed to initialize scoped_config database table", e);
-            throw new RuntimeException("Table initialization failed", e);
-        }
     }
 
     /**

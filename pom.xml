@@ -131,6 +131,7 @@
         <armeria.version>1.39.1</armeria.version>
         <langchain4j.version>1.17.1</langchain4j.version>
         <spring-boot.version>4.1.0</spring-boot.version>
+        <flyway.version>12.4.0</flyway.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <langgraph4j.version>1.8.20</langgraph4j.version>
 
