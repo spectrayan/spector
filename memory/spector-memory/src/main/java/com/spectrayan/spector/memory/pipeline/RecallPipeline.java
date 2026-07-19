@@ -1286,10 +1286,22 @@ public final class RecallPipeline {
         SourceModality modality = SourceModality.fromOrdinal(
                 SynapticHeaderConstants.sourceModalityOrdinal(header.flags()));
         java.util.Map<String, String> metadata = id != null ? index.metadata(id) : java.util.Map.of();
+        
+        String resultText = text;
+        if (metadata != null && metadata.containsKey("parent_chunk_id")) {
+            String parentId = metadata.get("parent_chunk_id");
+            String parentText = index.text(parentId);
+            if (parentText != null && !parentText.isBlank()) {
+                resultText = parentText;
+                var mutableMeta = new java.util.HashMap<>(metadata);
+                mutableMeta.put("child_text", text);
+                metadata = java.util.Map.copyOf(mutableMeta);
+            }
+        }
 
         return new CognitiveResult(
                 id != null ? id : "unknown-" + sr.index(),
-                text, sr.score(), header.importance(), ageDays,
+                resultText, sr.score(), header.importance(), ageDays,
                 header.agentRecallCount(), header.valence(), type, source,
                 tags, rawDecay, ltpDecay, mode, breakdown, null,
                 modality, metadata

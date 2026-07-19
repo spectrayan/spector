@@ -87,6 +87,11 @@ spring:
     name: spector-synapse
   jmx:
     enabled: false
+  datasource:
+    url: jdbc:h2:file:${spector.data-dir}/db/synapse;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
+    username: sa
+    password: sa
+    driver-class-name: org.h2.Driver
 
 # ── Logging ──
 logging:

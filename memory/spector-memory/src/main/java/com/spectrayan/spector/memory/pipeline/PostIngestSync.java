@@ -149,10 +149,13 @@ final class PostIngestSync {
      * @return the HNSW store index (-1 if not indexed)
      */
     int syncIndexes(SyncParams params) {
+        boolean isParentChunk = params.metadata() != null && "parent".equals(params.metadata().get("chunk_role"));
+
         // Step 7b: Add to HNSW index (SEMANTIC only)
         int storeIndex = -1;
         if (params.type() == MemoryType.SEMANTIC && semanticIndex != null
-                && !semanticIndex.isReadOnly()) {
+                && !semanticIndex.isReadOnly()
+                && !isParentChunk) {
             storeIndex = tierRouter.countFor(MemoryType.SEMANTIC) - 1;
             semanticIndex.add(params.id(), storeIndex, params.vector());
         }
@@ -178,7 +181,9 @@ final class PostIngestSync {
         wal.appendRemember(params.id(), encryptor.encryptPayload(params.quantized()));
 
         // Step 9a-splade: SPLADE sparse index (if provider available)
-        syncSpladeIndex(params.id(), params.text());
+        if (!isParentChunk) {
+            syncSpladeIndex(params.id(), params.text());
+        }
 
         return storeIndex;
     }

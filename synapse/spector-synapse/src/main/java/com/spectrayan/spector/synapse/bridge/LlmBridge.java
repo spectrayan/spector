@@ -23,6 +23,7 @@ import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
@@ -30,6 +31,7 @@ import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -48,21 +50,33 @@ public class LlmBridge {
 
     private final SynapseProperties props;
     private final ProviderRegistry providerRegistry;
+    private final com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService;
     private final ConcurrentHashMap<String, ChatModel> chatModels = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, StreamingChatModel> streamingModels = new ConcurrentHashMap<>();
 
     public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry) {
+        this(props, providerRegistry, null);
+    }
+
+    @Autowired
+    public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry,
+                     com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService) {
         this.props = props;
         this.providerRegistry = providerRegistry;
-        log.info("[LlmBridge] Configured with ProviderRegistry and Ollama fallback at {} with default model {}",
-                props.ollama().baseUrl(), props.ollama().model());
+        this.configResolutionService = configResolutionService;
+        log.info("[LlmBridge] Configured with ProviderRegistry, ConfigResolutionService, and Ollama fallback");
     }
 
     /**
      * Get the default synchronous chat model.
      */
     public ChatModel chatModel() {
-        return chatModel(props.ollama().model());
+        if (configResolutionService == null) {
+            return chatModel(props.ollama().model());
+        }
+        Map<String, Object> llmConfig = configResolutionService.resolve("default", "default", com.spectrayan.spector.synapse.config.model.ConfigCategory.LLM_PROVIDER);
+        String activeModel = (String) llmConfig.getOrDefault("model", props.ollama().model());
+        return chatModel(activeModel);
     }
 
     /**
@@ -82,15 +96,31 @@ public class LlmBridge {
                 }
             }
         }
-        String resolvedModel = (modelName == null || modelName.isBlank()) ? props.ollama().model() : modelName;
-        return chatModels.computeIfAbsent(resolvedModel, name -> {
+        if (configResolutionService == null) {
+            String resolvedModel = (modelName == null || modelName.isBlank()) ? props.ollama().model() : modelName;
+            return chatModels.computeIfAbsent(resolvedModel, name -> {
+                var model = OllamaChatModel.builder()
+                        .baseUrl(props.ollama().baseUrl())
+                        .modelName(name)
+                        .timeout(Duration.ofSeconds(120))
+                        .temperature(0.7)
+                        .build();
+                log.info("[LlmBridge] Initialized ChatModel for model: {}", name);
+                return model;
+            });
+        }
+        Map<String, Object> llmConfig = configResolutionService.resolve("default", "default", com.spectrayan.spector.synapse.config.model.ConfigCategory.LLM_PROVIDER);
+        double temp = ((Number) llmConfig.getOrDefault("temperature", 0.7)).doubleValue();
+        String resolvedModel = (modelName == null || modelName.isBlank()) ? (String) llmConfig.getOrDefault("model", props.ollama().model()) : modelName;
+        String cacheKey = resolvedModel + ":" + temp;
+        return chatModels.computeIfAbsent(cacheKey, name -> {
             var model = OllamaChatModel.builder()
-                    .baseUrl(props.ollama().baseUrl())
-                    .modelName(name)
+                    .baseUrl((String) llmConfig.getOrDefault("base-url", props.ollama().baseUrl()))
+                    .modelName(resolvedModel)
                     .timeout(Duration.ofSeconds(120))
-                    .temperature(0.7)
+                    .temperature(temp)
                     .build();
-            log.info("[LlmBridge] Initialized ChatModel for model: {}", name);
+            log.info("[LlmBridge] Initialized ChatModel for model: {} with temperature {}", resolvedModel, temp);
             return model;
         });
     }
@@ -124,8 +154,13 @@ public class LlmBridge {
         String cacheKey = spec.provider() + ":" + spec.model() + ":"
                 + spec.temperature() + ":" + spec.maxTokens();
         return chatModels.computeIfAbsent(cacheKey, key -> {
+            String baseUrl = props.ollama().baseUrl();
+            if (configResolutionService != null) {
+                Map<String, Object> llmConfig = configResolutionService.resolve("default", "default", com.spectrayan.spector.synapse.config.model.ConfigCategory.LLM_PROVIDER);
+                baseUrl = (String) llmConfig.getOrDefault("base-url", props.ollama().baseUrl());
+            }
             var model = OllamaChatModel.builder()
-                    .baseUrl(props.ollama().baseUrl())
+                    .baseUrl(baseUrl)
                     .modelName(spec.model())
                     .timeout(Duration.ofSeconds(120))
                     .temperature(spec.temperature())
@@ -140,22 +175,43 @@ public class LlmBridge {
      * Get the default streaming chat model.
      */
     public StreamingChatModel streamingModel() {
-        return streamingModel(props.ollama().model());
+        if (configResolutionService == null) {
+            return streamingModel(props.ollama().model());
+        }
+        Map<String, Object> llmConfig = configResolutionService.resolve("default", "default", com.spectrayan.spector.synapse.config.model.ConfigCategory.LLM_PROVIDER);
+        String activeModel = (String) llmConfig.getOrDefault("model", props.ollama().model());
+        return streamingModel(activeModel);
     }
 
     /**
      * Get the streaming chat model for a specific model name (lazy-initialized and cached).
      */
     public StreamingChatModel streamingModel(String modelName) {
-        String resolvedModel = (modelName == null || modelName.isBlank()) ? props.ollama().model() : modelName;
-        return streamingModels.computeIfAbsent(resolvedModel, name -> {
+        if (configResolutionService == null) {
+            String resolvedModel = (modelName == null || modelName.isBlank()) ? props.ollama().model() : modelName;
+            return streamingModels.computeIfAbsent(resolvedModel, name -> {
+                var model = OllamaStreamingChatModel.builder()
+                        .baseUrl(props.ollama().baseUrl())
+                        .modelName(name)
+                        .timeout(Duration.ofSeconds(120))
+                        .temperature(0.7)
+                        .build();
+                log.info("[LlmBridge] Initialized StreamingChatModel for model: {}", name);
+                return model;
+            });
+        }
+        Map<String, Object> llmConfig = configResolutionService.resolve("default", "default", com.spectrayan.spector.synapse.config.model.ConfigCategory.LLM_PROVIDER);
+        double temp = ((Number) llmConfig.getOrDefault("temperature", 0.7)).doubleValue();
+        String resolvedModel = (modelName == null || modelName.isBlank()) ? (String) llmConfig.getOrDefault("model", props.ollama().model()) : modelName;
+        String cacheKey = resolvedModel + ":" + temp;
+        return streamingModels.computeIfAbsent(cacheKey, name -> {
             var model = OllamaStreamingChatModel.builder()
-                    .baseUrl(props.ollama().baseUrl())
-                    .modelName(name)
+                    .baseUrl((String) llmConfig.getOrDefault("base-url", props.ollama().baseUrl()))
+                    .modelName(resolvedModel)
                     .timeout(Duration.ofSeconds(120))
-                    .temperature(0.7)
+                    .temperature(temp)
                     .build();
-            log.info("[LlmBridge] Initialized StreamingChatModel for model: {}", name);
+            log.info("[LlmBridge] Initialized StreamingChatModel for model: {} with temperature {}", resolvedModel, temp);
             return model;
         });
     }

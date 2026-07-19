@@ -123,6 +123,10 @@ public class MarkdownChunker implements TextChunker {
         // Phase 1 & 2: Parse blocks and group sections
         List<Block> blocks = parseBlocks(content, config.detectEmbeddedBlocks());
 
+        if (config.parentChildLinking()) {
+            return parentChildChunk(blocks, documentId, content, config);
+        }
+
         // Phase 3, 4, 5: Packing, Overlap, Metadata
         return packAndOverlap(blocks, documentId, content, config);
     }
@@ -411,6 +415,112 @@ public class MarkdownChunker implements TextChunker {
             case TABLE: return "table";
             case BLOCKQUOTE: return "blockquote";
             default: return "prose";
+        }
+    }
+
+    private List<Chunk> parentChildChunk(List<Block> blocks, String documentId, String fullContent, ChunkConfig config) {
+        List<Chunk> results = new ArrayList<>();
+        
+        List<Section> sections = new ArrayList<>();
+        Section currentSection = null;
+        for (Block b : blocks) {
+            if (b.content.toString().strip().isEmpty()) continue;
+            String hc = b.headingContext != null ? b.headingContext : "";
+            if (currentSection == null || !currentSection.headingContext.equals(hc)) {
+                currentSection = new Section(hc);
+                sections.add(currentSection);
+            }
+            currentSection.blocks.add(b);
+        }
+        
+        int parentIdx = 0;
+        int childIdx = 0;
+        
+        for (int sectionIndex = 0; sectionIndex < sections.size(); sectionIndex++) {
+            Section section = sections.get(sectionIndex);
+            
+            StringBuilder parentTextBuilder = new StringBuilder();
+            int startChar = -1;
+            int endChar = -1;
+            for (Block b : section.blocks) {
+                if (startChar == -1 || b.startChar < startChar) {
+                    startChar = b.startChar;
+                }
+                if (endChar == -1 || b.endChar > endChar) {
+                    endChar = b.endChar;
+                }
+                if (parentTextBuilder.length() > 0) {
+                    parentTextBuilder.append("\n");
+                }
+                parentTextBuilder.append(b.content);
+            }
+            
+            String parentText = parentTextBuilder.toString();
+            if (parentText.isBlank()) continue;
+            
+            String parentChunkId = documentId + "::parent-" + parentIdx++;
+            Map<String, String> parentMetadata = new HashMap<>();
+            parentMetadata.put("chunk_role", "parent");
+            if (!section.headingContext.isEmpty()) {
+                parentMetadata.put("heading_context", section.headingContext);
+            }
+            
+            results.add(new Chunk(documentId, parentChunkId, results.size(), parentText, startChar, endChar, parentMetadata));
+            
+            for (Block b : section.blocks) {
+                if (b.type == BlockType.HEADING) {
+                    continue;
+                }
+                
+                String blockText = b.content.toString();
+                if (blockText.isBlank()) continue;
+                
+                if (blockText.length() > config.maxChunkSize()) {
+                    List<Block> splitSubblocks = splitBlock(b, config.maxChunkSize());
+                    for (Block sb : splitSubblocks) {
+                        String sbText = sb.content.toString();
+                        if (sbText.isBlank()) continue;
+                        
+                        Map<String, String> childMetadata = new HashMap<>();
+                        childMetadata.put("chunk_role", "child");
+                        childMetadata.put("parent_chunk_id", parentChunkId);
+                        childMetadata.put("block_type", getBlockTypeLabel(sb.type, sb.language));
+                        if (sb.language != null && !sb.language.isBlank()) {
+                            childMetadata.put("language", sb.language);
+                        }
+                        if (sb.headingContext != null && !sb.headingContext.isEmpty()) {
+                            childMetadata.put("heading_context", sb.headingContext);
+                        }
+                        
+                        String childChunkId = documentId + "::child-" + childIdx++;
+                        results.add(new Chunk(documentId, childChunkId, results.size(), sbText, sb.startChar, sb.endChar, childMetadata));
+                    }
+                } else {
+                    Map<String, String> childMetadata = new HashMap<>();
+                    childMetadata.put("chunk_role", "child");
+                    childMetadata.put("parent_chunk_id", parentChunkId);
+                    childMetadata.put("block_type", getBlockTypeLabel(b.type, b.language));
+                    if (b.language != null && !b.language.isBlank()) {
+                        childMetadata.put("language", b.language);
+                    }
+                    if (b.headingContext != null && !b.headingContext.isEmpty()) {
+                        childMetadata.put("heading_context", b.headingContext);
+                    }
+                    
+                    String childChunkId = documentId + "::child-" + childIdx++;
+                    results.add(new Chunk(documentId, childChunkId, results.size(), blockText, b.startChar, b.endChar, childMetadata));
+                }
+            }
+        }
+        
+        return results;
+    }
+    
+    private static class Section {
+        final String headingContext;
+        final List<Block> blocks = new ArrayList<>();
+        Section(String headingContext) {
+            this.headingContext = headingContext;
         }
     }
 }

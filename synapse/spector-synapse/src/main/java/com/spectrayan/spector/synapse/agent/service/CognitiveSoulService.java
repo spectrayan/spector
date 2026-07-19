@@ -19,6 +19,9 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
 import com.spectrayan.spector.synapse.memory.MemoryService;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider;
+import com.spectrayan.spector.synapse.config.model.ConfigCategory;
+import com.spectrayan.spector.synapse.config.model.ScopedConfig;
+import com.spectrayan.spector.synapse.config.repository.ConfigRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -64,51 +67,62 @@ public class CognitiveSoulService {
     private final MemoryService memoryService;
     private final ObjectMapper mapper;
     private final SynapseSalienceProvider salienceProvider;
+    private final ConfigRepository configRepository;
 
     public CognitiveSoulService(MemoryService memoryService, ObjectMapper mapper,
-                                SynapseSalienceProvider salienceProvider) {
+                                SynapseSalienceProvider salienceProvider,
+                                ConfigRepository configRepository) {
         this.memoryService = memoryService;
         this.mapper = mapper;
         this.salienceProvider = salienceProvider;
+        this.configRepository = configRepository;
     }
 
     /** Loads an agent soul by ID (or the default if ID is null). */
+    @SuppressWarnings("unchecked")
     public Optional<AgentSoul> loadAgentSoul(String id) {
-        String query = id != null ? "agent soul id:" + id : "default agent soul";
-        var results = memoryService.recall(new RecallRequest(query, 5, null));
-
-        return results.stream()
-                .filter(r -> r.tags() != null && r.tags().contains(TAG_AGENT_SOUL))
-                .map(r -> fromJson(r.text(), AgentSoul.class))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .findFirst();
+        String scope = id != null ? "agent:" + id : "agent:default";
+        return configRepository.get(scope, ConfigCategory.SOUL)
+                .map(sc -> {
+                    try {
+                        return mapper.convertValue(sc.values(), AgentSoul.class);
+                    } catch (Exception e) {
+                        log.warn("Failed to convert agent soul configuration: {}", e.getMessage());
+                        return null;
+                    }
+                });
     }
 
-    /** Lists all agent souls stored in cognitive memory. */
+    /** Lists all agent souls stored in H2 database. */
     public List<AgentSoul> listAllAgents() {
-        var results = memoryService.recall(new RecallRequest("agent soul", 100, null));
-        return results.stream()
-                .filter(r -> r.tags() != null && r.tags().contains(TAG_AGENT_SOUL))
-                .map(r -> fromJson(r.text(), AgentSoul.class))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+        return configRepository.findByCategory(ConfigCategory.SOUL).stream()
+                .filter(sc -> sc.scope().startsWith("agent:"))
+                .map(sc -> {
+                    try {
+                        return mapper.convertValue(sc.values(), AgentSoul.class);
+                    } catch (Exception e) {
+                        log.warn("Failed to convert agent soul configuration: {}", e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 
-    /** Saves an agent soul to cognitive memory. */
+    /** Saves an agent soul to the database. */
+    @SuppressWarnings("unchecked")
     public void saveAgentSoul(AgentSoul soul) {
-        // First, "forget" old versions to keep memory clean
-        forgetOldSouls(TAG_AGENT_SOUL);
-
-        String json = toJson(soul);
-        memoryService.store(new StoreRequest(
-                json,
-                List.of(TAG_AGENT_SOUL, "soul:" + soul.id()),
-                null,
-                Map.of()
-        ));
-        log.info("[CognitiveSoul] Saved agent soul '{}'", soul.name());
+        String scope = "agent:" + soul.id();
+        Map<String, Object> values = mapper.convertValue(soul, Map.class);
+        ScopedConfig sc = new ScopedConfig(
+                scope,
+                ConfigCategory.SOUL,
+                values,
+                java.time.Instant.now(),
+                "default"
+        );
+        configRepository.save(sc);
+        log.info("[CognitiveSoul] Saved agent soul '{}' in database", soul.name());
     }
 
     /**
@@ -119,14 +133,15 @@ public class CognitiveSoulService {
      * personality and identity.</p>
      */
     public Optional<PersonaContext> loadUserSoul() {
-        var results = memoryService.recall(new RecallRequest("user persona context", 5, null));
-
-        Optional<PersonaContext> persona = results.stream()
-                .filter(r -> r.tags() != null && r.tags().contains(TAG_USER_SOUL))
-                .map(r -> fromJson(r.text(), PersonaContext.class))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .findFirst();
+        Optional<PersonaContext> persona = configRepository.get("user:default:default", ConfigCategory.SOUL)
+                .map(sc -> {
+                    try {
+                        return mapper.convertValue(sc.values(), PersonaContext.class);
+                    } catch (Exception e) {
+                        log.warn("Failed to convert user soul configuration: {}", e.getMessage());
+                        return null;
+                    }
+                });
 
         // Propagate to salience provider
         persona.ifPresent(p -> {
@@ -144,20 +159,27 @@ public class CognitiveSoulService {
      * {@link SynapseSalienceProvider} so all subsequent memory operations
      * use the updated user salience profile.</p>
      */
+    @SuppressWarnings("unchecked")
     public void saveUserSoul(PersonaContext persona) {
-        forgetOldSouls(TAG_USER_SOUL);
+        if (persona == null) {
+            configRepository.delete("user:default:default", ConfigCategory.SOUL);
+            salienceProvider.updateUserPersona(null);
+            log.info("[CognitiveSoul] Cleared user persona context");
+            return;
+        }
 
-        String json = toJson(persona);
-        memoryService.store(new StoreRequest(
-                json,
-                List.of(TAG_USER_SOUL),
-                null,
-                Map.of()
-        ));
+        Map<String, Object> values = mapper.convertValue(persona, Map.class);
+        ScopedConfig sc = new ScopedConfig(
+                "user:default:default",
+                ConfigCategory.SOUL,
+                values,
+                java.time.Instant.now(),
+                "default"
+        );
+        configRepository.save(sc);
 
         // Propagate to salience provider
         salienceProvider.updateUserPersona(persona);
-
         log.info("[CognitiveSoul] Saved user persona context — salience profile updated");
     }
 

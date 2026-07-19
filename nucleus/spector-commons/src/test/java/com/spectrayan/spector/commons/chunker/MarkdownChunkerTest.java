@@ -398,4 +398,51 @@ class MarkdownChunkerTest {
             assertEquals("markdown", chunker.get().name());
         }
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // PARENT-CHILD CHUNKING
+    // ══════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("Parent-Child chunking")
+    class ParentChildChunking {
+
+        @Test
+        @DisplayName("Markdown section is split into parent and child chunks")
+        void parentChildSplitting() {
+            String content = """
+                    # Introduction
+                    This is paragraph one of the introduction section.
+                    This is paragraph two.
+                    
+                    ## Details
+                    Here are some detail blocks.
+                    - Detail list item 1
+                    - Detail list item 2
+                    """;
+            
+            ChunkConfig config = new ChunkConfig(800, 0, "text/markdown", null, true, true, false, true);
+            List<Chunk> chunks = chunker.chunk("doc-pc", content, config);
+
+            assertFalse(chunks.isEmpty(), "Should produce chunks");
+            
+            boolean hasParent = false;
+            boolean hasChild = false;
+
+            for (Chunk chunk : chunks) {
+                String role = chunk.metadata().get("chunk_role");
+                if ("parent".equals(role)) {
+                    hasParent = true;
+                    assertTrue(chunk.text().contains("Introduction") || chunk.text().contains("Details"),
+                            "Parent text should contain heading names");
+                } else if ("child".equals(role)) {
+                    hasChild = true;
+                    assertNotNull(chunk.metadata().get("parent_chunk_id"), "Child must point to a parent ID");
+                }
+            }
+
+            assertTrue(hasParent, "Should produce parent chunks");
+            assertTrue(hasChild, "Should produce child chunks");
+        }
+    }
 }
