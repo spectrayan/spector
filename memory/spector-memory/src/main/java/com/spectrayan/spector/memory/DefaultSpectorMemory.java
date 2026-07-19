@@ -218,7 +218,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     // -€-€ Chunking for remember() -€-€
     private final com.spectrayan.spector.commons.chunker.TextChunker chunker;
-    private final com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig;
+    private volatile com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig;
     private final ParallelEmbeddingPipeline parallelPipeline;
     private final EmbedConfig embedConfig;
 
@@ -457,10 +457,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             return;
         }
 
-        // Parallel-embed all chunks (batch size from config)
-        List<String> chunkTexts = chunks.stream().map(com.spectrayan.spector.commons.chunker.Chunk::text).toList();
-        List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(chunkTexts, embedConfig);
-
         // Provenance tags from the caller (e.g., "file-ingest", filename)  --  shared across chunks
         String parentTag = sanitizeTag(id);
         String[] provenanceTags;
@@ -477,12 +473,44 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Use the configured tag extractor (LLM when available, content-based fallback).
         var chunkTagExtractor = cognitiveTarget.tagExtractor();
 
+        // Split chunks into parent and child chunks
+        List<com.spectrayan.spector.commons.chunker.Chunk> parentChunks = new ArrayList<>();
+        List<com.spectrayan.spector.commons.chunker.Chunk> childChunks = new ArrayList<>();
+        for (var chunk : chunks) {
+            if ("parent".equals(chunk.metadata().get("chunk_role"))) {
+                parentChunks.add(chunk);
+            } else {
+                childChunks.add(chunk);
+            }
+        }
+
+        // Parallel-embed only child chunks
+        List<String> childTexts = childChunks.stream().map(com.spectrayan.spector.commons.chunker.Chunk::text).toList();
+        List<PipelineEmbeddingResult> childEmbeddings = childTexts.isEmpty() ? List.of() : parallelPipeline.embed(childTexts, embedConfig);
+
         int stored = 0;
         List<String> failures = new ArrayList<>();
 
-        for (int i = 0; i < chunks.size(); i++) {
-            var chunk = chunks.get(i);
-            var embedding = embeddings.get(i);
+        // 1. Ingest parent chunks (bypass embedding via zero vector)
+        float[] dummyVector = new float[this.dimensions];
+        for (var chunk : parentChunks) {
+            IngestionContext parentContext = IngestionContext.builder()
+                    .metadata(chunk.metadata())
+                    .build();
+            try {
+                cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
+                        dummyVector, type, provenanceTags, source, parentContext);
+                stored++;
+            } catch (RuntimeException e) {
+                failures.add(chunk.chunkId());
+                log.warn("[Remember] Ingestion failed for parent chunk '{}': {}", chunk.chunkId(), e.getMessage());
+            }
+        }
+
+        // 2. Ingest child chunks
+        for (int i = 0; i < childChunks.size(); i++) {
+            var chunk = childChunks.get(i);
+            var embedding = childEmbeddings.get(i);
 
             if (!embedding.success()) {
                 failures.add(chunk.chunkId());
@@ -499,14 +527,28 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             for (String ct : contentTags) mergedSet.add(ct);
             String[] chunkTags = mergedSet.toArray(String[]::new);
 
+            // Construct child IngestionContext merging metadata
+            IngestionContext childContext;
+            if (context != null) {
+                var mergedMeta = new java.util.HashMap<>(context.metadata());
+                mergedMeta.putAll(chunk.metadata());
+                childContext = IngestionContext.builder()
+                        .hints(context.hints())
+                        .entities(context.entities())
+                        .hebbianEdges(context.hebbianEdges())
+                        .temporalLinks(context.temporalLinks())
+                        .metadata(mergedMeta)
+                        .build();
+            } else {
+                childContext = IngestionContext.builder()
+                        .hints(hints)
+                        .metadata(chunk.metadata())
+                        .build();
+            }
+
             try {
-                if (context != null) {
-                    cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
-                            embedding.embedding(), type, chunkTags, source, context);
-                } else {
-                    cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
-                            embedding.embedding(), type, chunkTags, source, hints);
-                }
+                cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
+                        embedding.embedding(), type, chunkTags, source, childContext);
                 stored++;
             } catch (RuntimeException e) {
                 failures.add(chunk.chunkId());
@@ -656,6 +698,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 wal,
                 this::inspect
         );
+    }
+
+    @Override
+    public void updateChunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig config) {
+        if (config != null) {
+            this.chunkConfig = config;
+            log.info("Updated chunking configuration dynamically: maxChunkSize={}, overlap={}, parentChildLinking={}",
+                    config.maxChunkSize(), config.overlap(), config.parentChildLinking());
+        }
     }
 
 

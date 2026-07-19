@@ -50,12 +50,19 @@ public record ChunkConfig(
         String sourceMimeType,
         boolean preserveBlocks,
         boolean detectEmbeddedBlocks,
-        boolean stripHeaders
+        boolean stripHeaders,
+        boolean parentChildLinking
 ) {
+
+    public ChunkConfig(int maxChunkSize, int overlap, String documentFormat,
+                       String sourceMimeType, boolean preserveBlocks,
+                       boolean detectEmbeddedBlocks, boolean stripHeaders) {
+        this(maxChunkSize, overlap, documentFormat, sourceMimeType, preserveBlocks, detectEmbeddedBlocks, stripHeaders, false);
+    }
 
     /** Default configuration: 800 chars, 100 overlap, plain text, all detection enabled. */
     public static final ChunkConfig DEFAULT =
-            new ChunkConfig(800, 100, "text/plain", null, true, true, false);
+            new ChunkConfig(800, 100, "text/plain", null, true, true, false, false);
 
     /**
      * Creates a markdown-optimized configuration.
@@ -65,7 +72,18 @@ public record ChunkConfig(
      * @return markdown chunk config
      */
     public static ChunkConfig markdown(int maxChunkSize, int overlap) {
-        return new ChunkConfig(maxChunkSize, overlap, "text/markdown", null, true, true, false);
+        return new ChunkConfig(maxChunkSize, overlap, "text/markdown", null, true, true, false, false);
+    }
+
+    /**
+     * Creates a markdown-optimized configuration with parent-child linking enabled.
+     *
+     * @param maxChunkSize maximum characters per chunk
+     * @param overlap      overlap characters between consecutive chunks
+     * @return markdown parent-child chunk config
+     */
+    public static ChunkConfig markdownParentChild(int maxChunkSize, int overlap) {
+        return new ChunkConfig(maxChunkSize, overlap, "text/markdown", null, true, true, false, true);
     }
 
     /**
@@ -76,7 +94,7 @@ public record ChunkConfig(
      * @return plain text chunk config
      */
     public static ChunkConfig plainText(int maxChunkSize, int overlap) {
-        return new ChunkConfig(maxChunkSize, overlap, "text/plain", null, true, false, false);
+        return new ChunkConfig(maxChunkSize, overlap, "text/plain", null, true, false, false, false);
     }
 
     /**
@@ -93,7 +111,7 @@ public record ChunkConfig(
     public static ChunkConfig forExtractedDocument(int maxChunkSize, int overlap,
                                                     String sourceMimeType) {
         return new ChunkConfig(maxChunkSize, overlap, "text/plain", sourceMimeType,
-                true, true, false);
+                true, true, false, false);
     }
 
     /**

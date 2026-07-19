@@ -237,6 +237,9 @@ public interface SpectorMemory extends AutoCloseable {
     /** Triggers a manual memory consolidation process. */
     void consolidate();
 
+    /** Updates the chunking configuration at runtime. */
+    default void updateChunkConfig(com.spectrayan.spector.commons.chunker.ChunkConfig config) {}
+
 
     // ══════════════════════════════════════════════════════════════
     // IMPORTANCE ESTIMATION — pre-ingestion computation
