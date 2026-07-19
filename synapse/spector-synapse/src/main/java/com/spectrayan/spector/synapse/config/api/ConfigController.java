@@ -188,6 +188,7 @@ public class ConfigController {
                     Map.of("key", "parent-child-linking", "defaultValue", false, "type", "boolean", "description", "Enable parent-child chunk mapping for documents")
             );
             case RAG -> List.of(); // RAG is no longer active in cognitive memory
+            case SALIENCE, SOUL -> List.of();
         };
 
         return Map.of(

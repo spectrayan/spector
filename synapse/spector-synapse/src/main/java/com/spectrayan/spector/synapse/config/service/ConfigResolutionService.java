@@ -139,6 +139,7 @@ public class ConfigResolutionService {
             case LLM_PROVIDER -> llmDefaults();
             case INGESTION -> ingestionDefaults();
             case RAG -> ragDefaults();
+            case SALIENCE, SOUL -> Map.of();
         };
     }
 

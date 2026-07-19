@@ -18,7 +18,9 @@ package com.spectrayan.spector.synapse.config.model;
 public enum ConfigCategory {
     LLM_PROVIDER,
     INGESTION,
-    RAG;
+    RAG,
+    SALIENCE,
+    SOUL;
 
     public String key() {
         return name().toLowerCase();

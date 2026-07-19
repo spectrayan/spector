@@ -84,10 +84,12 @@ class ConfigAndObservabilityTest {
     void getCategories_returns200() throws Exception {
         mvc.perform(get("/api/v1/config/categories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.categories", hasSize(3)))
+                .andExpect(jsonPath("$.categories", hasSize(5)))
                 .andExpect(jsonPath("$.categories[0].key", is("llm_provider")))
                 .andExpect(jsonPath("$.categories[1].key", is("ingestion")))
-                .andExpect(jsonPath("$.categories[2].key", is("rag")));
+                .andExpect(jsonPath("$.categories[2].key", is("rag")))
+                .andExpect(jsonPath("$.categories[3].key", is("salience")))
+                .andExpect(jsonPath("$.categories[4].key", is("soul")));
     }
 
     @Test
@@ -165,6 +167,10 @@ class ConfigAndObservabilityTest {
     @Test
     @DisplayName("GET and PUT /api/v1/salience/user/default — handles unified profile endpoints")
     void getAndPutUserSalienceProfile_success() throws Exception {
+        // Reset state first to ensure clean test context
+        mvc.perform(delete("/api/v1/salience/user/default"))
+                .andExpect(status().isOk());
+
         // GET profile
         mvc.perform(get("/api/v1/salience/user/default"))
                 .andExpect(status().isOk())

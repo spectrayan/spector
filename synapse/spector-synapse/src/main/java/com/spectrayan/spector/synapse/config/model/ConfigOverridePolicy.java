@@ -40,7 +40,8 @@ public record ConfigOverridePolicy(
     public static final ConfigOverridePolicy DEFAULT = new ConfigOverridePolicy(
             EnumSet.allOf(ConfigCategory.class),
             EnumSet.of(ConfigCategory.LLM_PROVIDER,
-                    ConfigCategory.INGESTION, ConfigCategory.RAG)
+                    ConfigCategory.INGESTION, ConfigCategory.RAG,
+                    ConfigCategory.SALIENCE, ConfigCategory.SOUL)
     );
 
     /** Locked — nobody overrides anything. */

@@ -17,6 +17,10 @@ import com.spectrayan.spector.provider.ProviderConfig;
 import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
+import com.spectrayan.spector.synapse.config.SynapseSalienceProvider;
+import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.model.PersonaContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +28,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -38,13 +43,20 @@ public class ConfigApplicator {
 
     private final ProviderRegistry providerRegistry;
     private final ObjectProvider<SpectorMemory> spectorMemoryProvider;
+    private final ObjectProvider<SynapseSalienceProvider> salienceProvider;
+    private final ObjectProvider<ObjectMapper> objectMapperProvider;
 
     private final ConcurrentLinkedQueue<PendingChange> pendingChanges =
             new ConcurrentLinkedQueue<>();
 
-    public ConfigApplicator(ProviderRegistry providerRegistry, ObjectProvider<SpectorMemory> spectorMemoryProvider) {
+    public ConfigApplicator(ProviderRegistry providerRegistry,
+                            ObjectProvider<SpectorMemory> spectorMemoryProvider,
+                            ObjectProvider<SynapseSalienceProvider> salienceProvider,
+                            ObjectProvider<ObjectMapper> objectMapperProvider) {
         this.providerRegistry = providerRegistry;
         this.spectorMemoryProvider = spectorMemoryProvider;
+        this.salienceProvider = salienceProvider;
+        this.objectMapperProvider = objectMapperProvider;
         log.info("ConfigApplicator initialized");
     }
 
@@ -82,6 +94,8 @@ public class ConfigApplicator {
             case RAG -> log.info("[ConfigApplicator] RAG config updated: top-k={}, threshold={}",
                     intVal(change.values(), "top-k", 5),
                     doubleVal(change.values(), "similarity-threshold", 0.7));
+            case SALIENCE -> applySalience(change);
+            case SOUL -> applySoul(change);
         }
     }
 
@@ -170,6 +184,86 @@ public class ConfigApplicator {
             }
         });
         return props;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applySalience(PendingChange change) {
+        SynapseSalienceProvider provider = salienceProvider.getIfAvailable();
+        if (provider == null) {
+            log.warn("[ConfigApplicator] SynapseSalienceProvider not available, skipping salience application");
+            return;
+        }
+
+        Map<String, Object> values = change.values();
+        if (values == null || values.isEmpty()) return;
+
+        // 1. Interests & Disinterests
+        List<SynapseSalienceProvider.InterestEntry> interestEntries = parseInterests((List<Map<String, Object>>) values.get("interestsList"));
+        List<SynapseSalienceProvider.InterestEntry> disinterestEntries = parseInterests((List<Map<String, Object>>) values.get("disinterestsList"));
+        provider.updateInterests(interestEntries, disinterestEntries);
+
+        // 2. Weights, alpha, beta
+        Map<String, Object> icnuMap = (Map<String, Object>) values.get("icnuWeights");
+        IcnuWeights icnu = null;
+        if (icnuMap != null) {
+            float interest = floatVal(icnuMap, "interest", 0.25f);
+            float challenge = floatVal(icnuMap, "challenge", 0.25f);
+            float novelty = floatVal(icnuMap, "novelty", 0.25f);
+            float urgency = floatVal(icnuMap, "urgency", 0.25f);
+            icnu = new IcnuWeights(interest, challenge, novelty, urgency);
+        }
+        Float alpha = values.get("alpha") != null ? ((Number) values.get("alpha")).floatValue() : null;
+        Float beta = values.get("beta") != null ? ((Number) values.get("beta")).floatValue() : null;
+
+        provider.updateScoringWeights(icnu, alpha, beta);
+        log.info("[ConfigApplicator] Applied Salience config: alpha={}, beta={}", alpha, beta);
+    }
+
+    private void applySoul(PendingChange change) {
+        SynapseSalienceProvider provider = salienceProvider.getIfAvailable();
+        ObjectMapper mapper = objectMapperProvider.getIfAvailable();
+        if (provider == null || mapper == null) {
+            log.warn("[ConfigApplicator] SynapseSalienceProvider or ObjectMapper not available, skipping user soul application");
+            return;
+        }
+
+        Map<String, Object> values = change.values();
+        if (values == null || values.isEmpty()) return;
+
+        // User soul is resolved when change.userId() represents a user (e.g., "default")
+        if (change.userId() != null && !change.userId().isBlank()) {
+            try {
+                PersonaContext persona = mapper.convertValue(values, PersonaContext.class);
+                provider.updateUserPersona(persona);
+                log.info("[ConfigApplicator] Applied User Soul (PersonaContext) to salience provider");
+            } catch (Exception e) {
+                log.warn("[ConfigApplicator] Failed to parse User Soul (PersonaContext): {}", e.getMessage());
+            }
+        }
+    }
+
+    private List<SynapseSalienceProvider.InterestEntry> parseInterests(List<Map<String, Object>> list) {
+        if (list == null) return List.of();
+        List<SynapseSalienceProvider.InterestEntry> result = new java.util.ArrayList<>();
+        for (var map : list) {
+            String topic = (String) map.get("topic");
+            String lvlStr = (String) map.get("level");
+            if (topic != null && lvlStr != null) {
+                try {
+                    com.spectrayan.spector.memory.model.InterestLevel lvl = 
+                            com.spectrayan.spector.memory.model.InterestLevel.valueOf(lvlStr.toUpperCase());
+                    result.add(new SynapseSalienceProvider.InterestEntry(topic, lvl));
+                } catch (Exception ignored) {}
+            }
+        }
+        return result;
+    }
+
+    private static float floatVal(Map<String, Object> map, String key, float def) {
+        Object v = map.get(key);
+        if (v instanceof Number n) return n.floatValue();
+        if (v != null) try { return Float.parseFloat(v.toString()); } catch (NumberFormatException e) {}
+        return def;
     }
 
     private record PendingChange(
