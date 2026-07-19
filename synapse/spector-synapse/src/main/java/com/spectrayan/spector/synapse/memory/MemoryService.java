@@ -151,6 +151,29 @@ public class MemoryService {
         return AcceptedResponse.forRemember(taskId, effectiveId);
     }
 
+    /**
+     * Manually triggers memory consolidation in the background.
+     */
+    public void consolidate() {
+        if (!mao.isAvailable()) {
+            log.warn("[MemoryService] Consolidate called but engine is not available");
+            return;
+        }
+        virtualThreadExecutor.submit(() -> {
+            try {
+                log.info("[MemoryService] Starting manual memory consolidation...");
+                eventPublisher.broadcast("consolidation.start", Map.of("status", "in_progress"));
+                mao.consolidate();
+                eventPublisher.broadcast("consolidation.done", Map.of("status", "success"));
+                log.info("[MemoryService] Manual memory consolidation complete.");
+            } catch (Exception e) {
+                log.error("[MemoryService] Manual memory consolidation failed", e);
+                eventPublisher.broadcast("consolidation.error", Map.of("status", "error", "message", e.getMessage()));
+            }
+        });
+    }
+
+
     // ══════════════════════════════════════════════════════════════
     // RECALL / SEARCH
     // ══════════════════════════════════════════════════════════════

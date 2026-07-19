@@ -234,6 +234,10 @@ public interface SpectorMemory extends AutoCloseable {
     /** Triggers a synchronous reflection (sleep consolidation) cycle. */
     ReflectReport reflect();
 
+    /** Triggers a manual memory consolidation process. */
+    void consolidate();
+
+
     // ══════════════════════════════════════════════════════════════
     // IMPORTANCE ESTIMATION — pre-ingestion computation
     // ══════════════════════════════════════════════════════════════

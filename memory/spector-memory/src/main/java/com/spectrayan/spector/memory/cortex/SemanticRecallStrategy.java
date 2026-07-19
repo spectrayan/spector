@@ -146,6 +146,12 @@ public final class SemanticRecallStrategy {
             // Phase 1: Tombstone check (always applied)
             if (SynapticHeaderConstants.isTombstoned(header.flags())) continue;
 
+            if (!options.includeContradictions()) {
+                byte cFlags = layout.readConsolidationFlags(headerSlab, headerOffset);
+                if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
+            }
+
+
             // Phase 1b: Temporal gating (absolute timestamp bounds)
             long timestamp = header.timestampMs();
             if (minTimestamp != null && timestamp < minTimestamp) continue;

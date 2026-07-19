@@ -143,7 +143,8 @@ public record HeaderLayout64() implements HeaderLayout {
         seg.set(LAYOUT_SYNAPTIC_TAGS, off + OFFSET_SYNAPTIC_TAGS,  header.synapticTags());
         // Extended fields
         seg.set(LAYOUT_CENTROID_ID,   off + OFFSET_CENTROID_ID,    header.centroidId());
-        seg.set(ValueLayout.JAVA_SHORT, off + 34L, (short) 0);    // _pad0
+        seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_CONSOLIDATION_FLAGS, (byte) 0);
+        seg.set(ValueLayout.JAVA_BYTE, off + 35L, (byte) 0); // remaining alignment padding byte
         seg.set(LAYOUT_STORAGE_STRENGTH, off + OFFSET_STORAGE_STRENGTH, header.storageStrength());
         // Zero auto-LTP and reserved fields (ensure clean state)
         seg.set(LAYOUT_SPECTOR_RECALL_COUNT, off + OFFSET_SPECTOR_RECALL_COUNT, 0);
@@ -189,6 +190,19 @@ public record HeaderLayout64() implements HeaderLayout {
     @Override public void markUnresolved(MemorySegment seg, long off) {
         byte flags = readFlags(seg, off);
         seg.set(LAYOUT_FLAGS, off + OFFSET_FLAGS, (byte) (flags & ~FLAG_RESOLVED));
+    }
+
+    @Override public byte readConsolidationFlags(MemorySegment seg, long off) {
+        return seg.get(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_CONSOLIDATION_FLAGS);
+    }
+
+    @Override public void writeConsolidationFlags(MemorySegment seg, long off, byte consolidationFlags) {
+        seg.set(LAYOUT_CONSOLIDATION_FLAGS, off + OFFSET_CONSOLIDATION_FLAGS, consolidationFlags);
+    }
+
+    @Override public void markContradicted(MemorySegment seg, long off) {
+        byte cFlags = readConsolidationFlags(seg, off);
+        writeConsolidationFlags(seg, off, (byte) (cFlags | FLAG_CONTRADICTED));
     }
 
     @Override public int incrementAgentRecallCount(MemorySegment seg, long off) {

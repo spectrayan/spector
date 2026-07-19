@@ -168,15 +168,13 @@ Each workflow matches a specific slash command or task trigger. Use them sequent
 
 ## 6. Spector Enterprise
 
-The **Cortex dashboard** and full-stack product features have been extracted to a separate repository: [spector-enterprise](https://github.com/spectrayan/spector-enterprise).
+The full-stack enterprise product features have been extracted to a separate repository: [spector-enterprise](https://github.com/spectrayan/spector-enterprise).
 
-**This repository (spector)** is the **core embeddable engine** — headless, no UI, no management APIs. Think of it as "Elasticsearch without Kibana."
+**This repository (spector)** is the **core engine** — which includes the **Cortex dashboard** (Angular 22 neural visualization and chat UI) located in `cortex/spector-cortex/` as a core OSS module.
 
 **spector-enterprise** adds:
-*   Data connectors (Apache Camel) — template-driven ingestion from REST, file, Kafka, S3, etc.
-*   LLM provider orchestration — OpenAI, Anthropic, Google via ServiceLoader
-*   Management APIs — versioned REST endpoints for configuration and monitoring
-*   Cortex Dashboard — Angular 22 neural visualization (migrated from `spector-cortex/`)
-*   Single-port architecture — everything on port 7070 via Armeria
+*   Enterprise data connectors (Apache Camel) — template-driven ingestion from Kafka, S3, Salesforce, Confluence, etc.
+*   Multi-tenant namespace manager & access control
+*   Corporate management APIs for clustering, monitoring, and scaling
 
 Enterprise **depends on** `spector-synapse` and always starts the core engine.

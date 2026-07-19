@@ -138,6 +138,18 @@ public class MemoryController {
         return ResponseEntity.accepted().body(memoryService.remember(request));
     }
 
+    /**
+     * Trigger manual memory consolidation.
+     *
+     * <p>{@code POST /api/v1/memory/consolidate}</p>
+     */
+    @PostMapping("/consolidate")
+    public ResponseEntity<Void> consolidate() {
+        memoryService.consolidate();
+        return ResponseEntity.ok().build();
+    }
+
+
     // ══════════════════════════════════════════════════════════════
     // RECALL / SEARCH
     // ══════════════════════════════════════════════════════════════

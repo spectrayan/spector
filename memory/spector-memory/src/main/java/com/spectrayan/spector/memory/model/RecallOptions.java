@@ -107,6 +107,8 @@ public record RecallOptions(
         int rerankerDepth,
         // -€-€ Auto-Profile Detection -€-€
         boolean autoProfile,
+        // -€-€ Consolidation & Contradictions -€-€
+        boolean includeContradictions,
         // -€-€ Resolved Profile (for header stamping) -€-€
         CognitiveProfile resolvedProfile
 ) {
@@ -220,6 +222,7 @@ public record RecallOptions(
 
         // -€-€ Auto-Profile Detection -€-€
         private boolean autoProfile = false;         // default: off (use explicit profile)
+        private boolean includeContradictions = false; // default: off (exclude contradicted records)
         private CognitiveProfile resolvedProfile = null; // set when profile() is called
 
         // -€-€ Neurodivergent: Hyperfocus -€-€
@@ -585,6 +588,15 @@ public record RecallOptions(
         }
 
         /**
+         * Expose contradicted memories (default: false).
+         * Set to true to include memories marked as contradicted in the consolidation cycle.
+         */
+        public Builder includeContradictions(boolean include) {
+            this.includeContradictions = include;
+            return this;
+        }
+
+        /**
          * Sets the scoring mode (default: {@link ScoringMode#COGNITIVE}).
          *
          * <p>Use {@link ScoringMode#SIMILARITY} for pure vector retrieval
@@ -688,6 +700,7 @@ public record RecallOptions(
                     replayTimestamp, maxReplayEvents,
                     enableReranker, rerankerDepth,
                     autoProfile,
+                    includeContradictions,
                     resolvedProfile);
             return options;
         }

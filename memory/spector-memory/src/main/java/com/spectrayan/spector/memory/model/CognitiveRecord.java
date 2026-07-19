@@ -90,6 +90,7 @@ public record CognitiveRecord(
         byte arousal,
         float storageStrength,
         byte flags,
+        byte consolidationFlags,
 
         // ── Vector ──
         byte[] quantizedVector,
@@ -106,6 +107,11 @@ public record CognitiveRecord(
     // ══════════════════════════════════════════════════════════════
     // FLAG INTROSPECTION HELPERS
     // ══════════════════════════════════════════════════════════════
+
+    /** Returns true if this memory has a conflicting near-duplicate in the tier. */
+    public boolean isContradicted() {
+        return SynapticHeaderConstants.isContradicted(consolidationFlags);
+    }
 
     /** Returns true if this memory has been logically deleted. */
     public boolean isTombstoned() {
@@ -192,6 +198,7 @@ public record CognitiveRecord(
         node.put("consolidated", isConsolidated());
         node.put("pinned", isPinned());
         node.put("resolved", isResolved());
+        node.put("contradicted", isContradicted());
         node.put("sourceModality", sourceModality().name());
         node.put("multimodal", isMultimodal());
         node.put("partitionIndex", partitionIndex);

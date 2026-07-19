@@ -278,6 +278,12 @@ public class MeteredSpectorMemory implements SpectorMemory {
         return report;
     }
 
+    @Override
+    public void consolidate() {
+        delegate.consolidate();
+    }
+
+
     /** Captures a memory snapshot for telemetry. */
     private MemorySnapshotTelemetry captureMemorySnapshot(String phase, String cycleId) {
         return new MemorySnapshotTelemetry(

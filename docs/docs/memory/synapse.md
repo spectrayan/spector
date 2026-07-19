@@ -56,14 +56,25 @@ The sole header layout, aligned to a full **CPU cache line** (64 bytes) for opti
 The `flags` byte at offset 1 encodes per-record state:
 
 ```
- Bit   Name          Description
- ───   ────          ───────────
-  0    tombstone     Record is logically deleted (pruned by Deep Sleep)
-  1-2  memory_type   2-bit type: 0=WORKING, 1=EPISODIC, 2=SEMANTIC, 3=PROCEDURAL
-  3    consolidated  Has been reflected into Semantic tier
-  4    pinned        Exempt from decay and pruning (flashbulb memories)
-  5    resolved      Zeigarnik Effect — resolved tasks return to normal decay
-  6-7  reserved      Future use
+ Bit   Name            Description
+ ───   ────            ───────────
+  0    tombstone       Record is logically deleted (pruned by Deep Sleep)
+  1-2  memory_type     2-bit type: 0=WORKING, 1=EPISODIC, 2=SEMANTIC, 3=PROCEDURAL
+  3    consolidated    Has been reflected into Semantic tier
+  4    pinned          Exempt from decay and pruning (flashbulb memories)
+  5    resolved        Zeigarnik Effect — resolved tasks return to normal decay
+  6-7  source_modality 2-bit modality: 0=TEXT, 1=IMAGE, 2=AUDIO, 3=VIDEO
+```
+
+### Consolidation Flags (Offset 34)
+
+The byte at offset 34 (previously alignment padding) encodes consolidation and maintenance states:
+
+```
+ Bit   Name            Description
+ ───   ────            ───────────
+  0    contradicted    Memory has a conflicting near-duplicate in the tier
+  1-7  reserved        Future use
 ```
 
 ### Zeigarnik Effect (Bit 5)
