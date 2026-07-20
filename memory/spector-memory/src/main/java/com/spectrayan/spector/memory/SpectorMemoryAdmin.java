@@ -34,8 +34,8 @@ import com.spectrayan.spector.memory.temporal.TemporalChain;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
-
 /**
  * Administrative interface for the Spector Cognitive Memory system.
  *
@@ -157,4 +157,9 @@ public interface SpectorMemoryAdmin {
      * Returns active cognitive records for a specific tier, sorted by timestamp descending, paginated.
      */
     List<CognitiveRecord> listAll(MemoryType tier, int offset, int limit);
+
+    /**
+     * Returns the underlying semantic vector index.
+     */
+    VectorIndex semanticIndex();
 }

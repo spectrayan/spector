@@ -1,0 +1,164 @@
+<div class="health-container">
+  <div class="header-section">
+    <div class="title-area">
+      <h1>Memory Health & Diagnostics</h1>
+      <p class="subtitle">System health telemetry, index structures, consolidation cycles, and decay projections.</p>
+    </div>
+    <div class="action-area" *ngIf="stats()">
+      <button mat-flat-button color="accent" [disabled]="consolidating()" (click)="triggerConsolidation()">
+        <mat-icon *ngIf="!consolidating()">sync</mat-icon>
+        <mat-spinner *ngIf="consolidating()" diameter="18" strokeWidth="2"></mat-spinner>
+        <span>{{ consolidating() ? 'Consolidating...' : 'Trigger Consolidation' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="loading-overlay" *ngIf="loading() && !stats()">
+    <mat-spinner diameter="48"></mat-spinner>
+    <p>Loading memory diagnostics...</p>
+  </div>
+
+  <div class="dashboard-grid" *ngIf="stats()">
+    <!-- 1. Disk & Sizing Summary Card -->
+    <mat-card class="stats-card summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>storage</mat-icon>
+          <span>Physical Storage</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="metrics-grid">
+        <div class="metric-item">
+          <span class="value">{{ stats()?.totalCount }}</span>
+          <span class="label">Total Records</span>
+        </div>
+        <div class="metric-item">
+          <span class="value">{{ formatBytes(stats()?.storageBytes || 0) }}</span>
+          <span class="label">On-Disk Size</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 2. HNSW Index Health Summary Card -->
+    <mat-card class="stats-card summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>hive</mat-icon>
+          <span>HNSW Semantic Index</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="metrics-grid">
+        <div class="metric-item">
+          <span class="value">{{ stats()?.indexStats?.levels }}</span>
+          <span class="label">Graph Levels</span>
+        </div>
+        <div class="metric-item">
+          <span class="value">{{ ((stats()?.indexStats?.recallEstimate || 0.95) * 100) | number:'1.0-1' }}%</span>
+          <span class="label">Est. Recall Rate</span>
+        </div>
+        <div class="metric-item">
+          <span class="value">{{ stats()?.indexStats?.totalEntries }}</span>
+          <span class="label">Indexed Vectors</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 3. Consolidation Summary Card -->
+    <mat-card class="stats-card summary-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>nightlight_round</mat-icon>
+          <span>Sleep Consolidation</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="metrics-grid">
+        <div class="metric-item">
+          <span class="value">{{ formatLastConsolidation(stats()?.consolidationStats?.lastRunTimestamp || 0) }}</span>
+          <span class="label">Last Consolidation</span>
+        </div>
+        <div class="metric-item">
+          <span class="value">{{ stats()?.consolidationStats?.memoriesMerged }}</span>
+          <span class="label">Records Merged</span>
+        </div>
+        <div class="metric-item">
+          <span class="value">{{ stats()?.consolidationStats?.partitionsCompacted }}</span>
+          <span class="label">Partitions Compacted</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 4. Tier Distribution Chart -->
+    <mat-card class="stats-card chart-card double-width">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>donut_large</mat-icon>
+          <span>Tier Distribution</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="canvas-container">
+          <canvas #tierCanvas></canvas>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 5. Scoring Metrics Radar Chart -->
+    <mat-card class="stats-card chart-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>analytics</mat-icon>
+          <span>Scoring Dimensions</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="canvas-container">
+          <canvas #scoringCanvas></canvas>
+        </div>
+        <div class="scoring-legend" *ngIf="scoring()">
+          <div><span>Similarity:</span> {{ scoring()?.avgSimilarity | number:'1.2-2' }}</div>
+          <div><span>Recency:</span> {{ scoring()?.avgRecency | number:'1.2-2' }}</div>
+          <div><span>Frequency:</span> {{ scoring()?.avgFrequency | number:'1.1-1' }}</div>
+          <div><span>Importance:</span> {{ scoring()?.avgImportance | number:'1.1-1' }}</div>
+          <div><span>Valence:</span> {{ scoring()?.avgValence | number:'1.1-1' }}</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 6. Memory Growth Timeline Line Chart -->
+    <mat-card class="stats-card chart-card double-width">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>trending_up</mat-icon>
+          <span>Memory Growth (30 Days)</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="canvas-container">
+          <canvas #growthCanvas></canvas>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- 7. Ebbinghaus Decay Projection Curve -->
+    <mat-card class="stats-card chart-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>hourglass_empty</mat-icon>
+          <span>Ebbinghaus Decay Forecast</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="canvas-container">
+          <canvas #decayCanvas></canvas>
+        </div>
+        <div class="decay-meta" *ngIf="stats()?.decayForecast">
+          <p>
+            Projected active memories retention drop from 
+            <strong>{{ stats()?.decayForecast?.['current'] }}</strong> to 
+            <strong>{{ stats()?.decayForecast?.['day30'] }}</strong> in 30 days due to synaptic pruning.
+          </p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

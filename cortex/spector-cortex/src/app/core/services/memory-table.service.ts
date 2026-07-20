@@ -170,6 +170,37 @@ export interface TopologyStatsResponse {
   relationTypes: RelationTypeStats[];
 }
 
+export interface IndexStats {
+  totalEntries: number;
+  levels: number;
+  recallEstimate: number;
+}
+
+export interface ConsolidationStats {
+  lastRunTimestamp: number;
+  memoriesMerged: number;
+  duplicatesRemoved: number;
+  partitionsCompacted: number;
+}
+
+export interface MemoryStats {
+  totalCount: number;
+  tierDistribution: { [key: string]: number };
+  storageBytes: number;
+  indexStats: IndexStats;
+  consolidationStats: ConsolidationStats;
+  growthOverTime: { [key: string]: number };
+  decayForecast: { [key: string]: number };
+}
+
+export interface ScoringStats {
+  avgSimilarity: number;
+  avgRecency: number;
+  avgFrequency: number;
+  avgImportance: number;
+  avgValence: number;
+}
+
 /** Response from async remember/ingest endpoints (202 Accepted). */
 export interface AcceptedResponse {
   taskId: string;
@@ -304,6 +335,21 @@ export class MemoryTableService {
   /** Returns topology statistics for entity and relation types. */
   getTopologyStats(): Observable<TopologyStatsResponse> {
     return this.http.get<TopologyStatsResponse>(`${this.API}/topology-stats`);
+  }
+
+  /** Returns memory database statistics. */
+  getMemoryStats(): Observable<MemoryStats> {
+    return this.http.get<MemoryStats>(`${this.API}/stats`);
+  }
+
+  /** Returns average scoring weights. */
+  getScoringStats(): Observable<ScoringStats> {
+    return this.http.get<ScoringStats>(`${this.API}/stats/scoring`);
+  }
+
+  /** Triggers a sleep consolidation (reflect) cycle. */
+  consolidate(): Observable<any> {
+    return this.http.post<any>(`${this.API}/reflect`, {});
   }
 
   // ══════════════════════════════════════════════════════════════

@@ -28,6 +28,8 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.SearchResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.SuppressRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStats;
+import com.spectrayan.spector.synapse.memory.MemoryDto.ScoringStats;
 import com.spectrayan.spector.synapse.memory.MemoryDto.TopologyStatsResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.VacuumRequest;
 import org.slf4j.Logger;
@@ -206,6 +208,26 @@ public class MemoryController {
     @GetMapping("/topology-stats")
     public ResponseEntity<TopologyStatsResponse> getTopologyStats() {
         return ResponseEntity.ok(memoryService.getTopologyStats());
+    }
+
+    /**
+     * Returns memory health statistics.
+     *
+     * <p>{@code GET /api/v1/memory/stats}</p>
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<MemoryStats> getStats() {
+        return ResponseEntity.ok(memoryService.getStats());
+    }
+
+    /**
+     * Returns memory scoring metrics averages.
+     *
+     * <p>{@code GET /api/v1/memory/stats/scoring}</p>
+     */
+    @GetMapping("/stats/scoring")
+    public ResponseEntity<ScoringStats> getScoringStats() {
+        return ResponseEntity.ok(memoryService.getScoringStats());
     }
 
     // ══════════════════════════════════════════════════════════════

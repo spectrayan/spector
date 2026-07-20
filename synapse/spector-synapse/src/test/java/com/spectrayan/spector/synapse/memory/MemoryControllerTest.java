@@ -319,5 +319,53 @@ class MemoryControllerTest {
         verify(memoryService, never()).getMemoryGraph(eq("graph"), anyInt());
         verify(memoryService).getGraphOverview(anyInt());
     }
+
+    @Test
+    @DisplayName("GET /memory/stats — returns health and index metrics")
+    void getStats_returnsStats() throws Exception {
+        var indexStats = new MemoryDto.IndexStats(100L, 2, 0.98);
+        var consStats = new MemoryDto.ConsolidationStats(12345L, 5, 2, 1);
+        var stats = new MemoryDto.MemoryStats(
+                100L,
+                Map.of("SEMANTIC", 60L, "EPISODIC", 40L),
+                50000L,
+                indexStats,
+                consStats,
+                Map.of("2026-07-20", 100L),
+                Map.of("current", 100.0, "day30", 75.0)
+        );
+
+        when(memoryService.getStats()).thenReturn(stats);
+
+        mvc.perform(get("/api/v1/memory/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount", is(100)))
+                .andExpect(jsonPath("$.tierDistribution.SEMANTIC", is(60)))
+                .andExpect(jsonPath("$.storageBytes", is(50000)))
+                .andExpect(jsonPath("$.indexStats.totalEntries", is(100)))
+                .andExpect(jsonPath("$.indexStats.levels", is(2)))
+                .andExpect(jsonPath("$.consolidationStats.memoriesMerged", is(5)))
+                .andExpect(jsonPath("$.decayForecast.day30", is(75.0)));
+
+        verify(memoryService).getStats();
+    }
+
+    @Test
+    @DisplayName("GET /memory/stats/scoring — returns scoring metric averages")
+    void getScoringStats_returnsStats() throws Exception {
+        var scoring = new MemoryDto.ScoringStats(0.85, 0.72, 2.3, 8.1, 4.5);
+
+        when(memoryService.getScoringStats()).thenReturn(scoring);
+
+        mvc.perform(get("/api/v1/memory/stats/scoring"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avgSimilarity", is(0.85)))
+                .andExpect(jsonPath("$.avgRecency", is(0.72)))
+                .andExpect(jsonPath("$.avgFrequency", is(2.3)))
+                .andExpect(jsonPath("$.avgImportance", is(8.1)))
+                .andExpect(jsonPath("$.avgValence", is(4.5)));
+
+        verify(memoryService).getScoringStats();
+    }
 }
 

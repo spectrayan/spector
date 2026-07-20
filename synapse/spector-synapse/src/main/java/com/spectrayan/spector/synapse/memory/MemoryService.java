@@ -21,11 +21,28 @@ import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 import com.spectrayan.spector.synapse.memory.MemoryDto.*;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.spectrayan.spector.index.VectorIndex;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.memory.model.GraphStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.Timestamp;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -53,13 +70,48 @@ public class MemoryService {
     private final MemoryAccessObject mao;
     private final EventPublisher eventPublisher;
     private final TsidGenerator tsid;
+    private final JdbcClient jdbc;
+
+    // -€-€ Analytics & Telemetry Counters -€-€
+    private final AtomicLong recallCount = new AtomicLong(0);
+    private final AtomicLong rememberCount = new AtomicLong(0);
+    private final AtomicLong totalLatencyMs = new AtomicLong(0);
+    private final AtomicLong consolidationCount = new AtomicLong(0);
+
+    // Latest consolidation details
+    private volatile long lastConsolidationTimestamp = 0;
+    private volatile int consolidatedMergedCount = 0;
+    private volatile int consolidatedTombstonedCount = 0;
+    private volatile int consolidatedPartitions = 0;
+
+    // Rolling similarity scores queue
+    private final ConcurrentLinkedQueue<Double> similarityScores = new ConcurrentLinkedQueue<>();
+
+    // Caffeine stats caches (5s TTL)
+    private final Cache<String, MemoryStats> statsCache = Caffeine.newBuilder()
+            .expireAfterWrite(java.time.Duration.ofSeconds(5))
+            .build();
+
+    private final Cache<String, ScoringStats> scoringStatsCache = Caffeine.newBuilder()
+            .expireAfterWrite(java.time.Duration.ofSeconds(5))
+            .build();
+
+    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
+        this(mao, eventPublisher, tsid, null);
+    }
 
     @Autowired
-    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
+    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid, JdbcClient jdbc) {
         this.mao = mao;
         this.eventPublisher = eventPublisher;
         this.tsid = tsid;
+        this.jdbc = jdbc;
     }
+
+    public long getAndResetRecallCount() { return recallCount.getAndSet(0); }
+    public long getAndResetRememberCount() { return rememberCount.getAndSet(0); }
+    public long getAndResetTotalLatencyMs() { return totalLatencyMs.getAndSet(0); }
+    public long getConsolidationCount() { return consolidationCount.get(); }
 
     // ══════════════════════════════════════════════════════════════
     // STORE / REMEMBER
@@ -133,8 +185,13 @@ public class MemoryService {
                         "progress", 50.0,
                         "timestamp", Instant.now().toEpochMilli()
                 ));
-                mao.remember(finalId, request.text(), tier, source, finalHints, tags);
-                log.info("[MemoryService] Async remember completed: id={}", finalId);
+                 long t0 = System.currentTimeMillis();
+                 mao.remember(finalId, request.text(), tier, source, finalHints, tags);
+                 long elapsed = System.currentTimeMillis() - t0;
+                 rememberCount.incrementAndGet();
+                 totalLatencyMs.addAndGet(elapsed);
+
+                 log.info("[MemoryService] Async remember completed: id={}", finalId);
                 eventPublisher.broadcast("ingestion.completed", Map.of(
                         "taskId", taskId,
                         "fileName", request.text().substring(0, Math.min(20, request.text().length())),
@@ -189,6 +246,18 @@ public class MemoryService {
         long start = System.nanoTime();
         List<CognitiveResult> results = mao.recall(request.query());
         long elapsedMicros = (System.nanoTime() - start) / 1000;
+        recallCount.incrementAndGet();
+        totalLatencyMs.addAndGet(elapsedMicros / 1000);
+
+        for (var r : results) {
+            if (r.breakdown() != null) {
+                similarityScores.add((double) r.breakdown().similarity());
+            }
+        }
+        while (similarityScores.size() > 100) {
+            similarityScores.poll();
+        }
+
         int limit = request.topK() > 0 ? request.topK() : 10;
         int total = results.size();
 
@@ -355,6 +424,12 @@ public class MemoryService {
         long durationMs = report != null ? report.duration().toMillis() : (System.currentTimeMillis() - start);
 
         if (report != null) {
+            lastConsolidationTimestamp = System.currentTimeMillis();
+            consolidatedMergedCount += report.consolidatedCount();
+            consolidatedTombstonedCount += report.tombstonedCount();
+            consolidatedPartitions += report.compactedPartitions();
+            consolidationCount.incrementAndGet();
+
             eventPublisher.broadcast("cortex.reflect.cycle", Map.of(
                     "eventType", "cortex.reflect.cycle",
                     "timestamp", Instant.now().toEpochMilli(),
@@ -495,6 +570,184 @@ public class MemoryService {
     // ══════════════════════════════════════════════════════════════
     // HELPERS
     // ══════════════════════════════════════════════════════════════
+
+    public MemoryStats getStats() {
+        return statsCache.get("current", key -> {
+            if (!mao.isAvailable()) {
+                return new MemoryStats(0, Map.of(), 0, new IndexStats(0, 0, 0.95), ConsolidationStats.empty(), Map.of(), Map.of());
+            }
+
+            try {
+                var memory = mao.getMemory();
+                List<CognitiveRecord> records = memory.admin().listAll();
+
+                long totalCount = records.size();
+
+                Map<String, Long> tierDistribution = records.stream()
+                        .collect(Collectors.groupingBy(r -> r.memoryType().name(), Collectors.counting()));
+
+                // Storage bytes calculation
+                long storageBytes = 0;
+                var persistencePath = memory.admin().wal() != null ? memory.admin().wal().path() : null;
+                if (persistencePath != null && Files.exists(persistencePath)) {
+                    try (Stream<Path> stream = Files.walk(persistencePath)) {
+                        storageBytes = stream.filter(Files::isRegularFile)
+                                .mapToLong(p -> {
+                                    try {
+                                        return Files.size(p);
+                                    } catch (IOException e) {
+                                        return 0L;
+                                    }
+                                })
+                                .sum();
+                    } catch (IOException e) {
+                        log.warn("Failed to walk persistence path: {}", e.getMessage());
+                    }
+                }
+
+                // Index stats
+                long totalEntries = 0;
+                int levels = 0;
+                double recallEstimate = 0.95;
+                var semanticIndex = memory.admin().semanticIndex();
+                if (semanticIndex != null) {
+                    totalEntries = semanticIndex.size();
+                    if (semanticIndex instanceof com.spectrayan.spector.index.AbstractHnswIndex hnsw) {
+                        levels = hnsw.maxLevel() + 1;
+                        int efSearch = hnsw.params().efSearch();
+                        int m = hnsw.params().m();
+                        recallEstimate = Math.min(0.99, 0.90 + (efSearch / (double) (efSearch + m)));
+                    }
+                }
+                IndexStats indexStats = new IndexStats(totalEntries, levels, recallEstimate);
+
+                // Consolidation stats
+                ConsolidationStats consolidationStats = new ConsolidationStats(
+                        lastConsolidationTimestamp,
+                        consolidatedMergedCount,
+                        consolidatedTombstonedCount,
+                        consolidatedPartitions
+                );
+
+                // Growth over time (last 30 days) from H2 database
+                Map<String, Long> growthOverTime = new java.util.TreeMap<>();
+                if (jdbc != null) {
+                    try {
+                        growthOverTime = jdbc.sql("SELECT CAST(snapshot_time AS DATE) as s_date, MAX(total_count) as max_count " +
+                                        "FROM memory_analytics_snapshot " +
+                                        "WHERE snapshot_time >= :since " +
+                                        "GROUP BY s_date ORDER BY s_date")
+                                .param("since", Timestamp.from(Instant.now().minus(java.time.Duration.ofDays(30))))
+                                .query((rs, rowNum) -> Map.entry(rs.getDate("s_date").toString(), rs.getLong("max_count")))
+                                .stream()
+                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2, java.util.TreeMap::new));
+                    } catch (Exception e) {
+                        log.warn("Failed to load historical growth from database: {}", e.getMessage());
+                        growthOverTime = null;
+                    }
+                }
+                if (growthOverTime == null || growthOverTime.isEmpty()) {
+                    growthOverTime = records.stream()
+                            .collect(Collectors.groupingBy(
+                                    r -> Instant.ofEpochMilli(r.timestampMs()).toString().substring(0, 10),
+                                    Collectors.counting()
+                            ));
+                }
+
+                // Decay forecast: projected retention probability over 7 and 30 days
+                double currentSum = totalCount;
+                double day7Sum = 0;
+                double day30Sum = 0;
+                long now = System.currentTimeMillis();
+
+                for (var r : records) {
+                    double lambda = Math.max(1.0, r.storageStrength());
+                    double ageSec = (now - r.timestampMs()) / 1000.0;
+                    double day7Age = ageSec + (7 * 86400.0);
+                    double day30Age = ageSec + (30 * 86400.0);
+
+                    day7Sum += Math.exp(-day7Age / (lambda * 86400.0));
+                    day30Sum += Math.exp(-day30Age / (lambda * 86400.0));
+                }
+
+                Map<String, Double> decayForecast = Map.of(
+                        "current", currentSum,
+                        "day7", Math.round(day7Sum * 10.0) / 10.0,
+                        "day30", Math.round(day30Sum * 10.0) / 10.0
+                );
+
+                return new MemoryStats(
+                        totalCount,
+                        tierDistribution,
+                        storageBytes,
+                        indexStats,
+                        consolidationStats,
+                        growthOverTime,
+                        decayForecast
+                );
+
+            } catch (Exception e) {
+                log.error("Failed to compile memory stats: {}", e.getMessage(), e);
+                return new MemoryStats(0, Map.of(), 0, new IndexStats(0, 0, 0.95), ConsolidationStats.empty(), Map.of(), Map.of());
+            }
+        });
+    }
+
+    public ScoringStats getScoringStats() {
+        return scoringStatsCache.get("current", key -> {
+            if (!mao.isAvailable()) {
+                return new ScoringStats(0.80, 0.75, 1.0, 5.0, 0.0);
+            }
+
+            try {
+                var memory = mao.getMemory();
+                List<CognitiveRecord> records = memory.admin().listAll();
+
+                double sumImportance = 0;
+                double sumValence = 0;
+                double sumFrequency = 0;
+                double sumRecency = 0;
+                long now = System.currentTimeMillis();
+
+                for (var r : records) {
+                    sumImportance += r.importance();
+                    sumValence += r.valence();
+                    sumFrequency += r.spectorRecallCount() + r.agentRecallCount();
+
+                    double ageSec = (now - r.timestampMs()) / 1000.0;
+                    sumRecency += Math.exp(-ageSec / (Math.max(1.0, r.storageStrength()) * 86400.0));
+                }
+
+                int size = records.size();
+                double avgImportance = size == 0 ? 0.0 : sumImportance / size;
+                double avgValence = size == 0 ? 0.0 : sumValence / size;
+                double avgFrequency = size == 0 ? 0.0 : sumFrequency / size;
+                double avgRecency = size == 0 ? 0.0 : sumRecency / size;
+
+                double avgSimilarity = 0.80;
+                var scores = new ArrayList<>(similarityScores);
+                if (!scores.isEmpty()) {
+                    double simSum = 0;
+                    for (var s : scores) {
+                        simSum += s;
+                    }
+                    avgSimilarity = simSum / scores.size();
+                }
+
+                return new ScoringStats(
+                        Math.round(avgSimilarity * 100.0) / 100.0,
+                        Math.round(avgRecency * 100.0) / 100.0,
+                        Math.round(avgFrequency * 100.0) / 100.0,
+                        Math.round(avgImportance * 100.0) / 100.0,
+                        Math.round(avgValence * 100.0) / 100.0
+                );
+
+            } catch (Exception e) {
+                log.error("Failed to compile scoring stats: {}", e.getMessage(), e);
+                return new ScoringStats(0.80, 0.75, 1.0, 5.0, 0.0);
+            }
+        });
+    }
 
     private static void requireId(String id) {
         if (id == null || id.isBlank()) {

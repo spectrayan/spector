@@ -52,7 +52,7 @@ export class ShellComponent {
     { icon: 'hub', label: 'Graph', route: '/graph' },
     { icon: 'search', label: 'Query', route: '/query' },
     { icon: 'auto_stories', label: 'Memories', route: '/memories' },
-
+    { icon: 'donut_large', label: 'Health', route: '/health' },
   ];
 
   /** Filtered nav items based on user role and feature flags. */
