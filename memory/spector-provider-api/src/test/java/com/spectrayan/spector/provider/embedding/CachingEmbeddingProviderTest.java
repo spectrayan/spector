@@ -399,6 +399,18 @@ class CachingEmbeddingProviderTest {
         }
 
         @Test
+        @DisplayName("duplicate positions in a batch never share a vector reference")
+        void duplicatesDoNotShareVectorReference() {
+            var cache = new CachingEmbeddingProvider(new CountingProvider(), config(10));
+
+            var results = cache.embedBatch(List.of("same", "same", "same"));
+
+            assertThat(results.get(0).vector()).isNotSameAs(results.get(1).vector());
+            assertThat(results.get(1).vector()).isNotSameAs(results.get(2).vector());
+            assertThat(results.get(0).vector()).isNotSameAs(results.get(2).vector());
+        }
+
+        @Test
         @DisplayName("null element falls through to delegate validation")
         void nullElementDelegates() {
             var cache = new CachingEmbeddingProvider(new CountingProvider(), config(10));

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongSupplier;
 
 /**
@@ -45,9 +46,10 @@ import java.util.function.LongSupplier;
  *   <li><b>Eviction</b> — LRU via access-ordered {@link LinkedHashMap}, bounded by
  *       {@link EmbeddingCacheConfig#maxSize()}</li>
  *   <li><b>TTL</b> — optional time-based expiry ({@link EmbeddingCacheConfig#ttl()})</li>
- *   <li><b>Thread safety</b> — all map access is synchronized on the map itself;
- *       the lock is never held during a delegate call, so concurrent misses on the
- *       same key may each hit the delegate once (benign race)</li>
+ *   <li><b>Thread safety</b> — all map access is guarded by a {@link ReentrantLock}
+ *       (avoids carrier-thread pinning under virtual threads); the lock is never held
+ *       during a delegate call, so concurrent misses on the same key may each hit the
+ *       delegate once (benign race)</li>
  *   <li><b>Statistics</b> — hits/misses/evictions counted and logged at INFO every
  *       {@link EmbeddingCacheConfig#statsLogInterval()}</li>
  * </ul>
@@ -65,6 +67,7 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
     private final EmbeddingCacheConfig config;
     private final LongSupplier nanoClock;
     private final LinkedHashMap<String, CacheEntry> cache;
+    private final ReentrantLock lock = new ReentrantLock();
     private final LongAdder hits = new LongAdder();
     private final LongAdder misses = new LongAdder();
     private final LongAdder evictions = new LongAdder();
@@ -199,7 +202,10 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
                 EmbeddingResult result = fresh.get(freshIdx++);
                 store(entry.getKey(), result);
                 for (int position : entry.getValue()) {
-                    results[position] = result;
+                    // defensive copy per position, so duplicate texts within a batch never
+                    // share a vector reference (consistent with cache-hit behaviour)
+                    results[position] = new EmbeddingResult(
+                            result.vector().clone(), result.tokenCount(), result.model());
                 }
             }
         }
@@ -225,8 +231,11 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
 
     @Override
     public void close() {
-        synchronized (cache) {
+        lock.lock();
+        try {
             cache.clear();
+        } finally {
+            lock.unlock();
         }
         delegate.close();
     }
@@ -239,15 +248,19 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
     /** Returns a snapshot of the cache statistics. */
     public CacheStats stats() {
         int size;
-        synchronized (cache) {
+        lock.lock();
+        try {
             size = cache.size();
+        } finally {
+            lock.unlock();
         }
         return new CacheStats(hits.sum(), misses.sum(), evictions.sum(), size);
     }
 
     private EmbeddingResult lookup(String key) {
         long now = nanoClock.getAsLong();
-        synchronized (cache) {
+        lock.lock();
+        try {
             CacheEntry entry = cache.get(key);
             if (entry == null) {
                 return null;
@@ -258,6 +271,8 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
             }
             EmbeddingResult result = entry.result();
             return new EmbeddingResult(result.vector().clone(), result.tokenCount(), result.model());
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -266,8 +281,11 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
                 ? nanoClock.getAsLong() + config.ttl().toNanos()
                 : Long.MAX_VALUE;
         var copy = new EmbeddingResult(result.vector().clone(), result.tokenCount(), result.model());
-        synchronized (cache) {
+        lock.lock();
+        try {
             cache.put(key, new CacheEntry(copy, expiresAt));
+        } finally {
+            lock.unlock();
         }
     }
 
