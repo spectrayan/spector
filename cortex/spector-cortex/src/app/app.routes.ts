@@ -50,6 +50,11 @@ export const routes: Routes = [
         title: 'Settings — Spector Cortex'
       },
       {
+        path: 'health',
+        loadComponent: () => import('./features/health/health.component').then(m => m.HealthComponent),
+        title: 'Health — Spector Cortex'
+      },
+      {
         path: '**',
         redirectTo: 'dashboard'
       }

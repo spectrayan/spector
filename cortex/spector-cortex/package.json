@@ -21,6 +21,7 @@
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
     "dompurify": "^3.4.11",
+    "chart.js": "^4.4.0",
     "marked": "^18.0.5",
     "rxjs": "~7.8.0",
     "three": "^0.184.0",
