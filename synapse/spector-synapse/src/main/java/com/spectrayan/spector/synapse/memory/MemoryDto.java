@@ -415,6 +415,41 @@ public final class MemoryDto {
             Instant lastActivity
     ) {}
 
+    public record MemoryStats(
+            long totalCount,
+            Map<String, Long> tierDistribution,
+            long storageBytes,
+            IndexStats indexStats,
+            ConsolidationStats consolidationStats,
+            Map<String, Long> growthOverTime,
+            Map<String, Double> decayForecast
+    ) {}
+
+    public record IndexStats(
+            long totalEntries,
+            int levels,
+            double recallEstimate
+    ) {}
+
+    public record ConsolidationStats(
+            long lastRunTimestamp,
+            int memoriesMerged,
+            int duplicatesRemoved,
+            int partitionsCompacted
+        ) {
+            public static ConsolidationStats empty() {
+                return new ConsolidationStats(0L, 0, 0, 0);
+            }
+        }
+
+    public record ScoringStats(
+            double avgSimilarity,
+            double avgRecency,
+            double avgFrequency,
+            double avgImportance,
+            double avgValence
+    ) {}
+
     /**
      * Reflect consolidation response.
      *

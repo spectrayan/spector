@@ -82,6 +82,10 @@ public class MemoryAccessObject {
         return tsid;
     }
 
+    public SpectorMemory getMemory() {
+        return memory;
+    }
+
     /**
      * Store/remember a memory synchronously.
      */
