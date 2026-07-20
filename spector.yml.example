@@ -42,6 +42,12 @@ spector:
     base-url: http://localhost:11434
     timeout: 30s
     batch-size: 32
+    # LRU cache for embedding results (applies to all provider types)
+    cache:
+      enabled: true
+      max-size: 1000      # entries; LRU eviction beyond this
+      ttl: 60m            # time-to-live per entry (0 = no expiry)
+      stats-log-interval: 5m  # INFO-level hit/miss stats (0 = never)
 
   hnsw:
     m: 16

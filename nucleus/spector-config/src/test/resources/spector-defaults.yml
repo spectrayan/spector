@@ -61,6 +61,11 @@ spector:
     timeout: 30s
     batch-size: 32
     max-retries: 3
+    cache:
+      enabled: true
+      max-size: 1000
+      ttl: 60m
+      stats-log-interval: 5m
 
   # ─── Chunking ───
   chunking:

@@ -78,6 +78,16 @@ spector:
     # Maximum concurrent embedding HTTP calls (0 = unlimited).
     # Set to a low value (e.g. 2) for local Ollama to prevent timeouts.
     max-concurrent: 0
+    # LRU cache for embedding results — avoids redundant provider calls
+    # when the same text is embedded repeatedly.
+    cache:
+      enabled: true
+      # Maximum number of cached embeddings (LRU eviction beyond this)
+      max-size: 1000
+      # Time-to-live for cached entries (0 = no expiry)
+      ttl: 60m
+      # How often cache statistics are logged at INFO level (0 = never)
+      stats-log-interval: 5m
 
   # ─── Text Chunking ───
   chunking:

@@ -97,6 +97,10 @@ class SpectorConfigFactoryTest {
         assertThat(embed.timeout()).isEqualTo(Duration.ofSeconds(30));
         assertThat(embed.batchSize()).isEqualTo(32);
         assertThat(embed.maxRetries()).isEqualTo(3);
+        assertThat(embed.cacheEnabled()).isTrue();
+        assertThat(embed.cacheMaxSize()).isEqualTo(1000);
+        assertThat(embed.cacheTtl()).isEqualTo(Duration.ofMinutes(60));
+        assertThat(embed.cacheStatsLogInterval()).isEqualTo(Duration.ofMinutes(5));
     }
 
     @Test

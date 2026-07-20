@@ -158,16 +158,21 @@ public final class SpectorConfigFactory {
     /**
      * Default values for the embedding provider.
      *
-     * @param model         embedding model name
-     * @param baseUrl       API base URL
-     * @param timeout       HTTP request timeout
-     * @param batchSize     maximum texts per batch request
-     * @param maxRetries    maximum retry attempts
-     * @param maxConcurrent maximum concurrent embedding HTTP calls (0 = unlimited)
+     * @param model                 embedding model name
+     * @param baseUrl               API base URL
+     * @param timeout               HTTP request timeout
+     * @param batchSize             maximum texts per batch request
+     * @param maxRetries            maximum retry attempts
+     * @param maxConcurrent         maximum concurrent embedding HTTP calls (0 = unlimited)
+     * @param cacheEnabled          whether the LRU embedding cache is enabled
+     * @param cacheMaxSize          maximum number of cached embeddings
+     * @param cacheTtl              time-to-live for cached embeddings (0 = no expiry)
+     * @param cacheStatsLogInterval how often cache statistics are logged (0 = never)
      */
     public record EmbeddingDefaults(
             String model, String baseUrl, Duration timeout,
-            int batchSize, int maxRetries, int maxConcurrent
+            int batchSize, int maxRetries, int maxConcurrent,
+            boolean cacheEnabled, int cacheMaxSize, Duration cacheTtl, Duration cacheStatsLogInterval
     ) {}
 
     /**
@@ -180,7 +185,11 @@ public final class SpectorConfigFactory {
                 props.getDuration("spector.embedding.timeout", Duration.ofSeconds(30)),
                 props.getInt("spector.embedding.batch-size", 32),
                 props.getInt("spector.embedding.max-retries", 3),
-                props.getInt("spector.embedding.max-concurrent", 0)
+                props.getInt("spector.embedding.max-concurrent", 0),
+                props.getBoolean("spector.embedding.cache.enabled", true),
+                props.getInt("spector.embedding.cache.max-size", 1000),
+                props.getDuration("spector.embedding.cache.ttl", Duration.ofMinutes(60)),
+                props.getDuration("spector.embedding.cache.stats-log-interval", Duration.ofMinutes(5))
         );
     }
 
