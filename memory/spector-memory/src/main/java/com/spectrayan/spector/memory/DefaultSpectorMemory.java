@@ -228,6 +228,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // -€-€ Contextual Bandit (ProfileAdaptor) -€-€
     private final ProfileAdaptor profileAdaptor;
 
+    // -€-€ Semantic Index Reference -€-€
+    private final com.spectrayan.spector.index.VectorIndex semanticIndex;
+
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
         this.cognitiveTarget = bundle.cognitiveTarget();
@@ -270,6 +273,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.embedConfig = bundle.embedConfig();
         this.attachmentProcessor = bundle.attachmentProcessor();
         this.profileAdaptor = bundle.profileAdaptor();
+        this.semanticIndex = builder.semanticIndex;
 
         // -€-€ JVM Shutdown Hook -€-€ (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
@@ -1101,6 +1105,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public EntityGraph entityGraph() { return graphFacade.entityGraph(); }
     @SuppressWarnings("deprecation")
     @Override public HyperEntityGraph hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
+    @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
 
     // -€-€ listAll implementations -€-€
 
