@@ -347,6 +347,11 @@ export class MemoryTableService {
     return this.http.get<ScoringStats>(`${this.API}/stats/scoring`);
   }
 
+  /** Triggers a sleep consolidation (reflect) cycle. */
+  consolidate(): Observable<any> {
+    return this.http.post<any>(`${this.API}/reflect`, {});
+  }
+
   // ══════════════════════════════════════════════════════════════
   // WRITE — CRUD
   // ══════════════════════════════════════════════════════════════

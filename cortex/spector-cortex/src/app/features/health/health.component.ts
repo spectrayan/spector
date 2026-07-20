@@ -68,7 +68,7 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
           this.updateCharts();
           this.loading.set(false);
         },
-        error: (err) => {
+        error: (err: any) => {
           console.error('Failed to poll memory stats', err);
           this.loading.set(false);
         },
@@ -80,7 +80,7 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
         this.scoring.set(data);
         this.updateScoringChart();
       },
-      error: (err) => console.error('Failed to get scoring stats', err),
+      error: (err: any) => console.error('Failed to get scoring stats', err),
     });
   }
 
@@ -104,7 +104,7 @@ export class HealthComponent implements OnInit, OnDestroy, AfterViewInit {
         this.memoryService.getMemoryStats().subscribe((data) => this.stats.set(data));
         this.consolidating.set(false);
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Consolidation failed', err);
         this.consolidating.set(false);
       },
