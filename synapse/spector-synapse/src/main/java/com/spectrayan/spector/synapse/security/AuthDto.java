@@ -15,6 +15,9 @@ package com.spectrayan.spector.synapse.security;
 import java.time.Instant;
 import java.util.Set;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -40,7 +43,12 @@ public final class AuthDto {
      * @param password the plaintext password (required; never persisted or logged)
      */
     public record LoginRequest(
+            @NotBlank(message = "username is required")
+            @Size(min = 1, max = 64, message = "username length must be between 1 and 64 characters")
             @JsonProperty("username") String username,
+
+            @NotBlank(message = "password is required")
+            @Size(min = 1, max = 128, message = "password length must be between 1 and 128 characters")
             @JsonProperty("password") String password
     ) {}
 
@@ -67,6 +75,7 @@ public final class AuthDto {
      * @param refreshToken the raw refresh token previously issued at login
      */
     public record RefreshRequest(
+            @NotBlank(message = "refresh_token is required")
             @JsonProperty("refresh_token") String refreshToken
     ) {}
 
@@ -98,8 +107,14 @@ public final class AuthDto {
      * @param mustChangePassword whether the new user must change the password on next login
      */
     public record RegisterRequest(
+            @NotBlank(message = "username is required")
+            @Size(min = 1, max = 64, message = "username length must be between 1 and 64 characters")
             @JsonProperty("username") String username,
+
+            @NotBlank(message = "password is required")
+            @Size(min = 8, max = 128, message = "password length must be between 8 and 128 characters")
             @JsonProperty("password") String password,
+
             @JsonProperty("email") String email,
             @JsonProperty("display_name") String displayName,
             @JsonProperty("roles") Set<String> roles,
@@ -123,7 +138,11 @@ public final class AuthDto {
      * @param newPassword     the replacement password (8–128 characters)
      */
     public record ChangePasswordRequest(
+            @NotBlank(message = "current_password is required")
             @JsonProperty("current_password") String currentPassword,
+
+            @NotBlank(message = "new_password is required")
+            @Size(min = 8, max = 128, message = "new_password length must be between 8 and 128 characters")
             @JsonProperty("new_password") String newPassword
     ) {}
 

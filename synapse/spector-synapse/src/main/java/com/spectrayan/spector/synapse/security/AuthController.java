@@ -29,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -148,7 +149,7 @@ public class AuthController {
      * @return the token response, or a uniform error response
      */
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> login(@RequestBody(required = false) LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody(required = false) LoginRequest request) {
         if (request == null || isBlank(request.username())) {
             return badRequest("username is required");
         }
@@ -198,7 +199,7 @@ public class AuthController {
      * @return a new access token, or an error response
      */
     @PostMapping(value = "/refresh", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> refresh(@RequestBody(required = false) RefreshRequest request) {
+    public ResponseEntity<?> refresh(@Valid @RequestBody(required = false) RefreshRequest request) {
         if (request == null || isBlank(request.refreshToken())) {
             return badRequest("refresh_token is required");
         }
@@ -269,7 +270,7 @@ public class AuthController {
      */
     @PostMapping(value = "/register", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> register(@RequestBody(required = false) RegisterRequest request) {
+    public ResponseEntity<?> register(@Valid @RequestBody(required = false) RegisterRequest request) {
         if (request == null) {
             return badRequest("username and password are required");
         }
@@ -316,7 +317,7 @@ public class AuthController {
      * @return HTTP 200 on success, or an error response
      */
     @PostMapping(value = "/change-password", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> changePassword(@RequestBody(required = false) ChangePasswordRequest request) {
+    public ResponseEntity<?> changePassword(@Valid @RequestBody(required = false) ChangePasswordRequest request) {
         if (request == null || isBlank(request.currentPassword())) {
             return badRequest("current_password is required");
         }
@@ -373,7 +374,7 @@ public class AuthController {
     @PutMapping(value = "/users/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateUser(@PathVariable("id") String id,
-                                        @RequestBody(required = false) UpdateUserRequest request) {
+                                        @Valid @RequestBody(required = false) UpdateUserRequest request) {
         UpdateUserRequest update = request != null
                 ? request : new UpdateUserRequest(null, null, null, null);
         Optional<UserRow> updated = userAccountStore.updateAccount(
@@ -397,7 +398,7 @@ public class AuthController {
      */
     @PostMapping(value = "/api-keys", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<CreateApiKeyResponse> createApiKey(
-            @RequestBody(required = false) CreateApiKeyRequest request) {
+            @Valid @RequestBody(required = false) CreateApiKeyRequest request) {
         String userId = SecurityUtils.getUserId();
         Set<String> scopes = request != null ? request.scopes() : null;
         Instant expiresAt = request != null ? request.expiresAt() : null;

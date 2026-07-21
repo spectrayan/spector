@@ -82,6 +82,19 @@ public class AuthExceptionHandler {
     /** Uniform body returned when authentication cannot be completed (store unavailable). */
     static final String MSG_AUTH_FAILED = "Authentication failed";
 
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
+            org.springframework.web.bind.MethodArgumentNotValidException ex) {
+        String detail = ex.getBindingResult().getFieldErrors().stream()
+                .map(err -> err.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation failure");
+        log.warn("[Auth] Validation failed for request: {}", detail);
+        return ResponseEntity.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(400, "Bad Request", detail));
+    }
+
     /**
      * Maps namespace-safety violations to a fail-closed {@code 400} without echoing the raw
      * identifier (Requirement 19.4); preserves the legacy {@code 400} behavior for any other
