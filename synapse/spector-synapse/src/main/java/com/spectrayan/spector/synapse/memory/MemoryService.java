@@ -639,13 +639,14 @@ public class MemoryService {
                 Map<String, Long> growthOverTime = new java.util.TreeMap<>();
                 if (jdbc != null) {
                     try {
-                        growthOverTime = jdbc.sql("SELECT CAST(snapshot_time AS DATE) as s_date, MAX(total_count) as max_count " +
+                        var entries = jdbc.sql("SELECT CAST(snapshot_time AS DATE) as s_date, MAX(total_count) as max_count " +
                                         "FROM memory_analytics_snapshot " +
                                         "WHERE snapshot_time >= :since " +
                                         "GROUP BY s_date ORDER BY s_date")
                                 .param("since", Timestamp.from(Instant.now().minus(java.time.Duration.ofDays(30))))
                                 .query((rs, rowNum) -> Map.entry(rs.getDate("s_date").toString(), rs.getLong("max_count")))
-                                .stream()
+                                .list();
+                        growthOverTime = entries.stream()
                                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2, java.util.TreeMap::new));
                     } catch (Exception e) {
                         log.warn("Failed to load historical growth from database: {}", e.getMessage());
