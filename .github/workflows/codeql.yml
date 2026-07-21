@@ -51,13 +51,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'java-kotlin' ]
+        language: [ 'java-kotlin', 'javascript-typescript', 'python' ]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Set up JDK
+        if: matrix.language == 'java-kotlin'
         uses: actions/setup-java@v4
         with:
           java-version: '25'
@@ -75,6 +76,7 @@ jobs:
           config-file: .github/codeql/codeql-config.yml
 
       - name: Build for CodeQL
+        if: matrix.language == 'java-kotlin'
         run: |
           mvn -B clean compile -DskipTests \
             --no-transfer-progress \
