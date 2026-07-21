@@ -152,6 +152,8 @@ export class AgentChatComponent {
   readonly soulValues = signal<string[]>([]);
   readonly soulEmotionalBaseline = signal('NEUTRAL');
   readonly soulGuardrails = signal<string[]>([]);
+  readonly soulTools = signal<string[]>([]);
+  readonly availableTools = signal<any[]>([]);
   private soulLoaded = false;
 
   // ── Derived ──
@@ -462,6 +464,15 @@ export class AgentChatComponent {
 
   loadSoul(): void {
     this.soulLoading.set(true);
+    this.api.getAvailableTools().subscribe({
+      next: (tools) => {
+        this.availableTools.set(tools ?? []);
+      },
+      error: () => {
+        this.availableTools.set([]);
+      }
+    });
+
     this.api.getAgentSoul().subscribe({
       next: (data) => {
         this.soulName.set(data.name ?? '');
@@ -472,6 +483,7 @@ export class AgentChatComponent {
         this.soulValues.set(data.coreValues ?? []);
         this.soulEmotionalBaseline.set(data.emotionalBaseline ?? 'NEUTRAL');
         this.soulGuardrails.set(data.ethicalGuardrails ?? []);
+        this.soulTools.set(data.tools ?? []);
         this.soulLoaded = true;
         this.soulLoading.set(false);
       },
@@ -493,6 +505,7 @@ export class AgentChatComponent {
       expertiseDomains: this.soulExpertise(),
       coreValues: this.soulValues(),
       emotionalBaseline: this.soulEmotionalBaseline(),
+      tools: this.soulTools(),
     };
     this.api.updateAgentSoul(soul).subscribe({
       next: () => {
@@ -517,12 +530,30 @@ export class AgentChatComponent {
         this.soulValues.set([]);
         this.soulEmotionalBaseline.set('NEUTRAL');
         this.soulGuardrails.set([]);
+        this.soulTools.set([]);
         this.snack.open('Soul reset to default', 'OK', { duration: 2000 });
       },
       error: () => {
-        this.snack.open('Failed to reset soul', 'Retry', { duration: 3000 });
+        // No soul yet — start with defaults
+        this.soulLoaded = true;
+        this.soulLoading.set(false);
       },
     });
+  }
+
+  isToolEnabled(name: string): boolean {
+    return this.soulTools().includes(name);
+  }
+
+  toggleTool(name: string, checked: boolean): void {
+    const current = this.soulTools();
+    if (checked) {
+      if (!current.includes(name)) {
+        this.soulTools.set([...current, name]);
+      }
+    } else {
+      this.soulTools.set(current.filter(t => t !== name));
+    }
   }
 
   addSoulChip(field: 'expertise' | 'values', event: Event): void {
