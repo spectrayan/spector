@@ -18,7 +18,7 @@
     <p>Loading memory diagnostics...</p>
   </div>
 
-  <div class="dashboard-grid" *ngIf="stats()">
+  <div class="dashboard-grid" [hidden]="!stats()">
     <!-- 1. Disk & Sizing Summary Card -->
     <mat-card class="stats-card summary-card">
       <mat-card-header>
