@@ -34,6 +34,29 @@ spector:
   cors:
     allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200}
 
+  # ── Multi-User Authentication (spector.auth.*) ──
+  # Off by default: preserves the legacy single shared memory + shared-key ROLE_API behavior.
+  # Secrets are injected from the environment via ${env:VAR} placeholders and are NEVER
+  # committed as literals. Spector OSS is single-tenant, multi-user — no tenant-scoped keys.
+  auth:
+    enabled: ${SPECTOR_AUTH_ENABLED:false}
+    jwt:
+      secret: ${env:SPECTOR_AUTH_JWT_SECRET}   # HS256 signing secret (required when enabled)
+      ttl: ${SPECTOR_AUTH_JWT_TTL:1h}          # access-token lifetime
+    refresh:
+      ttl: ${SPECTOR_AUTH_REFRESH_TTL:30d}     # refresh-token lifetime
+    oidc:
+      jwks-url: ${SPECTOR_AUTH_OIDC_JWKS_URL:}  # non-empty enables external OIDC RS256 validation
+      issuer: ${SPECTOR_AUTH_OIDC_ISSUER:}      # expected iss claim for external OIDC tokens
+    default-admin:
+      password: ${env:SPECTOR_ADMIN_PASSWORD}  # seed admin password (required when enabled)
+    pbkdf2:
+      iterations: ${SPECTOR_AUTH_PBKDF2_ITERATIONS:310000}
+    lockout:
+      max-attempts: ${SPECTOR_AUTH_LOCKOUT_MAX_ATTEMPTS:5}
+      minutes: ${SPECTOR_AUTH_LOCKOUT_MINUTES:15}
+    public-paths: ${SPECTOR_AUTH_PUBLIC_PATHS:/actuator/health,/api/docs}
+
   # ── Spector Spring Auto-Configuration ──
   # SpectorAutoConfiguration (spector-spring module) creates a Spring-managed
   # SpectorMemory bean — with Micrometer metrics wrapping when an actuator

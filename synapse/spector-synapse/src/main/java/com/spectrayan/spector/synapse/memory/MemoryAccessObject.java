@@ -12,85 +12,84 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.model.CognitiveRecord;
-import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
-import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
-import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableRow;
-import com.spectrayan.spector.synapse.memory.MemoryDto.UpdateMemoryRequest;
-import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryVectorResponse;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
-import com.spectrayan.spector.memory.id.TsidGenerator;
-import com.spectrayan.spector.memory.model.GraphNeighborhood;
-import com.spectrayan.spector.memory.model.TopologyStats;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Repository;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.GraphNeighborhood;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.model.TopologyStats;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableRow;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryVectorResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.UpdateMemoryRequest;
+
 /**
  * Memory Access Object (DAO) for the Spector cognitive memory engine.
  *
- * <p>Responsible strictly for data-access operations using {@link SpectorMemory},
- * including reading/writing memories, indices, and graphs. Contains no business logic
- * like chunking, async task orchestration, or SSE event publishing.</p>
+ * <p>Responsible strictly for data-access operations against a {@link SpectorMemory}
+ * instance, including reading/writing memories, indices, and graphs. Contains no
+ * business logic like chunking, async task orchestration, or SSE event publishing.</p>
+ *
+ * <p><strong>Multi-user rework:</strong> this DAO no longer holds or injects a single
+ * shared {@link SpectorMemory}. The caller resolves the target instance (per-user or the
+ * shared anonymous fallback) on the request thread and passes it to each data-access
+ * method. This keeps the DAO stateless with respect to memory routing so that concurrent
+ * requests from different users never cross memory instances.</p>
  */
 @Repository
 public class MemoryAccessObject {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryAccessObject.class);
 
-    private final SpectorMemory memory;
     private final TsidGenerator tsid;
 
     @Autowired
-    public MemoryAccessObject(ObjectProvider<SpectorMemory> memoryProvider, TsidGenerator tsid) {
-        this.memory = memoryProvider.getIfAvailable();
+    public MemoryAccessObject(TsidGenerator tsid) {
         this.tsid = tsid;
-        if (this.memory != null) {
-            log.info("[MemoryAccessObject] SpectorMemory available — DAO ready");
-        } else {
-            log.warn("[MemoryAccessObject] SpectorMemory bean not available — running in stub mode.");
-        }
     }
 
     /** Constructor for unit testing. */
-    public MemoryAccessObject(ObjectProvider<SpectorMemory> memoryProvider) {
-        this(memoryProvider, new TsidGenerator());
-    }
-
-    public boolean isAvailable() {
-        return memory != null;
+    public MemoryAccessObject() {
+        this(new TsidGenerator());
     }
 
     public TsidGenerator tsid() {
         return tsid;
     }
 
-    public SpectorMemory getMemory() {
-        return memory;
+    /**
+     * Whether the supplied {@link SpectorMemory} instance is usable.
+     *
+     * @param memory the resolved memory instance (may be {@code null} in stub mode)
+     * @return {@code true} when a memory instance is available
+     */
+    public boolean isAvailable(SpectorMemory memory) {
+        return memory != null;
     }
 
     /**
      * Store/remember a memory synchronously.
      */
-    public String remember(String id, String text, MemoryType type, MemorySource source, IngestionHints hints, String[] tags) {
-        if (!isAvailable()) {
+    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source, IngestionHints hints, String[] tags) {
+        if (!isAvailable(memory)) {
             log.warn("[MemoryAccessObject] Stub mode: remember ignored (id={})", id);
             return id;
         }
@@ -107,8 +106,8 @@ public class MemoryAccessObject {
     /**
      * Forget/tombstone a memory by ID.
      */
-    public void forget(String id) {
-        if (!isAvailable()) return;
+    public void forget(SpectorMemory memory, String id) {
+        if (!isAvailable(memory)) return;
         try {
             memory.forget(id);
             log.info("[MemoryAccessObject] Forgot memory id={}", id);
@@ -120,8 +119,8 @@ public class MemoryAccessObject {
     /**
      * Triggers manual memory consolidation.
      */
-    public void consolidate() {
-        if (!isAvailable()) return;
+    public void consolidate(SpectorMemory memory) {
+        if (!isAvailable(memory)) return;
         try {
             memory.consolidate();
             log.info("[MemoryAccessObject] Triggered memory consolidation");
@@ -135,8 +134,8 @@ public class MemoryAccessObject {
     /**
      * Reinforce a memory via emotional valence feedback.
      */
-    public void reinforce(String id, int valence) {
-        if (!isAvailable()) return;
+    public void reinforce(SpectorMemory memory, String id, int valence) {
+        if (!isAvailable(memory)) return;
         try {
             memory.reinforce(id, (byte) Math.clamp(valence, -128, 127));
             log.info("[MemoryAccessObject] Reinforced memory id={} valence={}", id, valence);
@@ -148,8 +147,8 @@ public class MemoryAccessObject {
     /**
      * Suppress a memory with an optional reason.
      */
-    public void suppress(String id, String reason) {
-        if (!isAvailable()) return;
+    public void suppress(SpectorMemory memory, String id, String reason) {
+        if (!isAvailable(memory)) return;
         try {
             if (reason != null && !reason.isBlank()) {
                 memory.suppress(id, reason);
@@ -165,8 +164,8 @@ public class MemoryAccessObject {
     /**
      * Unsuppress a previously suppressed memory.
      */
-    public void unsuppress(String id) {
-        if (!isAvailable()) return;
+    public void unsuppress(SpectorMemory memory, String id) {
+        if (!isAvailable(memory)) return;
         try {
             memory.unsuppress(id);
             log.info("[MemoryAccessObject] Unsuppressed memory id={}", id);
@@ -176,8 +175,8 @@ public class MemoryAccessObject {
     }
 
     /** Mark a memory as resolved. */
-    public void markResolved(String id) {
-        if (!isAvailable()) return;
+    public void markResolved(SpectorMemory memory, String id) {
+        if (!isAvailable(memory)) return;
         try {
             memory.markResolved(id);
         } catch (Exception e) {
@@ -186,8 +185,8 @@ public class MemoryAccessObject {
     }
 
     /** Mark a memory as unresolved. */
-    public void markUnresolved(String id) {
-        if (!isAvailable()) return;
+    public void markUnresolved(SpectorMemory memory, String id) {
+        if (!isAvailable(memory)) return;
         try {
             memory.markUnresolved(id);
         } catch (Exception e) {
@@ -198,8 +197,8 @@ public class MemoryAccessObject {
     /**
      * Call cognitive recall synchronously.
      */
-    public List<CognitiveResult> recall(String query) {
-        if (!isAvailable()) return List.of();
+    public List<CognitiveResult> recall(SpectorMemory memory, String query) {
+        if (!isAvailable(memory)) return List.of();
         try {
             return memory.recall(query);
         } catch (Exception e) {
@@ -211,8 +210,8 @@ public class MemoryAccessObject {
     /**
      * Triggers a sleep consolidation (reflect) cycle.
      */
-    public ReflectReport reflect() {
-        if (!isAvailable()) return null;
+    public ReflectReport reflect(SpectorMemory memory) {
+        if (!isAvailable(memory)) return null;
         try {
             return memory.reflect();
         } catch (Exception e) {
@@ -224,8 +223,8 @@ public class MemoryAccessObject {
     /**
      * Triggers vacuum compaction for a specific tier.
      */
-    public CompactionResult vacuum(String tierName) {
-        if (!isAvailable()) return new CompactionResult(tierName, 0, 0, 0, 0L, 0L);
+    public CompactionResult vacuum(SpectorMemory memory, String tierName) {
+        if (!isAvailable(memory)) return new CompactionResult(tierName, 0, 0, 0, 0L, 0L);
         try {
             MemoryType tier = MemoryTypeParser.safeMemoryType(tierName, MemoryType.SEMANTIC);
             long start = System.currentTimeMillis();
@@ -243,8 +242,8 @@ public class MemoryAccessObject {
     /**
      * Retrieve details for a single memory by ID.
      */
-    public MemoryTableRow getMemoryById(String id) {
-        if (!isAvailable()) return null;
+    public MemoryTableRow getMemoryById(SpectorMemory memory, String id) {
+        if (!isAvailable(memory)) return null;
         try {
             var record = memory.inspect(id);
             if (record == null) return null;
@@ -258,8 +257,8 @@ public class MemoryAccessObject {
     /**
      * Retrieve the INT8 quantized embedding vector for a memory.
      */
-    public MemoryVectorResponse getMemoryVector(String id) {
-        if (!isAvailable()) return new MemoryVectorResponse(id, 0, List.of());
+    public MemoryVectorResponse getMemoryVector(SpectorMemory memory, String id) {
+        if (!isAvailable(memory)) return new MemoryVectorResponse(id, 0, List.of());
         try {
             var record = memory.inspect(id);
             if (record == null || record.quantizedVector() == null) {
@@ -280,8 +279,8 @@ public class MemoryAccessObject {
     /**
      * Update an existing memory's text and tags.
      */
-    public void updateMemory(String id, UpdateMemoryRequest request) {
-        if (!isAvailable()) return;
+    public void updateMemory(SpectorMemory memory, String id, UpdateMemoryRequest request) {
+        if (!isAvailable(memory)) return;
         try {
             var record = memory.inspect(id);
             if (record == null) {
@@ -301,8 +300,8 @@ public class MemoryAccessObject {
     /**
      * Returns a paginated memory table view for the Cortex UI.
      */
-    public MemoryTableResponse getMemoryTable(int page, int pageSize, String tierFilter, boolean showTombstoned) {
-        if (!isAvailable()) {
+    public MemoryTableResponse getMemoryTable(SpectorMemory memory, int page, int pageSize, String tierFilter, boolean showTombstoned) {
+        if (!isAvailable(memory)) {
             var emptyCounts = Map.of("WORKING", 0, "EPISODIC", 0, "SEMANTIC", 0, "PROCEDURAL", 0);
             var emptyRatios = Map.of("WORKING", 0f, "EPISODIC", 0f, "SEMANTIC", 0f, "PROCEDURAL", 0f);
             return new MemoryTableResponse(List.of(), 0, page, pageSize, emptyCounts, emptyRatios);
@@ -359,8 +358,8 @@ public class MemoryAccessObject {
     /**
      * Returns cognitive memory status (tier counts, graph stats).
      */
-    public MemoryStatusResponse getStatus() {
-        if (!isAvailable()) {
+    public MemoryStatusResponse getStatus(SpectorMemory memory) {
+        if (!isAvailable(memory)) {
             return new MemoryStatusResponse(0,
                     Map.of("WORKING", 0, "EPISODIC", 0, "SEMANTIC", 0, "PROCEDURAL", 0),
                     0, 0, 0, 0);
@@ -381,8 +380,8 @@ public class MemoryAccessObject {
     /**
      * Returns a sampled overview of the memory graph (nodes + edges).
      */
-    public MemoryGraphResponse getGraphOverview(int maxNodes) {
-        if (!isAvailable()) return MemoryGraphResponse.empty(null);
+    public MemoryGraphResponse getGraphOverview(SpectorMemory memory, int maxNodes) {
+        if (!isAvailable(memory)) return MemoryGraphResponse.empty(null);
         var neighborhood = memory.admin().graph().overview(maxNodes, memory::inspect);
         return toGraphResponse(neighborhood);
     }
@@ -390,8 +389,8 @@ public class MemoryAccessObject {
     /**
      * Returns the Hebbian/Temporal/Entity neighborhood for a specific memory.
      */
-    public MemoryGraphResponse getMemoryGraph(String id, int depth) {
-        if (!isAvailable()) return MemoryGraphResponse.empty(null);
+    public MemoryGraphResponse getMemoryGraph(SpectorMemory memory, String id, int depth) {
+        if (!isAvailable(memory)) return MemoryGraphResponse.empty(null);
         var neighborhood = memory.admin().graph().neighborhood(id, depth, memory::inspect);
         return toGraphResponse(neighborhood);
     }
@@ -399,8 +398,8 @@ public class MemoryAccessObject {
     /**
      * Returns topology statistics.
      */
-    public MemoryDto.TopologyStatsResponse getTopologyStats() {
-        if (!isAvailable()) return MemoryDto.TopologyStatsResponse.empty();
+    public MemoryDto.TopologyStatsResponse getTopologyStats(SpectorMemory memory) {
+        if (!isAvailable(memory)) return MemoryDto.TopologyStatsResponse.empty();
         var stats = memory.admin().graph().topologyStats();
         return toTopologyResponse(stats);
     }
@@ -413,7 +412,8 @@ public class MemoryAccessObject {
      * Converts a {@link CognitiveRecord} to a {@link MemoryTableRow} DTO.
      *
      * <p>Centralizes the 20-field row construction so that both
-     * {@link #getMemoryById(String)} and {@link #getMemoryTable(int, int, String, boolean)}
+     * {@link #getMemoryById(SpectorMemory, String)} and
+     * {@link #getMemoryTable(SpectorMemory, int, int, String, boolean)}
      * share a single conversion path.</p>
      *
      * @param record           the cognitive record from inspect/listAll
@@ -504,9 +504,10 @@ public class MemoryAccessObject {
      * memory index. It runs synchronously — callers should invoke from
      * a controller thread or wrap in a virtual thread.</p>
      *
+     * @param memory the resolved memory instance to rescore
      * @return the number of memories whose importance was adjusted
      */
-    public int rescoreWithCurrentProfile() {
+    public int rescoreWithCurrentProfile(SpectorMemory memory) {
         if (memory == null) return 0;
 
         var admin = memory.admin();

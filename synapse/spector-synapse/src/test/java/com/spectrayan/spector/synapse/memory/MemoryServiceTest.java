@@ -12,29 +12,49 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.id.TsidGenerator;
-import com.spectrayan.spector.synapse.platform.events.EventPublisher;
-import com.spectrayan.spector.synapse.memory.MemoryDto.*;
-import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import org.mockito.Mock;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.synapse.memory.MemoryDto.*;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RememberRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.ResolveRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.SuppressRequest;
+import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 
 /**
  * Unit tests for {@link MemoryService}.
+ *
+ * <p>Post multi-user rework: {@link MemoryService} resolves the target {@code SpectorMemory}
+ * on the request thread and passes it to each {@link MemoryAccessObject} data-access call.
+ * In these unit tests the service is constructed without a {@code UserMemoryRegistry} or
+ * memory provider, so the resolved memory is {@code null}; the DAO memory argument is matched
+ * with {@code any()} while the remaining arguments preserve the original assertions.</p>
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MemoryService — Unit Tests")
@@ -60,7 +80,7 @@ class MemoryServiceTest {
     void remember_validRequest_triggersAsync() {
         var request = new RememberRequest("id1", "Learning Java 25 virtual threads",
                 "SEMANTIC", "USER_STATED", null, null, null, null, null, null);
-        when(mao.isAvailable()).thenReturn(true);
+        when(mao.isAvailable(any())).thenReturn(true);
         when(tsid.generate()).thenReturn("task-1");
 
         var result = service.remember(request);
@@ -91,14 +111,14 @@ class MemoryServiceTest {
                 new CognitiveResult("id1", "Virtual threads in Java 25", 0.9f, 2.0f, 0.0f, 0, (byte)0, MemoryType.SEMANTIC, MemorySource.OBSERVED, new String[]{"java"}, 1.0f, 1.0f),
                 new CognitiveResult("id2", "Platform thread limitations", 0.7f, 5.0f, 0.0f, 0, (byte)0, MemoryType.EPISODIC, MemorySource.OBSERVED, new String[0], 1.0f, 1.0f)
         );
-        when(mao.recall("Java concurrency")).thenReturn(results);
+        when(mao.recall(any(), eq("Java concurrency"))).thenReturn(results);
 
         var result = service.recall(request);
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).id()).isEqualTo("id1");
         assertThat(result.get(0).cognitiveScore()).isCloseTo(0.9, within(0.0001));
-        verify(mao).recall("Java concurrency");
+        verify(mao).recall(any(), eq("Java concurrency"));
         verify(eventPublisher).broadcast(eq("cortex.query.trace"), any());
     }
 
@@ -120,7 +140,7 @@ class MemoryServiceTest {
     @DisplayName("forget — delegates to DAO")
     void forget_delegatesToDAO() {
         service.forget("mem-123");
-        verify(mao).forget("mem-123");
+        verify(mao).forget(any(), eq("mem-123"));
         verify(eventPublisher).memoryEvent("deleted", "mem-123", "Tombstoned memory");
     }
 
@@ -139,7 +159,7 @@ class MemoryServiceTest {
     @DisplayName("reinforce — delegates to DAO")
     void reinforce_delegates() {
         service.reinforce("mem-1", 100);
-        verify(mao).reinforce("mem-1", 100);
+        verify(mao).reinforce(any(), eq("mem-1"), eq(100));
     }
 
     // ═══════════════════════════════════════════════════
@@ -150,14 +170,14 @@ class MemoryServiceTest {
     @DisplayName("suppress — delegates reason to DAO")
     void suppress_delegates() {
         service.suppress("mem-2", new SuppressRequest(null, "outdated"));
-        verify(mao).suppress("mem-2", "outdated");
+        verify(mao).suppress(any(), eq("mem-2"), eq("outdated"));
     }
 
     @Test
     @DisplayName("unsuppress — delegates to DAO via suppress with UNSUPPRESS action")
     void unsuppress_delegates() {
         service.suppress("mem-2", new SuppressRequest("UNSUPPRESS", null));
-        verify(mao).unsuppress("mem-2");
+        verify(mao).unsuppress(any(), eq("mem-2"));
     }
 
     // ═══════════════════════════════════════════════════
@@ -168,14 +188,14 @@ class MemoryServiceTest {
     @DisplayName("resolve — delegates to DAO")
     void resolve_delegates() {
         service.resolve("mem-3", new ResolveRequest(true));
-        verify(mao).markResolved("mem-3");
+        verify(mao).markResolved(any(), eq("mem-3"));
     }
 
     @Test
     @DisplayName("unresolve — delegates to DAO via resolve(false)")
     void unresolve_delegates() {
         service.resolve("mem-3", new ResolveRequest(false));
-        verify(mao).markUnresolved("mem-3");
+        verify(mao).markUnresolved(any(), eq("mem-3"));
     }
 
     // ═══════════════════════════════════════════════════
@@ -188,7 +208,7 @@ class MemoryServiceTest {
         var expected = new MemoryStatusResponse(42,
                 Map.of("SEMANTIC", 20, "EPISODIC", 15, "WORKING", 5, "PROCEDURAL", 2),
                 100, 30, 10, 5);
-        when(mao.getStatus()).thenReturn(expected);
+        when(mao.getStatus(any())).thenReturn(expected);
 
         var result = service.getStatus();
 
@@ -208,7 +228,7 @@ class MemoryServiceTest {
         when(mockReport.consolidatedCount()).thenReturn(2);
         when(mockReport.temporalPrunedCount()).thenReturn(1);
         when(mockReport.duration()).thenReturn(Duration.ofMillis(120L));
-        when(mao.reflect()).thenReturn(mockReport);
+        when(mao.reflect(any())).thenReturn(mockReport);
 
         var result = service.reflect();
 
@@ -226,12 +246,12 @@ class MemoryServiceTest {
     void getMemoryTable_delegates() {
         var emptyResp = new MemoryTableResponse(List.of(), 0, 0, 50,
                 Map.of(), Map.of());
-        when(mao.getMemoryTable(0, 50, null, false)).thenReturn(emptyResp);
+        when(mao.getMemoryTable(any(), eq(0), eq(50), isNull(), eq(false))).thenReturn(emptyResp);
 
         var result = service.getMemoryTable(0, 50, null, false);
 
         assertThat(result.totalCount()).isEqualTo(0);
-        verify(mao).getMemoryTable(0, 50, null, false);
+        verify(mao).getMemoryTable(any(), eq(0), eq(50), isNull(), eq(false));
     }
 
     // ═══════════════════════════════════════════════════
@@ -242,35 +262,35 @@ class MemoryServiceTest {
     @DisplayName("getGraphOverview — delegates to DAO with capped maxNodes")
     void getGraphOverview_delegatesToDAO() {
         var expected = MemoryGraphResponse.empty(null);
-        when(mao.getGraphOverview(100)).thenReturn(expected);
+        when(mao.getGraphOverview(any(), eq(100))).thenReturn(expected);
 
         var result = service.getGraphOverview(100);
 
         assertThat(result).isEqualTo(expected);
-        verify(mao).getGraphOverview(100);
+        verify(mao).getGraphOverview(any(), eq(100));
     }
 
     @Test
     @DisplayName("getMemoryGraph — delegates to DAO with id + depth")
     void getMemoryGraph_delegatesToDAO() {
         var expected = MemoryGraphResponse.empty("mem-1");
-        when(mao.getMemoryGraph("mem-1", 2)).thenReturn(expected);
+        when(mao.getMemoryGraph(any(), eq("mem-1"), eq(2))).thenReturn(expected);
 
         var result = service.getMemoryGraph("mem-1", 2);
 
         assertThat(result).isEqualTo(expected);
-        verify(mao).getMemoryGraph("mem-1", 2);
+        verify(mao).getMemoryGraph(any(), eq("mem-1"), eq(2));
     }
 
     @Test
     @DisplayName("getTopologyStats — delegates to DAO")
     void getTopologyStats_delegatesToDAO() {
         var expected = MemoryDto.TopologyStatsResponse.empty();
-        when(mao.getTopologyStats()).thenReturn(expected);
+        when(mao.getTopologyStats(any())).thenReturn(expected);
 
         var result = service.getTopologyStats();
 
         assertThat(result).isEqualTo(expected);
-        verify(mao).getTopologyStats();
+        verify(mao).getTopologyStats(any());
     }
 }

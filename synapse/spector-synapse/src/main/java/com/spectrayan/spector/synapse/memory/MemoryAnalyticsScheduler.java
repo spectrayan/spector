@@ -12,16 +12,19 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import com.spectrayan.spector.memory.model.GraphStats;
-import com.spectrayan.spector.memory.model.MemoryType;
+import java.sql.Timestamp;
+import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
-import java.time.Instant;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.GraphStats;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 /**
  * Background scheduler that periodically captures memory diagnostic telemetry
@@ -36,23 +39,31 @@ public class MemoryAnalyticsScheduler {
     private final MemoryService memoryService;
     private final JdbcClient jdbc;
 
-    public MemoryAnalyticsScheduler(MemoryAccessObject mao, MemoryService memoryService, JdbcClient jdbc) {
+    /**
+     * Temporary bridge for resolving the target {@link SpectorMemory}.
+     *
+     * <p>TODO(15.2/16.1): this background scheduler has no request-bound security context;
+     * once per-user memory routing lands it should iterate the {@code UserMemoryRegistry}.
+     * For now it captures analytics for the single shared instance.</p>
+     */
+    private final ObjectProvider<SpectorMemory> memoryProvider;
+
+    public MemoryAnalyticsScheduler(MemoryAccessObject mao, MemoryService memoryService, JdbcClient jdbc,
+                                    ObjectProvider<SpectorMemory> memoryProvider) {
         this.mao = mao;
         this.memoryService = memoryService;
         this.jdbc = jdbc;
+        this.memoryProvider = memoryProvider;
     }
 
     @Scheduled(fixedDelayString = "${spector.memory.analytics.interval:10000}", initialDelay = 5000)
     public void captureSnapshot() {
-        if (!mao.isAvailable()) {
+        var memory = memoryProvider != null ? memoryProvider.getIfAvailable() : null;
+        if (!mao.isAvailable(memory)) {
             return;
         }
 
         try {
-            var memory = mao.getMemory();
-            if (memory == null) {
-                return;
-            }
 
             long totalCount = memory.admin().index().size();
             int workingCount = memory.admin().index().locationMap().values().stream()

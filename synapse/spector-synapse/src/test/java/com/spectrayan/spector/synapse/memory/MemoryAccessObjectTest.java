@@ -12,59 +12,62 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import org.mockito.Mock;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.ObjectProvider;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link MemoryAccessObject}.
+ *
+ * <p>Post multi-user rework: the DAO is stateless with respect to memory routing.
+ * The caller resolves the target {@link SpectorMemory} on the request thread and passes
+ * it to each data-access method. These tests exercise both the "live" path (a resolved
+ * memory is supplied) and the "stub" path (a {@code null} memory is supplied).</p>
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MemoryAccessObject — Unit Tests")
 class MemoryAccessObjectTest {
 
     @Mock SpectorMemory mockMemory;
-    @Mock ObjectProvider<SpectorMemory> presentProvider;
-    @Mock ObjectProvider<SpectorMemory> absentProvider;
 
-    MemoryAccessObject maoWithMemory;
-    MemoryAccessObject maoStubMode;
+    MemoryAccessObject mao;
 
     @BeforeEach
     void setUp() {
-        when(presentProvider.getIfAvailable()).thenReturn(mockMemory);
-        when(absentProvider.getIfAvailable()).thenReturn(null);
-
-        maoWithMemory = new MemoryAccessObject(presentProvider);
-        maoStubMode   = new MemoryAccessObject(absentProvider);
+        mao = new MemoryAccessObject();
     }
 
     @Test
-    @DisplayName("isAvailable — true when SpectorMemory bean is present")
-    void isAvailable_true_whenBeanPresent() {
-        assertThat(maoWithMemory.isAvailable()).isTrue();
+    @DisplayName("isAvailable — true when a resolved SpectorMemory is supplied")
+    void isAvailable_true_whenMemoryPresent() {
+        assertThat(mao.isAvailable(mockMemory)).isTrue();
     }
 
     @Test
-    @DisplayName("isAvailable — false when SpectorMemory bean is absent (stub mode)")
+    @DisplayName("isAvailable — false when memory is null (stub mode)")
     void isAvailable_false_inStubMode() {
-        assertThat(maoStubMode.isAvailable()).isFalse();
+        assertThat(mao.isAvailable(null)).isFalse();
     }
 
     @Test
@@ -76,7 +79,7 @@ class MemoryAccessObjectTest {
                 .remember(eq("mem-xyz"), eq("knowledge about HNSW index"),
                         eq(MemoryType.SEMANTIC), eq(MemorySource.USER_STATED), nullable(IngestionHints.class), any(String[].class));
 
-        var result = maoWithMemory.remember("mem-xyz", "knowledge about HNSW index",
+        var result = mao.remember(mockMemory, "mem-xyz", "knowledge about HNSW index",
                 MemoryType.SEMANTIC, MemorySource.USER_STATED, null, new String[]{"index", "hnsw"});
 
         assertThat(result).isEqualTo("mem-xyz");
@@ -85,35 +88,35 @@ class MemoryAccessObjectTest {
     @Test
     @DisplayName("forget — live mode calls memory.forget")
     void forget_liveMode_delegates() {
-        maoWithMemory.forget("mem-1");
+        mao.forget(mockMemory, "mem-1");
         verify(mockMemory).forget("mem-1");
     }
 
     @Test
     @DisplayName("reinforce — live mode calls memory.reinforce with byte valence")
     void reinforce_liveMode_delegates() {
-        maoWithMemory.reinforce("mem-2", 100);
+        mao.reinforce(mockMemory, "mem-2", 100);
         verify(mockMemory).reinforce("mem-2", (byte) 100);
     }
 
     @Test
     @DisplayName("suppress with reason — live mode calls memory.suppress(id, reason)")
     void suppress_withReason_callsOverload() {
-        maoWithMemory.suppress("mem-3", "outdated");
+        mao.suppress(mockMemory, "mem-3", "outdated");
         verify(mockMemory).suppress("mem-3", "outdated");
     }
 
     @Test
     @DisplayName("unsuppress — live mode delegates")
     void unsuppress_liveMode_delegates() {
-        maoWithMemory.unsuppress("mem-3");
+        mao.unsuppress(mockMemory, "mem-3");
         verify(mockMemory).unsuppress("mem-3");
     }
 
     @Test
     @DisplayName("markResolved — live mode delegates")
     void resolve_liveMode_delegates() {
-        maoWithMemory.markResolved("mem-4");
+        mao.markResolved(mockMemory, "mem-4");
         verify(mockMemory).markResolved("mem-4");
     }
 
@@ -123,7 +126,7 @@ class MemoryAccessObjectTest {
         var cogResult = mock(CognitiveResult.class);
         when(mockMemory.recall("Java concurrency")).thenReturn(List.of(cogResult));
 
-        var results = maoWithMemory.recall("Java concurrency");
+        var results = mao.recall(mockMemory, "Java concurrency");
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0)).isSameAs(cogResult);
@@ -135,7 +138,7 @@ class MemoryAccessObjectTest {
         var report = mock(ReflectReport.class);
         when(mockMemory.reflect()).thenReturn(report);
 
-        var result = maoWithMemory.reflect();
+        var result = mao.reflect(mockMemory);
 
         assertThat(result).isSameAs(report);
     }
@@ -155,7 +158,7 @@ class MemoryAccessObjectTest {
         when(mockMemory.memoryCount(MemoryType.SEMANTIC)).thenReturn(20);
         when(mockMemory.memoryCount(MemoryType.PROCEDURAL)).thenReturn(5);
 
-        var result = maoWithMemory.getStatus();
+        var result = mao.getStatus(mockMemory);
 
         assertThat(result.totalMemories()).isEqualTo(50);
         assertThat(result.tierCounts()).containsEntry("SEMANTIC", 20);
