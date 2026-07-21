@@ -45,6 +45,18 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Override
+    public void addViewControllers(org.springframework.web.servlet.config.annotation.ViewControllerRegistry registry) {
+        registry.addViewController("/dashboard").setViewName("forward:/index.html");
+        registry.addViewController("/chat").setViewName("forward:/index.html");
+        registry.addViewController("/query").setViewName("forward:/index.html");
+        registry.addViewController("/memories").setViewName("forward:/index.html");
+        registry.addViewController("/memories/{id}").setViewName("forward:/index.html");
+        registry.addViewController("/graph").setViewName("forward:/index.html");
+        registry.addViewController("/settings").setViewName("forward:/index.html");
+        registry.addViewController("/health").setViewName("forward:/index.html");
+    }
+
+    @Override
     public void addCorsMappings(CorsRegistry registry) {
         String origins = props.cors().allowedOrigins();
         String[] originArray = origins.split(",");
