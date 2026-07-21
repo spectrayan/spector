@@ -55,7 +55,7 @@ public interface SynapsePlugin {
      * Returns the list of tools this plugin provides.
      * These tools are registered with the global ToolRegistry.
      */
-    default List<com.spectrayan.spector.synapse.agent.AgentTool> tools() {
+    default List<com.spectrayan.spector.mcp.tools.McpToolHandler> tools() {
         return List.of();
     }
 

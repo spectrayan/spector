@@ -11,10 +11,13 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
+
 
 import com.spectrayan.spector.synapse.agent.AgentSoul;
-import com.spectrayan.spector.synapse.agent.AgentTool;
-import com.spectrayan.spector.synapse.agent.AgentTool.ToolCategory;
+import com.spectrayan.spector.mcp.tools.McpToolHandler.McpToolCategory;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 
 import org.slf4j.Logger;
@@ -28,7 +31,7 @@ import java.util.Map;
  * Agent tool that reads the current agent soul identity.
  */
 @Component
-public class ReadIdentityTool implements AgentTool {
+public class ReadIdentityTool extends McpToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ReadIdentityTool.class);
 
@@ -45,11 +48,11 @@ public class ReadIdentityTool implements AgentTool {
                 + "or before proposing identity updates.";
     }
 
-    @Override public ToolCategory category() { return ToolCategory.MEMORY; }
+    @Override public McpToolCategory category() { return McpToolCategory.MEMORY; }
     @Override public boolean isWriteTool() { return false; }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -61,7 +64,11 @@ public class ReadIdentityTool implements AgentTool {
     }
 
     @Override
-    public String execute(Map<String, Object> arguments) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> arguments) throws Exception {
         try {
             AgentSoul soul = soulService.getEffectiveSoul(null);
             return String.format("""

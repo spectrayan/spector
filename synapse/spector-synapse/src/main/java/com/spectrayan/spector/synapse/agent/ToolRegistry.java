@@ -13,6 +13,8 @@
 package com.spectrayan.spector.synapse.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import io.modelcontextprotocol.spec.McpSchema;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.model.chat.request.json.JsonArraySchema;
@@ -36,17 +38,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Registry for all available agent tools — bridges Spector's {@link AgentTool}
- * interface with LangChain4j's tool calling framework.
- *
- * <p>Tools are auto-discovered via Spring component scan. Any bean implementing
- * {@link AgentTool} is automatically registered at startup and made available
- * as {@link ToolSpecification} for LangGraph4j agentic graphs.</p>
- *
- * <h3>LangGraph4j-Spring AI Integration</h3>
- * <p>This registry provides {@link #toolSpecifications()} which can be directly
- * passed to LangGraph4j-Spring AI's agent executor nodes, and
- * {@link #executeTool(ToolExecutionRequest)} for dispatching tool calls.</p>
+ * Registry for all available agent tools — bridges Spector's {@link McpToolHandler}
+ * model with LangChain4j's tool calling framework.
  */
 @Component
 public class ToolRegistry {
@@ -54,22 +47,47 @@ public class ToolRegistry {
     private static final Logger log = LoggerFactory.getLogger(ToolRegistry.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final ConcurrentHashMap<String, AgentTool> tools = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, McpToolHandler> tools = new ConcurrentHashMap<>();
 
     /**
-     * Auto-register all AgentTool beans found by Spring.
+     * Helper constructor for testing and manual registry creation.
      */
-    public ToolRegistry(List<AgentTool> toolBeans) {
-        for (AgentTool tool : toolBeans) {
-            tools.put(tool.name(), tool);
-            log.info("[ToolRegistry] Registered tool: {} [{}] — {}",
-                    tool.name(), tool.category(), tool.description());
+    public ToolRegistry(List<? extends McpToolHandler> individualBeans) {
+        if (individualBeans != null) {
+            for (McpToolHandler tool : individualBeans) {
+                tools.put(tool.name(), tool);
+            }
         }
-        log.info("[ToolRegistry] {} tools registered", tools.size());
+    }
+
+    /**
+     * Auto-register all individual and bulk McpToolHandler beans found by Spring.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public ToolRegistry(
+            org.springframework.beans.factory.ObjectProvider<McpToolHandler> individualBeansProvider,
+            org.springframework.beans.factory.ObjectProvider<List<McpToolHandler>> bulkBeansProvider) {
+        
+        individualBeansProvider.orderedStream().forEach(tool -> {
+            tools.put(tool.name(), tool);
+            log.info("[ToolRegistry] Registered individual tool: {} [{}] — {}",
+                    tool.name(), tool.category(), tool.description());
+        });
+
+        bulkBeansProvider.orderedStream().forEach(list -> {
+            if (list != null) {
+                for (McpToolHandler tool : list) {
+                    tools.put(tool.name(), tool);
+                    log.info("[ToolRegistry] Registered bulk tool: {} [{}] — {}",
+                            tool.name(), tool.category(), tool.description());
+                }
+            }
+        });
+        log.info("[ToolRegistry] {} tools successfully registered", tools.size());
     }
 
     /** Get a tool by name. */
-    public Optional<AgentTool> get(String name) {
+    public Optional<McpToolHandler> get(String name) {
         return Optional.ofNullable(tools.get(name));
     }
 
@@ -79,12 +97,12 @@ public class ToolRegistry {
     }
 
     /** Get all registered tools. */
-    public Map<String, AgentTool> all() {
+    public Map<String, McpToolHandler> all() {
         return Collections.unmodifiableMap(tools);
     }
 
     /** Register a tool dynamically at runtime. */
-    public void register(AgentTool tool) {
+    public void register(McpToolHandler tool) {
         tools.put(tool.name(), tool);
         log.info("[ToolRegistry] Dynamically registered tool: {} [{}]", tool.name(), tool.category());
     }
@@ -95,7 +113,7 @@ public class ToolRegistry {
     }
 
     /** Get tools matching a list of names (for agent soul filtering). */
-    public List<AgentTool> forNames(List<String> names) {
+    public List<McpToolHandler> forNames(List<String> names) {
         return names.stream()
                 .map(tools::get)
                 .filter(t -> t != null)
@@ -103,46 +121,29 @@ public class ToolRegistry {
     }
 
     /** Get tools by category. */
-    public List<AgentTool> byCategory(AgentTool.ToolCategory category) {
+    public List<McpToolHandler> byCategory(McpToolHandler.McpToolCategory category) {
         return tools.values().stream()
                 .filter(t -> t.category() == category)
                 .toList();
     }
 
     /** Get only write tools (requiring supervised approval). */
-    public List<AgentTool> writeTools() {
+    public List<McpToolHandler> writeTools() {
         return tools.values().stream()
-                .filter(AgentTool::isWriteTool)
+                .filter(McpToolHandler::isWriteTool)
                 .toList();
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // LangChain4j / LangGraph4j Integration
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Builds LangChain4j {@link ToolSpecification} list for all registered tools.
-     *
-     * <p>These specifications are used by LangGraph4j-Spring AI's agent nodes
-     * to present available tools to the LLM for function calling.</p>
-     */
+    /** Builds LangChain4j ToolSpecification list for all registered tools. */
     public List<ToolSpecification> toolSpecifications() {
         return tools.values().stream()
                 .map(ToolRegistry::toToolSpecification)
                 .toList();
     }
 
-    /**
-     * Executes a tool by name from a {@link ToolExecutionRequest}.
-     *
-     * <p>LangGraph4j dispatches tool calls through this method after the LLM
-     * selects a tool via function calling.</p>
-     *
-     * @param request the tool execution request from the LLM
-     * @return the tool execution result as a string
-     */
+    /** Executes a tool by name from a ToolExecutionRequest. */
     public String executeTool(ToolExecutionRequest request) {
-        AgentTool tool = tools.get(request.name());
+        McpToolHandler tool = tools.get(request.name());
         if (tool == null) {
             return "Error: Unknown tool '" + request.name() + "'";
         }
@@ -151,25 +152,33 @@ public class ToolRegistry {
             Map<String, Object> args = request.arguments() != null && !request.arguments().isBlank()
                     ? MAPPER.readValue(request.arguments(), Map.class)
                     : Map.of();
-            return tool.execute(args);
+            
+            // Execute the MCP tool using null runtime context
+            McpSchema.CallToolResult result = tool.execute(null, args);
+            if (result == null || result.content() == null) {
+                return "";
+            }
+            
+            StringBuilder sb = new StringBuilder();
+            for (var content : result.content()) {
+                if (content instanceof McpSchema.TextContent textContent) {
+                    sb.append(textContent.text());
+                }
+            }
+            return sb.toString();
         } catch (Exception e) {
             log.warn("[ToolRegistry] Tool '{}' execution failed: {}", tool.name(), e.getMessage());
             return "Error executing tool '" + tool.name() + "': " + e.getMessage();
         }
     }
 
-    /**
-     * Builds OpenAI-compatible function definitions for REST API responses.
-     *
-     * <p>Used by the agent tools listing endpoint to present tool schemas
-     * to the UI/API clients.</p>
-     */
+    /** Builds OpenAI-compatible function definitions for REST API responses. */
     public List<Map<String, Object>> toFunctionDefinitions() {
         return tools.values().stream()
                 .map(tool -> Map.<String, Object>of(
                         "name", tool.name(),
                         "description", tool.description(),
-                        "parameters", tool.parameterSchema(),
+                        "parameters", tool.inputSchema(),
                         "category", tool.category().name(),
                         "isWriteTool", tool.isWriteTool()
                 ))
@@ -179,12 +188,12 @@ public class ToolRegistry {
     // ── Internal helpers ──────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
-    private static ToolSpecification toToolSpecification(AgentTool tool) {
+    private static ToolSpecification toToolSpecification(McpToolHandler tool) {
         var builder = ToolSpecification.builder()
                 .name(tool.name())
                 .description(tool.description());
 
-        Map<String, Object> schema = tool.parameterSchema();
+        Map<String, Object> schema = tool.inputSchema();
         if (schema != null && !schema.isEmpty()) {
             var properties = (Map<String, Object>) schema.getOrDefault("properties", Map.of());
             var required = (List<String>) schema.getOrDefault("required", List.of());

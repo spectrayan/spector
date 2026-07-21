@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.agent.graph.nodes;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
 
@@ -65,7 +65,7 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                         ? callSpec.substring(0, callSpec.indexOf('('))
                         : callSpec;
 
-                AgentTool tool = toolRegistry.get(toolName.trim()).orElse(null);
+                McpToolHandler tool = toolRegistry.get(toolName.trim()).orElse(null);
                 if (tool == null) {
                     String error = String.format("Tool '%s' not found in registry", toolName);
                     log.warn("[ToolExecutionNode] {}", error);
@@ -82,7 +82,16 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                     args = Map.of();
                 }
 
-                String result = tool.execute(args);
+                io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(null, args);
+                StringBuilder sb = new StringBuilder();
+                if (toolResult != null && toolResult.content() != null) {
+                    for (var content : toolResult.content()) {
+                        if (content instanceof io.modelcontextprotocol.spec.McpSchema.TextContent textContent) {
+                            sb.append(textContent.text());
+                        }
+                    }
+                }
+                String result = sb.toString();
                 log.debug("[ToolExecutionNode] {}({}) → {}", toolName, args,
                         result.length() > 100 ? result.substring(0, 100) + "..." : result);
 

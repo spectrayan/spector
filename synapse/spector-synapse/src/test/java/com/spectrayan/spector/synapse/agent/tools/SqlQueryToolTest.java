@@ -13,7 +13,7 @@
 // Unit test for the methods in SqlQueryTool.java
 
 package com.spectrayan.spector.synapse.agent.tools;
-import com.spectrayan.spector.synapse.agent.AgentTool;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
@@ -280,8 +280,8 @@ class SqlQueryToolTest {
         SqlQueryTool tool = toolReturning("SELECT * FROM users");
 
         assertThat(tool.name()).isEqualTo("sql_query");
-        assertThat(tool.category()).isEqualTo(AgentTool.ToolCategory.DATA);
+        assertThat(tool.category()).isEqualTo(McpToolHandler.McpToolCategory.DATA);
         assertThat(tool.isWriteTool()).isFalse();
-        assertThat(tool.parameterSchema()).containsEntry("type", "object");
+        assertThat(tool.inputSchema()).containsEntry("type", "object");
     }
 }

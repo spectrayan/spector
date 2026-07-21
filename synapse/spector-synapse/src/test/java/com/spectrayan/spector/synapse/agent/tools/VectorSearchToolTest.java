@@ -11,6 +11,7 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -29,7 +30,6 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.synapse.agent.AgentTool;
 
 /**
  * Unit tests for {@link VectorSearchTool}.
@@ -58,7 +58,7 @@ class VectorSearchToolTest {
 
     @Test
     void testCategory() {
-        assertEquals(AgentTool.ToolCategory.MEMORY, tool.category());
+        assertEquals(McpToolHandler.McpToolCategory.MEMORY, tool.category());
     }
 
     @Test
@@ -74,7 +74,7 @@ class VectorSearchToolTest {
 
     @Test
     void testParameterSchemaHasRequiredParams() {
-        Map<String, Object> schema = tool.parameterSchema();
+        Map<String, Object> schema = tool.inputSchema();
         assertNotNull(schema);
 
         @SuppressWarnings("unchecked")

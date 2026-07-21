@@ -11,8 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -26,7 +29,7 @@ import java.util.Map;
  * File read tool — reads the contents of a file from the filesystem.
  */
 @Component
-public class FileReadTool implements AgentTool {
+public class FileReadTool extends McpToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(FileReadTool.class);
 
@@ -39,7 +42,7 @@ public class FileReadTool implements AgentTool {
     }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -50,12 +53,16 @@ public class FileReadTool implements AgentTool {
     }
 
     @Override
-    public ToolCategory category() {
-        return ToolCategory.FILESYSTEM;
+    public McpToolCategory category() {
+        return McpToolCategory.FILESYSTEM;
     }
 
     @Override
-    public String execute(Map<String, Object> arguments) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> arguments) throws Exception {
         String path = (String) arguments.get("path");
         if (path == null || path.isBlank()) {
             return "Error: 'path' argument is required";

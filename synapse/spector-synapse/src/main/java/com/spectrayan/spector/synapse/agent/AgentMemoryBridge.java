@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,7 +136,7 @@ public final class AgentMemoryBridge {
     /**
      * Registers a tool's executable schema into PROCEDURAL memory.
      */
-    public CompletableFuture<Void> saveToolDefinition(AgentTool tool) {
+    public CompletableFuture<Void> saveToolDefinition(McpToolHandler tool) {
         String content = String.format("Tool '%s' schema: %s", tool.name(), tool.description());
         return memory().remember(
                 content,

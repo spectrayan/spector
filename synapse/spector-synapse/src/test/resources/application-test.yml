@@ -33,6 +33,9 @@ spector:
     persistence-mode: IN_MEMORY
     splade-enabled: false
     colbert-enabled: false
+    decay:
+      min-threshold: 1000
+      baseline-half-life-days: 180
   embedding:
     model: nomic-embed-text
     base-url: http://localhost:11434

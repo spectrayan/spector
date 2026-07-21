@@ -18,7 +18,7 @@ import static org.bsc.langgraph4j.action.AsyncEdgeAction.edge_async;
 import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.synapse.agent.AgentTool;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.agent.graph.spec.AgentSpec;
 import com.spectrayan.spector.synapse.agent.graph.spec.ConditionalEdgeSpec;
@@ -237,7 +237,7 @@ public final class DynamicGraphBuilder {
         String toolName = nodeSpec.toolName() != null ? nodeSpec.toolName() : nodeName;
 
         return state -> {
-            AgentTool tool = toolRegistry.get(toolName).orElse(null);
+            McpToolHandler tool = toolRegistry.get(toolName).orElse(null);
             if (tool == null) {
                 String error = "Tool '" + toolName + "' not found in registry";
                 log.warn("[DynamicGraphBuilder] {}", error);
@@ -258,7 +258,16 @@ public final class DynamicGraphBuilder {
             }
 
             log.debug("[DynamicGraphBuilder] Tool '{}' executing with args: {}", toolName, mergedArgs);
-            String result = tool.execute(mergedArgs);
+            io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(null, mergedArgs);
+            StringBuilder sb = new StringBuilder();
+            if (toolResult != null && toolResult.content() != null) {
+                for (var content : toolResult.content()) {
+                    if (content instanceof io.modelcontextprotocol.spec.McpSchema.TextContent textContent) {
+                        sb.append(textContent.text());
+                    }
+                }
+            }
+            String result = sb.toString();
             return Map.of("context", List.of("[tool:" + toolName + "] " + result));
         };
     }

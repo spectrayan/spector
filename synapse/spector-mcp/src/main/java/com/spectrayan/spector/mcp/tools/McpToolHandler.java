@@ -59,6 +59,26 @@ import io.modelcontextprotocol.spec.McpSchema;
  */
 public abstract class McpToolHandler {
 
+    public enum McpToolCategory {
+        GENERAL, MEMORY, FILESYSTEM, NETWORK, SYSTEM, DATA
+    }
+
+    /**
+     * The category of this tool (e.g., MEMORY, FILESYSTEM).
+     * Defaults to GENERAL.
+     */
+    public McpToolCategory category() {
+        return McpToolCategory.GENERAL;
+    }
+
+    /**
+     * Indicates whether this tool mutates state (a write tool).
+     * Defaults to checking if required security scopes contain the keyword "write".
+     */
+    public boolean isWriteTool() {
+        return requiredScopes().stream().anyMatch(scope -> scope.toLowerCase().contains("write"));
+    }
+
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     // ═══════════════════════════════════════════════════════════════
@@ -99,6 +119,28 @@ public abstract class McpToolHandler {
      */
     public abstract McpSchema.CallToolResult execute(SpectorRuntime runtime,
                                                       Map<String, Object> args) throws Exception;
+
+    /**
+     * Helper execute method that runs the tool without a runtime context
+     * and returns the content directly as a single concatenated String.
+     * Useful for legacy compatibility and unit tests.
+     */
+    public String execute(Map<String, Object> arguments) {
+        try {
+            McpSchema.CallToolResult toolResult = execute(null, arguments);
+            StringBuilder sb = new StringBuilder();
+            if (toolResult != null && toolResult.content() != null) {
+                for (var content : toolResult.content()) {
+                    if (content instanceof McpSchema.TextContent textContent) {
+                        sb.append(textContent.text());
+                    }
+                }
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     /**
      * OAuth 2.1 scopes required to invoke this tool.

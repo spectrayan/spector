@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.synapse.agent.cognitive;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 
 import org.slf4j.Logger;
@@ -130,7 +129,16 @@ public final class ConversationReflector {
             if (rememberTool.isPresent()) {
                 for (var item : knowledge) {
                     try {
-                        String result = rememberTool.get().execute(item);
+                        io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = rememberTool.get().execute(null, item);
+                        StringBuilder sb = new StringBuilder();
+                        if (toolResult != null && toolResult.content() != null) {
+                            for (var contentEntry : toolResult.content()) {
+                                if (contentEntry instanceof io.modelcontextprotocol.spec.McpSchema.TextContent tc) {
+                                    sb.append(tc.text());
+                                }
+                            }
+                        }
+                        String result = sb.toString();
                         log.debug("[Reflector] Knowledge stored: {}", result);
                     } catch (Exception e) {
                         log.debug("[Reflector] Knowledge storage failed: {}", e.getMessage());
@@ -147,7 +155,7 @@ public final class ConversationReflector {
                             Map<String, Object> args = new HashMap<>(fact);
                             args.put("text", "User fact: " + fact.get("field")
                                     + " = " + fact.get("value"));
-                            factTool.execute(args);
+                            factTool.execute(null, args);
                         } catch (Exception e) {
                             log.debug("[Reflector] Fact storage failed: {}", e.getMessage());
                         }

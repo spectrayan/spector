@@ -72,6 +72,12 @@ public class MemoryService {
     private final TsidGenerator tsid;
     private final JdbcClient jdbc;
 
+    @org.springframework.beans.factory.annotation.Value("${spector.memory.decay.min-threshold:1000}")
+    private int minDecayThreshold = 1000;
+
+    @org.springframework.beans.factory.annotation.Value("${spector.memory.decay.baseline-half-life-days:180}")
+    private int baselineHalfLifeDays = 180;
+
     // -€-€ Analytics & Telemetry Counters -€-€
     private final AtomicLong recallCount = new AtomicLong(0);
     private final AtomicLong rememberCount = new AtomicLong(0);
@@ -660,14 +666,21 @@ public class MemoryService {
                 double day30Sum = 0;
                 long now = System.currentTimeMillis();
 
-                for (var r : records) {
-                    double lambda = Math.max(1.0, r.storageStrength());
-                    double ageSec = (now - r.timestampMs()) / 1000.0;
-                    double day7Age = ageSec + (7 * 86400.0);
-                    double day30Age = ageSec + (30 * 86400.0);
+                if (totalCount < minDecayThreshold) {
+                    day7Sum = totalCount;
+                    day30Sum = totalCount;
+                } else {
+                    for (var r : records) {
+                        double strength = r.storageStrength();
+                        double halfLifeDays = strength <= 1.0 ? baselineHalfLifeDays : strength;
+                        double lambda = Math.max(1.0, halfLifeDays);
+                        double ageSec = (now - r.timestampMs()) / 1000.0;
+                        double day7Age = ageSec + (7 * 86400.0);
+                        double day30Age = ageSec + (30 * 86400.0);
 
-                    day7Sum += Math.exp(-day7Age / (lambda * 86400.0));
-                    day30Sum += Math.exp(-day30Age / (lambda * 86400.0));
+                        day7Sum += Math.exp(-day7Age / (lambda * 86400.0));
+                        day30Sum += Math.exp(-day30Age / (lambda * 86400.0));
+                    }
                 }
 
                 Map<String, Double> decayForecast = Map.of(

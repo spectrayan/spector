@@ -11,10 +11,13 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
+
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spectrayan.spector.synapse.agent.AgentTool;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +33,7 @@ import java.util.regex.Pattern;
  * <p>Supports array indexing with [N] and wildcard with [*].</p>
  */
 @Component
-public class JsonQueryTool implements AgentTool {
+public class JsonQueryTool extends McpToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(JsonQueryTool.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -41,11 +44,11 @@ public class JsonQueryTool implements AgentTool {
         return "Query JSON data using a dot-notation path. Supports array indexing [N] and wildcard [*].";
     }
 
-    @Override public ToolCategory category() { return ToolCategory.DATA; }
+    @Override public McpToolCategory category() { return McpToolCategory.DATA; }
     @Override public boolean isWriteTool() { return false; }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -57,7 +60,11 @@ public class JsonQueryTool implements AgentTool {
     }
 
     @Override
-    public String execute(Map<String, Object> args) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> args) throws Exception {
         var jsonStr = (String) args.get("json");
         var path = (String) args.get("path");
         if (jsonStr == null || jsonStr.isBlank()) return "Error: Missing required argument: json";

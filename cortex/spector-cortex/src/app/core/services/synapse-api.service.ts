@@ -411,6 +411,11 @@ export class SynapseApiService {
     return this.http.delete<any>(`${this.baseUrl}/agent/soul`);
   }
 
+  /** Get all available tools registered in Synapse. */
+  getAvailableTools(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/agent/tools`);
+  }
+
   /** List recent chat sessions (for "Load More" past messages). */
   chatSessions(limit: number = 10): Observable<any> {
     return this.http.get<any>(`${this.baseUrl}/chat/sessions`, { params: { limit } });

@@ -11,8 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
+
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -25,7 +28,7 @@ import java.util.Map;
  * Current time tool — provides the current date, time, and timezone info.
  */
 @Component
-public class CurrentTimeTool implements AgentTool {
+public class CurrentTimeTool extends McpToolHandler {
 
     @Override
     public String name() { return "current_time"; }
@@ -36,7 +39,7 @@ public class CurrentTimeTool implements AgentTool {
     }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -46,12 +49,16 @@ public class CurrentTimeTool implements AgentTool {
     }
 
     @Override
-    public ToolCategory category() {
-        return ToolCategory.GENERAL;
+    public McpToolCategory category() {
+        return McpToolCategory.GENERAL;
     }
 
     @Override
-    public String execute(Map<String, Object> arguments) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> arguments) throws Exception {
         String tz = (String) arguments.getOrDefault("timezone", "UTC");
         try {
             ZoneId zoneId = ZoneId.of(tz);

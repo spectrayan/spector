@@ -11,6 +11,10 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
+
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -26,7 +30,6 @@ import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.synapse.agent.AgentTool;
 
 /**
  * Agent tool: {@code vector_search} — semantic search against Spector memory index with filters.
@@ -36,7 +39,7 @@ import com.spectrayan.spector.synapse.agent.AgentTool;
  * fine-grained control over semantic memory retrieval.</p>
  */
 @Component
-public class VectorSearchTool implements AgentTool {
+public class VectorSearchTool extends McpToolHandler {
 
     private final ObjectProvider<SpectorMemory> memoryProvider;
 
@@ -58,7 +61,7 @@ public class VectorSearchTool implements AgentTool {
     }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         Map<String, Object> schema = new LinkedHashMap<>();
         schema.put("type", "object");
 
@@ -111,7 +114,11 @@ public class VectorSearchTool implements AgentTool {
     }
 
     @Override
-    public String execute(Map<String, Object> arguments) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> arguments) throws Exception {
         try {
             SpectorMemory memory = memoryProvider.getIfAvailable();
             if (memory == null) {
@@ -175,8 +182,8 @@ public class VectorSearchTool implements AgentTool {
     }
 
     @Override
-    public ToolCategory category() {
-        return ToolCategory.MEMORY;
+    public McpToolCategory category() {
+        return McpToolCategory.MEMORY;
     }
 
     @Override

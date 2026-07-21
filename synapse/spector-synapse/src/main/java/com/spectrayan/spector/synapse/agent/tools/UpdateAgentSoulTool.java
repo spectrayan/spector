@@ -11,9 +11,12 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
+
 
 import com.spectrayan.spector.synapse.agent.AgentSoul;
-import com.spectrayan.spector.synapse.agent.AgentTool;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 
 import org.slf4j.Logger;
@@ -45,7 +48,7 @@ import java.util.Set;
  * <p>Ethical guardrails are immutable — the agent cannot modify them.</p>
  */
 @Component
-public class UpdateAgentSoulTool implements AgentTool {
+public class UpdateAgentSoulTool extends McpToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(UpdateAgentSoulTool.class);
 
@@ -69,11 +72,11 @@ public class UpdateAgentSoulTool implements AgentTool {
                 + "Mutable fields: " + String.join(", ", MUTABLE_FIELDS);
     }
 
-    @Override public ToolCategory category() { return ToolCategory.MEMORY; }
+    @Override public McpToolCategory category() { return McpToolCategory.MEMORY; }
     @Override public boolean isWriteTool() { return true; }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -89,7 +92,11 @@ public class UpdateAgentSoulTool implements AgentTool {
     }
 
     @Override
-    public String execute(Map<String, Object> arguments) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> arguments) throws Exception {
         String field = String.valueOf(arguments.getOrDefault("field", "")).trim().toLowerCase();
         String value = String.valueOf(arguments.getOrDefault("value", "")).trim();
         String action = String.valueOf(arguments.getOrDefault("action", "add")).trim().toLowerCase();

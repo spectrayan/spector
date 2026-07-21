@@ -11,8 +11,8 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -110,7 +110,7 @@ class PdfReaderToolTest {
 
         @Test
         void category_returnsData() {
-            assertThat(tool.category()).isEqualTo(AgentTool.ToolCategory.DATA);
+            assertThat(tool.category()).isEqualTo(McpToolHandler.McpToolCategory.DATA);
         }
 
         @Test
@@ -125,7 +125,7 @@ class PdfReaderToolTest {
 
         @Test
         void parameterSchema_hasCorrectTopLevelStructure() {
-            var schema = tool.parameterSchema();
+            var schema = tool.inputSchema();
             assertThat(schema)
                     .containsEntry("type", "object")
                     .containsKey("properties")
@@ -134,7 +134,7 @@ class PdfReaderToolTest {
 
         @Test
         void parameterSchema_requiredContainsOnlyFilePath() {
-            var schema = tool.parameterSchema();
+            var schema = tool.inputSchema();
             @SuppressWarnings("unchecked")
             var required = (List<String>) schema.get("required");
             assertThat(required).containsExactly("file_path");
@@ -142,7 +142,7 @@ class PdfReaderToolTest {
 
         @Test
         void parameterSchema_propertiesContainAllParameters() {
-            var schema = tool.parameterSchema();
+            var schema = tool.inputSchema();
             @SuppressWarnings("unchecked")
             var properties = (Map<String, Object>) schema.get("properties");
             assertThat(properties).containsKeys("file_path", "pages", "extract_tables");
@@ -150,7 +150,7 @@ class PdfReaderToolTest {
 
         @Test
         void parameterSchema_eachPropertyHasTypeAndDescription() {
-            var schema = tool.parameterSchema();
+            var schema = tool.inputSchema();
             @SuppressWarnings("unchecked")
             var properties = (Map<String, Map<String, Object>>) schema.get("properties");
             for (var entry : properties.entrySet()) {

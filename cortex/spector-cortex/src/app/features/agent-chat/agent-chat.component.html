@@ -521,6 +521,26 @@
             </mat-select>
           </div>
 
+          <!-- Agent Tools -->
+          <div class="soul-field">
+            <label>Capabilities (Tools)</label>
+            <div class="tools-toggle-list">
+              @for (tool of availableTools(); track tool.name) {
+                <div class="tool-toggle-item">
+                  <mat-checkbox [checked]="isToolEnabled(tool.name)"
+                                (change)="toggleTool(tool.name, $event.checked)">
+                    <span class="tool-name">{{ tool.name }}</span>
+                    <span class="tool-category-badge" [class]="tool.category.toLowerCase()">{{ tool.category }}</span>
+                  </mat-checkbox>
+                  <p class="tool-desc">{{ tool.description }}</p>
+                </div>
+              }
+              @if (availableTools().length === 0) {
+                <span class="tools-empty">No tools available</span>
+              }
+            </div>
+          </div>
+
           <!-- Ethical Guardrails (read-only) -->
           <div class="soul-field">
             <label>Ethical Guardrails <span class="read-only-badge">read-only</span></label>

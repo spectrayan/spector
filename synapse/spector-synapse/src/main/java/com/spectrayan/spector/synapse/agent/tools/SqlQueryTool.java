@@ -11,9 +11,12 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
-import com.spectrayan.spector.synapse.agent.AgentTool.ToolCategory;
+
+import com.spectrayan.spector.mcp.tools.McpToolHandler.McpToolCategory;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
@@ -45,7 +48,7 @@ import java.util.stream.Collectors;
  * consumption.
  */
 @Component
-public class SqlQueryTool implements AgentTool {
+public class SqlQueryTool extends McpToolHandler {
 
     private static final int QUERY_TIMEOUT_SECONDS = 30;
     private static final int MAX_ROWS = 200;
@@ -92,8 +95,8 @@ public class SqlQueryTool implements AgentTool {
     }
 
     @Override
-    public ToolCategory category() {
-        return ToolCategory.DATA;
+    public McpToolCategory category() {
+        return McpToolCategory.DATA;
     }
 
     @Override
@@ -102,7 +105,7 @@ public class SqlQueryTool implements AgentTool {
     }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -117,7 +120,11 @@ public class SqlQueryTool implements AgentTool {
     }
 
     @Override
-    public String execute(Map<String, Object> arguments) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> arguments) throws Exception {
         String question = (String) arguments.get("question");
         if (question == null || question.isBlank()) {
             return "Error: 'question' parameter is required.";

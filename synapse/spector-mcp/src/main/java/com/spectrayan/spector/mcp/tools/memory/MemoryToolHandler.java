@@ -43,6 +43,11 @@ public abstract class MemoryToolHandler extends McpToolHandler {
 
     private final Supplier<SpectorMemory> memoryResolver;
 
+    @Override
+    public McpToolCategory category() {
+        return McpToolCategory.MEMORY;
+    }
+
     /**
      * Constructs a handler with a fixed memory instance (standalone/OSS mode).
      *
