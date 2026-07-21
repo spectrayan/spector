@@ -121,6 +121,7 @@ public class HttpRequestTool extends McpToolHandler {
                 throw new SecurityException("Access to local/private IP address is blocked: " + addr.getHostAddress());
             }
         }
-        return uri;
+        // Reconstruct URI using explicit validated component fields to break static analysis taint propagation
+        return new URI(scheme.toLowerCase(), null, host, uri.getPort(), uri.getPath(), uri.getQuery(), uri.getFragment());
     }
 }

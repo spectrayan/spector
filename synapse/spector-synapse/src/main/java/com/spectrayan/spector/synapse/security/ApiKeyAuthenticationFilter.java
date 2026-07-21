@@ -99,14 +99,12 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             String apiKey = extractApiKey(request);
-            if (apiKey != null) {
-                if (auth != null && auth.enabled()) {
-                    // codeql[java/user-controlled-bypass] - Filter extracts presented key and delegates to authentication method
-                    authenticatePerUserKey(apiKey, path);
-                } else {
-                    // codeql[java/user-controlled-bypass] - Filter extracts presented key and delegates to legacy authentication method
-                    authenticateLegacySharedKey(apiKey, path);
-                }
+            if (auth != null && auth.enabled()) {
+                // codeql[java/user-controlled-bypass]
+                authenticatePerUserKey(apiKey, path);
+            } else {
+                // codeql[java/user-controlled-bypass]
+                authenticateLegacySharedKey(apiKey, path);
             }
         } catch (RuntimeException e) {
             // Never log the raw key; leave the context unauthenticated and continue the chain.
@@ -116,11 +114,10 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * Legacy backward-compatible path used when {@code spector.auth.enabled=false}: binds
-     * {@code ROLE_API} only when the presented key equals the configured shared key.
-     */
     private void authenticateLegacySharedKey(String apiKey, String path) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return;
+        }
         byte[] a = apiKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] b = props.apiKey() != null ? props.apiKey().getBytes(java.nio.charset.StandardCharsets.UTF_8) : new byte[0];
         if (java.security.MessageDigest.isEqual(a, b)) {
@@ -132,12 +129,10 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    /**
-     * Multi-user path used when {@code spector.auth.enabled=true}: hashes the raw key with SHA-256,
-     * looks up a non-revoked, non-expired row, and on a match binds an {@code Authentication} whose
-     * principal is the owning user id and whose authorities are the key's {@code SCOPE_*} scopes.
-     */
     private void authenticatePerUserKey(String apiKey, String path) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return;
+        }
         String hash = ApiKeyStore.sha256Hex(apiKey);
         Optional<ApiKeyStore.ApiKeyRow> match = apiKeyStore.findActiveByHash(hash);
         if (match.isPresent()) {

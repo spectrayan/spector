@@ -673,9 +673,12 @@ public final class SpectorMemoryFactory {
         } else {
             Path tempDir = java.nio.file.Files.createTempDirectory(prefix);
             java.io.File file = tempDir.toFile();
-            file.setReadable(true, true);
-            file.setWritable(true, true);
-            file.setExecutable(true, true);
+            boolean readable = file.setReadable(true, true);
+            boolean writable = file.setWritable(true, true);
+            boolean executable = file.setExecutable(true, true);
+            if (!readable || !writable || !executable) {
+                log.warn("Could not set strict file permissions on temporary directory: {}", tempDir);
+            }
             return tempDir;
         }
     }
