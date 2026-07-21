@@ -11,8 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
+
 
 import org.apache.tika.exception.EncryptedDocumentException;
 import org.apache.tika.metadata.Metadata;
@@ -47,7 +50,7 @@ import technology.tabula.extractors.SpreadsheetExtractionAlgorithm;
  * </p>
  */
 @Component
-public class PdfReaderTool implements AgentTool {
+public class PdfReaderTool extends McpToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(PdfReaderTool.class);
 
@@ -70,8 +73,8 @@ public class PdfReaderTool implements AgentTool {
     }
 
     @Override
-    public ToolCategory category() {
-        return ToolCategory.DATA;
+    public McpToolCategory category() {
+        return McpToolCategory.DATA;
     }
 
     @Override
@@ -80,7 +83,7 @@ public class PdfReaderTool implements AgentTool {
     }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -95,7 +98,11 @@ public class PdfReaderTool implements AgentTool {
     }
 
     @Override
-    public String execute(Map<String, Object> args) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> args) throws Exception {
         var filePath = (String) args.get("file_path");
         if (filePath == null || filePath.isBlank()) {
             return "Error: Missing required argument: file_path";

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.mcp;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +64,7 @@ public class McpController {
                     Map<String, Object> descriptor = new LinkedHashMap<>();
                     descriptor.put("name", tool.name());
                     descriptor.put("description", tool.description());
-                    descriptor.put("inputSchema", tool.parameterSchema());
+                    descriptor.put("inputSchema", tool.inputSchema());
                     return descriptor;
                 })
                 .toList();
@@ -78,18 +78,28 @@ public class McpController {
             @PathVariable String name,
             @RequestBody Map<String, Object> arguments) {
 
-        AgentTool tool = toolRegistry.get(name).orElse(null);
+        McpToolHandler tool = toolRegistry.get(name).orElse(null);
         if (tool == null) {
             return Map.of("error", "Tool not found: " + name, "isError", true);
         }
 
         try {
-            String result = tool.execute(arguments);
-            log.info("[MCP] Tool '{}' invoked — result: {} chars", name, result.length());
-            return Map.of(
-                    "content", List.of(Map.of("type", "text", "text", result)),
-                    "isError", false
-            );
+            io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(null, arguments);
+            log.info("[MCP] Tool '{}' invoked — success: {}", name, !toolResult.isError());
+            
+            var response = new java.util.HashMap<String, Object>();
+            response.put("isError", toolResult.isError());
+            
+            var contentList = new java.util.ArrayList<Map<String, Object>>();
+            if (toolResult.content() != null) {
+                for (var content : toolResult.content()) {
+                    if (content instanceof io.modelcontextprotocol.spec.McpSchema.TextContent tc) {
+                        contentList.add(Map.of("type", "text", "text", tc.text()));
+                    }
+                }
+            }
+            response.put("content", contentList);
+            return response;
         } catch (Exception e) {
             log.error("[MCP] Tool '{}' failed: {}", name, e.getMessage(), e);
             return Map.of(

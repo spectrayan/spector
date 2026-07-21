@@ -43,7 +43,7 @@ class PdfReaderToolManualTest {
      */
     @Test
     @EnabledIfSystemProperty(named = "pdf.path", matches = ".+")
-    void extractFullDocument() {
+    void extractFullDocument() throws Exception {
         String pdfPath = System.getProperty("pdf.path");
         System.out.println("═══════════════════════════════════════════════════");
         System.out.println("  PdfReaderTool — Full Extraction");
@@ -79,7 +79,7 @@ class PdfReaderToolManualTest {
     @Test
     @EnabledIfSystemProperty(named = "pdf.path", matches = ".+")
     @EnabledIfSystemProperty(named = "pdf.page", matches = "\\d+")
-    void extractSinglePage() {
+    void extractSinglePage() throws Exception {
         String pdfPath = System.getProperty("pdf.path");
         String page = System.getProperty("pdf.page");
         System.out.println("═══════════════════════════════════════════════════");
@@ -107,7 +107,7 @@ class PdfReaderToolManualTest {
     @Test
     @EnabledIfSystemProperty(named = "pdf.path", matches = ".+")
     @EnabledIfSystemProperty(named = "pdf.tables", matches = "true")
-    void extractWithTables() {
+    void extractWithTables() throws Exception {
         String pdfPath = System.getProperty("pdf.path");
         System.out.println("═══════════════════════════════════════════════════");
         System.out.println("  PdfReaderTool — Full Extraction + Tables");

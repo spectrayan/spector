@@ -11,8 +11,11 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.runtime.SpectorRuntime;
+import io.modelcontextprotocol.spec.McpSchema;
 
-import com.spectrayan.spector.synapse.agent.AgentTool;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +30,7 @@ import java.util.Map;
  * <p>Uses a safe recursive-descent parser — no script engine or eval().</p>
  */
 @Component
-public class CalculatorTool implements AgentTool {
+public class CalculatorTool extends McpToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(CalculatorTool.class);
 
@@ -37,11 +40,11 @@ public class CalculatorTool implements AgentTool {
         return "Evaluate a mathematical expression. Supports: +, -, *, /, %, ^, sqrt, abs, sin, cos, tan, log, pi, e.";
     }
 
-    @Override public ToolCategory category() { return ToolCategory.DATA; }
+    @Override public McpToolCategory category() { return McpToolCategory.DATA; }
     @Override public boolean isWriteTool() { return false; }
 
     @Override
-    public Map<String, Object> parameterSchema() {
+    public Map<String, Object> inputSchema() {
         return Map.of(
                 "type", "object",
                 "properties", Map.of(
@@ -53,7 +56,11 @@ public class CalculatorTool implements AgentTool {
     }
 
     @Override
-    public String execute(Map<String, Object> args) {
+    public io.modelcontextprotocol.spec.McpSchema.CallToolResult execute(com.spectrayan.spector.runtime.SpectorRuntime runtime, Map<String, Object> args) throws Exception {
+        return textResult(executeInternal(args));
+    }
+
+    private String executeInternal(Map<String, Object> args) throws Exception {
         var expr = (String) args.get("expression");
         if (expr == null || expr.isBlank()) return "Error: Missing required argument: expression";
 

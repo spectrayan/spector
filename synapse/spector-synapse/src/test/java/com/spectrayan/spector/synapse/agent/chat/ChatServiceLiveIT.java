@@ -11,12 +11,12 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.chat;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.spectrayan.spector.synapse.agent.AgentSoul;
-import com.spectrayan.spector.synapse.agent.AgentTool;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.*;
 import com.spectrayan.spector.synapse.agent.chat.model.Conversation;

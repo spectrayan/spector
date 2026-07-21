@@ -120,7 +120,7 @@
              wrapping. Eliminates manual engine construction in MemoryBridge. -->
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spring-ai-starter-vector-store-spector</artifactId>
+            <artifactId>spring-ai-starter-spector-store</artifactId>
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>

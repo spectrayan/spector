@@ -69,27 +69,22 @@ public class McpServerConfig {
     public McpStatelessSyncServer mcpStatelessServer(HttpServletStatelessServerTransport transport,
                                                       ToolRegistry toolRegistry) {
 
-        // Dynamically translate local AgentTool beans to official MCP SDK ToolSpecifications
+        // Dynamically translate local McpToolHandler beans to official MCP SDK ToolSpecifications
         List<McpStatelessServerFeatures.SyncToolSpecification> toolSpecs = toolRegistry.all().values().stream()
-                .map(agentTool -> {
-                    var tool = McpSchema.Tool.builder(agentTool.name())
-                            .description(agentTool.description())
-                            .inputSchema(agentTool.parameterSchema())
+                .map(mcpTool -> {
+                    var tool = McpSchema.Tool.builder(mcpTool.name())
+                            .description(mcpTool.description())
+                            .inputSchema(mcpTool.inputSchema())
                             .build();
 
                     return new McpStatelessServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
                         try {
-                            String result = agentTool.execute(args);
-                            return McpSchema.CallToolResult.builder()
-                                    .addTextContent(result)
-                                    .isError(false)
-                                    .build();
+                            return mcpTool.execute(null, args);
                         } catch (Exception e) {
-                            return McpSchema.CallToolResult.builder()
-                                    .addTextContent("Error: " + e.getMessage())
-                                    .isError(true)
-                                    .build();
+                            return new McpSchema.CallToolResult(
+                                    List.of(new McpSchema.TextContent("Error: " + e.getMessage())),
+                                    true, null, null);
                         }
                     });
                 })
