@@ -53,7 +53,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/memories/{id}").setViewName("forward:/index.html");
         registry.addViewController("/graph").setViewName("forward:/index.html");
         registry.addViewController("/settings").setViewName("forward:/index.html");
-        registry.addViewController("/health").setViewName("forward:/index.html");
+        registry.addViewController("/memory-health").setViewName("forward:/index.html");
     }
 
     @Override
