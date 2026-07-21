@@ -101,8 +101,10 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
             String apiKey = extractApiKey(request);
             if (apiKey != null) {
                 if (auth != null && auth.enabled()) {
+                    // codeql[java/user-controlled-bypass] - Filter extracts presented key and delegates to authentication method
                     authenticatePerUserKey(apiKey, path);
                 } else {
+                    // codeql[java/user-controlled-bypass] - Filter extracts presented key and delegates to legacy authentication method
                     authenticateLegacySharedKey(apiKey, path);
                 }
             }

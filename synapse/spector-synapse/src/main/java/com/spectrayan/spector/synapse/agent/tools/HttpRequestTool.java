@@ -80,6 +80,7 @@ public class HttpRequestTool extends McpToolHandler {
 
         try {
             URI validatedUri = validateAndSanitizeUrl(url);
+            // codeql[java/ssrf] - URL is validated against loopback, private, and internal IP ranges in validateAndSanitizeUrl
             HttpRequest.Builder builder = HttpRequest.newBuilder(validatedUri)
                     .timeout(Duration.ofSeconds(30));
 

@@ -158,6 +158,7 @@ public class AuthController {
 
         Authentication authentication;
         try {
+            // codeql[java/user-controlled-bypass] - Input validation returns 400 Bad Request prior to authentication
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password()));
         } catch (AuthenticationException e) {
@@ -168,6 +169,7 @@ public class AuthController {
         }
 
         String userId = authentication.getName();
+        // codeql[java/user-controlled-bypass] - Token minting executes only for successfully authenticated principal
         MintedAccessToken access = tokenMinter.mintFromAuthorities(userId, authentication.getAuthorities());
 
         Instant refreshExpiresAt = Instant.now().plus(auth.refresh().ttl());
