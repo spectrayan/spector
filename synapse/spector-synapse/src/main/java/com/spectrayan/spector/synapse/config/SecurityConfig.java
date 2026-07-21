@@ -183,8 +183,8 @@ public class SecurityConfig {
 
         http
                 .cors(cors -> {})  // Enable CORS — delegates to WebMvcConfigurer bean
-                // codeql[java/spring-disabled-csrf-protection] - Disabled because authentication is stateless and cookie-less
-                .csrf(csrf -> csrf.disable())
+                // Stateless REST and MCP API endpoints use header-based tokens (JWT/API-key) and omit CSRF cookies
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**", "/mcp", "/actuator/**"))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 

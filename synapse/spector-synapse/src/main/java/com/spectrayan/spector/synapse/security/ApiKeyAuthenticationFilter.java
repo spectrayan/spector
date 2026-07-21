@@ -119,7 +119,9 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
      * {@code ROLE_API} only when the presented key equals the configured shared key.
      */
     private void authenticateLegacySharedKey(String apiKey, String path) {
-        if (apiKey.equals(props.apiKey())) {
+        byte[] a = apiKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] b = props.apiKey() != null ? props.apiKey().getBytes(java.nio.charset.StandardCharsets.UTF_8) : new byte[0];
+        if (java.security.MessageDigest.isEqual(a, b)) {
             var authentication = new UsernamePasswordAuthenticationToken(
                     "api-client", null,
                     List.of(new SimpleGrantedAuthority("ROLE_API")));
