@@ -11,7 +11,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>spring-ai-starter-vector-store-spector</artifactId>
+    <artifactId>spring-ai-starter-spector-store</artifactId>
     <name>Spector Spring AI Integration</name>
     <description>Spring AI VectorStore implementation backed by Spector engine.</description>
 
@@ -107,6 +107,12 @@
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-memory</artifactId>
+        </dependency>
+
+        <!-- ── Spector MCP tools ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-mcp</artifactId>
         </dependency>
 
         <!-- ── Spector Index ── -->

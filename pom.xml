@@ -234,7 +234,7 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
-                <artifactId>spring-ai-starter-vector-store-spector</artifactId>
+                <artifactId>spring-ai-starter-spector-store</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

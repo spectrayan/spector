@@ -40,6 +40,9 @@ import org.springframework.context.annotation.Bean;
 import java.nio.file.Path;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
 import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.mcp.tools.SpectorToolRegistry;
+import java.util.List;
 
 /**
  * Spring Boot auto-configuration for embedded Spector Cognitive Memory.
@@ -164,5 +167,15 @@ public class SpectorAutoConfiguration {
                 log.warn("[Spector] Failed to auto-register WebClient.Builder: {}", e.getMessage());
             }
         }
+    }
+
+    /**
+     * Registers core MCP memory tools automatically when memory is available.
+     */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(SpectorMemory.class)
+    @ConditionalOnMissingBean(name = "coreMemoryTools")
+    public List<McpToolHandler> coreMemoryTools(SpectorMemory memory) {
+        return SpectorToolRegistry.handlers("1.0.0", memory);
     }
 }
