@@ -12,14 +12,15 @@
  */
 package com.spectrayan.spector.memory;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link StorageLayout} sharded namespace path resolution.
@@ -137,5 +138,109 @@ class StorageLayoutShardTest {
 
         // But sharded has extra shard levels
         assertThat(sharded.getNameCount()).isGreaterThan(flat.getNameCount());
+    }
+
+    // ── Identifier validation (Requirements 8.4, 8.5, 8.6) ──
+
+    @Test
+    void rejectsNullIdentifier() {
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsEmptyIdentifier() {
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, ""))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsWhitespaceOnlyIdentifier() {
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "   \t\n"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsIdentifierExceeding256Characters() {
+        String tooLong = "a".repeat(257);
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, tooLong))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void acceptsIdentifierAtMaxLength() {
+        String atMax = "a".repeat(256);
+        assertThatCode(() -> StorageLayout.namespaceDirSharded(tempDir, atMax))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsForwardSlash() {
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a/b"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsBackslash() {
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a\\b"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsDot() {
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a.b"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, ".."))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsNullByte() {
+        assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a\u0000b"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsC0ControlCharacters() {
+        for (char c = '\u0000'; c <= '\u001F'; c++) {
+            String id = "a" + c + "b";
+            assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, id))
+                    .as("control char U+%04X must be rejected", (int) c)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void acceptsValidTsidLikeIdentifier() {
+        // 13-char TSID (Crockford Base32) — the real per-user namespace id
+        assertThatCode(() -> StorageLayout.namespaceDirSharded(tempDir, "0GXABCDEFGHJK"))
+                .doesNotThrowAnyException();
+    }
+
+    // ── Descendant-of-base and sharding well-formedness (Requirements 8.3, 8.7) ──
+
+    @Test
+    void resolvedPathIsDescendantOfBase() {
+        Path sharded = StorageLayout.namespaceDirSharded(tempDir, "0GXABCDEFGHJK");
+        Path normalizedBase = tempDir.toAbsolutePath().normalize();
+        Path normalizedResolved = sharded.toAbsolutePath().normalize();
+
+        // Lexical descendant check — resolution is pure and creates no directory on disk.
+        assertThat(normalizedResolved.startsWith(normalizedBase)).isTrue();
+        assertThat(normalizedResolved).isNotEqualTo(normalizedBase);
+    }
+
+    @Test
+    void shardSegmentsEqualFirstTwoSha256BytePairs() {
+        String id = "0GXABCDEFGHJK";
+        String hash = StorageLayout.sha256Hex(id);
+        String expectedL1 = hash.substring(0, 2);
+        String expectedL2 = hash.substring(2, 4);
+
+        Path sharded = StorageLayout.namespaceDirSharded(tempDir, id);
+        Path relative = StorageLayout.namespacesDir(tempDir).relativize(sharded);
+
+        assertThat(relative.getName(0).toString()).isEqualTo(expectedL1).matches("[0-9a-f]{2}");
+        assertThat(relative.getName(1).toString()).isEqualTo(expectedL2).matches("[0-9a-f]{2}");
     }
 }
