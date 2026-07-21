@@ -40,7 +40,7 @@ import picocli.CommandLine.Option;
         name = "spectorctl",
         description = "Command-line tool for managing Spector instances.",
         mixinStandardHelpOptions = true,
-        version = "spectorctl 0.1.0",
+        versionProvider = VersionProvider.class,
         subcommands = {
                 IndexCommand.class,
                 IngestCommand.class,
