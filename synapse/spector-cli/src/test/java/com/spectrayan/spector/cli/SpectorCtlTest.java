@@ -69,7 +69,7 @@ class SpectorCtlTest {
     }
 
     @Test
-    void versionFlag_displaysVersion() {
+    void versionFlag_displaysBuildMetadata() {
         var cli = createCli();
         var sw = new StringWriter();
         cli.setOut(new PrintWriter(sw));
@@ -77,7 +77,29 @@ class SpectorCtlTest {
         int exitCode = cli.execute("--version");
 
         assertThat(exitCode).isEqualTo(0);
-        assertThat(sw.toString()).contains("spectorctl 0.1.0");
+        assertThat(sw.toString())
+                .contains("Spector v")
+                .contains("Build:")
+                .contains("Commit:")
+                .contains("Java:")
+                .contains("OS:");
+    }
+
+    @Test
+    void shortVersionFlag_matchesLongFlagOutput() {
+        var longSw = new StringWriter();
+        var longCli = createCli();
+        longCli.setOut(new PrintWriter(longSw));
+
+        var shortSw = new StringWriter();
+        var shortCli = createCli();
+        shortCli.setOut(new PrintWriter(shortSw));
+
+        int longExit = longCli.execute("--version");
+        int shortExit = shortCli.execute("-V");
+
+        assertThat(shortExit).isEqualTo(0).isEqualTo(longExit);
+        assertThat(shortSw.toString()).isEqualTo(longSw.toString());
     }
 
     // ─────────────── Requirement 18.5: Invalid arguments ───────────────
