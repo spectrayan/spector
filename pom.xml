@@ -147,7 +147,7 @@
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
         <jacoco-plugin.version>0.8.15</jacoco-plugin.version>
-        <license-maven-plugin.version>5.0.0</license-maven-plugin.version>
+        <license-maven-plugin.version>5.1.1</license-maven-plugin.version>
         <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
 
         <!-- JaCoCo coverage threshold — default 0, modules raise as tests are added (target: 0.80) -->
