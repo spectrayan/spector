@@ -150,9 +150,13 @@ public final class SpectorMemoryFactory {
         if (isDisk && builder.persistencePath != null) {
             basePath = builder.persistencePath;
         } else if (isDisk) {
-            basePath = Path.of(System.getProperty("java.io.tmpdir"),
-                    "spector-memory-" + ProcessHandle.current().pid());
-            log.warn("DISK persistence mode with no explicit path  --  using temp directory: {}", basePath);
+            try {
+                basePath = createSecureTempDirectory("spector-memory-");
+                log.warn("DISK persistence mode with no explicit path  --  using secure temp directory: {}", basePath);
+            } catch (java.io.IOException e) {
+                throw new SpectorValidationException(ErrorCode.INTERNAL_ERROR,
+                        "Failed to create secure temp directory", e);
+            }
         } else {
             basePath = null;
         }
@@ -657,6 +661,25 @@ public final class SpectorMemoryFactory {
             java.nio.file.Files.createDirectories(path, attrs);
         } else {
             java.nio.file.Files.createDirectories(path);
+        }
+    }
+
+    private static Path createSecureTempDirectory(String prefix) throws java.io.IOException {
+        if (java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+            java.nio.file.attribute.FileAttribute<java.util.Set<java.nio.file.attribute.PosixFilePermission>> attrs =
+                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+            return java.nio.file.Files.createTempDirectory(prefix, attrs);
+        } else {
+            Path tempDir = java.nio.file.Files.createTempDirectory(prefix);
+            java.io.File file = tempDir.toFile();
+            boolean readable = file.setReadable(true, true);
+            boolean writable = file.setWritable(true, true);
+            boolean executable = file.setExecutable(true, true);
+            if (!readable || !writable || !executable) {
+                log.warn("Could not set strict file permissions on temporary directory: {}", tempDir);
+            }
+            return tempDir;
         }
     }
 }

@@ -12,12 +12,13 @@
  */
 package com.spectrayan.spector.synapse;
 
-import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.*;
-
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.config.SynapseProperties.CorsProperties;
+import com.spectrayan.spector.synapse.config.SynapseProperties.MemoryProperties;
+import com.spectrayan.spector.synapse.config.SynapseProperties.OllamaProperties;
 
 /**
  * Smoke test — verifies the Synapse module compiles and basic wiring works.
@@ -26,7 +27,7 @@ class SynapseApplicationTest {
 
     @Test
     void propertiesRecordDefaults() {
-        var props = new SynapseProperties(0, null, null, null, null, null);
+        var props = new SynapseProperties(0, null, null, null, null, null, null);
         assertThat(props.port()).isEqualTo(7070);
         assertThat(props.apiKey()).isEqualTo("spector-dev-key");
         assertThat(props.dataDir()).isEqualTo("./spector-data");
@@ -41,7 +42,7 @@ class SynapseApplicationTest {
                 8080, "my-api-key", "/opt/spector",
                 new OllamaProperties("https://ollama.example.com", "gpt-4", "bge-large"),
                 new MemoryProperties(1000, 768),
-                new CorsProperties("http://localhost:3000"));
+                new CorsProperties("http://localhost:3000"), null);
         assertThat(props.port()).isEqualTo(8080);
         assertThat(props.apiKey()).isEqualTo("my-api-key");
         assertThat(props.dataDir()).isEqualTo("/opt/spector");

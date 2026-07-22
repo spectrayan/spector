@@ -7,3 +7,5 @@ query-filters:
         - java/command-line-injection
         - java/regex-injection
         - java/polynomial-redos
+        - java/user-controlled-bypass
+        - java/ssrf

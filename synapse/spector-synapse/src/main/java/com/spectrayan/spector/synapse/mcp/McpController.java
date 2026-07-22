@@ -14,6 +14,8 @@ package com.spectrayan.spector.synapse.mcp;
 
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
+import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * MCP-compatible REST endpoint for Synapse tools.
@@ -49,9 +52,15 @@ public class McpController {
     private static final Logger log = LoggerFactory.getLogger(McpController.class);
 
     private final ToolRegistry toolRegistry;
+    private final UserMemoryRegistry userMemoryRegistry;
+    private final boolean authEnabled;
 
-    public McpController(ToolRegistry toolRegistry) {
+    public McpController(ToolRegistry toolRegistry,
+                         UserMemoryRegistry userMemoryRegistry,
+                         SynapseProperties synapseProperties) {
         this.toolRegistry = toolRegistry;
+        this.userMemoryRegistry = userMemoryRegistry;
+        this.authEnabled = synapseProperties.auth().enabled();
     }
 
     /**
@@ -83,6 +92,14 @@ public class McpController {
             return Map.of("error", "Tool not found: " + name, "isError", true);
         }
 
+        // Resolve + bind the caller's per-user memory on this request thread. Denies
+        // (auth-required / resolution-failed) fail closed without touching any user's memory.
+        Optional<McpRequestMemory.DenyReason> deny =
+                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled);
+        if (deny.isPresent()) {
+            return errorResponse(McpRequestMemory.message(deny.get()));
+        }
+
         try {
             io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(null, arguments);
             log.info("[MCP] Tool '{}' invoked — success: {}", name, !toolResult.isError());
@@ -102,11 +119,18 @@ public class McpController {
             return response;
         } catch (Exception e) {
             log.error("[MCP] Tool '{}' failed: {}", name, e.getMessage(), e);
-            return Map.of(
-                    "content", List.of(Map.of("type", "text", "text", "Error: " + e.getMessage())),
-                    "isError", true
-            );
+            return errorResponse("Error: " + e.getMessage());
+        } finally {
+            McpRequestMemory.clear();
         }
+    }
+
+    /** Builds an MCP-lite error response body carrying the given message. */
+    private static Map<String, Object> errorResponse(String message) {
+        return Map.of(
+                "content", List.of(Map.of("type", "text", "text", message)),
+                "isError", true
+        );
     }
 
     /**

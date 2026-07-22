@@ -308,16 +308,67 @@ public final class StorageLayout {
     public static final int SHARD_LEVELS = 2;
 
     /**
+     * Maximum permitted length of a namespace identifier, in characters.
+     * Identifiers longer than this are rejected before path resolution.
+     */
+    public static final int MAX_NAMESPACE_ID_LENGTH = 256;
+
+    /**
+     * Validates a namespace identifier before it is used to resolve any path.
+     *
+     * <p>This guard is a pure, side-effect-free check: it never touches the
+     * filesystem and never resolves a path. It rejects identifiers that could
+     * escape the sharded namespace root or produce a malformed directory name:</p>
+     * <ul>
+     *   <li>{@code null}, empty, or whitespace-only identifiers;</li>
+     *   <li>identifiers longer than {@link #MAX_NAMESPACE_ID_LENGTH} characters;</li>
+     *   <li>identifiers containing a path separator ({@code '/'} or {@code '\'}),
+     *       a dot ({@code '.'}), a null byte, or any C0 control character in the
+     *       range U+0000 through U+001F.</li>
+     * </ul>
+     *
+     * @param namespaceId the namespace (tenant or user) identifier to validate
+     * @throws IllegalArgumentException if the identifier is invalid; no path is
+     *                                  resolved and no filesystem mutation occurs
+     */
+    static void validateNamespaceId(String namespaceId) {
+        if (namespaceId == null || namespaceId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Invalid namespace identifier: must not be null, empty, or whitespace-only");
+        }
+        if (namespaceId.length() > MAX_NAMESPACE_ID_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Invalid namespace identifier: length " + namespaceId.length()
+                            + " exceeds maximum of " + MAX_NAMESPACE_ID_LENGTH + " characters");
+        }
+        for (int i = 0; i < namespaceId.length(); i++) {
+            char c = namespaceId.charAt(i);
+            if (c == '/' || c == '\\' || c == '.' || c <= '\u001F') {
+                throw new IllegalArgumentException(
+                        "Invalid namespace identifier: illegal character at index " + i
+                                + " (code point U+" + String.format("%04X", (int) c) + ")");
+            }
+        }
+    }
+
+    /**
      * Resolves the sharded path for a namespace ID.
      *
      * <p>Uses the first 4 hex characters of SHA-256(namespaceId) as
      * two directory levels: {@code namespaces/a3/f7/agent-alpha/}</p>
      *
+     * <p>The {@code namespaceId} is validated via {@link #validateNamespaceId(String)}
+     * before any resolution. Invalid identifiers raise {@link IllegalArgumentException}
+     * and no path is resolved. This method is a pure function of its arguments and
+     * performs no filesystem mutation.</p>
+     *
      * @param basePath     root persistence path
      * @param namespaceId  the namespace (tenant or user) identifier
      * @return sharded path: basePath/namespaces/XX/YY/namespaceId/
+     * @throws IllegalArgumentException if {@code namespaceId} is invalid
      */
     public static Path namespaceDirSharded(Path basePath, String namespaceId) {
+        validateNamespaceId(namespaceId);
         String hash = sha256Hex(namespaceId);
         String l1 = hash.substring(0, SHARD_HEX_DIGITS);
         String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);

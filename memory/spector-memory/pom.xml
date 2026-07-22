@@ -107,6 +107,13 @@
             <artifactId>spector-test-support</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- jqwik — property-based testing for the multi-user auth correctness properties -->
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <version>1.9.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

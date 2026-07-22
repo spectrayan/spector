@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.synapse.config;
 
+import java.time.Duration;
+import java.util.List;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -26,6 +29,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param ollama      Ollama LLM provider configuration
  * @param memory      cognitive memory engine configuration
  * @param cors        CORS configuration for the Cortex UI
+ * @param auth        multi-user authentication configuration ({@code spector.auth.*})
  */
 @ConfigurationProperties(prefix = "spector")
 public record SynapseProperties(
@@ -34,7 +38,8 @@ public record SynapseProperties(
         String dataDir,
         OllamaProperties ollama,
         MemoryProperties memory,
-        CorsProperties cors
+        CorsProperties cors,
+        AuthProperties auth
 ) {
 
     /**
@@ -48,6 +53,7 @@ public record SynapseProperties(
         if (memory == null) memory = new MemoryProperties(0, 0, null);
 
         if (cors == null) cors = new CorsProperties(null);
+        if (auth == null) auth = new AuthProperties(false, null, null, null, null, null, null, null);
     }
 
     /**
@@ -107,6 +113,121 @@ public record SynapseProperties(
             if (allowedOrigins == null || allowedOrigins.isBlank()) {
                 allowedOrigins = "http://localhost:4200";
             }
+        }
+    }
+
+    /**
+     * Multi-user authentication settings, bound from {@code spector.auth.*}.
+     *
+     * <p>The feature is <strong>off by default</strong> ({@code enabled=false}), preserving the
+     * legacy single shared memory and single shared-key {@code ROLE_API} behavior. Secrets
+     * ({@code jwt.secret}, {@code default-admin.password}) are sourced from environment variables
+     * via {@code ${env:VAR}} placeholders and MUST NOT be committed as literals. There are
+     * <strong>no tenant-scoped keys</strong> — Spector OSS is single-tenant, multi-user.</p>
+     *
+     * <p>Only documented defaults are applied here. Strict startup validation (empty required
+     * secrets while enabled, out-of-range numeric values) is enforced separately during startup.</p>
+     *
+     * @param enabled      master switch; {@code false} preserves legacy single-user behavior (default: false)
+     * @param jwt          server-issued HS256 token settings
+     * @param refresh      refresh-token settings
+     * @param oidc         external OIDC (RS256/JWKS) settings; disabled when {@code jwks-url} is empty
+     * @param defaultAdmin seed administrator account settings
+     * @param pbkdf2       password-encoder iteration settings (default: 310000)
+     * @param lockout      account-lockout settings (default: 5 attempts / 15 minutes)
+     * @param publicPaths  request paths that bypass authentication (default: /actuator/health, /api/docs)
+     */
+    public record AuthProperties(
+            boolean enabled,
+            JwtProperties jwt,
+            RefreshProperties refresh,
+            OidcProperties oidc,
+            DefaultAdminProperties defaultAdmin,
+            Pbkdf2Properties pbkdf2,
+            LockoutProperties lockout,
+            List<String> publicPaths
+    ) {
+        public AuthProperties {
+            if (jwt == null) jwt = new JwtProperties(null, null);
+            if (refresh == null) refresh = new RefreshProperties(null);
+            if (oidc == null) oidc = new OidcProperties(null, null);
+            if (defaultAdmin == null) defaultAdmin = new DefaultAdminProperties(null);
+            if (pbkdf2 == null) pbkdf2 = new Pbkdf2Properties(0);
+            if (lockout == null) lockout = new LockoutProperties(0, 0);
+            if (publicPaths == null || publicPaths.isEmpty()) {
+                publicPaths = List.of("/actuator/health", "/api/docs");
+            } else {
+                publicPaths = List.copyOf(publicPaths);
+            }
+        }
+    }
+
+    /**
+     * Server-issued HS256 JWT settings.
+     *
+     * @param secret HS256 signing/validation secret; supplied via {@code ${env:SPECTOR_AUTH_JWT_SECRET}}
+     * @param ttl    access-token lifetime (default: 1 hour)
+     */
+    public record JwtProperties(String secret, Duration ttl) {
+        public JwtProperties {
+            if (ttl == null || ttl.isZero() || ttl.isNegative()) ttl = Duration.ofHours(1);
+        }
+    }
+
+    /**
+     * Refresh-token settings.
+     *
+     * @param ttl refresh-token lifetime (default: 30 days)
+     */
+    public record RefreshProperties(Duration ttl) {
+        public RefreshProperties {
+            if (ttl == null || ttl.isZero() || ttl.isNegative()) ttl = Duration.ofDays(30);
+        }
+    }
+
+    /**
+     * External OIDC (RS256 via JWKS) settings. RS256 validation is enabled only when
+     * {@code jwksUrl} is non-empty.
+     *
+     * @param jwksUrl external IdP JWKS endpoint (default: empty — OIDC disabled)
+     * @param issuer  expected {@code iss} claim for external OIDC tokens (default: empty)
+     */
+    public record OidcProperties(String jwksUrl, String issuer) {
+        public OidcProperties {
+            if (jwksUrl == null) jwksUrl = "";
+            if (issuer == null) issuer = "";
+        }
+    }
+
+    /**
+     * Seed administrator account settings.
+     *
+     * @param password seed admin password; supplied via {@code ${env:SPECTOR_ADMIN_PASSWORD}}
+     */
+    public record DefaultAdminProperties(String password) {
+    }
+
+    /**
+     * {@code Pbkdf2PasswordEncoder} iteration settings.
+     *
+     * @param iterations PBKDF2 iteration count (default: 310000, OWASP-2024 baseline)
+     */
+    public record Pbkdf2Properties(int iterations) {
+        public Pbkdf2Properties {
+            if (iterations < 1) iterations = 310_000;
+        }
+    }
+
+    /**
+     * Account-lockout settings.
+     *
+     * @param maxAttempts consecutive failures before lockout (default: 5)
+     * @param minutes     lockout duration in minutes (default: 15)
+     */
+    public record LockoutProperties(int maxAttempts, int minutes) {
+        public LockoutProperties {
+            if (maxAttempts < 1) maxAttempts = 5;
+            if (minutes < 1) minutes = 15;
         }
     }
 }

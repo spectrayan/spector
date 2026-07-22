@@ -11,14 +11,36 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.chat;
-import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.synapse.agent.AgentSoul;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
-import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.*;
 import com.spectrayan.spector.synapse.agent.chat.model.Conversation;
 import com.spectrayan.spector.synapse.agent.chat.service.ChatMemoryPort;
 import com.spectrayan.spector.synapse.agent.chat.service.ChatService;
@@ -29,20 +51,9 @@ import com.spectrayan.spector.synapse.agent.service.IdentityPrimerService;
 import com.spectrayan.spector.synapse.agent.tools.CurrentTimeTool;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.*;
-
-import org.junit.jupiter.api.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
+import com.spectrayan.spector.synapse.config.SynapseProperties.CorsProperties;
+import com.spectrayan.spector.synapse.config.SynapseProperties.MemoryProperties;
+import com.spectrayan.spector.synapse.config.SynapseProperties.OllamaProperties;
 
 /**
  * Integration test for the ChatService with real Ollama model.
@@ -112,7 +123,8 @@ class ChatServiceLiveIT {
                 0, "test-key", System.getProperty("java.io.tmpdir") + "/spector-test",
                 new OllamaProperties(OLLAMA_URL, MODEL, "nomic-embed-text"),
                 new MemoryProperties(0, 0),
-                new CorsProperties("http://localhost:4200")
+                new CorsProperties("http://localhost:4200"),
+                null
         );
 
         llmBridge = new LlmBridge(props, new com.spectrayan.spector.provider.DefaultProviderRegistry());

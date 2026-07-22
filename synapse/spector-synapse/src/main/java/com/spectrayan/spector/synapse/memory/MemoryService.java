@@ -12,47 +12,66 @@
  */
 package com.spectrayan.spector.synapse.memory;
 
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.id.TsidGenerator;
-import com.spectrayan.spector.synapse.platform.events.EventPublisher;
-import com.spectrayan.spector.synapse.memory.MemoryDto.*;
-
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.spectrayan.spector.index.VectorIndex;
-import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.model.CognitiveRecord;
-import com.spectrayan.spector.memory.model.GraphStats;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Timestamp;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
+import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.ConsolidationStats;
+import com.spectrayan.spector.synapse.memory.MemoryDto.IndexStats;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryGraphResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStats;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableRow;
+import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryVectorResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.ReflectResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.RememberRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.ResolveRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.ScoringStats;
+import com.spectrayan.spector.synapse.memory.MemoryDto.SearchRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.SearchResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.StoreResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.SuppressRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.TopologyStatsResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.UpdateMemoryRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.VacuumRequest;
+import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 
 /**
  * Memory service — orchestration and business logic layer.
@@ -71,6 +90,22 @@ public class MemoryService {
     private final EventPublisher eventPublisher;
     private final TsidGenerator tsid;
     private final JdbcClient jdbc;
+
+    /**
+     * Per-user memory resolver. Resolves the target {@link SpectorMemory} on the request thread
+     * via {@link UserMemoryRegistry#resolveForCurrentRequest()} — returning the caller's isolated
+     * instance when authenticated, or the single shared instance when auth is disabled or the
+     * principal is anonymous. This is the production resolution path (the {@code @Autowired}
+     * constructor wires it).
+     */
+    private final UserMemoryRegistry userMemoryRegistry;
+
+    /**
+     * Legacy shared-instance provider, retained only for source compatibility with the
+     * non-{@code @Autowired} constructors used by tests. Used as a fallback by
+     * {@link #resolveMemory()} when no {@link UserMemoryRegistry} is wired.
+     */
+    private final ObjectProvider<SpectorMemory> memoryProvider;
 
     @org.springframework.beans.factory.annotation.Value("${spector.memory.decay.min-threshold:1000}")
     private int minDecayThreshold = 1000;
@@ -103,15 +138,43 @@ public class MemoryService {
             .build();
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
-        this(mao, eventPublisher, tsid, null);
+        this(mao, eventPublisher, tsid, null, null, null);
+    }
+
+    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid, JdbcClient jdbc) {
+        this(mao, eventPublisher, tsid, jdbc, null, null);
     }
 
     @Autowired
-    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid, JdbcClient jdbc) {
+    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
+                         JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
+                         UserMemoryRegistry userMemoryRegistry) {
         this.mao = mao;
         this.eventPublisher = eventPublisher;
         this.tsid = tsid;
         this.jdbc = jdbc;
+        this.memoryProvider = memoryProvider;
+        this.userMemoryRegistry = userMemoryRegistry;
+    }
+
+    /**
+     * Resolves the target {@link SpectorMemory} on the calling (request) thread.
+     *
+     * <p>Delegates to {@link UserMemoryRegistry#resolveForCurrentRequest()}, which reads the
+     * {@code SecurityContextHolder} on <em>this</em> (request) thread and returns the caller's
+     * per-user instance (or the single shared instance when auth is disabled / the principal is
+     * anonymous). Callers that dispatch asynchronous writes MUST invoke this on the request thread,
+     * capture the returned reference in a {@code final} local, and close over it inside the async
+     * task — the async task body must never read the security context.</p>
+     *
+     * <p>Falls back to the legacy shared-instance provider only when no {@link UserMemoryRegistry}
+     * is wired (i.e. the non-{@code @Autowired} constructors used by tests).</p>
+     */
+    private SpectorMemory resolveMemory() {
+        if (userMemoryRegistry != null) {
+            return userMemoryRegistry.resolveForCurrentRequest();
+        }
+        return memoryProvider != null ? memoryProvider.getIfAvailable() : null;
     }
 
     public long getAndResetRecallCount() { return recallCount.getAndSet(0); }
@@ -131,14 +194,15 @@ public class MemoryService {
             throw new IllegalArgumentException("Memory text cannot be blank");
         }
         log.debug("[MemoryService] store: text.length={}, tags={}", request.text().length(), request.tags());
-        if (!mao.isAvailable()) {
+        SpectorMemory memory = resolveMemory();
+        if (!mao.isAvailable(memory)) {
             return new StoreResponse("stub-" + System.nanoTime(), request.text(),
                     "SEMANTIC", 0.0, "Memory stored (stub mode — engine not available)");
         }
         String id = tsid.generate();
         String[] tags = request.tags() != null
                 ? request.tags().toArray(String[]::new) : new String[0];
-        mao.remember(id, request.text(), MemoryType.SEMANTIC, MemorySource.USER_STATED, null, tags);
+        mao.remember(memory, id, request.text(), MemoryType.SEMANTIC, MemorySource.USER_STATED, null, tags);
         eventPublisher.memoryEvent("created", id, "Stored semantic memory");
         return new StoreResponse(id, request.text(), "SEMANTIC", 1.0,
                 "Memory stored in cognitive engine");
@@ -157,7 +221,9 @@ public class MemoryService {
         String effectiveId = (request.id() != null && !request.id().isBlank())
                 ? request.id() : tsid.generate();
 
-        if (!mao.isAvailable()) {
+        // Resolve the target memory on the REQUEST THREAD; the async task closes over it.
+        final SpectorMemory memory = resolveMemory();
+        if (!mao.isAvailable(memory)) {
             log.warn("[MemoryService] Remember called in stub mode — id={}", effectiveId);
             return AcceptedResponse.forRemember("stub-task-" + System.nanoTime(), effectiveId);
         }
@@ -192,7 +258,7 @@ public class MemoryService {
                         "timestamp", Instant.now().toEpochMilli()
                 ));
                  long t0 = System.currentTimeMillis();
-                 mao.remember(finalId, request.text(), tier, source, finalHints, tags);
+                 mao.remember(memory, finalId, request.text(), tier, source, finalHints, tags);
                  long elapsed = System.currentTimeMillis() - t0;
                  rememberCount.incrementAndGet();
                  totalLatencyMs.addAndGet(elapsed);
@@ -218,7 +284,8 @@ public class MemoryService {
      * Manually triggers memory consolidation in the background.
      */
     public void consolidate() {
-        if (!mao.isAvailable()) {
+        final SpectorMemory memory = resolveMemory();
+        if (!mao.isAvailable(memory)) {
             log.warn("[MemoryService] Consolidate called but engine is not available");
             return;
         }
@@ -226,7 +293,7 @@ public class MemoryService {
             try {
                 log.info("[MemoryService] Starting manual memory consolidation...");
                 eventPublisher.broadcast("consolidation.start", Map.of("status", "in_progress"));
-                mao.consolidate();
+                mao.consolidate(memory);
                 eventPublisher.broadcast("consolidation.done", Map.of("status", "success"));
                 log.info("[MemoryService] Manual memory consolidation complete.");
             } catch (Exception e) {
@@ -250,7 +317,7 @@ public class MemoryService {
         }
         log.debug("[MemoryService] recall: query='{}', topK={}", request.query(), request.topK());
         long start = System.nanoTime();
-        List<CognitiveResult> results = mao.recall(request.query());
+        List<CognitiveResult> results = mao.recall(resolveMemory(), request.query());
         long elapsedMicros = (System.nanoTime() - start) / 1000;
         recallCount.incrementAndGet();
         totalLatencyMs.addAndGet(elapsedMicros / 1000);
@@ -324,7 +391,7 @@ public class MemoryService {
         int effectivePageSize = (pageSize > 0 && pageSize <= 500) ? pageSize : 50;
         log.debug("[MemoryService] getMemoryTable: page={}, pageSize={}, tier={}, tombstoned={}",
                 effectivePage, effectivePageSize, tierFilter, showTombstoned);
-        return mao.getMemoryTable(effectivePage, effectivePageSize, tierFilter, showTombstoned);
+        return mao.getMemoryTable(resolveMemory(), effectivePage, effectivePageSize, tierFilter, showTombstoned);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -337,7 +404,7 @@ public class MemoryService {
     public void forget(String id) {
         requireId(id);
         log.debug("[MemoryService] forget: id={}", id);
-        mao.forget(id);
+        mao.forget(resolveMemory(), id);
         eventPublisher.memoryEvent("deleted", id, "Tombstoned memory");
     }
 
@@ -347,8 +414,9 @@ public class MemoryService {
     public void bulkForget(List<String> ids) {
         if (ids == null || ids.isEmpty()) return;
         log.info("[MemoryService] Bulk forget: count={}", ids.size());
+        SpectorMemory memory = resolveMemory();
         for (String id : ids) {
-            mao.forget(id);
+            mao.forget(memory, id);
             eventPublisher.memoryEvent("deleted", id, "Bulk tombstoned");
         }
     }
@@ -359,7 +427,7 @@ public class MemoryService {
     public void reinforce(String id, int valence) {
         requireId(id);
         log.debug("[MemoryService] reinforce: id={}, valence={}", id, valence);
-        mao.reinforce(id, valence);
+        mao.reinforce(resolveMemory(), id, valence);
         eventPublisher.memoryEvent("reinforced", id, "Emotional valence feedback: " + valence);
     }
 
@@ -369,8 +437,9 @@ public class MemoryService {
     public void bulkReinforce(List<String> ids, int valence) {
         if (ids == null || ids.isEmpty()) return;
         log.info("[MemoryService] Bulk reinforce: count={}, valence={}", ids.size(), valence);
+        SpectorMemory memory = resolveMemory();
         for (String id : ids) {
-            mao.reinforce(id, valence);
+            mao.reinforce(memory, id, valence);
             eventPublisher.memoryEvent("reinforced", id, "Bulk reinforced: " + valence);
         }
     }
@@ -382,12 +451,13 @@ public class MemoryService {
         requireId(id);
         log.debug("[MemoryService] suppress: id={}, action={}", id,
                 request != null ? request.action() : "SUPPRESS");
+        SpectorMemory memory = resolveMemory();
         if (request != null && !request.isSuppressing()) {
-            mao.unsuppress(id);
+            mao.unsuppress(memory, id);
             eventPublisher.memoryEvent("unsuppressed", id, "Unsuppressed memory");
         } else {
             String reason = request != null ? request.effectiveReason() : "";
-            mao.suppress(id, reason);
+            mao.suppress(memory, id, reason);
             eventPublisher.memoryEvent("suppressed", id, "Suppressed memory: " + reason);
         }
     }
@@ -411,11 +481,12 @@ public class MemoryService {
         requireId(id);
         boolean resolving = request == null || request.isResolving();
         log.debug("[MemoryService] resolve: id={}, resolved={}", id, resolving);
+        SpectorMemory memory = resolveMemory();
         if (resolving) {
-            mao.markResolved(id);
+            mao.markResolved(memory, id);
             eventPublisher.memoryEvent("resolved", id, "Marked resolved");
         } else {
-            mao.markUnresolved(id);
+            mao.markUnresolved(memory, id);
             eventPublisher.memoryEvent("unresolved", id, "Marked unresolved");
         }
     }
@@ -426,7 +497,7 @@ public class MemoryService {
     public ReflectResponse reflect() {
         log.info("[MemoryService] Triggering reflect (sleep consolidation)...");
         long start = System.currentTimeMillis();
-        ReflectReport report = mao.reflect();
+        ReflectReport report = mao.reflect(resolveMemory());
         long durationMs = report != null ? report.duration().toMillis() : (System.currentTimeMillis() - start);
 
         if (report != null) {
@@ -458,7 +529,7 @@ public class MemoryService {
     public CompactionResult vacuum(VacuumRequest request) {
         String tier = request != null ? request.effectiveTier() : "SEMANTIC";
         log.info("[MemoryService] Triggering vacuum for tier={}", tier);
-        return mao.vacuum(tier);
+        return mao.vacuum(resolveMemory(), tier);
     }
 
     /**
@@ -481,7 +552,9 @@ public class MemoryService {
             String documentId = tsid.generate();
             String taskId = tsid.generate();
 
-            if (!mao.isAvailable()) {
+            // Resolve the target memory on the REQUEST THREAD; the async task closes over it.
+            final SpectorMemory memory = resolveMemory();
+            if (!mao.isAvailable(memory)) {
                 log.warn("[MemoryService] Ingest-file in stub mode — file={}", originalName);
                 return AcceptedResponse.forFileIngest(taskId, originalName, documentId);
             }
@@ -498,7 +571,7 @@ public class MemoryService {
                             "progress", 50.0,
                             "timestamp", Instant.now().toEpochMilli()
                     ));
-                    mao.remember(documentId, content, tier, source, null, new String[]{originalName});
+                    mao.remember(memory, documentId, content, tier, source, null, new String[]{originalName});
                     log.info("[MemoryService] Async ingestion completed: file={}, id={}", originalName, documentId);
                     eventPublisher.broadcast("ingestion.completed", Map.of(
                             "taskId", taskId,
@@ -525,17 +598,17 @@ public class MemoryService {
 
     public MemoryGraphResponse getGraphOverview(int maxNodes) {
         int capped = Math.min(Math.max(1, maxNodes), 500);
-        return mao.getGraphOverview(capped);
+        return mao.getGraphOverview(resolveMemory(), capped);
     }
 
     public MemoryGraphResponse getMemoryGraph(String id, int depth) {
         requireId(id);
         int capped = Math.min(Math.max(1, depth), 5);
-        return mao.getMemoryGraph(id, capped);
+        return mao.getMemoryGraph(resolveMemory(), id, capped);
     }
 
     public TopologyStatsResponse getTopologyStats() {
-        return mao.getTopologyStats();
+        return mao.getTopologyStats(resolveMemory());
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -543,11 +616,11 @@ public class MemoryService {
     // ══════════════════════════════════════════════════════════════
 
     public MemoryStatusResponse getStatus() {
-        return mao.getStatus();
+        return mao.getStatus(resolveMemory());
     }
 
     public boolean isEngineAvailable() {
-        return mao.isAvailable();
+        return mao.isAvailable(resolveMemory());
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -556,7 +629,7 @@ public class MemoryService {
 
     public MemoryTableRow getMemoryById(String id) {
         requireId(id);
-        return mao.getMemoryById(id);
+        return mao.getMemoryById(resolveMemory(), id);
     }
 
     public void updateMemory(String id, UpdateMemoryRequest request) {
@@ -564,13 +637,13 @@ public class MemoryService {
         if (request == null) {
             throw new IllegalArgumentException("Update request body cannot be null");
         }
-        mao.updateMemory(id, request);
+        mao.updateMemory(resolveMemory(), id, request);
         eventPublisher.memoryEvent("updated", id, "Updated text/tags");
     }
 
     public MemoryVectorResponse getMemoryVector(String id) {
         requireId(id);
-        return mao.getMemoryVector(id);
+        return mao.getMemoryVector(resolveMemory(), id);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -578,13 +651,14 @@ public class MemoryService {
     // ══════════════════════════════════════════════════════════════
 
     public MemoryStats getStats() {
+        SpectorMemory resolved = resolveMemory();
         return statsCache.get("current", key -> {
-            if (!mao.isAvailable()) {
+            if (!mao.isAvailable(resolved)) {
                 return new MemoryStats(0, Map.of(), 0, new IndexStats(0, 0, 0.95), ConsolidationStats.empty(), Map.of(), Map.of());
             }
 
             try {
-                var memory = mao.getMemory();
+                var memory = resolved;
                 List<CognitiveRecord> records = memory.admin().listAll();
 
                 long totalCount = records.size();
@@ -708,13 +782,14 @@ public class MemoryService {
     }
 
     public ScoringStats getScoringStats() {
+        SpectorMemory resolved = resolveMemory();
         return scoringStatsCache.get("current", key -> {
-            if (!mao.isAvailable()) {
+            if (!mao.isAvailable(resolved)) {
                 return new ScoringStats(0.80, 0.75, 1.0, 5.0, 0.0);
             }
 
             try {
-                var memory = mao.getMemory();
+                var memory = resolved;
                 List<CognitiveRecord> records = memory.admin().listAll();
 
                 double sumImportance = 0;

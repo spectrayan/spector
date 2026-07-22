@@ -12,22 +12,36 @@
  */
 package com.spectrayan.spector.synapse.config;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.InterestLevel;
 import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider.InterestEntry;
-import com.spectrayan.spector.synapse.memory.MemoryAccessObject;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
 import com.spectrayan.spector.synapse.config.model.ScopedConfig;
 import com.spectrayan.spector.synapse.config.repository.ConfigRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.*;
+import com.spectrayan.spector.synapse.memory.MemoryAccessObject;
 
 /**
  * Controller providing unified endpoints under /api/v1/salience for frontend settings management.
@@ -44,16 +58,26 @@ public class UserSalienceController {
     private final ConfigRepository configRepository;
     private final ObjectMapper mapper;
 
+    /**
+     * Temporary bridge for resolving the target {@link SpectorMemory} on the request thread.
+     *
+     * <p>TODO(15.2/16.1): replace with per-user {@code UserMemoryRegistry.resolveForCurrentRequest()}.
+     * For now this resolves the single shared instance.</p>
+     */
+    private final ObjectProvider<SpectorMemory> memoryProvider;
+
     public UserSalienceController(SynapseSalienceProvider salienceProvider,
                                   CognitiveSoulService soulService,
                                   MemoryAccessObject mao,
                                   ConfigRepository configRepository,
-                                  ObjectMapper mapper) {
+                                  ObjectMapper mapper,
+                                  ObjectProvider<SpectorMemory> memoryProvider) {
         this.salienceProvider = salienceProvider;
         this.soulService = soulService;
         this.mao = mao;
         this.configRepository = configRepository;
         this.mapper = mapper;
+        this.memoryProvider = memoryProvider;
     }
 
     @GetMapping("/{scope}/{id}")
@@ -203,7 +227,8 @@ public class UserSalienceController {
     @PostMapping("/rescore")
     public ResponseEntity<Map<String, Object>> rescoreMemories(@RequestBody(required = false) Map<String, String> body) {
         log.info("Triggered rescore of all memories with current salience profile");
-        if (!mao.isAvailable()) {
+        SpectorMemory memory = memoryProvider != null ? memoryProvider.getIfAvailable() : null;
+        if (!mao.isAvailable(memory)) {
             return ResponseEntity.ok(Map.of(
                     "status", "skipped",
                     "message", "Memory engine not available (stub mode)"
@@ -211,7 +236,7 @@ public class UserSalienceController {
         }
 
         long start = System.nanoTime();
-        int rescored = mao.rescoreWithCurrentProfile();
+        int rescored = mao.rescoreWithCurrentProfile(memory);
         long durationMs = (System.nanoTime() - start) / 1_000_000;
 
         return ResponseEntity.ok(Map.of(

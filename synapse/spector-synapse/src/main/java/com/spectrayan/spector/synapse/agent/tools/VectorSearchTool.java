@@ -11,11 +11,6 @@
  * Change License: Apache License, Version 2.0
  */
 package com.spectrayan.spector.synapse.agent.tools;
-import com.spectrayan.spector.mcp.tools.McpToolHandler;
-import com.spectrayan.spector.runtime.SpectorRuntime;
-import io.modelcontextprotocol.spec.McpSchema;
-
-
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -26,10 +21,12 @@ import java.util.Map;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.synapse.mcp.McpRequestMemory;
 
 /**
  * Agent tool: {@code vector_search} — semantic search against Spector memory index with filters.
@@ -120,7 +117,13 @@ public class VectorSearchTool extends McpToolHandler {
 
     private String executeInternal(Map<String, Object> arguments) throws Exception {
         try {
-            SpectorMemory memory = memoryProvider.getIfAvailable();
+            // Prefer the memory bound for the current MCP request (per-user namespace resolved on
+            // the servlet request thread). Fall back to the shared provider for non-servlet callers
+            // (stdio transport, agent chat) where no request-scoped instance is bound.
+            SpectorMemory memory = McpRequestMemory.current();
+            if (memory == null) {
+                memory = memoryProvider.getIfAvailable();
+            }
             if (memory == null) {
                 return "Error: Spector memory engine is not available (running in stub mode).";
             }

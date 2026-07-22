@@ -12,20 +12,25 @@
  */
 package com.spectrayan.spector.synapse.config;
 
-import com.spectrayan.spector.synapse.agent.ToolRegistry;
-import io.modelcontextprotocol.json.McpJsonMapper;
-import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
-import io.modelcontextprotocol.server.McpServer;
-import io.modelcontextprotocol.server.McpStatelessSyncServer;
-import io.modelcontextprotocol.server.McpStatelessServerFeatures;
-import io.modelcontextprotocol.server.transport.HttpServletStatelessServerTransport;
-import io.modelcontextprotocol.spec.McpSchema;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.List;
-import java.util.Map;
+import com.spectrayan.spector.synapse.agent.ToolRegistry;
+import com.spectrayan.spector.synapse.mcp.McpRequestMemory;
+import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+
+import io.modelcontextprotocol.json.McpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.server.McpServer;
+import io.modelcontextprotocol.server.McpStatelessServerFeatures;
+import io.modelcontextprotocol.server.McpStatelessSyncServer;
+import io.modelcontextprotocol.server.transport.HttpServletStatelessServerTransport;
+import io.modelcontextprotocol.spec.McpSchema;
 
 /**
  * Exposes the official Model Context Protocol (MCP) server over stateless HTTP.
@@ -67,9 +72,17 @@ public class McpServerConfig {
 
     @Bean
     public McpStatelessSyncServer mcpStatelessServer(HttpServletStatelessServerTransport transport,
-                                                      ToolRegistry toolRegistry) {
+                                                      ToolRegistry toolRegistry,
+                                                      UserMemoryRegistry userMemoryRegistry,
+                                                      SynapseProperties synapseProperties) {
 
-        // Dynamically translate local McpToolHandler beans to official MCP SDK ToolSpecifications
+        boolean authEnabled = synapseProperties.auth().enabled();
+
+        // Dynamically translate local McpToolHandler beans to official MCP SDK ToolSpecifications.
+        // Each tool executes synchronously on the servlet request thread, so we resolve the caller's
+        // per-user memory (via UserMemoryRegistry) on that same thread and bind it for the duration
+        // of the invocation. The tool routes exclusively to the authenticated user's namespace;
+        // client-supplied namespace/workspace_id/agent_id hints never widen scope to another user.
         List<McpStatelessServerFeatures.SyncToolSpecification> toolSpecs = toolRegistry.all().values().stream()
                 .map(mcpTool -> {
                     var tool = McpSchema.Tool.builder(mcpTool.name())
@@ -79,12 +92,20 @@ public class McpServerConfig {
 
                     return new McpStatelessServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
+
+                        // Resolve + bind the caller's memory on the servlet request thread. Denies
+                        // (auth-required / resolution-failed) fail closed without touching memory.
+                        Optional<McpRequestMemory.DenyReason> deny =
+                                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled);
+                        if (deny.isPresent()) {
+                            return toolError(McpRequestMemory.message(deny.get()));
+                        }
                         try {
                             return mcpTool.execute(null, args);
                         } catch (Exception e) {
-                            return new McpSchema.CallToolResult(
-                                    List.of(new McpSchema.TextContent("Error: " + e.getMessage())),
-                                    true, null, null);
+                            return toolError(e.getMessage());
+                        } finally {
+                            McpRequestMemory.clear();
                         }
                     });
                 })
@@ -99,5 +120,12 @@ public class McpServerConfig {
                         .build())
                 .tools(toolSpecs)
                 .build();
+    }
+
+    /** Builds an MCP tool error result carrying the given message. */
+    private static McpSchema.CallToolResult toolError(String message) {
+        return new McpSchema.CallToolResult(
+                List.of(new McpSchema.TextContent("Error: " + message)),
+                true, null, null);
     }
 }
