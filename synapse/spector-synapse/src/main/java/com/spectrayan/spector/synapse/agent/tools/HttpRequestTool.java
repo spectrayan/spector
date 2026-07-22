@@ -26,7 +26,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * HTTP request tool — makes HTTP GET/POST requests to URLs.
@@ -35,10 +34,6 @@ import java.util.Set;
 public class HttpRequestTool extends McpToolHandler {
 
     private static final Logger log = LoggerFactory.getLogger(HttpRequestTool.class);
-    private static final Set<String> ALLOWED_HOSTS = Set.of(
-            "api.example.com",
-            "example.com"
-    );
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
@@ -117,11 +112,6 @@ public class HttpRequestTool extends McpToolHandler {
         String host = uri.getHost();
         if (host == null || host.isBlank()) {
             throw new IllegalArgumentException("Invalid host in URL");
-        }
-
-        String normalizedHost = host.toLowerCase().replaceAll("\\.$", "");
-        if (!ALLOWED_HOSTS.contains(normalizedHost)) {
-            throw new SecurityException("Host is not allowlisted: " + host);
         }
 
         // Resolve host to IPs to prevent SSRF against internal/loopback networks
