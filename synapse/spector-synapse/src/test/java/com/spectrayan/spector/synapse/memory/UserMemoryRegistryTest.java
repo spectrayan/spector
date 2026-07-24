@@ -390,6 +390,15 @@ class UserMemoryRegistryTest {
     private static void invokeEvictOldest(UserMemoryRegistry registry) throws Exception {
         Method method = UserMemoryRegistry.class.getDeclaredMethod("evictOldestLocked");
         method.setAccessible(true);
-        method.invoke(registry);
+        Object evicted = method.invoke(registry);
+        // Mirror the production code path: close the evicted instance outside the lock.
+        if (evicted != null) {
+            Field memoryField = evicted.getClass().getDeclaredField("memory");
+            memoryField.setAccessible(true);
+            AutoCloseable memory = (AutoCloseable) memoryField.get(evicted);
+            if (memory != null) {
+                memory.close();
+            }
+        }
     }
 }

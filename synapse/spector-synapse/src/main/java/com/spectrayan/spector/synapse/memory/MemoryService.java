@@ -137,6 +137,21 @@ public class MemoryService {
             .expireAfterWrite(java.time.Duration.ofSeconds(5))
             .build();
 
+    @jakarta.annotation.PreDestroy
+    void shutdown() {
+        log.info("[MemoryService] Shutting down virtual thread executor...");
+        virtualThreadExecutor.shutdown();
+        try {
+            if (!virtualThreadExecutor.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                log.warn("[MemoryService] Virtual thread executor did not terminate within 10s; forcing shutdown");
+                virtualThreadExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            virtualThreadExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
         this(mao, eventPublisher, tsid, null, null, null);
     }
@@ -301,6 +316,26 @@ public class MemoryService {
                 eventPublisher.broadcast("consolidation.error", Map.of("status", "error", "message", e.getMessage()));
             }
         });
+    }
+
+    /**
+     * Consolidates all cached per-user instances (or the shared instance if none).
+     */
+    public void consolidateAll() {
+        if (userMemoryRegistry == null) {
+            consolidate();
+            return;
+        }
+        List<SpectorMemory> instances = userMemoryRegistry.cachedInstances();
+        for (SpectorMemory memory : instances) {
+            if (mao.isAvailable(memory)) {
+                try {
+                    mao.consolidate(memory);
+                } catch (Exception e) {
+                    log.error("[MemoryService] Consolidation failed for cached instance: {}", e.getMessage(), e);
+                }
+            }
+        }
     }
 
 

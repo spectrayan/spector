@@ -277,14 +277,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
         // -€-€ JVM Shutdown Hook -€-€ (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
-            this.shutdownHook = new Thread(() -> {
-                if (closed.compareAndSet(false, true)) {
-                    log.info("JVM shutdown hook: flushing SpectorMemory...");
-                    doClose();
-                    log.info("JVM shutdown hook: SpectorMemory flushed successfully");
-                }
-            }, "spector-memory-shutdown");
-            Runtime.getRuntime().addShutdownHook(shutdownHook);
+            if (!builder.managedByRegistry) {
+                this.shutdownHook = new Thread(() -> {
+                    if (closed.compareAndSet(false, true)) {
+                        log.info("JVM shutdown hook: flushing SpectorMemory...");
+                        doClose();
+                        log.info("JVM shutdown hook: SpectorMemory flushed successfully");
+                    }
+                }, "spector-memory-shutdown");
+                Runtime.getRuntime().addShutdownHook(shutdownHook);
+            } else {
+                this.shutdownHook = null;
+            }
         } else {
             this.shutdownHook = null;
         }

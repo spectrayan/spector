@@ -159,18 +159,26 @@ public final class UserMemoryRegistry implements AutoCloseable {
             return handle.memory;
         }
 
-        // Cold path: build + LRU eviction serialized by the lock. Cache hits stay lock-free.
-        coldPathLock.lock();
+        MemoryHandle evicted = null;
         try {
-            // computeIfAbsent guarantees the instance is built exactly once. Eviction happens
-            // BEFORE insertion so the cap is never exceeded by a freshly-cached instance. If the
-            // build throws, computeIfAbsent leaves nothing cached (fail-closed).
-            if (!cache.containsKey(userId) && cache.size() >= maxInstances) {
-                evictOldestLocked();
+            // Cold path: build + LRU eviction serialized by the lock. Cache hits stay lock-free.
+            coldPathLock.lock();
+            try {
+                // computeIfAbsent guarantees the instance is built exactly once. Eviction happens
+                // BEFORE insertion so the cap is never exceeded by a freshly-cached instance. If the
+                // build throws, computeIfAbsent leaves nothing cached (fail-closed).
+                if (!cache.containsKey(userId) && cache.size() >= maxInstances) {
+                    evicted = evictOldestLocked();
+                }
+                handle = cache.computeIfAbsent(userId, id -> new MemoryHandle(buildInstance(id)));
+            } finally {
+                coldPathLock.unlock();
             }
-            handle = cache.computeIfAbsent(userId, id -> new MemoryHandle(buildInstance(id)));
         } finally {
-            coldPathLock.unlock();
+            // Close evicted instance outside the lock — guaranteed even if build throws.
+            if (evicted != null) {
+                closeQuietly(evicted.memory);
+            }
         }
         handle.touch();
         return handle.memory;
@@ -201,6 +209,13 @@ public final class UserMemoryRegistry implements AutoCloseable {
         return cache.size();
     }
 
+    /** Returns a snapshot of all currently cached SpectorMemory instances for batch operations. */
+    public java.util.List<SpectorMemory> cachedInstances() {
+        return cache.values().stream()
+            .map(h -> h.memory)
+            .toList();
+    }
+
     // ══════════════════════════════════════════════════════════════
     // Internals
     // ══════════════════════════════════════════════════════════════
@@ -210,10 +225,12 @@ public final class UserMemoryRegistry implements AutoCloseable {
     }
 
     /**
-     * Evicts and closes the cached per-user instance with the oldest last-resolution time. Must be
-     * called while holding {@link #coldPathLock}.
+     * Evicts the cached per-user instance with the oldest last-resolution time. Must be
+     * called while holding {@link #coldPathLock}. The caller should close the returned instance
+     * after releasing the lock.
+     * @return the evicted MemoryHandle, or null if nothing was evicted
      */
-    private void evictOldestLocked() {
+    private MemoryHandle evictOldestLocked() {
         String oldestKey = null;
         long oldestAccess = Long.MAX_VALUE;
         for (Map.Entry<String, MemoryHandle> entry : cache.entrySet()) {
@@ -227,9 +244,10 @@ public final class UserMemoryRegistry implements AutoCloseable {
             MemoryHandle evicted = cache.remove(oldestKey);
             if (evicted != null) {
                 log.debug("[UserMemoryRegistry] evicting LRU per-user memory instance (cap={})", maxInstances);
-                closeQuietly(evicted.memory);
+                return evicted;
             }
         }
+        return null;
     }
 
     /**

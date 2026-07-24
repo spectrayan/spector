@@ -57,7 +57,7 @@ public final class SpectorToolRegistry {
      * @return unmodifiable list of tool handlers
      */
     public static List<McpToolHandler> handlers(String serverVersion) {
-        return handlers(serverVersion, null);
+        return handlers(serverVersion, (SpectorMemory) null);
     }
 
     /**
@@ -88,6 +88,39 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryBrowseTool(memory));
             handlers.add(new MemorySalienceTool(memory));
         }
+
+        return List.copyOf(handlers);
+    }
+
+    /**
+     * Returns tool handlers including memory tools when SpectorMemory is available via a supplier.
+     *
+     * @param serverVersion  the server version string
+     * @param memoryResolver per-request memory resolver for tenant isolation
+     * @return list of tool handlers
+     */
+    public static List<McpToolHandler> handlers(String serverVersion, Supplier<SpectorMemory> memoryResolver) {
+        if (memoryResolver == null) {
+            return handlers(serverVersion);
+        }
+        var handlers = new ArrayList<McpToolHandler>();
+
+        handlers.add(new MemoryRememberTool(memoryResolver));
+        handlers.add(new MemoryScratchpadTool(memoryResolver));
+        handlers.add(new MemoryRecallTool(memoryResolver));
+        handlers.add(new MemoryReinforceTool(memoryResolver));
+        handlers.add(new MemoryForgetTool(memoryResolver));
+        handlers.add(new MemoryStatusTool(memoryResolver));
+        handlers.add(new MemoryIntrospectTool(memoryResolver));
+        handlers.add(new MemorySuppressTool(memoryResolver));
+        handlers.add(new MemoryResolveTool(memoryResolver));
+        handlers.add(new MemoryReminderTool(memoryResolver));
+        handlers.add(new MemoryWhyNotTool(memoryResolver));
+        handlers.add(new MemoryComputeImportanceTool(memoryResolver));
+        handlers.add(new MemoryInspectTool(memoryResolver));
+        handlers.add(new MemoryExportTool(memoryResolver));
+        handlers.add(new MemoryBrowseTool(memoryResolver));
+        handlers.add(new MemorySalienceTool(memoryResolver));
 
         return List.copyOf(handlers);
     }
