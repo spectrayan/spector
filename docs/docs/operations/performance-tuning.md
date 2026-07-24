@@ -291,6 +291,78 @@ java \
 
 ---
 
+## 🔐 Multi-User Deployment Sizing
+
+When running Spector Synapse with `spector.auth.enabled=true`, each authenticated user gets an isolated `SpectorMemory` instance. These are cached in a per-user registry (LRU, configurable cap).
+
+### Per-Instance Resource Footprint
+
+Each `DefaultSpectorMemory` instance allocates:
+
+| Resource | Per Instance | Notes |
+|----------|-------------|-------|
+| **mmap segments** | ~13 file descriptors | Episodic, Semantic, Procedural tiers + graphs + WAL + text.dat |
+| **DaemonSupervisor** | 1 virtual thread | Checkpoint scheduling (lightweight) |
+| **MemoryIndex metadata** | ~740 bytes/memory | On-heap structural metadata (text bodies are off-heap via mmap) |
+| **HNSW graph** | O(capacity × M × 4B) | Off-heap via Panama Arena |
+
+### OS Limits
+
+Configure these **before** starting Spector in production:
+
+```bash
+# File descriptor limit (default 1024 is too low for multi-user)
+# Formula: 13 FDs/instance × max-instances + 200 (JVM overhead)
+ulimit -n 65536
+
+# Memory-mapped region limit (Linux only)
+# Formula: 13 regions/instance × max-instances × 2 (safety margin)
+sudo sysctl -w vm.max_map_count=262144
+
+# Make persistent across reboots
+echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+```
+
+### JVM Heap Sizing by User Scale
+
+The heap primarily holds per-user `MemoryIndex` metadata (~740 bytes per memory per user) plus HNSW graph structures and BM25 inverted indexes.
+
+| Deployment | Users | Memories/User | Index Heap | Recommended `-Xmx` |
+|------------|-------|--------------|------------|---------------------|
+| **Developer** | 1 | 1K–5K | < 10 MB | `4g` |
+| **Small team** | 5–20 | 1K–5K | 10–75 MB | `4g` |
+| **Medium** | 50–100 | 1K–5K | 75–375 MB | `6g` |
+| **Large** | 200–512 | 5K–10K | 1–3.7 GB | `8g–12g` |
+
+```bash
+# Example: 100-user deployment
+java \
+  --add-modules jdk.incubator.vector \
+  --enable-native-access=ALL-UNNAMED \
+  -XX:+UseZGC \
+  -XX:+ZGenerational \
+  -Xmx8g -Xms8g \
+  -jar spector-synapse.jar
+```
+
+### Instance Cap Tuning
+
+The `spector.auth.memory.max-instances` property (default: `512`) controls how many per-user memory instances are cached concurrently. Evicted users' instances are closed and their working memory is lost (episodic/semantic tiers persist on disk and are reloaded on next access).
+
+```yaml
+# application.yml — tune based on available resources
+spector:
+  auth:
+    enabled: true
+    memory:
+      max-instances: 256   # Halve default for constrained environments
+```
+
+> [!WARNING]
+> Setting `max-instances` too high without corresponding heap and FD increases will cause `OutOfMemoryError` or `Too many open files` errors under load. Use the formulas above to calculate safe limits for your deployment.
+
+---
+
 ## 🔗 See Also
 
 - [Configuration Guide](../configuration/parameters.md) — All parameters with ranges
