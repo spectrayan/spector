@@ -63,6 +63,7 @@ import java.util.List;
 public final class SpectorMemoryBuilder {
 
     // -€-€ Core configuration -€-€
+    boolean managedByRegistry = false;
     int dimensions;
     EmbeddingProvider embeddingProvider;
     Path persistencePath;
@@ -150,6 +151,7 @@ public final class SpectorMemoryBuilder {
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 
     public SpectorMemoryBuilder dimensions(int dimensions) { this.dimensions = dimensions; return this; }
+    public SpectorMemoryBuilder managedByRegistry(boolean managed) { this.managedByRegistry = managed; return this; }
     public SpectorMemoryBuilder embeddingProvider(EmbeddingProvider p) { this.embeddingProvider = p; return this; }
     public SpectorMemoryBuilder persistence(Path p) { this.persistencePath = p; return this; }
     /** Sets the persistence mode (default: {@link MemoryPersistenceMode#DISK}). */
