@@ -135,7 +135,7 @@ public final class MemoryIndex {
     // ── Insertion-order tracking: position → id  [maps graph node indices to memory IDs] ──
     // HebbianGraph, EntityGraph, and TemporalChain use `index.size() - 1` as the node index
     // at ingestion time, so this list preserves that exact ordering for slot ↔ id mapping.
-    private final java.util.List<String> orderedIds = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    private final java.util.LinkedHashSet<String> orderedIds = new java.util.LinkedHashSet<>();
 
     /**
      * Computes the reverse-index key from a memory type and byte offset.
@@ -196,7 +196,7 @@ public final class MemoryIndex {
         reverseIndex.put(reverseKey(location.type(), location.offset()), id);
 
         // Insertion-order tracking (graph slot index = orderedIds position)
-        if (!orderedIds.contains(id)) {
+        synchronized (orderedIds) {
             orderedIds.add(id);
         }
 
@@ -216,7 +216,9 @@ public final class MemoryIndex {
     public void remove(String id) {
         MemoryLocation loc = locations.remove(id);
         texts.remove(id);
-        orderedIds.remove(id);
+        synchronized (orderedIds) {
+            orderedIds.remove(id);
+        }
         sources.remove(id);
         String[] removedTags = tags.remove(id);
         metadataMap.remove(id);
@@ -448,10 +450,11 @@ public final class MemoryIndex {
     public void buildGraphSlotMappings(java.util.Map<Integer, String> slotToId,
                                         java.util.Map<String, Integer> idToSlot) {
         synchronized (orderedIds) {
-            for (int i = 0; i < orderedIds.size(); i++) {
-                String id = orderedIds.get(i);
+            int i = 0;
+            for (String id : orderedIds) {
                 slotToId.put(i, id);
                 idToSlot.put(id, i);
+                i++;
             }
         }
     }

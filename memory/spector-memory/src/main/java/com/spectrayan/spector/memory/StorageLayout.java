@@ -296,6 +296,7 @@ public final class StorageLayout {
 
     /** Resolves a specific namespace directory (flat layout). */
     public static Path namespaceDir(Path basePath, String namespaceId) {
+        validateNamespaceId(namespaceId);
         return namespacesDir(basePath).resolve(namespaceId);
     }
 
@@ -389,6 +390,8 @@ public final class StorageLayout {
      * @return sharded tenant-scoped path
      */
     public static Path tenantNamespaceDirSharded(Path basePath, String tenantId, String namespaceId) {
+        validateNamespaceId(tenantId);
+        validateNamespaceId(namespaceId);
         String hash = sha256Hex(tenantId);
         String l1 = hash.substring(0, SHARD_HEX_DIGITS);
         String l2 = hash.substring(SHARD_HEX_DIGITS, SHARD_HEX_DIGITS * SHARD_LEVELS);
@@ -432,6 +435,8 @@ public final class StorageLayout {
      * @return path to the snapshot directory
      */
     public static Path snapshotDir(Path basePath, String namespaceId, String snapshotId) {
+        validateNamespaceId(namespaceId);
+        validateNamespaceId(snapshotId);
         return snapshotsDir(basePath).resolve(namespaceId).resolve(snapshotId);
     }
 
