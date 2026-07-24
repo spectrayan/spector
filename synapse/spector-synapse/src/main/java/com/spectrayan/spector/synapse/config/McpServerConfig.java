@@ -23,6 +23,11 @@ import org.springframework.context.annotation.Configuration;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.mcp.McpRequestMemory;
 import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
+import com.spectrayan.spector.mcp.tools.McpToolHandler;
+import com.spectrayan.spector.mcp.tools.SpectorToolRegistry;
+import com.spectrayan.spector.memory.SpectorMemory;
+import org.springframework.beans.factory.ObjectProvider;
+import java.util.function.Supplier;
 
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
@@ -127,5 +132,14 @@ public class McpServerConfig {
         return new McpSchema.CallToolResult(
                 List.of(new McpSchema.TextContent("Error: " + message)),
                 true, null, null);
+    }
+
+    @Bean(name = "coreMemoryTools")
+    public List<McpToolHandler> coreMemoryTools(ObjectProvider<SpectorMemory> sharedMemory) {
+        Supplier<SpectorMemory> resolver = () -> {
+            SpectorMemory perUser = McpRequestMemory.current();
+            return perUser != null ? perUser : sharedMemory.getIfAvailable();
+        };
+        return SpectorToolRegistry.handlers("1.0.0", resolver);
     }
 }

@@ -40,7 +40,7 @@ public class ConsolidationScheduler {
     public void scheduleConsolidation() {
         log.info("ConsolidationScheduler: Starting periodic background consolidation task...");
         try {
-            memoryService.consolidate();
+            memoryService.consolidateAll();
         } catch (Exception e) {
             log.error("ConsolidationScheduler: periodic memory consolidation failed", e);
         }
