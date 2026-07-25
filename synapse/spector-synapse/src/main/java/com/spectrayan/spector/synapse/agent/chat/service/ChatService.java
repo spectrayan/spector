@@ -35,6 +35,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.Content;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.ImageContent;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
 
 import com.spectrayan.spector.memory.id.TsidGenerator;
 
@@ -374,7 +375,30 @@ public class ChatService {
         if ("system".equalsIgnoreCase(role)) {
             return SystemMessage.from(String.valueOf(contentObj != null ? contentObj : ""));
         } else if ("assistant".equalsIgnoreCase(role) || "agent".equalsIgnoreCase(role)) {
-            return AiMessage.from(String.valueOf(contentObj != null ? contentObj : ""));
+            AiMessage.Builder builder = AiMessage.builder();
+            if (contentObj != null) {
+                builder.text(String.valueOf(contentObj));
+            }
+            if (msg.containsKey("thinking")) {
+                builder.thinking(String.valueOf(msg.get("thinking")));
+            }
+            if (msg.containsKey("attributes") && msg.get("attributes") instanceof Map<?, ?> attrs) {
+                builder.attributes((Map<String, Object>) attrs);
+            }
+            if (msg.containsKey("toolExecutionRequests") && msg.get("toolExecutionRequests") instanceof List<?> toolRequests) {
+                List<ToolExecutionRequest> requests = new java.util.ArrayList<>();
+                for (Object reqObj : toolRequests) {
+                    if (reqObj instanceof Map<?, ?> reqMap) {
+                        requests.add(ToolExecutionRequest.builder()
+                                .id(String.valueOf(reqMap.get("id")))
+                                .name(String.valueOf(reqMap.get("name")))
+                                .arguments(String.valueOf(reqMap.get("arguments")))
+                                .build());
+                    }
+                }
+                builder.toolExecutionRequests(requests);
+            }
+            return builder.build();
         } else {
             // USER or fallback
             if (contentObj instanceof List<?> list) {

@@ -1,3 +1,15 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *
+ * Change Date: July 6, 2030
+ * Change License: Apache License, Version 2.0
+ */
 package com.spectrayan.spector.synapse.config;
 
 import com.spectrayan.spector.provider.ProviderConfig;
@@ -55,15 +67,16 @@ public class GoogleProviderConfig {
     @ConditionalOnProperty(prefix = "spector.provider.generation", name = "type", havingValue = "google")
     @ConditionalOnMissingBean(LlmProvider.class)
     LlmProvider googleLlmProvider(ProviderRegistry registry, GenerationProps props) {
-        String apiKey = (props.apiKey != null && !props.apiKey.isBlank()) ? props.apiKey:System.getenv("GEMINI_API_KEY");
+        String apiKey = (props.apiKey != null && !props.apiKey.isBlank()) ? props.apiKey : System.getenv("GEMINI_API_KEY");
+        String model = (props.model != null && !props.model.isBlank()) ? props.model : "gemini-2.0-flash";
 
         ProviderConfig config = new ProviderConfig(
-                "google", "google", props.model, apiKey, "", 0, props.properties);
+                "google", "google", model, apiKey, "", 0, props.properties);
         LlmProvider llm = FACTORY.createGenerationProvider(config)
                 .orElseThrow(() -> new IllegalStateException("GoogleProviderFactory returned no generation provider"));
         registry.registerGeneration("google", llm);
         registry.activateGeneration("google");
-        log.info("[GoogleProviderConfig] Registered + activated Gemini generation provider: model={}", props.model);
+        log.info("[GoogleProviderConfig] Registered + activated Gemini generation provider: model={}", model);
         return new com.spectrayan.spector.synapse.provider.DelegatingLlmProvider(registry);
     }
 
@@ -71,13 +84,17 @@ public class GoogleProviderConfig {
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "google")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     EmbeddingProvider googleEmbeddingProvider(ProviderRegistry registry, EmbeddingProps props) {
+        String apiKey = (props.apiKey != null && !props.apiKey.isBlank()) ? props.apiKey : System.getenv("GEMINI_API_KEY");
+        String model = (props.model != null && !props.model.isBlank()) ? props.model : "text-embedding-004";
+        int dimensions = props.dimensions > 0 ? props.dimensions : 768;
+
         ProviderConfig config = new ProviderConfig(
-                "google", "google", props.model, props.apiKey, "", props.dimensions, Map.of());
+                "google", "google", model, apiKey, "", dimensions, Map.of());
         EmbeddingProvider embedder = FACTORY.createEmbeddingProvider(config)
                 .orElseThrow(() -> new IllegalStateException("GoogleProviderFactory returned no embedding provider"));
         registry.registerEmbedding("google", embedder);
         registry.activateEmbedding("google");
-        log.info("[GoogleProviderConfig] Registered + activated Gemini embedding provider: model={}", props.model);
+        log.info("[GoogleProviderConfig] Registered + activated Gemini embedding provider: model={}", model);
         return embedder;
     }
 

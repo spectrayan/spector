@@ -106,8 +106,11 @@ public class AgenticChatGraph {
                     state -> agentNode(state, systemPrompt, toolSpecs, modelName);
             NodeAction<AgentState> toolAction = this::toolNode;
 
-            StateGraph<AgentState> graph = new StateGraph<>(channels,
-                    new LC4jStateSerializer<>(AgentState::new))
+            var stateSerializer = new LC4jStateSerializer<>(AgentState::new);
+            stateSerializer.mapper().register(dev.langchain4j.data.message.ImageContent.class,
+                    new com.spectrayan.spector.synapse.agent.graph.serializer.SafeImageContentSerializer());
+
+            StateGraph<AgentState> graph = new StateGraph<>(channels, stateSerializer)
                     .addNode(AGENT_NODE, AsyncNodeAction.node_async(agentAction))
                     .addNode(TOOLS_NODE, AsyncNodeAction.node_async(toolAction))
                     .addEdge(START, AGENT_NODE)
