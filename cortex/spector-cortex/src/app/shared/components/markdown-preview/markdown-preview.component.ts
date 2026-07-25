@@ -9,6 +9,7 @@ import {
   signal,
   input,
   effect,
+  ViewEncapsulation,
 } from '@angular/core';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -34,6 +35,7 @@ import DOMPurify from 'dompurify';
   selector: 'cortex-markdown-preview',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
   templateUrl: './markdown-preview.component.html',
   styleUrls: ['./markdown-preview.component.scss'],
 })
