@@ -24,6 +24,7 @@ export interface MemoryRow {
   consolidated: boolean;
   tags: string[];
   synapticTags: number;
+  l2Norm?: number;
   createdAt: string;
   metadata?: Record<string, string> | null;
 }

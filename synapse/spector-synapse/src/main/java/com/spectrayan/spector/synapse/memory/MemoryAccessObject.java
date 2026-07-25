@@ -443,6 +443,7 @@ public class MemoryAccessObject {
                 record.isConsolidated(),
                 record.tags() != null ? Arrays.asList(record.tags()) : List.of(),
                 record.synapticTags(),
+                record.exactNorm(),
                 record.createdAt().toString(),
                 meta
         );

@@ -75,7 +75,7 @@ class MemoryControllerTest {
                 "SEMANTIC", "OBSERVED", 0.8f, 5, 128,
                 System.currentTimeMillis(), 3, 3,
                 false, false, false, false, false,
-                List.of("java", "concurrency"), 0L,
+                List.of("java", "concurrency"), 0L, 1.0f,
                 "2026-07-01T00:00:00Z", null
         );
         var response = new MemoryTableResponse(List.of(row), 1, 0, 50,

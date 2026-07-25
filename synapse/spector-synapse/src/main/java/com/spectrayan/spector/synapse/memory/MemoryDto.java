@@ -253,6 +253,7 @@ public final class MemoryDto {
             @JsonProperty("consolidated") boolean consolidated,
             @JsonProperty("tags") List<String> tags,
             @JsonProperty("synapticTags") long synapticTags,
+            @JsonProperty("l2Norm") float l2Norm,
             @JsonProperty("createdAt") String createdAt,
             @JsonProperty("metadata") Map<String, String> metadata
     ) {}
