@@ -5,6 +5,9 @@ import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.google.GoogleProviderFactory;
+import com.spectrayan.spector.synapse.config.GoogleProviderConfig.EmbeddingProps;
+import com.spectrayan.spector.synapse.config.GoogleProviderConfig.GenerationProps;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -13,6 +16,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import jakarta.annotation.PostConstruct;
 
 import java.util.Map;
 
@@ -34,19 +39,32 @@ public class GoogleProviderConfig {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleProviderConfig.class);
     private static final GoogleProviderFactory FACTORY = new GoogleProviderFactory();
+    private final Environment env;
+
+    public GoogleProviderConfig(Environment env) {
+        this.env = env;
+    }
+
+    @PostConstruct
+    void debugProviderType() {
+        log.info("[DEBUG] spector.provider.generation.type = '{}'", env.getProperty("spector.provider.generation.type"));
+        log.info("[DEBUG] GEMINI_API_KEY present = {}", System.getenv("GEMINI_API_KEY") != null);
+    }
 
     @Bean
     @ConditionalOnProperty(prefix = "spector.provider.generation", name = "type", havingValue = "google")
     @ConditionalOnMissingBean(LlmProvider.class)
     LlmProvider googleLlmProvider(ProviderRegistry registry, GenerationProps props) {
+        String apiKey = (props.apiKey != null && !props.apiKey.isBlank()) ? props.apiKey:System.getenv("GEMINI_API_KEY");
+
         ProviderConfig config = new ProviderConfig(
-                "google", "google", props.model, props.apiKey, "", 0, props.properties);
+                "google", "google", props.model, apiKey, "", 0, props.properties);
         LlmProvider llm = FACTORY.createGenerationProvider(config)
                 .orElseThrow(() -> new IllegalStateException("GoogleProviderFactory returned no generation provider"));
         registry.registerGeneration("google", llm);
         registry.activateGeneration("google");
         log.info("[GoogleProviderConfig] Registered + activated Gemini generation provider: model={}", props.model);
-        return llm;
+        return new com.spectrayan.spector.synapse.provider.DelegatingLlmProvider(registry);
     }
 
     @Bean
