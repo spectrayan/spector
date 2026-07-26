@@ -206,6 +206,7 @@ nav:
       - "🔬 Labs":
           - labs/index.md
           - Research Roadmap: labs/roadmap.md
+          - "Hyperdimensional Computing": labs/hdc.md
 
 # ═══════════════════════════════════════════════════════════════
 #  SEO & Social
