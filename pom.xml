@@ -70,6 +70,7 @@
         <module>nucleus/spector-bom</module>
         <module>nucleus/spector-commons</module>
         <module>nucleus/spector-core</module>
+        <module>nucleus/spector-hdc</module>
         <module>nucleus/spector-config</module>
         <module>nucleus/spector-storage</module>
         <module>nucleus/spector-events</module>
@@ -174,6 +175,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-core</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-hdc</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
