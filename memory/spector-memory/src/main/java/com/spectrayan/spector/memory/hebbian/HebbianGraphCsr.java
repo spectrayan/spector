@@ -92,7 +92,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @see HebbianGraph
  */
-public final class HebbianGraphCsr implements HebbianGraphBase {
+public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.spector.memory.kernel.shape.GraphMemory<com.spectrayan.spector.memory.kernel.layout.HebbianLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(HebbianGraphCsr.class);
 
@@ -474,6 +474,79 @@ public final class HebbianGraphCsr implements HebbianGraphBase {
     // ══════════════════════════════════════════════════════════════
     // KERNEL INTEGRATION
     // ══════════════════════════════════════════════════════════════
+
+    @Override
+    public MemoryId id() {
+        return memoryId;
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.kernel.layout.HebbianLayout layout() {
+        return new com.spectrayan.spector.memory.kernel.layout.HebbianLayout();
+    }
+
+    @Override
+    public Arena arena() {
+        return arena;
+    }
+
+    @Override
+    public MemorySegment segment() {
+        return edges;
+    }
+
+    @Override
+    public int size() {
+        return totalEdges();
+    }
+
+    @Override
+    public int schemaVersion() {
+        return 1;
+    }
+
+    @Override
+    public MemoryShape shape() {
+        return MemoryShape.GRAPH;
+    }
+
+    @Override
+    public void flush() {
+        if (edges != null) edges.force();
+        if (offsets != null) offsets.force();
+    }
+
+    @Override
+    public int addEdge(int fromNode, int toNode, MemorySegment edgeBytes) {
+        strengthen(fromNode, toNode, 1.0f);
+        return totalEdges();
+    }
+
+    @Override
+    public void removeEdge(int edgeId) {
+        // CSR decays and compacts edges; explicit tombstoning is not supported on raw ID.
+    }
+
+    @Override
+    public java.util.PrimitiveIterator.OfInt neighbours(int nodeId) {
+        return neighbors(nodeId).stream().mapToInt(HebbianEdge::neighborIndex).iterator();
+    }
+
+    @Override
+    public int edgeCount() {
+        return totalEdges();
+    }
+
+    @Override
+    public int nodeCount() {
+        int activeNodes = 0;
+        for (int i = 0; i < capacity; i++) {
+            if (degree(i) > 0) {
+                activeNodes++;
+            }
+        }
+        return activeNodes;
+    }
 
     public MemoryId memoryId() {
         return memoryId;

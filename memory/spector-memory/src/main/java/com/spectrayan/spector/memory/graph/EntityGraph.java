@@ -86,7 +86,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *     [memIdx:4B][weight:4B]
  * </pre>
  */
-public final class EntityGraph implements AutoCloseable {
+public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.memory.kernel.shape.GraphMemory<com.spectrayan.spector.memory.kernel.layout.EntityLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(EntityGraph.class);
 
@@ -1699,6 +1699,74 @@ public final class EntityGraph implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
     // KERNEL INTEGRATION
     // ══════════════════════════════════════════════════════════════
+
+    @Override
+    public MemoryId id() {
+        return memoryId;
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.kernel.layout.EntityLayout layout() {
+        return new com.spectrayan.spector.memory.kernel.layout.EntityLayout();
+    }
+
+    @Override
+    public Arena arena() {
+        return arena;
+    }
+
+    @Override
+    public MemorySegment segment() {
+        return entitySegment;
+    }
+
+    @Override
+    public int size() {
+        return entityCount;
+    }
+
+    @Override
+    public int capacity() {
+        return entityCapacity;
+    }
+
+    @Override
+    public int schemaVersion() {
+        return 2;
+    }
+
+    @Override
+    public MemoryShape shape() {
+        return MemoryShape.GRAPH;
+    }
+
+    @Override
+    public void flush() {
+        if (entitySegment != null) entitySegment.force();
+        if (edgeSegment != null) edgeSegment.force();
+        if (adjacencySegment != null) adjacencySegment.force();
+    }
+
+    @Override
+    public int addEdge(int fromNode, int toNode, MemorySegment edgeBytes) {
+        addRelation(fromNode, toNode, "related_to");
+        return edgeCount();
+    }
+
+    @Override
+    public void removeEdge(int edgeId) {
+        // EntityGraph handles edges in adjacency segments; direct removal by id is managed via decay/compaction.
+    }
+
+    @Override
+    public java.util.PrimitiveIterator.OfInt neighbours(int nodeId) {
+        return edges(nodeId).stream().mapToInt(EntityEdge::targetEntityId).iterator();
+    }
+
+    @Override
+    public int nodeCount() {
+        return entityCount;
+    }
 
     public MemoryId memoryId() {
         return memoryId;
