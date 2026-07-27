@@ -94,6 +94,10 @@ final class OffHeapEdgeTable {
         this.count = count;
     }
 
+    void setCount(int count) {
+        this.count = count;
+    }
+
     // ── Writes (locked) ──
 
     /**

@@ -139,6 +139,41 @@ public final class MemoryHeader {
         return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + OFFSET_CAPACITY);
     }
 
+    /**
+     * Reads the flags from the header.
+     */
+    public static int readFlags(MemorySegment segment, long offset) {
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + OFFSET_FLAGS);
+    }
+
+    /**
+     * Reads the record stride from the header.
+     */
+    public static int readRecordStride(MemorySegment segment, long offset) {
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + OFFSET_RECORD_STRIDE);
+    }
+
+    /**
+     * Reads the layout ID from the header.
+     */
+    public static int readLayoutId(MemorySegment segment, long offset) {
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + OFFSET_LAYOUT_ID);
+    }
+
+    /**
+     * Reads the creation timestamp from the header.
+     */
+    public static long readCreatedAt(MemorySegment segment, long offset) {
+        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + OFFSET_CREATED_AT);
+    }
+
+    /**
+     * Reads the last flush timestamp from the header.
+     */
+    public static long readLastFlush(MemorySegment segment, long offset) {
+        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + OFFSET_LAST_FLUSH);
+    }
+
     private static int computeCrc(MemorySegment segment, long offset) {
         CRC32C crc32c = new CRC32C();
         crc32c.update(segment.asSlice(offset, 56).asByteBuffer());

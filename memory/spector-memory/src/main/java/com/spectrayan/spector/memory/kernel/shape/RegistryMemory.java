@@ -29,6 +29,12 @@ public interface RegistryMemory extends Memory<RegistryLayout> {
     int intern(String name);
     
     /**
+     * Directly inserts a name-to-ID mapping without allocating a new ID.
+     * Used for loading/migration.
+     */
+    void putDirect(String name, int id);
+
+    /**
      * Returns the string name for the given integer ID.
      * @param id the integer ID
      * @return the name, or null if not found

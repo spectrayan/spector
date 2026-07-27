@@ -85,6 +85,7 @@
         <module>memory/spector-gpu</module>
         <module>memory/spector-ingestion</module>
         <module>memory/spector-memory</module>
+        <module>memory/spector-inspect</module>
 
         <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
         <module>synapse/spector-runtime</module>

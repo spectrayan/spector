@@ -227,6 +227,10 @@ public final class CheckpointDaemon {
             return;
         }
 
+        // Step 5b: Write SNAPSHOT_MARK to WAL and flush WAL to disk
+        wal.appendSnapshotMark("system/checkpoint", hwm);
+        wal.flush();
+
         // Step 6: Write HWM to checkpoint.meta (atomic via temp+rename)
         writeCheckpointMeta(hwm);
 

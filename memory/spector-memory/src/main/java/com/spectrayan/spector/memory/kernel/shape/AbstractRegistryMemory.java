@@ -115,6 +115,10 @@ public abstract class AbstractRegistryMemory extends AbstractMemory<RegistryLayo
             throw new IndexOutOfBoundsException("Registry memory segment is full: " + id());
         }
 
+        if (wal != null && !bypassWal) {
+            wal.appendRegistryIntern(id.toString(), newId, normalized);
+        }
+
         // Write name length
         segment().set(ValueLayout.JAVA_SHORT_UNALIGNED, base + writeOffset, (short) nameLen);
         // Write name bytes

@@ -94,6 +94,12 @@ public abstract class AbstractRecordMemory<L extends MemoryLayout> extends Abstr
             throw new IndexOutOfBoundsException("Record ID out of bounds: " + recordId);
         }
         
+        if (wal != null && !bypassWal) {
+            byte[] bytes = new byte[layout.recordStride()];
+            MemorySegment.copy(recordBytes, 0, MemorySegment.ofArray(bytes), 0, layout.recordStride());
+            wal.appendRecordWrite(id.toString(), recordId, bytes);
+        }
+
         long offset = recordOffset(recordId);
         MemorySegment.copy(recordBytes, 0, segment, offset, layout.recordStride());
         

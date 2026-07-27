@@ -226,6 +226,116 @@ public final class MemoryWal implements AutoCloseable {
     }
 
     /**
+     * Appends a RECORD_WRITE event.
+     */
+    public WalEvent appendRecordWrite(String memoryId, long recordId, byte[] recordBytes) {
+        ByteBuffer buf = ByteBuffer.allocate(8 + recordBytes.length);
+        buf.putLong(recordId);
+        buf.put(recordBytes);
+        return append(WalEvent.EventType.RECORD_WRITE, memoryId, buf.array());
+    }
+
+    /**
+     * Appends an ADJ_ADD_EDGE event.
+     */
+    public WalEvent appendAdjAddEdge(String memoryId, int fromNode, int toNode, byte[] edgeBytes) {
+        ByteBuffer buf = ByteBuffer.allocate(8 + edgeBytes.length);
+        buf.putInt(fromNode);
+        buf.putInt(toNode);
+        buf.put(edgeBytes);
+        return append(WalEvent.EventType.ADJ_ADD_EDGE, memoryId, buf.array());
+    }
+
+    /**
+     * Appends an ADJ_DEL_EDGE event.
+     */
+    public WalEvent appendAdjDelEdge(String memoryId, int edgeId) {
+        ByteBuffer buf = ByteBuffer.allocate(4);
+        buf.putInt(edgeId);
+        return append(WalEvent.EventType.ADJ_DEL_EDGE, memoryId, buf.array());
+    }
+
+    /**
+     * Appends a REGISTRY_INTERN event.
+     */
+    public WalEvent appendRegistryIntern(String memoryId, int id, String name) {
+        byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
+        ByteBuffer buf = ByteBuffer.allocate(4 + nameBytes.length);
+        buf.putInt(id);
+        buf.put(nameBytes);
+        return append(WalEvent.EventType.REGISTRY_INTERN, memoryId, buf.array());
+    }
+
+    /**
+     * Appends an APPEND event.
+     */
+    public WalEvent appendAppend(String memoryId, byte[] bytes) {
+        return append(WalEvent.EventType.APPEND, memoryId, bytes);
+    }
+
+    /**
+     * Appends a SNAPSHOT_MARK event.
+     */
+    public WalEvent appendSnapshotMark(String memoryId, long lsn) {
+        ByteBuffer buf = ByteBuffer.allocate(8);
+        buf.putLong(lsn);
+        return append(WalEvent.EventType.SNAPSHOT_MARK, memoryId, buf.array());
+    }
+
+    /**
+     * Forces all buffered WAL data to disk.
+     */
+    public void flush() {
+        writeLock.lock();
+        try {
+            if (activeChannel != null) {
+                activeChannel.force(true);
+            }
+        } catch (IOException e) {
+            throw new com.spectrayan.spector.commons.error.SpectorStorageException(
+                    com.spectrayan.spector.commons.error.ErrorCode.WAL_WRITE_FAILED, e);
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Appends a GRAPH_ADD_NODE event.
+     */
+    public WalEvent appendGraphAddNode(String memoryId, int nodeId, String name, String type) {
+        byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
+        byte[] typeBytes = type.getBytes(StandardCharsets.UTF_8);
+        ByteBuffer buf = ByteBuffer.allocate(4 + 4 + nameBytes.length + 4 + typeBytes.length);
+        buf.putInt(nodeId);
+        buf.putInt(nameBytes.length);
+        buf.put(nameBytes);
+        buf.putInt(typeBytes.length);
+        buf.put(typeBytes);
+        return append(WalEvent.EventType.GRAPH_ADD_NODE, memoryId, buf.array());
+    }
+
+    /**
+     * Appends a GRAPH_LINK_MEMORY event.
+     */
+    public WalEvent appendGraphLinkMemory(String memoryId, int entityId, int memoryIdx) {
+        ByteBuffer buf = ByteBuffer.allocate(8);
+        buf.putInt(entityId);
+        buf.putInt(memoryIdx);
+        return append(WalEvent.EventType.GRAPH_LINK_MEMORY, memoryId, buf.array());
+    }
+
+    /**
+     * Appends a CHAIN_LINK event.
+     */
+    public WalEvent appendChainLink(String memoryId, int fromIdx, int toIdx, int sessionId) {
+        ByteBuffer buf = ByteBuffer.allocate(12);
+        buf.putInt(fromIdx);
+        buf.putInt(toIdx);
+        buf.putInt(sessionId);
+        return append(WalEvent.EventType.CHAIN_LINK, memoryId, buf.array());
+    }
+
+    /**
      * Replays all events after a given sequence number.
      *
      * <p>Used by CloudSync to ship events to remote agents. Returns events

@@ -423,6 +423,13 @@ public abstract class AbstractTierStore implements TierStore {
     }
 
     /**
+     * Returns the underlying kernel Memory backing for this tier store.
+     */
+    public TierRecordBacking backing() {
+        return this.backing;
+    }
+
+    /**
      * Returns the kernel-compatible layout adapter for this store.
      *
      * <p>Bridges the existing {@link CognitiveRecordLayout} to the kernel's

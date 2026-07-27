@@ -35,6 +35,26 @@ public record MemoryId(String namespace, String memoryName, int partitionSeq) im
         return new MemoryId(namespace, memoryName, 0);
     }
 
+    /**
+     * Parses a string representation of a MemoryId.
+     */
+    public static MemoryId parse(String str) {
+        if (str == null) return null;
+        int hashIdx = str.indexOf('#');
+        int partitionSeq = 0;
+        String base = str;
+        if (hashIdx >= 0) {
+            partitionSeq = Integer.parseInt(str.substring(hashIdx + 1));
+            base = str.substring(0, hashIdx);
+        }
+        int slashIdx = base.indexOf('/');
+        if (slashIdx >= 0) {
+            return new MemoryId(base.substring(0, slashIdx), base.substring(slashIdx + 1), partitionSeq);
+        } else {
+            return new MemoryId("default", base, partitionSeq);
+        }
+    }
+
     public MemoryId {
         Objects.requireNonNull(namespace, "namespace cannot be null");
         Objects.requireNonNull(memoryName, "memoryName cannot be null");

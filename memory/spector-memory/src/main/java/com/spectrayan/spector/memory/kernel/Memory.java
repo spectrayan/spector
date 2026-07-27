@@ -88,4 +88,24 @@ public interface Memory<L extends MemoryLayout> extends AutoCloseable {
      */
     @Override
     void close();
+
+    /**
+     * Binds a Write-Ahead Log (WAL) to this memory.
+     */
+    default void bindWal(com.spectrayan.spector.memory.sync.MemoryWal wal) {}
+
+    /**
+     * Sets whether WAL writes should be bypassed (useful during recovery/replay).
+     */
+    default void setBypassWal(boolean bypass) {}
+
+    /**
+     * Returns whether WAL writes are bypassed.
+     */
+    default boolean isBypassWal() { return false; }
+
+    /**
+     * Returns the bound Write-Ahead Log, if any.
+     */
+    default com.spectrayan.spector.memory.sync.MemoryWal getWal() { return null; }
 }

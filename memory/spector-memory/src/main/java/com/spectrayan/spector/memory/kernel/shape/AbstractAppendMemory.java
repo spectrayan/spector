@@ -58,6 +58,12 @@ public abstract class AbstractAppendMemory<L extends MemoryLayout>
             throw new IndexOutOfBoundsException("Append memory full: cursor=" + count + ", request=" + (4 + len));
         }
 
+        if (wal != null && !bypassWal) {
+            byte[] rawBytes = new byte[(int) len];
+            MemorySegment.copy(bytes, 0, MemorySegment.ofArray(rawBytes), 0, len);
+            wal.appendAppend(id.toString(), rawBytes);
+        }
+
         long writeOffset = dataOffset() + count;
         // Write 4B length prefix
         segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset, (int) len);

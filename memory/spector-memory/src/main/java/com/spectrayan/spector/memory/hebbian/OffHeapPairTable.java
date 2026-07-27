@@ -88,6 +88,10 @@ final class OffHeapPairTable {
         this.count = count;
     }
 
+    void setCount(int count) {
+        this.count = count;
+    }
+
     // ── Writes (locked) ──
 
     /**

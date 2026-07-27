@@ -50,6 +50,26 @@ public record WalEvent(
         /** Synaptic tags were merged. */
         TAG_MERGE,
         /** Memory recall count was incremented. */
-        RECALL_HIT
+        RECALL_HIT,
+        
+        // Unified Shape Opcodes
+        /** RecordMemory write. */
+        RECORD_WRITE,
+        /** GraphMemory add edge. */
+        ADJ_ADD_EDGE,
+        /** GraphMemory delete edge. */
+        ADJ_DEL_EDGE,
+        /** RegistryMemory intern. */
+        REGISTRY_INTERN,
+        /** AppendMemory append. */
+        APPEND,
+        /** Checkpoint snapshot mark. */
+        SNAPSHOT_MARK,
+        /** EntityGraph add node. */
+        GRAPH_ADD_NODE,
+        /** EntityGraph link entity to memory. */
+        GRAPH_LINK_MEMORY,
+        /** TemporalChain link. */
+        CHAIN_LINK
     }
 }

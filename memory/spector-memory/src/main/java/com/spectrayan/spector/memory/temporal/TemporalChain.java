@@ -304,6 +304,11 @@ public final class TemporalChain implements ChainMemory<TemporalLayout>, AutoClo
         if (previousIdx < 0 || previousIdx >= cap) return;
         if (currentIdx == previousIdx) return;
 
+        var wal = backing.getWal();
+        if (wal != null && !backing.isBypassWal()) {
+            wal.appendChainLink(backing.id().toString(), currentIdx, previousIdx, sessionId);
+        }
+
         MemorySegment seg = segment();
         long currentOffset = dataOffset() + (long) currentIdx * NODE_BYTES;
         long previousOffset = dataOffset() + (long) previousIdx * NODE_BYTES;
@@ -584,6 +589,26 @@ public final class TemporalChain implements ChainMemory<TemporalLayout>, AutoClo
     @Override
     public void close() {
         backing.close();
+    }
+
+    @Override
+    public void bindWal(com.spectrayan.spector.memory.sync.MemoryWal wal) {
+        backing.bindWal(wal);
+    }
+
+    @Override
+    public void setBypassWal(boolean bypass) {
+        backing.setBypassWal(bypass);
+    }
+
+    @Override
+    public boolean isBypassWal() {
+        return backing.isBypassWal();
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.sync.MemoryWal getWal() {
+        return backing.getWal();
     }
 
     // ── Backing Kernel Memory class ──

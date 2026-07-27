@@ -90,6 +90,11 @@ public final class TypeRegistry implements RegistryMemory {
     }
 
     @Override
+    public void putDirect(String name, int id) {
+        backing.putDirect(name, id);
+    }
+
+    @Override
     public String nameOf(int id) {
         String name = backing.nameOf(id);
         return name != null ? name : "UNKNOWN";

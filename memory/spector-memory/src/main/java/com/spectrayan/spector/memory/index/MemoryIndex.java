@@ -257,6 +257,10 @@ public final class MemoryIndex {
         this.textDataStore = store;
     }
 
+    public TextDataStore textDataStore() {
+        return this.textDataStore;
+    }
+
     public int size() {
         return locations.size();
     }

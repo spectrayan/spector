@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.kernel;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,6 +66,41 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
 
     @SuppressWarnings("unused") // accessed via VarHandle
     private volatile int visibleCount = 0;
+
+    protected MemoryWal wal;
+    protected boolean bypassWal = false;
+
+    /**
+     * Binds a Write-Ahead Log (WAL) to this memory.
+     */
+    @Override
+    public void bindWal(MemoryWal wal) {
+        this.wal = wal;
+    }
+
+    /**
+     * Sets whether WAL writes should be bypassed (useful during recovery/replay).
+     */
+    @Override
+    public void setBypassWal(boolean bypassWal) {
+        this.bypassWal = bypassWal;
+    }
+
+    /**
+     * Returns whether WAL writes are bypassed.
+     */
+    @Override
+    public boolean isBypassWal() {
+        return this.bypassWal;
+    }
+
+    /**
+     * Returns the bound Write-Ahead Log, if any.
+     */
+    @Override
+    public MemoryWal getWal() {
+        return this.wal;
+    }
 
     /**
      * Volatile constructor — allocates memory off-heap without a backing file.

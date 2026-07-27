@@ -23,6 +23,8 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.sync.MemoryWal;
+import java.nio.ByteBuffer;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -177,6 +179,8 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
     private volatile long sessionBoundaryMs = 30 * 60 * 1000L;
     private volatile HebbianGraph.DecayModulator decayModulator;
     private final MemoryId memoryId;
+    private MemoryWal wal;
+    private boolean bypassWal = false;
 
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
@@ -246,6 +250,13 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         try {
             if (nodeA < 0 || nodeA >= capacity || nodeB < 0 || nodeB >= capacity) return;
             if (nodeA == nodeB) return;
+
+            if (wal != null && !bypassWal) {
+                ByteBuffer buf = ByteBuffer.allocate(4);
+                buf.putFloat(weightDelta);
+                wal.appendAdjAddEdge(memoryId.toString(), nodeA, nodeB, buf.array());
+            }
+
             addOrUpdateEdge(nodeA, nodeB, weightDelta);
             addOrUpdateEdge(nodeB, nodeA, weightDelta);
             lastActivityMs = System.currentTimeMillis();
@@ -512,8 +523,12 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
 
     @Override
     public void flush() {
-        if (edges != null) edges.force();
-        if (offsets != null) offsets.force();
+        try {
+            if (edges != null) edges.force();
+        } catch (UnsupportedOperationException ignored) {}
+        try {
+            if (offsets != null) offsets.force();
+        } catch (UnsupportedOperationException ignored) {}
     }
 
     @Override
@@ -554,6 +569,21 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
 
     public MemoryShape kernelShape() {
         return MemoryShape.GRAPH;
+    }
+
+    @Override
+    public void bindWal(MemoryWal wal) {
+        this.wal = wal;
+    }
+
+    @Override
+    public void setBypassWal(boolean bypass) {
+        this.bypassWal = bypass;
+    }
+
+    @Override
+    public MemoryWal getWal() {
+        return this.wal;
     }
 
     @Override

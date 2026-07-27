@@ -31,6 +31,8 @@ import java.nio.file.StandardOpenOption;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.sync.MemoryWal;
+import java.nio.charset.StandardCharsets;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -205,6 +207,9 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
     private final EdgeImportance edgeImportance;
 
     private final MemoryId memoryId;
+
+    private MemoryWal wal;
+    private boolean bypassWal = false;
 
     /**
      * Creates a new entity graph with default max degree.
@@ -504,6 +509,9 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
         }
 
         int entityId = entityCount++;
+        if (wal != null && !bypassWal) {
+            wal.appendGraphAddNode(memoryId.toString(), entityId, normalized, type);
+        }
         long offset = (long) entityId * ENTITY_NODE_BYTES;
         int typeId = entityTypeRegistry.getOrRegister(type);
 
@@ -534,6 +542,10 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
         if (fromEntity < 0 || fromEntity >= entityCount) return;
         if (toEntity < 0 || toEntity >= entityCount) return;
         if (fromEntity == toEntity) return;
+
+        if (wal != null && !bypassWal) {
+            wal.appendAdjAddEdge(memoryId.toString(), fromEntity, toEntity, (type != null ? type : "OTHER").getBytes(StandardCharsets.UTF_8));
+        }
 
         int typeId = relationTypeRegistry.getOrRegister(type != null ? type : "OTHER");
         long entityOffset = (long) fromEntity * ENTITY_NODE_BYTES;
@@ -727,6 +739,9 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
 
         graphLock.lock();
         try {
+            if (wal != null && !bypassWal) {
+                wal.appendGraphLinkMemory(memoryId.toString(), entityId, memoryIdx);
+            }
             long entOffset = (long) entityId * ENTITY_NODE_BYTES;
             int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
             int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
@@ -1774,6 +1789,21 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
 
     public MemoryShape kernelShape() {
         return MemoryShape.GRAPH;
+    }
+
+    @Override
+    public void bindWal(MemoryWal wal) {
+        this.wal = wal;
+    }
+
+    @Override
+    public void setBypassWal(boolean bypass) {
+        this.bypassWal = bypass;
+    }
+
+    @Override
+    public MemoryWal getWal() {
+        return this.wal;
     }
 
     @Override
