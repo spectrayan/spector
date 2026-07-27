@@ -15,6 +15,10 @@ package com.spectrayan.spector.memory.cortex;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayoutAdapter;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 
@@ -77,6 +81,14 @@ import java.nio.file.StandardOpenOption;
 public abstract class AbstractTierStore implements TierStore {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractTierStore.class);
+
+    // ── Kernel Integration ──
+    // MemoryId provides stable identity for WAL targeting, metrics, and logs.
+    // Lazily initialized because type() is abstract and not available in the constructor.
+    // CognitiveRecordLayoutAdapter bridges the tier store's CognitiveRecordLayout
+    // to the kernel's MemoryLayout interface.
+    private volatile MemoryId memoryId;
+    private final CognitiveRecordLayoutAdapter layoutAdapter;
 
     /** Metadata header magic: "TIER" in ASCII. */
     static final int TIER_MAGIC = 0x54494552;
@@ -143,11 +155,14 @@ public abstract class AbstractTierStore implements TierStore {
      */
     protected AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes) {
         this.layout = new CognitiveRecordLayout(quantizedVecBytes);
+        this.layoutAdapter = new CognitiveRecordLayoutAdapter(this.layout);
         this.capacity = capacity;
         this.arena = Arena.ofShared();
         this.segment = arena.allocate(segmentBytes, SynapticHeaderConstants.HEADER_BYTES);
         this.persistent = false;
         this.filePath = null;
+        // MemoryId is set lazily after type() is available (abstract method)
+        this.memoryId = null;
     }
 
     /**
@@ -164,10 +179,13 @@ public abstract class AbstractTierStore implements TierStore {
      */
     protected AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
         this.layout = new CognitiveRecordLayout(quantizedVecBytes);
+        this.layoutAdapter = new CognitiveRecordLayoutAdapter(this.layout);
         this.capacity = capacity;
         this.persistent = true;
         this.filePath = filePath;
         this.arena = Arena.ofShared();
+        // MemoryId is set lazily after type() is available (abstract method)
+        this.memoryId = null;
 
         try {
             // Ensure parent directories exist
@@ -363,6 +381,56 @@ public abstract class AbstractTierStore implements TierStore {
         if (count == 0) return 0.0f;
         return (float) tombstoneCount() / count;
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // KERNEL INTEGRATION
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Returns the stable kernel identity for this store.
+     *
+     * <p>Lazily initialized because {@link #type()} is abstract and not
+     * available during {@code AbstractTierStore} construction. Thread-safe
+     * via double-checked locking on a volatile field.</p>
+     *
+     * @return the kernel-compatible memory identifier
+     */
+    public MemoryId memoryId() {
+        MemoryId id = this.memoryId;
+        if (id == null) {
+            synchronized (this) {
+                id = this.memoryId;
+                if (id == null) {
+                    id = MemoryId.of("tier", type().name().toLowerCase());
+                    this.memoryId = id;
+                }
+            }
+        }
+        return id;
+    }
+
+    /**
+     * Returns the kernel-compatible layout adapter for this store.
+     *
+     * <p>Bridges the existing {@link CognitiveRecordLayout} to the kernel's
+     * {@link MemoryLayout} interface, enabling kernel consumers to read
+     * stride, layoutId, and schema version from tier stores.</p>
+     *
+     * @return the cognitive record layout adapter
+     */
+    public CognitiveRecordLayoutAdapter kernelLayout() {
+        return layoutAdapter;
+    }
+
+    /**
+     * Returns the kernel shape classification for this store.
+     *
+     * @return {@link MemoryShape#RECORD} for all tier stores
+     */
+    public MemoryShape kernelShape() {
+        return MemoryShape.RECORD;
+    }
+
 
     @Override
     public void close() {
