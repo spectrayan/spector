@@ -199,7 +199,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
      *
      * @return the data offset
      */
-    protected long dataOffset() {
+    public long dataOffset() {
         return persistent ? MemoryHeader.HEADER_BYTES : 0;
     }
 

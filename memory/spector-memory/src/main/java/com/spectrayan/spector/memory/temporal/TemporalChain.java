@@ -16,19 +16,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-
-import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 
+import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.AbstractMemory;
+import com.spectrayan.spector.memory.kernel.shape.ChainMemory;
+import com.spectrayan.spector.memory.kernel.layout.TemporalLayout;
 
 /**
  * Off-heap temporal causal chain linking memories within a session.
@@ -41,22 +44,14 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
  *
  * <h3>Layout Per Node (16 bytes)</h3>
  * <pre>
- *   [prevIdx:4B] [nextIdx:4B] [sessionId:4B] [pad:4B]
+ *   [prevIdx:4B] [nextIdx:4B] [sessionId:4B] [epochSec:4B]
  * </pre>
  *
  * <p>-1 is used as sentinel for "no link" (beginning or end of chain).</p>
- *
- * <h3>Persistence</h3>
- * <p>Supports save/load via raw segment serialization with "TPCH" magic header.</p>
  */
-public final class TemporalChain implements AutoCloseable {
+public final class TemporalChain implements ChainMemory<TemporalLayout>, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TemporalChain.class);
-
-    /** File magic: "TPCH" in ASCII. */
-    private static final int FILE_MAGIC = 0x54504348;
-    private static final int FILE_VERSION = 2;
-    private static final int FILE_HEADER_BYTES = 16;
 
     /** Bytes per node: prevIdx(4) + nextIdx(4) + sessionId(4) + epochSec(4). */
     static final int NODE_BYTES = 16;
@@ -70,12 +65,7 @@ public final class TemporalChain implements AutoCloseable {
     private static final long OFF_SESSION = 8;
     private static final long OFF_EPOCH_SEC = 12;
 
-    private final Arena arena;
-    private final MemorySegment segment;
-    private final int capacity;
-    private final FileChannel mappedChannel;
-    private final boolean fileBacked;
-    private final MemoryId memoryId;
+    private final TemporalChainBacking backing;
 
     /**
      * Creates a heap-allocated temporal chain (in-memory mode).
@@ -83,22 +73,22 @@ public final class TemporalChain implements AutoCloseable {
      * @param capacity maximum number of nodes (memories)
      */
     public TemporalChain(int capacity) {
-        this.capacity = capacity;
-        this.arena = Arena.ofShared();
-        this.segment = arena.allocate((long) NODE_BYTES * capacity);
-        this.mappedChannel = null;
-        this.fileBacked = false;
-        this.memoryId = MemoryId.of("temporal", "chain");
-        // Initialize all prev/next to NO_LINK (-1)
+        TemporalLayout layout = new TemporalLayout();
+        MemoryId id = MemoryId.of("temporal", "chain");
+        long dataBytes = (long) NODE_BYTES * capacity;
+        this.backing = new TemporalChainBacking(id, layout, capacity, dataBytes);
+
+        MemorySegment seg = backing.segment();
         for (int i = 0; i < capacity; i++) {
             long offset = (long) i * NODE_BYTES;
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
         }
 
         log.info("TemporalChain initialized (heap): capacity={}, memory={}KB",
-                capacity, (long) NODE_BYTES * capacity / 1024);
+                capacity, dataBytes / 1024);
     }
 
     /**
@@ -117,115 +107,218 @@ public final class TemporalChain implements AutoCloseable {
             }
         }
 
-        long dataBytes = (long) NODE_BYTES * capacity;
-        boolean isNew = !Files.exists(filePath);
-
         try {
-            FileChannel ch = FileChannel.open(filePath,
-                    StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
-            this.mappedChannel = ch;
+            // 1. Perform in-place TPCH -> SMKM migration if needed
+            checkAndMigrateHeader(filePath, capacity);
 
-            if (isNew || ch.size() < FILE_HEADER_BYTES) {
-                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-                header.putInt(FILE_MAGIC);
-                header.putInt(FILE_VERSION);
-                header.putInt(capacity);
-                header.putInt(0);
-                header.flip();
-                ch.position(0);
-                ch.write(header);
-                long totalBytes = FILE_HEADER_BYTES + dataBytes;
-                if (ch.size() < totalBytes) {
-                    ch.position(totalBytes - 1);
-                    ch.write(ByteBuffer.wrap(new byte[]{0}));
-                }
-                ch.force(true);
-                this.capacity = capacity;
-            } else {
-                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-                ch.position(0);
-                ch.read(header);
-                header.flip();
-                int magic = header.getInt();
-                int version = header.getInt();
-                int fileCapacity = header.getInt();
-                header.getInt();
+            // 2. Open using standard SMKM format
+            TemporalLayout layout = new TemporalLayout();
+            MemoryId id = MemoryId.of("temporal", "chain");
+            long dataBytes = (long) NODE_BYTES * capacity;
+            boolean isNew = !Files.exists(filePath) || Files.size(filePath) < MemoryHeader.HEADER_BYTES;
 
-                if (magic != FILE_MAGIC || (version != FILE_VERSION && version != 1)) {
-                    log.warn("Invalid TemporalChain file, reinitializing: {}", filePath);
-                    ch.truncate(0);
-                    ByteBuffer newHeader = ByteBuffer.allocate(FILE_HEADER_BYTES);
-                    newHeader.putInt(FILE_MAGIC);
-                    newHeader.putInt(FILE_VERSION);
-                    newHeader.putInt(capacity);
-                    newHeader.putInt(0);
-                    newHeader.flip();
-                    ch.position(0);
-                    ch.write(newHeader);
-                    long totalBytes = FILE_HEADER_BYTES + dataBytes;
-                    ch.position(totalBytes - 1);
-                    ch.write(ByteBuffer.wrap(new byte[]{0}));
-                    ch.force(true);
-                    this.capacity = capacity;
-                } else {
-                    this.capacity = fileCapacity;
-                    dataBytes = (long) NODE_BYTES * fileCapacity;
+            this.backing = new TemporalChainBacking(id, layout, capacity, dataBytes, filePath);
+
+            if (isNew) {
+                MemorySegment seg = backing.segment();
+                long base = backing.dataOffset();
+                for (int i = 0; i < capacity; i++) {
+                    long offset = base + (long) i * NODE_BYTES;
+                    seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+                    seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+                    seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+                    seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
                 }
+                backing.flush();
             }
 
-            this.arena = Arena.ofShared();
-            this.segment = ch.map(FileChannel.MapMode.READ_WRITE, FILE_HEADER_BYTES,
-                    dataBytes, arena);
-            this.fileBacked = true;
-            this.memoryId = MemoryId.of("temporal", "chain");
-
             log.info("TemporalChain initialized (mmap): capacity={}, file={}",
-                    this.capacity, filePath.getFileName());
+                    backing.capacity(), filePath.getFileName());
 
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("TemporalChain", filePath, e);
         }
     }
 
-    private TemporalChain(int capacity, Arena arena, MemorySegment segment,
-                           FileChannel mappedChannel, boolean fileBacked, MemoryId memoryId) {
-        this.capacity = capacity;
-        this.arena = arena;
-        this.segment = segment;
-        this.mappedChannel = mappedChannel;
-        this.fileBacked = fileBacked;
-        this.memoryId = memoryId;
+    private TemporalChain(TemporalChainBacking backing) {
+        this.backing = backing;
     }
+
+    private static void checkAndMigrateHeader(Path filePath, int capacity) throws IOException {
+        if (filePath == null || !Files.exists(filePath) || Files.size(filePath) < 16) {
+            return;
+        }
+        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            ByteBuffer header = ByteBuffer.allocate(16);
+            ch.read(header);
+            header.flip();
+            int magic = header.getInt();
+            if (magic == 0x54504348) { // legacy 'TPCH'
+                log.info("Migrating legacy TPCH file to SMKM: {}", filePath);
+                int version = header.getInt();
+                int fileCapacity = header.getInt();
+                int count = header.getInt();
+
+                long dataSize = (long) fileCapacity * 16;
+                ByteBuffer dataBuf = ByteBuffer.allocate((int) dataSize);
+                ch.position(16);
+                ch.read(dataBuf);
+                dataBuf.flip();
+
+                ch.truncate(0);
+                ch.position(0);
+
+                try (Arena tempArena = Arena.ofConfined()) {
+                    long totalBytes = MemoryHeader.HEADER_BYTES + dataSize;
+                    ch.position(totalBytes - 1);
+                    ch.write(ByteBuffer.wrap(new byte[]{0}));
+                    MemorySegment tempSegment = ch.map(FileChannel.MapMode.READ_WRITE, 0, totalBytes, tempArena);
+                    
+                    MemoryHeader.write(tempSegment, 0, 2, MemoryShape.CHAIN, 1, 
+                            fileCapacity, count, 16, 0x54504348, 
+                            System.currentTimeMillis(), System.currentTimeMillis());
+                    
+                    MemorySegment.copy(MemorySegment.ofBuffer(dataBuf), 0, tempSegment, MemoryHeader.HEADER_BYTES, dataSize);
+                    tempSegment.force();
+                }
+                log.info("Migrated legacy TPCH file to SMKM successfully: {} (capacity={}, count={})", 
+                        filePath, fileCapacity, count);
+            }
+        }
+    }
+
+    private long dataOffset() {
+        return backing.dataOffset();
+    }
+
+    // ── ChainMemory implementation ──
+
+    @Override
+    public MemoryId id() {
+        return backing.id();
+    }
+
+    @Override
+    public TemporalLayout layout() {
+        return backing.layout();
+    }
+
+    @Override
+    public Arena arena() {
+        return backing.arena();
+    }
+
+    @Override
+    public MemorySegment segment() {
+        return backing.segment();
+    }
+
+    @Override
+    public int size() {
+        return backing.size();
+    }
+
+    @Override
+    public int capacity() {
+        return backing.capacity();
+    }
+
+    @Override
+    public int schemaVersion() {
+        return backing.schemaVersion();
+    }
+
+    @Override
+    public MemoryShape shape() {
+        return backing.shape();
+    }
+
+    @Override
+    public void flush() {
+        backing.flush();
+    }
+
+    @Override
+    public void link(int nodeId, int nextId) {
+        link(nextId, nodeId, 0);
+    }
+
+    @Override
+    public int next(int nodeId) {
+        if (nodeId < 0 || nodeId >= capacity()) return NO_LINK;
+        return segment().get(ValueLayout.JAVA_INT, dataOffset() + (long) nodeId * NODE_BYTES + OFF_NEXT);
+    }
+
+    @Override
+    public int prev(int nodeId) {
+        if (nodeId < 0 || nodeId >= capacity()) return NO_LINK;
+        return segment().get(ValueLayout.JAVA_INT, dataOffset() + (long) nodeId * NODE_BYTES + OFF_PREV);
+    }
+
+    @Override
+    public int head() {
+        int cap = capacity();
+        for (int i = 0; i < cap; i++) {
+            if (isLinked(i) && prev(i) == NO_LINK) {
+                return i;
+            }
+        }
+        return NO_LINK;
+    }
+
+    @Override
+    public int tail() {
+        int cap = capacity();
+        for (int i = 0; i < cap; i++) {
+            if (isLinked(i) && next(i) == NO_LINK) {
+                return i;
+            }
+        }
+        return NO_LINK;
+    }
+
+    @Override
+    public int chainLength() {
+        int length = 0;
+        int cap = capacity();
+        for (int i = 0; i < cap; i++) {
+            if (isLinked(i)) {
+                length++;
+            }
+        }
+        return length;
+    }
+
+    // ── Subsystem-specific Overloads ──
 
     /**
      * Links two memories in temporal order within the same session.
      *
-     * <p>After this call, {@code previousIdx.next = currentIdx} and
-     * {@code currentIdx.prev = previousIdx}.</p>
-     *
      * @param currentIdx  index of the memory just ingested
      * @param previousIdx index of the memory ingested immediately before
-     * @param sessionId   session identifier (e.g., hash of session start time)
+     * @param sessionId   session identifier
      */
     public void link(int currentIdx, int previousIdx, int sessionId) {
-        if (currentIdx < 0 || currentIdx >= capacity) return;
-        if (previousIdx < 0 || previousIdx >= capacity) return;
+        int cap = capacity();
+        if (currentIdx < 0 || currentIdx >= cap) return;
+        if (previousIdx < 0 || previousIdx >= cap) return;
         if (currentIdx == previousIdx) return;
 
-        long currentOffset = (long) currentIdx * NODE_BYTES;
-        long previousOffset = (long) previousIdx * NODE_BYTES;
+        MemorySegment seg = segment();
+        long currentOffset = dataOffset() + (long) currentIdx * NODE_BYTES;
+        long previousOffset = dataOffset() + (long) previousIdx * NODE_BYTES;
 
         // currentIdx.prev = previousIdx
-        segment.set(ValueLayout.JAVA_INT, currentOffset + OFF_PREV, previousIdx);
-        segment.set(ValueLayout.JAVA_INT, currentOffset + OFF_SESSION, sessionId);
-        segment.set(ValueLayout.JAVA_INT, currentOffset + OFF_EPOCH_SEC,
+        seg.set(ValueLayout.JAVA_INT, currentOffset + OFF_PREV, previousIdx);
+        seg.set(ValueLayout.JAVA_INT, currentOffset + OFF_SESSION, sessionId);
+        seg.set(ValueLayout.JAVA_INT, currentOffset + OFF_EPOCH_SEC,
                 (int) (System.currentTimeMillis() / 1000));
 
         // previousIdx.next = currentIdx
-        segment.set(ValueLayout.JAVA_INT, previousOffset + OFF_NEXT, currentIdx);
-        // Also stamp previousIdx epoch if it was never set (backfill for first node)
-        if (segment.get(ValueLayout.JAVA_INT, previousOffset + OFF_EPOCH_SEC) == 0) {
-            segment.set(ValueLayout.JAVA_INT, previousOffset + OFF_EPOCH_SEC,
+        seg.set(ValueLayout.JAVA_INT, previousOffset + OFF_NEXT, currentIdx);
+        
+        if (seg.get(ValueLayout.JAVA_INT, previousOffset + OFF_EPOCH_SEC) == 0) {
+            seg.set(ValueLayout.JAVA_INT, previousOffset + OFF_EPOCH_SEC,
                     (int) (System.currentTimeMillis() / 1000));
         }
     }
@@ -238,14 +331,16 @@ public final class TemporalChain implements AutoCloseable {
      * @return array of memory indices in temporal order (excludes startIdx)
      */
     public int[] followForward(int startIdx, int maxHops) {
-        if (startIdx < 0 || startIdx >= capacity) return new int[0];
+        int cap = capacity();
+        if (startIdx < 0 || startIdx >= cap) return new int[0];
         int[] chain = new int[maxHops];
         int count = 0;
         int current = startIdx;
+        MemorySegment seg = segment();
         for (int hop = 0; hop < maxHops; hop++) {
-            long offset = (long) current * NODE_BYTES;
-            int next = segment.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
-            if (next == NO_LINK || next < 0 || next >= capacity) break;
+            long offset = dataOffset() + (long) current * NODE_BYTES;
+            int next = seg.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
+            if (next == NO_LINK || next < 0 || next >= cap) break;
             chain[count++] = next;
             current = next;
         }
@@ -260,14 +355,16 @@ public final class TemporalChain implements AutoCloseable {
      * @return array of memory indices in reverse temporal order (excludes startIdx)
      */
     public int[] followBackward(int startIdx, int maxHops) {
-        if (startIdx < 0 || startIdx >= capacity) return new int[0];
+        int cap = capacity();
+        if (startIdx < 0 || startIdx >= cap) return new int[0];
         int[] chain = new int[maxHops];
         int count = 0;
         int current = startIdx;
+        MemorySegment seg = segment();
         for (int hop = 0; hop < maxHops; hop++) {
-            long offset = (long) current * NODE_BYTES;
-            int prev = segment.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
-            if (prev == NO_LINK || prev < 0 || prev >= capacity) break;
+            long offset = dataOffset() + (long) current * NODE_BYTES;
+            int prev = seg.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
+            if (prev == NO_LINK || prev < 0 || prev >= cap) break;
             chain[count++] = prev;
             current = prev;
         }
@@ -278,46 +375,35 @@ public final class TemporalChain implements AutoCloseable {
      * Returns the session ID for a memory.
      */
     public int sessionOf(int idx) {
-        if (idx < 0 || idx >= capacity) return 0;
-        return segment.get(ValueLayout.JAVA_INT, (long) idx * NODE_BYTES + OFF_SESSION);
+        if (idx < 0 || idx >= capacity()) return 0;
+        return segment().get(ValueLayout.JAVA_INT, dataOffset() + (long) idx * NODE_BYTES + OFF_SESSION);
     }
 
     /**
      * Returns whether a memory has any temporal links.
      */
     public boolean isLinked(int idx) {
-        if (idx < 0 || idx >= capacity) return false;
-        long offset = (long) idx * NODE_BYTES;
-        int prev = segment.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
-        int next = segment.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
+        if (idx < 0 || idx >= capacity()) return false;
+        long offset = dataOffset() + (long) idx * NODE_BYTES;
+        MemorySegment seg = segment();
+        int prev = seg.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
+        int next = seg.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
         return prev != NO_LINK || next != NO_LINK;
-    }
-
-    /**
-     * Returns the capacity.
-     */
-    public int capacity() {
-        return capacity;
     }
 
     /**
      * Returns the epoch-second timestamp for a memory node.
      *
      * @param idx the memory index
-     * @return epoch seconds (0 if unlinked or from a V1 file)
+     * @return epoch seconds (0 if unlinked)
      */
     public int epochSecOf(int idx) {
-        if (idx < 0 || idx >= capacity) return 0;
-        return segment.get(ValueLayout.JAVA_INT, (long) idx * NODE_BYTES + OFF_EPOCH_SEC);
+        if (idx < 0 || idx >= capacity()) return 0;
+        return segment().get(ValueLayout.JAVA_INT, dataOffset() + (long) idx * NODE_BYTES + OFF_EPOCH_SEC);
     }
 
     /**
      * Prunes temporal chain nodes older than the given cutoff.
-     *
-     * <p>For each linked node whose {@code epochSec * 1000L < cutoffEpochMs},
-     * the node is unlinked by re-stitching its neighbors' prev/next pointers.
-     * Nodes with {@code epochSec == 0} (unknown age, e.g., from V1 files) are
-     * never pruned.</p>
      *
      * @param cutoffEpochMs cutoff timestamp in milliseconds
      * @return number of nodes pruned
@@ -325,35 +411,33 @@ public final class TemporalChain implements AutoCloseable {
     public int pruneOlderThan(long cutoffEpochMs) {
         int cutoffEpochSec = (int) (cutoffEpochMs / 1000);
         int pruned = 0;
+        int cap = capacity();
+        MemorySegment seg = segment();
 
-        for (int i = 0; i < capacity; i++) {
-            long offset = (long) i * NODE_BYTES;
-            int prev = segment.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
-            int next = segment.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
+        for (int i = 0; i < cap; i++) {
+            long offset = dataOffset() + (long) i * NODE_BYTES;
+            int prev = seg.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
+            int next = seg.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
 
-            // Skip unlinked nodes
             if (prev == NO_LINK && next == NO_LINK) continue;
 
-            int epochSec = segment.get(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC);
-            // Never prune nodes with unknown age (epochSec=0, from V1 migration)
+            int epochSec = seg.get(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC);
             if (epochSec == 0) continue;
             if (epochSec >= cutoffEpochSec) continue;
 
-            // Unlink: re-stitch neighbors
-            if (prev >= 0 && prev < capacity) {
-                long prevOffset = (long) prev * NODE_BYTES;
-                segment.set(ValueLayout.JAVA_INT, prevOffset + OFF_NEXT, next);
+            if (prev >= 0 && prev < cap) {
+                long prevOffset = dataOffset() + (long) prev * NODE_BYTES;
+                seg.set(ValueLayout.JAVA_INT, prevOffset + OFF_NEXT, next);
             }
-            if (next >= 0 && next < capacity) {
-                long nextOffset = (long) next * NODE_BYTES;
-                segment.set(ValueLayout.JAVA_INT, nextOffset + OFF_PREV, prev);
+            if (next >= 0 && next < cap) {
+                long nextOffset = dataOffset() + (long) next * NODE_BYTES;
+                seg.set(ValueLayout.JAVA_INT, nextOffset + OFF_PREV, prev);
             }
 
-            // Clear this node
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
             pruned++;
         }
 
@@ -363,37 +447,13 @@ public final class TemporalChain implements AutoCloseable {
         return pruned;
     }
 
-    /**
-     * Provides importance scores for memory indices — used by importance-based
-     * temporal pruning to decide which session chains to protect.
-     *
-     * <p>Typical implementation reads the synaptic header importance field
-     * from the cortex tier store.</p>
-     */
     @FunctionalInterface
     public interface ImportanceProvider {
-        /**
-         * Returns the importance score for a memory at the given index.
-         *
-         * @param memoryIndex the memory slot index
-         * @return importance score (higher = more important), or 0 if unavailable
-         */
         float importance(int memoryIndex);
     }
 
     /**
      * Prunes low-importance temporal chain entries older than the cutoff.
-     *
-     * <p>Unlike {@link #pruneOlderThan}, this method considers the importance
-     * of each memory before pruning. A node is only pruned if:</p>
-     * <ol>
-     *   <li>It is older than {@code cutoffEpochMs}</li>
-     *   <li>Its importance (from the provider) is below {@code importanceThreshold}</li>
-     * </ol>
-     *
-     * <p>High-importance temporal links survive beyond the retention window,
-     * preserving causal chains for significant memories. This mirrors the
-     * Zeigarnik effect — incomplete or important tasks resist forgetting.</p>
      *
      * @param cutoffEpochMs       cutoff timestamp in milliseconds
      * @param importanceThreshold importance below this value is prunable
@@ -405,40 +465,36 @@ public final class TemporalChain implements AutoCloseable {
         if (provider == null) return 0;
         int cutoffEpochSec = (int) (cutoffEpochMs / 1000);
         int pruned = 0;
+        int cap = capacity();
+        MemorySegment seg = segment();
 
-        for (int i = 0; i < capacity; i++) {
-            long offset = (long) i * NODE_BYTES;
-            int prev = segment.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
-            int next = segment.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
+        for (int i = 0; i < cap; i++) {
+            long offset = dataOffset() + (long) i * NODE_BYTES;
+            int prev = seg.get(ValueLayout.JAVA_INT, offset + OFF_PREV);
+            int next = seg.get(ValueLayout.JAVA_INT, offset + OFF_NEXT);
 
-            // Skip unlinked nodes
             if (prev == NO_LINK && next == NO_LINK) continue;
 
-            int epochSec = segment.get(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC);
-            // Never prune nodes with unknown age (epochSec=0, from V1 migration)
+            int epochSec = seg.get(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC);
             if (epochSec == 0) continue;
-            // Only prune if old enough
             if (epochSec >= cutoffEpochSec) continue;
 
-            // Check importance — protect high-importance memories
             float importance = provider.importance(i);
             if (importance >= importanceThreshold) continue;
 
-            // Unlink: re-stitch neighbors
-            if (prev >= 0 && prev < capacity) {
-                long prevOffset = (long) prev * NODE_BYTES;
-                segment.set(ValueLayout.JAVA_INT, prevOffset + OFF_NEXT, next);
+            if (prev >= 0 && prev < cap) {
+                long prevOffset = dataOffset() + (long) prev * NODE_BYTES;
+                seg.set(ValueLayout.JAVA_INT, prevOffset + OFF_NEXT, next);
             }
-            if (next >= 0 && next < capacity) {
-                long nextOffset = (long) next * NODE_BYTES;
-                segment.set(ValueLayout.JAVA_INT, nextOffset + OFF_PREV, prev);
+            if (next >= 0 && next < cap) {
+                long nextOffset = dataOffset() + (long) next * NODE_BYTES;
+                seg.set(ValueLayout.JAVA_INT, nextOffset + OFF_PREV, prev);
             }
 
-            // Clear this node
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
             pruned++;
         }
 
@@ -449,28 +505,17 @@ public final class TemporalChain implements AutoCloseable {
         return pruned;
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // PERSISTENCE: save / load
-    // ══════════════════════════════════════════════════════════════
-
     /**
      * Saves the chain to a binary file.
      *
      * @param filePath path to write
      */
     public void save(Path filePath) {
-        if (fileBacked) {
-            try {
-                segment.force();
-                if (mappedChannel != null) mappedChannel.force(true);
-                log.info("TemporalChain flushed (mmap): capacity={}", capacity);
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("TemporalChain", filePath, e);
-            }
+        if (backing.isPersistent()) {
+            backing.flush();
             return;
         }
 
-        // Heap-backed: serialize to file
         Path parent = filePath.getParent();
         if (parent != null) {
             try {
@@ -482,29 +527,23 @@ public final class TemporalChain implements AutoCloseable {
 
         try (FileChannel ch = FileChannel.open(filePath,
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                StandardOpenOption.TRUNCATE_EXISTING)) {
+                StandardOpenOption.READ, StandardOpenOption.TRUNCATE_EXISTING)) {
 
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            header.putInt(FILE_MAGIC);
-            header.putInt(FILE_VERSION);
-            header.putInt(capacity);
-            header.putInt(0);
-            header.flip();
-            ch.write(header);
+            try (Arena tempArena = Arena.ofConfined()) {
+                long totalBytes = MemoryHeader.HEADER_BYTES + (long) capacity() * NODE_BYTES;
+                ch.position(totalBytes - 1);
+                ch.write(ByteBuffer.wrap(new byte[]{0}));
+                MemorySegment tempSeg = ch.map(FileChannel.MapMode.READ_WRITE, 0, totalBytes, tempArena);
 
-            long totalBytes = (long) NODE_BYTES * capacity;
-            long written = 0;
-            int chunkSize = 64 * 1024;
-            while (written < totalBytes) {
-                int toWrite = (int) Math.min(chunkSize, totalBytes - written);
-                ByteBuffer buf = segment.asSlice(written, toWrite)
-                        .asByteBuffer().asReadOnlyBuffer();
-                ch.write(buf);
-                written += toWrite;
+                MemoryHeader.write(tempSeg, 0, layout().schemaVersion(), shape(),
+                        0x00, // volatile
+                        capacity(), size(), layout().recordStride(), layout().layoutId(),
+                        System.currentTimeMillis(), System.currentTimeMillis());
+
+                MemorySegment.copy(backing.segment(), 0, tempSeg, MemoryHeader.HEADER_BYTES, (long) capacity() * NODE_BYTES);
+                tempSeg.force();
             }
-
-            ch.force(true);
-            log.info("TemporalChain saved (heap→file): capacity={} → {}", capacity, filePath);
+            log.info("TemporalChain saved (heap→file): capacity={} → {}", capacity(), filePath);
 
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("TemporalChain", filePath, e);
@@ -528,44 +567,46 @@ public final class TemporalChain implements AutoCloseable {
 
     /**
      * Resets all temporal links by re-initializing all nodes to NO_LINK.
-     *
-     * <p>Unlike {@link #close()}, this does NOT release the arena. The chain
-     * remains usable for new links after the reset. Used by privacy wipe.</p>
      */
     public void reset() {
-        for (int i = 0; i < capacity; i++) {
-            long offset = (long) i * NODE_BYTES;
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
-            segment.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
+        int cap = capacity();
+        MemorySegment seg = segment();
+        for (int i = 0; i < cap; i++) {
+            long offset = dataOffset() + (long) i * NODE_BYTES;
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+            seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
         }
-        log.info("TemporalChain reset: capacity={}", capacity);
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // KERNEL INTEGRATION
-    // ══════════════════════════════════════════════════════════════
-
-    public MemoryId memoryId() {
-        return memoryId;
-    }
-
-    public MemoryShape kernelShape() {
-        return MemoryShape.CHAIN;
+        log.info("TemporalChain reset: capacity={}", capacity());
     }
 
     @Override
     public void close() {
-        log.info("TemporalChain closing (capacity={}, fileBacked={})", capacity, fileBacked);
-        if (fileBacked && mappedChannel != null) {
-            try {
-                segment.force();
-                mappedChannel.close();
-            } catch (IOException e) {
-                log.warn("Failed to close TemporalChain channel: {}", e.getMessage());
-            }
+        backing.close();
+    }
+
+    // ── Backing Kernel Memory class ──
+
+    private static final class TemporalChainBacking extends AbstractMemory<TemporalLayout> {
+
+        TemporalChainBacking(MemoryId id, TemporalLayout layout, int capacity, long segmentBytes) {
+            super(id, layout, capacity, segmentBytes);
         }
-        arena.close();
+
+        TemporalChainBacking(MemoryId id, TemporalLayout layout, int capacity, long segmentBytes, Path filePath) {
+            super(id, layout, capacity, segmentBytes, filePath);
+        }
+
+        TemporalChainBacking(MemoryId id, TemporalLayout layout, int capacity,
+                             Arena arena, MemorySegment segment, int count,
+                             boolean persistent, Path filePath, FileChannel fileChannel) {
+            super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
+        }
+
+        @Override
+        public MemoryShape shape() {
+            return MemoryShape.CHAIN;
+        }
     }
 }
