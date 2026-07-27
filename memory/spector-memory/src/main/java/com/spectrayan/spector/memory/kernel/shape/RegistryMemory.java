@@ -34,4 +34,17 @@ public interface RegistryMemory extends Memory<RegistryLayout> {
      * @return the name, or null if not found
      */
     String nameOf(int id);
+
+    /**
+     * Returns the integer ID for the given name if registered, or -1 otherwise.
+     * @param name the string name
+     * @return the integer ID, or -1 if not registered
+     */
+    int idOf(String name);
+
+    /**
+     * Returns an unmodifiable map of all registered name-to-ID mappings.
+     * @return map of name to integer ID
+     */
+    java.util.Map<String, Integer> entries();
 }
