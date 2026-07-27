@@ -79,6 +79,9 @@ public interface SpectorMemory extends AutoCloseable {
     /** Returns the cognitive ingestion target for use with the unified IngestionPipeline. */
     CognitiveIngestionTarget target();
 
+    /** Returns the namespace ID of this memory. */
+    default String namespaceId() { return "default"; }
+
     // ══════════════════════════════════════════════════════════════
     // CORE API — remember / recall / forget / reflect
     // ══════════════════════════════════════════════════════════════

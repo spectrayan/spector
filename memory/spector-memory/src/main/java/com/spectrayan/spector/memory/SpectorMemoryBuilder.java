@@ -68,6 +68,8 @@ public final class SpectorMemoryBuilder {
     EmbeddingProvider embeddingProvider;
     Path persistencePath;
     MemoryPersistenceMode persistenceMode = MemoryPersistenceMode.DISK;
+    int maxActiveNamespaces = Integer.getInteger("spector.memory.max-namespaces", 100);
+    String namespaceId = "default";
     boolean persistWorkingMemory = false;
     CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
     int workingCapacity = 100;
@@ -382,6 +384,17 @@ public final class SpectorMemoryBuilder {
         this.salienceProfileProvider = provider;
         return this;
     }
+
+    public SpectorMemoryBuilder maxActiveNamespaces(int maxActiveNamespaces) {
+        this.maxActiveNamespaces = maxActiveNamespaces;
+        return this;
+    }
+
+    public SpectorMemoryBuilder namespaceId(String namespaceId) {
+        this.namespaceId = namespaceId;
+        return this;
+    }
+
 
     // ==============================================================
     // BUILD

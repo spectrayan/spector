@@ -68,6 +68,7 @@ public class SpectorNamespaceManager {
     private final Path basePath;
     private final boolean sharded;
     private final ConcurrentHashMap<String, NamespaceContext> namespaces;
+    private final NamespaceRegistry registry;
 
     /** Optional migration pipeline — runs lazy migrations on namespace access. */
     private volatile MigrationPipeline migrationPipeline;
@@ -98,6 +99,7 @@ public class SpectorNamespaceManager {
         this.basePath = basePath;
         this.sharded = sharded;
         this.namespaces = new ConcurrentHashMap<>();
+        this.registry = new NamespaceRegistry(Integer.getInteger("spector.memory.max-namespaces", 100));
 
         // Discover existing namespaces
         Path namespacesDir = StorageLayout.namespacesDir(basePath);
@@ -368,6 +370,11 @@ public class SpectorNamespaceManager {
                 java.time.Instant.now().toString()
         );
         Files.writeString(path, json);
+    }
+
+    /** Returns the namespace registry for managing active memory instances. */
+    public NamespaceRegistry registry() {
+        return registry;
     }
 
     // ═══════════════════════════════════════════════════════════════

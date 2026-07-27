@@ -198,6 +198,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     // -€-€ Multi-Tenant Namespace -€-€
     private final SpectorNamespaceManager namespaceManager;
+    private final String namespaceId;
+    private final java.util.concurrent.atomic.AtomicInteger activeLeases = new java.util.concurrent.atomic.AtomicInteger(0);
 
     // -€-€ ID Generation -€-€
     private final MemoryIdGenerator idGenerator;
@@ -263,6 +265,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.circadianPolicy = builder.circadianPolicy;
         this.profileConfig = builder.profileConfig;
         this.namespaceManager = bundle.namespaceManager();
+        this.namespaceId = builder.namespaceId;
         this.idGenerator = bundle.idGenerator();
         this.checkpointDaemon = bundle.checkpointDaemon();
         this.daemonSupervisor = bundle.daemonSupervisor();
@@ -325,6 +328,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                               String... tags) {
         return CompletableFuture.runAsync(() -> {
+            acquireLease();
             try {
                 if (shouldChunk(text)) {
                     rememberChunked(id, text, type, source, hints, null, tags);
@@ -343,6 +347,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } catch (RuntimeException e) {
                 log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
                 throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+            } finally {
+                releaseLease();
             }
         }, ConcurrentTasks.virtualExecutor());
     }
@@ -387,6 +393,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               IngestionContext context,
                                               String... tags) {
         return CompletableFuture.runAsync(() -> {
+            acquireLease();
             try {
                 if (shouldChunk(text)) {
                     rememberChunked(id, text, type, source, null, context, tags);
@@ -411,6 +418,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             } catch (RuntimeException e) {
                 log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
                 throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+            } finally {
+                releaseLease();
             }
         }, ConcurrentTasks.virtualExecutor());
     }
@@ -630,35 +639,40 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
-        // Auto-profile resolution: use ProfileAdaptor to suggest best profile
-        if (options.autoProfile() && options.profile() == null) {
-            CognitiveProfile suggested = null;
-            if (profileAdaptor != null) {
-                // Extract context tags from the query text
-                String[] tags = cognitiveTarget.tagExtractor() != null
-                        ? cognitiveTarget.tagExtractor().extract("query", queryText)
-                        : new String[0];
-                suggested = profileAdaptor.suggest(tags);
-            }
-            if (suggested == null) {
-                SalienceProfile sp = cognitiveTarget.salienceProfile();
-                if (sp != null) {
-                    suggested = sp.defaultProfile();
+        acquireLease();
+        try {
+            // Auto-profile resolution: use ProfileAdaptor to suggest best profile
+            if (options.autoProfile() && options.profile() == null) {
+                CognitiveProfile suggested = null;
+                if (profileAdaptor != null) {
+                    // Extract context tags from the query text
+                    String[] tags = cognitiveTarget.tagExtractor() != null
+                            ? cognitiveTarget.tagExtractor().extract("query", queryText)
+                            : new String[0];
+                    suggested = profileAdaptor.suggest(tags);
                 }
+                if (suggested == null) {
+                    SalienceProfile sp = cognitiveTarget.salienceProfile();
+                    if (sp != null) {
+                        suggested = sp.defaultProfile();
+                    }
+                }
+                if (suggested == null) {
+                    suggested = CognitiveProfile.BALANCED;
+                }
+                log.debug("Auto-profile resolved to {} for query '{}'", suggested, queryText);
+                options = RecallOptions.builder()
+                        .topK(options.topK())
+                        .profile(suggested)
+                        .scoringMode(options.scoringMode())
+                        .recallMode(options.recallMode())
+                        .autoProfile(true)
+                        .build();
             }
-            if (suggested == null) {
-                suggested = CognitiveProfile.BALANCED;
-            }
-            log.debug("Auto-profile resolved to {} for query '{}'", suggested, queryText);
-            options = RecallOptions.builder()
-                    .topK(options.topK())
-                    .profile(suggested)
-                    .scoringMode(options.scoringMode())
-                    .recallMode(options.recallMode())
-                    .autoProfile(true)
-                    .build();
+            return recallPipeline.recall(queryText, options);
+        } finally {
+            releaseLease();
         }
-        return recallPipeline.recall(queryText, options);
     }
 
     @Override
@@ -674,38 +688,53 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void forget(String id) {
-        if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
-        MemoryLocation loc = index.locate(id);
-        if (loc == null) {
-            log.warn("Forget: memory '{}' not found in index", id);
-            return;
+        acquireLease();
+        try {
+            if (id == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "id"); }
+            MemoryLocation loc = index.locate(id);
+            if (loc == null) {
+                log.warn("Forget: memory '{}' not found in index", id);
+                return;
+            }
+            MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
+            if (segment != null) {
+                CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
+                layout.tombstone(segment, loc.offset());
+            }
+            wal.appendForget(id);
+            index.remove(id);
+            log.debug("Forget: '{}' tombstoned", id);
+        } finally {
+            releaseLease();
         }
-        MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
-        if (segment != null) {
-            CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
-            layout.tombstone(segment, loc.offset());
-        }
-        wal.appendForget(id);
-        index.remove(id);
-        log.debug("Forget: '{}' tombstoned", id);
     }
 
     @Override
     public ReflectReport reflect() {
-        return reflectionOrchestrator.reflect(partitionManager.tierRouter(), index);
+        acquireLease();
+        try {
+            return reflectionOrchestrator.reflect(partitionManager.tierRouter(), index);
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override
     public void consolidate() {
-        consolidationService.consolidate(
-                partitionManager.tierRouter(),
-                index,
-                quantizer,
-                entityGraph,
-                cognitiveTarget,
-                wal,
-                this::inspect
-        );
+        acquireLease();
+        try {
+            consolidationService.consolidate(
+                    partitionManager.tierRouter(),
+                    index,
+                    quantizer,
+                    entityGraph,
+                    cognitiveTarget,
+                    wal,
+                    this::inspect
+            );
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override
@@ -724,27 +753,42 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public void reinforce(String memoryId, byte valence) {
-        reinforcementHandler.reinforce(memoryId, valence,
-                partitionManager.tierRouter(), index);
+        acquireLease();
+        try {
+            reinforcementHandler.reinforce(memoryId, valence,
+                    partitionManager.tierRouter(), index);
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override
     public void reinforce(String memoryId, byte valence,
                            com.spectrayan.spector.memory.neurodivergent.IngestionHints updatedHints) {
-        reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
-                partitionManager.tierRouter(), index);
+        acquireLease();
+        try {
+            reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
+                    partitionManager.tierRouter(), index);
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override
     public void suppress(String memoryId, String reason) {
-        suppressionSet.suppress(memoryId, reason);
-        MemoryLocation loc = index.locate(memoryId);
-        if (loc != null) {
-            suppressionSet.registerOffset(loc.type().ordinal(), loc.offset());
-        }
-        if (recallPipeline.wasLateral(memoryId)) {
-            lateralEvaluator.recordLateralSuppression();
-            log.debug("Lateral suppression: '{}' (reason={})", memoryId, reason);
+        acquireLease();
+        try {
+            suppressionSet.suppress(memoryId, reason);
+            MemoryLocation loc = index.locate(memoryId);
+            if (loc != null) {
+                suppressionSet.registerOffset(loc.type().ordinal(), loc.offset());
+            }
+            if (recallPipeline.wasLateral(memoryId)) {
+                lateralEvaluator.recordLateralSuppression();
+                log.debug("Lateral suppression: '{}' (reason={})", memoryId, reason);
+            }
+        } finally {
+            releaseLease();
         }
     }
 
@@ -752,91 +796,118 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public void suppress(String memoryId) { suppress(memoryId, null); }
 
     @Override
-    public void unsuppress(String memoryId) { suppressionSet.unsuppress(memoryId); }
+    public void unsuppress(String memoryId) {
+        acquireLease();
+        try {
+            suppressionSet.unsuppress(memoryId);
+        } finally {
+            releaseLease();
+        }
+    }
 
     @Override
     public void markResolved(String memoryId) {
-        var loc = index.locate(memoryId);
-        if (loc == null) return;
-        partitionManager.tierRouter().layoutFor(loc.type())
-                .markResolved(partitionManager.tierRouter().segmentFor(loc.type()), loc.offset());
-        log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
+        acquireLease();
+        try {
+            var loc = index.locate(memoryId);
+            if (loc == null) return;
+            partitionManager.tierRouter().layoutFor(loc.type())
+                    .markResolved(partitionManager.tierRouter().segmentFor(loc.type()), loc.offset());
+            log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override
     public void markUnresolved(String memoryId) {
-        var loc = index.locate(memoryId);
-        if (loc == null) return;
-        partitionManager.tierRouter().layoutFor(loc.type())
-                .markUnresolved(partitionManager.tierRouter().segmentFor(loc.type()), loc.offset());
-        log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
+        acquireLease();
+        try {
+            var loc = index.locate(memoryId);
+            if (loc == null) return;
+            partitionManager.tierRouter().layoutFor(loc.type())
+                    .markUnresolved(partitionManager.tierRouter().segmentFor(loc.type()), loc.offset());
+            log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override
     public MemoryInsight introspect(String topic) {
-        List<CognitiveResult> results = recall(topic, RecallOptions.builder().topK(20).build());
-        return introspector.analyze(topic, results);
+        acquireLease();
+        try {
+            List<CognitiveResult> results = recall(topic, RecallOptions.builder().topK(20).build());
+            return introspector.analyze(topic, results);
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override
     public WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) {
-        var loc = index.locate(memoryId);
-        if (loc == null) {
-            return new WhyNotExplanation(memoryId, queryText, false, false,
-                    null, 0f, WhyNotExplanation.Reason.NOT_FOUND,
-                    "Memory '" + memoryId + "' does not exist in the index.");
-        }
+        acquireLease();
+        try {
+            var loc = index.locate(memoryId);
+            if (loc == null) {
+                return new WhyNotExplanation(memoryId, queryText, false, false,
+                        null, 0f, WhyNotExplanation.Reason.NOT_FOUND,
+                        "Memory '" + memoryId + "' does not exist in the index.");
+            }
 
-        var layout = partitionManager.tierRouter().layoutFor(loc.type());
-        var segment = partitionManager.tierRouter().segmentFor(loc.type());
-        if (layout != null && segment != null) {
-            byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
-                    loc.offset() + SynapticHeaderConstants.OFFSET_FLAGS);
-            if (SynapticHeaderConstants.isTombstoned(flags)) {
+            var layout = partitionManager.tierRouter().layoutFor(loc.type());
+            var segment = partitionManager.tierRouter().segmentFor(loc.type());
+            if (layout != null && segment != null) {
+                byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
+                        loc.offset() + SynapticHeaderConstants.OFFSET_FLAGS);
+                if (SynapticHeaderConstants.isTombstoned(flags)) {
+                    return new WhyNotExplanation(memoryId, queryText, true, false,
+                            null, 0f, WhyNotExplanation.Reason.TOMBSTONED,
+                            "Memory '" + memoryId + "' has been deleted (tombstone flag set).");
+                }
+            }
+
+            if (suppressionSet.isSuppressed(memoryId)) {
+                return new WhyNotExplanation(memoryId, queryText, true, true,
+                        null, 0f, WhyNotExplanation.Reason.SUPPRESSED,
+                        "Memory '" + memoryId + "' is in the suppression set. "
+                        + "Use unsuppress(\"" + memoryId + "\") to allow recall.");
+            }
+
+            int originalTopK = options != null ? options.topK() : 5;
+            RecallOptions observeOptions = RecallOptions.builder()
+                    .recallMode(RecallMode.OBSERVE)
+                    .topK(Math.max(originalTopK, 20))
+                    .build();
+
+            List<CognitiveResult> results = recall(queryText, observeOptions);
+
+            CognitiveResult found = null;
+            for (CognitiveResult r : results) {
+                if (memoryId.equals(r.id())) {
+                    found = r;
+                    break;
+                }
+            }
+
+            if (found != null) {
                 return new WhyNotExplanation(memoryId, queryText, true, false,
-                        null, 0f, WhyNotExplanation.Reason.TOMBSTONED,
-                        "Memory '" + memoryId + "' has been deleted (tombstone flag set).");
+                        found.breakdown(), 0f, WhyNotExplanation.Reason.OUTRANKED,
+                        "Memory '" + memoryId + "' WAS found in extended recall "
+                        + "(score=" + String.format("%.4f", found.score()) + "). "
+                        + "It may have been outside your original topK cutoff.");
             }
-        }
 
-        if (suppressionSet.isSuppressed(memoryId)) {
-            return new WhyNotExplanation(memoryId, queryText, true, true,
-                    null, 0f, WhyNotExplanation.Reason.SUPPRESSED,
-                    "Memory '" + memoryId + "' is in the suppression set. "
-                    + "Use unsuppress(\"" + memoryId + "\") to allow recall.");
-        }
-
-        int originalTopK = options != null ? options.topK() : 5;
-        RecallOptions observeOptions = RecallOptions.builder()
-                .recallMode(RecallMode.OBSERVE)
-                .topK(Math.max(originalTopK, 20))
-                .build();
-
-        List<CognitiveResult> results = recall(queryText, observeOptions);
-
-        CognitiveResult found = null;
-        for (CognitiveResult r : results) {
-            if (memoryId.equals(r.id())) {
-                found = r;
-                break;
-            }
-        }
-
-        if (found != null) {
+            float cutoffScore = results.isEmpty() ? 0f : results.get(results.size() - 1).score();
             return new WhyNotExplanation(memoryId, queryText, true, false,
-                    found.breakdown(), 0f, WhyNotExplanation.Reason.OUTRANKED,
-                    "Memory '" + memoryId + "' WAS found in extended recall "
-                    + "(score=" + String.format("%.4f", found.score()) + "). "
-                    + "It may have been outside your original topK cutoff.");
+                    null, cutoffScore, WhyNotExplanation.Reason.FILTERED,
+                    "Memory '" + memoryId + "' was eliminated by pre-filters "
+                    + "(tag gate, valence range, importance floor, or time decay). "
+                    + "TopK cutoff score: " + String.format("%.4f", cutoffScore) + ". "
+                    + (cutoffScore > 0 ? "Check if tags/valence/importance match your query options." : ""));
+        } finally {
+            releaseLease();
         }
-
-        float cutoffScore = results.isEmpty() ? 0f : results.get(results.size() - 1).score();
-        return new WhyNotExplanation(memoryId, queryText, true, false,
-                null, cutoffScore, WhyNotExplanation.Reason.FILTERED,
-                "Memory '" + memoryId + "' was eliminated by pre-filters "
-                + "(tag gate, valence range, importance floor, or time decay). "
-                + "TopK cutoff score: " + String.format("%.4f", cutoffScore) + ". "
-                + (cutoffScore > 0 ? "Check if tags/valence/importance match your query options." : ""));
     }
 
     // ==============================================================
@@ -1144,6 +1215,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     /** Returns the namespace manager (null if IN_MEMORY mode). */
     public SpectorNamespaceManager namespaceManager() { return namespaceManager; }
+
+    @Override
+    public String namespaceId() {
+        return namespaceId;
+    }
+
+    public void acquireLease() {
+        activeLeases.incrementAndGet();
+    }
+
+    public void releaseLease() {
+        activeLeases.decrementAndGet();
+    }
+
+    public boolean hasActiveLeases() {
+        return activeLeases.get() > 0;
+    }
 
     // ==============================================================
     // VACUUM / COMPACTION
