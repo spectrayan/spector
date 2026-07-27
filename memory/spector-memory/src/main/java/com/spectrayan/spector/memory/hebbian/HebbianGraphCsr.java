@@ -21,6 +21,9 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -173,6 +176,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase {
     private volatile long lastActivityMs = System.currentTimeMillis();
     private volatile long sessionBoundaryMs = 30 * 60 * 1000L;
     private volatile HebbianGraph.DecayModulator decayModulator;
+    private final MemoryId memoryId;
 
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
@@ -210,6 +214,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase {
 
         // Overflow storage (heap)
         this.overflow = new List[capacity];
+        this.memoryId = MemoryId.of("graph", "hebbian-csr");
 
         long totalKB = (offsetBytes + edgeBytes) / 1024;
         log.info("HebbianGraphCsr initialized (heap): capacity={}, edgeCap={}, maxDegree={}, memory={}KB",
@@ -464,6 +469,18 @@ public final class HebbianGraphCsr implements HebbianGraphBase {
      */
     public long memoryUsageBytes() {
         return offsets.byteSize() + edges.byteSize();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // KERNEL INTEGRATION
+    // ══════════════════════════════════════════════════════════════
+
+    public MemoryId memoryId() {
+        return memoryId;
+    }
+
+    public MemoryShape kernelShape() {
+        return MemoryShape.GRAPH;
     }
 
     @Override

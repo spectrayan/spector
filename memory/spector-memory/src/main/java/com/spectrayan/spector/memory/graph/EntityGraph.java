@@ -28,6 +28,10 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -200,6 +204,8 @@ public final class EntityGraph implements AutoCloseable {
     /** Edge importance scorer (configurable weights). */
     private final EdgeImportance edgeImportance;
 
+    private final MemoryId memoryId;
+
     /**
      * Creates a new entity graph with default max degree.
      *
@@ -240,6 +246,7 @@ public final class EntityGraph implements AutoCloseable {
         this.mmapFilePath = null;
         this.entityTypeRegistry = TypeRegistry.seeded("entity-type", EntityType.SEED);
         this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
+        this.memoryId = MemoryId.of("graph", "entity");
 
         log.info("EntityGraph initialized (heap): entities={}, edges={}, maxDegree={}, adjSlots={}, memory={}KB",
                 entityCapacity, edgeCapacity, maxDegree, adjSegmentCapacity,
@@ -393,6 +400,7 @@ public final class EntityGraph implements AutoCloseable {
                 this.entityTypeRegistry = TypeRegistry.seeded("entity-type", EntityType.SEED);
                 this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
             }
+            this.memoryId = MemoryId.of("graph", "entity");
 
             log.info("EntityGraph initialized (mmap): entities={}/{}, edges={}/{}, maxDegree={}, version={}, file={}",
                     this.entityCount, this.entityCapacity, this.edgeCount, this.edgeCapacity,
@@ -470,6 +478,7 @@ public final class EntityGraph implements AutoCloseable {
         this.mmapFilePath = null;
         this.entityTypeRegistry = entityTypeRegistry;
         this.relationTypeRegistry = relationTypeRegistry;
+        this.memoryId = MemoryId.of("graph", "entity");
     }
 
     /**
@@ -1685,6 +1694,18 @@ public final class EntityGraph implements AutoCloseable {
         } finally {
             graphLock.unlock();
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // KERNEL INTEGRATION
+    // ══════════════════════════════════════════════════════════════
+
+    public MemoryId memoryId() {
+        return memoryId;
+    }
+
+    public MemoryShape kernelShape() {
+        return MemoryShape.GRAPH;
     }
 
     @Override

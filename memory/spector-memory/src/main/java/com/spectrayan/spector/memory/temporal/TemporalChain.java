@@ -27,6 +27,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+
 /**
  * Off-heap temporal causal chain linking memories within a session.
  *
@@ -72,6 +75,7 @@ public final class TemporalChain implements AutoCloseable {
     private final int capacity;
     private final FileChannel mappedChannel;
     private final boolean fileBacked;
+    private final MemoryId memoryId;
 
     /**
      * Creates a heap-allocated temporal chain (in-memory mode).
@@ -84,6 +88,7 @@ public final class TemporalChain implements AutoCloseable {
         this.segment = arena.allocate((long) NODE_BYTES * capacity);
         this.mappedChannel = null;
         this.fileBacked = false;
+        this.memoryId = MemoryId.of("temporal", "chain");
         // Initialize all prev/next to NO_LINK (-1)
         for (int i = 0; i < capacity; i++) {
             long offset = (long) i * NODE_BYTES;
@@ -172,6 +177,7 @@ public final class TemporalChain implements AutoCloseable {
             this.segment = ch.map(FileChannel.MapMode.READ_WRITE, FILE_HEADER_BYTES,
                     dataBytes, arena);
             this.fileBacked = true;
+            this.memoryId = MemoryId.of("temporal", "chain");
 
             log.info("TemporalChain initialized (mmap): capacity={}, file={}",
                     this.capacity, filePath.getFileName());
@@ -182,12 +188,13 @@ public final class TemporalChain implements AutoCloseable {
     }
 
     private TemporalChain(int capacity, Arena arena, MemorySegment segment,
-                           FileChannel mappedChannel, boolean fileBacked) {
+                           FileChannel mappedChannel, boolean fileBacked, MemoryId memoryId) {
         this.capacity = capacity;
         this.arena = arena;
         this.segment = segment;
         this.mappedChannel = mappedChannel;
         this.fileBacked = fileBacked;
+        this.memoryId = memoryId;
     }
 
     /**
@@ -534,6 +541,18 @@ public final class TemporalChain implements AutoCloseable {
             segment.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
         }
         log.info("TemporalChain reset: capacity={}", capacity);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // KERNEL INTEGRATION
+    // ══════════════════════════════════════════════════════════════
+
+    public MemoryId memoryId() {
+        return memoryId;
+    }
+
+    public MemoryShape kernelShape() {
+        return MemoryShape.CHAIN;
     }
 
     @Override
