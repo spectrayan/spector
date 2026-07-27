@@ -744,20 +744,20 @@ public final class SpectorMemoryFactory {
         java.util.Map<MemoryId, Memory<?>> memories = new java.util.HashMap<>();
         
         if (tierRouter != null) {
-            if (tierRouter.working() instanceof com.spectrayan.spector.memory.cortex.AbstractTierStore s) {
-                Memory<?> backing = s.backing();
+            if (tierRouter.working() != null) {
+                Memory<?> backing = tierRouter.working().backing();
                 memories.put(backing.id(), backing);
             }
-            if (tierRouter.semantic() instanceof com.spectrayan.spector.memory.cortex.AbstractTierStore s) {
-                Memory<?> backing = s.backing();
+            if (tierRouter.semantic() != null) {
+                Memory<?> backing = tierRouter.semantic().backing();
                 memories.put(backing.id(), backing);
             }
-            if (tierRouter.procedural() instanceof com.spectrayan.spector.memory.cortex.AbstractTierStore s) {
-                Memory<?> backing = s.backing();
+            if (tierRouter.procedural() != null) {
+                Memory<?> backing = tierRouter.procedural().backing();
                 memories.put(backing.id(), backing);
             }
-            if (tierRouter.episodic() instanceof com.spectrayan.spector.memory.cortex.AbstractTierStore s) {
-                Memory<?> backing = s.backing();
+            if (tierRouter.episodic() != null) {
+                Memory<?> backing = tierRouter.episodic().backing();
                 memories.put(backing.id(), backing);
             }
         }

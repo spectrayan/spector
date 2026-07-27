@@ -71,7 +71,7 @@ public abstract class AbstractAppendMemory<L extends MemoryLayout>
         MemorySegment.copy(bytes, 0, segment(), writeOffset + 4, len);
 
         long payloadOffset = count + 4;
-        count += 4 + len;
+        count += (int) (4 + len);
         persistCount();
         return payloadOffset;
     }

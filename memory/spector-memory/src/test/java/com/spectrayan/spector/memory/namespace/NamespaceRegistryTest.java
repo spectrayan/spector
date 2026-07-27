@@ -68,7 +68,7 @@ class NamespaceRegistryTest {
         registry.getOrOpen("ns1", () -> createTestMemory("ns1"));
 
         // Open ns3, which should trigger eviction of ns2 (since ns1 was touched)
-        SpectorMemory ns3 = registry.getOrOpen("ns3", () -> createTestMemory("ns3"));
+        registry.getOrOpen("ns3", () -> createTestMemory("ns3"));
 
         assertThat(registry.activeCount()).isEqualTo(2);
         assertThat(registry.evictedCount()).isEqualTo(1);
@@ -95,7 +95,7 @@ class NamespaceRegistryTest {
         ((DefaultSpectorMemory) ns1).acquireLease();
 
         // Open ns3. Normally ns1 (eldest) is evicted, but since it has a lease, ns2 should be evicted instead
-        SpectorMemory ns3 = registry.getOrOpen("ns3", () -> createTestMemory("ns3"));
+        registry.getOrOpen("ns3", () -> createTestMemory("ns3"));
 
         assertThat(registry.activeCount()).isEqualTo(2);
         assertThat(registry.evictedCount()).isEqualTo(1);
