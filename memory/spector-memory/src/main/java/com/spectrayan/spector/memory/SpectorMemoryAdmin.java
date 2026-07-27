@@ -30,6 +30,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.sync.CompactionResult;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
 import java.time.Duration;
 import java.util.List;
@@ -99,6 +100,9 @@ public interface SpectorMemoryAdmin {
     // ══════════════════════════════════════════════════════════════
     // GRAPH SUBSYSTEM
     // ══════════════════════════════════════════════════════════════
+
+    /** Returns the Temporal Knowledge Graph. */
+    TemporalKnowledgeGraph temporalKnowledgeGraph();
 
     /** Returns the cognitive graph facade for high-level graph queries. */
     CognitiveGraphFacade graph();

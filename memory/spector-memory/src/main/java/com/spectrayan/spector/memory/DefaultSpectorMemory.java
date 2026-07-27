@@ -97,6 +97,7 @@ import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.commons.TextChunker;
 
 import org.slf4j.Logger;
@@ -185,6 +186,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // -€-€ 3-Layer Cognitive Graph -€-€
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
+    private final TemporalKnowledgeGraph temporalKnowledgeGraph;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
     private final CognitiveGraphFacade graphFacade;
@@ -256,6 +258,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.wal = bundle.wal();
         this.hebbianGraph = bundle.hebbianGraph();
         this.temporalChain = bundle.temporalChain();
+        this.temporalKnowledgeGraph = bundle.temporalKnowledgeGraph();
         this.entityGraph = bundle.entityGraph();
         this.hyperEntityGraph = bundle.hyperEntityGraph();
         this.graphFacade = bundle.graphFacade();
@@ -1181,6 +1184,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @SuppressWarnings("deprecation")
     @Override public HyperEntityGraph hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
+    @Override public TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
 
     // -€-€ listAll implementations -€-€
 

@@ -46,6 +46,7 @@ import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.TypeRegistry;
 import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
@@ -75,6 +76,7 @@ import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.pipeline.AttachmentProcessor;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
 import com.spectrayan.spector.memory.sync.WalEvent;
@@ -123,6 +125,7 @@ public final class SpectorMemoryFactory {
             MemoryWal wal,
             HebbianGraphBase hebbianGraph,
             TemporalChain temporalChain,
+            TemporalKnowledgeGraph temporalKnowledgeGraph,
             EntityGraph entityGraph,
             HyperEntityGraph hyperEntityGraph,
             CognitiveGraphFacade graphFacade,
@@ -388,6 +391,16 @@ public final class SpectorMemoryFactory {
             hyperEntityGraph = null;
         }
 
+        TemporalKnowledgeGraph temporalKnowledgeGraph;
+        TypeRegistry predRegistry = (entityGraph != null) ? entityGraph.relationTypeRegistry() : new TypeRegistry("relation-type");
+        if (isDisk && basePath != null) {
+            Path runtimeTkg = StorageLayout.temporalFactsRuntime(basePath);
+            long initialSize = 16L * 1024 * 1024; // 16MB
+            temporalKnowledgeGraph = new TemporalKnowledgeGraph(runtimeTkg, initialSize, predRegistry);
+        } else {
+            temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
+        }
+
         // -€-€ BM25 Text Search -€-€
         MemoryBM25Index bm25Index;
         TextDataStore textDataStore;
@@ -485,7 +498,7 @@ public final class SpectorMemoryFactory {
         }
 
         // -€-€ WAL Recovery -€-€
-        performWalRecovery(wal, tierRouter, index, hebbianGraph, temporalChain, entityGraph, coActivationTracker, cognitiveTarget, basePath);
+        performWalRecovery(wal, tierRouter, index, hebbianGraph, temporalChain, temporalKnowledgeGraph, entityGraph, coActivationTracker, cognitiveTarget, basePath);
 
         // -€-€ Semantic Recall Strategy + HNSW Rebuild -€-€
         SemanticRecallStrategy semanticStrategy = null;
@@ -584,6 +597,7 @@ public final class SpectorMemoryFactory {
                 reinforcementHandler, valenceTracker, coActivationTracker,
                 suppressionSet, habituationPenalty, prospectiveScheduler,
                 introspector, lateralEvaluator, wal, hebbianGraph, temporalChain,
+                temporalKnowledgeGraph,
                 entityGraph, hyperEntityGraph, graphFacade, idGenerator,
                 checkpointDaemon, daemonSupervisor, bm25Index, attachmentProcessor,
                 parallelPipeline, embedConfig, resolvedPartitionDir, basePath,
@@ -699,6 +713,7 @@ public final class SpectorMemoryFactory {
             MemoryIndex index,
             HebbianGraphBase hebbianGraph,
             TemporalChain temporalChain,
+            TemporalKnowledgeGraph temporalKnowledgeGraph,
             EntityGraph entityGraph,
             CoActivationTracker coActivationTracker,
             CognitiveIngestionTarget cognitiveTarget,
@@ -755,6 +770,9 @@ public final class SpectorMemoryFactory {
         }
         if (temporalChain != null) {
             memories.put(MemoryId.of("temporal", "chain"), temporalChain);
+        }
+        if (temporalKnowledgeGraph != null) {
+            memories.put(temporalKnowledgeGraph.id(), temporalKnowledgeGraph.backing());
         }
 
         // Add textDataStore backing memory if available

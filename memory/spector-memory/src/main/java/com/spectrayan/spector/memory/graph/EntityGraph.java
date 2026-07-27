@@ -1684,8 +1684,8 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
     MemorySegment adjacencySegment() { return adjacencySegment; }
     int adjSegmentCapacity() { return adjSegmentCapacity; }
     ConcurrentHashMap<String, Integer> nameIndexInternal() { return nameIndex; }
-    TypeRegistry entityTypeRegistry() { return entityTypeRegistry; }
-    TypeRegistry relationTypeRegistry() { return relationTypeRegistry; }
+    public TypeRegistry entityTypeRegistry() { return entityTypeRegistry; }
+    public TypeRegistry relationTypeRegistry() { return relationTypeRegistry; }
 
     /**
      * Resets all entities, edges, and adjacency data by zero-filling segments.

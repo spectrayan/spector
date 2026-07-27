@@ -154,6 +154,9 @@ public final class StorageLayout {
     /** Global temporal sequence links. Stored in runtime/ (V3). */
     public static final String FILE_TEMPORAL = "temporal.chain";
 
+    /** Temporal Knowledge Graph facts (bitemporal append-only log). Stored in runtime/ (V3). */
+    public static final String FILE_TEMPORAL_FACTS = "temporal-facts.tfacts";
+
     /** Global entity knowledge graph. Stored in runtime/ (V3). */
     public static final String FILE_ENTITY = "entity.graph";
 
@@ -477,6 +480,11 @@ public final class StorageLayout {
     /** Resolves the temporal.chain file path (in runtime/). */
     public static Path temporalChainRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_TEMPORAL);
+    }
+
+    /** Resolves the temporal-facts.tfacts file path (in runtime/). */
+    public static Path temporalFactsRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_TEMPORAL_FACTS);
     }
 
     /** Resolves the entity.graph file path (in runtime/). */
