@@ -17,7 +17,9 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.lang.foreign.ValueLayout;
 
@@ -54,6 +56,26 @@ public abstract class AbstractRecordMemory<L extends MemoryLayout> extends Abstr
      */
     protected AbstractRecordMemory(MemoryId id, L layout, int capacity, long segmentBytes, Path filePath) {
         super(id, layout, capacity, segmentBytes, filePath);
+    }
+
+    /**
+     * Wrapping constructor — adopts a pre-made Arena and segment.
+     *
+     * @param id          the unique identifier for this memory
+     * @param layout      the layout configuration
+     * @param capacity    the maximum number of records
+     * @param arena       the pre-made arena (caller transfers ownership)
+     * @param segment     the pre-made segment (must belong to the arena)
+     * @param count       the initial record count
+     * @param persistent  whether this memory is file-backed
+     * @param filePath    the file path (null for volatile)
+     * @param fileChannel the file channel (null for volatile)
+     */
+    protected AbstractRecordMemory(MemoryId id, L layout, int capacity,
+                                   Arena arena, MemorySegment segment, int count,
+                                   boolean persistent, Path filePath,
+                                   FileChannel fileChannel) {
+        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
     }
 
     @Override

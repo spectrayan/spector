@@ -85,6 +85,43 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     }
 
     /**
+     * Wrapping constructor — adopts a pre-made Arena and segment.
+     *
+     * <p>Used for deep composition: the caller (e.g., {@code AbstractTierStore})
+     * manages mmap lifecycle and header format, then wraps the result in a
+     * kernel {@code Memory} for standardized identity, shape, and accessor methods.</p>
+     *
+     * <p><b>Ownership:</b> The caller transfers ownership of the arena and segment
+     * to this instance. {@link #close()} will close the arena and file channel.</p>
+     *
+     * @param id          the unique identifier for this memory
+     * @param layout      the layout configuration
+     * @param capacity    the maximum number of records
+     * @param arena       the pre-made arena (caller transfers ownership)
+     * @param segment     the pre-made segment (must belong to the arena)
+     * @param count       the initial record count (restored from header)
+     * @param persistent  whether this memory is file-backed
+     * @param filePath    the file path (null for volatile)
+     * @param fileChannel the file channel (null for volatile; caller transfers ownership)
+     */
+    protected AbstractMemory(MemoryId id, L layout, int capacity,
+                             Arena arena, MemorySegment segment, int count,
+                             boolean persistent, Path filePath, FileChannel fileChannel) {
+        this.id = id;
+        this.layout = layout;
+        this.capacity = capacity;
+        this.arena = arena;
+        this.segment = segment;
+        this.count = count;
+        this.persistent = persistent;
+        this.filePath = filePath;
+        this.fileChannel = fileChannel;
+        if (count > 0) {
+            publishVisible();
+        }
+    }
+
+    /**
      * File-backed constructor — creates or opens a persistent memory-mapped file.
      *
      * @param id           the unique identifier for this memory
