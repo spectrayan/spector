@@ -37,6 +37,12 @@ spector-memory/
 │     ├── RecallPipeline.java           (parallel tier scanning + scoring)
 │     └── HebbianCoActivationListener   (Observer pattern post-recall)
 │
+├── kernel/                         ← "Memory Kernel" — Memory<Layout> & Shapes
+│     ├── Memory.java                   (Base interface)
+│     ├── MemoryHeader.java             (On-disk header structures)
+│     ├── layout/                       (Layout types for records, entities, graphs)
+│     └── shape/                        (RecordMemory, AppendMemory, GraphMemory, etc.)
+│
 ├── cortex/                         ← "Cerebral Cortex" — 4 tier stores
 │     ├── TierStore.java                (Strategy interface)
 │     ├── TierRouter.java               (Registry + polymorphic dispatch)
@@ -106,6 +112,7 @@ spector-memory/
 
 | Brain Region | Package | Java Classes | Function |
 |---|---|---|---|
+| 💾 Sub-cortical Core | `kernel/` | `Memory`, `MemoryHeader`, `MemoryShape` | Core Panama storage abstractions (RecordMemory, AppendMemory, etc.) |
 | 🧠 Cerebral Cortex | `cortex/` | `TierRouter`, `TierStore`, 4 stores | 4-tier memory storage (Working → Episodic → Semantic → Procedural) |
 | 🔗 Synapses | `synapse/` | `CognitiveScorer`, `SynapticTagEncoder`, `CognitiveRecordLayout` | 64-byte header, 6-phase scoring, Bloom filter gating |
 | ⚡ Dopamine System | `dopamine/` | `SurpriseDetector`, `FlashbulbPolicy` | Surprise detection, auto-importance, flashbulb pinning |
@@ -118,6 +125,20 @@ spector-memory/
 | 🚫 Inhibition | `inhibition/` | `SuppressionSet` | Explicit memory suppression (user redaction) |
 | 🔮 Prospective Memory | `prospective/` | `ProspectiveScheduler`, `Reminder` | Future-oriented intent reminders |
 | 🪞 Metamemory | `metamemory/` | `MemoryIntrospector` | Self-reflective memory health analytics |
+
+---
+
+## Spector Memory Kernel (SMK)
+
+Spector Memory uses a unified **Memory Kernel** abstraction (`Memory<Layout>`) that standardizes all persistent and volatile storage structures using Project Panama's Foreign Function & Memory API. Rather than implementing individual binary layouts from scratch, every subsystem maps to a standardized kernel **Shape**:
+
+*   **`RecordMemory` / `PartitionedRecordMemory`**: Fixed-size contiguous slots used by the cognitive tiers (`Working`, `Semantic`, and `Procedural` stores) and `CoActivationTracker`.
+*   **`AppendMemory`**: Append-only log arrays with cursor offsets, backing `TextDataStore` and the Write-Ahead Log.
+*   **`RegistryMemory`**: Open-schema string-to-int mapping used for metadata serialization (`TypeRegistry`).
+*   **`GraphMemory`**: CSR (Compressed Sparse Row) and slab-allocated structures backing the `EntityGraph` and `HebbianGraph`.
+*   **`ChainMemory`**: Causal sequence structures backing the `TemporalChain`.
+
+All memory operations are journaled to the WAL at the kernel shape level, enabling complete state reconstruction on startup via `WalRecoveryDispatcher`.
 
 ---
 

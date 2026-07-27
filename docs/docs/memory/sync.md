@@ -32,7 +32,7 @@ flowchart LR
 | Capability | Description |
 |---|---|
 | **Crash recovery** | Replay the log → full state reconstruction |
-| **Event types** | REMEMBER, FORGET, REINFORCE, REFLECT, TAG_MERGE, RECALL_HIT |
+| **Event types** | REMEMBER, FORGET, REINFORCE, REFLECT, TAG_MERGE, RECALL_HIT, RECORD_WRITE, ADJ_ADD_EDGE, ADJ_DEL_EDGE, REGISTRY_INTERN, APPEND, SNAPSHOT_MARK, GRAPH_ADD_NODE, GRAPH_LINK_MEMORY, CHAIN_LINK |
 | **Chunked files** | Auto-roll at 8 MB boundaries |
 | **Dual CRC-32** | Independent header + payload checksums |
 | **Compression** | Optional DEFLATE for large payloads |

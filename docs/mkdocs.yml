@@ -122,7 +122,9 @@ nav:
       - Java SDK: sdk-usage/java-client.md
       - Python SDK: sdk-usage/python-sdk.md
       - Spring AI Integration: sdk-usage/spring-ai.md
-      - CLI Reference: cli-reference/spectorctl.md
+      - CLI Reference:
+          - spectorctl: cli-reference/spectorctl.md
+          - spector-inspect: cli-reference/spector-inspect.md
       - REST API: api-reference/rest-endpoints.md
       - Configuration: configuration/parameters.md
 

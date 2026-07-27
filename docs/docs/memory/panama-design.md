@@ -54,60 +54,96 @@ graph LR
 
 ---
 
-## Three Storage Modes
+## Spector Memory Kernel Shapes
+
+Spector Memory achieves structural flexibility by mapping all high-level cognitive subsystems to a unified storage hierarchy managed by the Spector Memory Kernel (`Memory<Layout>`). Every off-heap segment maps to one of five core **Memory Shapes** implemented using Java Project Panama's Foreign Function & Memory API:
 
 ```mermaid
 flowchart TD
-    subgraph "Volatile (In-Memory)"
-        WM["Working Memory<br/><i>circular buffer</i>"]
-        PM["Procedural Memory<br/><i>learned procedures</i>"]
+    subgraph "Spector Memory Kernel (Memory shapes)"
+        RM["RecordMemory<br/><i>Contiguous slots</i>"]
+        AM["AppendMemory<br/><i>Cursor log</i>"]
+        GM["GraphMemory<br/><i>CSR & Adjacency slabs</i>"]
+        CM["ChainMemory<br/><i>Causal linking</i>"]
+        YM["RegistryMemory<br/><i>String mapping</i>"]
     end
 
-    subgraph "Persistent (mmap)"
-        EM["Episodic Memory<br/><i>time-partitioned files</i>"]
+    subgraph "Subsystem Backing"
+        RM_C["Cortex Tiers &<br/>CoActivationTracker"]
+        AM_C["TextDataStore &<br/>MemoryWal"]
+        GM_C["EntityGraph &<br/>HebbianGraph"]
+        CM_C["TemporalChain"]
+        YM_C["TypeRegistry"]
     end
 
-    subgraph "Compact (Header-Only)"
-        SM["Semantic Memory<br/><i>metadata slab, no vectors</i>"]
-    end
+    RM -.-> RM_C
+    AM -.-> AM_C
+    GM -.-> GM_C
+    CM -.-> CM_C
+    YM -.-> YM_C
 
-    style WM fill:#e74c3c,color:white
-    style PM fill:#e74c3c,color:white
-    style EM fill:#0984e3,color:white
-    style SM fill:#00b894,color:white
+    style RM fill:#e74c3c,color:white
+    style AM fill:#0984e3,color:white
+    style GM fill:#00b894,color:white
+    style CM fill:#f39c12,color:white
+    style YM fill:#8e44ad,color:white
 ```
 
-### 1. Arena-Allocated (Working, Procedural)
+### 1. `RecordMemory<L>` & `PartitionedRecordMemory<L>`
+Stores fixed-size structures as cache-aligned contiguous byte slots. Subsystems (Working, Semantic, and Procedural tiers, and `CoActivationTracker`) read/write directly at slot offsets within a mapped `MemorySegment`.
+*   **Volatile Arena Allocation:** Working and Procedural stores use volatile, in-memory shared arenas for transient operations.
+*   **Memory-Mapped File Allocation (`PartitionedRecordMemory`):** Episodic memory uses memory-mapped files partitioned by time (e.g., `episodic-20260527.mem`), mapped dynamically to share physical memory pages as needed.
 
-Volatile, in-memory segments for transient data.
+### 2. `AppendMemory<L>`
+Provides append-only sequential streams with cursor position tracking.
+*   Backs the Write-Ahead Log (`MemoryWal`) and the text document store (`TextDataStore`).
+*   Optimized for high-throughput appends with minimal write lock contention.
 
-**Characteristics**:
+### 3. `RegistryMemory`
+Maintains bidirectional mappings between string symbols and compact integer identifiers.
+*   Backs `TypeRegistry`, allowing open-schema entity and relation types to be registered dynamically without string overhead on the off-heap hot paths.
 
-- Fast allocation (~1µs)
-- Lost on JVM shutdown
-- No file I/O overhead
-- Fixed capacity
+### 4. `GraphMemory`
+Manages sparse node-relationship matrices using compact Compressed Sparse Row (CSR) and slab-allocated adjacency lists.
+*   Backs `EntityGraph` and `HebbianGraph`, offering high-performance off-heap graph traversals and associative weights adjustment.
 
-### 2. mmap-Backed (Episodic)
+### 5. `ChainMemory`
+Tracks ordered sequences of temporal events linking sessions together.
+*   Backs the `TemporalChain` list structure to reconstruct causal reasoning pathways ("what happened next?").
 
-Persistent, memory-mapped files for durable storage. The OS handles paging data between RAM and disk.
+---
 
-**Characteristics**:
+## Namespace Management & Multi-Tenant Isolation
 
-- Persists across JVM restarts
-- OS handles paging to/from disk
-- Lazy loading — only mapped pages are in physical RAM
-- Atomic flush for durability
+To manage resource boundaries for multiple concurrent AI agents/conversations, Spector uses the `NamespaceRegistry` and `SpectorNamespaceManager`:
 
-### 3. Header-Only Slab (Semantic)
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent Thread
+    participant Mgr as SpectorNamespaceManager
+    participant Reg as NamespaceRegistry
+    participant FS as File System (Disk)
 
-Compact metadata-only storage (no vectors).
+    Agent->>Mgr: getOrOpen("tenant-A")
+    Mgr->>Reg: active namespaces check
+    alt is loaded in memory
+        Reg-->>Agent: SpectorMemory instance
+    else evicted / closed
+        Reg->>Reg: check capacity (LRU limit)
+        alt capacity exceeded
+            Reg->>Reg: evict eldest inactive namespace
+            Reg->>FS: flush checkpoints & close arenas
+        end
+        Reg->>FS: mmap namespace files (Panama segments)
+        FS-->>Reg: warming complete (WAL recovery)
+        Reg-->>Agent: SpectorMemory instance
+    end
+```
 
-**Characteristics**:
-
-- Minimal memory footprint (64B per record vs. ~832B for full records)
-- Fast metadata scans (tag match, importance, valence, arousal)
-- No vector data — re-embed at query time if needed
+### LRU Eviction & Resource Protection
+*   **Active Capacity Limits:** Defines the maximum number of concurrent active namespaces mapped in RAM.
+*   **Lease Gating:** Threads call `.acquireLease()` when executing queries. Lease-locked namespaces are guaranteed **never** to be evicted mid-query, even if capacity is exceeded.
+*   **Warming Cache Replay:** When a namespace is reopened, the kernel maps segments and processes the local WAL events via the `WalRecoveryDispatcher` to restore exact state before query dispatch.
 
 ---
 
