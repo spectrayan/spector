@@ -96,12 +96,12 @@ class GraphHealthBaselineTest {
     @Test
     @DisplayName("Baseline: graph health over multiple scale points and reflection cycles")
     void baseline_graphHealthOverMultipleReflectionCycles() throws Exception {
-        log.info("===============================================================");
+        log.info("===============================================================");
         log.info("P0: GraphHealthMetrics Baseline Test Starting");
         log.info("Dataset: {}", DATASET_DIR);
         log.info("Embed model: {}", EMBED_MODEL);
         log.info("Scale points: {} scale(s), cycles: {}/{}", SCALE_POINTS.length, CYCLES_PER_SCALE, CYCLES_FULL_SCALE);
-        log.info("===============================================================");
+        log.info("===============================================================");
 
         // Load the full dataset once
         var loader = new DatasetLoader();
@@ -121,9 +121,9 @@ class GraphHealthBaselineTest {
             int cycles = (i == SCALE_POINTS.length - 1) ? CYCLES_FULL_SCALE : CYCLES_PER_SCALE;
             String label = formatLabel(targetSize);
 
-            log.info("-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€");
+            log.info("");
             log.info("Scale Point: {} ({} records, {} reflection cycles)", label, targetSize, cycles);
-            log.info("-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€");
+            log.info("");
 
             // Create subset dataset
             LoadedDataset subset = createSubset(fullDataset, targetSize);
@@ -137,7 +137,7 @@ class GraphHealthBaselineTest {
         }
 
         // Generate the report
-        log.info("===============================================================");
+        log.info("===============================================================");
         log.info("Generating baseline report at: {}", REPORT_OUTPUT);
         GraphHealthReportGenerator.generate(REPORT_OUTPUT, allScaleData);
         log.info("Report generated successfully.");
@@ -154,14 +154,14 @@ class GraphHealthBaselineTest {
         assertTrue(largest.cycles().size() == CYCLES_FULL_SCALE,
                 "Should have run all " + CYCLES_FULL_SCALE + " cycles at max scale");
 
-        log.info("===============================================================");
+        log.info("===============================================================");
         log.info("P0: GraphHealthMetrics Baseline Test COMPLETE [x]");
-        log.info("===============================================================");
+        log.info("===============================================================");
     }
 
-    // =======================================================================
+    // =======================================================================
     // Helpers
-    // =======================================================================
+    // =======================================================================
 
     /**
      * Runs one scale point: ingest  ->  snapshot  ->  N reflection cycles  ->  snapshot.

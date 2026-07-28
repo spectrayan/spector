@@ -94,7 +94,7 @@ public final class SalienceTestFixture {
      * Executes the salience test fixture.
      */
     public void run() {
-        log.info("=== Salience Test Fixture ===");
+        log.info("=== Salience Test Fixture ===");
 
         DatasetLoader loader = new DatasetLoader();
         LoadedDataset dataset = loader.load(datasetDir);
@@ -162,7 +162,7 @@ public final class SalienceTestFixture {
             }
 
             writeReport(results);
-            log.info("=== Salience Test Fixture Complete ===");
+            log.info("=== Salience Test Fixture Complete ===");
 
         } catch (Exception e) {
             log.error("Salience test failed: {}", e.getMessage(), e);
@@ -240,13 +240,13 @@ public final class SalienceTestFixture {
             log.info("Salience test report written to {}", outFile);
 
             // Console summary
-            System.out.println("\n==============================================================");
+            System.out.println("\n==============================================================");
             System.out.println("  SALIENCE TEST RESULTS");
             System.out.printf("  Baseline (NEUTRAL) nDCG: %.4f%n", neutralNdcg);
-            System.out.println("==============================================================");
+            System.out.println("==============================================================");
             System.out.printf("  %-22s  %8s  %8s  %8s  %8s%n",
                     "Condition", "nDCG", "Î”", "%Î”", "Boost");
-            System.out.println("  " + "-€".repeat(58));
+            System.out.println("  " + "".repeat(58));
 
             for (SalienceCondition c : SalienceCondition.values()) {
                 ConditionResult r = results.get(c);
@@ -257,7 +257,7 @@ public final class SalienceTestFixture {
                 System.out.printf("  %-22s  %8.4f  %+8.4f  %+7.1f%%  %8.3f%s%n",
                         c.name(), r.meanNdcg(), delta, pct, r.meanTopicBoost(), marker);
             }
-            System.out.println("==============================================================\n");
+            System.out.println("==============================================================\n");
 
         } catch (IOException e) {
             log.error("Failed to write salience test report: {}", e.getMessage(), e);

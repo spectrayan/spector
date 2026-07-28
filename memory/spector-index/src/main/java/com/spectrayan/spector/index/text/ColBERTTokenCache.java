@@ -50,13 +50,13 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * <h3>Memory Layout</h3>
  * <pre>
  *   Per entry (variable size):
- *   -Œ-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-
+ *   -Œ-
  *   -‚ float[tokenCount x tokenDims]                  -‚
  *   -‚   token 0: [f0, f1, ..., f_{dims-1}]          -‚
  *   -‚   token 1: [f0, f1, ..., f_{dims-1}]          -‚
  *   -‚   ...                                          -‚
  *   -‚   token N: [f0, f1, ..., f_{dims-1}]          -‚
- *   -”-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-˜
+ *   -”-˜
  * </pre>
  *
  * <h3>Thread Safety</h3>
@@ -257,7 +257,7 @@ public final class ColBERTTokenCache implements AutoCloseable {
         }
     }
 
-    // -€-€ LRU eviction -€-€
+    //  LRU eviction 
 
     private void evictLru() {
         // Find least-recently-accessed entry

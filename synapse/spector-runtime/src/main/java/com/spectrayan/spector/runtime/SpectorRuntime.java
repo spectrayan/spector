@@ -108,7 +108,7 @@ public final class SpectorRuntime implements AutoCloseable {
         this.tokenEmbeddingProvider = tokenEmbeddingProvider;
     }
 
-    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Factory -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  Factory 
 
     /**
      * Creates a runtime with auto-discovered providers from configuration.
@@ -214,14 +214,14 @@ public final class SpectorRuntime implements AutoCloseable {
             log.info("[Runtime] Embedding cache: disabled");
         }
 
-        // -€-€ Read memory config early -€-€
+        //  Read memory config early 
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         boolean memoryEnabled = memoryConfig.enabled() || mode.memoryEnabled();
 
-        // -€-€ Memory (opt-in or auto-enabled) -€-€
+        //  Memory (opt-in or auto-enabled) 
         SpectorMemory memory = null;
 
-        // -€-€ Shared TextChunker  --  used by both memory.remember() and IngestionPipeline -€-€
+        //  Shared TextChunker  --  used by both memory.remember() and IngestionPipeline 
         var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
         var textChunker = new com.spectrayan.spector.commons.chunker.MarkdownChunker();
         var chunkConfig = new com.spectrayan.spector.commons.chunker.ChunkConfig(
@@ -236,7 +236,7 @@ public final class SpectorRuntime implements AutoCloseable {
         log.info("[Runtime] TextChunker: SPI Chunker={}, chunkSize={}, overlap={}",
                 textChunker.name(), ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
 
-        // -€-€ Shared SPLADE + ColBERT provider singletons (set if memory is enabled) -€-€
+        //  Shared SPLADE + ColBERT provider singletons (set if memory is enabled) 
         SparseEmbeddingProvider sharedSpladeProvider = null;
         TokenEmbeddingProvider sharedColbertProvider = null;
 
@@ -252,7 +252,7 @@ public final class SpectorRuntime implements AutoCloseable {
                     .temporalChainCapacity(memoryConfig.capacity())
                     .chunker(textChunker, chunkConfig);
 
-            // -€-€ Entity extraction (LLM when available, otherwise disabled) -€-€
+            //  Entity extraction (LLM when available, otherwise disabled) 
             if (textGenProvider != null) {
                 memoryBuilder.entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode.LLM)
                         .LlmProvider(textGenProvider);
@@ -274,7 +274,7 @@ public final class SpectorRuntime implements AutoCloseable {
                 log.info("[Runtime] Entity extraction: NONE (no LlmProvider)");
             }
 
-            // -€-€ SPLADE + ColBERT providers (shared singletons) -€-€
+            //  SPLADE + ColBERT providers (shared singletons) 
 
             if (memoryConfig.spladeEnabled()) {
                 sharedSpladeProvider = new DenseDerivedSparseProvider(embedder);
@@ -291,7 +291,7 @@ public final class SpectorRuntime implements AutoCloseable {
                 log.info("[Runtime] ColBERT reranking is disabled via configuration");
             }
 
-            // -€-€ Create HNSW index for memory's semantic recall -€-€
+            //  Create HNSW index for memory's semantic recall 
             var hnswConfig = SpectorConfigFactory.hnswDefaults(props);
             var hnswParams = new HnswParams(hnswConfig.m(), hnswConfig.efConstruction(), hnswConfig.efSearch());
             var memoryHnsw = new HnswIndex(
@@ -302,7 +302,7 @@ public final class SpectorRuntime implements AutoCloseable {
                     memoryConfig.dimensions(), memoryConfig.capacity(),
                     hnswConfig.m(), hnswConfig.efConstruction(), hnswConfig.efSearch());
 
-            // -€-€ Tag extractor (content, llm, or none) -€-€
+            //  Tag extractor (content, llm, or none) 
             String tagMode = memoryConfig.tagExtractor().toLowerCase();
             switch (tagMode) {
                 case "llm" -> {
@@ -320,7 +320,7 @@ public final class SpectorRuntime implements AutoCloseable {
                 default -> log.info("[Runtime] Tag extractor: content (keyword-based)");
             }
 
-            // -€-€ Embedding batch size from config -€-€
+            //  Embedding batch size from config 
             var embedConfigDefaults = SpectorConfigFactory.embeddingDefaults(props);
             memoryBuilder.embedBatchSize(embedConfigDefaults.batchSize());
             log.info("[Runtime] Embedding batch size: {}", embedConfigDefaults.batchSize());
@@ -334,7 +334,7 @@ public final class SpectorRuntime implements AutoCloseable {
                 sharedSpladeProvider, sharedColbertProvider);
     }
 
-    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Service Accessors -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  Service Accessors 
 
     /** Returns the mode-aware search service. */
     public SearchHandler search() {
@@ -436,7 +436,7 @@ public final class SpectorRuntime implements AutoCloseable {
         return java.util.Optional.of(svc);
     }
 
-    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Direct Subsystem Access -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  Direct Subsystem Access 
 
     /** Returns the cognitive memory, or empty if not enabled. */
     public java.util.Optional<SpectorMemory> memory() { return java.util.Optional.ofNullable(memory); }
@@ -470,7 +470,7 @@ public final class SpectorRuntime implements AutoCloseable {
         return java.util.Optional.ofNullable(tokenEmbeddingProvider);
     }
 
-    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Lifecycle -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  Lifecycle 
 
     @Override
     public void close() {

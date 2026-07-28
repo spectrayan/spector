@@ -39,7 +39,7 @@ import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
-import com.spectrayan.spector.memory.cortex.TextDataStore;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
@@ -155,7 +155,7 @@ public final class SpectorMemoryFactory {
 
         boolean isDisk = builder.persistenceMode == MemoryPersistenceMode.DISK;
 
-        // -€-€ Resolve persistence path -€-€
+        //  Resolve persistence path 
         Path basePath;
         if (isDisk && builder.persistencePath != null) {
             basePath = builder.persistencePath;
@@ -171,7 +171,7 @@ public final class SpectorMemoryFactory {
             basePath = null;
         }
 
-        // -€-€ Quantizer -€-€
+        //  Quantizer 
         ScalarQuantizer quantizer;
         if (builder.quantizer != null) {
             quantizer = builder.quantizer;
@@ -184,7 +184,7 @@ public final class SpectorMemoryFactory {
         }
 
 
-        // -€-€ Namespace Manager -€-€
+        //  Namespace Manager 
         SpectorNamespaceManager namespaceManager;
         if (isDisk && basePath != null) {
             namespaceManager = new SpectorNamespaceManager(basePath);
@@ -193,7 +193,7 @@ public final class SpectorMemoryFactory {
             namespaceManager = null;
         }
 
-        // -€-€ Partition layout -€-€
+        //  Partition layout 
         int quantizedVecBytes = builder.dimensions;
 
         Path resolvedPartitionDir = null;
@@ -208,7 +208,7 @@ public final class SpectorMemoryFactory {
             }
         }
 
-        // -€-€ Tier stores -€-€
+        //  Tier stores 
         TierRouter tierRouter;
         WorkingMemoryStore workingStore;
         if (isDisk && builder.persistWorkingMemory && basePath != null) {
@@ -239,7 +239,7 @@ public final class SpectorMemoryFactory {
             tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         }
 
-        // -€-€ Memory Index -€-€
+        //  Memory Index 
         MemoryIndex index;
         if (isDisk && basePath != null) {
             Path runtimeIndex = StorageLayout.indexMidxRuntime(basePath);
@@ -260,7 +260,7 @@ public final class SpectorMemoryFactory {
             index = new MemoryIndex();
         }
 
-        // -€-€ WAL -€-€
+        //  WAL 
         MemoryWal wal;
         if (isDisk && basePath != null) {
             wal = new MemoryWal(StorageLayout.walDir(basePath));
@@ -268,7 +268,7 @@ public final class SpectorMemoryFactory {
             wal = new MemoryWal();
         }
 
-        // -€-€ Biological Subsystems -€-€
+        //  Biological Subsystems 
         SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
         IcnuWeights icnuWeights = builder.icnuWeights != null ? builder.icnuWeights : IcnuWeights.DEFAULT;
         FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
@@ -296,7 +296,7 @@ public final class SpectorMemoryFactory {
                 builder.pinSourceEpisodes,
                 builder.pinnedQuota);
 
-        // -€-€ 3-Layer Cognitive Graph -€-€
+        //  3-Layer Cognitive Graph 
         int graphCapacity = builder.hebbianGraphCapacity > 0
                 ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
 
@@ -401,12 +401,12 @@ public final class SpectorMemoryFactory {
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }
 
-        // -€-€ BM25 Text Search -€-€
+        //  BM25 Text Search 
         MemoryBM25Index bm25Index;
-        TextDataStore textDataStore;
+        TextAppendMemory textDataStore;
         int activePartitionIndex = 0;
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            textDataStore = new TextDataStore(StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
+            textDataStore = new TextAppendMemory(StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
             textDataStore.readAll();
             index.setTextDataStore(textDataStore);
 
@@ -440,14 +440,14 @@ public final class SpectorMemoryFactory {
             textDataStore = null;
         }
 
-        // -€-€ SPLADE Index -€-€
+        //  SPLADE Index 
         com.spectrayan.spector.memory.cortex.MemorySpladeIndex memorySpladeIndex = null;
         if (builder.SparseEmbeddingProvider != null) {
             memorySpladeIndex = new com.spectrayan.spector.memory.cortex.MemorySpladeIndex(1);
             log.info("SPLADE index enabled: provider={}", builder.SparseEmbeddingProvider.modelName());
         }
 
-        // -€-€ ColBERT Reranker -€-€
+        //  ColBERT Reranker 
         ColBERTReranker colbertReranker = null;
         if (builder.tokenEmbeddingProvider != null) {
             ColBERTTokenCache tokenCache = new ColBERTTokenCache(
@@ -458,7 +458,7 @@ public final class SpectorMemoryFactory {
                     builder.tokenEmbeddingProvider.tokenDimensions());
         }
 
-        // -€-€ Ingestion Target -€-€
+        //  Ingestion Target 
         CognitiveIngestionTarget cognitiveTarget = new CognitiveIngestionTarget(
                 quantizer, surpriseDetector, flashbulbPolicy,
                 tierRouter, index, wal, workingStore, builder.icnuWeights,
@@ -469,7 +469,7 @@ public final class SpectorMemoryFactory {
                 memorySpladeIndex, builder.SparseEmbeddingProvider,
                 builder.dataEncryptor);
 
-        // -€-€ Wire Salience Profile Provider -€-€
+        //  Wire Salience Profile Provider 
         if (builder.salienceProfileProvider != null) {
             SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
             if (effective != null && !effective.isNeutral()) {
@@ -480,7 +480,7 @@ public final class SpectorMemoryFactory {
             }
         }
 
-        // -€-€ Partition Manager -€-€
+        //  Partition Manager 
         PartitionManager partitionManager;
         if (isDisk) {
             partitionManager = new PartitionManager(
@@ -497,17 +497,17 @@ public final class SpectorMemoryFactory {
                     index, hebbianGraph, temporalChain, cognitiveTarget);
         }
 
-        // -€-€ WAL Recovery -€-€
+        //  WAL Recovery 
         performWalRecovery(wal, tierRouter, index, hebbianGraph, temporalChain, temporalKnowledgeGraph, entityGraph, coActivationTracker, cognitiveTarget, basePath);
 
-        // -€-€ Semantic Recall Strategy + HNSW Rebuild -€-€
+        //  Semantic Recall Strategy + HNSW Rebuild 
         SemanticRecallStrategy semanticStrategy = null;
         if (builder.semanticIndex != null && tierRouter.semantic() != null) {
             semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, tierRouter.semantic(), index);
             rebuildHnswIfNeeded(builder, tierRouter, index, quantizer);
         }
 
-        // -€-€ ProfileAdaptor (Contextual Bandit) -€-€
+        //  ProfileAdaptor (Contextual Bandit) 
         CognitiveProfile salienceDefault = null;
         if (builder.salienceProfileProvider != null) {
             SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
@@ -520,10 +520,10 @@ public final class SpectorMemoryFactory {
             profileAdaptor.loadStats(coActivationTracker.banditStats());
         }
 
-        // -€-€ RecallHistory (Executive Dysfunction context buffer) -€-€
+        //  RecallHistory (Executive Dysfunction context buffer) 
         RecallHistory recallHistory = new RecallHistory();
 
-        // -€-€ Recall Pipeline -€-€
+        //  Recall Pipeline 
         RecallPipeline recallPipeline = new RecallPipeline(
                 embeddingProvider, tierRouter, index,
                 suppressionSet, habituationPenalty, prospectiveScheduler, wal,
@@ -536,7 +536,7 @@ public final class SpectorMemoryFactory {
         recallPipeline.addListener(new LtpReconsolidationListener(index, tierRouter, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
 
-        // -€-€ Extracted Components -€-€
+        //  Extracted Components 
         ImportanceEstimator importanceEstimator = new ImportanceEstimator(
                 surpriseDetector, flashbulbPolicy, icnuWeights, quantizer);
 
@@ -548,16 +548,16 @@ public final class SpectorMemoryFactory {
                 valenceTracker, hebbianGraph, lateralEvaluator, recallPipeline,
                 wal, builder.twoFactorConfig, profileAdaptor);
 
-        // -€-€ Cognitive Graph Facade -€-€
+        //  Cognitive Graph Facade 
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
                 hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, index);
 
-        // -€-€ ID Generator -€-€
+        //  ID Generator 
         MemoryIdGenerator idGenerator = builder.idGenerator != null
                 ? builder.idGenerator
                 : builder.idStrategy.createGenerator();
 
-        // -€-€ Daemon Supervisor + Checkpoint Daemon -€-€ (DISK mode only)
+        //  Daemon Supervisor + Checkpoint Daemon  (DISK mode only)
         CheckpointDaemon checkpointDaemon;
         DaemonSupervisor daemonSupervisor;
         if (isDisk && basePath != null && builder.checkpointIntervalSeconds > 0) {
@@ -582,7 +582,7 @@ public final class SpectorMemoryFactory {
             daemonSupervisor = null;
         }
 
-        // -€-€ Multimodal Attachment Processor -€-€
+        //  Multimodal Attachment Processor 
         AttachmentProcessor attachmentProcessor;
         if (!builder.sensoryExtractors.isEmpty()) {
             attachmentProcessor = new AttachmentProcessor(builder.sensoryExtractors, builder.assetStore);
@@ -775,10 +775,10 @@ public final class SpectorMemoryFactory {
             memories.put(temporalKnowledgeGraph.id(), temporalKnowledgeGraph.backing());
         }
 
-        // Add textDataStore backing memory if available
+        // Add textDataStore memory if available
         MemoryId textId = MemoryId.of("cortex", "text");
         if (index.textDataStore() != null) {
-            memories.put(textId, index.textDataStore().backing());
+            memories.put(textId, index.textDataStore());
         }
 
         long countBeforeRecovery = 0;

@@ -116,9 +116,9 @@ public class LlmTestJudge {
         return llm;
     }
 
-    // ===================================================
+    // ===================================================
     //  Judgment methods
-    // ===================================================
+    // ===================================================
 
     /**
      * Judges whether recall results are semantically relevant to the query.
@@ -159,9 +159,9 @@ public class LlmTestJudge {
         return executeJudgment(query, resultTexts.size(), prompt);
     }
 
-    // ===================================================
+    // ===================================================
     //  Core execution
-    // ===================================================
+    // ===================================================
 
     private JudgeVerdict executeJudgment(String query, int resultCount, String prompt) {
         GenerationOptions options = GenerationOptions.builder()
@@ -204,9 +204,9 @@ public class LlmTestJudge {
         return JudgeVerdict.parseFailure(query, "All retry attempts failed", latencyMs);
     }
 
-    // ===================================================
+    // ===================================================
     //  Response parsing
-    // ===================================================
+    // ===================================================
 
     /**
      * Parses the LLM's JSON verdict from its response.

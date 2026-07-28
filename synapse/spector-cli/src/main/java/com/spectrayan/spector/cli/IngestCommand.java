@@ -62,7 +62,7 @@ import java.util.Map;
 )
 class IngestCommand extends BaseCommand {
 
-    // -€-€ Remote mode options -€-€
+    //  Remote mode options 
     @CommandLine.Option(names = {"--id"}, description = "Document ID (auto-generated if not provided).")
     private String documentId;
 
@@ -75,7 +75,7 @@ class IngestCommand extends BaseCommand {
     @CommandLine.Option(names = {"--file"}, description = "Path to file to ingest. Remote mode.")
     private Path file;
 
-    // -€-€ Local batch mode options -€-€
+    //  Local batch mode options 
     @CommandLine.Option(names = {"--root"}, description = "Root directory for local batch ingestion.")
     private Path rootDir;
 
@@ -110,10 +110,10 @@ class IngestCommand extends BaseCommand {
         }
     }
 
-    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Local Batch Mode -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  Local Batch Mode 
 
     private void runLocalBatch() {
-        // -€-€ Build config from spector.yml + CLI overrides -€-€
+        //  Build config from spector.yml + CLI overrides 
         SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
 
         if (configFile != null) propsBuilder.configFile(configFile);
@@ -127,14 +127,14 @@ class IngestCommand extends BaseCommand {
 
         SpectorProperties props = propsBuilder.build();
 
-        // -€-€ Read configs -€-€
+        //  Read configs 
         var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
         var embedConfig = SpectorConfigFactory.embeddingDefaults(props);
         var engineConfig = SpectorConfigFactory.engineDefaults(props);
         var mode = SpectorConfigFactory.mode(props);
         Path root = ingestionConfig.rootDirectory().toAbsolutePath().normalize();
 
-        // -€-€ Banner -€-€
+        //  Banner 
         out().printf("========================================%n");
         out().printf("  Spector Ingestion (local batch)%n");
         out().printf("  Mode:    %s%n", mode);
@@ -148,7 +148,7 @@ class IngestCommand extends BaseCommand {
                 ingestionConfig.retryDelayMs());
         out().printf("========================================%n%n");
 
-        // -€-€ Create embedder + probe dims -€-€
+        //  Create embedder + probe dims 
         var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", embedConfig.model(), embedConfig.baseUrl());
         var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
         EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
@@ -159,7 +159,7 @@ class IngestCommand extends BaseCommand {
         propsBuilder.override("spector.memory.dimensions", String.valueOf(dims));
         props = propsBuilder.build();
 
-        // -€-€ Create text generation provider for LLM tag extraction (if configured) -€-€
+        //  Create text generation provider for LLM tag extraction (if configured) 
         LlmProvider textGenProvider = null;
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
@@ -171,7 +171,7 @@ class IngestCommand extends BaseCommand {
             out().printf("[Tags] LLM extraction: %s @ %s%n", tagModel, embedConfig.baseUrl());
         }
 
-        // -€-€ Create runtime + ingest -€-€
+        //  Create runtime + ingest 
         try (SpectorRuntime runtime = SpectorRuntime.from(props, embedder, textGenProvider)) {
             long startMs = System.currentTimeMillis();
 
@@ -224,7 +224,7 @@ class IngestCommand extends BaseCommand {
         }
     }
 
-    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Remote Mode -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  Remote Mode 
 
     private void runRemote() {
         String text = resolveContent();

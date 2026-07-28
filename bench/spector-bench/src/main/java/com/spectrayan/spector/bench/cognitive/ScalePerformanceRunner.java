@@ -101,7 +101,7 @@ public final class ScalePerformanceRunner {
      * Executes the full scale performance test.
      */
     public void run() {
-        log.info("=== Scale Performance Test ===");
+        log.info("=== Scale Performance Test ===");
 
         DatasetLoader loader = new DatasetLoader();
         LoadedDataset fullDataset = loader.load(datasetDir);
@@ -116,7 +116,7 @@ public final class ScalePerformanceRunner {
                 continue;
             }
 
-            log.info("-€-€-€ Scale point: {} memories -€-€-€", scale);
+            log.info(" Scale point: {} memories ", scale);
 
             // Create a subset of the corpus
             var subsetCorpus = fullDataset.corpus().subList(0, scale);
@@ -151,7 +151,7 @@ public final class ScalePerformanceRunner {
         }
 
         writeReport(allResults);
-        log.info("=== Scale Performance Test Complete ===");
+        log.info("=== Scale Performance Test Complete ===");
     }
 
     private ScaleResult runConcurrencyTest(SpectorMemory memory, List<BenchmarkQuery> queries,
@@ -250,19 +250,19 @@ public final class ScalePerformanceRunner {
             log.info("Scale performance report written to {}", outFile);
 
             // Console summary
-            System.out.println("\n=======================================================================");
+            System.out.println("\n=======================================================================");
             System.out.println("  SCALE PERFORMANCE RESULTS");
-            System.out.println("=======================================================================");
+            System.out.println("=======================================================================");
             System.out.printf("  %8s  %4s  %8s  %8s  %8s  %10s  %12s%n",
                     "Corpus", "Thr", "p50", "p95", "p99", "QPS", "Ingest/sec");
-            System.out.println("  " + "-€".repeat(70));
+            System.out.println("  " + "".repeat(70));
 
             for (ScaleResult r : results) {
                 System.out.printf("  %8d  %4d  %7.3fms  %7.3fms  %7.3fms  %10.0f  %12.0f%n",
                         r.corpusSize(), r.threads(),
                         r.p50Ms(), r.p95Ms(), r.p99Ms(), r.qps(), r.ingestRate());
             }
-            System.out.println("=======================================================================\n");
+            System.out.println("=======================================================================\n");
 
         } catch (IOException e) {
             log.error("Failed to write scale performance report: {}", e.getMessage(), e);

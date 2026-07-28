@@ -228,7 +228,7 @@ public final class MemorySpladeIndex implements AutoCloseable {
         partitions.clear();
     }
 
-    // -€-€ Internal helpers -€-€
+    //  Internal helpers 
 
     private void ensurePartition(int partitionIndex) {
         while (partitions.size() <= partitionIndex) {

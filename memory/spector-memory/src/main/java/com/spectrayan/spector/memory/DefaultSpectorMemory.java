@@ -39,7 +39,7 @@ import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
-import com.spectrayan.spector.memory.cortex.TextDataStore;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
@@ -158,14 +158,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     private static final Logger log = LoggerFactory.getLogger(DefaultSpectorMemory.class);
 
-    // -€-€ Core Subsystems (FaÃ§ade composition) -€-€
+    //  Core Subsystems (FaÃ§ade composition) 
     private final CognitiveIngestionTarget cognitiveTarget;
     private final EmbeddingProvider embeddingProvider;
     private final RecallPipeline recallPipeline;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
 
-    // -€-€ Extracted Strategy/Handler Components -€-€
+    //  Extracted Strategy/Handler Components 
     private final PartitionManager partitionManager;     // owns volatile tierRouter
     private final ImportanceEstimator importanceEstimator;
     private final ReflectionOrchestrator reflectionOrchestrator;
@@ -173,7 +173,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ConsolidationService consolidationService;
 
 
-    // -€-€ Biological Subsystems -€-€
+    //  Biological Subsystems 
     private final ValenceTracker valenceTracker;
     private final CoActivationTracker coActivationTracker;
     private final SuppressionSet suppressionSet;
@@ -183,7 +183,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final LateralEvaluator lateralEvaluator;
     private final MemoryWal wal;
 
-    // -€-€ 3-Layer Cognitive Graph -€-€
+    //  3-Layer Cognitive Graph 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
@@ -191,48 +191,48 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final HyperEntityGraph hyperEntityGraph;
     private final CognitiveGraphFacade graphFacade;
 
-    // -€-€ Configuration -€-€
+    //  Configuration 
     private final int dimensions;
     private final MemoryPersistenceMode persistenceMode;
     private final Path persistencePath;
     private final CircadianPolicy circadianPolicy;
     private final CognitiveProfileConfig profileConfig;
 
-    // -€-€ Multi-Tenant Namespace -€-€
+    //  Multi-Tenant Namespace 
     private final SpectorNamespaceManager namespaceManager;
     private final String namespaceId;
     private final java.util.concurrent.atomic.AtomicInteger activeLeases = new java.util.concurrent.atomic.AtomicInteger(0);
 
-    // -€-€ ID Generation -€-€
+    //  ID Generation 
     private final MemoryIdGenerator idGenerator;
 
-    // -€-€ Circadian trigger counter -€-€
+    //  Circadian trigger counter 
     private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
 
-    // -€-€ Automatic Checkpointing -€-€
+    //  Automatic Checkpointing 
     private final CheckpointDaemon checkpointDaemon;
     private final DaemonSupervisor daemonSupervisor;
 
-    // -€-€ Shutdown Hook (auto-registered for DISK mode) -€-€
+    //  Shutdown Hook (auto-registered for DISK mode) 
     private final Thread shutdownHook;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    // -€-€ BM25 Binary Persistence (P1: save on close for instant next startup) -€-€
+    //  BM25 Binary Persistence (P1: save on close for instant next startup) 
     private final MemoryBM25Index bm25Index;
 
-    // -€-€ Chunking for remember() -€-€
+    //  Chunking for remember() 
     private final com.spectrayan.spector.commons.chunker.TextChunker chunker;
     private volatile com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig;
     private final ParallelEmbeddingPipeline parallelPipeline;
     private final EmbedConfig embedConfig;
 
-    // -€-€ Multimodal Attachment Processing -€-€
+    //  Multimodal Attachment Processing 
     private final com.spectrayan.spector.memory.pipeline.AttachmentProcessor attachmentProcessor;
 
-    // -€-€ Contextual Bandit (ProfileAdaptor) -€-€
+    //  Contextual Bandit (ProfileAdaptor) 
     private final ProfileAdaptor profileAdaptor;
 
-    // -€-€ Semantic Index Reference -€-€
+    //  Semantic Index Reference 
     private final com.spectrayan.spector.index.VectorIndex semanticIndex;
 
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
@@ -281,7 +281,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.profileAdaptor = bundle.profileAdaptor();
         this.semanticIndex = builder.semanticIndex;
 
-        // -€-€ JVM Shutdown Hook -€-€ (DISK mode only)
+        //  JVM Shutdown Hook  (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
             if (!builder.managedByRegistry) {
                 this.shutdownHook = new Thread(() -> {
@@ -300,9 +300,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // INGESTION TARGET  --  for unified IngestionPipeline
-    // ==============================================================
+    // ==============================================================
 
     @Override
     public CognitiveIngestionTarget target() {
@@ -314,9 +314,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return embeddingProvider;
     }
 
-    // ==============================================================
+    // ==============================================================
     // CORE API  --  remember / recall / forget / reflect
-    // ==============================================================
+    // ==============================================================
 
     @Override
     public CompletableFuture<Void> remember(String id, String text, MemoryType type,
@@ -750,9 +750,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
 
-    // ==============================================================
+    // ==============================================================
     // EXTENDED API  --  reinforce / suppress / introspect
-    // ==============================================================
+    // ==============================================================
 
     @Override
     public void reinforce(String memoryId, byte valence) {
@@ -913,9 +913,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // INSPECT  --  Full Cognitive X-Ray
-    // ==============================================================
+    // ==============================================================
 
     @Override
     public CognitiveRecord inspect(String id) {
@@ -963,9 +963,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 metadata, suppressed);
     }
 
-    // ==============================================================
+    // ==============================================================
     // BROWSE  --  Tag-Based Iteration
-    // ==============================================================
+    // ==============================================================
 
     @Override
     public List<CognitiveRecord> browse(String... tags) {
@@ -1007,9 +1007,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return List.copyOf(results);
     }
 
-    // ==============================================================
+    // ==============================================================
     // EXPORT  --  Bulk Memory Export
-    // ==============================================================
+    // ==============================================================
 
     @Override
     public String exportJson() {
@@ -1028,9 +1028,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return arrayNode.toString();
     }
 
-    // ==============================================================
+    // ==============================================================
     // PROSPECTIVE / SCRATCHPAD / STATS
-    // ==============================================================
+    // ==============================================================
 
     @Override
     public Reminder scheduleReminder(String text, Instant triggerAt, String... tags) {
@@ -1114,9 +1114,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // SALIENCE PROFILE  --  runtime personality & interest configuration
-    // ==============================================================
+    // ==============================================================
 
     @Override
     public void setSalienceProfile(SalienceProfile profile) {
@@ -1153,15 +1153,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return profile.computeSelfRelevanceBoost(embedding);
     }
 
-    // ==============================================================
+    // ==============================================================
     // ADMIN INTERFACE
-    // ==============================================================
+    // ==============================================================
 
     @Override public SpectorMemoryAdmin admin() { return this; }
 
-    // ==============================================================
+    // ==============================================================
     // SUBSYSTEM ACCESSORS (implements both SpectorMemory + SpectorMemoryAdmin)
-    // ==============================================================
+    // ==============================================================
 
     @Override public CoActivationTracker coActivation() { return coActivationTracker; }
     @Override public MemoryWal wal() { return wal; }
@@ -1186,7 +1186,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
     @Override public TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
 
-    // -€-€ listAll implementations -€-€
+    //  listAll implementations 
 
     @Override
     public List<CognitiveRecord> listAll() {
@@ -1237,9 +1237,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return activeLeases.get() > 0;
     }
 
-    // ==============================================================
+    // ==============================================================
     // VACUUM / COMPACTION
-    // ==============================================================
+    // ==============================================================
 
     private final ReentrantLock vacuumLock = new ReentrantLock();
 
@@ -1336,9 +1336,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 coActivationTracker, partitionManager.tierRouter(), wal);
     }
 
-    // ==============================================================
+    // ==============================================================
     // BUILDER
-    // ==============================================================
+    // ==============================================================
 
     /** Creates a new builder for configuring and assembling a SpectorMemory instance. */
     public static SpectorMemoryBuilder builder() { return new SpectorMemoryBuilder(); }

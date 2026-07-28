@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.StorageLayout;
-import com.spectrayan.spector.memory.cortex.TextDataStore.TextEntry;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextEntry;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,21 +24,20 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Tests for {@link TextDataStore} — binary text.dat reader/writer.
+ * Tests for {@link TextAppendMemory} — binary text.dat reader/writer extending AbstractAppendMemory.
  */
-class TextDataStoreTest {
+class TextAppendMemoryTest {
 
     @TempDir
     Path tempDir;
 
-    private TextDataStore store;
+    private TextAppendMemory store;
 
     @BeforeEach
     void setUp() {
-        store = new TextDataStore(tempDir.resolve(StorageLayout.FILE_TEXT));
+        store = new TextAppendMemory(tempDir.resolve(StorageLayout.FILE_TEXT));
     }
 
     @Test
@@ -64,7 +63,6 @@ class TextDataStoreTest {
 
     @Test
     void large_text_roundtrip() {
-        // 10K characters
         String largeText = "A".repeat(10_000);
         store.write("large-001", MemoryType.SEMANTIC, largeText);
 
@@ -107,7 +105,6 @@ class TextDataStoreTest {
         store.write("mem-002", MemoryType.EPISODIC, "Original text 2");
         store.write("mem-003", MemoryType.SEMANTIC, "Original text 3");
 
-        // Simulate compaction: remove mem-002
         Map<String, TextEntry> remaining = store.readAll();
         remaining.remove("mem-002");
 
@@ -123,7 +120,7 @@ class TextDataStoreTest {
     @Test
     void forPartition_creates_store_with_correct_path() {
         Path partitionDir = tempDir.resolve("partitions").resolve("000_1717430400");
-        TextDataStore partitionStore = TextDataStore.forPartition(partitionDir);
+        TextAppendMemory partitionStore = TextAppendMemory.forPartition(partitionDir);
         assertThat(partitionStore.path()).isEqualTo(partitionDir.resolve(StorageLayout.FILE_TEXT));
     }
 

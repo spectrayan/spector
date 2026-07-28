@@ -104,7 +104,7 @@ public final class SubsystemAblationRunner {
      * Executes the full ablation study.
      */
     public void run() {
-        log.info("=== Subsystem Ablation Study ===");
+        log.info("=== Subsystem Ablation Study ===");
 
         DatasetLoader loader = new DatasetLoader();
         LoadedDataset dataset = loader.load(datasetDir);
@@ -153,7 +153,7 @@ public final class SubsystemAblationRunner {
             }
 
             writeAblationReport(results, queryCount);
-            log.info("=== Ablation Study Complete ===");
+            log.info("=== Ablation Study Complete ===");
 
         } catch (Exception e) {
             log.error("Ablation study failed: {}", e.getMessage(), e);
@@ -259,12 +259,12 @@ public final class SubsystemAblationRunner {
             log.info("Ablation report written to {}", outFile);
 
             // Console summary
-            System.out.println("\n==============================================================");
+            System.out.println("\n==============================================================");
             System.out.println("  ABLATION STUDY RESULTS");
             System.out.printf("  Queries: %d   |   Baseline (FULL) nDCG: %.4f%n", queryCount, fullMean);
-            System.out.println("==============================================================");
+            System.out.println("==============================================================");
             System.out.printf("  %-20s  %8s  %8s  %8s%n", "Condition", "nDCG", "Î”", "%Î”");
-            System.out.println("  " + "-€".repeat(56));
+            System.out.println("  " + "".repeat(56));
 
             for (AblationCondition condition : AblationCondition.values()) {
                 double mean = results.get(condition).stream().mapToDouble(d -> d).average().orElse(0.0);
@@ -275,7 +275,7 @@ public final class SubsystemAblationRunner {
                 System.out.printf("  %-20s  %8.4f  %+8.4f  %+7.1f%%%s%n",
                         condition.name(), mean, delta, pctChange, marker);
             }
-            System.out.println("==============================================================\n");
+            System.out.println("==============================================================\n");
 
         } catch (IOException e) {
             log.error("Failed to write ablation report: {}", e.getMessage(), e);

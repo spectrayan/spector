@@ -60,7 +60,7 @@ class ReflectDaemonClusteringTest {
         embeddingProvider = new MockEmbeddingProvider(DIMS);
     }
 
-    // -€-€ V3.1: Centroid-Based Clustering -€-€
+    //  V3.1: Centroid-Based Clustering 
 
     @Test
     void clustersBycentroidIdAndPromotes() {
@@ -239,7 +239,7 @@ class ReflectDaemonClusteringTest {
         }
     }
 
-    // -€-€ Mock Providers -€-€
+    //  Mock Providers 
 
     static class MockEmbeddingProvider implements EmbeddingProvider {
         private final int dims;
@@ -280,7 +280,7 @@ class ReflectDaemonClusteringTest {
         @Override public boolean isAvailable() { return true; }
     }
 
-    // -€-€ Helpers -€-€
+    //  Helpers 
 
     private byte[] makeVec(int seed) {
         byte[] vec = new byte[VEC_BYTES];

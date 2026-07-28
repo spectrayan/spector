@@ -112,13 +112,13 @@ public final class ReflectDaemon {
     private final TombstoneCompactor compactor;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    // -€-€ Optional providers (null = graceful fallback to basic behavior) -€-€
+    //  Optional providers (null = graceful fallback to basic behavior) 
     private final CentroidRouter centroidRouter;
     private final LlmProvider textGenerator;
     private final EmbeddingProvider embeddingProvider;
     private final int minClusterSize;
 
-    // -€-€ Neurodivergent: Lossless Consolidation -€-€
+    //  Neurodivergent: Lossless Consolidation 
     private final boolean pinSourceEpisodes;
     private final int pinnedQuota;
     private int pinnedCount = 0; // tracks pinned records across cycles
@@ -216,7 +216,7 @@ public final class ReflectDaemon {
         try {
             long nowMs = System.currentTimeMillis();
 
-            // -€-€ Phase 1: Deep Sleep (Synaptic Pruning)  --  parallel partitions -€-€
+            //  Phase 1: Deep Sleep (Synaptic Pruning)  --  parallel partitions 
             log.info("Deep Sleep starting  --  scanning {} partitions",
                     episodicStore.partitionCount());
 
@@ -270,7 +270,7 @@ public final class ReflectDaemon {
                 }
             }
 
-            // -€-€ Phase 2: REM Sleep (Dreaming/Synthesis)  --  parallel partitions -€-€
+            //  Phase 2: REM Sleep (Dreaming/Synthesis)  --  parallel partitions 
             log.info("REM Sleep starting  --  looking for dense episodic clusters");
 
             try {
@@ -316,7 +316,7 @@ public final class ReflectDaemon {
         }
     }
 
-    // -€-€ V3: IVF Centroid-Based Clustering + LLM Synthesis -€-€
+    //  V3: IVF Centroid-Based Clustering + LLM Synthesis 
 
     /**
      * Clusters non-consolidated records by centroid ID and promotes dense clusters.
@@ -444,7 +444,7 @@ public final class ReflectDaemon {
         return totalPromoted;
     }
 
-    // -€-€ Proactive Interference -€-€
+    //  Proactive Interference 
 
     /** Maximum records to compare per cluster (bounds O(N ²) cost). */
     private static final int MAX_INTERFERENCE_CANDIDATES = 20;
@@ -618,7 +618,7 @@ public final class ReflectDaemon {
                 semanticFlags);
     }
 
-    // -€-€ Simple Highest-Importance Promotion (fallback path) -€-€
+    //  Simple Highest-Importance Promotion (fallback path) 
 
     /**
      * Promotes the highest-importance non-consolidated memory from a partition

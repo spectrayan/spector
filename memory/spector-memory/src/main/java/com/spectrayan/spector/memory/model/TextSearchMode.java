@@ -22,7 +22,7 @@ package com.spectrayan.spector.memory.model;
  *   Layer 3: SPLADE / Li-LSR       (learned sparse retrieval)
  *   Layer 2: BM25                  (keyword search, SIMD-accelerated)
  *   Layer 1: Dense Vector           (HNSW semantic similarity)
- *   -€-€-€-€-€-€-€ RRF Fusion -€-€-€-€-€-€-€-€-€-€-€ (merges all layer signals)
+ *    RRF Fusion  (merges all layer signals)
  * </pre>
  *
  * <h3>Modes</h3>
@@ -107,7 +107,7 @@ public enum TextSearchMode {
      */
     FULL_STACK;
 
-    // -€-€ Convenience query methods -€-€
+    //  Convenience query methods 
 
     /** Returns true if this mode uses BM25 keyword search. */
     public boolean usesBM25() {

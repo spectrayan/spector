@@ -165,7 +165,7 @@ public final class CognitiveBenchmarkHarness {
      * @return the exit code indicating benchmark outcome
      */
     public BenchmarkExitCode run() {
-        // -€-€ Step 1: Load dataset -€-€
+        //  Step 1: Load dataset 
         LoadedDataset dataset;
         try {
             DatasetLoader loader = new DatasetLoader();
@@ -180,20 +180,20 @@ public final class CognitiveBenchmarkHarness {
             return BenchmarkExitCode.DATASET_VALIDATION_FAILED;
         }
 
-        // -€-€ Step 2: Create memory instance -€-€
+        //  Step 2: Create memory instance 
         try (BenchmarkSetup setup = new BenchmarkSetup();
              EmbeddingProvider embedder = createEmbeddingProvider()) {
             SpectorMemory memory = setup.createMemoryInstance(dataset, embedder);
             log.info("Memory instance created with {} total memories", memory.totalMemories());
 
-            // -€-€ Step 3: Create retrievers -€-€
+            //  Step 3: Create retrievers 
             BaselineRetriever baselineRetriever = createBaselineRetriever(memory);
             CognitiveRetriever cognitiveRetriever = new CognitiveRetriever(memory, profileOverride);
             if (profileOverride != null) {
                 log.info("Profile override: {}", profileOverride);
             }
 
-            // -€-€ Step 4: Execute benchmark loop -€-€
+            //  Step 4: Execute benchmark loop 
             return executeBenchmark(dataset, baselineRetriever, cognitiveRetriever, embedder,
                     memory, setup.idToSlot());
         } catch (Exception e) {
@@ -238,7 +238,7 @@ public final class CognitiveBenchmarkHarness {
             for (BenchmarkQuery query : queries) {
                 long startNanos = System.nanoTime();
 
-                // -€-€ Execute all three retrievers with timeout -€-€
+                //  Execute all three retrievers with timeout 
                 List<ScoredResult> baselineResults;
                 List<ScoredResult> cognitiveResults;
                 List<CognitiveResult> cognitiveRawResults;
@@ -286,7 +286,7 @@ public final class CognitiveBenchmarkHarness {
 
                 long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
 
-                // -€-€ Extract ranked IDs -€-€
+                //  Extract ranked IDs 
                 List<String> baselineRankedIds = baselineResults.stream()
                         .map(ScoredResult::memoryId)
                         .toList();
@@ -297,7 +297,7 @@ public final class CognitiveBenchmarkHarness {
                         .map(ScoredResult::memoryId)
                         .toList();
 
-                // -€-€ Compute per-query metrics -€-€
+                //  Compute per-query metrics 
                 Map<String, Integer> queryQrels = qrels.getOrDefault(query.id(), Map.of());
 
                 double baselineNdcg = metricsComputer.ndcgAtK(baselineRankedIds, queryQrels, topK);
@@ -314,7 +314,7 @@ public final class CognitiveBenchmarkHarness {
 
                 double delta = cognitiveNdcg - baselineNdcg;
 
-                // -€-€ Subsystem contribution detection (Task 11.4) -€-€
+                //  Subsystem contribution detection (Task 11.4) 
                 Set<String> baselineTop10Set = new java.util.HashSet<>(baselineRankedIds);
                 EnumSet<ContributingSubsystem> queryContributions =
                         EnumSet.noneOf(ContributingSubsystem.class);
@@ -375,7 +375,7 @@ public final class CognitiveBenchmarkHarness {
             executor.shutdownNow();
         }
 
-        // -€-€ Report skipped queries -€-€
+        //  Report skipped queries 
         if (skippedCount > 0) {
             log.warn("Skipped {} queries due to timeout: {}", skippedCount, skippedQueryIds);
         }
@@ -386,10 +386,10 @@ public final class CognitiveBenchmarkHarness {
             return BenchmarkExitCode.PARTIAL_EXECUTION;
         }
 
-        // -€-€ Step 5: Compute win/tie/loss -€-€
+        //  Step 5: Compute win/tie/loss 
         WinTieLossResult wtl = computeWinTieLoss(queryResults);
 
-        // -€-€ Step 6: Compute aggregate metrics -€-€
+        //  Step 6: Compute aggregate metrics 
         double meanBaselineNdcg = perQueryMetrics.stream()
                 .mapToDouble(QueryMetrics::baselineNdcg).average().orElse(0.0);
         double meanBaselineMrr = perQueryMetrics.stream()
@@ -414,10 +414,10 @@ public final class CognitiveBenchmarkHarness {
         double avgLatencyMs = perQueryMetrics.stream()
                 .mapToLong(QueryMetrics::latencyMs).average().orElse(0.0);
 
-        // -€-€ Step 7: Compute per-profile nDCG -€-€
+        //  Step 7: Compute per-profile nDCG 
         Map<String, Double> perProfileNdcg = computePerProfileNdcg(queryResults);
 
-        // -€-€ Step 8: Statistical tests -€-€
+        //  Step 8: Statistical tests 
         // Cognitive vs Baseline (primary comparison)
         double[] baselineArray = perQueryMetrics.stream()
                 .mapToDouble(QueryMetrics::baselineNdcg).toArray();
@@ -441,7 +441,7 @@ public final class CognitiveBenchmarkHarness {
         log.info("Similarity vs Baseline: Cohen's d = {}, p = {}", simVsBaselineCohensD, simVsBaselinePValue);
         log.info("Cognitive vs Similarity: Cohen's d = {}, p = {}", cogVsSimCohensD, cogVsSimPValue);
 
-        // -€-€ Step 9: Write reports -€-€
+        //  Step 9: Write reports 
         ReportWriter writer = new ReportWriter();
         ReportWriter.BenchmarkReport report = new ReportWriter.BenchmarkReport(
                 Instant.now(),
@@ -472,7 +472,7 @@ public final class CognitiveBenchmarkHarness {
             log.error("Failed to write reports: {}", e.getMessage(), e);
         }
 
-        // -€-€ Step 10: Determine exit code -€-€
+        //  Step 10: Determine exit code 
         if (skippedCount > 0) {
             return BenchmarkExitCode.PARTIAL_EXECUTION;
         }
@@ -490,9 +490,9 @@ public final class CognitiveBenchmarkHarness {
         return BenchmarkExitCode.SUCCESS;
     }
 
-    // ==============================================================
+    // ==============================================================
     // Win/Tie/Loss Classification
-    // ==============================================================
+    // ==============================================================
 
     /**
      * Result of win/tie/loss classification.
@@ -556,9 +556,9 @@ public final class CognitiveBenchmarkHarness {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // Per-Profile nDCG Computation
-    // ==============================================================
+    // ==============================================================
 
     /**
      * Groups query results by cognitive profile and computes the mean nDCG@10
@@ -588,9 +588,9 @@ public final class CognitiveBenchmarkHarness {
         return perProfileMean;
     }
 
-    // ==============================================================
+    // ==============================================================
     // Internal Helpers
-    // ==============================================================
+    // ==============================================================
 
     /**
      * Per-query metrics record for aggregation.

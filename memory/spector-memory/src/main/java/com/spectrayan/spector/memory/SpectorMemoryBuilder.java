@@ -62,7 +62,7 @@ import java.util.List;
  */
 public final class SpectorMemoryBuilder {
 
-    // -€-€ Core configuration -€-€
+    //  Core configuration 
     boolean managedByRegistry = false;
     int dimensions;
     EmbeddingProvider embeddingProvider;
@@ -92,7 +92,7 @@ public final class SpectorMemoryBuilder {
     TagExtractor tagExtractor;
     CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
 
-    // -€-€ 3-Layer Cognitive Graph configuration -€-€
+    //  3-Layer Cognitive Graph configuration 
     int hebbianGraphCapacity = 0;
     int temporalChainCapacity = 0;
     EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
@@ -106,36 +106,36 @@ public final class SpectorMemoryBuilder {
     boolean hyperEntityGraphEnabled = true;
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
 
-    // -€-€ Edge importance configuration -€-€
+    //  Edge importance configuration 
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
     int hebbianMaxDegree = HebbianGraph.DEFAULT_MAX_DEGREE;
     int entityMaxDegree = EntityGraph.DEFAULT_MAX_DEGREE;
 
-    // -€-€ ID generation strategy -€-€
+    //  ID generation strategy 
     IdStrategy idStrategy = IdStrategy.TSID;
     MemoryIdGenerator idGenerator;
 
-    // -€-€ SPLADE + ColBERT providers -€-€
+    //  SPLADE + ColBERT providers 
     SparseEmbeddingProvider SparseEmbeddingProvider;
     TokenEmbeddingProvider tokenEmbeddingProvider;
 
-    // -€-€ Checkpoint daemon configuration -€-€
+    //  Checkpoint daemon configuration 
     int checkpointIntervalSeconds = 30;
 
-    // -€-€ Chunking for remember() -€-€
+    //  Chunking for remember() 
     com.spectrayan.spector.commons.chunker.TextChunker chunker = new com.spectrayan.spector.commons.chunker.MarkdownChunker();
     com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig = com.spectrayan.spector.commons.chunker.ChunkConfig.markdown(2500, 200);
 
-    // -€-€ Embedding pipeline batch size -€-€
+    //  Embedding pipeline batch size 
     int embedBatchSize = 32;
 
-    // -€-€ Salience profile provider (enterprise SPI) -€-€
+    //  Salience profile provider (enterprise SPI) 
     SalienceProfileProvider salienceProfileProvider;
 
-    // -€-€ Data encryption SPI -€-€
+    //  Data encryption SPI 
     DataEncryptor dataEncryptor = DataEncryptor.NOOP;
 
-    // -€-€ Multimodal attachment processing -€-€
+    //  Multimodal attachment processing 
     List<SensoryExtractor> sensoryExtractors = List.of();
     AssetStore assetStore;
 
@@ -234,7 +234,7 @@ public final class SpectorMemoryBuilder {
     /** Cognitive profile configuration (default: all profiles enabled). */
     public SpectorMemoryBuilder profileConfig(CognitiveProfileConfig config) { this.profileConfig = config; return this; }
 
-    // -€-€ 3-Layer Cognitive Graph configuration -€-€
+    //  3-Layer Cognitive Graph configuration 
 
     /** Hebbian graph capacity (default: same as episodicPartitionCapacity). */
     public SpectorMemoryBuilder hebbianGraphCapacity(int c) { this.hebbianGraphCapacity = c; return this; }
@@ -291,7 +291,7 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder cognitiveProfiles(String configValue) { this.profileConfig = CognitiveProfileConfig.fromConfigValue(configValue); return this; }
 
-    // -€-€ ID Generation -€-€
+    //  ID Generation 
 
     /**
      * Sets the ID generation strategy for auto-generated memory IDs.
@@ -396,9 +396,9 @@ public final class SpectorMemoryBuilder {
     }
 
 
-    // ==============================================================
+    // ==============================================================
     // BUILD
-    // ==============================================================
+    // ==============================================================
 
     /**
      * Builds and returns a fully-initialized {@link SpectorMemory} instance.

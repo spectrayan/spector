@@ -85,9 +85,9 @@ class ConcurrentPipelineTest {
         if (memory != null) memory.close();
     }
 
-    // ==============================================================
+    // ==============================================================
     // 1. Concurrent Ingestion  --  No Data Loss
-    // ==============================================================
+    // ==============================================================
 
     @RepeatedTest(3)
     @DisplayName("Concurrent ingest  --  20 writers x 10 memories = 200 total, no loss")
@@ -130,9 +130,9 @@ class ConcurrentPipelineTest {
         assertThat(memory.totalMemories()).as("All memories ingested").isEqualTo(totalExpected);
     }
 
-    // ==============================================================
+    // ==============================================================
     // 2. Concurrent Recall During Ingestion
-    // ==============================================================
+    // ==============================================================
 
     @RepeatedTest(3)
     @DisplayName("Concurrent recall during ingest  --  readers get valid results, no CME")
@@ -201,9 +201,9 @@ class ConcurrentPipelineTest {
         assertThat(resultCounts.get()).as("Readers got some results").isGreaterThan(0);
     }
 
-    // ==============================================================
+    // ==============================================================
     // 3. Concurrent Recall  --  Same Query, Consistent Results
-    // ==============================================================
+    // ==============================================================
 
     @RepeatedTest(3)
     @DisplayName("Concurrent recall  --  30 readers, same query, all get valid results")
@@ -251,9 +251,9 @@ class ConcurrentPipelineTest {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // 4. Concurrent Forget During Recall
-    // ==============================================================
+    // ==============================================================
 
     @RepeatedTest(3)
     @DisplayName("Concurrent forget during recall  --  forgotten IDs eventually excluded")
@@ -321,9 +321,9 @@ class ConcurrentPipelineTest {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // 5. Concurrent Suppress During Recall
-    // ==============================================================
+    // ==============================================================
 
     @RepeatedTest(3)
     @DisplayName("Concurrent suppress during recall  --  suppressed IDs excluded")
@@ -390,9 +390,9 @@ class ConcurrentPipelineTest {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // 6. Partition Roll During Concurrent Access
-    // ==============================================================
+    // ==============================================================
 
     @Test
     @DisplayName("Working memory overflow triggers roll  --  no data loss during concurrent access")
@@ -465,9 +465,9 @@ class ConcurrentPipelineTest {
         assertThat(memory.totalMemories()).as("All memories survived roll").isGreaterThan(0);
     }
 
-    // ==============================================================
+    // ==============================================================
     // 7. Concurrent Mixed Operations
-    // ==============================================================
+    // ==============================================================
 
     @RepeatedTest(3)
     @DisplayName("Concurrent mixed ops  --  remember + recall + forget + reinforce simultaneously")
@@ -553,7 +553,7 @@ class ConcurrentPipelineTest {
         assertThat(errors).as("No exceptions during mixed concurrent ops").isEmpty();
     }
 
-    // -€-€ Helpers -€-€
+    //  Helpers 
 
     private void seedMemories(int count) {
         try {

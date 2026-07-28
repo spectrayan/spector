@@ -117,14 +117,14 @@ class McpToolsFunctionalTest {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 1: Status  --  verify ingested data exists
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(1)
     void statusShowsIngestedMemories() {
         int total = memory.totalMemories();
-        System.out.printf("%n== Test 1: memory_status ==%n");
+        System.out.printf("%n== Test 1: memory_status ==%n");
         System.out.printf("  Total:      %d%n", total);
         System.out.printf("  SEMANTIC:   %d%n", memory.memoryCount(MemoryType.SEMANTIC));
         System.out.printf("  EPISODIC:   %d%n", memory.memoryCount(MemoryType.EPISODIC));
@@ -135,9 +135,9 @@ class McpToolsFunctionalTest {
         assertThat(memory.memoryCount(MemoryType.SEMANTIC)).isGreaterThan(0);
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 2-5: Remember  --  store across all tiers (requires Ollama)
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(2)
     void rememberSemantic() throws Exception {
@@ -149,7 +149,7 @@ class McpToolsFunctionalTest {
                     MemoryType.SEMANTIC, MemorySource.USER_STATED,
                     "architecture", "cognitive").join();
 
-            System.out.printf("%n== Test 2: memory_remember SEMANTIC ==%n");
+            System.out.printf("%n== Test 2: memory_remember SEMANTIC ==%n");
             System.out.printf("  Stored: ft-semantic-001%n");
             // Verify via recall
             List<CognitiveResult> results = memory.recall("cognitive memory architecture");
@@ -162,7 +162,7 @@ class McpToolsFunctionalTest {
             Throwable t = e;
             while (t != null) {
                 if (t.getMessage() != null && t.getMessage().contains("capacity")) {
-                    System.out.printf("%n== Test 2: memory_remember SEMANTIC ==%n");
+                    System.out.printf("%n== Test 2: memory_remember SEMANTIC ==%n");
                     System.out.printf("  Warning  Store full (capacity 10K reached). Skipping.%n");
                     Assumptions.abort("Store full  --  cannot test remember");
                 }
@@ -181,7 +181,7 @@ class McpToolsFunctionalTest {
                 MemoryType.EPISODIC, MemorySource.OBSERVED,
                 "testing", "ollama").join();
 
-        System.out.printf("%n== Test 3: memory_remember EPISODIC ==%n  Stored: ft-episodic-001%n");
+        System.out.printf("%n== Test 3: memory_remember EPISODIC ==%n  Stored: ft-episodic-001%n");
     }
 
     @Test @Order(4)
@@ -193,7 +193,7 @@ class McpToolsFunctionalTest {
                 MemoryType.PROCEDURAL, MemorySource.PROCEDURAL,
                 "build", "maven").join();
 
-        System.out.printf("%n== Test 4: memory_remember PROCEDURAL ==%n  Stored: ft-procedural-001%n");
+        System.out.printf("%n== Test 4: memory_remember PROCEDURAL ==%n  Stored: ft-procedural-001%n");
     }
 
     @Test @Order(5)
@@ -203,18 +203,18 @@ class McpToolsFunctionalTest {
         memory.scratchpad("Currently debugging recall pipeline latency.").join();
 
         int workingCount = memory.memoryCount(MemoryType.WORKING);
-        System.out.printf("%n== Test 5: memory_scratchpad ==%n  Working count: %d%n", workingCount);
+        System.out.printf("%n== Test 5: memory_scratchpad ==%n  Working count: %d%n", workingCount);
         assertThat(workingCount).isGreaterThan(0);
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 6-8: Recall  --  cross-tier cognitive scoring (read-only)
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(6)
     void recallBasic() {
         List<CognitiveResult> results = memory.recall("cognitive memory architecture");
-        System.out.printf("%n== Test 6: memory_recall (basic) ==%n");
+        System.out.printf("%n== Test 6: memory_recall (basic) ==%n");
         System.out.printf("  Query: 'cognitive memory architecture'%n");
         System.out.printf("  Results: %d%n", results.size());
         for (int i = 0; i < Math.min(5, results.size()); i++) {
@@ -233,7 +233,7 @@ class McpToolsFunctionalTest {
     void recallWithProfile() {
         List<CognitiveResult> results = memory.recall("how to build and test spector",
                 CognitiveProfile.DEBUGGING);
-        System.out.printf("%n== Test 7: memory_recall (DEBUGGING profile) ==%n");
+        System.out.printf("%n== Test 7: memory_recall (DEBUGGING profile) ==%n");
         System.out.printf("  Query: 'how to build and test spector'%n");
         System.out.printf("  Results: %d%n", results.size());
         for (int i = 0; i < Math.min(3, results.size()); i++) {
@@ -254,7 +254,7 @@ class McpToolsFunctionalTest {
                 .topK(5)
                 .build();
         List<CognitiveResult> results = memory.recall("README documentation", options);
-        System.out.printf("%n== Test 8: memory_recall (SEMANTIC filter) ==%n");
+        System.out.printf("%n== Test 8: memory_recall (SEMANTIC filter) ==%n");
         System.out.printf("  Query: 'README documentation' | filter: SEMANTIC only%n");
         System.out.printf("  Results: %d%n", results.size());
         for (int i = 0; i < Math.min(3, results.size()); i++) {
@@ -269,9 +269,9 @@ class McpToolsFunctionalTest {
         assertThat(results).allMatch(r -> r.memoryType() == MemoryType.SEMANTIC);
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 9: Recall  --  diverse queries to test data relevance
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(9)
     void recallDiverseQueries() {
@@ -282,7 +282,7 @@ class McpToolsFunctionalTest {
                 "how to install and setup the project"
         };
 
-        System.out.printf("%n== Test 9: memory_recall (diverse queries) ==%n");
+        System.out.printf("%n== Test 9: memory_recall (diverse queries) ==%n");
         for (String query : queries) {
             List<CognitiveResult> results = memory.recall(query);
             System.out.printf("%n  Query: '%s'%n  Results: %d%n", query, results.size());
@@ -297,9 +297,9 @@ class McpToolsFunctionalTest {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 10: Reinforce (requires Ollama for prior remember)
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(10)
     void reinforce() {
@@ -309,7 +309,7 @@ class McpToolsFunctionalTest {
         String targetId = existing.getFirst().id();
 
         memory.reinforce(targetId, (byte) 100);
-        System.out.printf("%n== Test 10: memory_reinforce ==%n  Reinforced %s valence=100%n", targetId);
+        System.out.printf("%n== Test 10: memory_reinforce ==%n  Reinforced %s valence=100%n", targetId);
 
         List<CognitiveResult> results = memory.recall("spector");
         boolean found = results.stream().anyMatch(r -> targetId.equals(r.id()));
@@ -317,29 +317,29 @@ class McpToolsFunctionalTest {
         assertThat(found).as("Reinforced memory should still be recallable").isTrue();
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 11: Introspect  --  metamemory analysis (read-only)
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(11)
     void introspect() {
         var insight = memory.introspect("spector architecture");
-        System.out.printf("%n== Test 11: memory_introspect ==%n  Topic: 'spector architecture'%n  %s%n", insight);
+        System.out.printf("%n== Test 11: memory_introspect ==%n  Topic: 'spector architecture'%n  %s%n", insight);
 
         assertThat(insight).isNotNull();
         assertThat(insight.totalMemories()).isGreaterThan(0);
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 12: Suppress / Unsuppress (requires Ollama for prior remember)
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(12)
     void suppressAndUnsuppress() {
         Assumptions.assumeTrue(ollamaAvailable, "Ollama required  --  needs ft-episodic-001 from Test 3");
 
         memory.suppress("ft-episodic-001", "Not relevant");
-        System.out.printf("%n== Test 12: memory_suppress / unsuppress ==%n  Suppressed ft-episodic-001%n");
+        System.out.printf("%n== Test 12: memory_suppress / unsuppress ==%n  Suppressed ft-episodic-001%n");
 
         List<CognitiveResult> suppressed = memory.recall("testing ollama");
         boolean foundWhileSuppressed = suppressed.stream()
@@ -351,16 +351,16 @@ class McpToolsFunctionalTest {
         System.out.printf("  Unsuppressed ft-episodic-001 [x]%n");
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 13: Forget (requires Ollama for prior remember)
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(13)
     void forget() {
         Assumptions.assumeTrue(ollamaAvailable, "Ollama required  --  needs ft-procedural-001 from Test 4");
 
         memory.forget("ft-procedural-001");
-        System.out.printf("%n== Test 13: memory_forget ==%n  Forgot ft-procedural-001%n");
+        System.out.printf("%n== Test 13: memory_forget ==%n  Forgot ft-procedural-001%n");
 
         List<CognitiveResult> results = memory.recall("build maven test");
         boolean found = results.stream().anyMatch(r -> "ft-procedural-001".equals(r.id()));
@@ -368,9 +368,9 @@ class McpToolsFunctionalTest {
         assertThat(found).as("Forgotten memory should not appear in recall").isFalse();
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 14: WhyNot  --  recall diagnostics (read-only, uses pre-ingested data)
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(14)
     void whyNot() {
@@ -381,15 +381,15 @@ class McpToolsFunctionalTest {
 
         WhyNotExplanation explanation = memory.whyNot(
                 knownId, "dark mode user interface", RecallOptions.DEFAULT);
-        System.out.printf("%n== Test 14: memory_whynot ==%n  id=%s, query='dark mode user interface'%n  %s%n",
+        System.out.printf("%n== Test 14: memory_whynot ==%n  id=%s, query='dark mode user interface'%n  %s%n",
                 knownId, explanation);
 
         assertThat(explanation).isNotNull();
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 15: Recall with synaptic filter (read-only)
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(15)
     void recallWithSynapticFilter() {
@@ -398,7 +398,7 @@ class McpToolsFunctionalTest {
                 .topK(5)
                 .build();
         List<CognitiveResult> results = memory.recall("memory system design", options);
-        System.out.printf("%n== Test 15: memory_recall (synaptic filter) ==%n");
+        System.out.printf("%n== Test 15: memory_recall (synaptic filter) ==%n");
         System.out.printf("  Query: 'memory system design' | tags: architecture, cognitive%n");
         System.out.printf("  Results: %d%n", results.size());
         for (int i = 0; i < Math.min(3, results.size()); i++) {
@@ -412,13 +412,13 @@ class McpToolsFunctionalTest {
         System.out.printf("  (Synaptic filter: %s)%n", results.isEmpty() ? "no tag matches (expected for bulk-ingested data)" : "matches found");
     }
 
-    // ==============================================================
+    // ==============================================================
     // TEST 16: Final status
-    // ==============================================================
+    // ==============================================================
 
     @Test @Order(16)
     void finalStatus() {
-        System.out.printf("%n== Test 16: Final Status ==%n");
+        System.out.printf("%n== Test 16: Final Status ==%n");
         System.out.printf("  Ollama:     %s%n", ollamaAvailable ? "[x] Available" : "Warning  Offline (read-only mode)");
         System.out.printf("  Total:      %d%n", memory.totalMemories());
         System.out.printf("  SEMANTIC:   %d%n", memory.memoryCount(MemoryType.SEMANTIC));

@@ -48,9 +48,9 @@ class ColBERTRerankerTest {
         reranker = new ColBERTReranker(new MockTokenEmbeddingProvider(TOKEN_DIMS));
     }
 
-    // ==============================================================
+    // ==============================================================
     // Reranking  --  happy path
-    // ==============================================================
+    // ==============================================================
 
     @Test
     @DisplayName("Rerank  --  candidate with higher MaxSim moves to top")
@@ -130,9 +130,9 @@ class ColBERTRerankerTest {
         assertThat(results).hasSize(3);
     }
 
-    // ==============================================================
+    // ==============================================================
     // Negative / Edge cases
-    // ==============================================================
+    // ==============================================================
 
     @Test
     @DisplayName("Rerank  --  empty candidates returns empty")
@@ -169,9 +169,9 @@ class ColBERTRerankerTest {
         assertThat(results.getFirst().maxSimScore()).isEqualTo(0f);
     }
 
-    // ==============================================================
+    // ==============================================================
     // MaxSim scoring  --  mathematical correctness
-    // ==============================================================
+    // ==============================================================
 
     @Test
     @DisplayName("maxSimScore  --  identical vectors  ->  score = numTokens")
@@ -205,9 +205,9 @@ class ColBERTRerankerTest {
         assertThat(score).isCloseTo(32.0f, within(0.01f));
     }
 
-    // ==============================================================
+    // ==============================================================
     // SIMD dot product  --  correctness
-    // ==============================================================
+    // ==============================================================
 
     @Test
     @DisplayName("simdDotProduct  --  matches scalar reference for 128-dim")
@@ -236,7 +236,7 @@ class ColBERTRerankerTest {
                 .isEqualTo(0.0f);
     }
 
-    // -€-€ Test helpers -€-€
+    //  Test helpers 
 
     /** Creates n unit vectors of given dimensionality. */
     private static float[][] makeUnitVectors(int n, int dims) {
@@ -254,7 +254,7 @@ class ColBERTRerankerTest {
         return vecs;
     }
 
-    // -€-€ Mock providers -€-€
+    //  Mock providers 
 
     /**
      * Deterministic mock that produces hash-seeded, normalized per-token embeddings.

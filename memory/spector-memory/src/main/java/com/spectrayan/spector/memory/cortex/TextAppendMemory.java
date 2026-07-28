@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.StorageLayout;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
-import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
+import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +34,6 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,11 +41,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Binary reader/writer for {@code text.dat} files within partition directories,
- * delegating storage to {@link DefaultAppendMemory} with standard kernel layout.
+ * extending {@link AbstractAppendMemory} directly with standard kernel layout.
  */
-public final class TextDataStore implements AutoCloseable {
+public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout> {
 
-    private static final Logger log = LoggerFactory.getLogger(TextDataStore.class);
+    private static final Logger log = LoggerFactory.getLogger(TextAppendMemory.class);
 
     private static final int LEGACY_HEADER_BYTES = 16;
 
@@ -56,98 +55,55 @@ public final class TextDataStore implements AutoCloseable {
     private final Path file;
     private final DataEncryptor encryptor;
     private int entryCount;
-    private DefaultAppendMemory<TextBlobLayout> appendMemory;
 
     private final Map<String, TextPosition> textPositionMap = new LinkedHashMap<>();
     private final Map<Long, TextPosition> hashToPosition = new java.util.HashMap<>();
     private final AtomicInteger decryptFailCount = new AtomicInteger();
 
     /**
-     * Creates a TextDataStore for the given file path (no encryption).
+     * Creates a TextAppendMemory for the given file path (no encryption).
      *
      * @param file path to the text.dat file (may or may not exist yet)
      */
-    public TextDataStore(Path file) {
+    public TextAppendMemory(Path file) {
         this(file, DataEncryptor.NOOP);
     }
 
     /**
-     * Creates a TextDataStore with encryption support.
+     * Creates a TextAppendMemory with encryption support.
      *
      * @param file      path to the text.dat file
      * @param encryptor data encryptor for text-at-rest (null → NOOP)
      */
-    public TextDataStore(Path file, DataEncryptor encryptor) {
+    public TextAppendMemory(Path file, DataEncryptor encryptor) {
+        this(file, encryptor, migrateLegacyIfNeeded(file, encryptor != null ? encryptor : DataEncryptor.NOOP));
+    }
+
+    private TextAppendMemory(Path file, DataEncryptor encryptor, Map<String, TextEntry> legacyEntries) {
+        super(MemoryId.of("cortex", "text"), new TextBlobLayout(), 0, calculateInitialSize(file, legacyEntries), file);
         this.file = file;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.entryCount = 0;
-    }
 
-    /**
-     * Creates a TextDataStore for a partition directory, using the standard file name.
-     *
-     * @param partitionDir the partition directory
-     * @return a new TextDataStore instance
-     */
-    public static TextDataStore forPartition(Path partitionDir) {
-        return new TextDataStore(StorageLayout.textDat(partitionDir));
-    }
-
-    /**
-     * Factory for a partition directory with encryption support.
-     *
-     * @param partitionDir the partition directory
-     * @param encryptor    data encryptor (null → NOOP)
-     * @return a new TextDataStore instance
-     */
-    public static TextDataStore forPartition(Path partitionDir, DataEncryptor encryptor) {
-        return new TextDataStore(StorageLayout.textDat(partitionDir), encryptor);
-    }
-
-    /**
-     * A single entry in the text.dat file.
-     *
-     * @param id   memory identifier
-     * @param tier the cognitive tier this memory belongs to
-     * @param text the raw text content
-     */
-    public record TextEntry(String id, MemoryType tier, String text) {}
-
-    /**
-     * Position of a text entry within text.dat for off-heap random-access reads.
-     *
-     * @param textOffset byte offset of the text content in text.dat (after entry header)
-     * @param textLength byte length of the UTF-8 encoded text
-     */
-    public record TextPosition(long textOffset, int textLength) {}
-
-    private synchronized void initAppendMemory(long requiredSize) {
-        if (appendMemory != null) {
-            appendMemory.close();
-            appendMemory = null;
-        }
-
-        // Check for legacy migration first
-        if (Files.exists(file)) {
-            int magic = 0;
-            try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
-                if (ch.size() >= 4) {
-                    ByteBuffer mb = ByteBuffer.allocate(4);
-                    ch.read(mb);
-                    mb.flip();
-                    magic = mb.getInt();
-                }
-            } catch (IOException e) {
-                // ignore
+        if (legacyEntries != null && !legacyEntries.isEmpty()) {
+            for (TextEntry entry : legacyEntries.values()) {
+                write(entry.id(), entry.tier(), entry.text());
             }
-            if (magic == StorageLayout.TEXT_DAT_MAGIC) {
-                Map<String, TextEntry> legacyEntries = readLegacyEntries();
-                migrateLegacyFile(legacyEntries);
-                return;
-            }
+            flush();
         }
+    }
 
+    private static long calculateInitialSize(Path file, Map<String, TextEntry> legacyEntries) {
         long size = 1024 * 1024; // 1MB default
+        if (legacyEntries != null && !legacyEntries.isEmpty()) {
+            long totalBytes = 0;
+            for (TextEntry entry : legacyEntries.values()) {
+                byte[] idBytes = entry.id().getBytes(StandardCharsets.UTF_8);
+                byte[] textBytes = entry.text().getBytes(StandardCharsets.UTF_8);
+                totalBytes += 4 + (1 + 4 + idBytes.length + 4 + textBytes.length);
+            }
+            return Math.max(size, totalBytes);
+        }
         if (Files.exists(file)) {
             try {
                 size = Math.max(size, Files.size(file) - MemoryHeader.HEADER_BYTES);
@@ -155,16 +111,39 @@ public final class TextDataStore implements AutoCloseable {
                 // ignore
             }
         }
-        if (requiredSize > 0) {
-            size = Math.max(size, requiredSize);
-        }
-
-        MemoryId memoryId = MemoryId.of("cortex", "text");
-        TextBlobLayout layout = new TextBlobLayout();
-        appendMemory = new DefaultAppendMemory<>(memoryId, layout, 0, size, file);
+        return size;
     }
 
-    private Map<String, TextEntry> readLegacyEntries() {
+    private static Map<String, TextEntry> migrateLegacyIfNeeded(Path file, DataEncryptor encryptor) {
+        if (!Files.exists(file)) {
+            return null;
+        }
+        int magic = 0;
+        try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
+            if (ch.size() >= 4) {
+                ByteBuffer mb = ByteBuffer.allocate(4);
+                ch.read(mb);
+                mb.flip();
+                magic = mb.getInt();
+            }
+        } catch (IOException e) {
+            return null;
+        }
+
+        if (magic == StorageLayout.TEXT_DAT_MAGIC) {
+            log.info("Migrating legacy text.dat format to standard Memory Kernel format: {}", file);
+            Map<String, TextEntry> entries = readLegacyEntries(file, encryptor);
+            try {
+                Files.deleteIfExists(file);
+            } catch (IOException e) {
+                throw new UncheckedIOException("Failed to delete legacy file for migration: " + file, e);
+            }
+            return entries;
+        }
+        return null;
+    }
+
+    private static Map<String, TextEntry> readLegacyEntries(Path file, DataEncryptor encryptor) {
         Map<String, TextEntry> entries = new LinkedHashMap<>();
         try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
             long fileSize = ch.size();
@@ -198,7 +177,7 @@ public final class TextDataStore implements AutoCloseable {
                     String rawText = decodeUtf8FromSegment(mapped, pos, textLen);
                     pos += textLen;
 
-                    String text = decryptIfNeeded(rawText);
+                    String text = decryptIfNeeded(rawText, encryptor);
                     MemoryType tier = MemoryType.values()[tierOrd];
                     entries.put(id, new TextEntry(id, tier, text));
                 }
@@ -209,45 +188,43 @@ public final class TextDataStore implements AutoCloseable {
         return entries;
     }
 
-    private void migrateLegacyFile(Map<String, TextEntry> legacyEntries) {
-        log.info("Migrating legacy text.dat format to standard Memory Kernel format: {}", file);
-        try {
-            Files.deleteIfExists(file);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to delete legacy file for migration: " + file, e);
-        }
-
-        long totalBytes = 0;
-        for (TextEntry entry : legacyEntries.values()) {
-            byte[] idBytes = entry.id().getBytes(StandardCharsets.UTF_8);
-            byte[] textBytes = entry.text().getBytes(StandardCharsets.UTF_8);
-            totalBytes += 4 + (1 + 4 + idBytes.length + 4 + textBytes.length);
-        }
-
-        initAppendMemory(totalBytes);
-
-        for (TextEntry entry : legacyEntries.values()) {
-            byte[] idBytes = entry.id().getBytes(StandardCharsets.UTF_8);
-            byte[] textBytes = entry.text().getBytes(StandardCharsets.UTF_8);
-
-            int entrySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
-            MemorySegment entrySeg = Arena.ofAuto().allocate(entrySize);
-            entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) entry.tier().ordinal());
-            entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 1, idBytes.length);
-            MemorySegment.copy(MemorySegment.ofArray(idBytes), 0, entrySeg, 5, idBytes.length);
-            entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 5 + idBytes.length, textBytes.length);
-            MemorySegment.copy(MemorySegment.ofArray(textBytes), 0, entrySeg, 5 + idBytes.length + 4, textBytes.length);
-
-            long payloadOffset = appendMemory.append(entrySeg);
-            long textOffset = appendMemory.dataOffset() + payloadOffset + 9 + idBytes.length;
-            textPositionMap.put(entry.id(), new TextPosition(textOffset, textBytes.length));
-
-            long hash = XxHash64.hash(textBytes);
-            hashToPosition.put(hash, new TextPosition(textOffset, textBytes.length));
-        }
-        appendMemory.flush();
-        this.entryCount = legacyEntries.size();
+    /**
+     * Creates a TextAppendMemory for a partition directory, using the standard file name.
+     *
+     * @param partitionDir the partition directory
+     * @return a new TextAppendMemory instance
+     */
+    public static TextAppendMemory forPartition(Path partitionDir) {
+        return new TextAppendMemory(StorageLayout.textDat(partitionDir));
     }
+
+    /**
+     * Factory for a partition directory with encryption support.
+     *
+     * @param partitionDir the partition directory
+     * @param encryptor    data encryptor (null → NOOP)
+     * @return a new TextAppendMemory instance
+     */
+    public static TextAppendMemory forPartition(Path partitionDir, DataEncryptor encryptor) {
+        return new TextAppendMemory(StorageLayout.textDat(partitionDir), encryptor);
+    }
+
+    /**
+     * A single entry in the text.dat file.
+     *
+     * @param id   memory identifier
+     * @param tier the cognitive tier this memory belongs to
+     * @param text the raw text content
+     */
+    public record TextEntry(String id, MemoryType tier, String text) {}
+
+    /**
+     * Position of a text entry within text.dat for off-heap random-access reads.
+     *
+     * @param textOffset byte offset of the text content in text.dat (after entry header)
+     * @param textLength byte length of the UTF-8 encoded text
+     */
+    public record TextPosition(long textOffset, int textLength) {}
 
     /**
      * Appends a single text entry to the file and returns its byte position.
@@ -271,17 +248,6 @@ public final class TextDataStore implements AutoCloseable {
 
         int entrySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
 
-        if (appendMemory == null) {
-            initAppendMemory(0);
-        }
-
-        long availableSpace = appendMemory.segment().byteSize() - appendMemory.dataOffset() - appendMemory.appendCursor();
-        if (availableSpace < 4 + entrySize) {
-            long newSize = Math.max(appendMemory.segment().byteSize() - appendMemory.dataOffset() * 2,
-                    appendMemory.appendCursor() + 4 + entrySize + 1024 * 1024);
-            initAppendMemory(newSize);
-        }
-
         MemorySegment entrySeg = Arena.ofAuto().allocate(entrySize);
         entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) tier.ordinal());
         entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 1, idBytes.length);
@@ -289,8 +255,8 @@ public final class TextDataStore implements AutoCloseable {
         entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 5 + idBytes.length, textBytes.length);
         MemorySegment.copy(MemorySegment.ofArray(textBytes), 0, entrySeg, 5 + idBytes.length + 4, textBytes.length);
 
-        long payloadOffset = appendMemory.append(entrySeg);
-        long textOffset = appendMemory.dataOffset() + payloadOffset + 9 + idBytes.length;
+        long payloadOffset = append(entrySeg);
+        long textOffset = dataOffset() + payloadOffset + 9 + idBytes.length;
 
         TextPosition pos = new TextPosition(textOffset, textBytes.length);
         textPositionMap.put(id, pos);
@@ -308,12 +274,11 @@ public final class TextDataStore implements AutoCloseable {
      * @return the text string, or null if the mmap'd segment is unavailable
      */
     public String readTextDirect(long textOffset, int textLength) {
-        DefaultAppendMemory<TextBlobLayout> mem = this.appendMemory;
-        if (mem == null || textOffset < 0 || textLength < 0) return null;
-        MemorySegment seg = mem.segment();
-        if (textOffset + textLength > seg.byteSize()) return null;
+        if (textOffset < 0 || textLength < 0) return null;
+        MemorySegment seg = segment();
+        if (seg == null || textOffset + textLength > seg.byteSize()) return null;
         String raw = decodeUtf8FromSegment(seg, textOffset, textLength);
-        return decryptIfNeeded(raw);
+        return decryptIfNeeded(raw, encryptor);
     }
 
     /**
@@ -327,17 +292,10 @@ public final class TextDataStore implements AutoCloseable {
         hashToPosition.clear();
 
         if (!Files.exists(file)) {
-            initAppendMemory(0);
             return entries;
         }
 
-        initAppendMemory(0);
-
-        if (appendMemory == null) {
-            return entries;
-        }
-
-        java.util.Iterator<MemorySegment> it = appendMemory.replay(0);
+        java.util.Iterator<MemorySegment> it = replay(0);
         long currentOffset = 0;
         while (it.hasNext()) {
             MemorySegment entrySeg = it.next();
@@ -367,12 +325,12 @@ public final class TextDataStore implements AutoCloseable {
             }
 
             String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
-            String text = decryptIfNeeded(rawText);
+            String text = decryptIfNeeded(rawText, encryptor);
 
             MemoryType tier = MemoryType.values()[tierOrd];
             entries.put(id, new TextEntry(id, tier, text));
 
-            long textOffset = appendMemory.dataOffset() + currentOffset + 4 + 9 + idLen;
+            long textOffset = dataOffset() + currentOffset + 4 + 9 + idLen;
             TextPosition pos = new TextPosition(textOffset, textLen);
             textPositionMap.put(id, pos);
 
@@ -400,96 +358,33 @@ public final class TextDataStore implements AutoCloseable {
      *
      * @return unmodifiable map of text positions, empty if readAll() not called
      */
-    public java.util.Map<String, TextPosition> textPositions() {
+    public Map<String, TextPosition> textPositions() {
         return java.util.Collections.unmodifiableMap(textPositionMap);
     }
 
     /**
-     * Rebuilds the file from the given entries (compaction).
+     * Rebuilds the file from the given entries (compaction in-place).
      *
      * @param entries the surviving entries to write
      */
     public synchronized void rebuild(Map<String, TextEntry> entries) {
-        try {
-            if (appendMemory != null) {
-                appendMemory.close();
-                appendMemory = null;
-            }
+        textPositionMap.clear();
+        hashToPosition.clear();
 
-            Files.deleteIfExists(file);
+        // Reset append cursor and count in-place
+        this.count = 0;
+        persistCount();
 
-            textPositionMap.clear();
-            hashToPosition.clear();
-
-            Path tempFile = file.resolveSibling(file.getFileName() + ".tmp");
-            Files.deleteIfExists(tempFile);
-
-            MemoryId tempId = MemoryId.of("cortex", "text_temp");
-            TextBlobLayout layout = new TextBlobLayout();
-
-            long estimatedSize = 1024 * 1024;
-            for (TextEntry entry : entries.values()) {
-                estimatedSize += 4 + 1 + 4 + entry.id().getBytes(StandardCharsets.UTF_8).length + 4 + entry.text().getBytes(StandardCharsets.UTF_8).length;
-            }
-
-            try (DefaultAppendMemory<TextBlobLayout> tempMemory = new DefaultAppendMemory<>(tempId, layout, 0, estimatedSize, tempFile)) {
-                for (TextEntry entry : entries.values()) {
-                    byte[] idBytes = entry.id().getBytes(StandardCharsets.UTF_8);
-                    byte[] textBytes = entry.text().getBytes(StandardCharsets.UTF_8);
-                    long hash = XxHash64.hash(textBytes);
-
-                    TextPosition pos = hashToPosition.get(hash);
-                    if (pos != null) {
-                        textPositionMap.put(entry.id(), pos);
-                        continue;
-                    }
-
-                    int entrySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
-                    MemorySegment entrySeg = Arena.ofAuto().allocate(entrySize);
-                    entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) entry.tier().ordinal());
-                    entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 1, idBytes.length);
-                    MemorySegment.copy(MemorySegment.ofArray(idBytes), 0, entrySeg, 5, idBytes.length);
-                    entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 5 + idBytes.length, textBytes.length);
-                    MemorySegment.copy(MemorySegment.ofArray(textBytes), 0, entrySeg, 5 + idBytes.length + 4, textBytes.length);
-
-                    long payloadOffset = tempMemory.append(entrySeg);
-                    long textOffset = tempMemory.dataOffset() + payloadOffset + 9 + idBytes.length;
-
-                    TextPosition newPos = new TextPosition(textOffset, textBytes.length);
-                    textPositionMap.put(entry.id(), newPos);
-                    hashToPosition.put(hash, newPos);
-                }
-                tempMemory.flush();
-            }
-
-            Files.move(tempFile, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-
-            initAppendMemory(0);
-            this.entryCount = entries.size();
-            log.debug("Rebuilt text.dat with {} entries (deduplicated): {}", entries.size(), file);
-
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to rebuild text.dat: " + file, e);
+        for (TextEntry entry : entries.values()) {
+            write(entry.id(), entry.tier(), entry.text());
         }
-    }
-
-    /**
-     * Returns the off-heap mapped segment for zero-copy text access.
-     *
-     * @return the mapped MemorySegment, or null
-     */
-    public MemorySegment segment() {
-        return appendMemory != null ? appendMemory.segment() : null;
-    }
-
-    /**
-     * Returns the underlying kernel DefaultAppendMemory backing this text store.
-     */
-    public DefaultAppendMemory<TextBlobLayout> backing() {
-        return this.appendMemory;
+        flush();
+        this.entryCount = entries.size();
+        log.debug("Rebuilt text.dat with {} entries (deduplicated): {}", entries.size(), file);
     }
 
     /** Returns the number of entries in this store. */
+    @Override
     public int size() {
         return entryCount;
     }
@@ -499,15 +394,7 @@ public final class TextDataStore implements AutoCloseable {
         return file;
     }
 
-    @Override
-    public synchronized void close() {
-        if (appendMemory != null) {
-            appendMemory.close();
-            appendMemory = null;
-        }
-    }
-
-    private final String decryptIfNeeded(String raw) {
+    private static String decryptIfNeeded(String raw, DataEncryptor encryptor) {
         if (!encryptor.isEnabled() || raw == null || raw.isEmpty()) {
             return raw;
         }
@@ -518,7 +405,6 @@ public final class TextDataStore implements AutoCloseable {
         } catch (IllegalArgumentException e) {
             return raw;
         } catch (RuntimeException e) {
-            decryptFailCount.incrementAndGet();
             log.debug("Failed to decrypt text entry (wrong key?): {}", e.getMessage());
             return raw;
         }
@@ -536,16 +422,14 @@ public final class TextDataStore implements AutoCloseable {
             return false;
         }
 
-        if (appendMemory == null) {
-            initAppendMemory(0);
-        }
-
         TextPosition pos = textPositionMap.get(targetId);
         if (pos == null) return false;
 
-        MemorySegment seg = appendMemory.segment();
-        seg.asSlice(pos.textOffset(), pos.textLength()).fill((byte) 0);
-        appendMemory.flush();
+        MemorySegment seg = segment();
+        if (seg != null) {
+            seg.asSlice(pos.textOffset(), pos.textLength()).fill((byte) 0);
+            flush();
+        }
 
         log.debug("Securely erased {} bytes of text for memory '{}'", pos.textLength(), targetId);
         return true;

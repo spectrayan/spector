@@ -58,7 +58,7 @@ public final class ColocatedPartition {
     private final int seqNo;
     private final long createdEpochSecs;
     private final Path directory;
-    private final TextDataStore textStore;
+    private final TextAppendMemory textStore;
     private volatile boolean frozen;
 
     // Counts per tier (tracked by the partition manager or loaded from index)
@@ -93,7 +93,7 @@ public final class ColocatedPartition {
         this.createdEpochSecs = createdEpochSecs;
         this.directory = directory;
         this.frozen = frozen;
-        this.textStore = TextDataStore.forPartition(directory, encryptor);
+        this.textStore = TextAppendMemory.forPartition(directory, encryptor);
 
         // Ensure directory exists
         try {
@@ -125,7 +125,7 @@ public final class ColocatedPartition {
     }
 
     /** The text.dat store for this partition. */
-    public TextDataStore textStore() { return textStore; }
+    public TextAppendMemory textStore() { return textStore; }
 
     // ── Tier file paths ──
 

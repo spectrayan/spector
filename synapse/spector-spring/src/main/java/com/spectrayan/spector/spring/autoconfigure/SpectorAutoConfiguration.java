@@ -89,7 +89,7 @@ public class SpectorAutoConfiguration {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));
         }
 
-        // -€-€ Entity extraction (LLM if LlmProvider is present) -€-€
+        //  Entity extraction (LLM if LlmProvider is present) 
         LlmProvider textGen = textGenProvider.getIfAvailable();
         if (textGen != null) {
             builder.entityExtractionMode(EntityExtractionMode.LLM);
@@ -98,14 +98,14 @@ public class SpectorAutoConfiguration {
             builder.entityExtractionMode(EntityExtractionMode.NONE);
         }
 
-        // -€-€ Salience profile provider (user-driven importance modulation) -€-€
+        //  Salience profile provider (user-driven importance modulation) 
         SalienceProfileProvider salience = salienceProvider.getIfAvailable();
         if (salience != null) {
             builder.salienceProfileProvider(salience);
             log.info("SpectorMemory: user salience profile provider wired");
         }
 
-        // -€-€ SPLADE + ColBERT providers (auto-created from embedding provider) -€-€
+        //  SPLADE + ColBERT providers (auto-created from embedding provider) 
         if (memoryProps.isSpladeEnabled()) {
             builder.SparseEmbeddingProvider(
                     new com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider(embedder));

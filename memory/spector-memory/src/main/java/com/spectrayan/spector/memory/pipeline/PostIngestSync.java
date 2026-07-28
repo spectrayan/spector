@@ -18,7 +18,7 @@ import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
-import com.spectrayan.spector.memory.cortex.TextDataStore;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
@@ -71,7 +71,7 @@ final class PostIngestSync {
 
     private static final Logger log = LoggerFactory.getLogger(PostIngestSync.class);
 
-    // -€-€ Subsystem references (all nullable except index, wal) -€-€
+    //  Subsystem references (all nullable except index, wal) 
     private volatile TierRouter tierRouter;
     private final MemoryIndex index;
     private final MemoryWal wal;
@@ -81,7 +81,7 @@ final class PostIngestSync {
     private final EntityExtractor entityExtractor;
     private final EntityGraph entityGraph;
     private final MemoryBM25Index bm25Index;
-    private final TextDataStore textDataStore;
+    private final TextAppendMemory textDataStore;
     private final int activePartitionIndex;
     private final MemorySpladeIndex spladeIndex;
     private final SparseEmbeddingProvider spladeProvider;
@@ -92,7 +92,7 @@ final class PostIngestSync {
                    VectorIndex semanticIndex,
                    HebbianGraphBase hebbianGraph, TemporalChain temporalChain,
                    EntityExtractor entityExtractor, EntityGraph entityGraph,
-                   MemoryBM25Index bm25Index, TextDataStore textDataStore,
+                   MemoryBM25Index bm25Index, TextAppendMemory textDataStore,
                    int activePartitionIndex,
                    MemorySpladeIndex spladeIndex, SparseEmbeddingProvider spladeProvider,
                    DataEncryptor encryptor,
@@ -300,13 +300,13 @@ final class PostIngestSync {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // PRIVATE HELPERS
-    // ==============================================================
+    // ==============================================================
 
-    private com.spectrayan.spector.memory.cortex.TextDataStore.TextPosition syncTextIndex(
+    private TextAppendMemory.TextPosition syncTextIndex(
             String id, String text, MemoryType type) {
-        com.spectrayan.spector.memory.cortex.TextDataStore.TextPosition pos = null;
+        TextAppendMemory.TextPosition pos = null;
         if (textDataStore != null) {
             try {
                 String textToStore = text;

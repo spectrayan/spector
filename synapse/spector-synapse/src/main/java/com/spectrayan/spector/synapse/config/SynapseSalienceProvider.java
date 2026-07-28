@@ -149,7 +149,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
         }
     }
 
-    // -€-€ Interest Management -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  Interest Management 
 
     /** Stored interests (with embeddings)  --  survives persona updates. */
     private volatile List<InterestDomain> interests = List.of();
@@ -353,7 +353,7 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
         return sb.toString();
     }
 
-    // -€-€ DTOs -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  DTOs 
 
     /**
      * A topic interest entry from the API (without embedding).

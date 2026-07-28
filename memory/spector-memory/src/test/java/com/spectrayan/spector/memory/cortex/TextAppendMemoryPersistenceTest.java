@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.StorageLayout;
-import com.spectrayan.spector.memory.cortex.TextDataStore.TextEntry;
-import com.spectrayan.spector.memory.cortex.TextDataStore.TextPosition;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextEntry;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextPosition;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -24,17 +24,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TextDataStorePersistenceTest {
+class TextAppendMemoryPersistenceTest {
 
     @TempDir
     Path tempDir;
@@ -86,8 +84,8 @@ class TextDataStorePersistenceTest {
             ch.write(entry2);
         }
 
-        // 2. Open via TextDataStore (which triggers migration on readAll)
-        try (TextDataStore store = new TextDataStore(textFile)) {
+        // 2. Open via TextAppendMemory (which triggers migration on readAll)
+        try (TextAppendMemory store = new TextAppendMemory(textFile)) {
             Map<String, TextEntry> entries = store.readAll();
 
             assertThat(entries).hasSize(2);
@@ -109,7 +107,7 @@ class TextDataStorePersistenceTest {
 
     @Test
     void testXxHashDeduplication() {
-        try (TextDataStore store = new TextDataStore(textFile)) {
+        try (TextAppendMemory store = new TextAppendMemory(textFile)) {
             // Write distinct strings
             TextPosition pos1 = store.write("mem-1", MemoryType.SEMANTIC, "Unique text content");
             TextPosition pos2 = store.write("mem-2", MemoryType.SEMANTIC, "Another unique content");

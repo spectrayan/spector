@@ -118,7 +118,7 @@ public final class E2EMemoryContext {
     public synchronized void ingestIfNeeded() {
         if (ingested) return;
 
-        log.info("=== Ingesting {} seed memories ===", seedMemories.size());
+        log.info("=== Ingesting {} seed memories ===", seedMemories.size());
         long start = System.currentTimeMillis();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -136,12 +136,12 @@ public final class E2EMemoryContext {
         ingested = true;
     }
 
-    // -€-€ Initialization -€-€
+    //  Initialization 
 
     private static void initialize() {
-        log.info("=”===============================================================—");
+        log.info("=”===============================================================—");
         log.info("=‘  Spector Memory E2E  --  Initializing shared context           =‘");
-        log.info("=š===============================================================");
+        log.info("=š===============================================================");
 
         // Load seed data from markdown files
         seedMemories = E2ESeedData.loadAll();

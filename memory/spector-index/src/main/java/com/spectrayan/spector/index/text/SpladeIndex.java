@@ -83,10 +83,10 @@ public class SpladeIndex implements KeywordIndex {
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    // -€-€ Weighted inverted index -€-€
+    //  Weighted inverted index 
     private final Map<String, WeightedPostingList> invertedIndex;
 
-    // -€-€ Document metadata -€-€
+    //  Document metadata 
     private final List<String> docIds;
     private final Map<String, Integer> docIdToIndex;
     private int totalDocs;
@@ -263,7 +263,7 @@ public class SpladeIndex implements KeywordIndex {
         }
     }
 
-    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ Internal scoring -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  Internal scoring 
 
     private ScoredResult[] searchSparseInternal(Map<String, Float> querySparse, int k) {
         if (querySparse.isEmpty() || totalDocs == 0) {
@@ -272,7 +272,7 @@ public class SpladeIndex implements KeywordIndex {
 
         final int n = docIds.size();
 
-        // -€-€ Collect valid terms and estimate total postings -€-€
+        //  Collect valid terms and estimate total postings 
         int totalPostings = 0;
         List<Map.Entry<String, Float>> validTerms = new ArrayList<>(querySparse.size());
         for (var qEntry : querySparse.entrySet()) {
@@ -286,7 +286,7 @@ public class SpladeIndex implements KeywordIndex {
             return new ScoredResult[0];
         }
 
-        // -€-€ Score: parallel + SIMD merge for large workloads, sequential otherwise -€-€
+        //  Score: parallel + SIMD merge for large workloads, sequential otherwise 
         float[] scores;
         if (validTerms.size() > 1 && totalPostings >= PARALLEL_POSTING_THRESHOLD) {
             scores = scoreTermsParallel(validTerms, n);
@@ -294,7 +294,7 @@ public class SpladeIndex implements KeywordIndex {
             scores = scoreTermsSequential(validTerms, n);
         }
 
-        // -€-€ Top-K extraction via bounded min-heap -€-€
+        //  Top-K extraction via bounded min-heap 
         return extractTopK(scores, n, k);
     }
 

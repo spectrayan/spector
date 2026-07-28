@@ -218,7 +218,7 @@ public final class LlmTagExtractor implements TagExtractor {
                 }
             }
 
-            // -€-€ Smart extraction of valence/arousal embedded in the tag stream -€-€
+            //  Smart extraction of valence/arousal embedded in the tag stream 
             // Models sometimes concatenate everything: "cleanliness/valence-105/arousal-234"
             // which after slash -> comma becomes "cleanliness,valence-105,arousal-234"
             // or even merged: "cleanlinessvalence-105arousal-234"

@@ -113,7 +113,7 @@ public class MemoryService {
     @org.springframework.beans.factory.annotation.Value("${spector.memory.decay.baseline-half-life-days:180}")
     private int baselineHalfLifeDays = 180;
 
-    // -€-€ Analytics & Telemetry Counters -€-€
+    //  Analytics & Telemetry Counters 
     private final AtomicLong recallCount = new AtomicLong(0);
     private final AtomicLong rememberCount = new AtomicLong(0);
     private final AtomicLong totalLatencyMs = new AtomicLong(0);

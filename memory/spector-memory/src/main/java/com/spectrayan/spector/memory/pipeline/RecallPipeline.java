@@ -144,25 +144,25 @@ public final class RecallPipeline {
 
     private final List<RecallListener> listeners = new ArrayList<>();
 
-    // -€-€ 3-Layer Cognitive Graph (all nullable) -€-€
+    //  3-Layer Cognitive Graph (all nullable) 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityGraph entityGraph;
     private final EntityExtractor entityExtractor;
 
-    // -€-€ BM25 Text Search (nullable  --  graceful degradation) -€-€
+    //  BM25 Text Search (nullable  --  graceful degradation) 
     private final MemoryBM25Index bm25Index;
 
-    // -€-€ SPLADE Sparse Search (nullable  --  graceful degradation) -€-€
+    //  SPLADE Sparse Search (nullable  --  graceful degradation) 
     private final MemorySpladeIndex spladeIndex;
     private final SparseEmbeddingProvider spladeProvider;
     private volatile boolean spladeWarnLogged = false;
 
-    // -€-€ ColBERT v2 Reranker (nullable  --  graceful degradation) -€-€
+    //  ColBERT v2 Reranker (nullable  --  graceful degradation) 
     private final ColBERTReranker colbertReranker;
     private volatile boolean colbertWarnLogged = false;
 
-    // -€-€ Neurodivergent: Lateral feedback tracking -€-€
+    //  Neurodivergent: Lateral feedback tracking 
     // Maps memoryId  ->  RetrievalMode for the most recent recall.
     // Used by SpectorMemory.reinforce()/suppress() to feed LateralEvaluator.
     // Entries expire implicitly via size cap (oldest evicted at 2000).
@@ -171,10 +171,10 @@ public final class RecallPipeline {
     private static final int RETRIEVAL_MODE_CACHE_MAX = 2000;
     private RecallOptions lastRecallOptions; // for detecting hyperfocus mode
 
-    // -€-€ Executive Dysfunction: Associative recall context history -€-€
+    //  Executive Dysfunction: Associative recall context history 
     private final RecallHistory recallHistory;
 
-    // -€-€ Semantic Satiation: Anti-looping cache -€-€
+    //  Semantic Satiation: Anti-looping cache 
     // Bounded cache of last N result IDs. Any result that appears in this
     // hot cache gets a 0.5x penalty, breaking exact-query loops.
     // Uses ConcurrentHashMap to avoid virtual thread pinning (ADR-005).
@@ -294,7 +294,7 @@ public final class RecallPipeline {
         this.colbertReranker = colbertReranker;
         this.recallHistory = null;
 
-        // -€-€ Delegate graph expansion to focused stage class -€-€
+        //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
                 hebbianGraph, temporalChain, entityGraph, entityExtractor,
                 this.graphScoringPolicy, index, tierRouter,
@@ -347,7 +347,7 @@ public final class RecallPipeline {
         this.colbertReranker = colbertReranker;
         this.recallHistory = recallHistory;
 
-        // -€-€ Delegate graph expansion to focused stage class -€-€
+        //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
                 hebbianGraph, temporalChain, entityGraph, entityExtractor,
                 this.graphScoringPolicy, index, tierRouter,
@@ -628,7 +628,7 @@ public final class RecallPipeline {
         // Step 4: Filter suppressed memories (inhibition)  --  always active
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
-        // -€-€ Steps 5-5e: Cognitive post-processing -€-€
+        //  Steps 5-5e: Cognitive post-processing 
         // In SIMILARITY mode, skip ALL cognitive scoring modifications:
         // habituation, causal boost, Hebbian, temporal chains, entity graph.
         // This ensures benchmarks measure pure retrieval quality.
@@ -850,7 +850,7 @@ public final class RecallPipeline {
             }
         }
 
-        // -€-€ Pipeline Tracing (opt-in) -€-€
+        //  Pipeline Tracing (opt-in) 
         // When enableTrace is true, attach a RecallTrace to each result showing
         // how its score evolved through the cognitive pipeline phases.
         if (options.enableTrace() && !allResults.isEmpty()) {
@@ -912,9 +912,9 @@ public final class RecallPipeline {
         return allResults;
     }
 
-    // ==============================================================
+    // ==============================================================
     // BM25 FUSION  --  merges keyword results with vector results
-    // ==============================================================
+    // ==============================================================
 
     /**
      * Fuses BM25 text search candidates with existing vector recall results.
@@ -934,7 +934,7 @@ public final class RecallPipeline {
     private void fuseBM25Candidates(List<CognitiveResult> vectorResults,
                                      List<BM25Candidate> bm25Hits,
                                      RecallOptions options, long nowMs) {
-        // -€-€ Reciprocal Rank Fusion (RRF) -€-€
+        //  Reciprocal Rank Fusion (RRF) 
         // Industry-standard fusion: RRF_score(d) = sum 1/(k + rank(d))
         // where k=60 prevents top-1 from dominating. Used by Elasticsearch,
         // Weaviate, Qdrant. Much better than additive score fusion because
@@ -1039,9 +1039,9 @@ public final class RecallPipeline {
                 vectorRanks.size(), bm25Ranks.size(), vectorResults.size());
     }
 
-    // ==============================================================
+    // ==============================================================
     // PARALLEL SCANNING  --  builds Callable tasks for each tier/partition
-    // ==============================================================
+    // ==============================================================
 
     private List<Callable<List<CognitiveResult>>> buildScanTasks(
             float[] queryVector, RecallOptions options, long nowMs, MemoryType[] targetTypes) {
@@ -1169,9 +1169,9 @@ public final class RecallPipeline {
         return results;
     }
 
-    // ==============================================================
+    // ==============================================================
     // SCORING HELPERS  --  return lists (for parallel composition)
-    // ==============================================================
+    // ==============================================================
 
     private List<CognitiveResult> scoreStoreToList(MemorySegment segment, int recordCount,
                                                      CognitiveRecordLayout layout, float[] queryVector,
@@ -1263,7 +1263,7 @@ public final class RecallPipeline {
             mode = RetrievalMode.STANDARD;
         }
 
-        // -€-€ ScoreBreakdown: re-derive components from header -€-€
+        //  ScoreBreakdown: re-derive components from header 
         // Uses the same formula as CognitiveScorer Phase 6.
         // Note: these are approximations  --  the scorer's strictness/arousal/storageBoost
         // values are folded into the fused score. We capture what we can from the header.
@@ -1332,9 +1332,9 @@ public final class RecallPipeline {
 
 
 
-    // ==============================================================
+    // ==============================================================
     // WAL REPLAY  --  Point-in-Time Recall
-    // ==============================================================
+    // ==============================================================
 
     /**
      * Performs recall against a reconstructed point-in-time memory state.
@@ -1428,9 +1428,9 @@ public final class RecallPipeline {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // PROFILE HEADER WRITE  --  stamps profile ordinal at byte 60
-    // ==============================================================
+    // ==============================================================
 
     /**
      * Writes the CognitiveProfile ordinal to byte 60 of each result's synaptic header.
@@ -1462,9 +1462,9 @@ public final class RecallPipeline {
         }
     }
 
-    // ==============================================================
+    // ==============================================================
     // ASSOCIATIVE RECALL  --  bottom-up context-driven retrieval
-    // ==============================================================
+    // ==============================================================
 
     /**
      * Associative recall for Executive Dysfunction profile.

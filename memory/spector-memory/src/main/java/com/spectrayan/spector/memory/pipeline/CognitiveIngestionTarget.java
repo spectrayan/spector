@@ -41,7 +41,7 @@ import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
-import com.spectrayan.spector.memory.cortex.TextDataStore;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingResult;
@@ -108,36 +108,36 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final TagExtractor tagExtractor;
     private final boolean normalizeAtIngest;
 
-    // -€-€ Graph components (all nullable  --  graceful degradation) -€-€
+    //  Graph components (all nullable  --  graceful degradation) 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChain temporalChain;
     private final EntityExtractor entityExtractor;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
 
-    // -€-€ BM25 Text Search (nullable  --  graceful degradation) -€-€
+    //  BM25 Text Search (nullable  --  graceful degradation) 
     private final MemoryBM25Index bm25Index;
-    private final TextDataStore textDataStore;
+    private final TextAppendMemory textDataStore;
     private final int activePartitionIndex;
 
-    // -€-€ SPLADE Sparse Search (nullable  --  graceful degradation) -€-€
+    //  SPLADE Sparse Search (nullable  --  graceful degradation) 
     private final MemorySpladeIndex spladeIndex;
     private final SparseEmbeddingProvider spladeProvider;
 
-    // -€-€ Data Encryption SPI (NOOP in OSS mode) -€-€
+    //  Data Encryption SPI (NOOP in OSS mode) 
     private final DataEncryptor encryptor;
 
-    // -€-€ Salience Profile (NEUTRAL in OSS mode) -€-€
+    //  Salience Profile (NEUTRAL in OSS mode) 
     private volatile SalienceProfile salienceProfile;
 
-    // -€-€ Session tracking for Hebbian co-ingestion and temporal chains -€-€
+    //  Session tracking for Hebbian co-ingestion and temporal chains 
     private final AtomicInteger lastIngestedMemoryIdx = new AtomicInteger(-1);
     private volatile int currentSessionId = 0;
 
-    // -€-€ Post-ingest index synchronization stage -€-€
+    //  Post-ingest index synchronization stage 
     private final PostIngestSync postIngestSync;
 
-    // -€-€ Partition rolling callback (nullable) -€-€
+    //  Partition rolling callback (nullable) 
     private volatile Runnable partitionRollCallback;
 
     public CognitiveIngestionTarget(ScalarQuantizer quantizer,
@@ -157,7 +157,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      EntityGraph entityGraph,
                                      HyperEntityGraph hyperEntityGraph,
                                      MemoryBM25Index bm25Index,
-                                     TextDataStore textDataStore,
+                                     TextAppendMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider) {
@@ -190,7 +190,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      EntityGraph entityGraph,
                                      HyperEntityGraph hyperEntityGraph,
                                      MemoryBM25Index bm25Index,
-                                     TextDataStore textDataStore,
+                                     TextAppendMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
@@ -284,9 +284,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 null, null);
     }
 
-    // ===============================================================
+    // ===============================================================
     // IngestionTarget  --  from unified pipeline (bulk ingestion)
-    // ===============================================================
+    // ===============================================================
 
     /**
      * Ingests a pre-embedded chunk using SEMANTIC defaults.
@@ -321,9 +321,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 tags, MemorySource.OBSERVED, hints);
     }
 
-    // ===============================================================
+    // ===============================================================
     // Full cognitive entry point  --  from SpectorMemory.remember()
-    // ===============================================================
+    // ===============================================================
 
     /**
      * Full cognitive ingestion with all parameters.
@@ -342,7 +342,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public void ingestCognitive(String id, String text, float[] vector,
                                  MemoryType type, String[] tags,
                                  MemorySource source, IngestionHints hints) {
-        // -€-€ Dedup guard: skip if this ID is already indexed -€-€
+        //  Dedup guard: skip if this ID is already indexed 
         // The MemoryIndex (loaded from disk on startup) tracks all known IDs.
         // Without this check, re-ingesting the same files would:
         //   - Append orphaned records to tier stores (semantic.mem grows)
@@ -486,9 +486,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 id, type, importance, tags.length, storeIndex, source);
     }
 
-    // ===============================================================
+    // ===============================================================
     // Migration entry point  --  preserves full cognitive state
-    // ===============================================================
+    // ===============================================================
 
     /**
      * Migration-aware ingestion that preserves the original {@link CognitiveHeader}.
@@ -753,7 +753,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 context.hasTemporalLinks() ? context.temporalLinks().size() : 0);
     }
 
-    // ===============================================================
+    // ===============================================================
 
     /**
      * Encodes tags using the active encryptor (keyed HMAC or standard MurmurHash).

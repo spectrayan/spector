@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.index;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TextDataStore;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
@@ -89,7 +89,7 @@ public final class MemoryIndex {
     private final ConcurrentHashMap<Long, String> reverseIndex = new ConcurrentHashMap<>();
 
     // ── Off-heap text data store ──
-    private volatile TextDataStore textDataStore;
+    private volatile TextAppendMemory textDataStore;
 
     // ── Inverted tag index ──
     private final ConcurrentHashMap<String, java.util.Set<String>> tagToIds = new ConcurrentHashMap<>();
@@ -253,11 +253,11 @@ public final class MemoryIndex {
         return id != null ? text(id) : null;
     }
 
-    public void setTextDataStore(TextDataStore store) {
+    public void setTextDataStore(TextAppendMemory store) {
         this.textDataStore = store;
     }
 
-    public TextDataStore textDataStore() {
+    public TextAppendMemory textDataStore() {
         return this.textDataStore;
     }
 

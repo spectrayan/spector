@@ -59,13 +59,13 @@ public class SpectorMcpMain {
     private static final Logger log = LoggerFactory.getLogger(SpectorMcpMain.class);
 
     public static void main(String[] args) {
-        // -€-€ Handle --help -€-€
+        //  Handle --help 
         if (hasFlag(args, "--help") || hasFlag(args, "-h")) {
             printHelp();
             return;
         }
 
-        // -€-€ Load hierarchical configuration -€-€
+        //  Load hierarchical configuration 
         SpectorProperties.Builder propsBuilder = SpectorProperties.builder();
 
         // Explicit config file
@@ -155,7 +155,7 @@ public class SpectorMcpMain {
         EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
         log.info("[Spector MCP] Embedding: {} @ {}", embedDefaults.model(), embedDefaults.baseUrl());
 
-        // -€-€ Create text generation provider for LLM tag extraction (if configured) -€-€
+        //  Create text generation provider for LLM tag extraction (if configured) 
         LlmProvider textGenProvider = null;
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
@@ -167,10 +167,10 @@ public class SpectorMcpMain {
             log.info("[Spector MCP] LLM tag extraction: {} @ {}", tagModel, embedDefaults.baseUrl());
         }
 
-        // -€-€ Create runtime (engine + optional memory) -€-€
+        //  Create runtime (engine + optional memory) 
         SpectorRuntime runtime = SpectorRuntime.from(props, embedder, textGenProvider);
 
-        // -€-€ Start the MCP server (STDIO for CLI use) -€-€
+        //  Start the MCP server (STDIO for CLI use) 
         // For HTTP/SSE transport, use SpectorNode with mcpEnabled=true instead.
         SpectorMcpServer server = new SpectorMcpServer(runtime);
 
@@ -186,7 +186,7 @@ public class SpectorMcpMain {
 
 
 
-    // -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€ CLI Parsing Helpers -€-€-€-€-€-€-€-€-€-€-€-€-€-€-€
+    //  CLI Parsing Helpers 
 
     private static String getStringArg(String[] args, String name, String defaultValue) {
         for (int i = 0; i < args.length - 1; i++) {
