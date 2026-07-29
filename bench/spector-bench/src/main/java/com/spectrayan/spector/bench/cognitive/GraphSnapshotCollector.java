@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 /**
  * Captures a static snapshot of graph state from a {@link SpectorMemory} instance.
@@ -105,7 +105,7 @@ public final class GraphSnapshotCollector {
         int temporalLinkedCount = 0;
         int temporalCapacity = 0;
 
-        TemporalChain tc = memory.admin().temporalChain();
+        TemporalChainMemory tc = memory.admin().temporalChain();
         if (tc != null) {
             temporalCapacity = tc.capacity();
             // Count how many slots are linked (have temporal connections)

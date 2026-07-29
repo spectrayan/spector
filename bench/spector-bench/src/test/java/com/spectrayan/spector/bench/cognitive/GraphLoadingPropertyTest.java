@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -95,7 +95,7 @@ class GraphLoadingPropertyTest {
     void temporalChain_isDoublyLinked(
             @ForAll @IntRange(min = 3, max = 15) int chainLength) {
 
-        TemporalChain chain = new TemporalChain(100);
+        TemporalChainMemory chain = new TemporalChainMemory(100);
 
         // Link a chain of sequential indices
         int sessionId = 42;
