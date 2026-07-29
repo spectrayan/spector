@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.consolidation;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.AbstractTierStore;
+import com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
@@ -63,7 +63,7 @@ public final class ConsolidationService {
     public void consolidate(TierRouter tierRouter, MemoryIndex index, ScalarQuantizer quantizer,
                             EntityGraphMemory entityGraph, CognitiveIngestionTarget ingestionTarget,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
-        AbstractTierStore semanticStore = (AbstractTierStore) tierRouter.semantic();
+        AbstractCognitiveRecordMemory semanticStore = (AbstractCognitiveRecordMemory) tierRouter.semantic();
         if (semanticStore == null || semanticStore.visibleCount() < 2) {
             log.debug("Consolidation: semantic store too small to run consolidation (visibleCount={})",
                     semanticStore == null ? 0 : semanticStore.visibleCount());
@@ -126,8 +126,8 @@ public final class ConsolidationService {
 
                 // Add CONTRADICTS relation in EntityGraph
                 if (entityGraph != null) {
-                    int slotA = (int) ((offsetA - (semanticStore.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0L)) / layout.stride());
-                    int slotB = (int) ((offsetB - (semanticStore.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0L)) / layout.stride());
+                    int slotA = (int) ((offsetA - (semanticStore.isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
+                    int slotB = (int) ((offsetB - (semanticStore.isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
 
                     List<Integer> entitiesA = memToEntities.get(slotA);
                     List<Integer> entitiesB = memToEntities.get(slotB);
@@ -196,7 +196,7 @@ public final class ConsolidationService {
         }
     }
 
-    private void tombstoneRecord(CognitiveRecord record, AbstractTierStore store, MemoryIndex index, MemoryWal wal) {
+    private void tombstoneRecord(CognitiveRecord record, AbstractCognitiveRecordMemory store, MemoryIndex index, MemoryWal wal) {
         MemorySegment segment = store.segment();
         CognitiveRecordLayout layout = store.cognitiveLayout();
         layout.tombstone(segment, record.byteOffset());

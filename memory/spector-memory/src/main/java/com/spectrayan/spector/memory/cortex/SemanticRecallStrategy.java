@@ -133,7 +133,7 @@ public final class SemanticRecallStrategy {
         for (ScoredResult sr : hnswResults) {
             // HNSW returns an internal store index — compute record offset in segment
             // For persistent stores, records start after the 64-byte metadata header
-            long dataOffset = semanticStore.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
+            long dataOffset = semanticStore.isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
             long headerOffset = dataOffset + (long) sr.index() * layout.stride();
 
             // Bounds check: ensure we're within the slab

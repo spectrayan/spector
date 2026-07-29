@@ -34,7 +34,7 @@ import java.lang.foreign.MemorySegment;
  *   <li>{@link ProceduralMemoryStore} — small append-only store (Basal Ganglia)</li>
  * </ul>
  *
- * @see AbstractTierStore for common implementation
+ * @see AbstractCognitiveRecordMemory for common implementation
  * @see TierRouter for polymorphic dispatch
  */
 public interface TierStore extends AutoCloseable {

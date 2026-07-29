@@ -48,7 +48,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Flat scan with {@code CognitiveScorer} for distance computation</li>
  * </ul>
  */
-public final class SemanticRecordMemory extends AbstractTierStore {
+public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
 
     private static final Logger log = LoggerFactory.getLogger(SemanticRecordMemory.class);
 

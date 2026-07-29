@@ -123,7 +123,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     /**
      * Wrapping constructor — adopts a pre-made Arena and segment.
      *
-     * <p>Used for deep composition: the caller (e.g., {@code AbstractTierStore})
+     * <p>Used for deep composition: the caller (e.g., {@code AbstractCognitiveRecordMemory})
      * manages mmap lifecycle and header format, then wraps the result in a
      * kernel {@code Memory} for standardized identity, shape, and accessor methods.</p>
      *

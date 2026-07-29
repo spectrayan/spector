@@ -172,7 +172,7 @@ public final class TierRouter implements AutoCloseable {
      */
     public void forceAll() {
         for (TierStore store : stores.values()) {
-            if (store instanceof AbstractTierStore ats && ats.isPersistent()) {
+            if (store instanceof AbstractCognitiveRecordMemory ats && ats.isPersistent()) {
                 ats.force();
             }
         }

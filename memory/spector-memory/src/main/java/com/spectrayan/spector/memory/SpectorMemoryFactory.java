@@ -615,7 +615,7 @@ public final class SpectorMemoryFactory {
             int stride = recLayout.stride();
             int vecBytes = recLayout.quantizedVecBytes();
             long baseOffset = semStore.filePath() != null
-                    ? com.spectrayan.spector.memory.cortex.AbstractTierStore.METADATA_HEADER_BYTES : 0;
+                    ? com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
 
             int rebuilt = 0;
             for (int i = 0; i < storeSize; i++) {

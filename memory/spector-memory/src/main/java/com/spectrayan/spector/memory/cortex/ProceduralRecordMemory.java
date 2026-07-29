@@ -47,7 +47,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Flat scan with {@code CognitiveScorer}</li>
  * </ul>
  */
-public final class ProceduralRecordMemory extends AbstractTierStore {
+public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory {
 
     private static final Logger log = LoggerFactory.getLogger(ProceduralRecordMemory.class);
 

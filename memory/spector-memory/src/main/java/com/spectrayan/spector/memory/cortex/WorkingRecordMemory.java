@@ -51,7 +51,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>Uses a shared Arena. Write access is synchronized; reads are lock-free
  * (scan over immutable segments).</p>
  */
-public final class WorkingRecordMemory extends AbstractTierStore {
+public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
 
     private static final Logger log = LoggerFactory.getLogger(WorkingRecordMemory.class);
 

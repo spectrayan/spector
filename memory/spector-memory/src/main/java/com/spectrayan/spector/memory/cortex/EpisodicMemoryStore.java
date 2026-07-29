@@ -47,7 +47,7 @@ import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
  *   <li>Persistent across JVM restarts via {@code FileChannel.map()}</li>
  * </ul>
  */
-public final class EpisodicMemoryStore extends AbstractTierStore {
+public final class EpisodicMemoryStore extends AbstractCognitiveRecordMemory {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicMemoryStore.class);
 
@@ -217,8 +217,8 @@ public final class EpisodicMemoryStore extends AbstractTierStore {
      */
     public static final class EpisodicPartition {
 
-        /** Size of the metadata header in bytes (matches AbstractTierStore). */
-        public static final int METADATA_HEADER_BYTES = AbstractTierStore.METADATA_HEADER_BYTES;
+        /** Size of the metadata header in bytes (matches AbstractCognitiveRecordMemory). */
+        public static final int METADATA_HEADER_BYTES = AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES;
 
         private final EpisodicMemoryStore store;
         private int tombstoneCount = 0;

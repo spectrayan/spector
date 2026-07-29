@@ -31,7 +31,7 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.TextSearchMode;
-import com.spectrayan.spector.memory.cortex.AbstractTierStore;
+import com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore.EpisodicPartition;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
@@ -1099,7 +1099,7 @@ public final class RecallPipeline {
                             return scoreHeaderSlabToList(
                                     seg, tierRouter.semantic().visibleCount(),
                                     tierRouter.semantic().cognitiveLayout(), queryVector, options, nowMs,
-                                    tierRouter.semantic().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0);
+                                    tierRouter.semantic().isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0);
                         } finally {
                             NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
                         }
@@ -1156,7 +1156,7 @@ public final class RecallPipeline {
                     results.addAll(scoreHeaderSlabToList(tierRouter.semantic().headerSlab(),
                             tierRouter.semantic().visibleCount(), tierRouter.semantic().cognitiveLayout(),
                             queryVector, options, nowMs,
-                            tierRouter.semantic().isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0));
+                            tierRouter.semantic().isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0));
                 }
             }
         }

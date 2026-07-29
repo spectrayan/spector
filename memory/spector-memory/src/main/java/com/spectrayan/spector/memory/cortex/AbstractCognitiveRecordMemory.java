@@ -39,18 +39,18 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 /**
- * Abstract base class for single-segment tier stores.
+ * Abstract base class for cognitive record memory stores (Prefrontal, Neocortex, Basal Ganglia).
  *
  * <p>Extends {@link AbstractRecordMemory} directly with {@link CognitiveRecordLayoutAdapter}
- * per ADR-013.</p>
+ * per ADR-013, completely replacing legacy {@code AbstractTierStore} nomenclature.</p>
  *
  * @see TierStore for the common interface
  */
-public abstract class AbstractTierStore 
+public abstract class AbstractCognitiveRecordMemory 
         extends AbstractRecordMemory<CognitiveRecordLayoutAdapter> 
         implements TierStore {
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractTierStore.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractCognitiveRecordMemory.class);
 
     private volatile MemoryId memoryId;
     private final CognitiveRecordLayoutAdapter layoutAdapter;
@@ -79,7 +79,7 @@ public abstract class AbstractTierStore
     static {
         try {
             VISIBLE_COUNT_HANDLE = MethodHandles.lookup()
-                    .findVarHandle(AbstractTierStore.class, "maxVisibleRecord", int.class);
+                    .findVarHandle(AbstractCognitiveRecordMemory.class, "maxVisibleRecord", int.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -132,11 +132,11 @@ public abstract class AbstractTierStore
     /**
      * Volatile constructor — allocates a single contiguous off-heap segment (no file).
      */
-    protected AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes) {
+    protected AbstractCognitiveRecordMemory(int quantizedVecBytes, int capacity, long segmentBytes) {
         this(quantizedVecBytes, capacity, segmentBytes, Arena.ofShared());
     }
 
-    private AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
+    private AbstractCognitiveRecordMemory(int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
         this(new CognitiveRecordLayout(quantizedVecBytes),
              new CognitiveRecordLayoutAdapter(new CognitiveRecordLayout(quantizedVecBytes)),
              capacity, sharedArena,
@@ -147,15 +147,15 @@ public abstract class AbstractTierStore
     /**
      * File-backed constructor — creates or opens a persistent mmap'd file.
      */
-    protected AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
+    protected AbstractCognitiveRecordMemory(int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
         this(new CognitiveRecordLayout(quantizedVecBytes),
              new CognitiveRecordLayoutAdapter(new CognitiveRecordLayout(quantizedVecBytes)),
              capacity, segmentBytes, filePath, mmapFile(filePath, segmentBytes));
     }
 
-    private AbstractTierStore(CognitiveRecordLayout cogLayout,
-                              CognitiveRecordLayoutAdapter layoutAdapter,
-                              int capacity, long segmentBytes, Path filePath, MmapResult res) {
+    private AbstractCognitiveRecordMemory(CognitiveRecordLayout cogLayout,
+                                         CognitiveRecordLayoutAdapter layoutAdapter,
+                                         int capacity, long segmentBytes, Path filePath, MmapResult res) {
         super(MemoryId.of("tier", "pending"), layoutAdapter, capacity,
               res.arena, res.segment, 0, true, filePath, res.fileChannel);
         this.layout = cogLayout;
@@ -173,10 +173,10 @@ public abstract class AbstractTierStore
         }
     }
 
-    private AbstractTierStore(CognitiveRecordLayout cogLayout,
-                              CognitiveRecordLayoutAdapter layoutAdapter,
-                              int capacity, Arena arena, MemorySegment segment, int count,
-                              boolean persistent, Path filePath, FileChannel fileChannel) {
+    private AbstractCognitiveRecordMemory(CognitiveRecordLayout cogLayout,
+                                         CognitiveRecordLayoutAdapter layoutAdapter,
+                                         int capacity, Arena arena, MemorySegment segment, int count,
+                                         boolean persistent, Path filePath, FileChannel fileChannel) {
         super(MemoryId.of("tier", "pending"), layoutAdapter, capacity,
               arena, segment, count, persistent, filePath, fileChannel);
         this.layout = cogLayout;

@@ -66,10 +66,10 @@ public final class HeaderMigrator {
 
     private static final Logger log = LoggerFactory.getLogger(HeaderMigrator.class);
 
-    /** Metadata header size in bytes (same as AbstractTierStore.METADATA_HEADER_BYTES). */
+    /** Metadata header size in bytes (same as AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES). */
     private static final int METADATA_HEADER_BYTES = 64;
 
-    /** Metadata field offsets (mirrors AbstractTierStore). */
+    /** Metadata field offsets (mirrors AbstractCognitiveRecordMemory). */
     private static final int META_MAGIC    = 0;
     private static final int META_VERSION  = 4;
     private static final int META_COUNT    = 8;
