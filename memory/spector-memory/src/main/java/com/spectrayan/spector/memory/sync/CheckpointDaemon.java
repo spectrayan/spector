@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -85,7 +85,7 @@ public final class CheckpointDaemon {
     /** Size of checkpoint.meta in bytes. */
     static final int CKPT_SIZE = 16;
 
-    private final TierRouter tierRouter;
+    private final CognitiveMemoryRouter cognitiveRouter;
     private final MemoryWal wal;
     private final Path checkpointMetaPath;
     private final MemoryIndex index;   // nullable — only set for DISK mode
@@ -123,7 +123,7 @@ public final class CheckpointDaemon {
      * {@link com.spectrayan.spector.commons.concurrent.DaemonSupervisor#schedule}
      * to drive periodic checkpoint calls.</p>
      *
-     * @param tierRouter            the tier router (for forcing persistent segments)
+     * @param cognitiveRouter       the cognitive memory router (for forcing persistent segments)
      * @param wal                   the write-ahead log
      * @param checkpointMetaPath    path to the checkpoint.meta file
      * @param index                 the memory index to persist (nullable)
@@ -135,7 +135,7 @@ public final class CheckpointDaemon {
      * @param partitionDir          active partition directory for graph saves (nullable)
      * @param basePath              persistence root for global files like coactivation (nullable)
      */
-    public CheckpointDaemon(TierRouter tierRouter, MemoryWal wal,
+    public CheckpointDaemon(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath,
                             HebbianGraphBase hebbianGraph,
@@ -144,7 +144,7 @@ public final class CheckpointDaemon {
                             HyperEntityGraphMemory hyperEntityGraph,
                             CoActivationRecordMemory coActivationTracker,
                             Path partitionDir, Path basePath) {
-        this.tierRouter = tierRouter;
+        this.cognitiveRouter = cognitiveRouter;
         this.wal = wal;
         this.checkpointMetaPath = checkpointMetaPath;
         this.index = index;
@@ -164,10 +164,10 @@ public final class CheckpointDaemon {
      * @deprecated Use the full constructor that includes graph subsystems.
      */
     @Deprecated(since = "1.0.0", forRemoval = true)
-    public CheckpointDaemon(TierRouter tierRouter, MemoryWal wal,
+    public CheckpointDaemon(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath) {
-        this(tierRouter, wal, checkpointMetaPath, index, indexPath,
+        this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath,
                 null, null, null, null, null, null, null);
     }
 
@@ -180,8 +180,8 @@ public final class CheckpointDaemon {
     public void checkpoint() {
         long start = System.nanoTime();
 
-        // Step 1: Force all persistent tier store segments
-        tierRouter.forceAll();
+        // Step 1: Force all persistent cognitive memory store segments
+        cognitiveRouter.forceAll();
 
         // Step 2: Save MemoryIndex (ID→offset, text, tags, source)
         // This is critical for crash recovery — without it, tier store

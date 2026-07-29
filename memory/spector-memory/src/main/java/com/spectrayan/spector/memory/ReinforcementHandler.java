@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
@@ -89,11 +89,11 @@ final class ReinforcementHandler {
      *
      * @param memoryId   the memory ID to reinforce
      * @param valence    positive/negative outcome signal (-128 to +127)
-     * @param tierRouter the current tier router
-     * @param index      the memory index
+     * @param cognitiveRouter the current cognitive memory router
+     * @param index           the memory index
      */
     void reinforce(String memoryId, byte valence,
-                   TierRouter tierRouter, MemoryIndex index) {
+                   CognitiveMemoryRouter cognitiveRouter, MemoryIndex index) {
         if (memoryId == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "memoryId");
         }
@@ -103,9 +103,9 @@ final class ReinforcementHandler {
             return;
         }
 
-        MemorySegment segment = tierRouter.segmentFor(loc.type());
+        MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment != null) {
-            CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
+            CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
 
             // Step 1: Valence tracking
             valenceTracker.reinforce(segment, loc.offset(), layout, valence);
@@ -182,24 +182,24 @@ final class ReinforcementHandler {
      *
      * @param memoryId     the memory ID to reinforce
      * @param valence      positive/negative outcome (-128 to +127)
-     * @param updatedHints optional ICNU hints for re-fusion (null = auto-compute)
-     * @param tierRouter   the current tier router
-     * @param index        the memory index
+     * @param updatedHints   optional ICNU hints for re-fusion (null = auto-compute)
+     * @param cognitiveRouter the current cognitive memory router
+     * @param index          the memory index
      */
     void reinforceWithHints(String memoryId, byte valence,
                             IngestionHints updatedHints,
-                            TierRouter tierRouter, MemoryIndex index) {
+                            CognitiveMemoryRouter cognitiveRouter, MemoryIndex index) {
         // Delegate core reinforcement
-        reinforce(memoryId, valence, tierRouter, index);
+        reinforce(memoryId, valence, cognitiveRouter, index);
 
         // Importance re-fusion
         MemoryLocation loc = index.locate(memoryId);
         if (loc == null) return;
 
-        MemorySegment segment = tierRouter.segmentFor(loc.type());
+        MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment == null) return;
 
-        CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
+        CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
         float currentImportance = layout.readImportance(segment, loc.offset());
 
         float newImportance;

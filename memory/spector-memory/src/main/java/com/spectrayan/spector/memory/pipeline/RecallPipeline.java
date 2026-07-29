@@ -39,7 +39,7 @@ import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex.SpladeCandidate;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -129,7 +129,7 @@ public final class RecallPipeline {
     private static final Logger log = LoggerFactory.getLogger(RecallPipeline.class);
 
     private final EmbeddingProvider embeddingProvider;
-    private final TierRouter tierRouter;
+    private final CognitiveMemoryRouter cognitiveRouter;
     private final MemoryIndex index;
     private final SuppressionSet suppressionSet;
     private final HabituationPenalty habituationPenalty;
@@ -187,7 +187,7 @@ public final class RecallPipeline {
      * Creates a recall pipeline with all required subsystems.
      */
     public RecallPipeline(EmbeddingProvider embeddingProvider,
-                           TierRouter tierRouter,
+                           CognitiveMemoryRouter cognitiveRouter,
                            MemoryIndex index,
                            SuppressionSet suppressionSet,
                            HabituationPenalty habituationPenalty,
@@ -195,7 +195,7 @@ public final class RecallPipeline {
                            MemoryWal wal,
                            float[] calibrationMins,
                            float[] calibrationScales) {
-        this(embeddingProvider, tierRouter, index, suppressionSet, habituationPenalty,
+        this(embeddingProvider, cognitiveRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales, null, null,
                 null, null, null, null, GraphScoringPolicy.DEFAULT, null,
                 null, null, null);
@@ -208,7 +208,7 @@ public final class RecallPipeline {
      *                                HNSW vector search fused with cognitive scoring
      */
     public RecallPipeline(EmbeddingProvider embeddingProvider,
-                           TierRouter tierRouter,
+                           CognitiveMemoryRouter cognitiveRouter,
                            MemoryIndex index,
                            SuppressionSet suppressionSet,
                            HabituationPenalty habituationPenalty,
@@ -217,7 +217,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy) {
-        this(embeddingProvider, tierRouter, index, suppressionSet, habituationPenalty,
+        this(embeddingProvider, cognitiveRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, null,
                 null, null, null, null, GraphScoringPolicy.DEFAULT, null,
@@ -232,7 +232,7 @@ public final class RecallPipeline {
      * @param coActivationTracker    nullable  --  when provided, STDP causal boost is applied
      */
     public RecallPipeline(EmbeddingProvider embeddingProvider,
-                           TierRouter tierRouter,
+                           CognitiveMemoryRouter cognitiveRouter,
                            MemoryIndex index,
                            SuppressionSet suppressionSet,
                            HabituationPenalty habituationPenalty,
@@ -242,7 +242,7 @@ public final class RecallPipeline {
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
                            CoActivationRecordMemory coActivationTracker) {
-        this(embeddingProvider, tierRouter, index, suppressionSet, habituationPenalty,
+        this(embeddingProvider, cognitiveRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker,
                 null, null, null, null, GraphScoringPolicy.DEFAULT, null,
@@ -253,7 +253,7 @@ public final class RecallPipeline {
      * Creates a recall pipeline with optional fused semantic recall, STDP, and 3-Layer Cognitive Graph.
      */
     public RecallPipeline(EmbeddingProvider embeddingProvider,
-                           TierRouter tierRouter,
+                           CognitiveMemoryRouter cognitiveRouter,
                            MemoryIndex index,
                            SuppressionSet suppressionSet,
                            HabituationPenalty habituationPenalty,
@@ -273,7 +273,7 @@ public final class RecallPipeline {
                            SparseEmbeddingProvider spladeProvider,
                            ColBERTReranker colbertReranker) {
         this.embeddingProvider = embeddingProvider;
-        this.tierRouter = tierRouter;
+        this.cognitiveRouter = cognitiveRouter;
         this.index = index;
         this.suppressionSet = suppressionSet;
         this.habituationPenalty = habituationPenalty;
@@ -297,7 +297,7 @@ public final class RecallPipeline {
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
                 hebbianGraph, temporalChain, entityGraph, entityExtractor,
-                this.graphScoringPolicy, index, tierRouter,
+                this.graphScoringPolicy, index, cognitiveRouter,
                 calibrationMins, calibrationScales);
     }
 
@@ -305,7 +305,7 @@ public final class RecallPipeline {
      * Creates a recall pipeline with all subsystems plus RecallHistory for associative recall.
      */
     public RecallPipeline(EmbeddingProvider embeddingProvider,
-                           TierRouter tierRouter,
+                           CognitiveMemoryRouter cognitiveRouter,
                            MemoryIndex index,
                            SuppressionSet suppressionSet,
                            HabituationPenalty habituationPenalty,
@@ -326,7 +326,7 @@ public final class RecallPipeline {
                            ColBERTReranker colbertReranker,
                            RecallHistory recallHistory) {
         this.embeddingProvider = embeddingProvider;
-        this.tierRouter = tierRouter;
+        this.cognitiveRouter = cognitiveRouter;
         this.index = index;
         this.suppressionSet = suppressionSet;
         this.habituationPenalty = habituationPenalty;
@@ -350,7 +350,7 @@ public final class RecallPipeline {
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
                 hebbianGraph, temporalChain, entityGraph, entityExtractor,
-                this.graphScoringPolicy, index, tierRouter,
+                this.graphScoringPolicy, index, cognitiveRouter,
                 calibrationMins, calibrationScales);
     }
 
@@ -1002,9 +1002,9 @@ public final class RecallPipeline {
                 if (!options.includeContradictions()) {
                     MemoryIndex.MemoryLocation loc = index.locate(id);
                     if (loc != null) {
-                        MemorySegment segment = tierRouter.segmentFor(loc.type());
+                        MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
                         if (segment != null) {
-                            CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
+                            CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
                             byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
                             if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
                         }
@@ -1048,15 +1048,15 @@ public final class RecallPipeline {
         List<Callable<List<CognitiveResult>>> tasks = new ArrayList<>();
 
         // Working Memory scan  --  use visibleCount() for SWMR safety
-        if (TierRouter.shouldScan(MemoryType.WORKING, targetTypes)
-                && tierRouter.working().visibleCount() > 0) {
+        if (CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, targetTypes)
+                && cognitiveRouter.working().visibleCount() > 0) {
             tasks.add(() -> {
-                MemorySegment seg = tierRouter.working().segment();
+                MemorySegment seg = cognitiveRouter.working().segment();
                 NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
                 try {
                     return scoreStoreToList(
-                            seg, tierRouter.working().visibleCount(),
-                            tierRouter.working().cognitiveLayout(), queryVector, options, nowMs,
+                            seg, cognitiveRouter.working().visibleCount(),
+                            cognitiveRouter.working().cognitiveLayout(), queryVector, options, nowMs,
                             MemoryType.WORKING, 0L);
                 } finally {
                     NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
@@ -1065,8 +1065,8 @@ public final class RecallPipeline {
         }
 
         // Episodic Memory  --  one task per partition (disjoint segments  ->  zero contention)
-        if (TierRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
-            for (EpisodicPartition partition : tierRouter.episodic().partitions()) {
+        if (CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
+            for (EpisodicPartition partition : cognitiveRouter.episodic().partitions()) {
                 if (partition.visibleCount() > 0) {
                     tasks.add(() -> {
                         MemorySegment seg = partition.segment();
@@ -1085,21 +1085,21 @@ public final class RecallPipeline {
         }
 
         // Semantic Memory  --  fused HNSW+cognitive if strategy available, else header slab
-        if (TierRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)) {
-            if (tierRouter.semantic() != null && tierRouter.semantic().visibleCount() > 0) {
+        if (CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)) {
+            if (cognitiveRouter.semantic() != null && cognitiveRouter.semantic().visibleCount() > 0) {
                 if (semanticRecallStrategy != null && semanticRecallStrategy.isAvailable()) {
                     // Fused pipeline: HNSW search  ->  cognitive re-ranking
                     tasks.add(() -> semanticRecallStrategy.recall(queryVector, options, nowMs));
                 } else {
                     // Fallback: full-record slab scan (with tag/valence filters)
                     tasks.add(() -> {
-                        MemorySegment seg = tierRouter.semantic().headerSlab();
+                        MemorySegment seg = cognitiveRouter.semantic().headerSlab();
                         NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
                         try {
                             return scoreHeaderSlabToList(
-                                    seg, tierRouter.semantic().visibleCount(),
-                                    tierRouter.semantic().cognitiveLayout(), queryVector, options, nowMs,
-                                    tierRouter.semantic().isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0);
+                                    seg, cognitiveRouter.semantic().visibleCount(),
+                                    cognitiveRouter.semantic().cognitiveLayout(), queryVector, options, nowMs,
+                                    cognitiveRouter.semantic().isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0);
                         } finally {
                             NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
                         }
@@ -1109,15 +1109,15 @@ public final class RecallPipeline {
         }
 
         // Procedural Memory scan
-        if (TierRouter.shouldScan(MemoryType.PROCEDURAL, targetTypes)
-                && tierRouter.procedural().visibleCount() > 0) {
+        if (CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, targetTypes)
+                && cognitiveRouter.procedural().visibleCount() > 0) {
             tasks.add(() -> {
-                MemorySegment seg = tierRouter.procedural().segment();
+                MemorySegment seg = cognitiveRouter.procedural().segment();
                 NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
                 try {
                     return scoreStoreToList(
-                            seg, tierRouter.procedural().visibleCount(),
-                            tierRouter.procedural().cognitiveLayout(), queryVector, options, nowMs,
+                            seg, cognitiveRouter.procedural().visibleCount(),
+                            cognitiveRouter.procedural().cognitiveLayout(), queryVector, options, nowMs,
                             MemoryType.PROCEDURAL, 0L);
                 } finally {
                     NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
@@ -1134,36 +1134,36 @@ public final class RecallPipeline {
     private List<CognitiveResult> sequentialScan(float[] queryVector, RecallOptions options,
                                                    long nowMs, MemoryType[] targetTypes) {
         List<CognitiveResult> results = new ArrayList<>();
-        if (TierRouter.shouldScan(MemoryType.WORKING, targetTypes)
-                && tierRouter.working().visibleCount() > 0) {
-            results.addAll(scoreStoreToList(tierRouter.working().segment(),
-                    tierRouter.working().visibleCount(), tierRouter.working().cognitiveLayout(),
+        if (CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, targetTypes)
+                && cognitiveRouter.working().visibleCount() > 0) {
+            results.addAll(scoreStoreToList(cognitiveRouter.working().segment(),
+                    cognitiveRouter.working().visibleCount(), cognitiveRouter.working().cognitiveLayout(),
                     queryVector, options, nowMs, MemoryType.WORKING, 0L));
         }
-        if (TierRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
-            for (EpisodicPartition p : tierRouter.episodic().partitions()) {
+        if (CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
+            for (EpisodicPartition p : cognitiveRouter.episodic().partitions()) {
                 if (p.visibleCount() > 0) {
                     results.addAll(scoreStoreToList(p.segment(), p.visibleCount(), p.layout(),
                             queryVector, options, nowMs, MemoryType.EPISODIC, p.dataOffset()));
                 }
             }
         }
-        if (TierRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)) {
-            if (tierRouter.semantic() != null && tierRouter.semantic().visibleCount() > 0) {
+        if (CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)) {
+            if (cognitiveRouter.semantic() != null && cognitiveRouter.semantic().visibleCount() > 0) {
                 if (semanticRecallStrategy != null && semanticRecallStrategy.isAvailable()) {
                     results.addAll(semanticRecallStrategy.recall(queryVector, options, nowMs));
                 } else {
-                    results.addAll(scoreHeaderSlabToList(tierRouter.semantic().headerSlab(),
-                            tierRouter.semantic().visibleCount(), tierRouter.semantic().cognitiveLayout(),
+                    results.addAll(scoreHeaderSlabToList(cognitiveRouter.semantic().headerSlab(),
+                            cognitiveRouter.semantic().visibleCount(), cognitiveRouter.semantic().cognitiveLayout(),
                             queryVector, options, nowMs,
-                            tierRouter.semantic().isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0));
+                            cognitiveRouter.semantic().isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0));
                 }
             }
         }
-        if (TierRouter.shouldScan(MemoryType.PROCEDURAL, targetTypes)
-                && tierRouter.procedural().visibleCount() > 0) {
-            results.addAll(scoreStoreToList(tierRouter.procedural().segment(),
-                    tierRouter.procedural().visibleCount(), tierRouter.procedural().cognitiveLayout(),
+        if (CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, targetTypes)
+                && cognitiveRouter.procedural().visibleCount() > 0) {
+            results.addAll(scoreStoreToList(cognitiveRouter.procedural().segment(),
+                    cognitiveRouter.procedural().visibleCount(), cognitiveRouter.procedural().cognitiveLayout(),
                     queryVector, options, nowMs, MemoryType.PROCEDURAL, 0L));
         }
         return results;
@@ -1449,7 +1449,7 @@ public final class RecallPipeline {
             try {
                 var loc = index.locate(result.id());
                 if (loc == null) continue;
-                MemorySegment segment = tierRouter.segmentFor(loc.type());
+                MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
                 if (segment != null) {
                     segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
                             loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,

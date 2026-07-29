@@ -18,18 +18,18 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TierRouterTest {
+class CognitiveMemoryRouterTest {
 
     @Test
     @DisplayName("get() returns correct store for each MemoryType")
     void getReturnsCorrectStoreForEachType() {
-        // TierRouter.close() cascades to child stores, so only close the router
+        // CognitiveMemoryRouter.close() cascades to child stores, so only close the router
         WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
         EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
         SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
-        try (TierRouter router = new TierRouter(working, episodic, semantic, procedural)) {
+        try (CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural)) {
             assertThat(router.get(MemoryType.WORKING)).isSameAs(working);
             assertThat(router.get(MemoryType.EPISODIC)).isSameAs(episodic);
             assertThat(router.get(MemoryType.SEMANTIC)).isSameAs(semantic);
@@ -45,7 +45,7 @@ class TierRouterTest {
         SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
-        try (TierRouter router = new TierRouter(working, episodic, semantic, procedural)) {
+        try (CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural)) {
             assertThat(router.working()).isSameAs(working);
             assertThat(router.episodic()).isSameAs(episodic);
             assertThat(router.semantic()).isSameAs(semantic);
@@ -54,14 +54,14 @@ class TierRouterTest {
     }
 
     @Test
-    @DisplayName("totalCount sums all tiers")
-    void totalCountSumsAllTiers() {
+    @DisplayName("totalCount sums all stores")
+    void totalCountSumsAllStores() {
         WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
         EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
         SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
-        try (TierRouter router = new TierRouter(working, episodic, semantic, procedural)) {
+        try (CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural)) {
             assertThat(router.totalCount()).isZero();
         }
     }
@@ -69,24 +69,24 @@ class TierRouterTest {
     @Test
     @DisplayName("shouldScan with null target scans all")
     void shouldScanNullTargetScansAll() {
-        assertThat(TierRouter.shouldScan(MemoryType.SEMANTIC, null)).isTrue();
-        assertThat(TierRouter.shouldScan(MemoryType.WORKING, null)).isTrue();
+        assertThat(CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, null)).isTrue();
+        assertThat(CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, null)).isTrue();
     }
 
     @Test
     @DisplayName("shouldScan for specific type")
     void shouldScanSpecificType() {
         MemoryType[] targets = { MemoryType.SEMANTIC };
-        assertThat(TierRouter.shouldScan(MemoryType.SEMANTIC, targets)).isTrue();
-        assertThat(TierRouter.shouldScan(MemoryType.WORKING, targets)).isFalse();
+        assertThat(CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, targets)).isTrue();
+        assertThat(CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, targets)).isFalse();
     }
 
     @Test
     @DisplayName("shouldScan with empty target scans all")
     void shouldScanEmptyTargetScansAll() {
         MemoryType[] targets = new MemoryType[0];
-        assertThat(TierRouter.shouldScan(MemoryType.SEMANTIC, targets)).isTrue();
-        assertThat(TierRouter.shouldScan(MemoryType.WORKING, targets)).isTrue();
+        assertThat(CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, targets)).isTrue();
+        assertThat(CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, targets)).isTrue();
     }
 
     @Test
@@ -97,10 +97,7 @@ class TierRouterTest {
         SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
         
-        TierRouter router = new TierRouter(working, episodic, semantic, procedural);
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(working, episodic, semantic, procedural);
         router.close();
-        
-        // When closed, operations usually throw an exception if accessed, but closing a router should not throw.
-        // We can just verify it does not throw an exception on close.
     }
 }

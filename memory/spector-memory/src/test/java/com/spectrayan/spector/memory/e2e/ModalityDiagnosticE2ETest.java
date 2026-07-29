@@ -153,9 +153,9 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
         var loc = index.locate(id);
         assertThat(loc).isNotNull();
 
-        var tierRouter = admin.tierRouter();
-        var layout = tierRouter.layoutFor(loc.type());
-        var segment = tierRouter.segmentFor(loc.type());
+        var cognitiveRouter = admin.cognitiveRouter();
+        var layout = cognitiveRouter.layoutFor(loc.type());
+        var segment = cognitiveRouter.segmentFor(loc.type());
         byte flags = layout.readFlags(segment, loc.offset());
 
         int modalityOrdinal = SynapticHeaderConstants.sourceModalityOrdinal(flags);

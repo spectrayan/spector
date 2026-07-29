@@ -35,7 +35,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
@@ -207,8 +207,8 @@ public final class SpectorMemoryFactory {
             }
         }
 
-        //  Tier stores 
-        TierRouter tierRouter;
+        //  Cognitive Memory stores 
+        CognitiveMemoryRouter cognitiveRouter;
         WorkingRecordMemory workingStore;
         if (isDisk && builder.persistWorkingMemory && basePath != null) {
             workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity,
@@ -227,7 +227,7 @@ public final class SpectorMemoryFactory {
             SemanticRecordMemory semanticStore = new SemanticRecordMemory(
                     quantizedVecBytes, builder.semanticCapacity,
                     StorageLayout.semanticMem(resolvedPartitionDir));
-            tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
             EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
                     quantizedVecBytes, builder.episodicPartitionCapacity);
@@ -235,7 +235,7 @@ public final class SpectorMemoryFactory {
                     quantizedVecBytes, builder.proceduralCapacity);
             SemanticRecordMemory semanticStore = new SemanticRecordMemory(
                     quantizedVecBytes, builder.semanticCapacity);
-            tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         }
 
         //  Memory Index 
@@ -460,7 +460,7 @@ public final class SpectorMemoryFactory {
         //  Ingestion Target 
         CognitiveIngestionTarget cognitiveTarget = new CognitiveIngestionTarget(
                 quantizer, surpriseDetector, flashbulbPolicy,
-                tierRouter, index, wal, workingStore, builder.icnuWeights,
+                cognitiveRouter, index, wal, workingStore, builder.icnuWeights,
                 builder.semanticIndex, builder.tagExtractor, true,
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
                 hyperEntityGraph,
@@ -485,25 +485,25 @@ public final class SpectorMemoryFactory {
             partitionManager = new PartitionManager(
                     basePath, quantizedVecBytes, builder.semanticCapacity,
                     builder.episodicPartitionCapacity, builder.proceduralCapacity,
-                    tierRouter, resolvedPartitionDir,
+                    cognitiveRouter, resolvedPartitionDir,
                     index, hebbianGraph, temporalChain, cognitiveTarget);
             cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
         } else {
             partitionManager = new PartitionManager(
                     null, quantizedVecBytes, builder.semanticCapacity,
                     builder.episodicPartitionCapacity, builder.proceduralCapacity,
-                    tierRouter, null,
+                    cognitiveRouter, null,
                     index, hebbianGraph, temporalChain, cognitiveTarget);
         }
 
         //  WAL Recovery 
-        performWalRecovery(wal, tierRouter, index, hebbianGraph, temporalChain, temporalKnowledgeGraph, entityGraph, coActivationTracker, cognitiveTarget, basePath);
+        performWalRecovery(wal, cognitiveRouter, index, hebbianGraph, temporalChain, temporalKnowledgeGraph, entityGraph, coActivationTracker, cognitiveTarget, basePath);
 
         //  Semantic Recall Strategy + HNSW Rebuild 
         SemanticRecallStrategy semanticStrategy = null;
-        if (builder.semanticIndex != null && tierRouter.semantic() != null) {
-            semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, tierRouter.semantic(), index);
-            rebuildHnswIfNeeded(builder, tierRouter, index, quantizer);
+        if (builder.semanticIndex != null && cognitiveRouter.semantic() != null) {
+            semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, cognitiveRouter.semantic(), index);
+            rebuildHnswIfNeeded(builder, cognitiveRouter, index, quantizer);
         }
 
         //  ProfileAdaptor (Contextual Bandit) 
@@ -524,7 +524,7 @@ public final class SpectorMemoryFactory {
 
         //  Recall Pipeline 
         RecallPipeline recallPipeline = new RecallPipeline(
-                embeddingProvider, tierRouter, index,
+                embeddingProvider, cognitiveRouter, index,
                 suppressionSet, habituationPenalty, prospectiveScheduler, wal,
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
                 null, hebbianGraph, temporalChain, entityGraph, entityExtractor,
@@ -532,7 +532,7 @@ public final class SpectorMemoryFactory {
                 memorySpladeIndex, builder.SparseEmbeddingProvider, colbertReranker,
                 recallHistory);
 
-        recallPipeline.addListener(new LtpReconsolidationListener(index, tierRouter, wal));
+        recallPipeline.addListener(new LtpReconsolidationListener(index, cognitiveRouter, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
 
         //  Extracted Components 
@@ -564,7 +564,7 @@ public final class SpectorMemoryFactory {
                     ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX)
                     : StorageLayout.indexMidxRuntime(basePath);
             checkpointDaemon = new CheckpointDaemon(
-                    tierRouter, wal,
+                    cognitiveRouter, wal,
                     StorageLayout.checkpointMeta(basePath),
                     index, indexSavePath,
                     hebbianGraph, temporalChain, entityGraph,
@@ -604,8 +604,8 @@ public final class SpectorMemoryFactory {
         );
     }
 
-    private static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, TierRouter tierRouter, MemoryIndex index, ScalarQuantizer quantizer) {
-        var semStore = tierRouter.semantic();
+    private static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer) {
+        var semStore = cognitiveRouter.semantic();
         int storeSize = semStore.size();
         if (storeSize > 0 && builder.semanticIndex.size() == 0) {
             log.info("Rebuilding HNSW index from {} persisted semantic records...", storeSize);
@@ -708,7 +708,7 @@ public final class SpectorMemoryFactory {
 
     private static void performWalRecovery(
             MemoryWal wal,
-            TierRouter tierRouter,
+            CognitiveMemoryRouter cognitiveRouter,
             MemoryIndex index,
             HebbianGraphBase hebbianGraph,
             TemporalChainMemory temporalChain,
@@ -742,15 +742,15 @@ public final class SpectorMemoryFactory {
         // 1. Gather all shape-specific Memory instances
         java.util.Map<MemoryId, Memory<?>> memories = new java.util.HashMap<>();
         
-        if (tierRouter != null) {
-            if (tierRouter.working() != null) {
-                memories.put(tierRouter.working().id(), tierRouter.working());
+        if (cognitiveRouter != null) {
+            if (cognitiveRouter.working() != null) {
+                memories.put(cognitiveRouter.working().id(), cognitiveRouter.working());
             }
-            if (tierRouter.semantic() != null) {
-                memories.put(tierRouter.semantic().id(), tierRouter.semantic());
+            if (cognitiveRouter.semantic() != null) {
+                memories.put(cognitiveRouter.semantic().id(), cognitiveRouter.semantic());
             }
-            if (tierRouter.procedural() != null) {
-                memories.put(tierRouter.procedural().id(), tierRouter.procedural());
+            if (cognitiveRouter.procedural() != null) {
+                memories.put(cognitiveRouter.procedural().id(), cognitiveRouter.procedural());
             }
         }
         

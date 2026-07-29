@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.hebbian;
 
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 
@@ -51,14 +51,14 @@ public final class SynapticDecayModulator implements HebbianGraph.DecayModulator
      * <p>Pre-reads all values into a float array for O(1) lookup during the decay loop.
      * Cost: O(partitionCount) — typically < 100K entries, < 1ms.</p>
      *
-     * @param tierRouter the current tier router (provides access to episodic partition)
-     * @param capacity   HebbianGraph capacity (number of slots)
+     * @param cognitiveRouter the current cognitive memory router (provides access to episodic store)
+     * @param capacity        HebbianGraph capacity (number of slots)
      */
-    public SynapticDecayModulator(TierRouter tierRouter, int capacity) {
+    public SynapticDecayModulator(CognitiveMemoryRouter cognitiveRouter, int capacity) {
         this.modifiers = new float[capacity];
         java.util.Arrays.fill(modifiers, 1.0f);
 
-        var episodic = tierRouter.episodic();
+        var episodic = cognitiveRouter.episodic();
         if (episodic == null) return;
 
         CognitiveRecordLayout layout = episodic.cognitiveLayout();

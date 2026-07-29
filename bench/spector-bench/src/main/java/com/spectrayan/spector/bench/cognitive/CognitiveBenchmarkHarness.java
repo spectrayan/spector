@@ -44,7 +44,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 
@@ -610,14 +610,14 @@ public final class CognitiveBenchmarkHarness {
      * for baseline scoring.</p>
      */
     private BaselineRetriever createBaselineRetriever(SpectorMemory memory) {
-        TierRouter tierRouter = memory.admin().tierRouter();
+        CognitiveMemoryRouter cognitiveRouter = memory.admin().cognitiveRouter();
 
         // Find the tier with the most records
         MemoryType primaryTier = MemoryType.EPISODIC;
         int maxCount = 0;
         for (MemoryType type : MemoryType.values()) {
             try {
-                int count = tierRouter.countFor(type);
+                int count = cognitiveRouter.countFor(type);
                 if (count > maxCount) {
                     maxCount = count;
                     primaryTier = type;
@@ -627,7 +627,7 @@ public final class CognitiveBenchmarkHarness {
             }
         }
 
-        CognitiveRecordMemory store = tierRouter.get(primaryTier);
+        CognitiveRecordMemory store = cognitiveRouter.get(primaryTier);
         MemorySegment segment = store.primarySegment();
         CognitiveRecordLayout layout = store.cognitiveLayout();
         int recordCount = store.size();

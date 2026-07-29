@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.consolidation;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
@@ -60,10 +60,10 @@ public final class ConsolidationService {
     /**
      * Executes the consolidation cycle across the semantic store.
      */
-    public void consolidate(TierRouter tierRouter, MemoryIndex index, ScalarQuantizer quantizer,
+    public void consolidate(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer,
                             EntityGraphMemory entityGraph, CognitiveIngestionTarget ingestionTarget,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
-        CognitiveRecordMemory semanticStore = tierRouter.semantic();
+        CognitiveRecordMemory semanticStore = cognitiveRouter.semantic();
         if (semanticStore == null || semanticStore.visibleCount() < 2) {
             log.debug("Consolidation: semantic store too small to run consolidation (visibleCount={})",
                     semanticStore == null ? 0 : semanticStore.visibleCount());

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
@@ -130,27 +130,27 @@ final class ReflectionOrchestrator {
      * Runs a full reflection cycle: REM consolidation, graph decay, temporal pruning,
      * cross-layer promotion, and entity maintenance.
      *
-     * @param tierRouter the current tier router
+     * @param cognitiveRouter the current cognitive memory router
      * @param index      the memory index (for text lookups during consolidation)
      * @return a {@link ReflectReport} summarizing what was consolidated, pruned, and promoted
      */
-    ReflectReport reflect(TierRouter tierRouter, MemoryIndex index) {
+    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index) {
         log.info("Manual reflection triggered");
 
         // Create metrics collector for this cycle
         var graphMetrics = new GraphHealthMetrics();
 
         // Phase 1: REM cycle — episodic → semantic consolidation
-        var semanticTarget = tierRouter.semantic();
+        var semanticTarget = cognitiveRouter.semantic();
         ReflectReport daemonReport = reflectDaemon.runCycle(
-                tierRouter.episodic(), semanticTarget,
+                cognitiveRouter.episodic(), semanticTarget,
                 offset -> index.findTextByOffset(MemoryType.EPISODIC, offset));
 
         // Phase 2: Hebbian decay (synaptic homeostasis, arousal-modulated)
-        decayHebbianEdges(tierRouter, graphMetrics);
+        decayHebbianEdges(cognitiveRouter, graphMetrics);
 
         // Phase 3: Temporal chain pruning (age + importance)
-        int temporalPruned = pruneTemporalChain(tierRouter);
+        int temporalPruned = pruneTemporalChain(cognitiveRouter);
 
         // Phase 4: Cross-layer promotion (Hebbian → Entity)
         promoteCrossLayer();
@@ -187,11 +187,11 @@ final class ReflectionOrchestrator {
 
     // ── Phase 2: Hebbian Decay ──
 
-    private void decayHebbianEdges(TierRouter tierRouter, GraphHealthMetrics metrics) {
+    private void decayHebbianEdges(CognitiveMemoryRouter cognitiveRouter, GraphHealthMetrics metrics) {
         try {
             // Wire arousal-modulated decay: read synaptic importance/arousal before decay
             hebbianGraph.setDecayModulator(
-                    new SynapticDecayModulator(tierRouter, hebbianGraph.capacity()));
+                    new SynapticDecayModulator(cognitiveRouter, hebbianGraph.capacity()));
 
             int decayed = hebbianGraph.decayEdges(HEBBIAN_DECAY_FACTOR, metrics);
 
@@ -210,7 +210,7 @@ final class ReflectionOrchestrator {
 
     // ── Phase 3: Temporal Pruning ──
 
-    private int pruneTemporalChain(TierRouter tierRouter) {
+    private int pruneTemporalChain(CognitiveMemoryRouter cognitiveRouter) {
         if (temporalChain == null) return 0;
         try {
             long cutoffMs = System.currentTimeMillis()
@@ -221,8 +221,8 @@ final class ReflectionOrchestrator {
 
             // Phase 3b: Importance-based pruning — protects high-importance temporal links
             int importancePruned = 0;
-            if (tierRouter != null && tierRouter.episodic() != null) {
-                var episodic = tierRouter.episodic();
+            if (cognitiveRouter != null && cognitiveRouter.episodic() != null) {
+                var episodic = cognitiveRouter.episodic();
                 var layout = episodic.layout();
                 var segment = episodic.segment();
                 int totalRecs = episodic.totalRecords();

@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.sync;
 
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 
 import java.lang.foreign.Arena;
@@ -29,16 +29,16 @@ import java.time.Instant;
  *
  * <h3>Lifecycle</h3>
  * <p>The snapshot holds an ephemeral {@link Arena} with off-heap segments
- * for the reconstructed tier stores. It must be closed after use to release
+ * for the reconstructed cognitive memory stores. It must be closed after use to release
  * off-heap memory:</p>
  * <pre>{@code
  *   try (var snapshot = WalReplayer.replay(wal, targetTimestamp, maxEvents, ...)) {
- *       // Use snapshot.index() and snapshot.tierRouter() for recall
+ *       // Use snapshot.index() and snapshot.cognitiveRouter() for recall
  *   }
  * }</pre>
  *
  * @param index           reconstructed MemoryIndex with IDs, text, metadata
- * @param tierRouter      reconstructed TierRouter with ephemeral off-heap segments
+ * @param cognitiveRouter reconstructed CognitiveMemoryRouter with ephemeral off-heap segments
  * @param arena           the off-heap Arena owning all replay segments (close to release)
  * @param memoryCount     total memories reconstructed
  * @param eventsProcessed WAL events replayed to build this snapshot
@@ -46,7 +46,7 @@ import java.time.Instant;
  */
 public record ReplaySnapshot(
         MemoryIndex index,
-        TierRouter tierRouter,
+        CognitiveMemoryRouter cognitiveRouter,
         Arena arena,
         int memoryCount,
         int eventsProcessed,

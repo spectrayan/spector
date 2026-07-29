@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
@@ -72,7 +72,7 @@ final class PostIngestSync {
     private static final Logger log = LoggerFactory.getLogger(PostIngestSync.class);
 
     //  Subsystem references (all nullable except index, wal) 
-    private volatile TierRouter tierRouter;
+    private volatile CognitiveMemoryRouter cognitiveRouter;
     private final MemoryIndex index;
     private final MemoryWal wal;
     private final VectorIndex semanticIndex;
@@ -88,7 +88,7 @@ final class PostIngestSync {
     private final DataEncryptor encryptor;
     private final HyperEntityGraphMemory hyperEntityGraph;
 
-    PostIngestSync(TierRouter tierRouter, MemoryIndex index, MemoryWal wal,
+    PostIngestSync(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, MemoryWal wal,
                    VectorIndex semanticIndex,
                    HebbianGraphBase hebbianGraph, TemporalChainMemory temporalChain,
                    EntityExtractor entityExtractor, EntityGraphMemory entityGraph,
@@ -97,7 +97,7 @@ final class PostIngestSync {
                    MemorySpladeIndex spladeIndex, SparseEmbeddingProvider spladeProvider,
                    DataEncryptor encryptor,
                    HyperEntityGraphMemory hyperEntityGraph) {
-        this.tierRouter = tierRouter;
+        this.cognitiveRouter = cognitiveRouter;
         this.index = index;
         this.wal = wal;
         this.semanticIndex = semanticIndex;
@@ -114,9 +114,9 @@ final class PostIngestSync {
         this.hyperEntityGraph = hyperEntityGraph;
     }
 
-    /** Called when the tier router is swapped after a partition roll. */
-    void updateTierRouter(TierRouter newRouter) {
-        this.tierRouter = newRouter;
+    /** Called when the cognitive memory router is swapped after a partition roll. */
+    void updateCognitiveRouter(CognitiveMemoryRouter newRouter) {
+        this.cognitiveRouter = newRouter;
     }
 
     /**
@@ -156,7 +156,7 @@ final class PostIngestSync {
         if (params.type() == MemoryType.SEMANTIC && semanticIndex != null
                 && !semanticIndex.isReadOnly()
                 && !isParentChunk) {
-            storeIndex = tierRouter.countFor(MemoryType.SEMANTIC) - 1;
+            storeIndex = cognitiveRouter.countFor(MemoryType.SEMANTIC) - 1;
             semanticIndex.add(params.id(), storeIndex, params.vector());
         }
 

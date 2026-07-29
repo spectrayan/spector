@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -71,14 +71,14 @@ final class ImportanceEstimator {
      * @param text              the candidate memory text
      * @param hints             optional ICNU hints (null = novelty-only)
      * @param embeddingProvider the embedding provider for text vectorization
-     * @param tierRouter        tier router for nearest-distance lookup
+     * @param cognitiveRouter   cognitive memory router for nearest-distance lookup
      * @param index             memory index for nearest-memory-id lookup
      * @return an {@link ImportanceEstimate} with all computed signals
      */
     ImportanceEstimate estimate(String text,
                                 IngestionHints hints,
                                 EmbeddingProvider embeddingProvider,
-                                TierRouter tierRouter,
+                                CognitiveMemoryRouter cognitiveRouter,
                                 MemoryIndex index) {
         try {
             // Step 1: Embed text (same as remember())
@@ -92,8 +92,8 @@ final class ImportanceEstimator {
 
             // Step 2: Compute nearest distance (read-only  --  don't update stats)
             float nearestDist;
-            var workingStore = tierRouter.working();
-            if (workingStore != null && workingStore.count() > 0) {
+            var workingStore = cognitiveRouter.working();
+            if (workingStore != null && workingStore.visibleCount() > 0) {
                 nearestDist = workingStore.nearestDistance(
                         vector, quantizer.mins(), quantizer.scales());
             } else {
@@ -127,7 +127,7 @@ final class ImportanceEstimator {
             // Step 6: Find nearest existing memory ID
             String nearestMemoryId = null;
             float nearestMemoryDist = nearestDist;
-            var semanticStore = tierRouter.semantic();
+            var semanticStore = cognitiveRouter.semantic();
             if (semanticStore != null && semanticStore.size() > 0) {
                 float bestDist = Float.MAX_VALUE;
                 for (var entry : index.locationMap().entrySet()) {

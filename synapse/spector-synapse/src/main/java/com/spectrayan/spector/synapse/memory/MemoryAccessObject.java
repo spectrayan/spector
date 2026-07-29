@@ -513,7 +513,7 @@ public class MemoryAccessObject {
 
         var admin = memory.admin();
         var index = admin.index();
-        var tierRouter = admin.tierRouter();
+        var cognitiveRouter = admin.cognitiveRouter();
         var profile = memory.salienceProfile();
 
         int rescored = 0;
@@ -543,8 +543,8 @@ public class MemoryAccessObject {
                 float combinedBoost = topicBoost * selfBoost;
                 if (Math.abs(combinedBoost - 1.0f) > 0.01f) {
                     var loc = entry.getValue();
-                    var segment = tierRouter.segmentFor(loc.type());
-                    var layout = tierRouter.layoutFor(loc.type());
+                    var segment = cognitiveRouter.segmentFor(loc.type());
+                    var layout = cognitiveRouter.layoutFor(loc.type());
 
                     if (segment != null && layout != null) {
                         float oldImportance = layout.readImportance(segment, loc.offset());

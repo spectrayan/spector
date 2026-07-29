@@ -35,7 +35,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
@@ -165,7 +165,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ScalarQuantizer quantizer;
 
     //  Extracted Strategy/Handler Components 
-    private final PartitionManager partitionManager;     // owns volatile tierRouter
+    private final PartitionManager partitionManager;     // owns volatile cognitiveRouter
     private final ImportanceEstimator importanceEstimator;
     private final ReflectionOrchestrator reflectionOrchestrator;
     private final ReinforcementHandler reinforcementHandler;
@@ -636,7 +636,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public ImportanceEstimate estimateImportance(String text,
                                                   com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
         return importanceEstimator.estimate(text, hints, embeddingProvider,
-                partitionManager.tierRouter(), index);
+                partitionManager.cognitiveRouter(), index);
     }
 
     @Override
@@ -698,9 +698,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 log.warn("Forget: memory '{}' not found in index", id);
                 return;
             }
-            MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
+            MemorySegment segment = partitionManager.cognitiveRouter().segmentFor(loc.type());
             if (segment != null) {
-                CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
+                CognitiveRecordLayout layout = partitionManager.cognitiveRouter().layoutFor(loc.type());
                 layout.tombstone(segment, loc.offset());
             }
             wal.appendForget(id);
@@ -715,7 +715,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public ReflectReport reflect() {
         acquireLease();
         try {
-            return reflectionOrchestrator.reflect(partitionManager.tierRouter(), index);
+            return reflectionOrchestrator.reflect(partitionManager.cognitiveRouter(), index);
         } finally {
             releaseLease();
         }
@@ -726,7 +726,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             consolidationService.consolidate(
-                    partitionManager.tierRouter(),
+                    partitionManager.cognitiveRouter(),
                     index,
                     quantizer,
                     entityGraph,
@@ -758,7 +758,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             reinforcementHandler.reinforce(memoryId, valence,
-                    partitionManager.tierRouter(), index);
+                    partitionManager.cognitiveRouter(), index);
         } finally {
             releaseLease();
         }
@@ -770,7 +770,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
-                    partitionManager.tierRouter(), index);
+                    partitionManager.cognitiveRouter(), index);
         } finally {
             releaseLease();
         }
@@ -813,8 +813,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         try {
             var loc = index.locate(memoryId);
             if (loc == null) return;
-            partitionManager.tierRouter().layoutFor(loc.type())
-                    .markResolved(partitionManager.tierRouter().segmentFor(loc.type()), loc.offset());
+            partitionManager.cognitiveRouter().layoutFor(loc.type())
+                    .markResolved(partitionManager.cognitiveRouter().segmentFor(loc.type()), loc.offset());
             log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
         } finally {
             releaseLease();
@@ -827,8 +827,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         try {
             var loc = index.locate(memoryId);
             if (loc == null) return;
-            partitionManager.tierRouter().layoutFor(loc.type())
-                    .markUnresolved(partitionManager.tierRouter().segmentFor(loc.type()), loc.offset());
+            partitionManager.cognitiveRouter().layoutFor(loc.type())
+                    .markUnresolved(partitionManager.cognitiveRouter().segmentFor(loc.type()), loc.offset());
             log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
         } finally {
             releaseLease();
@@ -857,8 +857,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         "Memory '" + memoryId + "' does not exist in the index.");
             }
 
-            var layout = partitionManager.tierRouter().layoutFor(loc.type());
-            var segment = partitionManager.tierRouter().segmentFor(loc.type());
+            var layout = partitionManager.cognitiveRouter().layoutFor(loc.type());
+            var segment = partitionManager.cognitiveRouter().segmentFor(loc.type());
             if (layout != null && segment != null) {
                 byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
                         loc.offset() + SynapticHeaderConstants.OFFSET_FLAGS);
@@ -927,8 +927,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         MemorySource source = index.source(id);
         String[] memTags = index.tags(id);
 
-        MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
-        CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
+        MemorySegment segment = partitionManager.cognitiveRouter().segmentFor(loc.type());
+        CognitiveRecordLayout layout = partitionManager.cognitiveRouter().layoutFor(loc.type());
 
         if (segment == null || layout == null) return null;
 
@@ -980,8 +980,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             MemoryLocation loc = index.locate(memId);
             if (loc == null) continue;
 
-            MemorySegment segment = partitionManager.tierRouter().segmentFor(loc.type());
-            CognitiveRecordLayout layout = partitionManager.tierRouter().layoutFor(loc.type());
+            MemorySegment segment = partitionManager.cognitiveRouter().segmentFor(loc.type());
+            CognitiveRecordLayout layout = partitionManager.cognitiveRouter().layoutFor(loc.type());
 
             if (segment != null && layout != null) {
                 var header = layout.readHeader(segment, loc.offset());
@@ -1047,10 +1047,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
-    public int totalMemories() { return partitionManager.tierRouter().totalCount(); }
+    public int totalMemories() { return partitionManager.cognitiveRouter().totalCount(); }
 
     @Override
-    public int memoryCount(MemoryType type) { return partitionManager.tierRouter().countFor(type); }
+    public int memoryCount(MemoryType type) { return partitionManager.cognitiveRouter().countFor(type); }
 
     @Override
     public int decay(Duration olderThan, float factor) {
@@ -1060,7 +1060,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         long nowMs = System.currentTimeMillis();
         long thresholdMs = nowMs - olderThan.toMillis();
 
-        var partitions = partitionManager.tierRouter().episodic().partitions();
+        var partitions = partitionManager.cognitiveRouter().episodic().partitions();
         if (partitions.isEmpty()) return 0;
 
         try {
@@ -1170,7 +1170,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public ScalarQuantizer quantizer() { return quantizer; }
     @Override public CognitiveIngestionTarget cognitiveTarget() { return cognitiveTarget; }
     @Override public RecallPipeline recallPipeline() { return recallPipeline; }
-    @Override public TierRouter tierRouter() { return partitionManager.tierRouter(); }
+    @Override public CognitiveMemoryRouter cognitiveRouter() { return partitionManager.cognitiveRouter(); }
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
     @Override public CognitiveGraphFacade graph() { return graphFacade; }
@@ -1244,7 +1244,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public CompactionResult vacuum(MemoryType tier) {
-        TierRouter router = partitionManager.tierRouter();
+        CognitiveMemoryRouter router = partitionManager.cognitiveRouter();
         com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(tier);
         if (store == null) {
             log.warn("Vacuum: tier {} is not compactable", tier);
@@ -1260,7 +1260,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public java.util.Map<MemoryType, Float> tombstoneRatios() {
-        TierRouter router = partitionManager.tierRouter();
+        CognitiveMemoryRouter router = partitionManager.cognitiveRouter();
         java.util.Map<MemoryType, Float> ratios = new java.util.EnumMap<>(MemoryType.class);
         for (MemoryType type : MemoryType.values()) {
             com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(type);
@@ -1332,7 +1332,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 persistenceMode, persistencePath,
                 partitionManager.activePartitionDir(),
                 index, hebbianGraph, temporalChain, entityGraph, hyperEntityGraph,
-                coActivationTracker, partitionManager.tierRouter(), wal);
+                coActivationTracker, partitionManager.cognitiveRouter(), wal);
     }
 
     // ==============================================================

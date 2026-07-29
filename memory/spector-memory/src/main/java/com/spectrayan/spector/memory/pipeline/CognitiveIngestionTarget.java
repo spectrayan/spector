@@ -19,7 +19,7 @@ import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
@@ -99,7 +99,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final ScalarQuantizer quantizer;
     private final SurpriseDetector surpriseDetector;
     private final FlashbulbPolicy flashbulbPolicy;
-    private volatile TierRouter tierRouter;  // volatile: swapped on partition roll
+    private volatile CognitiveMemoryRouter cognitiveRouter;  // volatile: swapped on partition roll
     private final MemoryIndex index;
     private final MemoryWal wal;
     private final WorkingRecordMemory workingStore;  // nullable
@@ -141,7 +141,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public CognitiveIngestionTarget(ScalarQuantizer quantizer,
                                      SurpriseDetector surpriseDetector,
                                      FlashbulbPolicy flashbulbPolicy,
-                                     TierRouter tierRouter,
+                                     CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
                                      WorkingRecordMemory workingStore,
@@ -159,7 +159,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider) {
-        this(quantizer, surpriseDetector, flashbulbPolicy, tierRouter,
+        this(quantizer, surpriseDetector, flashbulbPolicy, cognitiveRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, normalizeAtIngest,
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
@@ -174,7 +174,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public CognitiveIngestionTarget(ScalarQuantizer quantizer,
                                      SurpriseDetector surpriseDetector,
                                      FlashbulbPolicy flashbulbPolicy,
-                                     TierRouter tierRouter,
+                                     CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
                                      WorkingRecordMemory workingStore,
@@ -196,7 +196,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.quantizer = quantizer;
         this.surpriseDetector = surpriseDetector;
         this.flashbulbPolicy = flashbulbPolicy;
-        this.tierRouter = tierRouter;
+        this.cognitiveRouter = cognitiveRouter;
         this.index = index;
         this.wal = wal;
         this.workingStore = workingStore;
@@ -217,19 +217,27 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.salienceProfile = SalienceProfile.NEUTRAL;
         this.postIngestSync = new PostIngestSync(
-                tierRouter, index, wal, semanticIndex,
+                cognitiveRouter, index, wal, semanticIndex,
                 hebbianGraph, temporalChain, entityExtractor, entityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
                 spladeIndex, spladeProvider, this.encryptor, hyperEntityGraph);
     }
 
     /**
-     * Updates the tier router after a partition roll.
+     * Updates the cognitive memory router after a partition roll.
      * Called by DefaultSpectorMemory.rollPartition() under lock.
      */
-    public void updateTierRouter(TierRouter newRouter) {
-        this.tierRouter = newRouter;
-        this.postIngestSync.updateTierRouter(newRouter);
+    public void updateCognitiveRouter(CognitiveMemoryRouter newRouter) {
+        this.cognitiveRouter = newRouter;
+        this.postIngestSync.updateCognitiveRouter(newRouter);
+    }
+
+    /**
+     * @deprecated Use {@link #updateCognitiveRouter(CognitiveMemoryRouter)} instead.
+     */
+    @Deprecated(forRemoval = true)
+    public void updateTierRouter(CognitiveMemoryRouter newRouter) {
+        updateCognitiveRouter(newRouter);
     }
 
     /**
@@ -267,14 +275,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public CognitiveIngestionTarget(ScalarQuantizer quantizer,
                                      SurpriseDetector surpriseDetector,
                                      FlashbulbPolicy flashbulbPolicy,
-                                     TierRouter tierRouter,
+                                     CognitiveMemoryRouter cognitiveRouter,
                                      MemoryIndex index,
                                      MemoryWal wal,
                                      WorkingRecordMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
                                      TagExtractor tagExtractor) {
-        this(quantizer, surpriseDetector, flashbulbPolicy, tierRouter,
+        this(quantizer, surpriseDetector, flashbulbPolicy, cognitiveRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, true,
                 null, null, null, null, null,
@@ -450,14 +458,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 7: Route to tier store and write (with automatic partition rolling)
         long offset;
         try {
-            offset = tierRouter.write(type, header, quantized);
+            offset = cognitiveRouter.write(type, header, quantized);
         } catch (SpectorMemoryTierFullException e) {
             if (partitionRollCallback != null) {
                 log.info("Tier {} full ({} records)  --  rolling to new partition",
                         type, e.getCapacity());
                 partitionRollCallback.run();
                 // Retry with the new router (swapped by callback)
-                offset = tierRouter.write(type, header, quantized);
+                offset = cognitiveRouter.write(type, header, quantized);
             } else {
                 throw e;  // No rolling configured  --  propagate
             }
@@ -550,12 +558,12 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 7: Route to tier store and write
         long offset;
         try {
-            offset = tierRouter.write(type, header, quantized);
+            offset = cognitiveRouter.write(type, header, quantized);
         } catch (SpectorMemoryTierFullException e) {
             if (partitionRollCallback != null) {
                 log.info("Migration: tier {} full  --  rolling partition", type);
                 partitionRollCallback.run();
-                offset = tierRouter.write(type, header, quantized);
+                offset = cognitiveRouter.write(type, header, quantized);
             } else {
                 throw e;
             }
@@ -702,11 +710,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 7: Route to tier store and write
         long offset;
         try {
-            offset = tierRouter.write(type, header, quantized);
+            offset = cognitiveRouter.write(type, header, quantized);
         } catch (SpectorMemoryTierFullException e) {
             if (partitionRollCallback != null) {
                 partitionRollCallback.run();
-                offset = tierRouter.write(type, header, quantized);
+                offset = cognitiveRouter.write(type, header, quantized);
             } else {
                 throw e;
             }

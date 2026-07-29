@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
@@ -60,7 +60,7 @@ final class PersistenceManager {
      * @param temporalChain      the temporal chain
      * @param entityGraph        the entity graph (nullable)
      * @param coActivationTracker the co-activation tracker
-     * @param tierRouter         the tier router
+     * @param cognitiveRouter    the cognitive memory router
      * @param wal                the write-ahead log
      */
     static void flushAndClose(MemoryPersistenceMode persistenceMode,
@@ -72,7 +72,7 @@ final class PersistenceManager {
                               EntityGraphMemory entityGraph,
                               com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                               CoActivationRecordMemory coActivationTracker,
-                              TierRouter tierRouter,
+                              CognitiveMemoryRouter cognitiveRouter,
                               MemoryWal wal) {
 
         // ── Phase 1: Persist to disk (DISK mode only) ──
@@ -108,7 +108,7 @@ final class PersistenceManager {
         }
 
         // ── Phase 2: Close resources ──
-        tierRouter.close();
+        cognitiveRouter.close();
         wal.close();
         hebbianGraph.close();
         temporalChain.close();

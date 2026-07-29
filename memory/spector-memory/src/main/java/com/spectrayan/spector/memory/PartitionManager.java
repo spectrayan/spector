@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -37,12 +37,12 @@ import java.time.Instant;
  * Manages colocated partition directories for DISK persistence mode.
  *
  * <p>Encapsulates partition discovery, creation, and rolling. Owns the volatile
- * {@code tierRouter} and {@code activePartitionDir} fields, ensuring all
+ * {@code cognitiveRouter} and {@code activePartitionDir} fields, ensuring all
  * synchronization is centralized in one place.</p>
  *
  * <h3>Thread Safety</h3>
  * <p>Partition rolls are synchronized on an internal lock. The volatile
- * {@code tierRouter} field ensures concurrent readers see the latest swap
+ * {@code cognitiveRouter} field ensures concurrent readers see the latest swap
  * without acquiring the lock. This provides safe publication for the
  * happens-before guarantee required by the ingestion pipeline.</p>
  *
@@ -62,7 +62,7 @@ final class PartitionManager {
     private final TemporalChainMemory temporalChain;
     private final CognitiveIngestionTarget cognitiveTarget;
 
-    private volatile TierRouter tierRouter;
+    private volatile CognitiveMemoryRouter cognitiveRouter;
     private volatile Path activePartitionDir;
     private final java.util.concurrent.locks.ReentrantLock partitionRollLock = new java.util.concurrent.locks.ReentrantLock();
 
@@ -71,7 +71,7 @@ final class PartitionManager {
                      int semanticCapacity,
                      int episodicPartitionCapacity,
                      int proceduralCapacity,
-                     TierRouter initialRouter,
+                     CognitiveMemoryRouter initialRouter,
                      Path initialPartitionDir,
                      MemoryIndex index,
                      HebbianGraphBase hebbianGraph,
@@ -82,7 +82,7 @@ final class PartitionManager {
         this.semanticCapacity = semanticCapacity;
         this.episodicPartitionCapacity = episodicPartitionCapacity;
         this.proceduralCapacity = proceduralCapacity;
-        this.tierRouter = initialRouter;
+        this.cognitiveRouter = initialRouter;
         this.activePartitionDir = initialPartitionDir;
         this.index = index;
         this.hebbianGraph = hebbianGraph;
@@ -90,8 +90,8 @@ final class PartitionManager {
         this.cognitiveTarget = cognitiveTarget;
     }
 
-    /** Returns the current tier router (volatile read — safe for concurrent access). */
-    TierRouter tierRouter() { return tierRouter; }
+    /** Returns the current cognitive memory router (volatile read — safe for concurrent access). */
+    CognitiveMemoryRouter cognitiveRouter() { return cognitiveRouter; }
 
     /** Returns the active partition directory (volatile read). */
     Path activePartitionDir() { return activePartitionDir; }
@@ -140,7 +140,7 @@ final class PartitionManager {
      *
      * <p>Called automatically when a tier store reaches capacity during ingestion.
      * Creates a new partition directory, fresh tier stores, and atomically swaps
-     * the TierRouter so subsequent writes go to the new partition.</p>
+     * the CognitiveMemoryRouter so subsequent writes go to the new partition.</p>
      *
      * <p>Thread-safe: synchronized on internal lock so concurrent ingestion threads
      * see a consistent swap.</p>
@@ -187,18 +187,18 @@ final class PartitionManager {
                         StorageLayout.semanticMem(newPartition));
 
                 // Preserve working memory (global, not partitioned)
-                WorkingRecordMemory workingStore = tierRouter.working();
+                WorkingRecordMemory workingStore = cognitiveRouter.working();
 
                 // Flush index + graphs to runtime/ before rolling
                 flushGlobalState();
 
                 // Atomic swap
-                this.tierRouter = new TierRouter(workingStore, newEpisodic,
+                this.cognitiveRouter = new CognitiveMemoryRouter(workingStore, newEpisodic,
                         newSemantic, newProcedural);
                 this.activePartitionDir = newPartition;
 
                 // Update ingestion target's router reference
-                cognitiveTarget.updateTierRouter(this.tierRouter);
+                cognitiveTarget.updateCognitiveRouter(this.cognitiveRouter);
 
                 log.info("Rolled to new partition: {} (seq={}, semantic capacity={})",
                         newPartition.getFileName(), nextSeq, semanticCapacity);

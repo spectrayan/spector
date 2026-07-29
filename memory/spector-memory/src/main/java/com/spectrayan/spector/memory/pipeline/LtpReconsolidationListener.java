@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pipeline;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -52,12 +52,12 @@ public final class LtpReconsolidationListener implements RecallListener {
     private static final long AUTO_LTP_COOLDOWN_MS = 300_000L; // 5 minutes
 
     private final MemoryIndex index;
-    private final TierRouter tierRouter;
+    private final CognitiveMemoryRouter cognitiveRouter;
     private final MemoryWal wal;
 
-    public LtpReconsolidationListener(MemoryIndex index, TierRouter tierRouter, MemoryWal wal) {
+    public LtpReconsolidationListener(MemoryIndex index, CognitiveMemoryRouter cognitiveRouter, MemoryWal wal) {
         this.index = index;
-        this.tierRouter = tierRouter;
+        this.cognitiveRouter = cognitiveRouter;
         this.wal = wal;
     }
 
@@ -67,9 +67,9 @@ public final class LtpReconsolidationListener implements RecallListener {
         for (CognitiveResult r : results) {
             MemoryLocation loc = index.locate(r.id());
             if (loc != null) {
-                MemorySegment segment = tierRouter.segmentFor(loc.type());
+                MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
                 if (segment != null) {
-                    CognitiveRecordLayout layout = tierRouter.layoutFor(loc.type());
+                    CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
 
                     if (layout.headerLayout().version() >= 3) {
                         long creationMs = layout.readTimestamp(segment, loc.offset());

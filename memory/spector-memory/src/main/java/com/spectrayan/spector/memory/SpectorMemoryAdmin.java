@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
-import com.spectrayan.spector.memory.cortex.TierRouter;
+import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
@@ -88,8 +88,17 @@ public interface SpectorMemoryAdmin {
     /** Returns the recall pipeline. */
     RecallPipeline recallPipeline();
 
-    /** Returns the tier router (Working, Episodic, Semantic, Procedural). */
-    TierRouter tierRouter();
+    /** Returns the cognitive memory router (Working, Episodic, Semantic, Procedural). */
+    CognitiveMemoryRouter cognitiveRouter();
+
+    /**
+     * Returns the cognitive memory router.
+     * @deprecated Use {@link #cognitiveRouter()} instead.
+     */
+    @Deprecated(forRemoval = true)
+    default CognitiveMemoryRouter tierRouter() {
+        return cognitiveRouter();
+    }
 
     /** Returns the memory index. */
     MemoryIndex index();
