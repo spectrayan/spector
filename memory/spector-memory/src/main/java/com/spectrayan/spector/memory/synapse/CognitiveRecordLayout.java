@@ -19,6 +19,8 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
+import com.spectrayan.spector.memory.kernel.MemoryLayout;
+
 /**
  * Read/write operations for cognitive memory records.
  *
@@ -45,7 +47,9 @@ import java.lang.foreign.ValueLayout;
  * @see HeaderLayout
  * @see HeaderLayout64
  */
-public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLayout) {
+public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLayout) implements MemoryLayout {
+
+    public static final int LAYOUT_ID = 0x434F4700; // 'COG\0'
 
     /**
      * Default constructor — uses the default 64-byte header layout.
@@ -54,6 +58,31 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
      */
     public CognitiveRecordLayout(int quantizedVecBytes) {
         this(quantizedVecBytes, HeaderLayout.defaultLayout());
+    }
+
+    @Override
+    public int layoutId() {
+        return LAYOUT_ID;
+    }
+
+    @Override
+    public int schemaVersion() {
+        return 1;
+    }
+
+    @Override
+    public int recordStride() {
+        return stride();
+    }
+
+    @Override
+    public boolean crcEnabled() {
+        return false;
+    }
+
+    @Override
+    public String name() {
+        return "CognitiveRecordLayout";
     }
 
     /**

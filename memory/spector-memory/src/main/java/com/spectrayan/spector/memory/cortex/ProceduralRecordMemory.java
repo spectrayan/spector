@@ -78,7 +78,7 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
                 filePath);
 
         log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
-                capacity, layout.stride(), count);
+                capacity(), layout.stride(), count);
     }
 
     /**
@@ -111,15 +111,15 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
     public void append(CognitiveHeader header, byte[] quantizedVec) {
         writeLock.lock();
         try {
-            if (count >= capacity) {
-                throw new SpectorMemoryTierFullException("PROCEDURAL", capacity);
+            if (count >= capacity()) {
+                throw new SpectorMemoryTierFullException("PROCEDURAL", capacity());
             }
 
             long offset = dataOffset() + (long) count * layout.stride();
-            layout.writeHeader(segment, offset, header);
+            layout.writeHeader(segment(), offset, header);
             MemorySegment.copy(
                     MemorySegment.ofArray(quantizedVec), 0,
-                    segment, layout.vectorOffset(offset),
+                    segment(), layout.vectorOffset(offset),
                     quantizedVec.length
             );
             count++;

@@ -14,19 +14,17 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayoutAdapter;
-import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Verifies kernel integration wiring on tier stores.
+ * Verifies kernel integration wiring on cognitive record memories.
  *
- * <p>These tests confirm that every tier store subclass correctly
- * exposes kernel identity, layout adapter, and shape metadata
- * without changing existing behavior.</p>
+ * <p>These tests confirm that every cognitive memory store subclass correctly
+ * exposes kernel identity, layout, and shape metadata without downcasting.</p>
  */
 class TierStoreKernelIntegrationTest {
 
@@ -47,13 +45,13 @@ class TierStoreKernelIntegrationTest {
     }
 
     @Test
-    @DisplayName("WorkingRecordMemory exposes kernel layout adapter")
+    @DisplayName("WorkingRecordMemory exposes kernel layout directly")
     void workingMemoryStoreKernelLayout() {
         try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayoutAdapter adapter = store.kernelLayout();
-            assertThat(adapter).isNotNull();
-            assertThat(adapter.recordStride()).isEqualTo(store.layout().stride());
-            assertThat(adapter.schemaVersion()).isGreaterThan(0);
+            CognitiveRecordLayout layout = store.layout();
+            assertThat(layout).isNotNull();
+            assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
+            assertThat(layout.schemaVersion()).isGreaterThan(0);
         }
     }
 
@@ -61,7 +59,7 @@ class TierStoreKernelIntegrationTest {
     @DisplayName("WorkingRecordMemory kernel shape is RECORD")
     void workingMemoryStoreKernelShape() {
         try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY)) {
-            assertThat(store.kernelShape()).isEqualTo(MemoryShape.RECORD);
+            assertThat(store.shape()).isEqualTo(MemoryShape.RECORD);
         }
     }
 
@@ -78,12 +76,12 @@ class TierStoreKernelIntegrationTest {
     }
 
     @Test
-    @DisplayName("SemanticRecordMemory exposes kernel layout adapter")
+    @DisplayName("SemanticRecordMemory exposes kernel layout directly")
     void semanticMemoryStoreKernelLayout() {
         try (var store = new SemanticRecordMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayoutAdapter adapter = store.kernelLayout();
-            assertThat(adapter).isNotNull();
-            assertThat(adapter.recordStride()).isEqualTo(store.layout().stride());
+            CognitiveRecordLayout layout = store.layout();
+            assertThat(layout).isNotNull();
+            assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
         }
     }
 
@@ -100,12 +98,12 @@ class TierStoreKernelIntegrationTest {
     }
 
     @Test
-    @DisplayName("ProceduralRecordMemory exposes kernel layout adapter")
+    @DisplayName("ProceduralRecordMemory exposes kernel layout directly")
     void proceduralMemoryStoreKernelLayout() {
         try (var store = new ProceduralRecordMemory(VEC_BYTES, CAPACITY)) {
-            CognitiveRecordLayoutAdapter adapter = store.kernelLayout();
-            assertThat(adapter).isNotNull();
-            assertThat(adapter.recordStride()).isEqualTo(store.layout().stride());
+            CognitiveRecordLayout layout = store.layout();
+            assertThat(layout).isNotNull();
+            assertThat(layout.recordStride()).isEqualTo(store.layout().stride());
         }
     }
 
@@ -142,12 +140,12 @@ class TierStoreKernelIntegrationTest {
     }
 
     @Test
-    @DisplayName("kernel layout adapter crcEnabled matches cognitive layout")
+    @DisplayName("kernel layout crcEnabled matches cognitive layout")
     void kernelLayoutCrcFlag() {
         try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY)) {
             // CognitiveRecordLayout doesn't enable CRC by default
-            CognitiveRecordLayoutAdapter adapter = store.kernelLayout();
-            assertThat(adapter.crcEnabled()).isFalse();
+            CognitiveRecordLayout layout = store.layout();
+            assertThat(layout.crcEnabled()).isFalse();
         }
     }
 }

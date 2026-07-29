@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.sync;
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
+import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 

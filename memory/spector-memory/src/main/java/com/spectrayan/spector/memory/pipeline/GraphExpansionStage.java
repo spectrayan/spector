@@ -30,7 +30,7 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.TierRouter;
-import com.spectrayan.spector.memory.cortex.TierStore;
+import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
@@ -347,8 +347,8 @@ final class GraphExpansionStage {
      */
     int offsetToRecordIndex(MemoryIndex.MemoryLocation loc) {
         int stride = tierRouter.layoutFor(loc.type()).stride();
-        TierStore store = tierRouter.get(loc.type());
-        long dataOffset = (store instanceof AbstractCognitiveRecordMemory ats && ats.isPersistent())
+        com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = tierRouter.get(loc.type());
+        long dataOffset = (store != null && store.isPersistent())
                 ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
         return (int) ((loc.offset() - dataOffset) / stride);
     }
@@ -360,8 +360,8 @@ final class GraphExpansionStage {
         for (MemoryType type : MemoryType.values()) {
             var layout = tierRouter.layoutFor(type);
             if (layout == null) continue;
-            TierStore store = tierRouter.get(type);
-            long dataOffset = (store instanceof AbstractCognitiveRecordMemory ats && ats.isPersistent())
+            com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = tierRouter.get(type);
+            long dataOffset = (store != null && store.isPersistent())
                     ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
             long offset = dataOffset + (long) approxIdx * layout.stride();
             String id = index.findIdByOffset(type, offset);

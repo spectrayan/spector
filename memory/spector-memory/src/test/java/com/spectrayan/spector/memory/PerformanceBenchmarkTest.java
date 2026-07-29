@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.*;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
+import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;

@@ -12,16 +12,14 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryLayout;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayoutAdapter;
-import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
+import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,40 +37,30 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 /**
- * Abstract base class for cognitive record memory stores (Prefrontal, Neocortex, Basal Ganglia).
+ * Base implementation for all cognitive record memory stores in Spector Memory,
+ * extending {@link AbstractRecordMemory} directly and implementing {@link CognitiveRecordMemory}.
  *
- * <p>Extends {@link AbstractRecordMemory} directly with {@link CognitiveRecordLayoutAdapter}
- * per ADR-013, completely replacing legacy {@code AbstractTierStore} nomenclature.</p>
+ * <p>Standardizes on Kernel 64-byte {@link MemoryHeader} for header management and
+ * implements full type-safe contracts for SWMR visibility and off-heap memory management.</p>
  *
- * @see TierStore for the common interface
+ * @see CognitiveRecordMemory for the common interface
  */
 public abstract class AbstractCognitiveRecordMemory 
-        extends AbstractRecordMemory<CognitiveRecordLayoutAdapter> 
-        implements TierStore {
+        extends AbstractRecordMemory<CognitiveRecordLayout> 
+        implements CognitiveRecordMemory {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractCognitiveRecordMemory.class);
 
     private volatile MemoryId memoryId;
-    private final CognitiveRecordLayoutAdapter layoutAdapter;
 
-    /** Metadata header magic: "TIER" in ASCII. */
-    static final int TIER_MAGIC = 0x54494552;
+    /** Legacy metadata header magic: "TIER" in ASCII (0x54494552). */
+    public static final int TIER_MAGIC = 0x54494552;
 
-    /** Metadata header format version. */
-    static final int TIER_VERSION = 1;
+    /** Metadata header extra field for working memory circular index (offset 60 in MemoryHeader). */
+    public static final int META_EXTRA1 = 60;
 
     /** Size of the metadata header in bytes. */
-    public static final int METADATA_HEADER_BYTES = 64;
-
-    // Metadata field offsets
-    static final int META_MAGIC    = 0;
-    static final int META_VERSION  = 4;
-    static final int META_COUNT    = 8;
-    static final int META_CAPACITY = 12;
-    static final int META_STRIDE   = 16;
-    static final int META_TIER_ORD = 20;
-    static final int META_EXTRA1   = 24;
-    static final int META_EXTRA2   = 28;
+    public static final int METADATA_HEADER_BYTES = MemoryHeader.HEADER_BYTES;
 
     // ── SWMR Visibility Barrier ──
     private static final VarHandle VISIBLE_COUNT_HANDLE;
@@ -138,7 +126,6 @@ public abstract class AbstractCognitiveRecordMemory
 
     private AbstractCognitiveRecordMemory(int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
         this(new CognitiveRecordLayout(quantizedVecBytes),
-             new CognitiveRecordLayoutAdapter(new CognitiveRecordLayout(quantizedVecBytes)),
              capacity, sharedArena,
              sharedArena.allocate(segmentBytes, SynapticHeaderConstants.HEADER_BYTES),
              0, false, null, null);
@@ -149,17 +136,14 @@ public abstract class AbstractCognitiveRecordMemory
      */
     protected AbstractCognitiveRecordMemory(int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
         this(new CognitiveRecordLayout(quantizedVecBytes),
-             new CognitiveRecordLayoutAdapter(new CognitiveRecordLayout(quantizedVecBytes)),
              capacity, segmentBytes, filePath, mmapFile(filePath, segmentBytes));
     }
 
     private AbstractCognitiveRecordMemory(CognitiveRecordLayout cogLayout,
-                                         CognitiveRecordLayoutAdapter layoutAdapter,
-                                         int capacity, long segmentBytes, Path filePath, MmapResult res) {
-        super(MemoryId.of("tier", "pending"), layoutAdapter, capacity,
+                                          int capacity, long segmentBytes, Path filePath, MmapResult res) {
+        super(MemoryId.of("tier", "pending"), cogLayout, capacity,
               res.arena, res.segment, 0, true, filePath, res.fileChannel);
         this.layout = cogLayout;
-        this.layoutAdapter = layoutAdapter;
         if (res.isNew) {
             this.count = 0;
             writeMetadata();
@@ -174,41 +158,40 @@ public abstract class AbstractCognitiveRecordMemory
     }
 
     private AbstractCognitiveRecordMemory(CognitiveRecordLayout cogLayout,
-                                         CognitiveRecordLayoutAdapter layoutAdapter,
-                                         int capacity, Arena arena, MemorySegment segment, int count,
-                                         boolean persistent, Path filePath, FileChannel fileChannel) {
-        super(MemoryId.of("tier", "pending"), layoutAdapter, capacity,
+                                          int capacity, Arena arena, MemorySegment segment, int count,
+                                          boolean persistent, Path filePath, FileChannel fileChannel) {
+        super(MemoryId.of("tier", "pending"), cogLayout, capacity,
               arena, segment, count, persistent, filePath, fileChannel);
         this.layout = cogLayout;
-        this.layoutAdapter = layoutAdapter;
         this.count = count;
     }
 
     /**
-     * Writes the metadata header to the mapped segment.
+     * Writes the metadata header to the mapped segment using standard Kernel MemoryHeader.
      */
     protected void writeMetadata() {
         if (!persistent) return;
-        segment.set(ValueLayout.JAVA_INT, META_MAGIC, TIER_MAGIC);
-        segment.set(ValueLayout.JAVA_INT, META_VERSION, TIER_VERSION);
-        segment.set(ValueLayout.JAVA_INT, META_COUNT, count);
-        segment.set(ValueLayout.JAVA_INT, META_CAPACITY, capacity);
-        segment.set(ValueLayout.JAVA_INT, META_STRIDE, layout.stride());
-        segment.set(ValueLayout.JAVA_INT, META_TIER_ORD, type().ordinal());
+        long now = System.currentTimeMillis();
+        MemoryHeader.write(segment, 0, 1, MemoryShape.RECORD, 1, capacity, count,
+                layout.stride(), layout.layoutId(), now, now);
     }
 
     /**
      * Reads the metadata header from the mapped segment.
      */
     protected void readMetadata() {
-        int magic = segment.get(ValueLayout.JAVA_INT, META_MAGIC);
-        if (magic != TIER_MAGIC) {
-            log.warn("Invalid tier magic in {}: 0x{} (expected 0x{})",
-                    filePath(), Integer.toHexString(magic), Integer.toHexString(TIER_MAGIC));
-            this.count = 0;
+        if (MemoryHeader.isValid(segment, 0)) {
+            this.count = (int) MemoryHeader.readCount(segment, 0);
             return;
         }
-        this.count = segment.get(ValueLayout.JAVA_INT, META_COUNT);
+        // Fallback for legacy TIER header
+        int magic = segment.get(ValueLayout.JAVA_INT, 0);
+        if (magic == TIER_MAGIC) {
+            this.count = segment.get(ValueLayout.JAVA_INT, 8);
+        } else {
+            log.warn("Invalid header magic in {}: 0x{}", filePath(), Integer.toHexString(magic));
+            this.count = 0;
+        }
     }
 
     /**
@@ -216,7 +199,11 @@ public abstract class AbstractCognitiveRecordMemory
      */
     protected void persistCount() {
         if (persistent) {
-            segment.set(ValueLayout.JAVA_INT, META_COUNT, count);
+            if (MemoryHeader.isValid(segment, 0)) {
+                MemoryHeader.writeCount(segment, 0, count);
+            } else {
+                segment.set(ValueLayout.JAVA_INT, 8, count);
+            }
         }
     }
 
@@ -242,12 +229,31 @@ public abstract class AbstractCognitiveRecordMemory
     }
 
     @Override
-    public CognitiveRecordLayoutAdapter layout() {
-        return layoutAdapter;
+    public CognitiveRecordLayout layout() {
+        return layout;
     }
 
+    @Override
     public CognitiveRecordLayout cognitiveLayout() {
         return layout;
+    }
+
+    @Override
+    public long recordOffset(long index) {
+        return dataOffset() + index * layout.stride();
+    }
+
+    @Override
+    public long write(long recordId, MemorySegment recordBytes) {
+        long offset = recordOffset(recordId);
+        MemorySegment.copy(recordBytes, 0, segment, offset, Math.min(recordBytes.byteSize(), layout.stride()));
+        return offset;
+    }
+
+    @Override
+    public void read(long recordId, MemorySegment dest) {
+        long offset = recordOffset(recordId);
+        MemorySegment.copy(segment, offset, dest, 0, Math.min(dest.byteSize(), layout.stride()));
     }
 
     @Override
@@ -255,37 +261,46 @@ public abstract class AbstractCognitiveRecordMemory
         return segment;
     }
 
-    public int capacity() {
-        return capacity;
-    }
-
+    @Override
     public MemorySegment segment() {
         return segment;
     }
 
+    @Override
+    public MemorySegment headerSlab() {
+        return segment;
+    }
+
+    @Override
+    public int capacity() {
+        return capacity;
+    }
+
+    @Override
     public boolean isPersistent() {
         return persistent;
     }
 
-    public void force() {
-        if (persistent && segment != null) {
-            segment.force();
-        }
+    @Override
+    public Path filePath() {
+        return filePath;
     }
 
     public int tombstoneCount() {
+        if (count == 0) return 0;
         int tombstones = 0;
-        long baseOffset = dataOffset();
+        long base = dataOffset();
+        int stride = layout.stride();
         for (int i = 0; i < count; i++) {
-            long offset = baseOffset + (long) i * layout.stride();
-            CognitiveHeader header = layout.readHeader(segment, offset);
-            if (SynapticHeaderConstants.isTombstoned(header.flags())) {
+            byte flags = layout.readFlags(segment, base + (long) i * stride);
+            if (SynapticHeaderConstants.isTombstoned(flags)) {
                 tombstones++;
             }
         }
         return tombstones;
     }
 
+    @Override
     public float tombstoneRatio() {
         if (count == 0) return 0.0f;
         return (float) tombstoneCount() / count;
@@ -305,26 +320,18 @@ public abstract class AbstractCognitiveRecordMemory
         return id;
     }
 
-    public CognitiveRecordLayoutAdapter kernelLayout() {
-        return layoutAdapter;
+    @Override
+    public int schemaVersion() {
+        return 1;
     }
 
-    public MemoryShape kernelShape() {
+    @Override
+    public MemoryShape shape() {
         return MemoryShape.RECORD;
     }
 
     @Override
-    public void close() {
-        log.info("{} closing ({} records, persistent={})", getClass().getSimpleName(), count, persistent);
-        if (persistent) {
-            try {
-                if (segment != null) {
-                    segment.force();
-                }
-            } catch (Exception e) {
-                log.debug("Error forcing segment: {}", e.getMessage());
-            }
-        }
-        super.close();
+    public void force() {
+        super.flush();
     }
 }

@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.pipeline;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
+import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.synapse.ActRActivation;

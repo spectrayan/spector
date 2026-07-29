@@ -61,8 +61,8 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     protected final int capacity;
     protected final boolean persistent;
     protected int count = 0;
-    private FileChannel fileChannel;
-    private final Path filePath;
+    protected FileChannel fileChannel;
+    protected final Path filePath;
 
     @SuppressWarnings("unused") // accessed via VarHandle
     private volatile int visibleCount = 0;

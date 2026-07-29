@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.consolidation;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
@@ -48,7 +48,7 @@ public final class DuplicateDetector {
     /**
      * Scans the given store for duplicate pairs.
      */
-    public List<DuplicatePair> findDuplicates(AbstractCognitiveRecordMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
+    public List<DuplicatePair> findDuplicates(CognitiveRecordMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
         List<DuplicatePair> pairs = new ArrayList<>();
         int recordCount = store.visibleCount();
         if (recordCount < 2) {
@@ -57,7 +57,7 @@ public final class DuplicateDetector {
 
         MemorySegment segment = store.segment();
         CognitiveRecordLayout layout = store.cognitiveLayout();
-        long baseOffset = store.isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0L;
+        long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L;
         int stride = layout.stride();
         int vecBytes = layout.quantizedVecBytes();
         float[] mins = quantizer.mins();

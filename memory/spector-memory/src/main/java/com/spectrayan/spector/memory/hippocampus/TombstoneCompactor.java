@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.hippocampus;
 
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
-import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore.EpisodicPartition;
+import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;

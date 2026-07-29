@@ -18,8 +18,8 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
-import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore.EpisodicPartition;
-import com.spectrayan.spector.memory.cortex.TierStore;
+import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory.EpisodicPartition;
+import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
@@ -188,20 +188,12 @@ public final class ReflectDaemon {
      * @return report summarizing what was done
      */
     public ReflectReport runCycle(EpisodicMemoryStore episodicStore,
-                                   TierStore semanticStore) {
+                                   CognitiveRecordMemory semanticStore) {
         return runCycle(episodicStore, semanticStore, null);
     }
 
-    /**
-     * Runs a single synchronous reflection cycle with text lookup for IVF clustering.
-     *
-     * @param episodicStore the episodic memory store to scan
-     * @param semanticStore the semantic store to promote into
-     * @param textLookup    function to look up text by memory offset (nullable)
-     * @return report summarizing what was done
-     */
     public ReflectReport runCycle(EpisodicMemoryStore episodicStore,
-                                   TierStore semanticStore,
+                                   CognitiveRecordMemory semanticStore,
                                    Function<Long, String> textLookup) {
         if (!running.compareAndSet(false, true)) {
             log.warn("Reflection cycle already in progress  --  skipping");
@@ -337,7 +329,7 @@ public final class ReflectDaemon {
      * </ol>
      */
     private int clusterAndSynthesize(EpisodicPartition partition,
-                                      TierStore semanticStore,
+                                      CognitiveRecordMemory semanticStore,
                                       Function<Long, String> textLookup) {
         if (semanticStore == null || partition.count() == 0) return 0;
 
@@ -625,7 +617,7 @@ public final class ReflectDaemon {
      * into the semantic store. Used as fallback when clustering is not configured.
      */
     private int promoteHighestImportance(EpisodicPartition partition,
-                                          TierStore semanticStore) {
+                                          CognitiveRecordMemory semanticStore) {
         if (semanticStore == null || partition.count() == 0) return 0;
 
         CognitiveRecordLayout layout = partition.layout();

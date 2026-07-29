@@ -71,9 +71,9 @@ class AbstractCognitiveRecordMemoryTest {
     void metadataHeaderContainsMagicAndVersion(@TempDir Path tempDir) {
         Path file = tempDir.resolve("test.mem");
         try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100, file)) {
-            // TIER magic is 0x54494552
+            // SMKM magic is 0x534D4B4D
             int magic = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
-            assertThat(magic).isEqualTo(0x54494552);
+            assertThat(magic).isEqualTo(com.spectrayan.spector.memory.kernel.MemoryHeader.MAGIC);
             int version = store.segment().get(java.lang.foreign.ValueLayout.JAVA_INT, 4);
             assertThat(version).isEqualTo(1);
         }

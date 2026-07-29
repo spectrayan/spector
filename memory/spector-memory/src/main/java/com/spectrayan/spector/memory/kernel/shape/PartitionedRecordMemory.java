@@ -12,43 +12,35 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
-import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 
+import java.util.List;
+
 /**
- * Shape interface for segmented record storage spanning multiple physical files.
- * Backs large, append-heavy tables with historic partitions.
+ * Interface for partition-rolling record memories in Spector Memory Kernel.
  *
  * @param <L> the memory layout type
  */
-public interface PartitionedRecordMemory<L extends MemoryLayout> extends Memory<L> {
-    /** 
-     * Total number of partitions.
-     * @return number of partitions
-     */
-    int partitionCount();
-    
-    /** 
-     * The currently active partition for writes.
-     * @return active partition
+public interface PartitionedRecordMemory<L extends MemoryLayout> extends RecordMemory<L> {
+
+    /**
+     * Returns the currently active partition where new writes occur.
+     *
+     * @return the active partition
      */
     RecordMemory<L> activePartition();
-    
-    /** 
-     * Get a specific partition by sequence number.
-     * @param seq partition sequence number
-     * @return the partition memory
+
+    /**
+     * Returns an unmodifiable list of historical read-only partitions.
+     *
+     * @return historical partitions
      */
-    RecordMemory<L> partition(int seq);
-    
-    /** 
-     * All partitions for cross-partition scans.
-     * @return iterable over all partitions
+    List<? extends RecordMemory<L>> historicalPartitions();
+
+    /**
+     * Rolls the active partition, sealing the current active partition and creating a new one.
+     *
+     * @return the newly active partition
      */
-    Iterable<RecordMemory<L>> partitions();
-    
-    /** 
-     * Create a new active partition, making the current one read-only.
-     */
-    void rollPartition();
+    RecordMemory<L> rollPartition();
 }

@@ -39,7 +39,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  */
 public final class TierRouter implements AutoCloseable {
 
-    private final EnumMap<MemoryType, TierStore> stores = new EnumMap<>(MemoryType.class);
+    private final EnumMap<MemoryType, CognitiveRecordMemory> stores = new EnumMap<>(MemoryType.class);
 
     // ── Typed accessors for tier-specific operations ──
     private final WorkingRecordMemory workingStore;
@@ -49,10 +49,6 @@ public final class TierRouter implements AutoCloseable {
 
     /**
      * Creates a TierRouter with all four cognitive tier stores.
-     *
-     * <p>Each store is registered in the internal {@code EnumMap} for polymorphic
-     * dispatch, while typed fields are retained for tier-specific operations
-     * (e.g., episodic partition iteration, semantic header reads).</p>
      */
     public TierRouter(WorkingRecordMemory workingStore,
                        EpisodicMemoryStore episodicStore,
@@ -75,12 +71,12 @@ public final class TierRouter implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Returns the {@link TierStore} for a given memory type.
+     * Returns the {@link CognitiveRecordMemory} for a given memory type.
      *
      * @throws SpectorValidationException if no store is registered for the type
      */
-    public TierStore get(MemoryType type) {
-        TierStore store = stores.get(type);
+    public CognitiveRecordMemory get(MemoryType type) {
+        CognitiveRecordMemory store = stores.get(type);
         if (store == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "storeType", type);
         }
@@ -89,7 +85,6 @@ public final class TierRouter implements AutoCloseable {
 
     /**
      * Routes a memory write to the appropriate tier store.
-     * Polymorphic — delegates to {@link TierStore#write}.
      *
      * @param type       target memory tier
      * @param header     cognitive header
@@ -102,7 +97,6 @@ public final class TierRouter implements AutoCloseable {
 
     /**
      * Returns the primary memory segment for a given tier.
-     * Polymorphic — delegates to {@link TierStore#primarySegment}.
      */
     public MemorySegment segmentFor(MemoryType type) {
         return get(type).primarySegment();
@@ -110,7 +104,6 @@ public final class TierRouter implements AutoCloseable {
 
     /**
      * Returns the layout for a given tier.
-     * Polymorphic — delegates to {@link TierStore#layout}.
      */
     public CognitiveRecordLayout layoutFor(MemoryType type) {
         return get(type).cognitiveLayout();
@@ -118,7 +111,6 @@ public final class TierRouter implements AutoCloseable {
 
     /**
      * Returns the record count for a given tier.
-     * Polymorphic — delegates to {@link TierStore#size}.
      */
     public int countFor(MemoryType type) {
         return get(type).size();
@@ -129,7 +121,7 @@ public final class TierRouter implements AutoCloseable {
      */
     public int totalCount() {
         int total = 0;
-        for (TierStore store : stores.values()) {
+        for (CognitiveRecordMemory store : stores.values()) {
             total += store.size();
         }
         return total;
@@ -171,9 +163,9 @@ public final class TierRouter implements AutoCloseable {
      * Used by {@code CheckpointDaemon} before recording a WAL checkpoint.
      */
     public void forceAll() {
-        for (TierStore store : stores.values()) {
-            if (store instanceof AbstractCognitiveRecordMemory ats && ats.isPersistent()) {
-                ats.force();
+        for (CognitiveRecordMemory store : stores.values()) {
+            if (store.isPersistent()) {
+                store.force();
             }
         }
     }

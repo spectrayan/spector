@@ -112,18 +112,18 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
     public void append(CognitiveHeader header, byte[] quantizedVec) {
         writeLock.lock();
         try {
-            if (count >= capacity) {
-                throw new SpectorMemoryTierFullException("SEMANTIC", capacity);
+            if (count >= capacity()) {
+                throw new SpectorMemoryTierFullException("SEMANTIC", capacity());
             }
 
             long offset = dataOffset() + (long) count * layout.stride();
-            layout.writeHeader(segment, offset, header);
+            layout.writeHeader(segment(), offset, header);
 
             // Write vector payload (if available — ReflectDaemon promotes with null vec)
             if (quantizedVec != null) {
                 MemorySegment.copy(
                         MemorySegment.ofArray(quantizedVec), 0,
-                        segment, layout.vectorOffset(offset),
+                        segment(), layout.vectorOffset(offset),
                         quantizedVec.length
                 );
             }
@@ -137,21 +137,15 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
         }
     }
 
-    /**
-     * Stores a new semantic memory header (header-only, for backward compatibility).
-     *
-     * @param header cognitive header
-     * @return the record index
-     */
     public int store(CognitiveHeader header) {
         writeLock.lock();
         try {
-            if (count >= capacity) {
-                throw new SpectorMemoryTierFullException("SEMANTIC", capacity);
+            if (count >= capacity()) {
+                throw new SpectorMemoryTierFullException("SEMANTIC", capacity());
             }
 
             long offset = dataOffset() + (long) count * layout.stride();
-            layout.writeHeader(segment, offset, header);
+            layout.writeHeader(segment(), offset, header);
             int index = count++;
             persistCount();
             publishVisible(); // SWMR: make record visible to scanners
@@ -161,20 +155,14 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
         }
     }
 
-    /**
-     * Reads the cognitive header at the given index.
-     */
     public CognitiveHeader readHeader(int index) {
         long offset = dataOffset() + (long) index * layout.stride();
-        return layout.readHeader(segment, offset);
+        return layout.readHeader(segment(), offset);
     }
 
-    /**
-     * Returns the header slab segment for direct scorer access.
-     * This is the same as {@link #primarySegment()} for semantic stores.
-     */
+    @Override
     public MemorySegment headerSlab() {
-        return segment;
+        return segment();
     }
 
 }

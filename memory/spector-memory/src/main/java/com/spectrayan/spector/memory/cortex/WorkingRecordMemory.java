@@ -88,13 +88,13 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
                 filePath);
 
         // Restore writeIndex from metadata header extra1 field
-        if (persistent && count > 0) {
-            this.writeIndex = segment.get(ValueLayout.JAVA_INT, META_EXTRA1);
+        if (isPersistent() && count > 0) {
+            this.writeIndex = segment().get(ValueLayout.JAVA_INT, META_EXTRA1);
             log.info("WorkingRecordMemory restored: writeIndex={}, count={}", writeIndex, count);
         }
 
         log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, persistent=true",
-                capacity, layout.stride());
+                capacity(), layout.stride());
     }
 
     /**
@@ -140,29 +140,29 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
             long offset = dataOffset() + (long) writeIndex * layout.stride();
 
             // If we're overwriting an existing record, mark it as evicted
-            if (count >= capacity) {
+            if (count >= capacity()) {
                 log.trace("Working memory full — evicting slot {}", writeIndex);
             }
 
             // Write header
-            layout.writeHeader(segment, offset, header);
+            layout.writeHeader(segment(), offset, header);
 
             // Write quantized vector payload
             MemorySegment.copy(
                     MemorySegment.ofArray(quantizedVec), 0,
-                    segment, layout.vectorOffset(offset),
+                    segment(), layout.vectorOffset(offset),
                     quantizedVec.length
             );
 
             // Advance circular buffer
-            writeIndex = (writeIndex + 1) % capacity;
-            count = Math.min(count + 1, capacity);
+            writeIndex = (writeIndex + 1) % capacity();
+            count = Math.min(count + 1, capacity());
 
             // Persist count and writeIndex to metadata header
-            persistCount();
-            if (persistent) {
-                segment.set(ValueLayout.JAVA_INT, META_EXTRA1, writeIndex);
+            if (isPersistent()) {
+                segment().set(ValueLayout.JAVA_INT, META_EXTRA1, writeIndex);
             }
+            persistCount();
             publishVisible(); // SWMR: make record visible to scanners
         } finally {
             writeLock.unlock();
@@ -230,12 +230,12 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
             long offset = dataOffset() + (long) i * layout.stride();
 
             // Skip tombstoned records
-            byte flags = layout.readFlags(segment, offset);
+            byte flags = layout.readFlags(segment(), offset);
             if (SynapticHeaderConstants.isTombstoned(flags)) continue;
 
             // Compute calibrated L2 distance via SIMD kernel
             float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-                    queryVector, segment, layout.vectorOffset(offset),
+                    queryVector, segment(), layout.vectorOffset(offset),
                     mins, scales, layout.quantizedVecBytes());
 
             if (dist < minDist) minDist = dist;

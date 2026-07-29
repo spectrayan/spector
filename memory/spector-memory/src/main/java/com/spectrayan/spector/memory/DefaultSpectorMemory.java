@@ -57,7 +57,7 @@ import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.consolidation.ConsolidationService;
 import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
+import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 
 import com.spectrayan.spector.memory.interference.SemanticDeduplicator;
@@ -1245,14 +1245,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public CompactionResult vacuum(MemoryType tier) {
         TierRouter router = partitionManager.tierRouter();
-        com.spectrayan.spector.memory.cortex.TierStore store = router.get(tier);
-        if (!(store instanceof com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory ats)) {
+        com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(tier);
+        if (store == null) {
             log.warn("Vacuum: tier {} is not compactable", tier);
             return null;
         }
         vacuumLock.lock();
         try {
-            return VacuumCompactor.compact(ats, tier, index);
+            return VacuumCompactor.compact(store, tier, index);
         } finally {
             vacuumLock.unlock();
         }
@@ -1263,9 +1263,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         TierRouter router = partitionManager.tierRouter();
         java.util.Map<MemoryType, Float> ratios = new java.util.EnumMap<>(MemoryType.class);
         for (MemoryType type : MemoryType.values()) {
-            com.spectrayan.spector.memory.cortex.TierStore store = router.get(type);
-            if (store instanceof com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory ats) {
-                ratios.put(type, ats.tombstoneRatio());
+            com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(type);
+            if (store != null) {
+                ratios.put(type, store.tombstoneRatio());
             }
         }
         return ratios;

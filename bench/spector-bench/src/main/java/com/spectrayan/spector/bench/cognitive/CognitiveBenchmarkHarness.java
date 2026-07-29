@@ -45,7 +45,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.TierRouter;
-import com.spectrayan.spector.memory.cortex.TierStore;
+import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 
 /**
@@ -627,7 +627,7 @@ public final class CognitiveBenchmarkHarness {
             }
         }
 
-        TierStore store = tierRouter.get(primaryTier);
+        CognitiveRecordMemory store = tierRouter.get(primaryTier);
         MemorySegment segment = store.primarySegment();
         CognitiveRecordLayout layout = store.cognitiveLayout();
         int recordCount = store.size();

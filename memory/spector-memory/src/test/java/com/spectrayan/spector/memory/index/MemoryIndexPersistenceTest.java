@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.index;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
+import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
