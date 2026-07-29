@@ -40,7 +40,7 @@ import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 /**
  * Bootstraps a {@link SpectorMemory} instance populated with the benchmark corpus.
@@ -216,7 +216,7 @@ public final class BenchmarkSetup implements AutoCloseable {
      * @param chains   chain definitions from the dataset
      * @param idToSlot mapping from corpus record IDs to their slot indices
      */
-    void loadTemporalChains(TemporalChain chain, List<TemporalChainDef> chains,
+    void loadTemporalChains(TemporalChainMemory chain, List<TemporalChainDef> chains,
                             Map<String, Integer> idToSlot) {
         int linkedCount = 0;
         int skipped = 0;

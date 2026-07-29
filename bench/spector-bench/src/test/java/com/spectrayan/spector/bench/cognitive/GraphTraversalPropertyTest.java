@@ -16,7 +16,7 @@
 package com.spectrayan.spector.bench.cognitive;
 
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -99,7 +99,7 @@ class GraphTraversalPropertyTest {
             @ForAll @IntRange(min = 5, max = 15) int chainLength,
             @ForAll @IntRange(min = 1, max = 3) int maxHops) {
 
-        TemporalChain chain = new TemporalChain(100);
+        TemporalChainMemory chain = new TemporalChainMemory(100);
 
         // Build a chain: 0 → 1 → 2 → ... → chainLength-1
         for (int i = 1; i < chainLength; i++) {

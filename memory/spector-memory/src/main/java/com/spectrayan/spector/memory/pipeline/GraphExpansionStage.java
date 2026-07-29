@@ -32,7 +32,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.cortex.TierStore;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import org.slf4j.Logger;
@@ -71,7 +71,7 @@ final class GraphExpansionStage {
 
     // ── Dependencies (all nullable — graceful degradation) ──
     private final HebbianGraphBase hebbianGraph;
-    private final TemporalChain temporalChain;
+    private final TemporalChainMemory temporalChain;
     private final EntityGraph entityGraph;
     private final EntityExtractor entityExtractor;
     private final GraphScoringPolicy graphScoringPolicy;
@@ -81,7 +81,7 @@ final class GraphExpansionStage {
     private final float[] calibrationScales;
 
     GraphExpansionStage(HebbianGraphBase hebbianGraph,
-                        TemporalChain temporalChain,
+                        TemporalChainMemory temporalChain,
                         EntityGraph entityGraph,
                         EntityExtractor entityExtractor,
                         GraphScoringPolicy graphScoringPolicy,

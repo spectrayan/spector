@@ -96,7 +96,7 @@ import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.commons.TextChunker;
 
@@ -185,7 +185,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     //  3-Layer Cognitive Graph 
     private final HebbianGraphBase hebbianGraph;
-    private final TemporalChain temporalChain;
+    private final TemporalChainMemory temporalChain;
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
@@ -1178,7 +1178,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @SuppressWarnings("deprecation")
     @Override public HebbianGraphBase hebbianGraph() { return graphFacade.hebbianGraph(); }
     @SuppressWarnings("deprecation")
-    @Override public TemporalChain temporalChain() { return graphFacade.temporalChain(); }
+    @Override public TemporalChainMemory temporalChain() { return graphFacade.temporalChain(); }
     @SuppressWarnings("deprecation")
     @Override public EntityGraph entityGraph() { return graphFacade.entityGraph(); }
     @SuppressWarnings("deprecation")

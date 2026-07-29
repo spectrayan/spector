@@ -140,7 +140,7 @@ public final class WalRecoveryDispatcher {
                             int fromIdx = payload.getInt();
                             int toIdx = payload.getInt();
                             int sessionId = payload.getInt();
-                            if (target instanceof TemporalChain tc) {
+                            if (target instanceof TemporalChainMemory tc) {
                                 tc.link(fromIdx, toIdx, sessionId);
                             }
                         }

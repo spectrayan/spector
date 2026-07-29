@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 /**
  * Identifies which cognitive subsystem(s) contributed to a retrieval result
@@ -112,7 +112,7 @@ public enum ContributingSubsystem {
             String memoryId,
             Set<String> baselineTop10,
             HebbianGraphBase hebbian,
-            TemporalChain temporal,
+            TemporalChainMemory temporal,
             EntityGraph entity,
             ScoreBreakdown breakdown,
             Map<String, Integer> idToSlot) {
@@ -195,7 +195,7 @@ public enum ContributingSubsystem {
      * via temporal chain traversal (forward or backward, up to {@value #TEMPORAL_MAX_HOPS} hops).
      */
     private static boolean isTemporallyReachable(int targetSlot, Set<String> baselineTop10,
-                                                   TemporalChain temporal, Map<String, Integer> idToSlot) {
+                                                   TemporalChainMemory temporal, Map<String, Integer> idToSlot) {
         for (String baselineId : baselineTop10) {
             Integer seedSlot = idToSlot.get(baselineId);
             if (seedSlot == null) continue;

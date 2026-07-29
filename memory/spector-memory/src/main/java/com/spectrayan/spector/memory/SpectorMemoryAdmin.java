@@ -29,7 +29,7 @@ import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.sync.CompactionResult;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
 import java.time.Duration;
@@ -113,7 +113,7 @@ public interface SpectorMemoryAdmin {
 
     /** @deprecated Use {@link #graph()} and its query methods instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
-    TemporalChain temporalChain();
+    TemporalChainMemory temporalChain();
 
     /** @deprecated Use {@link #graph()} and its query methods instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
