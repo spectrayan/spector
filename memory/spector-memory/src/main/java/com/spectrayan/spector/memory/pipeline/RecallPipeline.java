@@ -61,7 +61,7 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
 import org.slf4j.Logger;
@@ -146,7 +146,7 @@ public final class RecallPipeline {
 
     //  3-Layer Cognitive Graph (all nullable) 
     private final HebbianGraphBase hebbianGraph;
-    private final TemporalChain temporalChain;
+    private final TemporalChainMemory temporalChain;
     private final EntityGraph entityGraph;
     private final EntityExtractor entityExtractor;
 
@@ -264,7 +264,7 @@ public final class RecallPipeline {
                            SemanticRecallStrategy semanticRecallStrategy,
                            CoActivationTracker coActivationTracker,
                            HebbianGraphBase hebbianGraph,
-                           TemporalChain temporalChain,
+                           TemporalChainMemory temporalChain,
                            EntityGraph entityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
@@ -316,7 +316,7 @@ public final class RecallPipeline {
                            SemanticRecallStrategy semanticRecallStrategy,
                            CoActivationTracker coActivationTracker,
                            HebbianGraphBase hebbianGraph,
-                           TemporalChain temporalChain,
+                           TemporalChainMemory temporalChain,
                            EntityGraph entityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,

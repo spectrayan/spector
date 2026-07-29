@@ -34,7 +34,7 @@ import com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,7 +77,7 @@ final class PostIngestSync {
     private final MemoryWal wal;
     private final VectorIndex semanticIndex;
     private final HebbianGraphBase hebbianGraph;
-    private final TemporalChain temporalChain;
+    private final TemporalChainMemory temporalChain;
     private final EntityExtractor entityExtractor;
     private final EntityGraph entityGraph;
     private final MemoryBM25Index bm25Index;
@@ -90,7 +90,7 @@ final class PostIngestSync {
 
     PostIngestSync(TierRouter tierRouter, MemoryIndex index, MemoryWal wal,
                    VectorIndex semanticIndex,
-                   HebbianGraphBase hebbianGraph, TemporalChain temporalChain,
+                   HebbianGraphBase hebbianGraph, TemporalChainMemory temporalChain,
                    EntityExtractor entityExtractor, EntityGraph entityGraph,
                    MemoryBM25Index bm25Index, TextAppendMemory textDataStore,
                    int activePartitionIndex,
@@ -291,7 +291,7 @@ final class PostIngestSync {
                     int predIdx = predLoc.partitionIndex() >= 0
                             ? predLoc.partitionIndex()
                             : (int) (predLoc.offset() / 164);
-                    temporalChain.link(memoryIdx, predIdx, linkHint.sessionId());
+                    temporalChain.linkNodes(predIdx, memoryIdx, linkHint.sessionId(), (int) (System.currentTimeMillis() / 1000));
                 }
             } catch (RuntimeException e) {
                 log.warn("Failed to apply temporal link hint {}  ->  {}: {}",

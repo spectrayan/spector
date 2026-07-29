@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 
 import com.spectrayan.spector.memory.cortex.TierRouter;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,7 +92,7 @@ public final class CheckpointDaemon {
 
     // ── 3-Layer Cognitive Graph + CoActivation ──
     private final HebbianGraphBase hebbianGraph;           // nullable
-    private final TemporalChain temporalChain;         // nullable
+    private final TemporalChainMemory temporalChain;         // nullable
     private final EntityGraph entityGraph;             // nullable
     private final com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph; // nullable
     private final CoActivationTracker coActivationTracker; // nullable
@@ -138,7 +138,7 @@ public final class CheckpointDaemon {
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath,
                             HebbianGraphBase hebbianGraph,
-                            TemporalChain temporalChain,
+                            TemporalChainMemory temporalChain,
                             EntityGraph entityGraph,
                             com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph,
                             CoActivationTracker coActivationTracker,

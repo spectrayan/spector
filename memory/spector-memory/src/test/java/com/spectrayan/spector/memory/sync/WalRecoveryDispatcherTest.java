@@ -37,7 +37,7 @@ import com.spectrayan.spector.memory.kernel.layout.IdBlobLayout;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphCsr;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -82,7 +82,7 @@ class WalRecoveryDispatcherTest {
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
              EntityGraph entityGraph = new EntityGraph(entityFile, 10, 20);
-             TemporalChain temporalChain = new TemporalChain(chainFile, 10)) {
+             TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10)) {
 
             recordMem.bindWal(wal);
             appendMem.bindWal(wal);
@@ -122,7 +122,7 @@ class WalRecoveryDispatcherTest {
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
              EntityGraph entityGraph = new EntityGraph(entityFile, 10, 20);
-             TemporalChain temporalChain = new TemporalChain(chainFile, 10);
+             TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10);
              HebbianGraphCsr hebbianGraph = new HebbianGraphCsr(10)) {
 
             recordMem.bindWal(wal);
@@ -180,7 +180,7 @@ class WalRecoveryDispatcherTest {
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
              EntityGraph entityGraph = new EntityGraph(entityFile, 10, 20);
-             TemporalChain temporalChain = new TemporalChain(chainFile, 10);
+             TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10);
              HebbianGraphCsr hebbianGraph = new HebbianGraphCsr(10)) {
 
             // Verify they are back to checkpoint state

@@ -75,7 +75,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.pipeline.AttachmentProcessor;
 import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
@@ -124,7 +124,7 @@ public final class SpectorMemoryFactory {
             LateralEvaluator lateralEvaluator,
             MemoryWal wal,
             HebbianGraphBase hebbianGraph,
-            TemporalChain temporalChain,
+            TemporalChainMemory temporalChain,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
             EntityGraph entityGraph,
             HyperEntityGraph hyperEntityGraph,
@@ -318,7 +318,7 @@ public final class SpectorMemoryFactory {
 
         int temporalCapacity = builder.temporalChainCapacity > 0
                 ? builder.temporalChainCapacity : graphCapacity;
-        TemporalChain temporalChain;
+        TemporalChainMemory temporalChain;
         if (isDisk && basePath != null) {
             Path runtimeChain = StorageLayout.temporalChainRuntime(basePath);
             Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
@@ -328,9 +328,9 @@ public final class SpectorMemoryFactory {
             if (loadFrom == null) {
                 loadFrom = legacyChain;
             }
-            temporalChain = TemporalChain.load(loadFrom, temporalCapacity);
+            temporalChain = new TemporalChainMemory(loadFrom, temporalCapacity);
         } else {
-            temporalChain = new TemporalChain(temporalCapacity);
+            temporalChain = new TemporalChainMemory(temporalCapacity);
         }
 
         EntityExtractor entityExtractor;
@@ -712,7 +712,7 @@ public final class SpectorMemoryFactory {
             TierRouter tierRouter,
             MemoryIndex index,
             HebbianGraphBase hebbianGraph,
-            TemporalChain temporalChain,
+            TemporalChainMemory temporalChain,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
             EntityGraph entityGraph,
             CoActivationTracker coActivationTracker,

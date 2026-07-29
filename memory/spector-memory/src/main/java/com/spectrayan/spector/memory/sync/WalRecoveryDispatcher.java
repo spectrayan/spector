@@ -28,7 +28,7 @@ import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphCsr;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 /**
  * Replays shape-specific Write-Ahead Log (WAL) events and dispatches mutations
@@ -140,7 +140,7 @@ public final class WalRecoveryDispatcher {
                             int fromIdx = payload.getInt();
                             int toIdx = payload.getInt();
                             int sessionId = payload.getInt();
-                            if (target instanceof TemporalChain tc) {
+                            if (target instanceof TemporalChainMemory tc) {
                                 tc.link(fromIdx, toIdx, sessionId);
                             }
                         }

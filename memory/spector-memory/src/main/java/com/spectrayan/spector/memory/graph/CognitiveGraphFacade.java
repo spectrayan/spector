@@ -22,7 +22,7 @@ import com.spectrayan.spector.memory.model.GraphStats;
 import com.spectrayan.spector.memory.model.TopologyStats;
 import com.spectrayan.spector.memory.model.TopologyStats.EntityTypeStats;
 import com.spectrayan.spector.memory.model.TopologyStats.RelationTypeStats;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,13 +50,13 @@ public final class CognitiveGraphFacade {
     private static final Logger log = LoggerFactory.getLogger(CognitiveGraphFacade.class);
 
     private final HebbianGraphBase hebbianGraph;
-    private final TemporalChain temporalChain;
+    private final TemporalChainMemory temporalChain;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
     private final MemoryIndex index;
 
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
-                                TemporalChain temporalChain,
+                                TemporalChainMemory temporalChain,
                                 EntityGraph entityGraph,
                                 HyperEntityGraph hyperEntityGraph,
                                 MemoryIndex index) {
@@ -77,7 +77,7 @@ public final class CognitiveGraphFacade {
 
     /** @deprecated Use {@link #graphStats()} or {@link #neighborhood(String, int, Function)} instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
-    public TemporalChain temporalChain() { return temporalChain; }
+    public TemporalChainMemory temporalChain() { return temporalChain; }
 
     /** @deprecated Use {@link #graphStats()} or {@link #topologyStats()} instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)

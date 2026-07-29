@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.GraphNeighborhood;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +36,7 @@ class CognitiveGraphFacadeTest {
     void neighborhoodRetrievesEntityAndSharedEntityRelationships() {
         // Arrange
         var hebbianGraph = mock(HebbianGraph.class);
-        var temporalChain = mock(TemporalChain.class);
+        var temporalChain = mock(TemporalChainMemory.class);
         var entityGraph = mock(EntityGraph.class);
         var hyperEntityGraph = mock(HyperEntityGraph.class);
         var index = mock(MemoryIndex.class);

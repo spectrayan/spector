@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.sync.MemoryWal;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +68,7 @@ final class PersistenceManager {
                               Path activePartitionDir,
                               MemoryIndex index,
                               HebbianGraphBase hebbianGraph,
-                              TemporalChain temporalChain,
+                              TemporalChainMemory temporalChain,
                               EntityGraph entityGraph,
                               com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph,
                               CoActivationTracker coActivationTracker,

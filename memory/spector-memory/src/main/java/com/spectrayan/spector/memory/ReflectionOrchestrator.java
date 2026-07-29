@@ -26,7 +26,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,7 +104,7 @@ final class ReflectionOrchestrator {
 
     private final ReflectDaemon reflectDaemon;
     private final HebbianGraphBase hebbianGraph;
-    private final TemporalChain temporalChain;
+    private final TemporalChainMemory temporalChain;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
     private final MemoryWal wal;
@@ -112,7 +112,7 @@ final class ReflectionOrchestrator {
 
     ReflectionOrchestrator(ReflectDaemon reflectDaemon,
                            HebbianGraphBase hebbianGraph,
-                           TemporalChain temporalChain,
+                           TemporalChainMemory temporalChain,
                            EntityGraph entityGraph,
                            HyperEntityGraph hyperEntityGraph,
                            MemoryWal wal,

@@ -77,7 +77,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     private static final TemporalFactLayout LAYOUT = new TemporalFactLayout();
 
     // ── Storage ──
-    private final DefaultAppendMemory<TemporalFactLayout> factLog;
+    private final TemporalFactsAppendMemory factLog;
 
     // ── In-memory indexes (rebuilt on open) ──
     private final SubjectIndex subjectIndex = new SubjectIndex();
@@ -116,7 +116,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      */
     public TemporalKnowledgeGraph(TypeRegistry predicateRegistry,
                                    ContradictionResolver resolver) {
-        this.factLog = new DefaultAppendMemory<>(MEMORY_ID, LAYOUT, 0, DEFAULT_INITIAL_SIZE);
+        this.factLog = new TemporalFactsAppendMemory(DEFAULT_INITIAL_SIZE);
         this.predicateRegistry = predicateRegistry;
         this.resolver = resolver;
         this.nextFactId = 1;
@@ -146,7 +146,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     public TemporalKnowledgeGraph(Path filePath, long initialSize,
                                    TypeRegistry predicateRegistry,
                                    ContradictionResolver resolver) {
-        this.factLog = new DefaultAppendMemory<>(MEMORY_ID, LAYOUT, 0, initialSize, filePath);
+        this.factLog = new TemporalFactsAppendMemory(filePath, initialSize);
         this.predicateRegistry = predicateRegistry;
         this.resolver = resolver;
         this.nextFactId = 1;
@@ -415,7 +415,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      *
      * @return the fact log memory
      */
-    public DefaultAppendMemory<TemporalFactLayout> backing() {
+    public TemporalFactsAppendMemory backing() {
         return factLog;
     }
 

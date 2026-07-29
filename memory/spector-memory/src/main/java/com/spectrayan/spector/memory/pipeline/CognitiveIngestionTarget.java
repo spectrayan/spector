@@ -38,7 +38,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
@@ -110,7 +110,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
     //  Graph components (all nullable  --  graceful degradation) 
     private final HebbianGraphBase hebbianGraph;
-    private final TemporalChain temporalChain;
+    private final TemporalChainMemory temporalChain;
     private final EntityExtractor entityExtractor;
     private final EntityGraph entityGraph;
     private final HyperEntityGraph hyperEntityGraph;
@@ -152,7 +152,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      TagExtractor tagExtractor,
                                      boolean normalizeAtIngest,
                                      HebbianGraphBase hebbianGraph,
-                                     TemporalChain temporalChain,
+                                     TemporalChainMemory temporalChain,
                                      EntityExtractor entityExtractor,
                                      EntityGraph entityGraph,
                                      HyperEntityGraph hyperEntityGraph,
@@ -185,7 +185,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      TagExtractor tagExtractor,
                                      boolean normalizeAtIngest,
                                      HebbianGraphBase hebbianGraph,
-                                     TemporalChain temporalChain,
+                                     TemporalChainMemory temporalChain,
                                      EntityExtractor entityExtractor,
                                      EntityGraph entityGraph,
                                      HyperEntityGraph hyperEntityGraph,

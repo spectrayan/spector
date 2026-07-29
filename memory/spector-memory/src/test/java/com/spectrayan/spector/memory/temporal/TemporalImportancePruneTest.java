@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.temporal;
 
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,11 +28,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class TemporalImportancePruneTest {
 
-    private TemporalChain chain;
+    private TemporalChainMemory chain;
 
     @BeforeEach
     void setUp() {
-        chain = new TemporalChain(100);
+        chain = new TemporalChainMemory(100);
     }
 
     @AfterEach

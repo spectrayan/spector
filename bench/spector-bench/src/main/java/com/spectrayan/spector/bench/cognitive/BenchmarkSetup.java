@@ -40,7 +40,7 @@ import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 /**
  * Bootstraps a {@link SpectorMemory} instance populated with the benchmark corpus.

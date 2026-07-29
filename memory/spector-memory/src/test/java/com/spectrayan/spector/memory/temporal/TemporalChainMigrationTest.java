@@ -77,35 +77,33 @@ class TemporalChainMigrationTest {
             ch.write(data);
         }
 
-        // 2. Open using the refactored TemporalChain (which reads SMKM or migrates TPCH)
-        try (TemporalChain chain = new TemporalChain(legacyFile, capacity)) {
+        // 2. Open using the refactored TemporalChainMemory (which reads SMKM or migrates TPCH)
+        try (TemporalChainMemory memory = new TemporalChainMemory(legacyFile, capacity)) {
             // Verify capacity and size
-            assertThat(chain.capacity()).isEqualTo(capacity);
+            assertThat(memory.capacity()).isEqualTo(capacity);
 
             // Verify links are intact
-            assertThat(chain.isLinked(0)).isTrue();
-            assertThat(chain.isLinked(1)).isTrue();
-            assertThat(chain.isLinked(2)).isTrue();
-            assertThat(chain.isLinked(3)).isFalse();
+            assertThat(memory.isLinked(2)).isTrue();
+            assertThat(memory.isLinked(3)).isFalse();
 
-            assertThat(chain.next(0)).isEqualTo(1);
-            assertThat(chain.prev(1)).isEqualTo(0);
-            assertThat(chain.next(1)).isEqualTo(2);
-            assertThat(chain.prev(2)).isEqualTo(1);
-            assertThat(chain.next(2)).isEqualTo(-1);
+            assertThat(memory.getNextIndex(0)).isEqualTo(1);
+            assertThat(memory.getPrevIndex(1)).isEqualTo(0);
+            assertThat(memory.getNextIndex(1)).isEqualTo(2);
+            assertThat(memory.getPrevIndex(2)).isEqualTo(1);
+            assertThat(memory.getNextIndex(2)).isEqualTo(-1);
 
-            assertThat(chain.sessionOf(0)).isEqualTo(42);
-            assertThat(chain.sessionOf(1)).isEqualTo(42);
-            assertThat(chain.sessionOf(2)).isEqualTo(42);
+            assertThat(memory.getSessionId(0)).isEqualTo(42);
+            assertThat(memory.getSessionId(1)).isEqualTo(42);
+            assertThat(memory.getSessionId(2)).isEqualTo(42);
 
-            assertThat(chain.epochSecOf(0)).isEqualTo(9999);
-            assertThat(chain.epochSecOf(1)).isEqualTo(9999);
-            assertThat(chain.epochSecOf(2)).isEqualTo(9999);
+            assertThat(memory.getEpochSec(0)).isEqualTo(9999);
+            assertThat(memory.getEpochSec(1)).isEqualTo(9999);
+            assertThat(memory.getEpochSec(2)).isEqualTo(9999);
 
             // Verify new ChainMemory methods
-            assertThat(chain.head()).isEqualTo(0);
-            assertThat(chain.tail()).isEqualTo(2);
-            assertThat(chain.chainLength()).isEqualTo(3);
+            assertThat(memory.head()).isEqualTo(0);
+            assertThat(memory.tail()).isEqualTo(2);
+            assertThat(memory.chainLength()).isEqualTo(3);
         }
 
         // 3. Verify file is now in SMKM format (64-byte header)

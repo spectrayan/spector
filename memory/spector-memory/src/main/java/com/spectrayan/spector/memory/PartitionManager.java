@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
-import com.spectrayan.spector.memory.temporal.TemporalChain;
+import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorServerException;
@@ -59,7 +59,7 @@ final class PartitionManager {
     private final int proceduralCapacity;
     private final MemoryIndex index;
     private final HebbianGraphBase hebbianGraph;
-    private final TemporalChain temporalChain;
+    private final TemporalChainMemory temporalChain;
     private final CognitiveIngestionTarget cognitiveTarget;
 
     private volatile TierRouter tierRouter;
@@ -75,7 +75,7 @@ final class PartitionManager {
                      Path initialPartitionDir,
                      MemoryIndex index,
                      HebbianGraphBase hebbianGraph,
-                     TemporalChain temporalChain,
+                     TemporalChainMemory temporalChain,
                      CognitiveIngestionTarget cognitiveTarget) {
         this.basePath = basePath;
         this.quantizedVecBytes = quantizedVecBytes;
