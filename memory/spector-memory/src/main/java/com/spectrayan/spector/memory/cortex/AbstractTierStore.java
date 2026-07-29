@@ -27,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -42,52 +41,17 @@ import java.nio.file.StandardOpenOption;
 /**
  * Abstract base class for single-segment tier stores.
  *
- * <h3>Template Method Pattern</h3>
- * <p>Provides common infrastructure shared by {@link WorkingMemoryStore},
- * {@link SemanticMemoryStore}, and {@link ProceduralMemoryStore}:</p>
- * <ul>
- *   <li>Arena lifecycle (shared Arena for thread-safe access)</li>
- *   <li>Layout creation from vector byte count</li>
- *   <li>Capacity tracking and size reporting</li>
- *   <li>Segment allocation with 64-byte alignment</li>
- *   <li>Close/cleanup lifecycle</li>
- * </ul>
- *
- * <h3>Dual Mode: Volatile vs. File-Backed</h3>
- * <ul>
- *   <li><b>Volatile</b> (in-memory): {@code Arena.ofShared()} allocates off-heap RAM.
- *       Data is lost on JVM shutdown.</li>
- *   <li><b>File-backed</b> (persistent): {@code FileChannel.map()} creates a persistent
- *       mmap'd file with a 64-byte metadata header. Data survives JVM restarts.</li>
- * </ul>
- *
- * <h3>Metadata Header Layout (64 bytes)</h3>
- * <pre>
- *   [4B magic]     Offset 0  — 0x54494552 ("TIER")
- *   [4B version]   Offset 4  — format version (1)
- *   [4B count]     Offset 8  — number of live records
- *   [4B capacity]  Offset 12 — max records
- *   [4B stride]    Offset 16 — record stride in bytes
- *   [4B tierOrd]   Offset 20 — MemoryType ordinal
- *   [4B extra1]    Offset 24 — subclass-specific (e.g., writeIndex for Working)
- *   [4B extra2]    Offset 28 — reserved for subclass use
- *   [32B reserved] Offset 32 — future use
- * </pre>
- *
- * <p>{@link EpisodicMemoryStore} implements {@link TierStore} directly because
- * it uses mmap-backed partitions rather than a single Arena-allocated segment.</p>
+ * <p>Extends {@link AbstractRecordMemory} directly with {@link CognitiveRecordLayoutAdapter}
+ * per ADR-013.</p>
  *
  * @see TierStore for the common interface
  */
-public abstract class AbstractTierStore implements TierStore {
+public abstract class AbstractTierStore 
+        extends AbstractRecordMemory<CognitiveRecordLayoutAdapter> 
+        implements TierStore {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractTierStore.class);
 
-    // ── Kernel Integration ──
-    // MemoryId provides stable identity for WAL targeting, metrics, and logs.
-    // Lazily initialized because type() is abstract and not available in the constructor.
-    // CognitiveRecordLayoutAdapter bridges the tier store's CognitiveRecordLayout
-    // to the kernel's MemoryLayout interface.
     private volatile MemoryId memoryId;
     private final CognitiveRecordLayoutAdapter layoutAdapter;
 
@@ -111,9 +75,6 @@ public abstract class AbstractTierStore implements TierStore {
     static final int META_EXTRA2   = 28;
 
     // ── SWMR Visibility Barrier ──
-    // VarHandle for release/acquire access to maxVisibleRecord.
-    // Writers call publishVisible() after completing a record write;
-    // readers call visibleCount() to get the acquire-fenced count.
     private static final VarHandle VISIBLE_COUNT_HANDLE;
     static {
         try {
@@ -125,127 +86,106 @@ public abstract class AbstractTierStore implements TierStore {
     }
 
     protected final CognitiveRecordLayout layout;
-    protected final int capacity;
-    protected final Arena arena;
-    protected final MemorySegment segment;
     protected int count = 0;
 
-    /** Kernel backing — owns arena, segment, and file channel lifecycle. */
-    private final TierRecordBacking backing;
-
-    /**
-     * The number of records visible to concurrent readers.
-     * Published with release semantics after each complete record write.
-     * Read with acquire semantics by scanners before entering scoring loops.
-     */
     @SuppressWarnings("unused") // accessed via VarHandle
     private volatile int maxVisibleRecord = 0;
 
-    /** True if this store is backed by a file (persistent). */
-    protected final boolean persistent;
-
-
-    /** File path for persistent stores (null for volatile). */
-    private final Path filePath;
-
-    /**
-     * Volatile constructor — allocates a single contiguous off-heap segment (no file).
-     *
-     * @param quantizedVecBytes bytes per quantized vector
-     * @param capacity          maximum number of records
-     * @param segmentBytes      total bytes to allocate (caller decides header-only vs full)
-     */
-    protected AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes) {
-        this.layout = new CognitiveRecordLayout(quantizedVecBytes);
-        this.layoutAdapter = new CognitiveRecordLayoutAdapter(this.layout);
-        this.capacity = capacity;
-        this.persistent = false;
-        this.filePath = null;
-        // Kernel backing owns the arena and segment
-        Arena backingArena = Arena.ofShared();
-        MemorySegment backingSegment = backingArena.allocate(segmentBytes, SynapticHeaderConstants.HEADER_BYTES);
-        this.backing = new TierRecordBacking(
-                MemoryId.of("tier", "pending"), layoutAdapter, capacity,
-                backingArena, backingSegment, 0, false, null, null);
-        this.arena = backingArena;
-        this.segment = backingSegment;
-        this.memoryId = null;
+    private static final class MmapResult {
+        final Arena arena;
+        final MemorySegment segment;
+        final FileChannel fileChannel;
+        final boolean isNew;
+        MmapResult(Arena arena, MemorySegment segment, FileChannel fileChannel, boolean isNew) {
+            this.arena = arena;
+            this.segment = segment;
+            this.fileChannel = fileChannel;
+            this.isNew = isNew;
+        }
     }
 
-    /**
-     * File-backed constructor — creates or opens a persistent mmap'd file.
-     *
-     * <p>If the file already exists and contains a valid metadata header, the
-     * store's state ({@code count}) is restored from it. Otherwise, a new
-     * file is created with a fresh metadata header.</p>
-     *
-     * @param quantizedVecBytes bytes per quantized vector
-     * @param capacity          maximum number of records
-     * @param segmentBytes      total data bytes (excluding metadata header)
-     * @param filePath          path to the backing file
-     */
-    protected AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
-        this.layout = new CognitiveRecordLayout(quantizedVecBytes);
-        this.layoutAdapter = new CognitiveRecordLayoutAdapter(this.layout);
-        this.capacity = capacity;
-        this.persistent = true;
-        this.filePath = filePath;
-        Arena backingArena = Arena.ofShared();
-        this.memoryId = null;
-
+    private static MmapResult mmapFile(Path filePath, long segmentBytes) {
+        Arena arena = Arena.ofShared();
         try {
-            // Ensure parent directories exist
             Path parent = filePath.getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-
             long totalBytes = METADATA_HEADER_BYTES + segmentBytes;
             boolean isNew = !Files.exists(filePath) || Files.size(filePath) < METADATA_HEADER_BYTES;
-
             FileChannel fc = FileChannel.open(filePath,
                     StandardOpenOption.CREATE,
                     StandardOpenOption.READ,
                     StandardOpenOption.WRITE);
-
             if (isNew) {
-                // Extend file to full size
                 fc.position(totalBytes - 1);
                 fc.write(ByteBuffer.wrap(new byte[]{0}));
             }
-
-            // Map the entire file
             long mapSize = Math.max(totalBytes, fc.size());
-            MemorySegment mapped = fc.map(FileChannel.MapMode.READ_WRITE, 0, mapSize, backingArena);
-
-            // Kernel backing owns arena, segment, and file channel
-            this.backing = new TierRecordBacking(
-                    MemoryId.of("tier", "pending"), layoutAdapter, capacity,
-                    backingArena, mapped, 0, true, filePath, fc);
-            this.arena = backingArena;
-            this.segment = mapped;
-
-            if (isNew) {
-                // Write fresh metadata header
-                this.count = 0;
-                writeMetadata();
-                log.info("{} created new persistent file: {} ({}KB)",
-                        getClass().getSimpleName(), filePath, totalBytes / 1024);
-            } else {
-                // Restore state from existing file
-                readMetadata();
-                publishVisible(); // SWMR: make restored records visible to readers
-                log.info("{} loaded from persistent file: {} ({} records)",
-                        getClass().getSimpleName(), filePath, count);
-            }
+            MemorySegment mapped = fc.map(FileChannel.MapMode.READ_WRITE, 0, mapSize, arena);
+            return new MmapResult(arena, mapped, fc, isNew);
         } catch (IOException e) {
             throw new SpectorStorageException(ErrorCode.MMAP_FAILED, e, filePath);
         }
     }
 
     /**
+     * Volatile constructor — allocates a single contiguous off-heap segment (no file).
+     */
+    protected AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes) {
+        this(quantizedVecBytes, capacity, segmentBytes, Arena.ofShared());
+    }
+
+    private AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
+        this(new CognitiveRecordLayout(quantizedVecBytes),
+             new CognitiveRecordLayoutAdapter(new CognitiveRecordLayout(quantizedVecBytes)),
+             capacity, sharedArena,
+             sharedArena.allocate(segmentBytes, SynapticHeaderConstants.HEADER_BYTES),
+             0, false, null, null);
+    }
+
+    /**
+     * File-backed constructor — creates or opens a persistent mmap'd file.
+     */
+    protected AbstractTierStore(int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
+        this(new CognitiveRecordLayout(quantizedVecBytes),
+             new CognitiveRecordLayoutAdapter(new CognitiveRecordLayout(quantizedVecBytes)),
+             capacity, segmentBytes, filePath, mmapFile(filePath, segmentBytes));
+    }
+
+    private AbstractTierStore(CognitiveRecordLayout cogLayout,
+                              CognitiveRecordLayoutAdapter layoutAdapter,
+                              int capacity, long segmentBytes, Path filePath, MmapResult res) {
+        super(MemoryId.of("tier", "pending"), layoutAdapter, capacity,
+              res.arena, res.segment, 0, true, filePath, res.fileChannel);
+        this.layout = cogLayout;
+        this.layoutAdapter = layoutAdapter;
+        if (res.isNew) {
+            this.count = 0;
+            writeMetadata();
+            log.info("{} created new persistent file: {} ({}KB)",
+                    getClass().getSimpleName(), filePath, (METADATA_HEADER_BYTES + segmentBytes) / 1024);
+        } else {
+            readMetadata();
+            publishVisible();
+            log.info("{} loaded from persistent file: {} ({} records)",
+                    getClass().getSimpleName(), filePath, count);
+        }
+    }
+
+    private AbstractTierStore(CognitiveRecordLayout cogLayout,
+                              CognitiveRecordLayoutAdapter layoutAdapter,
+                              int capacity, Arena arena, MemorySegment segment, int count,
+                              boolean persistent, Path filePath, FileChannel fileChannel) {
+        super(MemoryId.of("tier", "pending"), layoutAdapter, capacity,
+              arena, segment, count, persistent, filePath, fileChannel);
+        this.layout = cogLayout;
+        this.layoutAdapter = layoutAdapter;
+        this.count = count;
+    }
+
+    /**
      * Writes the metadata header to the mapped segment.
-     * Called on creation and after count changes.
      */
     protected void writeMetadata() {
         if (!persistent) return;
@@ -259,13 +199,12 @@ public abstract class AbstractTierStore implements TierStore {
 
     /**
      * Reads the metadata header from the mapped segment.
-     * Called when loading from an existing file.
      */
     protected void readMetadata() {
         int magic = segment.get(ValueLayout.JAVA_INT, META_MAGIC);
         if (magic != TIER_MAGIC) {
             log.warn("Invalid tier magic in {}: 0x{} (expected 0x{})",
-                    filePath, Integer.toHexString(magic), Integer.toHexString(TIER_MAGIC));
+                    filePath(), Integer.toHexString(magic), Integer.toHexString(TIER_MAGIC));
             this.count = 0;
             return;
         }
@@ -274,7 +213,6 @@ public abstract class AbstractTierStore implements TierStore {
 
     /**
      * Persists the current count to the metadata header.
-     * Subclasses should call this after modifying {@code count}.
      */
     protected void persistCount() {
         if (persistent) {
@@ -284,10 +222,8 @@ public abstract class AbstractTierStore implements TierStore {
 
     /**
      * Returns the byte offset where data records begin.
-     * For persistent stores, records start after the metadata header.
-     * For volatile stores, records start at offset 0.
      */
-    protected long dataOffset() {
+    public long dataOffset() {
         return persistent ? METADATA_HEADER_BYTES : 0;
     }
 
@@ -301,20 +237,16 @@ public abstract class AbstractTierStore implements TierStore {
         return (int) VISIBLE_COUNT_HANDLE.getAcquire(this);
     }
 
-    /**
-     * Publishes the current {@code count} as visible to concurrent readers.
-     *
-     * <p>Must be called by subclasses after completing a record write
-     * (header + vector fully written) and updating {@code count}.
-     * Uses release semantics to ensure all prior writes (the record data)
-     * are visible before the count update is observed by readers.</p>
-     */
     protected void publishVisible() {
         VISIBLE_COUNT_HANDLE.setRelease(this, count);
     }
 
     @Override
-    public CognitiveRecordLayout layout() {
+    public CognitiveRecordLayoutAdapter layout() {
+        return layoutAdapter;
+    }
+
+    public CognitiveRecordLayout cognitiveLayout() {
         return layout;
     }
 
@@ -323,55 +255,24 @@ public abstract class AbstractTierStore implements TierStore {
         return segment;
     }
 
-    /**
-     * Returns the maximum capacity of this store.
-     */
     public int capacity() {
         return capacity;
     }
 
-    /**
-     * Returns the backing memory segment for direct scorer access.
-     */
     public MemorySegment segment() {
         return segment;
     }
 
-    /**
-     * Returns whether this store is file-backed (persistent).
-     */
     public boolean isPersistent() {
         return persistent;
     }
 
-    /**
-     * Returns the file path for persistent stores, or null for volatile.
-     */
-    public Path filePath() {
-        return filePath;
-    }
-
-    /**
-     * Forces the mapped segment to be written to the underlying file (persistent only).
-     */
     public void force() {
         if (persistent && segment != null) {
             segment.force();
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // COMPACTION SUPPORT
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Counts the number of tombstoned records in this store.
-     *
-     * <p>Scans all records and checks the tombstone flag in each header.
-     * This is O(n) but only called before compaction decisions.</p>
-     *
-     * @return the number of tombstoned records
-     */
     public int tombstoneCount() {
         int tombstones = 0;
         long baseOffset = dataOffset();
@@ -385,29 +286,11 @@ public abstract class AbstractTierStore implements TierStore {
         return tombstones;
     }
 
-    /**
-     * Returns the ratio of tombstoned records to total records.
-     *
-     * @return tombstone ratio (0.0 = no tombstones, 1.0 = all tombstoned)
-     */
     public float tombstoneRatio() {
         if (count == 0) return 0.0f;
         return (float) tombstoneCount() / count;
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // KERNEL INTEGRATION
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Returns the stable kernel identity for this store.
-     *
-     * <p>Lazily initialized because {@link #type()} is abstract and not
-     * available during {@code AbstractTierStore} construction. Thread-safe
-     * via double-checked locking on a volatile field.</p>
-     *
-     * @return the kernel-compatible memory identifier
-     */
     public MemoryId memoryId() {
         MemoryId id = this.memoryId;
         if (id == null) {
@@ -422,35 +305,13 @@ public abstract class AbstractTierStore implements TierStore {
         return id;
     }
 
-    /**
-     * Returns the underlying kernel Memory backing for this tier store.
-     */
-    public TierRecordBacking backing() {
-        return this.backing;
-    }
-
-    /**
-     * Returns the kernel-compatible layout adapter for this store.
-     *
-     * <p>Bridges the existing {@link CognitiveRecordLayout} to the kernel's
-     * {@link MemoryLayout} interface, enabling kernel consumers to read
-     * stride, layoutId, and schema version from tier stores.</p>
-     *
-     * @return the cognitive record layout adapter
-     */
     public CognitiveRecordLayoutAdapter kernelLayout() {
         return layoutAdapter;
     }
 
-    /**
-     * Returns the kernel shape classification for this store.
-     *
-     * @return {@link MemoryShape#RECORD} for all tier stores
-     */
     public MemoryShape kernelShape() {
         return MemoryShape.RECORD;
     }
-
 
     @Override
     public void close() {
@@ -464,32 +325,6 @@ public abstract class AbstractTierStore implements TierStore {
                 log.debug("Error forcing segment: {}", e.getMessage());
             }
         }
-        // Delegate lifecycle to kernel backing (closes arena + file channel)
-        backing.close();
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // KERNEL BACKING
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Concrete kernel {@link AbstractRecordMemory} backing for tier stores.
-     *
-     * <p>This class exists solely to provide a concrete instantiation of
-     * the kernel's {@code AbstractRecordMemory} hierarchy. It receives
-     * ownership of the arena, segment, and file channel from the enclosing
-     * tier store and handles close/flush lifecycle.</p>
-     *
-     * <p>The tier store delegates arena/segment ownership to this backing.
-     * Tier-specific logic (SWMR, cognitive headers, tombstones) remains
-     * in {@code AbstractTierStore}.</p>
-     */
-    static final class TierRecordBacking extends AbstractRecordMemory<CognitiveRecordLayoutAdapter> {
-
-        TierRecordBacking(MemoryId id, CognitiveRecordLayoutAdapter layout, int capacity,
-                          Arena arena, MemorySegment segment, int count,
-                          boolean persistent, Path filePath, FileChannel fileChannel) {
-            super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
-        }
+        super.close();
     }
 }

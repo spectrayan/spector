@@ -32,12 +32,11 @@ import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.ProceduralMemoryStore;
-import com.spectrayan.spector.memory.cortex.SemanticMemoryStore;
-
+import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.TierRouter;
-import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
+import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;

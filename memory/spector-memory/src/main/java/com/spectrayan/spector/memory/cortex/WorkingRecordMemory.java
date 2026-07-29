@@ -51,9 +51,9 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>Uses a shared Arena. Write access is synchronized; reads are lock-free
  * (scan over immutable segments).</p>
  */
-public final class WorkingMemoryStore extends AbstractTierStore {
+public final class WorkingRecordMemory extends AbstractTierStore {
 
-    private static final Logger log = LoggerFactory.getLogger(WorkingMemoryStore.class);
+    private static final Logger log = LoggerFactory.getLogger(WorkingRecordMemory.class);
 
     private int writeIndex = 0;  // circular buffer index
 
@@ -63,11 +63,11 @@ public final class WorkingMemoryStore extends AbstractTierStore {
      * @param quantizedVecBytes bytes per quantized vector
      * @param capacity          maximum number of records (default: 100)
      */
-    public WorkingMemoryStore(int quantizedVecBytes, int capacity) {
+    public WorkingRecordMemory(int quantizedVecBytes, int capacity) {
         super(quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.synapse.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
-        log.info("WorkingMemoryStore initialized: capacity={}, stride={}B, total={}KB, persistent=false",
+        log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, total={}KB, persistent=false",
                 capacity, layout.stride(), (long) layout.stride() * capacity / 1024);
     }
 
@@ -82,7 +82,7 @@ public final class WorkingMemoryStore extends AbstractTierStore {
      * @param capacity          maximum number of records
      * @param filePath          path to the backing mmap file
      */
-    public WorkingMemoryStore(int quantizedVecBytes, int capacity, Path filePath) {
+    public WorkingRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.synapse.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
@@ -90,17 +90,17 @@ public final class WorkingMemoryStore extends AbstractTierStore {
         // Restore writeIndex from metadata header extra1 field
         if (persistent && count > 0) {
             this.writeIndex = segment.get(ValueLayout.JAVA_INT, META_EXTRA1);
-            log.info("WorkingMemoryStore restored: writeIndex={}, count={}", writeIndex, count);
+            log.info("WorkingRecordMemory restored: writeIndex={}, count={}", writeIndex, count);
         }
 
-        log.info("WorkingMemoryStore initialized: capacity={}, stride={}B, persistent=true",
+        log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, persistent=true",
                 capacity, layout.stride());
     }
 
     /**
      * Creates a volatile Working Memory store with default capacity (100).
      */
-    public WorkingMemoryStore(int quantizedVecBytes) {
+    public WorkingRecordMemory(int quantizedVecBytes) {
         this(quantizedVecBytes, 100);
     }
 

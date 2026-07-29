@@ -24,10 +24,10 @@ class TierRouterTest {
     @DisplayName("get() returns correct store for each MemoryType")
     void getReturnsCorrectStoreForEachType() {
         // TierRouter.close() cascades to child stores, so only close the router
-        WorkingMemoryStore working = new WorkingMemoryStore(128, 100);
+        WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
         EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
-        SemanticMemoryStore semantic = new SemanticMemoryStore(128, 100);
-        ProceduralMemoryStore procedural = new ProceduralMemoryStore(128, 100);
+        SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
+        ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
         try (TierRouter router = new TierRouter(working, episodic, semantic, procedural)) {
             assertThat(router.get(MemoryType.WORKING)).isSameAs(working);
@@ -40,10 +40,10 @@ class TierRouterTest {
     @Test
     @DisplayName("Typed accessors return correct instances")
     void typedAccessorsReturnCorrectInstances() {
-        WorkingMemoryStore working = new WorkingMemoryStore(128, 100);
+        WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
         EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
-        SemanticMemoryStore semantic = new SemanticMemoryStore(128, 100);
-        ProceduralMemoryStore procedural = new ProceduralMemoryStore(128, 100);
+        SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
+        ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
         try (TierRouter router = new TierRouter(working, episodic, semantic, procedural)) {
             assertThat(router.working()).isSameAs(working);
@@ -56,10 +56,10 @@ class TierRouterTest {
     @Test
     @DisplayName("totalCount sums all tiers")
     void totalCountSumsAllTiers() {
-        WorkingMemoryStore working = new WorkingMemoryStore(128, 100);
+        WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
         EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
-        SemanticMemoryStore semantic = new SemanticMemoryStore(128, 100);
-        ProceduralMemoryStore procedural = new ProceduralMemoryStore(128, 100);
+        SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
+        ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
         try (TierRouter router = new TierRouter(working, episodic, semantic, procedural)) {
             assertThat(router.totalCount()).isZero();
@@ -92,10 +92,10 @@ class TierRouterTest {
     @Test
     @DisplayName("close() closes all stores without throwing")
     void closeClosesAllStores() {
-        WorkingMemoryStore working = new WorkingMemoryStore(128, 100);
+        WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
         EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
-        SemanticMemoryStore semantic = new SemanticMemoryStore(128, 100);
-        ProceduralMemoryStore procedural = new ProceduralMemoryStore(128, 100);
+        SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
+        ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
         
         TierRouter router = new TierRouter(working, episodic, semantic, procedural);
         router.close();

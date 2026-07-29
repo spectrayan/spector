@@ -66,7 +66,7 @@ public final class SemanticRecallStrategy {
     private static final Logger log = LoggerFactory.getLogger(SemanticRecallStrategy.class);
 
     private final VectorIndex vectorIndex;
-    private final SemanticMemoryStore semanticStore;
+    private final SemanticRecordMemory semanticStore;
     private final MemoryIndex memoryIndex;
 
     /**
@@ -77,7 +77,7 @@ public final class SemanticRecallStrategy {
      * @param memoryIndex   the ID → metadata index for reverse lookups
      */
     public SemanticRecallStrategy(VectorIndex vectorIndex,
-                                   SemanticMemoryStore semanticStore,
+                                   SemanticRecordMemory semanticStore,
                                    MemoryIndex memoryIndex) {
         this.vectorIndex = vectorIndex;
         this.semanticStore = semanticStore;
@@ -125,7 +125,7 @@ public final class SemanticRecallStrategy {
         float beta = options.beta();
         float tagRelevanceBoost = options.tagRelevanceBoost();
 
-        CognitiveRecordLayout layout = semanticStore.layout();
+        CognitiveRecordLayout layout = semanticStore.cognitiveLayout();
         java.lang.foreign.MemorySegment headerSlab = semanticStore.primarySegment();
 
         List<CognitiveResult> results = new ArrayList<>();

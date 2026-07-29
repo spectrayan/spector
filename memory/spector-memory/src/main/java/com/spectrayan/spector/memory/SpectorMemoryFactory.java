@@ -32,12 +32,11 @@ import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.ProceduralMemoryStore;
-import com.spectrayan.spector.memory.cortex.SemanticMemoryStore;
-
+import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.TierRouter;
-import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
+import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
@@ -210,31 +209,31 @@ public final class SpectorMemoryFactory {
 
         //  Tier stores 
         TierRouter tierRouter;
-        WorkingMemoryStore workingStore;
+        WorkingRecordMemory workingStore;
         if (isDisk && builder.persistWorkingMemory && basePath != null) {
-            workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity,
+            workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity,
                     StorageLayout.workingMem(basePath));
         } else {
-            workingStore = new WorkingMemoryStore(quantizedVecBytes, builder.workingCapacity);
+            workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity);
         }
 
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
             EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
                     StorageLayout.episodicMem(resolvedPartitionDir),
                     quantizedVecBytes, builder.episodicPartitionCapacity);
-            ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
+            ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
                     quantizedVecBytes, builder.proceduralCapacity,
                     StorageLayout.proceduralMem(resolvedPartitionDir));
-            SemanticMemoryStore semanticStore = new SemanticMemoryStore(
+            SemanticRecordMemory semanticStore = new SemanticRecordMemory(
                     quantizedVecBytes, builder.semanticCapacity,
                     StorageLayout.semanticMem(resolvedPartitionDir));
             tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
             EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
                     quantizedVecBytes, builder.episodicPartitionCapacity);
-            ProceduralMemoryStore proceduralStore = new ProceduralMemoryStore(
+            ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
                     quantizedVecBytes, builder.proceduralCapacity);
-            SemanticMemoryStore semanticStore = new SemanticMemoryStore(
+            SemanticRecordMemory semanticStore = new SemanticRecordMemory(
                     quantizedVecBytes, builder.semanticCapacity);
             tierRouter = new TierRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         }
@@ -745,20 +744,13 @@ public final class SpectorMemoryFactory {
         
         if (tierRouter != null) {
             if (tierRouter.working() != null) {
-                Memory<?> backing = tierRouter.working().backing();
-                memories.put(backing.id(), backing);
+                memories.put(tierRouter.working().id(), tierRouter.working());
             }
             if (tierRouter.semantic() != null) {
-                Memory<?> backing = tierRouter.semantic().backing();
-                memories.put(backing.id(), backing);
+                memories.put(tierRouter.semantic().id(), tierRouter.semantic());
             }
             if (tierRouter.procedural() != null) {
-                Memory<?> backing = tierRouter.procedural().backing();
-                memories.put(backing.id(), backing);
-            }
-            if (tierRouter.episodic() != null) {
-                Memory<?> backing = tierRouter.episodic().backing();
-                memories.put(backing.id(), backing);
+                memories.put(tierRouter.procedural().id(), tierRouter.procedural());
             }
         }
         

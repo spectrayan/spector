@@ -56,7 +56,7 @@ class MemoryPersistenceTest {
         Path file = tmpDir.resolve("working.mem");
 
         // Write 5 records
-        try (var store = new WorkingMemoryStore(VEC_BYTES, CAPACITY, file)) {
+        try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY, file)) {
             for (int i = 0; i < 5; i++) {
                 store.put(createHeader(1000L + i, 0.5f + i * 0.1f), dummyVec(VEC_BYTES, (byte) (i + 1)));
             }
@@ -65,7 +65,7 @@ class MemoryPersistenceTest {
         }
 
         // Reopen and verify count
-        try (var store = new WorkingMemoryStore(VEC_BYTES, CAPACITY, file)) {
+        try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY, file)) {
             assertThat(store.size()).isEqualTo(5);
 
             // Write 2 more and verify they stack correctly
@@ -75,7 +75,7 @@ class MemoryPersistenceTest {
         }
 
         // Reopen again — count should be 7
-        try (var store = new WorkingMemoryStore(VEC_BYTES, CAPACITY, file)) {
+        try (var store = new WorkingRecordMemory(VEC_BYTES, CAPACITY, file)) {
             assertThat(store.size()).isEqualTo(7);
         }
     }
@@ -86,7 +86,7 @@ class MemoryPersistenceTest {
         int smallCap = 5;
 
         // Fill and wrap — write 8 records into a 5-slot buffer
-        try (var store = new WorkingMemoryStore(VEC_BYTES, smallCap, file)) {
+        try (var store = new WorkingRecordMemory(VEC_BYTES, smallCap, file)) {
             for (int i = 0; i < 8; i++) {
                 store.put(createHeader(1000L + i, 0.5f), dummyVec(VEC_BYTES, (byte) i));
             }
@@ -94,7 +94,7 @@ class MemoryPersistenceTest {
         }
 
         // Reopen — count should still be 5 (capacity)
-        try (var store = new WorkingMemoryStore(VEC_BYTES, smallCap, file)) {
+        try (var store = new WorkingRecordMemory(VEC_BYTES, smallCap, file)) {
             assertThat(store.size()).isEqualTo(smallCap);
         }
     }
@@ -108,7 +108,7 @@ class MemoryPersistenceTest {
         Path file = tmpDir.resolve("semantic.mem");
 
         // Write 3 headers
-        try (var store = new SemanticMemoryStore(VEC_BYTES, CAPACITY, file)) {
+        try (var store = new SemanticRecordMemory(VEC_BYTES, CAPACITY, file)) {
             for (int i = 0; i < 3; i++) {
                 var header = CognitiveHeader.create(
                         System.currentTimeMillis(), 0xBEEFL, 1.0f, 0.7f + i * 0.1f, (short) i, MemoryType.SEMANTIC);
@@ -118,7 +118,7 @@ class MemoryPersistenceTest {
         }
 
         // Reopen and verify
-        try (var store = new SemanticMemoryStore(VEC_BYTES, CAPACITY, file)) {
+        try (var store = new SemanticRecordMemory(VEC_BYTES, CAPACITY, file)) {
             assertThat(store.size()).isEqualTo(3);
 
             // Read back first header and verify importance
@@ -135,14 +135,14 @@ class MemoryPersistenceTest {
     void proceduralStore_persistsAndRecoversRecords() {
         Path file = tmpDir.resolve("procedural.mem");
 
-        try (var store = new ProceduralMemoryStore(VEC_BYTES, CAPACITY, file)) {
+        try (var store = new ProceduralRecordMemory(VEC_BYTES, CAPACITY, file)) {
             for (int i = 0; i < 4; i++) {
                 store.append(createHeader(3000L + i, 1.0f), dummyVec(VEC_BYTES, (byte) (i + 10)));
             }
             assertThat(store.size()).isEqualTo(4);
         }
 
-        try (var store = new ProceduralMemoryStore(VEC_BYTES, CAPACITY, file)) {
+        try (var store = new ProceduralRecordMemory(VEC_BYTES, CAPACITY, file)) {
             assertThat(store.size()).isEqualTo(4);
         }
     }

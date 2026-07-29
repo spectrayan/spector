@@ -14,6 +14,10 @@ package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.synapse.HeaderLayout;
+
+import java.lang.foreign.MemorySegment;
 
 /**
  * Adapter that bridges the existing {@link CognitiveRecordLayout} to the
@@ -66,5 +70,45 @@ public final class CognitiveRecordLayoutAdapter implements MemoryLayout {
      */
     public CognitiveRecordLayout delegate() {
         return delegate;
+    }
+
+    public int stride() {
+        return delegate.stride();
+    }
+
+    public int quantizedVecBytes() {
+        return delegate.quantizedVecBytes();
+    }
+
+    public long vectorOffset(long recordOffset) {
+        return delegate.vectorOffset(recordOffset);
+    }
+
+    public float readImportance(MemorySegment segment, long offset) {
+        return delegate.readImportance(segment, offset);
+    }
+
+    public CognitiveHeader readHeader(MemorySegment segment, long offset) {
+        return delegate.readHeader(segment, offset);
+    }
+
+    public void writeHeader(MemorySegment segment, long offset, CognitiveHeader header) {
+        delegate.writeHeader(segment, offset, header);
+    }
+
+    public byte readFlags(MemorySegment segment, long offset) {
+        return delegate.readFlags(segment, offset);
+    }
+
+    public long readSynapticTags(MemorySegment segment, long offset) {
+        return delegate.readSynapticTags(segment, offset);
+    }
+
+    public void tombstone(MemorySegment segment, long offset) {
+        delegate.tombstone(segment, offset);
+    }
+
+    public HeaderLayout headerLayout() {
+        return delegate.headerLayout();
     }
 }

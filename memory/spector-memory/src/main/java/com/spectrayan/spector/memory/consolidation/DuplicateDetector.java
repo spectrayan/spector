@@ -56,7 +56,7 @@ public final class DuplicateDetector {
         }
 
         MemorySegment segment = store.segment();
-        CognitiveRecordLayout layout = store.layout();
+        CognitiveRecordLayout layout = store.cognitiveLayout();
         long baseOffset = store.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0L;
         int stride = layout.stride();
         int vecBytes = layout.quantizedVecBytes();

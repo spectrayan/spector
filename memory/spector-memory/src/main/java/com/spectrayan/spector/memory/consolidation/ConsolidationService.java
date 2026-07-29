@@ -116,7 +116,7 @@ public final class ConsolidationService {
 
                 // Set FLAG_CONTRADICTED in headers off-heap
                 MemorySegment segment = semanticStore.segment();
-                CognitiveRecordLayout layout = semanticStore.layout();
+                CognitiveRecordLayout layout = semanticStore.cognitiveLayout();
 
                 long offsetA = recordA.byteOffset();
                 long offsetB = recordB.byteOffset();
@@ -198,7 +198,7 @@ public final class ConsolidationService {
 
     private void tombstoneRecord(CognitiveRecord record, AbstractTierStore store, MemoryIndex index, MemoryWal wal) {
         MemorySegment segment = store.segment();
-        CognitiveRecordLayout layout = store.layout();
+        CognitiveRecordLayout layout = store.cognitiveLayout();
         layout.tombstone(segment, record.byteOffset());
 
         if (wal != null) {

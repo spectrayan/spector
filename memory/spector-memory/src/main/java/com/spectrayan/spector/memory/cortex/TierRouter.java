@@ -42,10 +42,10 @@ public final class TierRouter implements AutoCloseable {
     private final EnumMap<MemoryType, TierStore> stores = new EnumMap<>(MemoryType.class);
 
     // ── Typed accessors for tier-specific operations ──
-    private final WorkingMemoryStore workingStore;
+    private final WorkingRecordMemory workingStore;
     private final EpisodicMemoryStore episodicStore;
-    private final SemanticMemoryStore semanticStore;
-    private final ProceduralMemoryStore proceduralStore;
+    private final SemanticRecordMemory semanticStore;
+    private final ProceduralRecordMemory proceduralStore;
 
     /**
      * Creates a TierRouter with all four cognitive tier stores.
@@ -54,10 +54,10 @@ public final class TierRouter implements AutoCloseable {
      * dispatch, while typed fields are retained for tier-specific operations
      * (e.g., episodic partition iteration, semantic header reads).</p>
      */
-    public TierRouter(WorkingMemoryStore workingStore,
+    public TierRouter(WorkingRecordMemory workingStore,
                        EpisodicMemoryStore episodicStore,
-                       SemanticMemoryStore semanticStore,
-                       ProceduralMemoryStore proceduralStore) {
+                       SemanticRecordMemory semanticStore,
+                       ProceduralRecordMemory proceduralStore) {
         this.workingStore = workingStore;
         this.episodicStore = episodicStore;
         this.semanticStore = semanticStore;
@@ -113,7 +113,7 @@ public final class TierRouter implements AutoCloseable {
      * Polymorphic — delegates to {@link TierStore#layout}.
      */
     public CognitiveRecordLayout layoutFor(MemoryType type) {
-        return get(type).layout();
+        return get(type).cognitiveLayout();
     }
 
     /**
@@ -155,16 +155,16 @@ public final class TierRouter implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /** Returns the Working Memory store (for circular buffer scan). */
-    public WorkingMemoryStore working() { return workingStore; }
+    public WorkingRecordMemory working() { return workingStore; }
 
     /** Returns the Episodic Memory store (for partition iteration). */
     public EpisodicMemoryStore episodic() { return episodicStore; }
 
     /** Returns the Semantic Memory store (for header slab access). */
-    public SemanticMemoryStore semantic() { return semanticStore; }
+    public SemanticRecordMemory semantic() { return semanticStore; }
 
     /** Returns the Procedural Memory store (for flat scan). */
-    public ProceduralMemoryStore procedural() { return proceduralStore; }
+    public ProceduralRecordMemory procedural() { return proceduralStore; }
 
     /**
      * Forces all persistent tier store segments to be written to disk.

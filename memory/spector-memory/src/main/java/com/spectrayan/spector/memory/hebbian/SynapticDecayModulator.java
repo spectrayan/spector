@@ -61,7 +61,7 @@ public final class SynapticDecayModulator implements HebbianGraph.DecayModulator
         var episodic = tierRouter.episodic();
         if (episodic == null) return;
 
-        CognitiveRecordLayout layout = episodic.layout();
+        CognitiveRecordLayout layout = episodic.cognitiveLayout();
         MemorySegment segment = episodic.segment();
         int count = Math.min(episodic.totalRecords(), capacity);
 

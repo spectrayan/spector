@@ -79,7 +79,7 @@ public final class VacuumCompactor {
                                             MemoryIndex index) {
         long startMs = System.currentTimeMillis();
 
-        CognitiveRecordLayout layout = store.layout();
+        CognitiveRecordLayout layout = store.cognitiveLayout();
         int totalRecords = store.size();
         long baseOffset = store.isPersistent() ? AbstractTierStore.METADATA_HEADER_BYTES : 0;
         int stride = layout.stride();

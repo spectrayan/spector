@@ -13,10 +13,10 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
-import com.spectrayan.spector.memory.cortex.ProceduralMemoryStore;
-import com.spectrayan.spector.memory.cortex.SemanticMemoryStore;
+import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.TierRouter;
-import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
+import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
@@ -178,16 +178,16 @@ final class PartitionManager {
                         StorageLayout.episodicMem(newPartition),
                         quantizedVecBytes, episodicPartitionCapacity);
 
-                ProceduralMemoryStore newProcedural = new ProceduralMemoryStore(
+                ProceduralRecordMemory newProcedural = new ProceduralRecordMemory(
                         quantizedVecBytes, proceduralCapacity,
                         StorageLayout.proceduralMem(newPartition));
 
-                SemanticMemoryStore newSemantic = new SemanticMemoryStore(
+                SemanticRecordMemory newSemantic = new SemanticRecordMemory(
                         quantizedVecBytes, semanticCapacity,
                         StorageLayout.semanticMem(newPartition));
 
                 // Preserve working memory (global, not partitioned)
-                WorkingMemoryStore workingStore = tierRouter.working();
+                WorkingRecordMemory workingStore = tierRouter.working();
 
                 // Flush index + graphs to runtime/ before rolling
                 flushGlobalState();

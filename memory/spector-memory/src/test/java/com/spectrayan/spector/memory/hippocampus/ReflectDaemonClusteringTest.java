@@ -16,7 +16,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore.EpisodicPartition;
-import com.spectrayan.spector.memory.cortex.SemanticMemoryStore;
+import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
@@ -65,7 +65,7 @@ class ReflectDaemonClusteringTest {
     @Test
     void clustersBycentroidIdAndPromotes() {
         try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticMemoryStore semanticStore = new SemanticMemoryStore(VEC_BYTES, 100)) {
+             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
 
             // Create 20 memories across 3 centroids (ids: 1, 2, 3)
             // Cluster 1: 8 records (above min=5)
@@ -113,7 +113,7 @@ class ReflectDaemonClusteringTest {
     @Test
     void withLlmProviderSynthesizes() {
         try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticMemoryStore semanticStore = new SemanticMemoryStore(VEC_BYTES, 100)) {
+             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
 
             // Create 6 memories in the same centroid
             for (int i = 0; i < 6; i++) {
@@ -151,7 +151,7 @@ class ReflectDaemonClusteringTest {
     @Test
     void withoutCentroidRouterUsesV1Fallback() {
         try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticMemoryStore semanticStore = new SemanticMemoryStore(VEC_BYTES, 100)) {
+             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
 
             // Create 5 memories with importance  >=  1.0
             for (int i = 0; i < 5; i++) {
@@ -178,7 +178,7 @@ class ReflectDaemonClusteringTest {
     @Test
     void marksClusterMembersAsConsolidated() {
         try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticMemoryStore semanticStore = new SemanticMemoryStore(VEC_BYTES, 100)) {
+             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
 
             // Create 6 memories in centroid 1
             for (int i = 0; i < 6; i++) {
@@ -214,7 +214,7 @@ class ReflectDaemonClusteringTest {
     @Test
     void secondReflectDoesNotReprocessConsolidated() {
         try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticMemoryStore semanticStore = new SemanticMemoryStore(VEC_BYTES, 100)) {
+             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
 
             // 6 memories in centroid 1
             for (int i = 0; i < 6; i++) {

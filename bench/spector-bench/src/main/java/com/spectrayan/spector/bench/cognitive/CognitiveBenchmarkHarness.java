@@ -629,7 +629,7 @@ public final class CognitiveBenchmarkHarness {
 
         TierStore store = tierRouter.get(primaryTier);
         MemorySegment segment = store.primarySegment();
-        CognitiveRecordLayout layout = store.layout();
+        CognitiveRecordLayout layout = store.cognitiveLayout();
         int recordCount = store.size();
 
         // Get calibration data from quantizer

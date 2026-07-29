@@ -63,9 +63,14 @@ public interface TierStore extends AutoCloseable {
 
 
     /**
-     * Returns the record layout for this store.
+     * Returns the kernel record layout adapter for this store.
      */
-    CognitiveRecordLayout layout();
+    com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayoutAdapter layout();
+
+    /**
+     * Returns the underlying cognitive record layout for this store.
+     */
+    CognitiveRecordLayout cognitiveLayout();
 
     /**
      * Returns the primary memory segment for this store.

@@ -48,9 +48,9 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Flat scan with {@code CognitiveScorer} for distance computation</li>
  * </ul>
  */
-public final class SemanticMemoryStore extends AbstractTierStore {
+public final class SemanticRecordMemory extends AbstractTierStore {
 
-    private static final Logger log = LoggerFactory.getLogger(SemanticMemoryStore.class);
+    private static final Logger log = LoggerFactory.getLogger(SemanticRecordMemory.class);
 
     /**
      * Creates a volatile Semantic Memory store (in-memory only).
@@ -61,11 +61,11 @@ public final class SemanticMemoryStore extends AbstractTierStore {
      * @param quantizedVecBytes bytes per quantized vector (for layout calculation)
      * @param capacity          maximum number of semantic memories (default: 100_000)
      */
-    public SemanticMemoryStore(int quantizedVecBytes, int capacity) {
+    public SemanticRecordMemory(int quantizedVecBytes, int capacity) {
         super(quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
-        log.info("SemanticMemoryStore initialized: capacity={}, stride={}B, persistent=false, headerVersion=V{}",
+        log.info("SemanticRecordMemory initialized: capacity={}, stride={}B, persistent=false, headerVersion=V{}",
                 capacity, layout.stride(), layout.headerLayout().version());
     }
 
@@ -76,12 +76,12 @@ public final class SemanticMemoryStore extends AbstractTierStore {
      * @param capacity          maximum number of semantic memories
      * @param filePath          path to the backing mmap file
      */
-    public SemanticMemoryStore(int quantizedVecBytes, int capacity, Path filePath) {
+    public SemanticRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
-        log.info("SemanticMemoryStore initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
+        log.info("SemanticRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
                 capacity, layout.stride(), count, layout.headerLayout().version());
     }
 

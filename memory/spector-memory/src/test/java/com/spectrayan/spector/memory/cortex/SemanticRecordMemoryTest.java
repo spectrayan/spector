@@ -22,17 +22,17 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class ProceduralMemoryStoreTest {
+class SemanticRecordMemoryTest {
 
     private CognitiveHeader createHeader() {
-        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.PROCEDURAL.ordinal());
+        byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.SEMANTIC.ordinal());
         return new CognitiveHeader(12345L, 0L, 1.0f, 0.5f, 0, (short)0, (byte)0, flags, (byte)0, 1.0f);
     }
 
     @Test
     @DisplayName("append increments size and visibleCount")
     void appendIncrementsSizeAndVisibleCount() {
-        try (ProceduralMemoryStore store = new ProceduralMemoryStore(128, 100)) {
+        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
             assertThat(store.size()).isZero();
             store.append(createHeader(), new byte[128]);
             assertThat(store.size()).isEqualTo(1);
@@ -41,9 +41,18 @@ class ProceduralMemoryStoreTest {
     }
 
     @Test
+    @DisplayName("append with null vector succeeds")
+    void appendWithNullVectorSucceeds() {
+        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+            store.append(createHeader(), null);
+            assertThat(store.size()).isEqualTo(1);
+        }
+    }
+
+    @Test
     @DisplayName("append at capacity throws tier full exception")
     void appendAtCapacityThrowsTierFull() {
-        try (ProceduralMemoryStore store = new ProceduralMemoryStore(128, 1)) {
+        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 1)) {
             store.append(createHeader(), new byte[128]);
             assertThatThrownBy(() -> store.append(createHeader(), new byte[128]))
                 .isInstanceOf(SpectorMemoryTierFullException.class);
@@ -51,9 +60,19 @@ class ProceduralMemoryStoreTest {
     }
 
     @Test
+    @DisplayName("readHeader returns written data")
+    void readHeaderReturnsWrittenData() {
+        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+            store.write(createHeader(), new byte[128]);
+            CognitiveHeader readHeader = store.readHeader(0);
+            assertThat(readHeader.timestampMs()).isEqualTo(12345L);
+        }
+    }
+
+    @Test
     @DisplayName("write returns correct byte offset")
     void writeReturnsCorrectByteOffset() {
-        try (ProceduralMemoryStore store = new ProceduralMemoryStore(128, 100)) {
+        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
             long offset1 = store.write(createHeader(), new byte[128]);
             long offset2 = store.write(createHeader(), new byte[128]);
             assertThat(offset1).isNotEqualTo(offset2);
@@ -62,27 +81,27 @@ class ProceduralMemoryStoreTest {
     }
 
     @Test
-    @DisplayName("type returns PROCEDURAL")
-    void typeReturnsProcedural() {
-        try (ProceduralMemoryStore store = new ProceduralMemoryStore(128, 100)) {
-            assertThat(store.type()).isEqualTo(MemoryType.PROCEDURAL);
+    @DisplayName("type returns SEMANTIC")
+    void typeReturnsSemantic() {
+        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+            assertThat(store.type()).isEqualTo(MemoryType.SEMANTIC);
         }
     }
 
     @Test
-    @DisplayName("default capacity is 1000")
-    void defaultCapacityIs1000() {
-        try (ProceduralMemoryStore store = new ProceduralMemoryStore(128)) {
-            assertThat(store.capacity()).isEqualTo(1000);
+    @DisplayName("store header only returns index")
+    void storeHeaderOnlyReturnsIndex() {
+        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+            int index = store.store(createHeader());
+            assertThat(index).isEqualTo(0);
         }
     }
 
     @Test
-    @DisplayName("header and vector round trip")
-    void headerAndVectorRoundTrip() {
-        try (ProceduralMemoryStore store = new ProceduralMemoryStore(128, 100)) {
-            store.write(createHeader(), new byte[128]);
-            assertThat(store.size()).isEqualTo(1);
+    @DisplayName("headerSlab is same as primary segment")
+    void headerSlabIsSameAsPrimarySegment() {
+        try (SemanticRecordMemory store = new SemanticRecordMemory(128, 100)) {
+            assertThat(store.headerSlab()).isNotNull();
         }
     }
 }

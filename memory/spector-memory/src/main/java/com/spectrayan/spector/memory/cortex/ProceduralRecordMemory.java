@@ -47,9 +47,9 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   <li>Flat scan with {@code CognitiveScorer}</li>
  * </ul>
  */
-public final class ProceduralMemoryStore extends AbstractTierStore {
+public final class ProceduralRecordMemory extends AbstractTierStore {
 
-    private static final Logger log = LoggerFactory.getLogger(ProceduralMemoryStore.class);
+    private static final Logger log = LoggerFactory.getLogger(ProceduralRecordMemory.class);
 
     /**
      * Creates a volatile Procedural Memory store (in-memory only).
@@ -57,11 +57,11 @@ public final class ProceduralMemoryStore extends AbstractTierStore {
      * @param quantizedVecBytes bytes per quantized vector
      * @param capacity          maximum number of procedural memories (default: 1000)
      */
-    public ProceduralMemoryStore(int quantizedVecBytes, int capacity) {
+    public ProceduralRecordMemory(int quantizedVecBytes, int capacity) {
         super(quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.synapse.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
-        log.info("ProceduralMemoryStore initialized: capacity={}, stride={}B, persistent=false",
+        log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=false",
                 capacity, layout.stride());
     }
 
@@ -72,19 +72,19 @@ public final class ProceduralMemoryStore extends AbstractTierStore {
      * @param capacity          maximum number of procedural memories
      * @param filePath          path to the backing mmap file
      */
-    public ProceduralMemoryStore(int quantizedVecBytes, int capacity, Path filePath) {
+    public ProceduralRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.synapse.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
-        log.info("ProceduralMemoryStore initialized: capacity={}, stride={}B, persistent=true, count={}",
+        log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
                 capacity, layout.stride(), count);
     }
 
     /**
      * Creates a volatile Procedural Memory store with default capacity (1000).
      */
-    public ProceduralMemoryStore(int quantizedVecBytes) {
+    public ProceduralRecordMemory(int quantizedVecBytes) {
         this(quantizedVecBytes, 1000);
     }
 

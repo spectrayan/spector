@@ -24,16 +24,16 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link WorkingMemoryStore} — volatile circular buffer.
+ * Tests for {@link WorkingRecordMemory} — volatile circular buffer.
  */
-class WorkingMemoryStoreTest {
+class WorkingRecordMemoryTest {
 
     private static final int VEC_BYTES = 32; // small vectors for testing
-    private WorkingMemoryStore store;
+    private WorkingRecordMemory store;
 
     @BeforeEach
     void setUp() {
-        store = new WorkingMemoryStore(VEC_BYTES, 5); // capacity of 5 for easy testing
+        store = new WorkingRecordMemory(VEC_BYTES, 5); // capacity of 5 for easy testing
     }
 
     @AfterEach
