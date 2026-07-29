@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for STC Cross-Capture: {@link EntityGraph#boostEdgeWeight} and
+ * Tests for STC Cross-Capture: {@link EntityGraphMemory#boostEdgeWeight} and
  * {@link GraphHealthMetrics#recordCrossCapture}.
  *
  * <p>Verifies that the Synaptic Tagging and Capture mechanism correctly
@@ -28,11 +28,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CrossCaptureTest {
 
-    private EntityGraph graph;
+    private EntityGraphMemory graph;
 
     @BeforeEach
     void setUp() {
-        graph = new EntityGraph(100, 500);
+        graph = new EntityGraphMemory(100, 500);
     }
 
     @AfterEach
@@ -90,7 +90,7 @@ class CrossCaptureTest {
         }
 
         var edges = graph.edges(alice);
-        assertThat(edges.getFirst().weight()).isEqualTo(EntityGraph.MAX_EDGE_WEIGHT);
+        assertThat(edges.getFirst().weight()).isEqualTo(EntityGraphMemory.MAX_EDGE_WEIGHT);
     }
 
     @Test

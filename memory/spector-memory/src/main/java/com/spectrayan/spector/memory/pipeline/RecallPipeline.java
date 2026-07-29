@@ -59,7 +59,7 @@ import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
@@ -147,7 +147,7 @@ public final class RecallPipeline {
     //  3-Layer Cognitive Graph (all nullable) 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraph entityGraph;
+    private final EntityGraphMemory entityGraph;
     private final EntityExtractor entityExtractor;
 
     //  BM25 Text Search (nullable  --  graceful degradation) 
@@ -265,7 +265,7 @@ public final class RecallPipeline {
                            CoActivationRecordMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
-                           EntityGraph entityGraph,
+                           EntityGraphMemory entityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
                            MemoryBM25Index bm25Index,
@@ -317,7 +317,7 @@ public final class RecallPipeline {
                            CoActivationRecordMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
-                           EntityGraph entityGraph,
+                           EntityGraphMemory entityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
                            MemoryBM25Index bm25Index,

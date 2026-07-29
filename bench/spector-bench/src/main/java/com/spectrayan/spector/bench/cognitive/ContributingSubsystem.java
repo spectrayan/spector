@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
@@ -113,7 +113,7 @@ public enum ContributingSubsystem {
             Set<String> baselineTop10,
             HebbianGraphBase hebbian,
             TemporalChainMemory temporal,
-            EntityGraph entity,
+            EntityGraphMemory entity,
             ScoreBreakdown breakdown,
             Map<String, Integer> idToSlot) {
 
@@ -221,7 +221,7 @@ public enum ContributingSubsystem {
      * that connects to a baseline seed's entity within 2 hops).
      */
     private static boolean isEntityReachable(int targetSlot, Set<String> baselineTop10,
-                                              EntityGraph entity, Map<String, Integer> idToSlot) {
+                                              EntityGraphMemory entity, Map<String, Integer> idToSlot) {
         // Collect all entity IDs that reference the target memory
         // and all entity IDs that reference baseline seeds, then check connectivity
 
@@ -249,7 +249,7 @@ public enum ContributingSubsystem {
     /**
      * Checks if a given entity has a memory reference to the specified slot.
      */
-    private static boolean entityReferencesMemory(EntityGraph entity, int entityId, int memorySlot) {
+    private static boolean entityReferencesMemory(EntityGraphMemory entity, int entityId, int memorySlot) {
         int refCount = entity.memoryRefCount(entityId);
         for (int i = 0; i < refCount; i++) {
             if (entity.memoryRefAt(entityId, i) == memorySlot) {

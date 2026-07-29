@@ -19,7 +19,7 @@ import java.time.Instant;
 import java.util.List;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -83,7 +83,7 @@ public final class GraphSnapshotCollector {
         long entityDegreeSum = 0;
         int entityAdjHighWaterMark = 0;
 
-        EntityGraph eg = memory.admin().entityGraph();
+        EntityGraphMemory eg = memory.admin().entityGraph();
         if (eg != null) {
             entityCount = eg.entityCount();
             entityEdgeCount = eg.edgeCount();

@@ -14,9 +14,9 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 // RelationType enum replaced by open-schema strings via TypeRegistry
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.SynapticDecayModulator;
@@ -105,16 +105,16 @@ final class ReflectionOrchestrator {
     private final ReflectDaemon reflectDaemon;
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraph entityGraph;
-    private final HyperEntityGraph hyperEntityGraph;
+    private final EntityGraphMemory entityGraph;
+    private final HyperEntityGraphMemory hyperEntityGraph;
     private final MemoryWal wal;
     private final int temporalRetentionDays;
 
     ReflectionOrchestrator(ReflectDaemon reflectDaemon,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
-                           EntityGraph entityGraph,
-                           HyperEntityGraph hyperEntityGraph,
+                           EntityGraphMemory entityGraph,
+                           HyperEntityGraphMemory hyperEntityGraph,
                            MemoryWal wal,
                            int temporalRetentionDays) {
         this.reflectDaemon = reflectDaemon;

@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import com.spectrayan.spector.memory.graph.HyperEntityGraph.HyperEdge;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph.HyperEdgeVertex;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdgeVertex;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -25,9 +25,9 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link HyperEntityGraph} — hyperedge-based entity graph.
+ * Tests for {@link HyperEntityGraphMemory} — hyperedge-based entity graph.
  */
-class HyperEntityGraphTest {
+class HyperEntityGraphMemoryTest {
 
     private static final int ENTITY_CAP = 100;
     private static final int HEDGE_CAP = 50;
@@ -35,10 +35,10 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("add and retrieve a 3-vertex hyperedge")
     void addAndRetrieveHyperedge() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             int edgeId = g.addHyperedge(
                     new int[]{0, 1, 2},
-                    new int[]{HyperEntityGraph.ROLE_SUBJECT, HyperEntityGraph.ROLE_OBJECT, HyperEntityGraph.ROLE_CONTEXT},
+                    new int[]{HyperEntityGraphMemory.ROLE_SUBJECT, HyperEntityGraphMemory.ROLE_OBJECT, HyperEntityGraphMemory.ROLE_CONTEXT},
                     42, 5.0f, 100, System.currentTimeMillis());
 
             assertThat(edgeId).isEqualTo(0);
@@ -52,18 +52,18 @@ class HyperEntityGraphTest {
             assertThat(edge.vertices()).hasSize(3);
 
             assertThat(edge.vertices().get(0).entityId()).isEqualTo(0);
-            assertThat(edge.vertices().get(0).roleId()).isEqualTo(HyperEntityGraph.ROLE_SUBJECT);
+            assertThat(edge.vertices().get(0).roleId()).isEqualTo(HyperEntityGraphMemory.ROLE_SUBJECT);
             assertThat(edge.vertices().get(1).entityId()).isEqualTo(1);
-            assertThat(edge.vertices().get(1).roleId()).isEqualTo(HyperEntityGraph.ROLE_OBJECT);
+            assertThat(edge.vertices().get(1).roleId()).isEqualTo(HyperEntityGraphMemory.ROLE_OBJECT);
             assertThat(edge.vertices().get(2).entityId()).isEqualTo(2);
-            assertThat(edge.vertices().get(2).roleId()).isEqualTo(HyperEntityGraph.ROLE_CONTEXT);
+            assertThat(edge.vertices().get(2).roleId()).isEqualTo(HyperEntityGraphMemory.ROLE_CONTEXT);
         }
     }
 
     @Test
     @DisplayName("findHyperedgesForEntity returns sorted by weight")
     void findHyperedgesForEntity() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             g.addHyperedge(new int[]{0, 1}, new int[]{1, 2}, 1, 2.0f, 1, 0);
             g.addHyperedge(new int[]{0, 2}, new int[]{1, 2}, 1, 5.0f, 2, 0);
             g.addHyperedge(new int[]{0, 3}, new int[]{1, 2}, 1, 3.0f, 3, 0);
@@ -80,7 +80,7 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("findCoOccurringEntities returns all related entities")
     void findCoOccurringEntities() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             // Entity 0 appears with 1, 2 in one hyperedge, and with 3 in another
             g.addHyperedge(new int[]{0, 1, 2}, new int[]{1, 2, 3}, 1, 1.0f, 1, 0);
             g.addHyperedge(new int[]{0, 3}, new int[]{1, 2}, 1, 1.0f, 2, 0);
@@ -93,7 +93,7 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("strengthen increases hyperedge weight")
     void strengthenHyperedge() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             int edgeId = g.addHyperedge(new int[]{0, 1}, new int[]{1, 2}, 1, 1.0f, 1, 0);
             g.strengthen(edgeId, 2.5f);
 
@@ -105,7 +105,7 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("decay removes weak hyperedges")
     void decayRemovesWeakEdges() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             g.addHyperedge(new int[]{0, 1}, new int[]{1, 2}, 1, 1.0f, 1, 0);   // weak
             g.addHyperedge(new int[]{0, 2}, new int[]{1, 2}, 1, 10.0f, 2, 0);  // strong
 
@@ -124,10 +124,10 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("binary edge is stored as 2-vertex hyperedge")
     void binaryEdgeAsTwoVertexHyperedge() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             int edgeId = g.addHyperedge(
                     new int[]{5, 10},
-                    new int[]{HyperEntityGraph.ROLE_SUBJECT, HyperEntityGraph.ROLE_OBJECT},
+                    new int[]{HyperEntityGraphMemory.ROLE_SUBJECT, HyperEntityGraphMemory.ROLE_OBJECT},
                     99, 7.0f, 42, 0);
 
             HyperEdge edge = g.getHyperedge(edgeId);
@@ -140,7 +140,7 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("rejects hyperedge with < 2 or > 8 vertices")
     void rejectsInvalidVertexCount() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             // Too few
             int id1 = g.addHyperedge(new int[]{0}, new int[]{1}, 1, 1.0f, 1, 0);
             assertThat(id1).isEqualTo(-1);
@@ -161,13 +161,13 @@ class HyperEntityGraphTest {
     void persistenceRoundTrip(@TempDir Path tmpDir) {
         Path filePath = tmpDir.resolve("hyperentity.hyeg");
 
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             g.addHyperedge(new int[]{0, 1, 2}, new int[]{1, 2, 3}, 10, 5.0f, 100, 12345L);
             g.addHyperedge(new int[]{3, 4}, new int[]{1, 2}, 20, 3.0f, 200, 67890L);
             g.save(filePath);
         }
 
-        try (var g = HyperEntityGraph.load(filePath, ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = HyperEntityGraphMemory.load(filePath, ENTITY_CAP, HEDGE_CAP)) {
             assertThat(g.totalHyperedges()).isEqualTo(2);
 
             HyperEdge e0 = g.getHyperedge(0);
@@ -194,14 +194,14 @@ class HyperEntityGraphTest {
     void incidenceRebuiltAfterLoad(@TempDir Path tmpDir) {
         Path filePath = tmpDir.resolve("hyperentity2.hyeg");
 
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             g.addHyperedge(new int[]{0, 1}, new int[]{1, 2}, 1, 1.0f, 1, 0);
             g.addHyperedge(new int[]{0, 2}, new int[]{1, 2}, 1, 2.0f, 2, 0);
             g.addHyperedge(new int[]{0, 1, 3}, new int[]{1, 2, 3}, 1, 3.0f, 3, 0);
             g.save(filePath);
         }
 
-        try (var g = HyperEntityGraph.load(filePath, ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = HyperEntityGraphMemory.load(filePath, ENTITY_CAP, HEDGE_CAP)) {
             // Entity 0 participates in all 3 hyperedges
             assertThat(g.findHyperedgesForEntity(0)).hasSize(3);
             // Entity 1 participates in 2 hyperedges
@@ -227,7 +227,7 @@ class HyperEntityGraphTest {
         int binaryEdges = relationships * 3;
 
         // Hyper: 10 relationships × 1 hyperedge = 10 hyperedges
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             for (int i = 0; i < relationships; i++) {
                 g.addHyperedge(
                         new int[]{i * 3, i * 3 + 1, i * 3 + 2},
@@ -247,7 +247,7 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("out-of-range entity IDs handled gracefully")
     void outOfRangeEntityIds() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             assertThat(g.findHyperedgesForEntity(-1)).isEmpty();
             assertThat(g.findHyperedgesForEntity(999)).isEmpty();
             assertThat(g.findCoOccurringEntities(-1)).isEmpty();
@@ -257,7 +257,7 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("getHyperedge returns null for invalid/deleted edges")
     void getHyperedgeInvalidReturnsNull() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             assertThat(g.getHyperedge(-1)).isNull();
             assertThat(g.getHyperedge(999)).isNull();
         }
@@ -266,7 +266,7 @@ class HyperEntityGraphTest {
     @Test
     @DisplayName("decay and find work correctly together")
     void decayAndFindIntegration() {
-        try (var g = new HyperEntityGraph(ENTITY_CAP, HEDGE_CAP)) {
+        try (var g = new HyperEntityGraphMemory(ENTITY_CAP, HEDGE_CAP)) {
             g.addHyperedge(new int[]{0, 1}, new int[]{1, 2}, 1, 1.0f, 1, 0);   // weak
             g.addHyperedge(new int[]{0, 2, 3}, new int[]{1, 2, 3}, 2, 10.0f, 2, 0); // strong
             g.addHyperedge(new int[]{0, 4}, new int[]{1, 2}, 3, 0.5f, 3, 0);    // very weak

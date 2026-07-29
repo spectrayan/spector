@@ -88,9 +88,9 @@ import java.util.concurrent.locks.ReentrantLock;
  *     [memIdx:4B][weight:4B]
  * </pre>
  */
-public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.memory.kernel.shape.GraphMemory<com.spectrayan.spector.memory.kernel.layout.EntityLayout> {
+public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.spector.memory.kernel.shape.GraphMemory<com.spectrayan.spector.memory.kernel.layout.EntityLayout> {
 
-    private static final Logger log = LoggerFactory.getLogger(EntityGraph.class);
+    private static final Logger log = LoggerFactory.getLogger(EntityGraphMemory.class);
 
 
 
@@ -193,9 +193,9 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
     private volatile DataEncryptor dataEncryptor;
 
     /** Open-schema entity type registry (String ↔ int). */
-    private final TypeRegistry entityTypeRegistry;
+    private final TypeRegistryMemory entityTypeRegistryMemory;
     /** Open-schema relation type registry (String ↔ int). */
-    private final TypeRegistry relationTypeRegistry;
+    private final TypeRegistryMemory relationTypeRegistryMemory;
 
     /** Maximum edges per entity (configurable via constructor). */
     private final int maxDegree;
@@ -217,7 +217,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
      * @param entityCapacity maximum number of entities
      * @param edgeCapacity   maximum number of edges
      */
-    public EntityGraph(int entityCapacity, int edgeCapacity) {
+    public EntityGraphMemory(int entityCapacity, int edgeCapacity) {
         this(entityCapacity, edgeCapacity, DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
 
@@ -229,7 +229,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
      * @param maxDegree      maximum edges per entity
      * @param edgeImportance edge importance scorer
      */
-    public EntityGraph(int entityCapacity, int edgeCapacity, int maxDegree, EdgeImportance edgeImportance) {
+    public EntityGraphMemory(int entityCapacity, int edgeCapacity, int maxDegree, EdgeImportance edgeImportance) {
         this.entityCapacity = entityCapacity;
         this.edgeCapacity = edgeCapacity;
         this.maxDegree = maxDegree;
@@ -249,8 +249,8 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
         this.fileBacked = false;
         this.mappedChannel = null;
         this.mmapFilePath = null;
-        this.entityTypeRegistry = TypeRegistry.seeded("entity-type", EntityType.SEED);
-        this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
+        this.entityTypeRegistryMemory = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+        this.relationTypeRegistryMemory = TypeRegistryMemory.seeded("relation-type", RelationType.SEED);
         this.memoryId = MemoryId.of("graph", "entity");
 
         log.info("EntityGraph initialized (heap): entities={}, edges={}, maxDegree={}, adjSlots={}, memory={}KB",
@@ -263,7 +263,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
     /**
      * Creates or opens a file-backed (mmap) entity graph with default max degree.
      */
-    public EntityGraph(Path filePath, int entityCapacity, int edgeCapacity) {
+    public EntityGraphMemory(Path filePath, int entityCapacity, int edgeCapacity) {
         this(filePath, entityCapacity, edgeCapacity, DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
 
@@ -282,7 +282,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
      * @param maxDegree      maximum edges per entity
      * @param edgeImportance edge importance scorer
      */
-    public EntityGraph(Path filePath, int entityCapacity, int edgeCapacity,
+    public EntityGraphMemory(Path filePath, int entityCapacity, int edgeCapacity,
                        int maxDegree, EdgeImportance edgeImportance) {
         this.maxDegree = maxDegree;
         this.edgeImportance = edgeImportance;
@@ -397,13 +397,13 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
 
             // Load TypeRegistries from sidecar files if present
             if (parent != null) {
-                this.entityTypeRegistry = TypeRegistry.load(
+                this.entityTypeRegistryMemory = TypeRegistryMemory.load(
                         StorageLayout.entityTypes(parent), "entity-type", EntityType.SEED);
-                this.relationTypeRegistry = TypeRegistry.load(
+                this.relationTypeRegistryMemory = TypeRegistryMemory.load(
                         StorageLayout.relationTypes(parent), "relation-type", RelationType.SEED);
             } else {
-                this.entityTypeRegistry = TypeRegistry.seeded("entity-type", EntityType.SEED);
-                this.relationTypeRegistry = TypeRegistry.seeded("relation-type", RelationType.SEED);
+                this.entityTypeRegistryMemory = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+                this.relationTypeRegistryMemory = TypeRegistryMemory.seeded("relation-type", RelationType.SEED);
             }
             this.memoryId = MemoryId.of("graph", "entity");
 
@@ -431,39 +431,26 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
         ch.write(header);
     }
 
-    /**
-     * Creates a new entity graph with default edge capacity.
-     *
-     * @param entityCapacity maximum number of entities
-     */
-    public EntityGraph(int entityCapacity) {
+    public EntityGraphMemory(int entityCapacity) {
         this(entityCapacity, entityCapacity * DEFAULT_MAX_DEGREE);
     }
 
-    /**
-     * Package-private factory for constructing a graph from pre-loaded segments.
-     * Used by {@link EntityGraphSerializer#load}.
-     */
-    static EntityGraph fromLoaded(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
+    static EntityGraphMemory fromLoaded(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
                                   Arena arena, MemorySegment entitySegment, MemorySegment edgeSegment,
                                   MemorySegment adjacencySegment, int adjSegmentCapacity, int adjHighWaterMark,
                                   ConcurrentHashMap<String, Integer> nameIndex,
-                                  TypeRegistry entityTypeRegistry, TypeRegistry relationTypeRegistry) {
-        return new EntityGraph(entityCapacity, edgeCapacity, entityCount, edgeCount,
+                                  TypeRegistryMemory entityTypeRegistry, TypeRegistryMemory relationTypeRegistry) {
+        return new EntityGraphMemory(entityCapacity, edgeCapacity, entityCount, edgeCount,
                 arena, entitySegment, edgeSegment, adjacencySegment,
                 adjSegmentCapacity, adjHighWaterMark, nameIndex,
                 entityTypeRegistry, relationTypeRegistry);
     }
 
-
-    /**
-     * Private constructor for loading from pre-existing segments.
-     */
-    private EntityGraph(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
+    private EntityGraphMemory(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
                          Arena arena, MemorySegment entitySegment, MemorySegment edgeSegment,
                          MemorySegment adjacencySegment, int adjSegmentCapacity, int adjHighWaterMark,
                          ConcurrentHashMap<String, Integer> nameIndex,
-                         TypeRegistry entityTypeRegistry, TypeRegistry relationTypeRegistry) {
+                         TypeRegistryMemory entityTypeRegistryMemory, TypeRegistryMemory relationTypeRegistryMemory) {
         this.entityCapacity = entityCapacity;
         this.edgeCapacity = edgeCapacity;
         this.entityCount = entityCount;
@@ -481,8 +468,8 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
         this.fileBacked = false;
         this.mappedChannel = null;
         this.mmapFilePath = null;
-        this.entityTypeRegistry = entityTypeRegistry;
-        this.relationTypeRegistry = relationTypeRegistry;
+        this.entityTypeRegistryMemory = entityTypeRegistryMemory;
+        this.relationTypeRegistryMemory = relationTypeRegistryMemory;
         this.memoryId = MemoryId.of("graph", "entity");
     }
 
@@ -513,7 +500,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
             wal.appendGraphAddNode(memoryId.toString(), entityId, normalized, type);
         }
         long offset = (long) entityId * ENTITY_NODE_BYTES;
-        int typeId = entityTypeRegistry.getOrRegister(type);
+        int typeId = entityTypeRegistryMemory.getOrRegister(type);
 
         entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_TYPE, typeId);
         entitySegment.set(ValueLayout.JAVA_LONG, offset + ENT_OFF_NAME_HASH, normalized.hashCode());
@@ -547,7 +534,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
             wal.appendAdjAddEdge(memoryId.toString(), fromEntity, toEntity, (type != null ? type : "OTHER").getBytes(StandardCharsets.UTF_8));
         }
 
-        int typeId = relationTypeRegistry.getOrRegister(type != null ? type : "OTHER");
+        int typeId = relationTypeRegistryMemory.getOrRegister(type != null ? type : "OTHER");
         long entityOffset = (long) fromEntity * ENTITY_NODE_BYTES;
         int degree = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_DEGREE);
         int edgeStart = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_EDGE_START);
@@ -933,7 +920,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
         if (entityId < 0 || entityId >= entityCount) return "OTHER";
         int typeId = entitySegment.get(ValueLayout.JAVA_INT,
                 (long) entityId * ENTITY_NODE_BYTES + ENT_OFF_TYPE);
-        return entityTypeRegistry.nameOf(typeId);
+        return entityTypeRegistryMemory.nameOf(typeId);
     }
 
     /**
@@ -955,7 +942,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
             int relTypeId = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_REL_TYPE);
             float weight = edgeSegment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
 
-            String relType = relationTypeRegistry.nameOf(relTypeId);
+            String relType = relationTypeRegistryMemory.nameOf(relTypeId);
 
             result.add(new EntityEdge(target, relType, weight,
                     Byte.toUnsignedInt(edgeSegment.get(ValueLayout.JAVA_BYTE, edgeOffset + EDGE_OFF_BRIDGE_SCORE))));
@@ -1657,7 +1644,7 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
      * @param defaultEdgeCap    edge capacity if file doesn't exist
      * @return an EntityGraph (loaded or new)
      */
-    public static EntityGraph load(Path filePath, int defaultEntityCap, int defaultEdgeCap) {
+    public static EntityGraphMemory load(Path filePath, int defaultEntityCap, int defaultEdgeCap) {
         return EntityGraphSerializer.load(filePath, defaultEntityCap, defaultEdgeCap, null);
     }
 
@@ -1668,9 +1655,9 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
      * @param defaultEntityCap  entity capacity if file doesn't exist
      * @param defaultEdgeCap    edge capacity if file doesn't exist
      * @param encryptor         optional encryptor for name index decryption (null = no encryption)
-     * @return an EntityGraph (loaded or new)
+     * @return an EntityGraphMemory (loaded or new)
      */
-    public static EntityGraph load(Path filePath, int defaultEntityCap, int defaultEdgeCap,
+    public static EntityGraphMemory load(Path filePath, int defaultEntityCap, int defaultEdgeCap,
                                     DataEncryptor encryptor) {
         return EntityGraphSerializer.load(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
     }
@@ -1684,8 +1671,8 @@ public final class EntityGraph implements AutoCloseable, com.spectrayan.spector.
     MemorySegment adjacencySegment() { return adjacencySegment; }
     int adjSegmentCapacity() { return adjSegmentCapacity; }
     ConcurrentHashMap<String, Integer> nameIndexInternal() { return nameIndex; }
-    public TypeRegistry entityTypeRegistry() { return entityTypeRegistry; }
-    public TypeRegistry relationTypeRegistry() { return relationTypeRegistry; }
+    public TypeRegistryMemory entityTypeRegistry() { return entityTypeRegistryMemory; }
+    public TypeRegistryMemory relationTypeRegistry() { return relationTypeRegistryMemory; }
 
     /**
      * Resets all entities, edges, and adjacency data by zero-filling segments.

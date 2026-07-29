@@ -27,7 +27,7 @@ import java.util.zip.CRC32C;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.graph.TypeRegistry;
+import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
 import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
@@ -51,7 +51,7 @@ import com.spectrayan.spector.memory.temporal.index.ValidTimeIndex;
  *       {@link TemporalFactLayout} records — append-only, WAL-protected</li>
  *   <li>In-memory subject index: entity ID → fact offsets (rebuilt on open)</li>
  *   <li>In-memory valid-time index: epoch millis → fact offsets (rebuilt on open)</li>
- *   <li>Predicate interning via existing {@link TypeRegistry}</li>
+ *   <li>Predicate interning via existing {@link TypeRegistryMemory}</li>
  * </ul>
  *
  * <h3>Thread Safety</h3>
@@ -84,7 +84,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     private final ValidTimeIndex validTimeIndex = new ValidTimeIndex();
 
     // ── Predicate interning ──
-    private final TypeRegistry predicateRegistry;
+    private final TypeRegistryMemory predicateRegistry;
 
     // ── Contradiction resolution ──
     private final ContradictionResolver resolver;
@@ -104,7 +104,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      *
      * @param predicateRegistry type registry for predicate name interning
      */
-    public TemporalKnowledgeGraph(TypeRegistry predicateRegistry) {
+    public TemporalKnowledgeGraph(TypeRegistryMemory predicateRegistry) {
         this(predicateRegistry, new LatestTxWinsResolver());
     }
 
@@ -114,7 +114,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      * @param predicateRegistry type registry for predicate name interning
      * @param resolver          contradiction resolution strategy
      */
-    public TemporalKnowledgeGraph(TypeRegistry predicateRegistry,
+    public TemporalKnowledgeGraph(TypeRegistryMemory predicateRegistry,
                                    ContradictionResolver resolver) {
         this.factLog = new TemporalFactsAppendMemory(DEFAULT_INITIAL_SIZE);
         this.predicateRegistry = predicateRegistry;
@@ -131,7 +131,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      * @param predicateRegistry type registry for predicate name interning
      */
     public TemporalKnowledgeGraph(Path filePath, long initialSize,
-                                   TypeRegistry predicateRegistry) {
+                                   TypeRegistryMemory predicateRegistry) {
         this(filePath, initialSize, predicateRegistry, new LatestTxWinsResolver());
     }
 
@@ -144,7 +144,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      * @param resolver          contradiction resolution strategy
      */
     public TemporalKnowledgeGraph(Path filePath, long initialSize,
-                                   TypeRegistry predicateRegistry,
+                                   TypeRegistryMemory predicateRegistry,
                                    ContradictionResolver resolver) {
         this.factLog = new TemporalFactsAppendMemory(filePath, initialSize);
         this.predicateRegistry = predicateRegistry;
@@ -164,7 +164,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      * the subject and valid-time indexes for fast query evaluation.</p>
      *
      * @param subjectEntityId  entity ID of the subject (FK → EntityGraph)
-     * @param predicateName    predicate name (interned via TypeRegistry)
+     * @param predicateName    predicate name (interned via TypeRegistryMemory)
      * @param objectEntityId   entity ID of the object, or -1 for literal values
      * @param objectTextOffset text offset in TextDataStore, or -1 for entity objects
      * @param objectTextLength text length (max 32KB), or 0 for entity objects
@@ -303,7 +303,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      *
      * @return the predicate type registry
      */
-    public TypeRegistry predicateRegistry() {
+    public TypeRegistryMemory predicateRegistry() {
         return predicateRegistry;
     }
 

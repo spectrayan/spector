@@ -26,7 +26,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
@@ -111,7 +111,7 @@ public final class WalRecoveryDispatcher {
                         case ADJ_ADD_EDGE -> {
                             int from = payload.getInt();
                             int to = payload.getInt();
-                            if (target instanceof EntityGraph eg) {
+                            if (target instanceof EntityGraphMemory eg) {
                                 String relType = new String(event.payload(), 8, event.payload().length - 8, StandardCharsets.UTF_8);
                                 eg.addRelation(from, to, relType);
                             } else if (target instanceof HebbianGraphMemory hg) {
@@ -125,14 +125,14 @@ public final class WalRecoveryDispatcher {
                             String name = new String(event.payload(), 8, nameLen, StandardCharsets.UTF_8);
                             int typeLen = payload.getInt(8 + nameLen);
                             String type = new String(event.payload(), 8 + nameLen + 4, typeLen, StandardCharsets.UTF_8);
-                            if (target instanceof EntityGraph eg) {
+                            if (target instanceof EntityGraphMemory eg) {
                                 eg.addEntity(name, type);
                             }
                         }
                         case GRAPH_LINK_MEMORY -> {
                             int entityId = payload.getInt();
                             int memoryIdx = payload.getInt();
-                            if (target instanceof EntityGraph eg) {
+                            if (target instanceof EntityGraphMemory eg) {
                                 eg.linkEntityToMemory(entityId, memoryIdx);
                             }
                         }

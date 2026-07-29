@@ -21,7 +21,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 
-import com.spectrayan.spector.memory.graph.TypeRegistry;
+import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,12 +33,12 @@ class TemporalKnowledgeGraphTest {
     @TempDir
     Path tempDir;
 
-    private TypeRegistry predicateRegistry;
+    private TypeRegistryMemory predicateRegistry;
     private TemporalKnowledgeGraph tkg;
 
     @BeforeEach
     void setUp() {
-        predicateRegistry = new TypeRegistry("relation-type");
+        predicateRegistry = new TypeRegistryMemory("relation-type");
         tkg = new TemporalKnowledgeGraph(predicateRegistry);
     }
 

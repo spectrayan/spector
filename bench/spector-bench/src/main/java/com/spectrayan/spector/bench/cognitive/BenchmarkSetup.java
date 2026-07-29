@@ -33,7 +33,7 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
@@ -259,7 +259,7 @@ public final class BenchmarkSetup implements AutoCloseable {
      * @param relations entity relation definitions from the dataset
      * @param corpus    the corpus records (used for entity mention  ->  memory linking)
      */
-    void loadEntityGraph(EntityGraph graph, List<EntityRelation> relations,
+    void loadEntityGraph(EntityGraphMemory graph, List<EntityRelation> relations,
                          List<BenchmarkCorpusRecord> corpus) {
         // Build a lookup from memory ID to corpus index
         Map<String, Integer> idToIndex = new HashMap<>(corpus.size());

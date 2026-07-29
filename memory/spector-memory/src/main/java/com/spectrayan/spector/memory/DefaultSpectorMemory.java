@@ -45,8 +45,8 @@ import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
@@ -187,8 +187,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
-    private final EntityGraph entityGraph;
-    private final HyperEntityGraph hyperEntityGraph;
+    private final EntityGraphMemory entityGraph;
+    private final HyperEntityGraphMemory hyperEntityGraph;
     private final CognitiveGraphFacade graphFacade;
 
     //  Configuration 
@@ -1180,9 +1180,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @SuppressWarnings("deprecation")
     @Override public TemporalChainMemory temporalChain() { return graphFacade.temporalChain(); }
     @SuppressWarnings("deprecation")
-    @Override public EntityGraph entityGraph() { return graphFacade.entityGraph(); }
+    @Override public EntityGraphMemory entityGraph() { return graphFacade.entityGraph(); }
     @SuppressWarnings("deprecation")
-    @Override public HyperEntityGraph hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
+    @Override public HyperEntityGraphMemory hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
     @Override public TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
 

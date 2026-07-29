@@ -51,14 +51,14 @@ public final class CognitiveGraphFacade {
 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraph entityGraph;
-    private final HyperEntityGraph hyperEntityGraph;
+    private final EntityGraphMemory entityGraph;
+    private final HyperEntityGraphMemory hyperEntityGraph;
     private final MemoryIndex index;
 
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
                                 TemporalChainMemory temporalChain,
-                                EntityGraph entityGraph,
-                                HyperEntityGraph hyperEntityGraph,
+                                EntityGraphMemory entityGraph,
+                                HyperEntityGraphMemory hyperEntityGraph,
                                 MemoryIndex index) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
@@ -81,11 +81,11 @@ public final class CognitiveGraphFacade {
 
     /** @deprecated Use {@link #graphStats()} or {@link #topologyStats()} instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
-    public EntityGraph entityGraph() { return entityGraph; }
+    public EntityGraphMemory entityGraph() { return entityGraph; }
 
     /** @deprecated Use {@link #topologyStats()} instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
-    public HyperEntityGraph hyperEntityGraph() { return hyperEntityGraph; }
+    public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
 
     // ══════════════════════════════════════════════════════════════
     // HIGH-LEVEL GRAPH QUERIES

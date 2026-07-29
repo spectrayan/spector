@@ -66,9 +66,9 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @see EntityGraph
  */
-public final class HyperEntityGraph implements AutoCloseable {
+public final class HyperEntityGraphMemory implements AutoCloseable {
 
-    private static final Logger log = LoggerFactory.getLogger(HyperEntityGraph.class);
+    private static final Logger log = LoggerFactory.getLogger(HyperEntityGraphMemory.class);
 
     // ── File Format ──
 
@@ -151,12 +151,12 @@ public final class HyperEntityGraph implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Creates a heap-allocated HyperEntityGraph.
+     * Creates a heap-allocated HyperEntityGraphMemory.
      *
      * @param entityCapacity    max number of entities
      * @param hyperedgeCapacity max number of hyperedges
      */
-    public HyperEntityGraph(int entityCapacity, int hyperedgeCapacity) {
+    public HyperEntityGraphMemory(int entityCapacity, int hyperedgeCapacity) {
         this.entityCapacity = entityCapacity;
         this.hyperedgeCapacity = hyperedgeCapacity;
         this.vertexCapacity = hyperedgeCapacity * MAX_VERTICES_PER_EDGE;
@@ -191,7 +191,7 @@ public final class HyperEntityGraph implements AutoCloseable {
                 + indexBytes
                 + (long) INCIDENCE_ENTRY_BYTES * incidenceCapacity) / 1024;
 
-        log.info("HyperEntityGraph initialized: entities={}, hyperedges={}, memory={}KB",
+        log.info("HyperEntityGraphMemory initialized: entities={}, hyperedges={}, memory={}KB",
                 entityCapacity, hyperedgeCapacity, totalKB);
     }
 
@@ -239,7 +239,7 @@ public final class HyperEntityGraph implements AutoCloseable {
         graphLock.lock();
         try {
             if (nextHyperedgeId >= hyperedgeCapacity) {
-                log.warn("HyperEntityGraph full: {} hyperedges at capacity", hyperedgeCapacity);
+                log.warn("HyperEntityGraphMemory full: {} hyperedges at capacity", hyperedgeCapacity);
                 return -1;
             }
 
@@ -418,7 +418,7 @@ public final class HyperEntityGraph implements AutoCloseable {
             }
 
             if (evicted > 0) {
-                log.debug("HyperEntityGraph decay: {} evicted (factor={}, min={}), {} remaining",
+                log.debug("HyperEntityGraphMemory decay: {} evicted (factor={}, min={}), {} remaining",
                         evicted, decayFactor, minWeight, totalHyperedges);
             }
             return evicted;
@@ -437,7 +437,7 @@ public final class HyperEntityGraph implements AutoCloseable {
 
     @Override
     public void close() {
-        log.info("HyperEntityGraph closing: {} hyperedges", totalHyperedges);
+        log.info("HyperEntityGraphMemory closing: {} hyperedges", totalHyperedges);
         arena.close();
     }
 
@@ -454,7 +454,7 @@ public final class HyperEntityGraph implements AutoCloseable {
             try {
                 Files.createDirectories(parent);
             } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("HyperEntityGraph", parent, e);
+                throw new SpectorGraphPersistenceException("HyperEntityGraphMemory", parent, e);
             }
         }
 
@@ -480,21 +480,21 @@ public final class HyperEntityGraph implements AutoCloseable {
             writeSegment(ch, vertices, (long) nextVertexOffset * VERTEX_BYTES);
 
             ch.force(true);
-            log.info("HyperEntityGraph saved: {} hyperedges, {} vertices, file={}",
+            log.info("HyperEntityGraphMemory saved: {} hyperedges, {} vertices, file={}",
                     totalHyperedges, nextVertexOffset, filePath);
 
         } catch (IOException e) {
-            throw new SpectorGraphPersistenceException("HyperEntityGraph", filePath, e);
+            throw new SpectorGraphPersistenceException("HyperEntityGraphMemory", filePath, e);
         }
     }
 
     /**
      * Loads a hypergraph from file, or creates a new one if not found.
      */
-    public static HyperEntityGraph load(Path filePath, int entityCapacity, int hyperedgeCapacity) {
+    public static HyperEntityGraphMemory load(Path filePath, int entityCapacity, int hyperedgeCapacity) {
         if (filePath == null || !Files.exists(filePath)) {
-            log.info("HyperEntityGraph file not found, creating fresh: {}", filePath);
-            return new HyperEntityGraph(entityCapacity, hyperedgeCapacity);
+            log.info("HyperEntityGraphMemory file not found, creating fresh: {}", filePath);
+            return new HyperEntityGraphMemory(entityCapacity, hyperedgeCapacity);
         }
 
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
@@ -505,9 +505,9 @@ public final class HyperEntityGraph implements AutoCloseable {
             int magic = header.getInt();
             int version = header.getInt();
             if (magic != FILE_MAGIC || version != FILE_VERSION) {
-                log.warn("Invalid HyperEntityGraph file: magic=0x{}, version={}", 
+                log.warn("Invalid HyperEntityGraphMemory file: magic=0x{}, version={}", 
                          Integer.toHexString(magic), version);
-                return new HyperEntityGraph(entityCapacity, hyperedgeCapacity);
+                return new HyperEntityGraphMemory(entityCapacity, hyperedgeCapacity);
             }
 
             int loadedEntityCap = header.getInt();
@@ -518,7 +518,7 @@ public final class HyperEntityGraph implements AutoCloseable {
             header.getInt(); // reserved
 
             // Create graph with loaded capacities
-            HyperEntityGraph graph = new HyperEntityGraph(
+            HyperEntityGraphMemory graph = new HyperEntityGraphMemory(
                     Math.max(loadedEntityCap, entityCapacity),
                     Math.max(loadedHedgeCap, hyperedgeCapacity));
 
@@ -533,12 +533,12 @@ public final class HyperEntityGraph implements AutoCloseable {
             // Rebuild incidence lists from loaded data
             graph.rebuildIncidenceLists();
 
-            log.info("HyperEntityGraph loaded: {} hyperedges, file={}", loadedTotal, filePath);
+            log.info("HyperEntityGraphMemory loaded: {} hyperedges, file={}", loadedTotal, filePath);
             return graph;
 
         } catch (Exception e) {
-            log.error("Failed to load HyperEntityGraph from {}: {}", filePath, e.getMessage());
-            return new HyperEntityGraph(entityCapacity, hyperedgeCapacity);
+            log.error("Failed to load HyperEntityGraphMemory from {}: {}", filePath, e.getMessage());
+            return new HyperEntityGraphMemory(entityCapacity, hyperedgeCapacity);
         }
     }
 

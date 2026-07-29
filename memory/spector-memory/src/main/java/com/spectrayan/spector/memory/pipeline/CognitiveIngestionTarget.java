@@ -24,8 +24,8 @@ import com.spectrayan.spector.memory.cortex.WorkingMemoryStore;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityRelation;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
@@ -112,8 +112,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final EntityExtractor entityExtractor;
-    private final EntityGraph entityGraph;
-    private final HyperEntityGraph hyperEntityGraph;
+    private final EntityGraphMemory entityGraph;
+    private final HyperEntityGraphMemory hyperEntityGraph;
 
     //  BM25 Text Search (nullable  --  graceful degradation) 
     private final MemoryBM25Index bm25Index;
@@ -123,8 +123,6 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     //  SPLADE Sparse Search (nullable  --  graceful degradation) 
     private final MemorySpladeIndex spladeIndex;
     private final SparseEmbeddingProvider spladeProvider;
-
-    //  Data Encryption SPI (NOOP in OSS mode) 
     private final DataEncryptor encryptor;
 
     //  Salience Profile (NEUTRAL in OSS mode) 
@@ -154,8 +152,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HebbianGraphBase hebbianGraph,
                                      TemporalChainMemory temporalChain,
                                      EntityExtractor entityExtractor,
-                                     EntityGraph entityGraph,
-                                     HyperEntityGraph hyperEntityGraph,
+                                     EntityGraphMemory entityGraph,
+                                     HyperEntityGraphMemory hyperEntityGraph,
                                      MemoryBM25Index bm25Index,
                                      TextAppendMemory textDataStore,
                                      int activePartitionIndex,
@@ -187,8 +185,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HebbianGraphBase hebbianGraph,
                                      TemporalChainMemory temporalChain,
                                      EntityExtractor entityExtractor,
-                                     EntityGraph entityGraph,
-                                     HyperEntityGraph hyperEntityGraph,
+                                     EntityGraphMemory entityGraph,
+                                     HyperEntityGraphMemory hyperEntityGraph,
                                      MemoryBM25Index bm25Index,
                                      TextAppendMemory textDataStore,
                                      int activePartitionIndex,

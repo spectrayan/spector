@@ -16,7 +16,7 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.AbstractTierStore;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.TierRouter;
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -61,7 +61,7 @@ public final class ConsolidationService {
      * Executes the consolidation cycle across the semantic store.
      */
     public void consolidate(TierRouter tierRouter, MemoryIndex index, ScalarQuantizer quantizer,
-                            EntityGraph entityGraph, CognitiveIngestionTarget ingestionTarget,
+                            EntityGraphMemory entityGraph, CognitiveIngestionTarget ingestionTarget,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
         AbstractTierStore semanticStore = (AbstractTierStore) tierRouter.semantic();
         if (semanticStore == null || semanticStore.visibleCount() < 2) {

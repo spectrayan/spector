@@ -39,9 +39,9 @@ import com.spectrayan.spector.commons.error.SpectorStorageException;
 /**
  * Thread-safe, open-schema string ↔ integer type registry, backed by the Memory Kernel shape RegistryMemory.
  */
-public final class TypeRegistry implements RegistryMemory {
+public final class TypeRegistryMemory implements RegistryMemory {
 
-    private static final Logger log = LoggerFactory.getLogger(TypeRegistry.class);
+    private static final Logger log = LoggerFactory.getLogger(TypeRegistryMemory.class);
 
     /** Legacy File magic: "TREG" in ASCII. */
     private static final int LEGACY_FILE_MAGIC = 0x54524547;
@@ -55,7 +55,7 @@ public final class TypeRegistry implements RegistryMemory {
      *
      * @param label descriptive label for logging (e.g., "entity-type", "relation-type")
      */
-    public TypeRegistry(String label) {
+    public TypeRegistryMemory(String label) {
         this.label = label;
         MemoryId registryId = MemoryId.of("graph", label);
         RegistryLayout layout = new RegistryLayout();
@@ -66,8 +66,8 @@ public final class TypeRegistry implements RegistryMemory {
     /**
      * Creates a registry pre-seeded with the given well-known types.
      */
-    public static TypeRegistry seeded(String label, String... seedTypes) {
-        TypeRegistry registry = new TypeRegistry(label);
+    public static TypeRegistryMemory seeded(String label, String... seedTypes) {
+        TypeRegistryMemory registry = new TypeRegistryMemory(label);
         for (String type : seedTypes) {
             registry.intern(type);
         }
@@ -192,7 +192,7 @@ public final class TypeRegistry implements RegistryMemory {
         log.info("{} registry saved (SMKM V1): {} types → {}", label, currentEntries.size(), filePath);
     }
 
-    public static TypeRegistry load(Path filePath, String label, String... seedTypes) {
+    public static TypeRegistryMemory load(Path filePath, String label, String... seedTypes) {
         if (!Files.exists(filePath)) {
             log.info("{} registry file not found, creating seeded registry with {} types",
                     label, seedTypes.length);
@@ -211,7 +211,7 @@ public final class TypeRegistry implements RegistryMemory {
             boolean isStandard = (magic == MemoryHeader.MAGIC || magic == 0x4D4B4D53);
             boolean isLegacy = (magic == LEGACY_FILE_MAGIC || magic == 0x47455254);
 
-            TypeRegistry registry = new TypeRegistry(label);
+            TypeRegistryMemory registry = new TypeRegistryMemory(label);
 
             if (isStandard) {
                 MemoryId registryId = MemoryId.of("graph", label);

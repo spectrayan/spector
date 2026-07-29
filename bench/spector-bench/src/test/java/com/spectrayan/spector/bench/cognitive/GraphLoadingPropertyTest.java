@@ -18,7 +18,7 @@ package com.spectrayan.spector.bench.cognitive;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
@@ -136,7 +136,7 @@ class GraphLoadingPropertyTest {
     void entityRelation_createsTypedEdge(
             @ForAll("relationTypes") String relationType) {
 
-        EntityGraph graph = new EntityGraph(50, 50);
+        EntityGraphMemory graph = new EntityGraphMemory(50, 50);
 
         int entityA = graph.addEntity("Alice", "PERSON");
         int entityB = graph.addEntity("ProjectX", "PRODUCT");

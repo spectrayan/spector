@@ -16,8 +16,8 @@
 package com.spectrayan.spector.bench.cognitive;
 
 import com.spectrayan.spector.memory.graph.EdgeImportance;
-import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 
@@ -249,7 +249,7 @@ public final class GraphStructureBenchmark {
         int hyperedgeCap = totalEdges; // one hyperedge per relationship
 
         long t0 = System.nanoTime();
-        HyperEntityGraph g = new HyperEntityGraph(entityCap, hyperedgeCap);
+        HyperEntityGraphMemory g = new HyperEntityGraphMemory(entityCap, hyperedgeCap);
         long allocNs = System.nanoTime() - t0;
 
         // Insert hyperedges (mix of 2-vertex and 3-vertex)
@@ -304,7 +304,7 @@ public final class GraphStructureBenchmark {
             long fileSize = Files.size(tmpFile);
 
             long loadStart = System.nanoTime();
-            HyperEntityGraph loaded = HyperEntityGraph.load(tmpFile, entityCap, hyperedgeCap);
+            HyperEntityGraphMemory loaded = HyperEntityGraphMemory.load(tmpFile, entityCap, hyperedgeCap);
             loadNs = System.nanoTime() - loadStart;
             loaded.close();
             Files.deleteIfExists(tmpFile);

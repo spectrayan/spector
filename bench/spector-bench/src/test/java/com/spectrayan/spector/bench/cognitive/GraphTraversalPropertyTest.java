@@ -147,7 +147,7 @@ class GraphTraversalPropertyTest {
     void entityTraversal_respectsMaxHops(
             @ForAll @IntRange(min = 1, max = 2) int maxHops) {
 
-        var graph = new com.spectrayan.spector.memory.graph.EntityGraph(20, 20);
+        var graph = new com.spectrayan.spector.memory.graph.EntityGraphMemory(20, 20);
 
         // Build a graph: Entity0 → Entity1 → Entity2
         String entityType = "PERSON";

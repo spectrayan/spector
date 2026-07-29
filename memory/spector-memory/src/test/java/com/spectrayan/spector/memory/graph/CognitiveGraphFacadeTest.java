@@ -37,8 +37,8 @@ class CognitiveGraphFacadeTest {
         // Arrange
         var hebbianGraph = mock(HebbianGraph.class);
         var temporalChain = mock(TemporalChainMemory.class);
-        var entityGraph = mock(EntityGraph.class);
-        var hyperEntityGraph = mock(HyperEntityGraph.class);
+        var entityGraph = mock(EntityGraphMemory.class);
+        var hyperEntityGraph = mock(HyperEntityGraphMemory.class);
         var index = mock(MemoryIndex.class);
 
         var facade = new CognitiveGraphFacade(

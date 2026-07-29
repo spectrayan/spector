@@ -15,8 +15,8 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
-import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
@@ -117,11 +117,11 @@ public interface SpectorMemoryAdmin {
 
     /** @deprecated Use {@link #graph()} and its query methods instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
-    EntityGraph entityGraph();
+    EntityGraphMemory entityGraph();
 
     /** @deprecated Use {@link #graph()} and its query methods instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
-    HyperEntityGraph hyperEntityGraph();
+    HyperEntityGraphMemory hyperEntityGraph();
 
     // ══════════════════════════════════════════════════════════════
     // OPERATIONAL

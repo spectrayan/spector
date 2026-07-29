@@ -25,15 +25,15 @@ import java.nio.file.StandardOpenOption;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TypeRegistryPersistenceTest {
+class TypeRegistryMemoryPersistenceTest {
 
     @TempDir
     Path tempDir;
 
     @Test
-    @DisplayName("should save and load TypeRegistry in standard SMKM registry format")
+    @DisplayName("should save and load TypeRegistryMemory in standard SMKM registry format")
     void shouldSaveAndLoadRegistry() throws Exception {
-        TypeRegistry original = TypeRegistry.seeded("entity-type", "PERSON", "ORGANIZATION");
+        TypeRegistryMemory original = TypeRegistryMemory.seeded("entity-type", "PERSON", "ORGANIZATION");
         
         // Intern dynamic ones
         int codeId = original.intern("CODE");
@@ -46,7 +46,7 @@ class TypeRegistryPersistenceTest {
         assertThat(Files.exists(filePath)).isTrue();
 
         // Load
-        TypeRegistry loaded = TypeRegistry.load(filePath, "entity-type", "PERSON", "ORGANIZATION");
+        TypeRegistryMemory loaded = TypeRegistryMemory.load(filePath, "entity-type", "PERSON", "ORGANIZATION");
         
         assertThat(loaded.size()).isEqualTo(4);
         assertThat(loaded.nameOf(codeId)).isEqualTo("CODE");
@@ -93,7 +93,7 @@ class TypeRegistryPersistenceTest {
         }
 
         // 2. Load the legacy registry file
-        TypeRegistry registry = TypeRegistry.load(legacyFile, "entity-type", "PERSON");
+        TypeRegistryMemory registry = TypeRegistryMemory.load(legacyFile, "entity-type", "PERSON");
         
         // size should be 3 (PERSON seed + 2 migrated entries)
         assertThat(registry.size()).isEqualTo(3);
@@ -105,7 +105,7 @@ class TypeRegistryPersistenceTest {
         registry.save(legacyFile);
 
         // Load again and verify standard SMKM loading
-        TypeRegistry reloaded = TypeRegistry.load(legacyFile, "entity-type", "PERSON");
+        TypeRegistryMemory reloaded = TypeRegistryMemory.load(legacyFile, "entity-type", "PERSON");
         assertThat(reloaded.size()).isEqualTo(3);
         assertThat(reloaded.idOf("SOFTWARE")).isEqualTo(10);
         assertThat(reloaded.idOf("HARDWARE")).isEqualTo(11);

@@ -24,9 +24,9 @@ import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityRelation;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -79,24 +79,24 @@ final class PostIngestSync {
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final EntityExtractor entityExtractor;
-    private final EntityGraph entityGraph;
+    private final EntityGraphMemory entityGraph;
     private final MemoryBM25Index bm25Index;
     private final TextAppendMemory textDataStore;
     private final int activePartitionIndex;
     private final MemorySpladeIndex spladeIndex;
     private final SparseEmbeddingProvider spladeProvider;
     private final DataEncryptor encryptor;
-    private final HyperEntityGraph hyperEntityGraph;
+    private final HyperEntityGraphMemory hyperEntityGraph;
 
     PostIngestSync(TierRouter tierRouter, MemoryIndex index, MemoryWal wal,
                    VectorIndex semanticIndex,
                    HebbianGraphBase hebbianGraph, TemporalChainMemory temporalChain,
-                   EntityExtractor entityExtractor, EntityGraph entityGraph,
+                   EntityExtractor entityExtractor, EntityGraphMemory entityGraph,
                    MemoryBM25Index bm25Index, TextAppendMemory textDataStore,
                    int activePartitionIndex,
                    MemorySpladeIndex spladeIndex, SparseEmbeddingProvider spladeProvider,
                    DataEncryptor encryptor,
-                   HyperEntityGraph hyperEntityGraph) {
+                   HyperEntityGraphMemory hyperEntityGraph) {
         this.tierRouter = tierRouter;
         this.index = index;
         this.wal = wal;
@@ -370,15 +370,15 @@ final class PostIngestSync {
             // Create hyperedge for multi-entity co-occurrence (if >= 2 entities in this memory)
             if (hyperEntityGraph != null && entityIds.size() >= 2) {
                 int[] vertexArr = entityIds.stream().mapToInt(Integer::intValue).toArray();
-                if (vertexArr.length > HyperEntityGraph.MAX_VERTICES_PER_EDGE) {
-                    int[] truncated = new int[HyperEntityGraph.MAX_VERTICES_PER_EDGE];
-                    System.arraycopy(vertexArr, 0, truncated, 0, HyperEntityGraph.MAX_VERTICES_PER_EDGE);
+                if (vertexArr.length > HyperEntityGraphMemory.MAX_VERTICES_PER_EDGE) {
+                    int[] truncated = new int[HyperEntityGraphMemory.MAX_VERTICES_PER_EDGE];
+                    System.arraycopy(vertexArr, 0, truncated, 0, HyperEntityGraphMemory.MAX_VERTICES_PER_EDGE);
                     vertexArr = truncated;
                 }
                 int[] roles = new int[vertexArr.length];
                 // First entity gets SUBJECT role, rest get CONTEXT
-                roles[0] = HyperEntityGraph.ROLE_SUBJECT;
-                for (int r = 1; r < roles.length; r++) roles[r] = HyperEntityGraph.ROLE_CONTEXT;
+                roles[0] = HyperEntityGraphMemory.ROLE_SUBJECT;
+                for (int r = 1; r < roles.length; r++) roles[r] = HyperEntityGraphMemory.ROLE_CONTEXT;
                 hyperEntityGraph.addHyperedge(vertexArr, roles,
                         0, 1.0f, memoryIdx, System.currentTimeMillis());
             }

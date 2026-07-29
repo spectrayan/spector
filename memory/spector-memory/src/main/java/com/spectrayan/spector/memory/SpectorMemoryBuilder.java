@@ -24,8 +24,8 @@ import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.id.IdStrategy;
@@ -109,7 +109,7 @@ public final class SpectorMemoryBuilder {
     //  Edge importance configuration 
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
     int hebbianMaxDegree = HebbianGraph.DEFAULT_MAX_DEGREE;
-    int entityMaxDegree = EntityGraph.DEFAULT_MAX_DEGREE;
+    int entityMaxDegree = EntityGraphMemory.DEFAULT_MAX_DEGREE;
 
     //  ID generation strategy 
     IdStrategy idStrategy = IdStrategy.TSID;

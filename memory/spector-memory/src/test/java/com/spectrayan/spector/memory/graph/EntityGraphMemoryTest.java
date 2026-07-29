@@ -24,18 +24,18 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for EntityGraph: entity management, relations, traversal, and persistence.
+ * Tests for EntityGraphMemory: entity management, relations, traversal, and persistence.
  */
-class EntityGraphTest {
+class EntityGraphMemoryTest {
 
     @TempDir
     Path tempDir;
 
-    private EntityGraph graph;
+    private EntityGraphMemory graph;
 
     @BeforeEach
     void setUp() {
-        graph = new EntityGraph(100, 500);
+        graph = new EntityGraphMemory(100, 500);
     }
 
     @AfterEach
@@ -94,7 +94,7 @@ class EntityGraphTest {
 
         graph.addRelation(alice, project, "MANAGES");
 
-        List<EntityGraph.EntityEdge> edges = graph.edges(alice);
+        List<EntityGraphMemory.EntityEdge> edges = graph.edges(alice);
         assertThat(edges).hasSize(1);
         assertThat(edges.get(0).targetEntityId()).isEqualTo(project);
         assertThat(edges.get(0).relationType()).isEqualTo("MANAGES");
@@ -109,7 +109,7 @@ class EntityGraphTest {
         graph.addRelation(alice, project, "MANAGES");
         graph.addRelation(alice, project, "MANAGES");
 
-        List<EntityGraph.EntityEdge> edges = graph.edges(alice);
+        List<EntityGraphMemory.EntityEdge> edges = graph.edges(alice);
         assertThat(edges).hasSize(1);
         assertThat(edges.get(0).weight()).isEqualTo(2.0f);
     }
@@ -268,7 +268,7 @@ class EntityGraphTest {
         graph.save(file);
         graph.close();
 
-        graph = EntityGraph.load(file, 100, 500);
+        graph = EntityGraphMemory.load(file, 100, 500);
         assertThat(graph.entityCount()).isEqualTo(2);
         assertThat(graph.findEntity("alice")).isEqualTo(0);
         assertThat(graph.findEntity("project alpha")).isEqualTo(1);
@@ -287,7 +287,7 @@ class EntityGraphTest {
     void loadNonExistentFileCreatesNew() {
         Path file = tempDir.resolve("nonexistent.entity");
         graph.close();
-        graph = EntityGraph.load(file, 50, 200);
+        graph = EntityGraphMemory.load(file, 50, 200);
 
         assertThat(graph.entityCount()).isZero();
     }

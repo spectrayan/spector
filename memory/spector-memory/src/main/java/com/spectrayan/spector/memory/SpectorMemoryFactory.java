@@ -45,9 +45,9 @@ import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.graph.TypeRegistry;
-import com.spectrayan.spector.memory.graph.HyperEntityGraph;
+import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
@@ -126,8 +126,8 @@ public final class SpectorMemoryFactory {
             HebbianGraphBase hebbianGraph,
             TemporalChainMemory temporalChain,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            EntityGraph entityGraph,
-            HyperEntityGraph hyperEntityGraph,
+            EntityGraphMemory entityGraph,
+            HyperEntityGraphMemory hyperEntityGraph,
             CognitiveGraphFacade graphFacade,
             MemoryIdGenerator idGenerator,
             CheckpointDaemon checkpointDaemon,
@@ -348,7 +348,7 @@ public final class SpectorMemoryFactory {
         }
 
         boolean entityEnabled = builder.entityExtractionMode != EntityExtractionMode.NONE;
-        EntityGraph entityGraph;
+        EntityGraphMemory entityGraph;
         if (entityEnabled) {
             int entityCap = builder.entityGraphCapacity;
             int edgeCap = entityCap * builder.entityMaxDegree;
@@ -360,39 +360,39 @@ public final class SpectorMemoryFactory {
 
                 Path loadFrom = getNewerPath(runtimeEntity, v2Entity, legacyEntity);
                 if (loadFrom != null) {
-                    entityGraph = EntityGraph.load(loadFrom, entityCap, edgeCap);
+                    entityGraph = EntityGraphMemory.load(loadFrom, entityCap, edgeCap);
                 } else {
-                    entityGraph = new EntityGraph(runtimeEntity, entityCap, edgeCap,
+                    entityGraph = new EntityGraphMemory(runtimeEntity, entityCap, edgeCap,
                             builder.entityMaxDegree, builder.edgeImportance);
                 }
             } else {
-                entityGraph = new EntityGraph(entityCap, edgeCap,
+                entityGraph = new EntityGraphMemory(entityCap, edgeCap,
                         builder.entityMaxDegree, builder.edgeImportance);
             }
         } else {
             entityGraph = null;
         }
 
-        HyperEntityGraph hyperEntityGraph;
+        HyperEntityGraphMemory hyperEntityGraph;
         if (entityEnabled && builder.hyperEntityGraphEnabled) {
             int hyperCap = builder.entityGraphCapacity;
             int hyperEdgeCap = hyperCap * 2;
             if (isDisk && basePath != null) {
                 Path hyperPath = StorageLayout.hyperEntityGraphRuntime(basePath);
                 if (java.nio.file.Files.exists(hyperPath)) {
-                    hyperEntityGraph = HyperEntityGraph.load(hyperPath, hyperCap, hyperEdgeCap);
+                    hyperEntityGraph = HyperEntityGraphMemory.load(hyperPath, hyperCap, hyperEdgeCap);
                 } else {
-                    hyperEntityGraph = new HyperEntityGraph(hyperCap, hyperEdgeCap);
+                    hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
                 }
             } else {
-                hyperEntityGraph = new HyperEntityGraph(hyperCap, hyperEdgeCap);
+                hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
             }
         } else {
             hyperEntityGraph = null;
         }
 
         TemporalKnowledgeGraph temporalKnowledgeGraph;
-        TypeRegistry predRegistry = (entityGraph != null) ? entityGraph.relationTypeRegistry() : new TypeRegistry("relation-type");
+        TypeRegistryMemory predRegistry = (entityGraph != null) ? entityGraph.relationTypeRegistry() : new TypeRegistryMemory("relation-type");
         if (isDisk && basePath != null) {
             Path runtimeTkg = StorageLayout.temporalFactsRuntime(basePath);
             long initialSize = 16L * 1024 * 1024; // 16MB
@@ -714,7 +714,7 @@ public final class SpectorMemoryFactory {
             HebbianGraphBase hebbianGraph,
             TemporalChainMemory temporalChain,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            EntityGraph entityGraph,
+            EntityGraphMemory entityGraph,
             CoActivationRecordMemory coActivationTracker,
             CognitiveIngestionTarget cognitiveTarget,
             Path basePath) {
