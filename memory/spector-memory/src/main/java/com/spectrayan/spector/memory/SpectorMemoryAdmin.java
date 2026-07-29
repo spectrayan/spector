@@ -18,7 +18,7 @@ import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
@@ -68,7 +68,7 @@ public interface SpectorMemoryAdmin {
     // ══════════════════════════════════════════════════════════════
 
     /** Returns the Hebbian co-activation tracker. */
-    CoActivationTracker coActivation();
+    CoActivationRecordMemory coActivation();
 
     /** Returns the Write-Ahead Log. */
     MemoryWal wal();

@@ -17,9 +17,8 @@ import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
-import com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory;
+import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +33,6 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.EnumMap;
 import java.util.List;
@@ -42,34 +40,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Off-heap synaptic tag co-occurrence and STDP tracking for Hebbian learning.
- *
- * <h3>Biological Analog: Hebbian Learning + STDP</h3>
- * <p>"Cells that fire together wire together" (Hebb, 1949). When two neurons
- * fire simultaneously, the synapse between them strengthens. Over time,
- * activating one neuron automatically activates the other — this is the
- * basis of associative memory.</p>
- *
- * <h3>Spike-Timing-Dependent Plasticity (STDP)</h3>
- * <p>If neuron A fires <b>before</b> neuron B (causal), the A→B synapse is
- * strengthened (LTP). If A fires <b>after</b> B (anti-causal), the B→A
- * synapse is weakened (LTD). This produces directed, predictive associations.</p>
- *
- * <h3>Architecture</h3>
- * <p>This class coordinates two independent off-heap hash tables mapped inside
- * a single record memory structure:</p>
- * <ul>
- *   <li>{@link OffHeapPairTable} — undirected co-activation pairs (32B/slot)</li>
- *   <li>{@link OffHeapEdgeTable} — directed STDP edges (40B/slot)</li>
- * </ul>
+ * Off-heap synaptic tag co-occurrence and STDP tracking for Hebbian learning, extending
+ * the Spector Memory Kernel {@link AbstractRecordMemory}.
  *
  * @see OffHeapPairTable
  * @see OffHeapEdgeTable
- * @see HebbianCoActivationListener
  */
-public final class CoActivationTracker implements AutoCloseable {
+public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActivationLayout> {
 
-    private static final Logger log = LoggerFactory.getLogger(CoActivationTracker.class);
+    private static final Logger log = LoggerFactory.getLogger(CoActivationRecordMemory.class);
 
     // ── STDP Constants ──
     private static final float A_PLUS = 0.1f;
@@ -85,9 +64,7 @@ public final class CoActivationTracker implements AutoCloseable {
     private static final int FILE_HEADER_V1_BYTES = 24;
     private static final int FILE_HEADER_BYTES = 32;
 
-    // ── State ──
-    private final Arena arena;
-    private DefaultRecordMemory<CoActivationLayout> recordMemory;
+    // ── Tables ──
     private OffHeapPairTable pairTable;
     private OffHeapEdgeTable edgeTable;
 
@@ -113,27 +90,26 @@ public final class CoActivationTracker implements AutoCloseable {
     // Constructors
     // ══════════════════════════════════════════════════════════════
 
-    public CoActivationTracker() {
+    public CoActivationRecordMemory() {
         this(10_000);
     }
 
-    public CoActivationTracker(int maxPairs) {
+    public CoActivationRecordMemory(int maxPairs) {
         this(maxPairs, maxPairs * 2);
     }
 
-    public CoActivationTracker(int maxPairs, int maxEdges) {
+    public CoActivationRecordMemory(int maxPairs, int maxEdges) {
+        this(MemoryId.of("hebbian", "coactivation"), calculateTotalBytes(maxPairs, maxEdges), maxPairs, maxEdges);
+    }
+
+    private CoActivationRecordMemory(MemoryId id, long totalBytes, int maxPairs, int maxEdges) {
+        super(id, new CoActivationLayout(), (int) totalBytes, totalBytes);
+
         int pairCap = nextPowerOf2(Math.max(64, maxPairs * 2));
         int edgeCap = nextPowerOf2(Math.max(64, maxEdges * 2));
-        long totalBytes = 8 + 32L * pairCap + 40L * edgeCap;
 
-        MemoryId memoryId = MemoryId.of("hebbian", "coactivation");
-        CoActivationLayout layout = new CoActivationLayout();
-
-        this.recordMemory = new DefaultRecordMemory<>(memoryId, layout, (int) totalBytes, totalBytes);
-        this.arena = recordMemory.arena();
-
-        MemorySegment segment = recordMemory.segment();
-        long dataOffset = recordMemory.dataOffset();
+        MemorySegment segment = segment();
+        long dataOffset = dataOffset();
 
         segment.set(ValueLayout.JAVA_INT, dataOffset, pairCap);
         segment.set(ValueLayout.JAVA_INT, dataOffset + 4, edgeCap);
@@ -141,39 +117,42 @@ public final class CoActivationTracker implements AutoCloseable {
         this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + 8, 32L * pairCap), 0);
         this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + 8 + 32L * pairCap, 40L * edgeCap), 0);
 
-        log.info("CoActivationTracker initialized (volatile): pairCap={}, edgeCap={}, memory={}KB",
+        log.info("CoActivationRecordMemory initialized (volatile): pairCap={}, edgeCap={}, memory={}KB",
                 pairCap, edgeCap, totalBytes / 1024);
     }
 
-    private CoActivationTracker(Path filePath, int pairCap, int edgeCap) {
+    private CoActivationRecordMemory(Path filePath, int pairCap, int edgeCap) {
+        super(MemoryId.of("hebbian", "coactivation"), new CoActivationLayout(),
+                (int) (8 + 32L * pairCap + 40L * edgeCap), 8 + 32L * pairCap + 40L * edgeCap, filePath);
+
         long totalBytes = 8 + 32L * pairCap + 40L * edgeCap;
-        MemoryId memoryId = MemoryId.of("hebbian", "coactivation");
-        CoActivationLayout layout = new CoActivationLayout();
+        MemorySegment segment = segment();
+        long dataOffset = dataOffset();
 
-        this.recordMemory = new DefaultRecordMemory<>(memoryId, layout, (int) totalBytes, totalBytes, filePath);
-        this.arena = recordMemory.arena();
-
-        MemorySegment segment = recordMemory.segment();
-        long dataOffset = recordMemory.dataOffset();
-
-        if (recordMemory.size() < totalBytes) {
+        if (size() < totalBytes) {
             segment.set(ValueLayout.JAVA_INT, dataOffset, pairCap);
             segment.set(ValueLayout.JAVA_INT, dataOffset + 4, edgeCap);
 
             MemorySegment singleByte = Arena.ofAuto().allocate(1);
             singleByte.set(ValueLayout.JAVA_BYTE, 0, (byte) 0);
-            recordMemory.write(totalBytes - 1, singleByte);
+            write(totalBytes - 1, singleByte);
         }
 
         this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + 8, 32L * pairCap), 0);
         this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + 8 + 32L * pairCap, 40L * edgeCap), 0);
 
-        log.info("CoActivationTracker initialized (persistent): pairCap={}, edgeCap={}, file={}",
+        log.info("CoActivationRecordMemory initialized (persistent): pairCap={}, edgeCap={}, file={}",
                 pairCap, edgeCap, filePath);
     }
 
+    private static long calculateTotalBytes(int maxPairs, int maxEdges) {
+        int pairCap = nextPowerOf2(Math.max(64, maxPairs * 2));
+        int edgeCap = nextPowerOf2(Math.max(64, maxEdges * 2));
+        return 8 + 32L * pairCap + 40L * edgeCap;
+    }
+
     // ══════════════════════════════════════════════════════════════
-    // Undirected Co-Activation (Original Hebbian)
+    // Undirected Co-Activation
     // ══════════════════════════════════════════════════════════════
 
     public void recordCoActivation(String... tags) {
@@ -314,15 +293,6 @@ public final class CoActivationTracker implements AutoCloseable {
         banditStats = new ConcurrentHashMap<>();
     }
 
-    @Override
-    public synchronized void close() {
-        log.info("CoActivationTracker closing (pairs={}, edges={})", pairCount(), edgeCount());
-        if (recordMemory != null) {
-            recordMemory.close();
-            recordMemory = null;
-        }
-    }
-
     // ══════════════════════════════════════════════════════════════
     // Bandit Stats (ProfileAdaptor persistence)
     // ══════════════════════════════════════════════════════════════
@@ -365,11 +335,7 @@ public final class CoActivationTracker implements AutoCloseable {
     // ══════════════════════════════════════════════════════════════
 
     public synchronized void save(Path filePath) {
-        if (recordMemory == null) {
-            throw new IllegalStateException("Cannot save a closed tracker");
-        }
-
-        if (!recordMemory.isPersistent()) {
+        if (!isPersistent()) {
             try {
                 Path parent = filePath.getParent();
                 if (parent != null) {
@@ -381,13 +347,13 @@ public final class CoActivationTracker implements AutoCloseable {
                     long totalBytes = 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity();
                     ByteBuffer header = ByteBuffer.allocate(64);
                     MemorySegment headerSeg = MemorySegment.ofBuffer(header);
-                    MemoryHeader.write(headerSeg, 0, recordMemory.layout().schemaVersion(), MemoryShape.RECORD,
-                            0x01, totalBytes, totalBytes, recordMemory.layout().recordStride(), recordMemory.layout().layoutId(),
+                    MemoryHeader.write(headerSeg, 0, layout().schemaVersion(), shape(),
+                            0x01, totalBytes, totalBytes, layout().recordStride(), layout().layoutId(),
                             System.currentTimeMillis(), System.currentTimeMillis());
                     header.limit(64).position(0);
                     ch.write(header);
 
-                    ByteBuffer dataBuf = recordMemory.segment().asSlice(0, totalBytes).asByteBuffer().asReadOnlyBuffer();
+                    ByteBuffer dataBuf = segment().asSlice(0, totalBytes).asByteBuffer().asReadOnlyBuffer();
                     ch.write(dataBuf);
 
                     ByteBuffer countsBuf = ByteBuffer.allocate(8);
@@ -400,25 +366,12 @@ public final class CoActivationTracker implements AutoCloseable {
                     writeBanditStats(ch);
                 }
 
-                recordMemory.close();
-                this.recordMemory = new DefaultRecordMemory<>(
-                        recordMemory.id(), recordMemory.layout(), (int) (8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity()),
-                        8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity(), filePath);
-                MemorySegment segment = recordMemory.segment();
-                long dataOffset = recordMemory.dataOffset();
-                int pairCap = pairTable.capacity();
-                int edgeCap = edgeTable.capacity();
-                int pairs = pairTable.count();
-                int edges = edgeTable.count();
-                this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + 8, 32L * pairCap), pairs);
-                this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + 8 + 32L * pairCap, 40L * edgeCap), edges);
-
             } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("CoActivationTracker", filePath, e);
+                throw new SpectorGraphPersistenceException("CoActivationRecordMemory", filePath, e);
             }
         } else {
             try {
-                recordMemory.flush();
+                flush();
                 try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.WRITE)) {
                     ch.position(MemoryHeader.HEADER_BYTES + 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity());
 
@@ -432,17 +385,17 @@ public final class CoActivationTracker implements AutoCloseable {
                     writeBanditStats(ch);
                 }
             } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("CoActivationTracker", filePath, e);
+                throw new SpectorGraphPersistenceException("CoActivationRecordMemory", filePath, e);
             }
         }
     }
 
-    public static CoActivationTracker load(Path filePath, int defaultPairs, int defaultEdges) {
+    public static CoActivationRecordMemory load(Path filePath, int defaultPairs, int defaultEdges) {
         if (filePath == null || !Files.exists(filePath)) {
-            log.info("CoActivationTracker file not found, creating fresh: {}", filePath);
+            log.info("CoActivationRecordMemory file not found, creating fresh: {}", filePath);
             int pairCap = nextPowerOf2(Math.max(64, defaultPairs * 2));
             int edgeCap = nextPowerOf2(Math.max(64, defaultEdges * 2));
-            return new CoActivationTracker(filePath, pairCap, edgeCap);
+            return new CoActivationRecordMemory(filePath, pairCap, edgeCap);
         }
 
         try {
@@ -476,7 +429,7 @@ public final class CoActivationTracker implements AutoCloseable {
                 edgeCap = capBuf.getInt();
             }
 
-            CoActivationTracker tracker = new CoActivationTracker(filePath, pairCap, edgeCap);
+            CoActivationRecordMemory tracker = new CoActivationRecordMemory(filePath, pairCap, edgeCap);
 
             try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
                 ch.position(MemoryHeader.HEADER_BYTES + 8 + 32L * pairCap + 40L * edgeCap);
@@ -503,12 +456,12 @@ public final class CoActivationTracker implements AutoCloseable {
             return tracker;
 
         } catch (IOException e) {
-            log.error("Failed to load CoActivationTracker, creating fresh: {}", e.getMessage());
-            return new CoActivationTracker(filePath, defaultPairs, defaultEdges);
+            log.error("Failed to load CoActivationRecordMemory, creating fresh: {}", e.getMessage());
+            return new CoActivationRecordMemory(filePath, defaultPairs, defaultEdges);
         }
     }
 
-    private static CoActivationTracker migrateLegacy(Path filePath, int magic, int version) {
+    private static CoActivationRecordMemory migrateLegacy(Path filePath, int magic, int version) {
         log.info("Migrating legacy CoActivationTracker format (v{}) to standard Memory Kernel format: {}", version, filePath);
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
             ch.position(8);
@@ -542,7 +495,7 @@ public final class CoActivationTracker implements AutoCloseable {
                 ch.close();
                 Files.deleteIfExists(filePath);
 
-                CoActivationTracker tracker = new CoActivationTracker(filePath, pairCap, edgeCap);
+                CoActivationRecordMemory tracker = new CoActivationRecordMemory(filePath, pairCap, edgeCap);
 
                 MemorySegment.copy(legacyPairTable.segment(), 0, tracker.pairTable.segment(), 0, (long) OffHeapPairTable.SLOT_BYTES * pairCap);
                 MemorySegment.copy(legacyEdgeTable.segment(), 0, tracker.edgeTable.segment(), 0, (long) OffHeapEdgeTable.SLOT_BYTES * edgeCap);
@@ -556,11 +509,9 @@ public final class CoActivationTracker implements AutoCloseable {
                 return tracker;
             }
         } catch (IOException e) {
-            throw new SpectorGraphPersistenceException("CoActivationTracker migration failed", filePath, e);
+            throw new SpectorGraphPersistenceException("CoActivationRecordMemory migration failed", filePath, e);
         }
     }
-
-    // ── Tag Index I/O ──
 
     private void writeTagIndex(FileChannel ch) throws IOException {
         ByteBuffer countBuf = ByteBuffer.allocate(4);
@@ -608,8 +559,6 @@ public final class CoActivationTracker implements AutoCloseable {
 
         return names;
     }
-
-    // ── Bandit Stats I/O (COAX v2) ──
 
     private void writeBanditStats(FileChannel ch) throws IOException {
         int entryCount = banditStatsCount();

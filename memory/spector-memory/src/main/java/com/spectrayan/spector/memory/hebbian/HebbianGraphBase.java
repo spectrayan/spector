@@ -35,7 +35,7 @@ import java.util.List;
  * @see HebbianGraphCsr The CSR V3 sparse implementation (preferred)
  */
 public sealed interface HebbianGraphBase extends AutoCloseable
-        permits HebbianGraph, HebbianGraphCsr {
+        permits HebbianGraph, HebbianGraphMemory {
 
     // ── Capacity ──
 

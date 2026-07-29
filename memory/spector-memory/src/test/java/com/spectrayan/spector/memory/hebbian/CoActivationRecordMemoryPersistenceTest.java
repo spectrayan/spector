@@ -25,9 +25,9 @@ import java.nio.file.StandardOpenOption;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link CoActivationTracker} off-heap persistence (save/load).
+ * Tests for {@link CoActivationRecordMemory} off-heap persistence (save/load).
  */
-class CoActivationTrackerPersistenceTest {
+class CoActivationRecordMemoryPersistenceTest {
 
     @TempDir
     Path tempDir;
@@ -36,7 +36,7 @@ class CoActivationTrackerPersistenceTest {
     void saveAndLoadPreservesCoActivations() {
         Path file = tempDir.resolve("coax.bin");
 
-        try (var tracker = new CoActivationTracker(1000, 2000)) {
+        try (var tracker = new CoActivationRecordMemory(1000, 2000)) {
             tracker.recordCoActivation("java", "performance");
             tracker.recordCoActivation("java", "performance");
             tracker.recordCoActivation("java", "gc");
@@ -45,7 +45,7 @@ class CoActivationTrackerPersistenceTest {
             tracker.save(file);
         }
 
-        try (var loaded = CoActivationTracker.load(file, 1000, 2000)) {
+        try (var loaded = CoActivationRecordMemory.load(file, 1000, 2000)) {
             assertThat(loaded.pairCount()).isEqualTo(2);
             assertThat(loaded.getCoActivation("java", "performance")).isEqualTo(2);
             assertThat(loaded.getCoActivation("java", "gc")).isEqualTo(1);
@@ -57,7 +57,7 @@ class CoActivationTrackerPersistenceTest {
     void saveAndLoadPreservesStdpEdges() {
         Path file = tempDir.resolve("coax-stdp.bin");
 
-        try (var tracker = new CoActivationTracker(1000, 2000)) {
+        try (var tracker = new CoActivationRecordMemory(1000, 2000)) {
             tracker.recordSequentialActivation("java", "gc", 1000L, 2000L);
             assertThat(tracker.edgeCount()).isGreaterThan(0);
 
@@ -67,7 +67,7 @@ class CoActivationTrackerPersistenceTest {
 
             tracker.save(file);
 
-            try (var loaded = CoActivationTracker.load(file, 1000, 2000)) {
+            try (var loaded = CoActivationRecordMemory.load(file, 1000, 2000)) {
                 assertThat(loaded.edgeCount()).isEqualTo(tracker.edgeCount());
                 var loadedEdge = loaded.getEdge("java", "gc");
                 assertThat(loadedEdge).isNotNull();
@@ -80,7 +80,7 @@ class CoActivationTrackerPersistenceTest {
     @Test
     void loadMissingFileCreatesNew() {
         Path missing = tempDir.resolve("nonexistent.bin");
-        try (var tracker = CoActivationTracker.load(missing, 500, 1000)) {
+        try (var tracker = CoActivationRecordMemory.load(missing, 500, 1000)) {
             assertThat(tracker.pairCount()).isZero();
             assertThat(tracker.edgeCount()).isZero();
         }
@@ -90,7 +90,7 @@ class CoActivationTrackerPersistenceTest {
     void saveAndLoadPreservesAssociatedTags() {
         Path file = tempDir.resolve("coax-assoc.bin");
 
-        try (var tracker = new CoActivationTracker(1000, 2000)) {
+        try (var tracker = new CoActivationRecordMemory(1000, 2000)) {
             for (int i = 0; i < 5; i++) tracker.recordCoActivation("java", "performance");
             for (int i = 0; i < 3; i++) tracker.recordCoActivation("java", "gc");
             tracker.recordCoActivation("java", "concurrency");
@@ -98,7 +98,7 @@ class CoActivationTrackerPersistenceTest {
             tracker.save(file);
         }
 
-        try (var loaded = CoActivationTracker.load(file, 1000, 2000)) {
+        try (var loaded = CoActivationRecordMemory.load(file, 1000, 2000)) {
             var associated = loaded.getAssociatedTags("java", 3);
             assertThat(associated).hasSize(3);
             assertThat(associated.getFirst()).isEqualTo("performance");
@@ -107,7 +107,7 @@ class CoActivationTrackerPersistenceTest {
 
     @Test
     void resetClearsOffHeapData() {
-        try (var tracker = new CoActivationTracker(1000, 2000)) {
+        try (var tracker = new CoActivationRecordMemory(1000, 2000)) {
             tracker.recordCoActivation("java", "python", "rust");
             assertThat(tracker.pairCount()).isGreaterThan(0);
 
@@ -119,7 +119,7 @@ class CoActivationTrackerPersistenceTest {
 
     @Test
     void canonicalPairOrderPreserved() {
-        try (var tracker = new CoActivationTracker(1000, 2000)) {
+        try (var tracker = new CoActivationRecordMemory(1000, 2000)) {
             tracker.recordCoActivation("java", "python");
             // Reverse order should access same pair
             assertThat(tracker.getCoActivation("python", "java")).isEqualTo(1);
@@ -128,7 +128,7 @@ class CoActivationTrackerPersistenceTest {
 
     @Test
     void predictiveStrengthFromStdp() {
-        try (var tracker = new CoActivationTracker(1000, 2000)) {
+        try (var tracker = new CoActivationRecordMemory(1000, 2000)) {
             tracker.recordSequentialActivation("search", "relevance", 1000L, 1500L);
 
             float strength = tracker.getPredictiveStrength(

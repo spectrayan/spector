@@ -176,14 +176,14 @@ final class OffHeapEdgeTable {
     /**
      * Returns full edge metadata, or null if absent.
      */
-    CoActivationTracker.EdgeWeight getEdge(long srcHash, long tgtHash) {
+    CoActivationRecordMemory.EdgeWeight getEdge(long srcHash, long tgtHash) {
         int slot = findSlot(srcHash, tgtHash);
         if (slot < 0) return null;
         long offset = (long) slot * SLOT_BYTES;
         float weight = segment.get(ValueLayout.JAVA_FLOAT, offset + OFF_WEIGHT);
         long lastMs = segment.get(ValueLayout.JAVA_LONG, offset + OFF_LAST_MS);
         int actCount = segment.get(ValueLayout.JAVA_INT, offset + OFF_ACT_COUNT);
-        return new CoActivationTracker.EdgeWeight(weight, lastMs, actCount);
+        return new CoActivationRecordMemory.EdgeWeight(weight, lastMs, actCount);
     }
 
     int count() { return count; }

@@ -51,10 +51,10 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphCsr;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -116,7 +116,7 @@ public final class SpectorMemoryFactory {
             ReflectionOrchestrator reflectionOrchestrator,
             ReinforcementHandler reinforcementHandler,
             ValenceTracker valenceTracker,
-            CoActivationTracker coActivationTracker,
+            CoActivationRecordMemory coActivationTracker,
             SuppressionSet suppressionSet,
             HabituationPenalty habituationPenalty,
             ProspectiveScheduler prospectiveScheduler,
@@ -274,12 +274,12 @@ public final class SpectorMemoryFactory {
         FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
         ValenceTracker valenceTracker = new ValenceTracker(builder.valenceLearningRate);
 
-        CoActivationTracker coActivationTracker;
+        CoActivationRecordMemory coActivationTracker;
         if (isDisk && basePath != null) {
-            coActivationTracker = CoActivationTracker.load(
+            coActivationTracker = CoActivationRecordMemory.load(
                     StorageLayout.coactivationTracker(basePath), 10_000, 20_000);
         } else {
-            coActivationTracker = new CoActivationTracker();
+            coActivationTracker = new CoActivationRecordMemory();
         }
         SuppressionSet suppressionSet = new SuppressionSet();
         HabituationPenalty habituationPenalty = new HabituationPenalty(0.2f, builder.inhibitionTtlMs, builder.inhibitionFloor);
@@ -310,10 +310,10 @@ public final class SpectorMemoryFactory {
             if (loadFrom == null) {
                 loadFrom = legacyGraph;
             }
-            hebbianGraph = HebbianGraphCsr.load(loadFrom, graphCapacity,
+            hebbianGraph = HebbianGraphMemory.load(loadFrom, graphCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance);
         } else {
-            hebbianGraph = new HebbianGraphCsr(graphCapacity);
+            hebbianGraph = new HebbianGraphMemory(graphCapacity);
         }
 
         int temporalCapacity = builder.temporalChainCapacity > 0
@@ -715,7 +715,7 @@ public final class SpectorMemoryFactory {
             TemporalChain temporalChain,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
             EntityGraph entityGraph,
-            CoActivationTracker coActivationTracker,
+            CoActivationRecordMemory coActivationTracker,
             CognitiveIngestionTarget cognitiveTarget,
             Path basePath) {
         
@@ -765,7 +765,7 @@ public final class SpectorMemoryFactory {
         if (entityGraph != null) {
             memories.put(entityGraph.id(), entityGraph);
         }
-        if (hebbianGraph instanceof HebbianGraphCsr hg) {
+        if (hebbianGraph instanceof HebbianGraphMemory hg) {
             memories.put(hg.id(), hg);
         }
         if (temporalChain != null) {

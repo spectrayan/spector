@@ -32,10 +32,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link CoActivationTracker} bandit statistics persistence (COAX v2 format).
+ * Tests for {@link CoActivationRecordMemory} bandit statistics persistence (COAX v2 format).
  */
-@DisplayName("CoActivationTracker — Bandit Stats")
-class CoActivationTrackerBanditTest {
+@DisplayName("CoActivationRecordMemory — Bandit Stats")
+class CoActivationRecordMemoryBanditTest {
 
     @TempDir
     Path tempDir;
@@ -47,7 +47,7 @@ class CoActivationTrackerBanditTest {
     @Test
     @DisplayName("new tracker has empty bandit stats")
     void emptyBanditStatsOnFreshTracker() {
-        try (var tracker = new CoActivationTracker(64)) {
+        try (var tracker = new CoActivationRecordMemory(64)) {
             Map<Long, EnumMap<CognitiveProfile, RunningStats>> stats = tracker.banditStats();
             assertThat(stats).isNotNull();
             assertThat(stats).isEmpty();
@@ -61,7 +61,7 @@ class CoActivationTrackerBanditTest {
     @Test
     @DisplayName("updateBanditStats() then banditStats() returns the data")
     void updateAndRetrieveBanditStats() {
-        try (var tracker = new CoActivationTracker(64)) {
+        try (var tracker = new CoActivationRecordMemory(64)) {
             var bandit = new ConcurrentHashMap<Long, EnumMap<CognitiveProfile, RunningStats>>();
             var profileStats = new EnumMap<CognitiveProfile, RunningStats>(CognitiveProfile.class);
             profileStats.put(CognitiveProfile.DEBUGGING,
@@ -98,7 +98,7 @@ class CoActivationTrackerBanditTest {
         long lastUpdatedMs = System.currentTimeMillis();
 
         // Save
-        try (var tracker = new CoActivationTracker(64)) {
+        try (var tracker = new CoActivationRecordMemory(64)) {
             // Add some co-activation data too
             tracker.recordCoActivation("java", "database");
 
@@ -114,7 +114,7 @@ class CoActivationTrackerBanditTest {
         }
 
         // Load and verify
-        try (var loaded = CoActivationTracker.load(file, 64, 128)) {
+        try (var loaded = CoActivationRecordMemory.load(file, 64, 128)) {
             Map<Long, EnumMap<CognitiveProfile, RunningStats>> banditStats = loaded.banditStats();
             assertThat(banditStats).containsKey(ctxHash);
 
@@ -174,7 +174,7 @@ class CoActivationTrackerBanditTest {
             ch.force(true);
         }
 
-        try (var loaded = CoActivationTracker.load(v1File, 64, 128)) {
+        try (var loaded = CoActivationRecordMemory.load(v1File, 64, 128)) {
             Map<Long, EnumMap<CognitiveProfile, RunningStats>> banditStats = loaded.banditStats();
             assertThat(banditStats).isNotNull();
             assertThat(banditStats).isEmpty();
@@ -192,13 +192,13 @@ class CoActivationTrackerBanditTest {
         Path fileWithBandit = tempDir.resolve("with-bandit.coax");
 
         // Save tracker WITHOUT bandit stats
-        try (var tracker = new CoActivationTracker(64)) {
+        try (var tracker = new CoActivationRecordMemory(64)) {
             tracker.recordCoActivation("alpha", "beta");
             tracker.save(fileNoBandit);
         }
 
         // Save tracker WITH bandit stats
-        try (var tracker = new CoActivationTracker(64)) {
+        try (var tracker = new CoActivationRecordMemory(64)) {
             tracker.recordCoActivation("alpha", "beta");
             var bandit = new ConcurrentHashMap<Long, EnumMap<CognitiveProfile, RunningStats>>();
             var profileStats = new EnumMap<CognitiveProfile, RunningStats>(CognitiveProfile.class);

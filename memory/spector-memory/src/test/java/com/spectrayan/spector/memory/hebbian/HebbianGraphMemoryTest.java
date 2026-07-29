@@ -25,14 +25,14 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for {@link HebbianGraphCsr} — CSR-based Hebbian graph.
+ * Tests for {@link HebbianGraphMemory} — CSR-based Hebbian graph.
  */
-class HebbianGraphCsrTest {
+class HebbianGraphMemoryTest {
 
     @Test
     @DisplayName("basic strengthen + neighbors round trip")
     void strengthenAndNeighbors() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(0, 1, 1.0f);
             g.strengthen(0, 2, 2.0f);
 
@@ -53,7 +53,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("degree counts CSR + overflow edges")
     void degreeIncludesOverflow() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             assertThat(g.degree(0)).isZero();
 
             g.strengthen(0, 1, 1.0f);
@@ -67,7 +67,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("totalEdges counts all edges")
     void totalEdgesAccurate() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(0, 1, 1.0f);   // 2 directed edges
             g.strengthen(2, 3, 1.0f);   // 2 more
             assertThat(g.totalEdges()).isEqualTo(4);
@@ -77,7 +77,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("strengthen existing edge increases weight")
     void strengthenExistingEdge() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(0, 1, 1.0f);
             g.strengthen(0, 1, 0.5f);
 
@@ -90,7 +90,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("decay removes weak edges and compacts CSR")
     void decayCompactsCsr() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(0, 1, 1.0f);    // weak
             g.strengthen(0, 2, 10.0f);   // strong
 
@@ -106,7 +106,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("decay collects health metrics")
     void decayCollectsMetrics() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(0, 1, 5.0f);
             g.strengthen(0, 2, 5.0f);
 
@@ -120,7 +120,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("spreading activation traverses graph")
     void spreadingActivation() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(0, 1, 1.0f);
             g.strengthen(1, 2, 1.0f);
             g.strengthen(2, 3, 1.0f);
@@ -142,7 +142,7 @@ class HebbianGraphCsrTest {
         Path filePath = tmpDir.resolve("hebbian.csr");
 
         // Save
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(0, 1, 3.0f);
             g.strengthen(0, 2, 5.0f);
             g.strengthen(2, 3, 7.0f);
@@ -150,7 +150,7 @@ class HebbianGraphCsrTest {
         }
 
         // Load
-        try (var g = HebbianGraphCsr.load(filePath, 100)) {
+        try (var g = HebbianGraphMemory.load(filePath, 100)) {
             assertThat(g.totalEdges()).isEqualTo(6); // 3 bidirectional = 6 directed
             assertThat(g.neighbors(0)).hasSize(2);
 
@@ -174,7 +174,7 @@ class HebbianGraphCsrTest {
         legacy.close();
 
         // Load via CSR — should auto-migrate
-        try (var csr = HebbianGraphCsr.load(filePath, 100)) {
+        try (var csr = HebbianGraphMemory.load(filePath, 100)) {
             assertThat(csr.totalEdges()).isEqualTo(6); // 3 bidirectional = 6
             assertThat(csr.neighbors(0)).hasSize(1);
             assertThat(csr.neighbors(0).getFirst().neighborIndex()).isEqualTo(1);
@@ -192,7 +192,7 @@ class HebbianGraphCsrTest {
         int cap = 10_000;
         int avgDegree = 2;
 
-        try (var g = new HebbianGraphCsr(cap, cap * avgDegree, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT)) {
+        try (var g = new HebbianGraphMemory(cap, cap * avgDegree, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT)) {
             // Add sparse edges (avg degree 2)
             for (int i = 0; i < cap - 1; i++) {
                 g.strengthen(i, i + 1, 1.0f);
@@ -213,7 +213,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("reset clears all edges")
     void resetClearsGraph() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(0, 1, 1.0f);
             g.strengthen(0, 2, 1.0f);
 
@@ -227,7 +227,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("self-loops are rejected")
     void selfLoopsRejected() {
-        try (var g = new HebbianGraphCsr(100)) {
+        try (var g = new HebbianGraphMemory(100)) {
             g.strengthen(5, 5, 1.0f);
             assertThat(g.degree(5)).isZero();
         }
@@ -236,7 +236,7 @@ class HebbianGraphCsrTest {
     @Test
     @DisplayName("out-of-bounds nodes are handled gracefully")
     void outOfBoundsNodes() {
-        try (var g = new HebbianGraphCsr(10)) {
+        try (var g = new HebbianGraphMemory(10)) {
             g.strengthen(-1, 5, 1.0f); // negative
             g.strengthen(5, 100, 1.0f); // above capacity
             assertThat(g.totalEdges()).isZero();

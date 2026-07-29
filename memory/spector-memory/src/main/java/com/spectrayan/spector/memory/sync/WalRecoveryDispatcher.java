@@ -27,7 +27,7 @@ import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphCsr;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.temporal.TemporalChain;
 
 /**
@@ -114,7 +114,7 @@ public final class WalRecoveryDispatcher {
                             if (target instanceof EntityGraph eg) {
                                 String relType = new String(event.payload(), 8, event.payload().length - 8, StandardCharsets.UTF_8);
                                 eg.addRelation(from, to, relType);
-                            } else if (target instanceof HebbianGraphCsr hg) {
+                            } else if (target instanceof HebbianGraphMemory hg) {
                                 float weightDelta = payload.getFloat();
                                 hg.strengthen(from, to, weightDelta);
                             }

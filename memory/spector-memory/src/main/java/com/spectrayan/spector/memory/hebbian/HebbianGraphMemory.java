@@ -17,14 +17,14 @@ import com.spectrayan.spector.memory.graph.BridgeDetector;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
+import com.spectrayan.spector.memory.kernel.shape.GraphMemory;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.sync.MemoryWal;
-import java.nio.ByteBuffer;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -40,63 +40,14 @@ import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Compressed Sparse Row (CSR) layout for the Hebbian association graph.
- *
- * <h3>Motivation</h3>
- * <p>The legacy {@link HebbianGraph} uses a fixed-width layout (292B/node at MAX_DEGREE=24).
- * At observed average degree ~2.0, this wastes 91.7% of edge slots. CSR stores only
- * actual edges, reducing memory from 278 MB → ~28 MB at 1M nodes (90% reduction).</p>
- *
- * <h3>CSR Layout (off-heap)</h3>
- * <pre>
- *   Offset Segment:  [off_0, off_1, ..., off_N]  —  4B × (capacity + 1)
- *   Edge Segment:    [e_0, e_1, ..., e_M]         — 12B × edgeCapacity
- *
- *   Node i's edges = edgeSegment[offsets[i] .. offsets[i+1])
- *
- *   Edge format (12 bytes, same as V2):
- *     [0-3]  neighbor (int)
- *     [4-7]  weight   (float)
- *     [8-9]  lastCycle (short, unsigned)
- *     [10]   bridgeScore (byte, unsigned)
- *     [11]   flags (byte)
- * </pre>
- *
- * <h3>Edge Mutation Strategy</h3>
- * <p>CSR is inherently read-optimized. To support edge insertion/deletion:</p>
- * <ul>
- *   <li><b>Insertion:</b> New edges are appended to an overflow region at the
- *       end of the edge segment. Each node's "extra edges" are tracked via a
- *       small per-node overflow list (heap-allocated, ephemeral).</li>
- *   <li><b>Compaction:</b> During {@link #decayEdges}, surviving edges are
- *       rewritten contiguously and offsets are rebuilt. Overflow is merged.</li>
- * </ul>
- *
- * <h3>File Format (V3)</h3>
- * <pre>
- *   Header (24 bytes):
- *     [0-3]   magic: "HCSR" (0x48435352)
- *     [4-7]   version: 3
- *     [8-11]  capacity (max nodes)
- *     [12-15] edgeCapacity (max edges allocated)
- *     [16-19] totalEdges (actual edges stored)
- *     [20-23] currentCycle
- *
- *   Body:
- *     [offset segment]  — 4B × (capacity + 1)
- *     [edge segment]    — 12B × edgeCapacity
- * </pre>
- *
- * <h3>Migration</h3>
- * <p>Detects V2 files (magic "HGPH") and converts to CSR on load. The conversion
- * extracts edges from the fixed-width layout and packs them into CSR. Original V2
- * file is renamed with ".v2.bak" suffix.</p>
+ * Compressed Sparse Row (CSR) layout for the Hebbian association graph, implementing
+ * the Spector Memory Kernel {@link GraphMemory} specification.
  *
  * @see HebbianGraph
  */
-public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.spector.memory.kernel.shape.GraphMemory<com.spectrayan.spector.memory.kernel.layout.HebbianLayout> {
+public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<HebbianLayout> {
 
-    private static final Logger log = LoggerFactory.getLogger(HebbianGraphCsr.class);
+    private static final Logger log = LoggerFactory.getLogger(HebbianGraphMemory.class);
 
     /** File magic: "HCSR" in ASCII. */
     private static final int FILE_MAGIC = 0x48435352;
@@ -120,7 +71,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
 
     /**
      * Minimum bridge score to protect an edge from eviction during decay.
-     * Same threshold as legacy HebbianGraph.
      */
     static final int BRIDGE_PROTECTION_THRESHOLD = 224;
 
@@ -148,28 +98,19 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
 
     /**
      * Offset segment: 4B × (capacity + 1).
-     * offsets[i] = start index in edge segment for node i's edges.
-     * offsets[capacity] = totalEdgeCount (sentinel).
      */
     private final MemorySegment offsets;
 
     /**
      * Edge segment: 12B × edgeCapacity.
-     * Contiguous packed edges in CSR order.
      */
     private final MemorySegment edges;
 
     // ── Overflow for edge insertion between compaction cycles ──
 
-    /**
-     * Overflow edges that haven't been compacted yet.
-     * overflow[node] = list of edges added since last compaction.
-     * Null entry = no overflow for that node.
-     */
     @SuppressWarnings("unchecked")
     private List<int[]>[] overflow; // int[] = {neighbor, Float.floatToRawIntBits(weight)}
 
-    /** Count of edges in overflow (for capacity tracking). */
     private int overflowEdgeCount;
 
     // ── Thread safety & session ──
@@ -186,17 +127,9 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
     // CONSTRUCTORS
     // ══════════════════════════════════════════════════════════════
 
-    /**
-     * Creates a heap-allocated CSR Hebbian graph.
-     *
-     * @param capacity      maximum number of nodes (memories)
-     * @param edgeCapacity  maximum number of edges (total across all nodes)
-     * @param maxDegree     maximum edges per node
-     * @param edgeImportance edge importance scorer
-     */
     @SuppressWarnings("unchecked")
-    public HebbianGraphCsr(int capacity, int edgeCapacity, int maxDegree,
-                            EdgeImportance edgeImportance) {
+    public HebbianGraphMemory(int capacity, int edgeCapacity, int maxDegree,
+                               EdgeImportance edgeImportance) {
         this.capacity = capacity;
         this.edgeCapacity = edgeCapacity;
         this.maxDegree = maxDegree;
@@ -206,45 +139,36 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         this.overflowEdgeCount = 0;
         this.arena = Arena.ofShared();
 
-        // Offset segment: (capacity + 1) × 4B
         long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
         this.offsets = arena.allocate(offsetBytes);
         offsets.fill((byte) 0);
 
-        // Edge segment: edgeCapacity × 12B
         long edgeBytes = (long) edgeCapacity * EDGE_BYTES;
         this.edges = arena.allocate(edgeBytes);
         edges.fill((byte) 0);
 
-        // Overflow storage (heap)
         this.overflow = new List[capacity];
         this.memoryId = MemoryId.of("graph", "hebbian-csr");
 
         long totalKB = (offsetBytes + edgeBytes) / 1024;
-        log.info("HebbianGraphCsr initialized (heap): capacity={}, edgeCap={}, maxDegree={}, memory={}KB",
+        log.info("HebbianGraphMemory initialized (heap): capacity={}, edgeCap={}, maxDegree={}, memory={}KB",
                 capacity, edgeCapacity, maxDegree, totalKB);
     }
 
-    /**
-     * Creates a CSR graph with default edge capacity (2 × capacity).
-     */
-    public HebbianGraphCsr(int capacity) {
+    public HebbianGraphMemory(int capacity) {
         this(capacity, capacity * 2, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
 
     // ══════════════════════════════════════════════════════════════
-    // PUBLIC API (mirrors HebbianGraph)
+    // PUBLIC API
     // ══════════════════════════════════════════════════════════════
 
-    /** Returns the maximum number of nodes. */
+    @Override
     public int capacity() { return capacity; }
 
-    /** Returns the current reflection cycle counter. */
     public int currentCycle() { return currentCycle; }
 
-    /**
-     * Strengthens (or creates) a bidirectional Hebbian edge between two memories.
-     */
+    @Override
     public void strengthen(int nodeA, int nodeB, float weightDelta) {
         graphLock.lock();
         try {
@@ -265,16 +189,12 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         }
     }
 
-    /**
-     * Returns the Hebbian neighbors of a memory, sorted by descending weight.
-     * Includes both CSR edges and overflow edges.
-     */
+    @Override
     public List<HebbianEdge> neighbors(int node) {
         if (node < 0 || node >= capacity) return List.of();
 
         List<HebbianEdge> result = new ArrayList<>();
 
-        // CSR edges
         int start = getOffset(node);
         int end = getOffset(node + 1);
         for (int i = start; i < end; i++) {
@@ -287,7 +207,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             }
         }
 
-        // Overflow edges
         List<int[]> ov = overflow[node];
         if (ov != null) {
             for (int[] entry : ov) {
@@ -302,9 +221,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         return result;
     }
 
-    /**
-     * Returns the degree (number of edges) for a node, including overflow.
-     */
+    @Override
     public int degree(int node) {
         if (node < 0 || node >= capacity) return 0;
         int csrDegree = getOffset(node + 1) - getOffset(node);
@@ -312,41 +229,32 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         return csrDegree + (ov != null ? ov.size() : 0);
     }
 
-    /**
-     * Returns the total number of edges across all nodes.
-     */
+    @Override
     public int totalEdges() {
         return totalEdgeCount + overflowEdgeCount;
     }
 
-    /** Sets the per-node decay modulator. */
+    @Override
     public void setDecayModulator(HebbianGraph.DecayModulator modulator) {
         this.decayModulator = modulator;
     }
 
-    /** Sets the session boundary threshold for new-session detection. */
+    @Override
     public void setSessionBoundary(long durationMs) {
         this.sessionBoundaryMs = durationMs;
     }
 
-    /** Returns true if enough time has passed since last activity to constitute a new session. */
+    @Override
     public boolean isNewSession() {
         return (System.currentTimeMillis() - lastActivityMs) > sessionBoundaryMs;
     }
 
-    /**
-     * Decays edges, compacts CSR, and recomputes bridge scores.
-     *
-     * <p>This is the key advantage of CSR: during compaction, surviving edges are
-     * written contiguously, reclaiming all wasted space. Overflow is merged.</p>
-     */
+    @Override
     public int decayEdges(float decayFactor) {
         return decayEdges(decayFactor, null);
     }
 
-    /**
-     * Decays edges with health metrics collection.
-     */
+    @Override
     public int decayEdges(float decayFactor, GraphHealthMetrics metrics) {
         graphLock.lock();
         try {
@@ -355,18 +263,15 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             int removed = 0;
             int activeNodes = 0;
 
-            // Build new CSR by iterating existing CSR + overflow, keeping survivors
-            int writePos = 0; // write cursor into edge segment
+            int writePos = 0;
             int[] newOffsets = new int[capacity + 1];
 
             for (int node = 0; node < capacity; node++) {
                 newOffsets[node] = writePos;
 
-                // Collect all edges for this node (CSR + overflow)
                 List<EdgeData> allEdges = collectAllEdges(node);
                 if (allEdges.isEmpty()) continue;
 
-                // Apply modulated decay
                 float nodeDecay = decayFactor;
                 boolean arousalModulated = false;
                 if (mod != null) {
@@ -379,7 +284,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
                     float newWeight = e.weight * nodeDecay;
                     int bridge = e.bridgeScore;
 
-                    // Bridge protection: don't evict critical bridge edges
                     boolean bridgeProtected = false;
                     if (newWeight < 0.1f && bridge >= BRIDGE_PROTECTION_THRESHOLD) {
                         newWeight = 0.1f;
@@ -388,7 +292,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
                     }
 
                     if (newWeight >= 0.1f) {
-                        // Surviving edge — write to CSR
                         if (writePos < edgeCapacity) {
                             long edgeOff = (long) writePos * EDGE_BYTES;
                             edges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, e.neighbor);
@@ -413,29 +316,24 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
                 if (writePos > newOffsets[node]) activeNodes++;
             }
 
-            // Sentinel
             newOffsets[capacity] = writePos;
             totalEdgeCount = writePos;
 
-            // Write new offsets to segment
             for (int i = 0; i <= capacity; i++) {
                 offsets.set(ValueLayout.JAVA_INT, (long) i * Integer.BYTES, newOffsets[i]);
             }
 
-            // Clear overflow (merged during compaction)
             clearOverflow();
 
-            // Recompute bridge scores on compacted CSR
             updateBridgeScores();
 
-            // Compute fragmentation
             if (metrics != null) {
                 int components = countConnectedComponents();
                 metrics.setHebbianFragmentation(components, activeNodes);
             }
 
             if (removed > 0) {
-                log.debug("HebbianGraphCsr decay: {} edges removed (factor={:.3f}), {} surviving, cycle={}",
+                log.debug("HebbianGraphMemory decay: {} edges removed (factor={:.3f}), {} surviving, cycle={}",
                         removed, decayFactor, totalEdgeCount, currentCycle);
             }
             return removed;
@@ -444,9 +342,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         }
     }
 
-    /**
-     * Returns the Hebbian neighbors at a given depth (spreading activation).
-     */
+    @Override
     public List<HebbianEdge> activateNeighbors(int node, int depth) {
         if (node < 0 || node >= capacity) return List.of();
         List<HebbianEdge> activated = new ArrayList<>();
@@ -456,9 +352,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         return activated;
     }
 
-    /**
-     * Resets all edges by clearing both segments and overflow.
-     */
+    @Override
     public int reset() {
         graphLock.lock();
         try {
@@ -468,16 +362,14 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             clearOverflow();
             totalEdgeCount = 0;
             lastActivityMs = System.currentTimeMillis();
-            log.info("HebbianGraphCsr reset: {} edges cleared, capacity={}", edgesBefore, capacity);
+            log.info("HebbianGraphMemory reset: {} edges cleared, capacity={}", edgesBefore, capacity);
             return edgesBefore;
         } finally {
             graphLock.unlock();
         }
     }
 
-    /**
-     * Returns memory usage in bytes (off-heap only, excludes overflow heap).
-     */
+    @Override
     public long memoryUsageBytes() {
         return offsets.byteSize() + edges.byteSize();
     }
@@ -492,8 +384,8 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
     }
 
     @Override
-    public com.spectrayan.spector.memory.kernel.layout.HebbianLayout layout() {
-        return new com.spectrayan.spector.memory.kernel.layout.HebbianLayout();
+    public HebbianLayout layout() {
+        return new HebbianLayout();
     }
 
     @Override
@@ -539,7 +431,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
 
     @Override
     public void removeEdge(int edgeId) {
-        // CSR decays and compacts edges; explicit tombstoning is not supported on raw ID.
+        // CSR decays and compacts edges
     }
 
     @Override
@@ -588,7 +480,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
 
     @Override
     public void close() {
-        log.info("HebbianGraphCsr closing (capacity={}, edges={})", capacity, totalEdgeCount);
+        log.info("HebbianGraphMemory closing (capacity={}, edges={})", capacity, totalEdgeCount);
         arena.close();
     }
 
@@ -596,27 +488,23 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
     // PERSISTENCE
     // ══════════════════════════════════════════════════════════════
 
-    /**
-     * Saves the CSR graph to a binary file (V3 format).
-     */
+    @Override
     public void save(Path filePath) {
         Path parent = filePath.getParent();
         if (parent != null) {
             try {
                 Files.createDirectories(parent);
             } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("HebbianGraphCsr", parent, e);
+                throw new SpectorGraphPersistenceException("HebbianGraphMemory", parent, e);
             }
         }
 
-        // Compact before save (merge overflow)
         compactIfNeeded();
 
         try (FileChannel ch = FileChannel.open(filePath,
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE,
                 StandardOpenOption.TRUNCATE_EXISTING)) {
 
-            // Header
             ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
             header.putInt(FILE_MAGIC);
             header.putInt(FILE_VERSION);
@@ -627,43 +515,31 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             header.flip();
             ch.write(header);
 
-            // Offset segment
             writeSegmentToChannel(offsets, (long) (capacity + 1) * Integer.BYTES, ch);
 
-            // Edge segment (only write actual edges, not full capacity)
             writeSegmentToChannel(edges, (long) totalEdgeCount * EDGE_BYTES, ch);
 
             ch.force(true);
-            log.info("HebbianGraphCsr saved: capacity={}, edges={}, file={}",
+            log.info("HebbianGraphMemory saved: capacity={}, edges={}, file={}",
                     capacity, totalEdgeCount, filePath);
 
         } catch (IOException e) {
-            throw new SpectorGraphPersistenceException("HebbianGraphCsr", filePath, e);
+            throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath, e);
         }
     }
 
-    /**
-     * Loads a CSR graph from file, or creates a new one if the file doesn't exist.
-     * Automatically migrates legacy V2 files to CSR.
-     */
-    @SuppressWarnings("unchecked")
-    public static HebbianGraphCsr load(Path filePath, int defaultCapacity) {
+    public static HebbianGraphMemory load(Path filePath, int defaultCapacity) {
         return load(filePath, defaultCapacity, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
 
-    /**
-     * Loads or creates with full configuration.
-     */
-    @SuppressWarnings("unchecked")
-    public static HebbianGraphCsr load(Path filePath, int defaultCapacity,
-                                        int maxDegree, EdgeImportance edgeImportance) {
+    public static HebbianGraphMemory load(Path filePath, int defaultCapacity,
+                                          int maxDegree, EdgeImportance edgeImportance) {
         if (filePath == null || !Files.exists(filePath)) {
-            log.info("HebbianGraphCsr file not found, creating fresh: {}", filePath);
-            return new HebbianGraphCsr(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
+            log.info("HebbianGraphMemory file not found, creating fresh: {}", filePath);
+            return new HebbianGraphMemory(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
         }
 
         try {
-            // Read magic to determine format
             int magic;
             try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
                 ByteBuffer buf = ByteBuffer.allocate(4);
@@ -679,12 +555,12 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
                 return migrateFromV2(filePath, maxDegree, edgeImportance);
             } else {
                 log.warn("Unknown HebbianGraph file magic: 0x{}, creating fresh", Integer.toHexString(magic));
-                return new HebbianGraphCsr(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
+                return new HebbianGraphMemory(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
             }
         } catch (Exception e) {
-            log.error("Failed to load HebbianGraphCsr from {}, creating fresh: {}",
+            log.error("Failed to load HebbianGraphMemory from {}, creating fresh: {}",
                     filePath, e.getMessage());
-            return new HebbianGraphCsr(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
+            return new HebbianGraphMemory(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
         }
     }
 
@@ -693,14 +569,12 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
     // ══════════════════════════════════════════════════════════════
 
     private void addOrUpdateEdge(int from, int to, float weightDelta) {
-        // First check CSR edges
         int start = getOffset(from);
         int end = getOffset(from + 1);
         for (int i = start; i < end; i++) {
             long edgeOff = (long) i * EDGE_BYTES;
             int neighbor = edges.get(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR);
             if (neighbor == to) {
-                // Strengthen existing CSR edge
                 float weight = edges.get(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT);
                 edges.set(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT, weight + weightDelta);
                 edges.set(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE, (short) currentCycle);
@@ -708,7 +582,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             }
         }
 
-        // Check overflow edges
         List<int[]> ov = overflow[from];
         if (ov != null) {
             for (int[] entry : ov) {
@@ -720,15 +593,12 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             }
         }
 
-        // Check max degree
         int currentDegree = degree(from);
         if (currentDegree >= maxDegree) {
-            // Evict lowest-importance edge
             replaceLowestImportance(from, to, weightDelta);
             return;
         }
 
-        // Add new edge to overflow
         if (ov == null) {
             ov = new ArrayList<>(4);
             overflow[from] = ov;
@@ -742,7 +612,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         int minCsrIdx = -1;
         int minOvIdx = -1;
 
-        // Scan CSR edges
         int start = getOffset(node);
         int end = getOffset(node + 1);
         for (int i = start; i < end; i++) {
@@ -760,7 +629,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             }
         }
 
-        // Scan overflow edges
         List<int[]> ov = overflow[node];
         if (ov != null) {
             for (int i = 0; i < ov.size(); i++) {
@@ -775,10 +643,9 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         }
 
         float newScore = edgeImportance.scoreStructural(newWeight, currentCycle, currentCycle, 0, 0);
-        if (newScore <= minScore) return; // new edge isn't important enough
+        if (newScore <= minScore) return;
 
         if (minCsrIdx >= 0) {
-            // Replace CSR edge in-place
             long edgeOff = (long) minCsrIdx * EDGE_BYTES;
             edges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, newNeighbor);
             edges.set(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT, newWeight);
@@ -786,26 +653,19 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) 0);
             edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_EDGE_FLAGS, (byte) 0);
         } else if (minOvIdx >= 0) {
-            // Replace overflow edge
             ov.set(minOvIdx, new int[]{newNeighbor, Float.floatToRawIntBits(newWeight)});
         }
     }
-
-    // ══════════════════════════════════════════════════════════════
-    // INTERNAL: CSR Helpers
-    // ══════════════════════════════════════════════════════════════
 
     private int getOffset(int node) {
         return offsets.get(ValueLayout.JAVA_INT, (long) node * Integer.BYTES);
     }
 
-    /** Internal edge data for compaction. */
     private record EdgeData(int neighbor, float weight, int lastCycle, int bridgeScore, int flags) {}
 
     private List<EdgeData> collectAllEdges(int node) {
         List<EdgeData> all = new ArrayList<>();
 
-        // CSR edges
         int start = getOffset(node);
         int end = getOffset(node + 1);
         for (int i = start; i < end; i++) {
@@ -820,7 +680,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             }
         }
 
-        // Overflow edges
         List<int[]> ov = overflow[node];
         if (ov != null) {
             for (int[] entry : ov) {
@@ -844,7 +703,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         if (overflowEdgeCount == 0) return;
         graphLock.lock();
         try {
-            // Rebuild CSR from current state
             int writePos = 0;
             int[] newOffsets = new int[capacity + 1];
 
@@ -877,12 +735,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // BRIDGE SCORE UPDATE (spanning tree + fallback)
-    // ══════════════════════════════════════════════════════════════
-
     private void updateBridgeScores() {
-        // Extract adjacency lists from CSR
         int[][] adjacency = new int[capacity][];
         for (int node = 0; node < capacity; node++) {
             int start = getOffset(node);
@@ -898,7 +751,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             }
         }
 
-        // Try spanning tree sampling
         int[][] scores = BridgeDetector.computeBridgeScoresSpanningTree(
                 adjacency, capacity,
                 BridgeDetector.DEFAULT_SAMPLE_COUNT,
@@ -916,7 +768,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
                 }
             }
         } else {
-            // Fallback: heuristic
             updateBridgeScoresHeuristic(adjacency);
         }
     }
@@ -946,10 +797,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // SPREADING ACTIVATION
-    // ══════════════════════════════════════════════════════════════
-
     private void activateRecursive(int node, int depth, float attenuation,
                                     List<HebbianEdge> activated, boolean[] visited) {
         if (depth <= 0 || visited[node]) return;
@@ -964,10 +811,6 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
             }
         }
     }
-
-    // ══════════════════════════════════════════════════════════════
-    // CONNECTED COMPONENTS (Union-Find)
-    // ══════════════════════════════════════════════════════════════
 
     private int countConnectedComponents() {
         int[] parent = new int[capacity];
@@ -1001,7 +844,7 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
 
     private static int find(int[] parent, int x) {
         while (parent[x] != x) {
-            parent[x] = parent[parent[x]]; // path compression
+            parent[x] = parent[parent[x]];
             x = parent[x];
         }
         return x;
@@ -1016,13 +859,8 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         if (rank[ra] == rank[rb]) rank[ra]++;
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // PERSISTENCE: V3 Load
-    // ══════════════════════════════════════════════════════════════
-
-    @SuppressWarnings("unchecked")
-    private static HebbianGraphCsr loadV3(Path filePath, int maxDegree,
-                                           EdgeImportance edgeImportance) throws IOException {
+    private static HebbianGraphMemory loadV3(Path filePath, int maxDegree,
+                                             EdgeImportance edgeImportance) throws IOException {
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
             ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
             ch.read(header);
@@ -1040,55 +878,35 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
                         + " version=" + version);
             }
 
-            HebbianGraphCsr graph = new HebbianGraphCsr(capacity, edgeCap, maxDegree, edgeImportance);
+            HebbianGraphMemory graph = new HebbianGraphMemory(capacity, edgeCap, maxDegree, edgeImportance);
             graph.currentCycle = cycle;
             graph.totalEdgeCount = totalEdges;
 
-            // Read offset segment
             long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
             readIntoSegment(ch, graph.offsets, offsetBytes);
 
-            // Read edge segment
             long edgeBytes = (long) totalEdges * EDGE_BYTES;
             readIntoSegment(ch, graph.edges, edgeBytes);
 
-            log.info("HebbianGraphCsr loaded V3: capacity={}, edges={}, cycle={}, file={}",
+            log.info("HebbianGraphMemory loaded V3: capacity={}, edges={}, cycle={}, file={}",
                     capacity, totalEdges, cycle, filePath);
 
             return graph;
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // MIGRATION: V2 → V3
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Migrates a legacy V2 HebbianGraph file to CSR format.
-     *
-     * <p>Reads the fixed-width layout, extracts edges, packs them into CSR,
-     * and backs up the original file as ".v2.bak".</p>
-     */
-    @SuppressWarnings("unchecked")
-    private static HebbianGraphCsr migrateFromV2(Path filePath, int maxDegree,
-                                                  EdgeImportance edgeImportance) throws IOException {
-        log.info("═══════════════════════════════════════════════════════════════");
+    private static HebbianGraphMemory migrateFromV2(Path filePath, int maxDegree,
+                                                    EdgeImportance edgeImportance) throws IOException {
         log.info("HebbianGraph V2 → V3 CSR Migration starting: {}", filePath);
-        log.info("═══════════════════════════════════════════════════════════════");
 
-        // Load legacy graph
         HebbianGraph legacy = HebbianGraph.load(filePath, 1024, maxDegree, edgeImportance);
         int legacyCapacity = legacy.capacity();
 
-        // Count total edges
         int totalEdges = legacy.totalEdges();
-        log.info("V2 graph: capacity={}, totalEdges={}", legacyCapacity, totalEdges);
 
-        // Create CSR graph with appropriate edge capacity
         int edgeCap = Math.max(totalEdges * 2, legacyCapacity * 2);
-        HebbianGraphCsr csr = new HebbianGraphCsr(legacyCapacity, edgeCap, maxDegree, edgeImportance);
+        HebbianGraphMemory csr = new HebbianGraphMemory(legacyCapacity, edgeCap, maxDegree, edgeImportance);
 
-        // Transfer edges
         int migratedEdges = 0;
         int writePos = 0;
         int[] newOffsets = new int[legacyCapacity + 1];
@@ -1113,39 +931,19 @@ public final class HebbianGraphCsr implements HebbianGraphBase, com.spectrayan.s
         newOffsets[legacyCapacity] = writePos;
         csr.totalEdgeCount = writePos;
 
-        // Write offsets
         for (int i = 0; i <= legacyCapacity; i++) {
             csr.offsets.set(ValueLayout.JAVA_INT, (long) i * Integer.BYTES, newOffsets[i]);
         }
 
-        // Close legacy
         legacy.close();
 
-        // Backup original V2 file
         Path backupPath = filePath.resolveSibling(filePath.getFileName() + ".v2.bak");
         Files.move(filePath, backupPath);
-        log.info("V2 file backed up to: {}", backupPath);
 
-        // Save as V3
         csr.save(filePath);
-
-        // Memory comparison
-        long v2Bytes = (long) legacyCapacity * (4 + maxDegree * EDGE_BYTES);
-        long v3Bytes = csr.memoryUsageBytes();
-        float reductionPct = (1.0f - (float) v3Bytes / v2Bytes) * 100f;
-
-        log.info("═══════════════════════════════════════════════════════════════");
-        log.info("Migration complete: {} edges migrated", migratedEdges);
-        log.info("Memory: V2={}KB → V3={}KB ({}% reduction)",
-                v2Bytes / 1024, v3Bytes / 1024, String.format("%.1f", reductionPct));
-        log.info("═══════════════════════════════════════════════════════════════");
 
         return csr;
     }
-
-    // ══════════════════════════════════════════════════════════════
-    // IO Helpers
-    // ══════════════════════════════════════════════════════════════
 
     private static void readIntoSegment(FileChannel ch, MemorySegment segment, long bytes) throws IOException {
         long read = 0;

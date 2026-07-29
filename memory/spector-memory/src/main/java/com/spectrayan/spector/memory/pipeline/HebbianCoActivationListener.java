@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.pipeline;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,9 +40,9 @@ import java.util.List;
  */
 public final class HebbianCoActivationListener implements RecallListener {
 
-    private final CoActivationTracker tracker;
+    private final CoActivationRecordMemory tracker;
 
-    public HebbianCoActivationListener(CoActivationTracker tracker) {
+    public HebbianCoActivationListener(CoActivationRecordMemory tracker) {
         this.tracker = tracker;
     }
 

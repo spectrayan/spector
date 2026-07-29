@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.TierRouter;
 import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
@@ -71,7 +71,7 @@ final class PersistenceManager {
                               TemporalChain temporalChain,
                               EntityGraph entityGraph,
                               com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph,
-                              CoActivationTracker coActivationTracker,
+                              CoActivationRecordMemory coActivationTracker,
                               TierRouter tierRouter,
                               MemoryWal wal) {
 

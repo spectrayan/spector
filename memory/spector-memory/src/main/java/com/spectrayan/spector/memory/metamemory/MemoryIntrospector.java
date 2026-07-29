@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.metamemory;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,14 +58,14 @@ public final class MemoryIntrospector {
     /** Maximum number of co-activated tags to consider per result tag. */
     private static final int CO_ACTIVATION_DEPTH = 5;
 
-    private final CoActivationTracker coActivationTracker;
+    private final CoActivationRecordMemory coActivationTracker;
 
     /**
      * Creates a memory introspector with Hebbian co-activation support for gap detection.
      *
      * @param coActivationTracker the tracker recording tag co-occurrence data
      */
-    public MemoryIntrospector(CoActivationTracker coActivationTracker) {
+    public MemoryIntrospector(CoActivationRecordMemory coActivationTracker) {
         this.coActivationTracker = coActivationTracker;
     }
 

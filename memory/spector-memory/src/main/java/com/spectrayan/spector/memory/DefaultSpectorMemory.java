@@ -50,10 +50,10 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
-import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphCsr;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.consolidation.ConsolidationService;
@@ -175,7 +175,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     //  Biological Subsystems 
     private final ValenceTracker valenceTracker;
-    private final CoActivationTracker coActivationTracker;
+    private final CoActivationRecordMemory coActivationTracker;
     private final SuppressionSet suppressionSet;
     private final HabituationPenalty habituationPenalty;
     private final ProspectiveScheduler prospectiveScheduler;
@@ -1163,7 +1163,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // SUBSYSTEM ACCESSORS (implements both SpectorMemory + SpectorMemoryAdmin)
     // ==============================================================
 
-    @Override public CoActivationTracker coActivation() { return coActivationTracker; }
+    @Override public CoActivationRecordMemory coActivation() { return coActivationTracker; }
     @Override public MemoryWal wal() { return wal; }
     @Override public ProspectiveScheduler prospective() { return prospectiveScheduler; }
     @Override public SuppressionSet suppression() { return suppressionSet; }

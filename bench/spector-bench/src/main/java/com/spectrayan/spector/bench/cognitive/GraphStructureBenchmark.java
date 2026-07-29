@@ -19,7 +19,7 @@ import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.EntityGraph;
 import com.spectrayan.spector.memory.graph.HyperEntityGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
-import com.spectrayan.spector.memory.hebbian.HebbianGraphCsr;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -171,7 +171,7 @@ public final class GraphStructureBenchmark {
         int edgeCapacity = totalEdges * 3; // headroom for bidirectional
 
         long t0 = System.nanoTime();
-        HebbianGraphCsr g = new HebbianGraphCsr(capacity, edgeCapacity,
+        HebbianGraphMemory g = new HebbianGraphMemory(capacity, edgeCapacity,
                 HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
         long allocNs = System.nanoTime() - t0;
 
@@ -215,7 +215,7 @@ public final class GraphStructureBenchmark {
             long fileSize = Files.size(tmpFile);
 
             long loadStart = System.nanoTime();
-            HebbianGraphCsr loaded = HebbianGraphCsr.load(tmpFile, capacity);
+            HebbianGraphMemory loaded = HebbianGraphMemory.load(tmpFile, capacity);
             loadNs = System.nanoTime() - loadStart;
             loaded.close();
             Files.deleteIfExists(tmpFile);
@@ -338,7 +338,7 @@ public final class GraphStructureBenchmark {
 
         // Create all three with same seed
         HebbianGraph legacy = new HebbianGraph(capacity);
-        HebbianGraphCsr csr = new HebbianGraphCsr(capacity, totalEdges * 3,
+        HebbianGraphMemory csr = new HebbianGraphMemory(capacity, totalEdges * 3,
                 HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
 
         // Same edges in both

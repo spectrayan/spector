@@ -19,13 +19,13 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for STDP (Spike-Timing-Dependent Plasticity) in {@link CoActivationTracker}.
+ * Tests for STDP (Spike-Timing-Dependent Plasticity) in {@link CoActivationRecordMemory}.
  */
 class StdpTest {
 
     @Test
     void causalEdge_strengthens() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         // A fires before B → A→B edge strengthened
         tracker.recordSequentialActivation("java", "gc", 1000L, 2000L);
 
@@ -37,7 +37,7 @@ class StdpTest {
 
     @Test
     void antiCausalEdge_weakened() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         // Pre-seed with moderate weight
         tracker.recordSequentialActivation("gc", "java", 1000L, 2000L);
         float initialWeight = tracker.getEdge("gc", "java").weight();
@@ -57,7 +57,7 @@ class StdpTest {
 
     @Test
     void repeatedCausal_strengthensProgressively() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         tracker.recordSequentialActivation("java", "gc", 1000L, 2000L);
         float w1 = tracker.getEdge("java", "gc").weight();
 
@@ -69,8 +69,8 @@ class StdpTest {
 
     @Test
     void closerTiming_strongerPotentiation() {
-        var tracker1 = new CoActivationTracker();
-        var tracker2 = new CoActivationTracker();
+        var tracker1 = new CoActivationRecordMemory();
+        var tracker2 = new CoActivationRecordMemory();
 
         // Close temporal proximity (100ms apart)
         tracker1.recordSequentialActivation("java", "gc", 1000L, 1100L);
@@ -84,21 +84,21 @@ class StdpTest {
 
     @Test
     void selfLoop_ignored() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         tracker.recordSequentialActivation("java", "java", 1000L, 2000L);
         assertThat(tracker.edgeCount()).isZero();
     }
 
     @Test
     void reverseOrdering_ignored() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         tracker.recordSequentialActivation("java", "gc", 2000L, 1000L); // timeAfter < timeBefore
         assertThat(tracker.edgeCount()).isZero();
     }
 
     @Test
     void predictiveStrength_returnsCausalWeight() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         tracker.recordSequentialActivation("java", "gc", 1000L, 2000L);
         tracker.recordSequentialActivation("java", "gc", 3000L, 4000L);
 
@@ -109,7 +109,7 @@ class StdpTest {
 
     @Test
     void predictiveStrength_noCausalLink_returnsZero() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         float strength = tracker.getPredictiveStrength(
                 List.of("python"), new String[]{"rust"});
         assertThat(strength).isEqualTo(0.0f);
@@ -117,7 +117,7 @@ class StdpTest {
 
     @Test
     void predictiveStrength_nullSafety() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         assertThat(tracker.getPredictiveStrength(null, new String[]{"gc"})).isEqualTo(0.0f);
         assertThat(tracker.getPredictiveStrength(List.of("java"), null)).isEqualTo(0.0f);
         assertThat(tracker.getPredictiveStrength(List.of(), new String[]{"gc"})).isEqualTo(0.0f);
@@ -125,7 +125,7 @@ class StdpTest {
 
     @Test
     void recordSequentialActivations_processesConsecutivePairs() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         tracker.recordSequentialActivations(
                 List.of("java", "gc", "performance"),
                 List.of(1000L, 2000L, 3000L));
@@ -141,7 +141,7 @@ class StdpTest {
 
     @Test
     void edgeCount_tracksDirectedEdges() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         assertThat(tracker.edgeCount()).isZero();
 
         tracker.recordSequentialActivation("java", "gc", 1000L, 2000L);
@@ -151,7 +151,7 @@ class StdpTest {
 
     @Test
     void reset_clearsEdges() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         tracker.recordSequentialActivation("java", "gc", 1000L, 2000L);
         assertThat(tracker.edgeCount()).isGreaterThan(0);
 
@@ -162,7 +162,7 @@ class StdpTest {
 
     @Test
     void averagePredictiveStrength_computesMean() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         tracker.recordSequentialActivation("java", "gc", 1000L, 2000L);
         tracker.recordSequentialActivation("java", "performance", 1000L, 2000L);
 
@@ -173,7 +173,7 @@ class StdpTest {
 
     @Test
     void weightClamping_doesNotExceedMax() {
-        var tracker = new CoActivationTracker();
+        var tracker = new CoActivationRecordMemory();
         // Many rapid successive activations
         for (int i = 0; i < 100; i++) {
             tracker.recordSequentialActivation("java", "gc", 1000L + i, 1001L + i);

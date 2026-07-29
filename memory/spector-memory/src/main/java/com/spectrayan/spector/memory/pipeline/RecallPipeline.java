@@ -56,7 +56,7 @@ import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraph;
@@ -138,7 +138,7 @@ public final class RecallPipeline {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
     private final SemanticRecallStrategy semanticRecallStrategy; // nullable
-    private final CoActivationTracker coActivationTracker; // nullable  --  for STDP causal boost
+    private final CoActivationRecordMemory coActivationTracker; // nullable  --  for STDP causal boost
     private final GraphScoringPolicy graphScoringPolicy;
     private final GraphExpansionStage graphExpansionStage;
 
@@ -241,7 +241,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationTracker coActivationTracker) {
+                           CoActivationRecordMemory coActivationTracker) {
         this(embeddingProvider, tierRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker,
@@ -262,7 +262,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationTracker coActivationTracker,
+                           CoActivationRecordMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChain temporalChain,
                            EntityGraph entityGraph,
@@ -314,7 +314,7 @@ public final class RecallPipeline {
                            float[] calibrationMins,
                            float[] calibrationScales,
                            SemanticRecallStrategy semanticRecallStrategy,
-                           CoActivationTracker coActivationTracker,
+                           CoActivationRecordMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChain temporalChain,
                            EntityGraph entityGraph,

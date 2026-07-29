@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.sync;
 import com.spectrayan.spector.events.EventBus;
 import com.spectrayan.spector.memory.StorageLayout;
 import com.spectrayan.spector.memory.graph.EntityGraph;
-import com.spectrayan.spector.memory.hebbian.CoActivationTracker;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 
@@ -95,7 +95,7 @@ public final class CheckpointDaemon {
     private final TemporalChain temporalChain;         // nullable
     private final EntityGraph entityGraph;             // nullable
     private final com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph; // nullable
-    private final CoActivationTracker coActivationTracker; // nullable
+    private final CoActivationRecordMemory coActivationTracker; // nullable
     private final Path partitionDir;                   // nullable — active partition dir for graph saves
     private final Path basePath;                       // nullable — persistence root for coactivation
 
@@ -141,7 +141,7 @@ public final class CheckpointDaemon {
                             TemporalChain temporalChain,
                             EntityGraph entityGraph,
                             com.spectrayan.spector.memory.graph.HyperEntityGraph hyperEntityGraph,
-                            CoActivationTracker coActivationTracker,
+                            CoActivationRecordMemory coActivationTracker,
                             Path partitionDir, Path basePath) {
         this.tierRouter = tierRouter;
         this.wal = wal;
