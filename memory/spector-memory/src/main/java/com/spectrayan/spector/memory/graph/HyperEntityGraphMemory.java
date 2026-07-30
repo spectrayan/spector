@@ -370,6 +370,42 @@ public final class HyperEntityGraphMemory implements AutoCloseable {
     }
 
     /**
+     * Finds all memory indices related to a given starting entity via hyperedges recursively up to maxHops.
+     *
+     * @param startEntity starting entity ID
+     * @param maxHops     maximum traversal hops
+     * @return set of memory indices
+     */
+    public Set<Integer> collectMemories(int startEntity, int maxHops) {
+        Set<Integer> memories = new HashSet<>();
+        Set<Integer> visitedEntities = new HashSet<>();
+        graphLock.lock();
+        try {
+            collectMemoriesRecursive(startEntity, maxHops, visitedEntities, memories);
+        } finally {
+            graphLock.unlock();
+        }
+        return memories;
+    }
+
+    private void collectMemoriesRecursive(int entityId, int hopsLeft, Set<Integer> visited, Set<Integer> memories) {
+        if (hopsLeft < 0 || !visited.add(entityId)) {
+            return;
+        }
+        List<HyperEdge> edges = findHyperedgesForEntity(entityId);
+        for (HyperEdge edge : edges) {
+            if (edge.memoryIdx() >= 0) {
+                memories.add(edge.memoryIdx());
+            }
+            if (hopsLeft > 0) {
+                for (HyperEdgeVertex v : edge.vertices()) {
+                    collectMemoriesRecursive(v.entityId(), hopsLeft - 1, visited, memories);
+                }
+            }
+        }
+    }
+
+    /**
      * Strengthens a hyperedge's weight (LTP reinforcement).
      *
      * @param edgeId     hyperedge ID

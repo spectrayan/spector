@@ -513,6 +513,16 @@ public final class SpectorMemoryFactory {
         //  WAL Recovery 
         performWalRecovery(wal, cognitiveRouter, index, hebbianGraph, temporalChain, temporalKnowledgeGraph, entityGraph, coActivationTracker, cognitiveTarget, basePath);
 
+        if (wal != null) {
+            if (entityGraph != null) {
+                entityGraph.bindWal(wal);
+            }
+            if (hebbianGraph instanceof com.spectrayan.spector.memory.hebbian.HebbianGraphMemory hgm) {
+                hgm.bindWal(wal);
+            }
+        }
+
+
         //  Semantic Recall Strategy + HNSW Rebuild 
         SemanticRecallStrategy semanticStrategy = null;
         if (builder.semanticIndex != null && cognitiveRouter.semantic() != null) {
@@ -541,7 +551,7 @@ public final class SpectorMemoryFactory {
                 embeddingProvider, cognitiveRouter, index,
                 suppressionSet, habituationPenalty, prospectiveScheduler, wal,
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
-                null, hebbianGraph, temporalChain, entityGraph, entityExtractor,
+                null, hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
                 builder.graphScoringPolicy, bm25Index,
                 memorySpladeIndex, builder.SparseEmbeddingProvider, colbertReranker,
                 recallHistory);

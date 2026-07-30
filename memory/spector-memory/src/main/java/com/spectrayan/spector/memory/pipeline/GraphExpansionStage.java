@@ -73,6 +73,7 @@ final class GraphExpansionStage {
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final EntityGraphMemory entityGraph;
+    private final com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph;
     private final EntityExtractor entityExtractor;
     private final GraphScoringPolicy graphScoringPolicy;
     private final MemoryIndex index;
@@ -83,6 +84,7 @@ final class GraphExpansionStage {
     GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
                         EntityGraphMemory entityGraph,
+                        com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                         EntityExtractor entityExtractor,
                         GraphScoringPolicy graphScoringPolicy,
                         MemoryIndex index,
@@ -92,6 +94,7 @@ final class GraphExpansionStage {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
         this.index = index;
@@ -104,7 +107,7 @@ final class GraphExpansionStage {
      * Returns true if any graph subsystem is available for expansion.
      */
     boolean hasGraphSubsystems() {
-        return hebbianGraph != null || temporalChain != null || entityGraph != null;
+        return hebbianGraph != null || temporalChain != null || entityGraph != null || hyperEntityGraph != null;
     }
 
     /**
@@ -275,11 +278,17 @@ final class GraphExpansionStage {
 
         try {
             for (var entity : queryEntities) {
+                if (entityGraph == null) continue;
                 int entityId = entityGraph.findEntity(entity.name());
                 if (entityId < 0) continue;
-
-                Set<Integer> reachableMemories = entityGraph.collectMemories(
-                        entityId, null, graphScoringPolicy.entityMaxHops());
+ 
+                Set<Integer> reachableMemories;
+                if (graphScoringPolicy.useHypergraphRecall() && hyperEntityGraph != null) {
+                    reachableMemories = hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
+                } else {
+                    reachableMemories = entityGraph.collectMemories(
+                            entityId, null, graphScoringPolicy.entityMaxHops());
+                }
                 for (int memIdx : reachableMemories) {
                     String memId = findMemoryByApproximateIndex(memIdx);
                     if (memId != null && !existingIds.contains(memId)) {

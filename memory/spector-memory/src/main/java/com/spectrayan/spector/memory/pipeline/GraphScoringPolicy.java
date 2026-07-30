@@ -56,11 +56,12 @@ public record GraphScoringPolicy(
         int hebbianMaxDepth,
         int temporalMaxHops,
         int entityMaxHops,
-        float graphExpansionThreshold
+        float graphExpansionThreshold,
+        boolean useHypergraphRecall
 ) {
 
     /**
-     * Backward-compatible constructor — uses default graph expansion threshold.
+     * Backward-compatible constructor — uses default graph expansion threshold and no hypergraph recall.
      */
     public GraphScoringPolicy(float causalBoostWeight, float hebbianBoostFactor,
                                float temporalForwardFactor, float temporalBackwardFactor,
@@ -68,7 +69,20 @@ public record GraphScoringPolicy(
                                int temporalMaxHops, int entityMaxHops) {
         this(causalBoostWeight, hebbianBoostFactor, temporalForwardFactor,
                 temporalBackwardFactor, entityHopAttenuation, hebbianMaxDepth,
-                temporalMaxHops, entityMaxHops, 0.40f);
+                temporalMaxHops, entityMaxHops, 0.40f, false);
+    }
+
+    /**
+     * Backward-compatible constructor — uses custom graph expansion threshold and no hypergraph recall.
+     */
+    public GraphScoringPolicy(float causalBoostWeight, float hebbianBoostFactor,
+                               float temporalForwardFactor, float temporalBackwardFactor,
+                               float entityHopAttenuation, int hebbianMaxDepth,
+                               int temporalMaxHops, int entityMaxHops,
+                               float graphExpansionThreshold) {
+        this(causalBoostWeight, hebbianBoostFactor, temporalForwardFactor,
+                temporalBackwardFactor, entityHopAttenuation, hebbianMaxDepth,
+                temporalMaxHops, entityMaxHops, graphExpansionThreshold, false);
     }
 
     /**
@@ -83,7 +97,8 @@ public record GraphScoringPolicy(
             2,      // hebbianMaxDepth
             3,      // temporalMaxHops
             2,      // entityMaxHops
-            0.40f   // graphExpansionThreshold
+            0.40f,  // graphExpansionThreshold
+            false   // useHypergraphRecall
     );
 
     /**
@@ -128,3 +143,4 @@ public record GraphScoringPolicy(
                     "graphExpansionThreshold", 0, 1.0, graphExpansionThreshold);
     }
 }
+

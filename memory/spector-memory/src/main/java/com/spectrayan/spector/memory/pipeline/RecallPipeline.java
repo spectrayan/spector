@@ -148,6 +148,7 @@ public final class RecallPipeline {
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final EntityGraphMemory entityGraph;
+    private final com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph;
     private final EntityExtractor entityExtractor;
 
     //  BM25 Text Search (nullable  --  graceful degradation) 
@@ -197,7 +198,7 @@ public final class RecallPipeline {
                            float[] calibrationScales) {
         this(embeddingProvider, cognitiveRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales, null, null,
-                null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
                 null, null, null);
     }
 
@@ -216,11 +217,11 @@ public final class RecallPipeline {
                            MemoryWal wal,
                            float[] calibrationMins,
                            float[] calibrationScales,
-                           SemanticRecallStrategy semanticRecallStrategy) {
+                            SemanticRecallStrategy semanticRecallStrategy) {
         this(embeddingProvider, cognitiveRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, null,
-                null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
                 null, null, null);
     }
 
@@ -245,7 +246,7 @@ public final class RecallPipeline {
         this(embeddingProvider, cognitiveRouter, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker,
-                null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
                 null, null, null);
     }
 
@@ -266,6 +267,7 @@ public final class RecallPipeline {
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityGraphMemory entityGraph,
+                           com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
                            MemoryBM25Index bm25Index,
@@ -286,6 +288,7 @@ public final class RecallPipeline {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
         this.bm25Index = bm25Index;
@@ -296,7 +299,7 @@ public final class RecallPipeline {
 
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
-                hebbianGraph, temporalChain, entityGraph, entityExtractor,
+                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
                 this.graphScoringPolicy, index, cognitiveRouter,
                 calibrationMins, calibrationScales);
     }
@@ -318,6 +321,7 @@ public final class RecallPipeline {
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityGraphMemory entityGraph,
+                           com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
                            MemoryBM25Index bm25Index,
@@ -339,6 +343,7 @@ public final class RecallPipeline {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
         this.bm25Index = bm25Index;
@@ -349,7 +354,7 @@ public final class RecallPipeline {
 
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
-                hebbianGraph, temporalChain, entityGraph, entityExtractor,
+                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
                 this.graphScoringPolicy, index, cognitiveRouter,
                 calibrationMins, calibrationScales);
     }

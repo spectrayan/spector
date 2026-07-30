@@ -727,9 +727,10 @@ flowchart TD
 
 ## ✅ Hypergraphs & Spectral Sparsification
 
-> **Status**: Hypergraphs — **Graduated** (implemented in `HyperEntityGraph`). Spectral Sparsification — **Research**.
+> **Status**: Hypergraphs — **🟡 Implemented (read-dormant, under evaluation)**. Spectral Sparsification — **Research** (Epic #416).
 >
-> **Recently graduated:** HyperEntityGraph off-heap implementation with Panama FFM.
+> **Current status:** HyperEntityGraph off-heap implementation is fully built and lifecycle-wired (writes/decays/checkpoints), but is currently read-dormant. An active evaluation spike (Issue #418) is underway to benchmark hypergraph recall vs. the binary path.
+
 
 ### Concept
 
