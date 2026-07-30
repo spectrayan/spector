@@ -24,7 +24,8 @@ Determine the documentation type:
 
 ### 2. Check Source of Truth
 
-- Memory subsystem: `spector-memory/RnD/` specs are the design source of truth
+- Memory subsystem: `spectrayan/RnD/` specs in the `spectrayan` repo are the design source of truth
+
 - Engine/Index: code + test behavior is source of truth
 - Configuration: `SpectorConfigFactory.java` defaults are source of truth
 

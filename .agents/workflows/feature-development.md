@@ -10,7 +10,8 @@ When implementing a new feature, capability, or significant enhancement in any `
 
 ### 1. Understand Requirements
 
-- Read RnD specs if available (`spector-memory/RnD/` for memory subsystem)
+- Read RnD specs if available (`spectrayan/RnD/` in `spectrayan` repo for memory subsystem)
+
 - Check the roadmap (`docs/docs/roadmap.md`) for planned features
 - Identify which module(s) the feature belongs in
 

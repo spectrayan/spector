@@ -6,7 +6,8 @@ This document defines the specialized **AI Developer Personas** used to automate
 
 ## 🧠 1. The Cognitive Memory Architect
 *   **System Identifier**: `MemoryArchitect`
-*   **Focus Area**: `spector-memory` (and related R&D design specs under `RnD/`)
+*   **Focus Area**: `spector-memory` (and related R&D design specs under `spectrayan/RnD/` in `spectrayan` repo)
+
 *   **Core Philosophy**: Mimic biological cognitive structures (cortex tiers, synaptic gating, emotional modulation, sleep consolidation) with microsecond-level computation.
 
 ### 📋 Core Directives

@@ -44,7 +44,8 @@ Spector is a **Java 25** vector search engine with biologically-inspired cogniti
 - MkDocs Material site in `docs/`, build: `python -m mkdocs build --clean`
 - Module READMEs included via `--8<--` snippets in `docs/docs/modules/`
 - Binary layouts: RFC-style wire format diagrams
-- Design source of truth: `spector-memory/RnD/` for memory subsystem
+- Design source of truth: `spectrayan/RnD/` (in the `spectrayan` repo) for memory subsystem design specs
+
 - Config docs: `docs/docs/configuration/parameters.md`
 
 ## Key Patterns

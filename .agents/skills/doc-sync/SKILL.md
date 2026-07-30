@@ -54,7 +54,8 @@ If `SpectorConfig`, `SpectorProperties`, or `SpectorConfigFactory` changed:
 
 If binary layouts, WAL format, or synapse headers changed:
 
-1. Cross-reference with `spector-memory/RnD/wal_design_spec.md` (design source of truth)
+1. Cross-reference with `spectrayan/RnD/` in `spectrayan` repo (e.g., `spector-memory-codec-design.md`, design source of truth)
+
 2. Update RFC-style wire format diagrams in `docs/docs/memory/wal-design.md`
 3. Update `docs/docs/memory/panama-design.md` if record layout changed
 
