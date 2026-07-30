@@ -1322,7 +1322,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 && bm25Index != null && bm25Index.totalDocuments() > 0) {
             try {
                 bm25Index.partition(0).save(
-                        StorageLayout.bm25Bidx(partitionManager.activePartitionDir()));
+                        StorageLayout.bm25BidxRuntime(persistencePath));
             } catch (Exception e) {
                 log.warn("Failed to save BM25 index on close: {}", e.getMessage());
             }
