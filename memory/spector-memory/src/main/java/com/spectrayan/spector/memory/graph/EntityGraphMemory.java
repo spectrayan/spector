@@ -1249,6 +1249,62 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
         }
     }
 
+
+    /**
+     * Coarsens the entity graph using Kron reduction (Schur complement of graph Laplacian).
+     * Reduces low-degree/leaf entities into representative hub clusters while preserving
+     * exact effective resistance between kept nodes.
+     *
+     * @param keepRatio ratio of nodes to keep as cluster hubs (e.g. 0.2 = keep 20%)
+     * @return CoarsenedGraph snapshot containing cluster mapping and reduced CSR Laplacian
+     */
+    public CoarsenedGraph coarsen(float keepRatio) {
+        graphLock.lock();
+        try {
+            if (entityCount == 0) {
+                return new CoarsenedGraph(Map.of(), new int[]{0}, new int[0], new float[0], 0, 0, 0.0);
+            }
+
+            List<Integer> srcList = new ArrayList<>();
+            List<Integer> dstList = new ArrayList<>();
+            List<Float> weightList = new ArrayList<>();
+            float[] nodeWeights = new float[entityCount];
+
+            for (int e = 0; e < entityCount; e++) {
+                long entOffset = (long) e * ENTITY_NODE_BYTES;
+                int degree = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_DEGREE);
+                int edgeStart = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_EDGE_START);
+                nodeWeights[e] = (float) Math.max(1, degree);
+
+                if (edgeStart < 0 || degree == 0) continue;
+
+                for (int i = 0; i < degree; i++) {
+                    long edgeOffset = (long) (edgeStart + i) * EDGE_BYTES;
+                    int target = edgeSegment.get(ValueLayout.JAVA_INT, edgeOffset + EDGE_OFF_TARGET);
+                    float weight = edgeSegment.get(ValueLayout.JAVA_FLOAT, edgeOffset + EDGE_OFF_WEIGHT);
+
+                    if (target >= 0 && target < entityCount && e < target) {
+                        srcList.add(e);
+                        dstList.add(target);
+                        weightList.add(weight);
+                    }
+                }
+            }
+
+            int[] src = srcList.stream().mapToInt(Integer::intValue).toArray();
+            int[] dst = dstList.stream().mapToInt(Integer::intValue).toArray();
+            float[] weights = new float[weightList.size()];
+            for (int i = 0; i < weightList.size(); i++) {
+                weights[i] = weightList.get(i);
+            }
+
+            return GraphCoarsener.coarsen(entityCount, src, dst, weights, nodeWeights, keepRatio);
+        } finally {
+            graphLock.unlock();
+        }
+    }
+
+
     /**
      * Decays all entity→memory adjacency weights and prunes weak links (LTD).
      *

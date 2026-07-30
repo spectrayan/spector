@@ -128,6 +128,11 @@ public final class GraphHealthMetrics {
     /** Entity edges boosted by STC cross-capture from strong Hebbian edges. */
     private int crossCapturedEdges;
 
+    // ── Coarsening (Kron Reduction) Metrics ──
+    private float coarseningReductionRatio;
+    private double coarseningResistanceError;
+
+
     // ═══════════════════════════════════════════════════════════
     // Increment Methods (called during decay)
     // ═══════════════════════════════════════════════════════════
@@ -174,6 +179,16 @@ public final class GraphHealthMetrics {
 
     /** Records an entity edge boosted by STC cross-capture. */
     public void recordCrossCapture() { crossCapturedEdges++; }
+
+    /** Records coarsening reduction ratio and effective resistance error. */
+    public void recordCoarsening(float reductionRatio, double maxResistanceError) {
+        this.coarseningReductionRatio = reductionRatio;
+        this.coarseningResistanceError = maxResistanceError;
+    }
+
+    public float coarseningReductionRatio() { return coarseningReductionRatio; }
+    public double coarseningResistanceError() { return coarseningResistanceError; }
+
 
     // ═══════════════════════════════════════════════════════════
     // Query Methods (called after decay for reporting)
