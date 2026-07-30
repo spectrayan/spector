@@ -309,6 +309,13 @@ public final class SpectorMemoryFactory {
             if (loadFrom == null) {
                 loadFrom = legacyGraph;
             }
+            try {
+                com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
+                        com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
+                        com.spectrayan.spector.memory.kernel.MemoryId.of("hebbian", "graph"),
+                        new com.spectrayan.spector.memory.kernel.layout.HebbianLayout(),
+                        loadFrom, null, null);
+            } catch (java.io.IOException ignored) {}
             hebbianGraph = HebbianGraphMemory.load(loadFrom, graphCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance);
         } else {
@@ -327,6 +334,13 @@ public final class SpectorMemoryFactory {
             if (loadFrom == null) {
                 loadFrom = legacyChain;
             }
+            try {
+                com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
+                        com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
+                        com.spectrayan.spector.memory.kernel.MemoryId.of("temporal", "chain"),
+                        new com.spectrayan.spector.memory.kernel.layout.TemporalLayout(),
+                        loadFrom, null, null);
+            } catch (java.io.IOException ignored) {}
             temporalChain = new TemporalChainMemory(loadFrom, temporalCapacity);
         } else {
             temporalChain = new TemporalChainMemory(temporalCapacity);

@@ -13,8 +13,13 @@
 package com.spectrayan.spector.memory.kernel.codec;
 
 import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.cortex.TextAppendCodec;
+import com.spectrayan.spector.memory.cortex.TypeRegistryCodec;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphCodec;
+import com.spectrayan.spector.memory.index.IndexRecordCodec;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
+import com.spectrayan.spector.memory.temporal.TemporalChainCodec;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -26,17 +31,30 @@ import java.util.Optional;
  */
 public final class Codecs {
 
+    private static final CodecRegistry DEFAULT_REGISTRY = CodecRegistry.builder()
+            .register(new TemporalChainCodec())
+            .register(new TextAppendCodec())
+            .register(new TypeRegistryCodec())
+            .register(new IndexRecordCodec())
+            .register(new HebbianGraphCodec())
+            .build();
+
     private Codecs() {}
+
+    public static CodecRegistry defaultRegistry() {
+        return DEFAULT_REGISTRY;
+    }
 
     public static MigrationResult ensureCurrent(CodecRegistry registry, MemoryId id,
                                                 MemoryLayout layout, Path filePath,
                                                 DataEncryptor enc, Map<String, Path> sidecars)
             throws IOException {
-        if (filePath == null || registry == null) {
+        if (filePath == null) {
             return MigrationResult.freshFile(FormatId.smkm(layout.schemaVersion()));
         }
 
-        Optional<Codec<?>> codecOpt = registry.byLayoutId(layout.layoutId());
+        CodecRegistry reg = (registry != null) ? registry : DEFAULT_REGISTRY;
+        Optional<Codec<?>> codecOpt = reg.byLayoutId(layout.layoutId());
         if (codecOpt.isEmpty()) {
             return MigrationResult.freshFile(FormatId.smkm(layout.schemaVersion()));
         }
