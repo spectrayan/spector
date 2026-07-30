@@ -19,58 +19,29 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import java.lang.foreign.ValueLayout;
+import java.util.zip.CRC32C;
 
 /**
  * Abstract base class for memory structures shaped as records.
  *
  * <p>Extends {@link AbstractMemory} to provide array-like, stride-based
- * indexed access to memory records.</p>
+ * indexed access to memory records with optional per-record CRC32C verification.</p>
  *
  * @param <L> the type of memory layout used by this memory
  */
 public abstract class AbstractRecordMemory<L extends MemoryLayout> extends AbstractMemory<L> implements RecordMemory<L> {
 
-    /**
-     * Volatile constructor — allocates memory off-heap without a backing file.
-     *
-     * @param id           the unique identifier for this memory
-     * @param layout       the layout configuration
-     * @param capacity     the maximum number of records
-     * @param segmentBytes the total bytes to allocate
-     */
     protected AbstractRecordMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
         super(id, layout, capacity, segmentBytes);
     }
 
-    /**
-     * File-backed constructor — creates or opens a persistent memory-mapped file.
-     *
-     * @param id           the unique identifier for this memory
-     * @param layout       the layout configuration
-     * @param capacity     the maximum number of records
-     * @param segmentBytes the total data bytes (excluding header)
-     * @param filePath     the path to the backing file
-     */
     protected AbstractRecordMemory(MemoryId id, L layout, int capacity, long segmentBytes, Path filePath) {
         super(id, layout, capacity, segmentBytes, filePath);
     }
 
-    /**
-     * Wrapping constructor — adopts a pre-made Arena and segment.
-     *
-     * @param id          the unique identifier for this memory
-     * @param layout      the layout configuration
-     * @param capacity    the maximum number of records
-     * @param arena       the pre-made arena (caller transfers ownership)
-     * @param segment     the pre-made segment (must belong to the arena)
-     * @param count       the initial record count
-     * @param persistent  whether this memory is file-backed
-     * @param filePath    the file path (null for volatile)
-     * @param fileChannel the file channel (null for volatile)
-     */
     protected AbstractRecordMemory(MemoryId id, L layout, int capacity,
                                    Arena arena, MemorySegment segment, int count,
                                    boolean persistent, Path filePath,
@@ -102,7 +73,17 @@ public abstract class AbstractRecordMemory<L extends MemoryLayout> extends Abstr
 
         long offset = recordOffset(recordId);
         MemorySegment.copy(recordBytes, 0, segment, offset, layout.recordStride());
-        
+
+        if (layout.crcEnabled() && layout.recordStride() >= 4) {
+            int payloadLen = layout.recordStride() - 4;
+            byte[] payload = new byte[payloadLen];
+            MemorySegment.copy(segment, offset, MemorySegment.ofArray(payload), 0, payloadLen);
+            CRC32C crc32c = new CRC32C();
+            crc32c.update(payload);
+            int checksum = (int) crc32c.getValue();
+            segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen, checksum);
+        }
+
         if (recordId >= count) {
             count = (int) recordId + 1;
             persistCount();
@@ -118,6 +99,20 @@ public abstract class AbstractRecordMemory<L extends MemoryLayout> extends Abstr
         }
         
         long offset = recordOffset(recordId);
+
+        if (layout.crcEnabled() && layout.recordStride() >= 4) {
+            int payloadLen = layout.recordStride() - 4;
+            byte[] payload = new byte[payloadLen];
+            MemorySegment.copy(segment, offset, MemorySegment.ofArray(payload), 0, payloadLen);
+            CRC32C crc32c = new CRC32C();
+            crc32c.update(payload);
+            int expectedChecksum = (int) crc32c.getValue();
+            int actualChecksum = segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen);
+            if (expectedChecksum != actualChecksum) {
+                throw new IllegalStateException("Record CRC32C corruption detected at recordId " + recordId);
+            }
+        }
+
         MemorySegment.copy(segment, offset, dest, 0, layout.recordStride());
     }
 }
