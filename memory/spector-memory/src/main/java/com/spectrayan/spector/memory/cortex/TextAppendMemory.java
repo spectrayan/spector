@@ -240,7 +240,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
 
         long hash = XxHash64.hash(textBytes);
         TextPosition existing = hashToPosition.get(hash);
-        if (existing != null) {
+        if (existing != null && existing.textLength() == textBytes.length) {
             textPositionMap.put(id, existing);
             entryCount++;
             return existing;
@@ -278,7 +278,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
         MemorySegment seg = segment();
         if (seg == null || textOffset + textLength > seg.byteSize()) return null;
         String raw = decodeUtf8FromSegment(seg, textOffset, textLength);
-        return decryptIfNeeded(raw, encryptor);
+        return decryptIfNeeded(raw);
     }
 
     /**
@@ -325,7 +325,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
             }
 
             String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
-            String text = decryptIfNeeded(rawText, encryptor);
+            String text = decryptIfNeeded(rawText);
 
             MemoryType tier = MemoryType.values()[tierOrd];
             entries.put(id, new TextEntry(id, tier, text));
@@ -394,7 +394,15 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
         return file;
     }
 
+    private String decryptIfNeeded(String raw) {
+        return decryptIfNeeded(raw, encryptor, decryptFailCount);
+    }
+
     private static String decryptIfNeeded(String raw, DataEncryptor encryptor) {
+        return decryptIfNeeded(raw, encryptor, null);
+    }
+
+    private static String decryptIfNeeded(String raw, DataEncryptor encryptor, AtomicInteger failCounter) {
         if (!encryptor.isEnabled() || raw == null || raw.isEmpty()) {
             return raw;
         }
@@ -405,6 +413,9 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
         } catch (IllegalArgumentException e) {
             return raw;
         } catch (RuntimeException e) {
+            if (failCounter != null) {
+                failCounter.incrementAndGet();
+            }
             log.debug("Failed to decrypt text entry (wrong key?): {}", e.getMessage());
             return raw;
         }
@@ -430,6 +441,9 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
             seg.asSlice(pos.textOffset(), pos.textLength()).fill((byte) 0);
             flush();
         }
+
+        hashToPosition.entrySet().removeIf(entry -> entry.getValue().equals(pos));
+        textPositionMap.remove(targetId);
 
         log.debug("Securely erased {} bytes of text for memory '{}'", pos.textLength(), targetId);
         return true;

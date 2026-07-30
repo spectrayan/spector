@@ -667,25 +667,7 @@ public final class StorageLayout {
         return partitionDir.resolve(FILE_RELATION_TYPES);
     }
 
-    // ── Cross-partition file resolvers — DEPRECATED ──
 
-    /**
-     * Resolves the cross-partition Hebbian graph.
-     * @deprecated V3 layout eliminates cross-partition graphs.
-     */
-    @Deprecated(forRemoval = true)
-    public static Path hebbianCrossGraph(Path basePath) {
-        return crossDir(basePath).resolve(FILE_HEBBIAN_CROSS);
-    }
-
-    /**
-     * Resolves the cross-partition entity graph.
-     * @deprecated V3 layout eliminates cross-partition graphs.
-     */
-    @Deprecated(forRemoval = true)
-    public static Path entityCrossGraph(Path basePath) {
-        return crossDir(basePath).resolve(FILE_ENTITY_CROSS);
-    }
 
     // ── WAL resolvers ──
 

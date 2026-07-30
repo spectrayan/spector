@@ -177,20 +177,7 @@ class StorageLayoutTest {
     // Cross-partition file resolvers
     // ══════════════════════════════════════════════════════════════
 
-    @Nested
-    @DisplayName("cross-partition files")
-    class CrossPartitionTests {
 
-        @Test void hebbianCrossGraph() {
-            assertThat(StorageLayout.hebbianCrossGraph(BASE))
-                    .isEqualTo(BASE.resolve("cross/hebbian-cross.graph"));
-        }
-
-        @Test void entityCrossGraph() {
-            assertThat(StorageLayout.entityCrossGraph(BASE))
-                    .isEqualTo(BASE.resolve("cross/entity-cross.graph"));
-        }
-    }
 
     // ══════════════════════════════════════════════════════════════
     // WAL file resolvers

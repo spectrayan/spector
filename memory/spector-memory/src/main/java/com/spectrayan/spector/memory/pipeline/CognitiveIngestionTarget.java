@@ -232,13 +232,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.postIngestSync.updateCognitiveRouter(newRouter);
     }
 
-    /**
-     * @deprecated Use {@link #updateCognitiveRouter(CognitiveMemoryRouter)} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public void updateTierRouter(CognitiveMemoryRouter newRouter) {
-        updateCognitiveRouter(newRouter);
-    }
+
 
     /**
      * Sets the partition roll callback, invoked when a tier store is full.

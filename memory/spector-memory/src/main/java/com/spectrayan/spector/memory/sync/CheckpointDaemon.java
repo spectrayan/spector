@@ -104,17 +104,7 @@ public final class CheckpointDaemon {
     private volatile EventBus<SpectorLifecycleEvent> eventBus;
     private volatile Map<String, String> eventContext = Map.of();
 
-    /**
-     * @deprecated Since 2.0.0. Use {@link #setEventBus(EventBus)} instead.
-     *             Retained for backward compatibility during migration.
-     */
-    @Deprecated(since = "2.0.0", forRemoval = true)
-    @FunctionalInterface
-    public interface CheckpointListener {
-        void onCheckpointComplete(long hwm);
-    }
-    @Deprecated(since = "2.0.0", forRemoval = true)
-    private volatile CheckpointListener checkpointListener;
+
 
     /**
      * Creates a checkpoint daemon with full graph persistence.
@@ -275,38 +265,19 @@ public final class CheckpointDaemon {
     }
 
     /**
-     * @deprecated Since 2.0.0. Use {@link #setEventBus(EventBus)} instead.
-     */
-    @Deprecated(since = "2.0.0", forRemoval = true)
-    public void setCheckpointListener(CheckpointListener listener) {
-        this.checkpointListener = listener;
-    }
-
-    /**
-     * Publishes a checkpoint completion event and fires the legacy listener.
+     * Publishes a checkpoint completion event.
      */
     private void fireCheckpointListener(long hwm) {
-        // New: publish to EventBus
         EventBus<SpectorLifecycleEvent> bus = this.eventBus;
         if (bus != null) {
             try {
-                long elapsed = 0; // will be set by caller in future refactor
+                long elapsed = 0;
                 bus.publish(new CheckpointCompletedEvent(
                         eventContext, hwm,
                         index != null ? index.size() : 0,
                         elapsed, Instant.now()));
             } catch (Exception e) {
                 log.warn("Checkpoint event publish failed (hwm={}): {}", hwm, e.getMessage());
-            }
-        }
-        // Legacy: fire deprecated listener
-        @SuppressWarnings("deprecation")
-        CheckpointListener listener = this.checkpointListener;
-        if (listener != null) {
-            try {
-                listener.onCheckpointComplete(hwm);
-            } catch (Exception e) {
-                log.warn("Checkpoint listener failed (hwm={}): {}", hwm, e.getMessage());
             }
         }
     }

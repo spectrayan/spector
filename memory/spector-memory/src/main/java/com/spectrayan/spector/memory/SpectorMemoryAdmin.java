@@ -91,14 +91,7 @@ public interface SpectorMemoryAdmin {
     /** Returns the cognitive memory router (Working, Episodic, Semantic, Procedural). */
     CognitiveMemoryRouter cognitiveRouter();
 
-    /**
-     * Returns the cognitive memory router.
-     * @deprecated Use {@link #cognitiveRouter()} instead.
-     */
-    @Deprecated(forRemoval = true)
-    default CognitiveMemoryRouter tierRouter() {
-        return cognitiveRouter();
-    }
+
 
     /** Returns the memory index. */
     MemoryIndex index();
