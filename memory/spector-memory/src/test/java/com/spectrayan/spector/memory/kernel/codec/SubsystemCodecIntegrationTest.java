@@ -38,8 +38,8 @@ class SubsystemCodecIntegrationTest {
     void legacyTpchAutoMigration() throws Exception {
         Path legacyFile = tempDir.resolve("temporal.dat");
         try (DataOutputStream out = new DataOutputStream(new FileOutputStream(legacyFile.toFile()))) {
-            out.writeInt(0x54504348); // TPCH magic
-            out.writeInt(1);          // version 1
+            out.writeInt(Integer.reverseBytes(0x54504348)); // TPCH magic (Little-Endian)
+            out.writeInt(Integer.reverseBytes(1));          // version 1
             out.writeLong(0L);
             out.write(new byte[16]);   // dummy record data
         }
@@ -61,8 +61,8 @@ class SubsystemCodecIntegrationTest {
     void legacyTextAutoMigration() throws Exception {
         Path legacyFile = tempDir.resolve("text.dat");
         try (DataOutputStream out = new DataOutputStream(new FileOutputStream(legacyFile.toFile()))) {
-            out.writeInt(0x54585442); // TXT Blob magic
-            out.writeInt(1);          // version 1
+            out.writeInt(Integer.reverseBytes(0x54585442)); // TXT Blob magic (Little-Endian)
+            out.writeInt(Integer.reverseBytes(1));          // version 1
             out.writeLong(0L);
             out.write(new byte[32]);
         }
