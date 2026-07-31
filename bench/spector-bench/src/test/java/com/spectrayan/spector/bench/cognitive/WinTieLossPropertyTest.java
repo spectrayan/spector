@@ -60,7 +60,7 @@ class WinTieLossPropertyTest {
 
             results.add(new ReportWriter.QueryResult(
                     "q-" + i, baselineNdcg, cognitiveNdcg, 0.0, delta,
-                    "", "BALANCED", 10));
+                    "", "BALANCED", 10, "", 0, 0, 0.0));
         }
 
         // Execute the classification

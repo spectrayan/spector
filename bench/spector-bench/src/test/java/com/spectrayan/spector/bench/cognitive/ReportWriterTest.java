@@ -217,17 +217,18 @@ class ReportWriterTest {
         // Header + data rows
         assertEquals(1 + results.size(), lines.size());
 
-        // Each data row should have 8 columns
+        // Each data row should have 12 columns
         for (int i = 1; i < lines.size(); i++) {
             String[] columns = lines.get(i).split(",");
-            assertEquals(8, columns.length, "Row " + i + " should have 8 columns");
+            assertEquals(12, columns.length, "Row " + i + " should have 12 columns");
         }
     }
 
     @Test
     void writeDetail_dataRowFormatCorrect(@TempDir Path outputDir) throws IOException {
         List<QueryResult> results = List.of(
-                new QueryResult("q-001", 0.412, 0.856, 0.650, 0.444, "TAG_GATING;IMPORTANCE_DECAY", "DEBUGGING", 3)
+                new QueryResult("q-001", 0.412, 0.856, 0.650, 0.444, "TAG_GATING;IMPORTANCE_DECAY", "DEBUGGING", 3,
+                        "TAG_GATING", 5, 2, 0.0650)
         );
 
         writer.writeDetail(outputDir, results);
@@ -236,7 +237,7 @@ class ReportWriterTest {
         assertEquals(2, lines.size());
 
         String dataRow = lines.get(1);
-        assertEquals("q-001,0.412,0.856,0.650,0.444,TAG_GATING;IMPORTANCE_DECAY,DEBUGGING,3", dataRow);
+        assertEquals("q-001,0.412,0.856,0.650,0.444,TAG_GATING;IMPORTANCE_DECAY,DEBUGGING,3,TAG_GATING,5,2,0.0650", dataRow);
     }
 
     @Test
@@ -245,7 +246,7 @@ class ReportWriterTest {
 
         List<String> lines = Files.readAllLines(outputDir.resolve("detail.csv"));
         assertEquals(1, lines.size());
-        assertEquals("query_id,baseline_nDCG,cognitive_nDCG,similarity_nDCG,delta,contributing_subsystems,profile,latency_ms",
+        assertEquals("query_id,baseline_nDCG,cognitive_nDCG,similarity_nDCG,delta,contributing_subsystems,profile,latency_ms,expected_subsystem,graph_expanded_candidates,graph_expanded_relevant,graph_delta_nDCG",
                 lines.get(0));
     }
 
@@ -328,9 +329,12 @@ class ReportWriterTest {
 
     private List<QueryResult> createSampleResults() {
         return List.of(
-                new QueryResult("q-001", 0.412, 0.856, 0.650, 0.444, "TAG_GATING;IMPORTANCE_DECAY", "DEBUGGING", 3),
-                new QueryResult("q-002", 0.300, 0.650, 0.500, 0.350, "HEBBIAN_GRAPH", "BALANCED", 5),
-                new QueryResult("q-003", 0.500, 0.520, 0.510, 0.020, "TEMPORAL_CHAIN", "RECALLING", 4)
+                new QueryResult("q-001", 0.412, 0.856, 0.650, 0.444, "TAG_GATING;IMPORTANCE_DECAY", "DEBUGGING", 3,
+                        "TAG_GATING", 5, 2, 0.0650),
+                new QueryResult("q-002", 0.300, 0.650, 0.500, 0.350, "HEBBIAN_GRAPH", "BALANCED", 5,
+                        "HEBBIAN_GRAPH", 3, 1, 0.1500),
+                new QueryResult("q-003", 0.500, 0.520, 0.510, 0.020, "TEMPORAL_CHAIN", "RECALLING", 4,
+                        "TEMPORAL_CHAIN", 0, 0, 0.0100)
         );
     }
 }
