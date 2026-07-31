@@ -24,6 +24,10 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Path;
+import java.nio.file.Files;
+import com.spectrayan.spector.config.SpectorConfigFactory;
+import com.spectrayan.spector.config.SpectorProperties;
 import com.spectrayan.spector.bench.cognitive.model.BenchmarkCorpusRecord;
 import com.spectrayan.spector.bench.cognitive.model.EntityRelation;
 import com.spectrayan.spector.bench.cognitive.model.HebbianEdgeDef;
@@ -72,17 +76,110 @@ public final class BenchmarkSetup implements AutoCloseable {
      */
     public SpectorMemory createMemoryInstance(DatasetLoader.LoadedDataset dataset,
                                               EmbeddingProvider embedder) {
+        return createMemoryInstance(dataset, embedder, null);
+    }
+
+    public SpectorMemory createMemoryInstance(DatasetLoader.LoadedDataset dataset,
+                                              EmbeddingProvider embedder,
+                                              Path datasetDir) {
         List<BenchmarkCorpusRecord> corpus = dataset.corpus();
         int corpusSize = corpus.size();
 
         log.info("Creating benchmark memory instance: {} corpus records, {} dimensions",
                 corpusSize, embedder.dimensions());
 
-        // Build in-memory SpectorMemory with sufficient capacity
-        memory = DefaultSpectorMemory.builder()
+        // Build map from memory ID to ExtractedEntity list
+        final java.util.Map<String, java.util.List<com.spectrayan.spector.memory.graph.ExtractedEntity>> memoryEntitiesMap = new java.util.HashMap<>();
+        final java.util.Map<String, java.util.List<com.spectrayan.spector.memory.graph.ExtractedEntity>> textEntitiesMap = new java.util.HashMap<>();
+
+        // Group relations by source memory ID
+        java.util.Map<String, java.util.List<com.spectrayan.spector.bench.cognitive.model.EntityRelation>> relationsByMemory = new java.util.HashMap<>();
+        for (com.spectrayan.spector.bench.cognitive.model.EntityRelation rel : dataset.entityRelations()) {
+            for (String memoryId : rel.sourceMemoryIds()) {
+                relationsByMemory.computeIfAbsent(memoryId, k -> new java.util.ArrayList<>()).add(rel);
+            }
+        }
+
+        // Map from entity name to type
+        java.util.Map<String, String> entityTypes = new java.util.HashMap<>();
+        for (BenchmarkCorpusRecord record : corpus) {
+            if (record.entityMentions() != null) {
+                for (com.spectrayan.spector.bench.cognitive.model.EntityMention mention : record.entityMentions()) {
+                    entityTypes.put(mention.name(), mention.type());
+                }
+            }
+        }
+        for (com.spectrayan.spector.bench.cognitive.model.EntityRelation rel : dataset.entityRelations()) {
+            entityTypes.put(rel.fromEntity().name(), rel.fromEntity().type());
+            entityTypes.put(rel.toEntity().name(), rel.toEntity().type());
+        }
+
+        // For each corpus record, build the list of ExtractedEntity
+        for (BenchmarkCorpusRecord record : corpus) {
+            java.util.List<com.spectrayan.spector.bench.cognitive.model.EntityRelation> relsForMemory =
+                    relationsByMemory.getOrDefault(record.id(), java.util.List.of());
+
+            // Collect all unique entity names involved in this memory
+            java.util.Set<String> entitiesInMemory = new java.util.LinkedHashSet<>();
+            if (record.entityMentions() != null) {
+                for (com.spectrayan.spector.bench.cognitive.model.EntityMention mention : record.entityMentions()) {
+                    entitiesInMemory.add(mention.name());
+                }
+            }
+            for (var rel : relsForMemory) {
+                entitiesInMemory.add(rel.fromEntity().name());
+                entitiesInMemory.add(rel.toEntity().name());
+            }
+
+            java.util.List<com.spectrayan.spector.memory.graph.ExtractedEntity> extractedList = new java.util.ArrayList<>();
+            for (String entityName : entitiesInMemory) {
+                String type = entityTypes.getOrDefault(entityName, "OTHER");
+
+                // Find all relations originating from this entity in this memory
+                java.util.List<com.spectrayan.spector.memory.graph.EntityRelation> targetRelations = new java.util.ArrayList<>();
+                for (var rel : relsForMemory) {
+                    if (rel.fromEntity().name().equals(entityName)) {
+                        targetRelations.add(new com.spectrayan.spector.memory.graph.EntityRelation(
+                                rel.toEntity().name(),
+                                rel.relationType()
+                        ));
+                    }
+                }
+                extractedList.add(new com.spectrayan.spector.memory.graph.ExtractedEntity(
+                        entityName,
+                        type,
+                        targetRelations
+                ));
+            }
+
+            memoryEntitiesMap.put(record.id(), extractedList);
+            textEntitiesMap.put(record.text(), extractedList);
+        }
+
+        com.spectrayan.spector.memory.graph.EntityExtractor customExtractor = new com.spectrayan.spector.memory.graph.EntityExtractor() {
+            @Override
+            public java.util.List<com.spectrayan.spector.memory.graph.ExtractedEntity> extract(String id, String text) {
+                java.util.List<com.spectrayan.spector.memory.graph.ExtractedEntity> res;
+                if (id != null && id.startsWith("mem-")) {
+                    res = memoryEntitiesMap.getOrDefault(id, java.util.List.of());
+                } else {
+                    res = textEntitiesMap.getOrDefault(text, java.util.List.of());
+                    if (res.isEmpty() && text != null && !text.isBlank()) {
+                        log.warn("customExtractor: text not found in textEntitiesMap. text length={}, first 50 chars='{}', map has exact key={}",
+                                text.length(), text.substring(0, Math.min(50, text.length())), textEntitiesMap.containsKey(text));
+                    }
+                }
+                return res;
+            }
+            @Override
+            public boolean isAvailable() {
+                return true;
+            }
+        };
+
+        com.spectrayan.spector.memory.SpectorMemoryBuilder builder = DefaultSpectorMemory.builder()
                 .dimensions(embedder.dimensions())
                 .embeddingProvider(embedder)
-                .persistenceMode(MemoryPersistenceMode.IN_MEMORY)
                 .workingCapacity(Math.max(50, corpusSize / 10))
                 .episodicPartitionCapacity(corpusSize + 100)
                 .semanticCapacity(corpusSize + 100)
@@ -91,68 +188,139 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .temporalChainCapacity(corpusSize + 100)
                 .entityGraphCapacity(Math.max(200, corpusSize))
                 .entityExtractionMode(EntityExtractionMode.CUSTOM)
-                .build();
+                .entityExtractor(customExtractor);
 
-        // Ingest all corpus records and build idToSlot mapping
-        Map<String, Integer> idToSlot = new LinkedHashMap<>(corpusSize);
-        int slot = 0;
-        for (BenchmarkCorpusRecord record : corpus) {
-            try {
-                IngestionHints hints = new IngestionHints(
-                        record.interest(), record.challenge(), record.urgency(),
-                        record.valence(),
-                        (byte) record.arousal()
-                );
+        boolean useHypergraph = Boolean.getBoolean("spector.benchmark.useHypergraphRecall");
+        log.info("System property 'spector.benchmark.useHypergraphRecall' is: '{}'", System.getProperty("spector.benchmark.useHypergraphRecall"));
+        log.info("Instantiating GraphScoringPolicy with useHypergraphRecall={}", useHypergraph);
+        com.spectrayan.spector.memory.pipeline.GraphScoringPolicy scoringPolicy = new com.spectrayan.spector.memory.pipeline.GraphScoringPolicy(
+                0.3f,   // causalBoostWeight
+                0.3f,   // hebbianBoostFactor
+                0.8f,   // temporalForwardFactor
+                0.7f,   // temporalBackwardFactor
+                0.25f,  // entityHopAttenuation
+                2,      // hebbianMaxDepth
+                3,      // temporalMaxHops
+                2,      // entityMaxHops
+                0.40f,  // graphExpansionThreshold
+                useHypergraph
+        );
+        builder.graphScoringPolicy(scoringPolicy);
 
-                // Use IngestionContext to pass the corpus record's original timestamp
-                // into the cognitive header, preserving temporal accuracy for decay and
-                // temporal chain ordering across the 180-day benchmark span.
-                var context = com.spectrayan.spector.memory.model.IngestionContext.builder()
-                        .hints(hints)
-                        .overrideTimestampMs(record.timestampMs())
-                        .build();
-
-                memory.remember(
-                        record.id(),
-                        record.text(),
-                        record.memoryType(),
-                        MemorySource.OBSERVED,
-                        context,
-                        record.synapticTags().toArray(String[]::new)
-                ).get(30, TimeUnit.SECONDS);
-
-                idToSlot.put(record.id(), slot);
-                slot++;
-            } catch (Exception e) {
-                log.warn("Failed to ingest corpus record '{}': {}", record.id(), e.getMessage());
+        // Resolve persistence parameters
+        boolean useDisk = Boolean.parseBoolean(System.getProperty("spector.benchmark.persistence", "true"));
+        Path persistencePath = null;
+        if (useDisk) {
+            String sysPropPath = System.getProperty("spector.memory.persistence-path");
+            if (sysPropPath != null && !sysPropPath.isBlank()) {
+                persistencePath = Path.of(sysPropPath);
+            }
+            if (persistencePath == null && datasetDir != null) {
+                persistencePath = datasetDir.resolve("ingested-memory");
+            }
+            if (persistencePath == null) {
+                Path configFile = Path.of("spector-bench.yml");
+                if (Files.exists(configFile)) {
+                    try {
+                        var props = SpectorProperties.load(configFile);
+                        var defaults = SpectorConfigFactory.memoryDefaults(props);
+                        persistencePath = defaults.persistencePath();
+                    } catch (Exception e) {
+                        // ignore config loading errors
+                    }
+                }
             }
         }
 
-        log.info("Ingested {} of {} corpus records", idToSlot.size(), corpusSize);
+        if (persistencePath != null) {
+            builder.persistenceMode(MemoryPersistenceMode.DISK)
+                   .persistence(persistencePath);
+            log.info("Disk persistence enabled. Path: {}", persistencePath);
+        } else {
+            builder.persistenceMode(MemoryPersistenceMode.IN_MEMORY);
+            log.info("In-memory persistence mode active.");
+        }
+
+        memory = builder.build();
+
+        // Ingest all corpus records or load from persistent store
+        Map<String, Integer> idToSlot = new LinkedHashMap<>(corpusSize);
+        boolean isDiskLoaded = false;
+        if (memory.totalMemories() > 0) {
+            isDiskLoaded = true;
+            log.info("Discovered pre-ingested memories on disk. Reconstructing slot mappings.");
+            for (BenchmarkCorpusRecord record : corpus) {
+                var loc = memory.admin().index().locate(record.id());
+                if (loc != null) {
+                    int slotIdx = offsetToRecordIndex(loc, memory);
+                    idToSlot.put(record.id(), slotIdx);
+                } else {
+                    log.warn("Record {} is in corpus but not found in pre-ingested memory index!", record.id());
+                }
+            }
+            log.info("Reconstructed {} slot mappings from disk", idToSlot.size());
+        } else {
+            int slot = 0;
+            for (BenchmarkCorpusRecord record : corpus) {
+                try {
+                    IngestionHints hints = new IngestionHints(
+                            record.interest(), record.challenge(), record.urgency(),
+                            record.valence(),
+                            (byte) record.arousal()
+                    );
+
+                    // Use IngestionContext to pass the corpus record's original timestamp
+                    // into the cognitive header, preserving temporal accuracy for decay and
+                    // temporal chain ordering across the 180-day benchmark span.
+                    var context = com.spectrayan.spector.memory.model.IngestionContext.builder()
+                            .hints(hints)
+                            .overrideTimestampMs(record.timestampMs())
+                            .build();
+
+                    memory.remember(
+                            record.id(),
+                            record.text(),
+                            record.memoryType(),
+                            MemorySource.OBSERVED,
+                            context,
+                            record.synapticTags().toArray(String[]::new)
+                    ).get(30, TimeUnit.SECONDS);
+
+                    idToSlot.put(record.id(), slot);
+                    slot++;
+                } catch (Exception e) {
+                    log.warn("Failed to ingest corpus record '{}': {}", record.id(), e.getMessage());
+                }
+            }
+            log.info("Ingested {} of {} corpus records", idToSlot.size(), corpusSize);
+        }
 
         // Store for external access (subsystem contribution detection)
         this.idToSlot = idToSlot;
 
         // Load graph structures from dataset definitions (null-safe: subsystems may be unconfigured)
-        if (memory.admin().hebbianGraph() != null) {
-            loadHebbianEdges(memory.admin().hebbianGraph(), dataset.hebbianEdges(), idToSlot);
+        if (!isDiskLoaded) {
+            if (memory.admin().hebbianGraph() != null) {
+                loadHebbianEdges(memory.admin().hebbianGraph(), dataset.hebbianEdges(), idToSlot);
+            } else {
+                log.warn("HebbianGraph is null  --  skipping {} edge definitions", dataset.hebbianEdges().size());
+            }
+            if (memory.admin().temporalChain() != null) {
+                loadTemporalChains(memory.admin().temporalChain(), dataset.temporalChains(), idToSlot);
+            } else {
+                log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
+            }
+            if (memory.admin().entityGraph() != null) {
+                loadEntityGraph(memory.admin().entityGraph(), dataset.entityRelations(), corpus);
+            } else {
+                log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
+            }
+            log.info("Benchmark memory setup complete: hebbian edges={}, temporal chains={}, entity relations={}",
+                    dataset.hebbianEdges().size(), dataset.temporalChains().size(),
+                    dataset.entityRelations().size());
         } else {
-            log.warn("HebbianGraph is null  --  skipping {} edge definitions", dataset.hebbianEdges().size());
+            log.info("Loaded pre-ingested graph structures from disk. Skipping graph ingestion.");
         }
-        if (memory.admin().temporalChain() != null) {
-            loadTemporalChains(memory.admin().temporalChain(), dataset.temporalChains(), idToSlot);
-        } else {
-            log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
-        }
-        if (memory.admin().entityGraph() != null) {
-            loadEntityGraph(memory.admin().entityGraph(), dataset.entityRelations(), corpus);
-        } else {
-            log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
-        }
-
-        log.info("Benchmark memory setup complete: hebbian edges={}, temporal chains={}, entity relations={}",
-                dataset.hebbianEdges().size(), dataset.temporalChains().size(),
-                dataset.entityRelations().size());
 
         // Wire salience profile from persona.json if present
         if (dataset.persona() != null && dataset.persona().hasSalienceProfile()) {
@@ -165,6 +333,15 @@ public final class BenchmarkSetup implements AutoCloseable {
         }
 
         return memory;
+    }
+
+    private static int offsetToRecordIndex(com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation loc, SpectorMemory memory) {
+        var router = memory.admin().cognitiveRouter();
+        int stride = router.layoutFor(loc.type()).stride();
+        var store = router.get(loc.type());
+        long dataOffset = (store != null && store.isPersistent())
+                ? com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
+        return (int) ((loc.offset() - dataOffset) / stride);
     }
 
     /**

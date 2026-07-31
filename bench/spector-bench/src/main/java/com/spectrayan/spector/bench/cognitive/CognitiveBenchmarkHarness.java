@@ -183,7 +183,7 @@ public final class CognitiveBenchmarkHarness {
         //  Step 2: Create memory instance 
         try (BenchmarkSetup setup = new BenchmarkSetup();
              EmbeddingProvider embedder = createEmbeddingProvider()) {
-            SpectorMemory memory = setup.createMemoryInstance(dataset, embedder);
+            SpectorMemory memory = setup.createMemoryInstance(dataset, embedder, datasetDir);
             log.info("Memory instance created with {} total memories", memory.totalMemories());
 
             //  Step 3: Create retrievers 
@@ -347,6 +347,23 @@ public final class CognitiveBenchmarkHarness {
 
                 perQueryContributions.put(query.id(), queryContributions);
 
+                // ── Graph-expansion telemetry (P1#8) ──
+                // Count candidates added by graph expansion and their qrels precision
+                int graphExpandedCandidates = 0;
+                int graphExpandedRelevant = 0;
+                for (CognitiveResult cr : cognitiveRawResults) {
+                    ScoreBreakdown bd = cr.breakdown();
+                    if (bd != null && bd.graphBoost() > 0.001f) {
+                        graphExpandedCandidates++;
+                        int relevance = queryQrels.getOrDefault(cr.id(), 0);
+                        if (relevance >= 1) {
+                            graphExpandedRelevant++;
+                        }
+                    }
+                }
+                // Δ nDCG: cognitive (with graph) vs similarity (without graph scoring)
+                double graphDeltaNdcg = cognitiveNdcg - similarityNdcg;
+
                 // Format contributing subsystems for CSV output
                 String contributingSubsystemsStr = queryContributions.isEmpty()
                         ? ""
@@ -366,7 +383,11 @@ public final class CognitiveBenchmarkHarness {
                         query.id(), baselineNdcg, cognitiveNdcg, similarityNdcg, delta,
                         contributingSubsystemsStr,
                         query.cognitiveProfile().name(),
-                        elapsedMs));
+                        elapsedMs,
+                        query.expectedSubsystem(),
+                        graphExpandedCandidates,
+                        graphExpandedRelevant,
+                        graphDeltaNdcg));
 
                 // Save raw cognitive results for per-query output
                 perQueryCognitiveResults.put(query.id(), cognitiveRawResults);
@@ -611,52 +632,54 @@ public final class CognitiveBenchmarkHarness {
      */
     private BaselineRetriever createBaselineRetriever(SpectorMemory memory) {
         CognitiveMemoryRouter cognitiveRouter = memory.admin().cognitiveRouter();
-
-        // Find the tier with the most records
-        MemoryType primaryTier = MemoryType.EPISODIC;
-        int maxCount = 0;
-        for (MemoryType type : MemoryType.values()) {
-            try {
-                int count = cognitiveRouter.countFor(type);
-                if (count > maxCount) {
-                    maxCount = count;
-                    primaryTier = type;
-                }
-            } catch (Exception e) {
-                // Tier might not be registered
-            }
-        }
-
-        CognitiveRecordMemory store = cognitiveRouter.get(primaryTier);
-        MemorySegment segment = store.primarySegment();
-        CognitiveRecordLayout layout = store.cognitiveLayout();
-        int recordCount = store.size();
+        List<BaselineRetriever.TierDescriptor> tiers = new ArrayList<>();
 
         // Get calibration data from quantizer
         float[] mins = memory.admin().quantizer().mins();
         float[] scales = memory.admin().quantizer().scales();
 
-        // Build memory ID array from memory index
-        String[] memoryIds = new String[recordCount];
         var locationMap = memory.admin().index().locationMap();
-        for (var entry : locationMap.entrySet()) {
-            var loc = entry.getValue();
-            if (loc.type() == primaryTier) {
-                int slot = (int) (loc.offset() / layout.stride());
-                if (slot >= 0 && slot < recordCount) {
-                    memoryIds[slot] = entry.getKey();
+
+        for (MemoryType type : MemoryType.values()) {
+            try {
+                CognitiveRecordMemory store = cognitiveRouter.get(type);
+                if (store != null && store.size() > 0) {
+                    MemorySegment segment = store.primarySegment();
+                    CognitiveRecordLayout layout = store.cognitiveLayout();
+                    int recordCount = store.size();
+                    long dataOffset = store.dataOffset();
+
+                    // Build memory ID array for this specific tier
+                    String[] memoryIds = new String[recordCount];
+                    for (var entry : locationMap.entrySet()) {
+                        var loc = entry.getValue();
+                        if (loc.type() == type) {
+                            int slot = (int) ((loc.offset() - dataOffset) / layout.stride());
+                            if (slot >= 0 && slot < recordCount) {
+                                memoryIds[slot] = entry.getKey();
+                            }
+                        }
+                    }
+
+                    tiers.add(new BaselineRetriever.TierDescriptor(
+                            segment, layout, recordCount, dataOffset, memoryIds
+                    ));
                 }
+            } catch (Exception e) {
+                // Tier might not be registered or configured
             }
         }
 
-        return new BaselineRetriever(segment, layout, recordCount, mins, scales, memoryIds);
+        return new BaselineRetriever(tiers, mins, scales);
     }
 
     /**
      * Creates an embedding provider for the benchmark.
-     * Uses the default Ollama embedding provider.
+     * Uses the default Ollama embedding provider decorated with CachedEmbeddingProvider.
      */
     private EmbeddingProvider createEmbeddingProvider() {
-        return OllamaEmbeddingProvider.createDefault();
+        EmbeddingProvider raw = OllamaEmbeddingProvider.createDefault();
+        Path cacheFile = datasetDir.resolve("embeddings.bin");
+        return new CachedEmbeddingProvider(raw, cacheFile);
     }
 }

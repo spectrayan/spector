@@ -53,7 +53,7 @@ public final class ReportWriter {
     private static final String SUMMARY_FILENAME = "summary.json";
     private static final String DETAIL_FILENAME = "detail.csv";
     private static final String CSV_HEADER =
-            "query_id,baseline_nDCG,cognitive_nDCG,similarity_nDCG,delta,contributing_subsystems,profile,latency_ms";
+            "query_id,baseline_nDCG,cognitive_nDCG,similarity_nDCG,delta,contributing_subsystems,profile,latency_ms,expected_subsystem,graph_expanded_candidates,graph_expanded_relevant,graph_delta_nDCG";
 
     private final ObjectMapper mapper;
     /** Compact mapper for JSONL output — one JSON object per line, no indentation. */
@@ -117,7 +117,11 @@ public final class ReportWriter {
     public record QueryResult(String queryId, double baselineNdcg, double cognitiveNdcg,
                                double similarityNdcg, double delta,
                                String contributingSubsystems, String profile,
-                               long latencyMs) {}
+                               long latencyMs,
+                               String expectedSubsystem,
+                               int graphExpandedCandidates,
+                               int graphExpandedRelevant,
+                               double graphDeltaNdcg) {}
 
     // ══════════════════════════════════════════════════════════════
     // Public API
@@ -266,7 +270,7 @@ public final class ReportWriter {
     }
 
     private String formatCsvRow(QueryResult result) {
-        return String.format(Locale.US, "%s,%.3f,%.3f,%.3f,%.3f,%s,%s,%d",
+        return String.format(Locale.US, "%s,%.3f,%.3f,%.3f,%.3f,%s,%s,%d,%s,%d,%d,%.4f",
                 result.queryId(),
                 result.baselineNdcg(),
                 result.cognitiveNdcg(),
@@ -274,7 +278,11 @@ public final class ReportWriter {
                 result.delta(),
                 result.contributingSubsystems(),
                 result.profile(),
-                result.latencyMs());
+                result.latencyMs(),
+                result.expectedSubsystem() != null ? result.expectedSubsystem() : "",
+                result.graphExpandedCandidates(),
+                result.graphExpandedRelevant(),
+                result.graphDeltaNdcg());
     }
 
     /**

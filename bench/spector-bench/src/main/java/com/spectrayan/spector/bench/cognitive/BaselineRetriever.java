@@ -24,6 +24,7 @@ import java.util.PriorityQueue;
 
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 
@@ -47,15 +48,50 @@ import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
  */
 public final class BaselineRetriever {
 
-    private final MemorySegment corpusSegment;
-    private final CognitiveRecordLayout layout;
-    private final int recordCount;
+    private final List<TierDescriptor> tiers;
     private final float[] calibrationMins;
     private final float[] calibrationScales;
-    private final String[] memoryIds;
 
     /**
-     * Creates a new BaselineRetriever for vector-only scoring.
+     * Descriptor representing a memory tier to scan.
+     */
+    public static final class TierDescriptor {
+        public final MemorySegment segment;
+        public final CognitiveRecordLayout layout;
+        public final int recordCount;
+        public final long dataOffset;
+        public final String[] memoryIds;
+
+        public TierDescriptor(MemorySegment segment,
+                              CognitiveRecordLayout layout,
+                              int recordCount,
+                              long dataOffset,
+                              String[] memoryIds) {
+            this.segment = segment;
+            this.layout = layout;
+            this.recordCount = recordCount;
+            this.dataOffset = dataOffset;
+            this.memoryIds = memoryIds;
+        }
+    }
+
+    /**
+     * Creates a new BaselineRetriever scanning multiple tiers.
+     *
+     * @param tiers              the list of tier descriptors to scan
+     * @param calibrationMins    per-dimension minimum values from scalar quantizer calibration
+     * @param calibrationScales   per-dimension scale values from scalar quantizer calibration
+     */
+    public BaselineRetriever(List<TierDescriptor> tiers,
+                             float[] calibrationMins,
+                             float[] calibrationScales) {
+        this.tiers = List.copyOf(tiers);
+        this.calibrationMins = calibrationMins;
+        this.calibrationScales = calibrationScales;
+    }
+
+    /**
+     * Creates a new BaselineRetriever for vector-only scoring (single tier legacy compatibility).
      *
      * @param corpusSegment    the off-heap memory segment containing all records
      * @param layout           the cognitive record layout (header + vector payload)
@@ -70,23 +106,34 @@ public final class BaselineRetriever {
                              float[] calibrationMins,
                              float[] calibrationScales,
                              String[] memoryIds) {
-        this.corpusSegment = corpusSegment;
-        this.layout = layout;
-        this.recordCount = recordCount;
-        this.calibrationMins = calibrationMins;
-        this.calibrationScales = calibrationScales;
-        this.memoryIds = memoryIds;
+        this(corpusSegment, layout, recordCount, calibrationMins, calibrationScales, memoryIds, 0L);
     }
 
     /**
-     * Retrieves the top-K results using pure vector similarity (L2 distance).
+     * Creates a new BaselineRetriever for vector-only scoring (single tier legacy compatibility).
      *
-     * <p>Iterates all non-tombstoned records, computes L2 distance via calibrated INT8
-     * asymmetric quantization, converts to similarity using {@code 1/(1+L2)}, and
-     * maintains a min-heap of size topK for efficient selection.</p>
-     *
-     * <p>No tag gating, no valence filter, no importance weighting, no decay,
-     * no graph augmentation — only L2 distance affects ranking.</p>
+     * @param corpusSegment    the off-heap memory segment containing all records
+     * @param layout           the cognitive record layout (header + vector payload)
+     * @param recordCount      total number of records in the segment
+     * @param calibrationMins  per-dimension minimum values from scalar quantizer calibration
+     * @param calibrationScales per-dimension scale values from scalar quantizer calibration
+     * @param memoryIds        array mapping record index to memory ID string
+     * @param dataOffset       byte offset of the first record in the segment (skipping memory header)
+     */
+    public BaselineRetriever(MemorySegment corpusSegment,
+                             CognitiveRecordLayout layout,
+                             int recordCount,
+                             float[] calibrationMins,
+                             float[] calibrationScales,
+                             String[] memoryIds,
+                             long dataOffset) {
+        this.tiers = List.of(new TierDescriptor(corpusSegment, layout, recordCount, dataOffset, memoryIds));
+        this.calibrationMins = calibrationMins;
+        this.calibrationScales = calibrationScales;
+    }
+
+    /**
+     * Retrieves the top-K results using pure vector similarity (L2 distance) across all tiers.
      *
      * @param queryVector the query vector in float32
      * @param topK        the maximum number of results to return
@@ -97,32 +144,52 @@ public final class BaselineRetriever {
         PriorityQueue<ScoredResult> heap = new PriorityQueue<>(topK + 1,
                 Comparator.comparingDouble(ScoredResult::score));
 
-        int stride = layout.stride();
+        for (TierDescriptor tier : tiers) {
+            int stride = tier.layout.stride();
+            int count = tier.recordCount;
+            MemorySegment segment = tier.segment;
+            long dataOffset = tier.dataOffset;
+            String[] memoryIds = tier.memoryIds;
 
-        for (int i = 0; i < recordCount; i++) {
-            long offset = (long) i * stride;
-
-            // Skip tombstoned records (bit 0 of flags byte)
-            byte flags = corpusSegment.get(ValueLayout.JAVA_BYTE,
-                    offset + SynapticHeaderConstants.OFFSET_FLAGS);
-            if (SynapticHeaderConstants.isTombstoned(flags)) {
-                continue;
+            // Fail-fast guard: verify header magic for persistent memory segments
+            if (dataOffset > 0 && count > 0) {
+                int magic = segment.get(ValueLayout.JAVA_INT_UNALIGNED, 0);
+                if (magic != MemoryHeader.MAGIC) {
+                    throw new IllegalStateException("Failed baseline assertion: expected header magic "
+                            + Integer.toHexString(MemoryHeader.MAGIC) + ", got " + Integer.toHexString(magic));
+                }
             }
 
-            // Compute L2 distance using calibrated quantized vectors
-            float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-                    queryVector, corpusSegment, layout.vectorOffset(offset),
-                    calibrationMins, calibrationScales, layout.quantizedVecBytes());
+            for (int i = 0; i < count; i++) {
+                long offset = dataOffset + (long) i * stride;
 
-            // Convert to similarity: higher is better
-            float similarity = 1.0f / (1.0f + l2dist);
+                // Skip tombstoned records (bit 0 of flags byte)
+                byte flags = segment.get(ValueLayout.JAVA_BYTE,
+                        offset + SynapticHeaderConstants.OFFSET_FLAGS);
+                if (SynapticHeaderConstants.isTombstoned(flags)) {
+                    continue;
+                }
 
-            // Min-heap insertion: maintain only topK best results
-            if (heap.size() < topK) {
-                heap.offer(new ScoredResult(memoryIds[i], similarity));
-            } else if (similarity > heap.peek().score()) {
-                heap.poll();
-                heap.offer(new ScoredResult(memoryIds[i], similarity));
+                // Skip unmapped/null memory IDs (e.g. consolidation orphans or slot mismatches)
+                if (memoryIds[i] == null) {
+                    continue;
+                }
+
+                // Compute L2 distance using calibrated quantized vectors
+                float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
+                        queryVector, segment, tier.layout.vectorOffset(offset),
+                        calibrationMins, calibrationScales, tier.layout.quantizedVecBytes());
+
+                // Convert to similarity: higher is better
+                float similarity = 1.0f / (1.0f + l2dist);
+
+                // Min-heap insertion: maintain only topK best results
+                if (heap.size() < topK) {
+                    heap.offer(new ScoredResult(memoryIds[i], similarity));
+                } else if (similarity > heap.peek().score()) {
+                    heap.poll();
+                    heap.offer(new ScoredResult(memoryIds[i], similarity));
+                }
             }
         }
 

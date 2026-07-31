@@ -7,6 +7,8 @@
 
     <!-- Suppress noisy engine logs during benchmarks -->
     <logger name="com.spectrayan.spector" level="WARN"/>
+    <logger name="com.spectrayan.spector.memory.pipeline.GraphExpansionStage" level="DEBUG"/>
+    <logger name="com.spectrayan.spector.bench" level="INFO"/>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
