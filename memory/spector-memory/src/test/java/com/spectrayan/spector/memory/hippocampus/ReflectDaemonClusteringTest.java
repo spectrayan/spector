@@ -16,11 +16,12 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
 import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
+import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -33,9 +34,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for IVF centroid clustering in ReflectDaemon (V3.1).
@@ -52,34 +59,58 @@ class ReflectDaemonClusteringTest {
     private Path storePath;
     private CentroidRouter centroidRouter;
     private MockEmbeddingProvider embeddingProvider;
+    private CognitiveIngestionTarget mockIngestionTarget;
+    private AtomicInteger ingestCount;
 
     @BeforeEach
     void setUp() {
         storePath = tempDir.resolve("episodic");
         centroidRouter = new CentroidRouter(DIMS);
         embeddingProvider = new MockEmbeddingProvider(DIMS);
+        ingestCount = new AtomicInteger(0);
+        mockIngestionTarget = createMockIngestionTarget();
+    }
+
+    /**
+     * Creates a mock CognitiveIngestionTarget that counts ingest calls
+     * and provides a no-op quantizer for vector decode.
+     */
+    private CognitiveIngestionTarget createMockIngestionTarget() {
+        CognitiveIngestionTarget target = mock(CognitiveIngestionTarget.class);
+
+        // Mock quantizer — decode returns a zero vector (sufficient for test)
+        ScalarQuantizer mockQuantizer = mock(ScalarQuantizer.class);
+        when(mockQuantizer.decode(any(byte[].class))).thenReturn(new float[DIMS]);
+        when(target.quantizer()).thenReturn(mockQuantizer);
+
+        // Count ingestCognitiveWithHeader calls
+        doAnswer(invocation -> {
+            ingestCount.incrementAndGet();
+            return null;
+        }).when(target).ingestCognitiveWithHeader(
+                anyString(), any(), any(float[].class),
+                any(MemoryType.class), any(String[].class),
+                any(), any(CognitiveHeader.class));
+
+        return target;
     }
 
     //  V3.1: Centroid-Based Clustering 
 
     @Test
     void clustersBycentroidIdAndPromotes() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
+        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
 
             // Create 20 memories across 3 centroids (ids: 1, 2, 3)
-            // Cluster 1: 8 records (above min=5)
-            // Cluster 2: 7 records (above min=5)
-            // Cluster 3: 3 records (below min=5  --  should NOT promote)
-            // Unassigned (centroid 0): 2 records
+            // Centroid 1: 10 records, Centroid 2: 5 records, Centroid 3: 3 records, Centroid 0: 2 records
             int[] centroidAssignments = {
-                    1, 1, 1, 1, 1, 1, 1, 1,  // 8 records for centroid 1
-                    2, 2, 2, 2, 2, 2, 2,     // 7 records for centroid 2
-                    3, 3, 3,                   // 3 records for centroid 3
-                    0, 0                       // 2 unassigned
+                    1, 1, 1, 2, 2,
+                    1, 1, 3, 3, 1,
+                    2, 2, 1, 1, 2,
+                    3, 0, 0, 1, 1
             };
 
-            for (int i = 0; i < centroidAssignments.length; i++) {
+            for (int i = 0; i < 20; i++) {
                 CognitiveHeader header = new CognitiveHeader(
                         System.currentTimeMillis(),
                         (long) (i + 1) * 7, // synaptic tags
@@ -94,26 +125,24 @@ class ReflectDaemonClusteringTest {
             }
 
             assertThat(episodicStore.totalRecords()).isEqualTo(20);
-            assertThat(semanticStore.size()).isEqualTo(0);
 
             // Run reflection with centroid router (V3.1 path)
             ReflectDaemon daemon = new ReflectDaemon(
                     CircadianPolicy.DEFAULT, centroidRouter, null, embeddingProvider);
 
-            ReflectReport report = daemon.runCycle(episodicStore, semanticStore);
+            ReflectReport report = daemon.runCycle(episodicStore, mockIngestionTarget);
 
             // Should promote 2 clusters (centroid 1 and 2, both  >=  5 records)
             // Centroid 3 has only 3 records  --  below threshold
             // Centroid 0 has only 2 records  --  below threshold
             assertThat(report.consolidatedCount()).isEqualTo(2);
-            assertThat(semanticStore.size()).isEqualTo(2);
+            assertThat(ingestCount.get()).isEqualTo(2);
         }
     }
 
     @Test
     void withLlmProviderSynthesizes() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
+        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
 
             // Create 6 memories in the same centroid
             for (int i = 0; i < 6; i++) {
@@ -137,11 +166,11 @@ class ReflectDaemonClusteringTest {
             ReflectDaemon daemon = new ReflectDaemon(
                     CircadianPolicy.DEFAULT, centroidRouter, mockLlm, embeddingProvider);
 
-            ReflectReport report = daemon.runCycle(episodicStore, semanticStore, textLookup);
+            ReflectReport report = daemon.runCycle(episodicStore, mockIngestionTarget, textLookup);
 
             // Should promote 1 cluster via LLM synthesis
             assertThat(report.consolidatedCount()).isEqualTo(1);
-            assertThat(semanticStore.size()).isEqualTo(1);
+            assertThat(ingestCount.get()).isEqualTo(1);
 
             // LLM should have been called
             assertThat(mockLlm.callCount).isGreaterThan(0);
@@ -150,8 +179,7 @@ class ReflectDaemonClusteringTest {
 
     @Test
     void withoutCentroidRouterUsesV1Fallback() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
+        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
 
             // Create 5 memories with importance  >=  1.0
             for (int i = 0; i < 5; i++) {
@@ -167,18 +195,17 @@ class ReflectDaemonClusteringTest {
             // V1 mode  --  no centroid router
             ReflectDaemon daemon = new ReflectDaemon(CircadianPolicy.DEFAULT);
 
-            ReflectReport report = daemon.runCycle(episodicStore, semanticStore);
+            ReflectReport report = daemon.runCycle(episodicStore, mockIngestionTarget);
 
             // V1 should promote 1 (the highest-importance record)
             assertThat(report.consolidatedCount()).isEqualTo(1);
-            assertThat(semanticStore.size()).isEqualTo(1);
+            assertThat(ingestCount.get()).isEqualTo(1);
         }
     }
 
     @Test
     void marksClusterMembersAsConsolidated() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
+        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
 
             // Create 6 memories in centroid 1
             for (int i = 0; i < 6; i++) {
@@ -194,7 +221,7 @@ class ReflectDaemonClusteringTest {
             ReflectDaemon daemon = new ReflectDaemon(
                     CircadianPolicy.DEFAULT, centroidRouter, null, embeddingProvider);
 
-            daemon.runCycle(episodicStore, semanticStore);
+            daemon.runCycle(episodicStore, mockIngestionTarget);
 
             // All 6 should be marked as consolidated
             EpisodicPartition partition = episodicStore.partitions().getFirst();
@@ -213,8 +240,7 @@ class ReflectDaemonClusteringTest {
 
     @Test
     void secondReflectDoesNotReprocessConsolidated() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY);
-             SemanticRecordMemory semanticStore = new SemanticRecordMemory(VEC_BYTES, 100)) {
+        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
 
             // 6 memories in centroid 1
             for (int i = 0; i < 6; i++) {
@@ -230,11 +256,11 @@ class ReflectDaemonClusteringTest {
             ReflectDaemon daemon = new ReflectDaemon(
                     CircadianPolicy.DEFAULT, centroidRouter, null, embeddingProvider);
 
-            ReflectReport report1 = daemon.runCycle(episodicStore, semanticStore);
+            ReflectReport report1 = daemon.runCycle(episodicStore, mockIngestionTarget);
             assertThat(report1.consolidatedCount()).isEqualTo(1);
 
             // Second reflect  --  records are already consolidated, nothing new
-            ReflectReport report2 = daemon.runCycle(episodicStore, semanticStore);
+            ReflectReport report2 = daemon.runCycle(episodicStore, mockIngestionTarget);
             assertThat(report2.consolidatedCount()).isEqualTo(0);
         }
     }

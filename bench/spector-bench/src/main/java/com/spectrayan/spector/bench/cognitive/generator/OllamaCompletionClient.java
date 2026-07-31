@@ -222,10 +222,13 @@ public final class OllamaCompletionClient implements AutoCloseable {
                 Map.of("role", "system", "content", systemPrompt),
                 Map.of("role", "user", "content", userPrompt)
         ));
-        body.put("options", Map.of(
-                "temperature", temperature,
-                "num_predict", maxTokens
-        ));
+        // Disable thinking/reasoning mode — we need raw JSON, not chain-of-thought
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("temperature", temperature);
+        options.put("num_predict", maxTokens);
+        body.put("options", options);
+        // Ollama 0.9+: disable <think> blocks for reasoning models (qwen3, deepseek-r1)
+        body.put("think", false);
 
         String requestBody = mapper.writeValueAsString(body);
 
@@ -252,6 +255,11 @@ public final class OllamaCompletionClient implements AutoCloseable {
      * <p>Expected format: {@code {"message":{"role":"assistant","content":"..."}, ...}}</p>
      */
     private String parseMessageContent(String json) throws Exception {
+        if (json == null || json.isBlank()) {
+            throw new OllamaCompletionException(
+                    "Ollama returned an empty response body — model may still be loading");
+        }
+
         Map<String, Object> responseMap = mapper.readValue(json,
                 new TypeReference<Map<String, Object>>() {});
 
@@ -259,7 +267,12 @@ public final class OllamaCompletionClient implements AutoCloseable {
         if (messageObj instanceof Map<?, ?> messageMap) {
             Object content = messageMap.get("content");
             if (content instanceof String text) {
-                return text.strip();
+                String stripped = text.strip();
+                if (stripped.isEmpty()) {
+                    throw new OllamaCompletionException(
+                            "Ollama returned an empty content field — model may have timed out");
+                }
+                return stripped;
             }
         }
 
@@ -292,6 +305,14 @@ public final class OllamaCompletionClient implements AutoCloseable {
 
     private static String stripCodeFences(String raw) {
         String trimmed = raw.strip();
+
+        // Strip <think>...</think> blocks from reasoning models (qwen3, deepseek-r1, etc.)
+        int thinkEnd = trimmed.indexOf("</think>");
+        if (thinkEnd >= 0) {
+            trimmed = trimmed.substring(thinkEnd + "</think>".length()).strip();
+        }
+
+        // Strip markdown code fences
         if (trimmed.startsWith("```json")) {
             trimmed = trimmed.substring(7);
         } else if (trimmed.startsWith("```")) {
