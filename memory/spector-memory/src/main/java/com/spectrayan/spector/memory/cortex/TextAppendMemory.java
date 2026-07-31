@@ -94,7 +94,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
     }
 
     private static long calculateInitialSize(Path file, Map<String, TextEntry> legacyEntries) {
-        long size = 1024 * 1024; // 1MB default
+        long size = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L); // 32MB default
         if (legacyEntries != null && !legacyEntries.isEmpty()) {
             long totalBytes = 0;
             for (TextEntry entry : legacyEntries.values()) {

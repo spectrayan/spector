@@ -224,6 +224,9 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
 
     @Override
     public void flush() {
+        if (backing.isPersistent()) {
+            MemoryHeader.writeCount(backing.segment(), 0, size());
+        }
         backing.flush();
     }
 

@@ -715,7 +715,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public ReflectReport reflect() {
         acquireLease();
         try {
-            return reflectionOrchestrator.reflect(partitionManager.cognitiveRouter(), index);
+            return reflectionOrchestrator.reflect(partitionManager.cognitiveRouter(), index, cognitiveTarget);
         } finally {
             releaseLease();
         }
@@ -1332,7 +1332,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 persistenceMode, persistencePath,
                 partitionManager.activePartitionDir(),
                 index, hebbianGraph, temporalChain, entityGraph, hyperEntityGraph,
-                coActivationTracker, partitionManager.cognitiveRouter(), wal);
+                coActivationTracker, temporalKnowledgeGraph, partitionManager.cognitiveRouter(), wal);
     }
 
     // ==============================================================

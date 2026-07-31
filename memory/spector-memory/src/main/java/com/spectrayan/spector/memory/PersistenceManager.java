@@ -72,6 +72,7 @@ final class PersistenceManager {
                               EntityGraphMemory entityGraph,
                               com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                               CoActivationRecordMemory coActivationTracker,
+                              com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                               CognitiveMemoryRouter cognitiveRouter,
                               MemoryWal wal) {
 
@@ -112,6 +113,14 @@ final class PersistenceManager {
         wal.close();
         hebbianGraph.close();
         temporalChain.close();
+        if (temporalKnowledgeGraph != null) {
+            temporalKnowledgeGraph.flush();
+            try {
+                temporalKnowledgeGraph.close();
+            } catch (Exception e) {
+                log.error("Failed to close TemporalKnowledgeGraph: {}", e.getMessage(), e);
+            }
+        }
         coActivationTracker.close();
         if (entityGraph != null) entityGraph.close();
         if (hyperEntityGraph != null) hyperEntityGraph.close();

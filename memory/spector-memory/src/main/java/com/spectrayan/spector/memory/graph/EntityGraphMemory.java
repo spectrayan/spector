@@ -1335,7 +1335,14 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
 
             // Add headroom for future growth (50% extra capacity)
             int newCapacity = Math.max(adjSegmentCapacity, (int) (liveEntries * 1.5));
-            MemorySegment newSeg = arena.allocate((long) ADJ_ENTRY_BYTES * newCapacity);
+            MemorySegment newSeg;
+            Arena tempArena = null;
+            if (fileBacked) {
+                tempArena = Arena.ofConfined();
+                newSeg = tempArena.allocate((long) ADJ_ENTRY_BYTES * adjSegmentCapacity);
+            } else {
+                newSeg = arena.allocate((long) ADJ_ENTRY_BYTES * newCapacity);
+            }
             newSeg.fill((byte) 0);
 
             int writePos = 0;
@@ -1363,8 +1370,20 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
                 writePos += newEntityCap; // Reserve capacity slots
             }
 
-            adjacencySegment = newSeg;
-            adjSegmentCapacity = newCapacity;
+            if (fileBacked) {
+                // Copy compacted data back to the mapped segment
+                MemorySegment.copy(newSeg, 0, adjacencySegment, 0, (long) writePos * ADJ_ENTRY_BYTES);
+                // Zero out the remaining unused part
+                long unusedOffset = (long) writePos * ADJ_ENTRY_BYTES;
+                long unusedBytes = ((long) adjSegmentCapacity * ADJ_ENTRY_BYTES) - unusedOffset;
+                if (unusedBytes > 0) {
+                    adjacencySegment.asSlice(unusedOffset, unusedBytes).fill((byte) 0);
+                }
+                tempArena.close();
+            } else {
+                adjacencySegment = newSeg;
+                adjSegmentCapacity = newCapacity;
+            }
             adjHighWaterMark = writePos;
 
             long newUsed = (long) writePos * ADJ_ENTRY_BYTES;

@@ -33,6 +33,13 @@ public interface CognitiveRecordMemory extends RecordMemory<CognitiveRecordLayou
     int METADATA_HEADER_BYTES = MemoryHeader.HEADER_BYTES;
 
     /**
+     * Returns the offset of the first data record, skipping the metadata header if persistent.
+     */
+    default long dataOffset() {
+        return isPersistent() ? METADATA_HEADER_BYTES : 0L;
+    }
+
+    /**
      * Writes a cognitive record (header + quantized vector payload).
      *
      * @param header cognitive header

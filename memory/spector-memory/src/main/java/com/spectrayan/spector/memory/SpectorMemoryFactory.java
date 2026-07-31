@@ -315,7 +315,7 @@ public final class SpectorMemoryFactory {
                         com.spectrayan.spector.memory.kernel.MemoryId.of("hebbian", "graph"),
                         new com.spectrayan.spector.memory.kernel.layout.HebbianLayout(),
                         loadFrom, null, null);
-            } catch (java.io.IOException ignored) {}
+            } catch (Exception ignored) {}
             hebbianGraph = HebbianGraphMemory.load(loadFrom, graphCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance);
         } else {
@@ -340,7 +340,7 @@ public final class SpectorMemoryFactory {
                         com.spectrayan.spector.memory.kernel.MemoryId.of("temporal", "chain"),
                         new com.spectrayan.spector.memory.kernel.layout.TemporalLayout(),
                         loadFrom, null, null);
-            } catch (java.io.IOException ignored) {}
+            } catch (Exception ignored) {}
             temporalChain = new TemporalChainMemory(loadFrom, temporalCapacity);
         } else {
             temporalChain = new TemporalChainMemory(temporalCapacity);

@@ -27,6 +27,8 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.cortex.MemorySource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -188,12 +190,12 @@ public final class ReflectDaemon {
      * @return report summarizing what was done
      */
     public ReflectReport runCycle(EpisodicMemoryStore episodicStore,
-                                   CognitiveRecordMemory semanticStore) {
-        return runCycle(episodicStore, semanticStore, null);
+                                   CognitiveIngestionTarget ingestionTarget) {
+        return runCycle(episodicStore, ingestionTarget, null);
     }
 
     public ReflectReport runCycle(EpisodicMemoryStore episodicStore,
-                                   CognitiveRecordMemory semanticStore,
+                                   CognitiveIngestionTarget ingestionTarget,
                                    Function<Long, String> textLookup) {
         if (!running.compareAndSet(false, true)) {
             log.warn("Reflection cycle already in progress  --  skipping");
@@ -270,9 +272,9 @@ public final class ReflectDaemon {
                 for (EpisodicPartition partition : episodicStore.partitions()) {
                     remTasks.add(() -> {
                         if (centroidRouter != null) {
-                            return clusterAndSynthesize(partition, semanticStore, textLookup);
+                            return clusterAndSynthesize(partition, ingestionTarget, textLookup);
                         } else {
-                            return promoteHighestImportance(partition, semanticStore);
+                            return promoteHighestImportance(partition, ingestionTarget, textLookup);
                         }
                     });
                 }
@@ -283,8 +285,8 @@ public final class ReflectDaemon {
                 log.warn("Parallel REM failed, falling back to sequential: {}", e.getMessage());
                 for (EpisodicPartition partition : episodicStore.partitions()) {
                     int promoted = centroidRouter != null
-                            ? clusterAndSynthesize(partition, semanticStore, textLookup)
-                            : promoteHighestImportance(partition, semanticStore);
+                            ? clusterAndSynthesize(partition, ingestionTarget, textLookup)
+                            : promoteHighestImportance(partition, ingestionTarget, textLookup);
                     totalConsolidated += promoted;
                 }
             }
@@ -328,10 +330,12 @@ public final class ReflectDaemon {
      *   <li>Mark all cluster members as consolidated</li>
      * </ol>
      */
+    private record PromotedFact(String text, float[] vector, CognitiveHeader header) {}
+
     private int clusterAndSynthesize(EpisodicPartition partition,
-                                      CognitiveRecordMemory semanticStore,
+                                      CognitiveIngestionTarget ingestionTarget,
                                       Function<Long, String> textLookup) {
-        if (semanticStore == null || partition.count() == 0) return 0;
+        if (ingestionTarget == null || partition.count() == 0) return 0;
 
         CognitiveRecordLayout layout = partition.layout();
         var segment = partition.segment();
@@ -399,20 +403,40 @@ public final class ReflectDaemon {
             if (bestIndex < 0) continue;
 
             // Step 4: Synthesize or select representative
-            CognitiveHeader promotedHeader;
+            PromotedFact promotedFact = null;
 
             if (textGenerator != null && !clusterTexts.isEmpty() && embeddingProvider != null) {
                 // V3: LLM-based synthesis
-                promotedHeader = synthesizeWithLlm(clusterTexts, commonTags, maxImportance);
-            } else {
+                promotedFact = synthesizeWithLlm(clusterTexts, commonTags, maxImportance);
+            }
+            
+            if (promotedFact == null) {
                 // Fallback: promote highest-importance record (no LLM available)
                 long bestOffset = partition.recordOffset(bestIndex);
                 CognitiveHeader episodicHeader = layout.readHeader(segment, bestOffset);
-                promotedHeader = createSemanticHeader(episodicHeader, commonTags);
+                CognitiveHeader promotedHeader = createSemanticHeader(episodicHeader, commonTags);
+                
+                String bestText = (textLookup != null) ? textLookup.apply(bestOffset) : "";
+                
+                int vecBytes = layout.quantizedVecBytes();
+                byte[] quantized = new byte[vecBytes];
+                java.lang.foreign.MemorySegment.copy(segment, layout.vectorOffset(bestOffset), java.lang.foreign.MemorySegment.ofArray(quantized), 0, vecBytes);
+                float[] decodedVector = ingestionTarget.quantizer().decode(quantized);
+                
+                promotedFact = new PromotedFact(bestText, decodedVector, promotedHeader);
             }
 
-            if (promotedHeader != null) {
-                semanticStore.write(promotedHeader, null);
+            if (promotedFact != null && promotedFact.header() != null) {
+                String newId = "rem-" + new com.spectrayan.spector.memory.id.TsidGenerator().generate();
+                ingestionTarget.ingestCognitiveWithHeader(
+                        newId,
+                        promotedFact.text(),
+                        promotedFact.vector(),
+                        MemoryType.SEMANTIC,
+                        new String[0], // Empty array, synapticTags preserved via ingested header
+                        MemorySource.REFLECTED,
+                        promotedFact.header()
+                );
                 totalPromoted++;
 
                 // Step 5: Mark all cluster members as consolidated
@@ -543,7 +567,7 @@ public final class ReflectDaemon {
     /**
      * Synthesizes a semantic fact from cluster texts using the LLM.
      */
-    private CognitiveHeader synthesizeWithLlm(List<String> clusterTexts, long commonTags,
+    private PromotedFact synthesizeWithLlm(List<String> clusterTexts, long commonTags,
                                                 float maxImportance) {
         try {
             // Build prompt
@@ -568,9 +592,10 @@ public final class ReflectDaemon {
             // Build semantic header for the synthesized fact
             // Embed synthesized text to compute exactNorm (if embedding provider available)
             float exactNorm = 1.0f;
+            float[] vec = null;
             if (embeddingProvider != null) {
                 try {
-                    float[] vec = embeddingProvider.embed(synthesized).vector();
+                    vec = embeddingProvider.embed(synthesized).vector();
                     exactNorm = VectorOps.magnitude(vec);
                 } catch (Exception e) {
                     log.warn("REM: Failed to embed synthesized text: {}", e.getMessage());
@@ -581,9 +606,11 @@ public final class ReflectDaemon {
                     SynapticHeaderConstants.FLAG_CONSOLIDATED,
                     MemoryType.SEMANTIC.ordinal());
 
-            return new CognitiveHeader(
+            CognitiveHeader header = new CognitiveHeader(
                     System.currentTimeMillis(), commonTags, exactNorm, maxImportance,
                     0, (short) 0, (byte) 0, semanticFlags);
+            
+            return new PromotedFact(synthesized, vec, header);
 
         } catch (Exception e) {
             log.warn("REM: LLM synthesis failed: {}  --  falling back to selection", e.getMessage());
@@ -617,8 +644,9 @@ public final class ReflectDaemon {
      * into the semantic store. Used as fallback when clustering is not configured.
      */
     private int promoteHighestImportance(EpisodicPartition partition,
-                                          CognitiveRecordMemory semanticStore) {
-        if (semanticStore == null || partition.count() == 0) return 0;
+                                          CognitiveIngestionTarget ingestionTarget,
+                                          Function<Long, String> textLookup) {
+        if (ingestionTarget == null || partition.count() == 0) return 0;
 
         CognitiveRecordLayout layout = partition.layout();
         var segment = partition.segment();
@@ -650,7 +678,23 @@ public final class ReflectDaemon {
             CognitiveHeader semanticHeader = createSemanticHeader(episodicHeader,
                     episodicHeader.synapticTags());
 
-            semanticStore.write(semanticHeader, null);
+            String bestText = (textLookup != null) ? textLookup.apply(offset) : "";
+            
+            int vecBytes = layout.quantizedVecBytes();
+            byte[] quantized = new byte[vecBytes];
+            java.lang.foreign.MemorySegment.copy(segment, layout.vectorOffset(offset), java.lang.foreign.MemorySegment.ofArray(quantized), 0, vecBytes);
+            float[] decodedVector = ingestionTarget.quantizer().decode(quantized);
+
+            String newId = "rem-" + new com.spectrayan.spector.memory.id.TsidGenerator().generate();
+            ingestionTarget.ingestCognitiveWithHeader(
+                    newId,
+                    bestText,
+                    decodedVector,
+                    MemoryType.SEMANTIC,
+                    new String[0],
+                    MemorySource.REFLECTED,
+                    semanticHeader
+            );
 
             // Mark the episodic original as consolidated
             layout.markConsolidated(segment, offset);

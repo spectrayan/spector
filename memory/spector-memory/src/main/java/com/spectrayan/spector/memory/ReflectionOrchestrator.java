@@ -24,6 +24,7 @@ import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -134,16 +135,15 @@ final class ReflectionOrchestrator {
      * @param index      the memory index (for text lookups during consolidation)
      * @return a {@link ReflectReport} summarizing what was consolidated, pruned, and promoted
      */
-    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index) {
+    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, CognitiveIngestionTarget ingestionTarget) {
         log.info("Manual reflection triggered");
 
         // Create metrics collector for this cycle
         var graphMetrics = new GraphHealthMetrics();
 
         // Phase 1: REM cycle — episodic → semantic consolidation
-        var semanticTarget = cognitiveRouter.semantic();
         ReflectReport daemonReport = reflectDaemon.runCycle(
-                cognitiveRouter.episodic(), semanticTarget,
+                cognitiveRouter.episodic(), ingestionTarget,
                 offset -> index.findTextByOffset(MemoryType.EPISODIC, offset));
 
         // Phase 2: Hebbian decay (synaptic homeostasis, arousal-modulated)

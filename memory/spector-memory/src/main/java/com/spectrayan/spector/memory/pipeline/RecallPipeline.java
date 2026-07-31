@@ -1123,7 +1123,7 @@ public final class RecallPipeline {
                     return scoreStoreToList(
                             seg, cognitiveRouter.procedural().visibleCount(),
                             cognitiveRouter.procedural().cognitiveLayout(), queryVector, options, nowMs,
-                            MemoryType.PROCEDURAL, 0L);
+                            MemoryType.PROCEDURAL, cognitiveRouter.procedural().dataOffset());
                 } finally {
                     NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
                 }
@@ -1169,7 +1169,7 @@ public final class RecallPipeline {
                 && cognitiveRouter.procedural().visibleCount() > 0) {
             results.addAll(scoreStoreToList(cognitiveRouter.procedural().segment(),
                     cognitiveRouter.procedural().visibleCount(), cognitiveRouter.procedural().cognitiveLayout(),
-                    queryVector, options, nowMs, MemoryType.PROCEDURAL, 0L));
+                    queryVector, options, nowMs, MemoryType.PROCEDURAL, cognitiveRouter.procedural().dataOffset()));
         }
         return results;
     }

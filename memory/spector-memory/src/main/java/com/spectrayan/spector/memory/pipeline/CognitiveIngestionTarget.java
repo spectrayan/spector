@@ -241,6 +241,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.partitionRollCallback = callback;
     }
 
+    public ScalarQuantizer quantizer() {
+        return quantizer;
+    }
+
     /**
      * Updates the salience profile for importance modulation.
      *
@@ -523,8 +527,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             return;
         }
 
-        // Step 2: Encode synaptic tags
-        long synapticTags = encodeTags(tags);
+        // Step 2: Encode synaptic tags (preserve original if no new strings provided)
+        long synapticTags = (tags != null && tags.length > 0) ? encodeTags(tags) : preservedHeader.synapticTags();
 
         // Step 1c: L2-normalize vector
         if (normalizeAtIngest) {
