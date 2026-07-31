@@ -63,6 +63,11 @@ RnD
 .test-data/
 spector-data/
 
+# ──────────── Benchmark runtime artifacts ────────────
+**/ingested-memory/
+**/embeddings.bin
+**/benchmark-results/
+
 openclaw/
 !plugins/openclaw
 

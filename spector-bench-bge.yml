@@ -13,7 +13,7 @@ spector:
     similarity: COSINE
     index-type: HNSW
     persistence-mode: DISK
-    data-directory: D:\git\spector-search\.spector-bench-bge\index
+    data-directory: .spector-bench-bge/index
 
   embedding:
     model: bge-large
@@ -24,7 +24,7 @@ spector:
   memory:
     enabled: true
     persistence-mode: DISK
-    persistence-path: D:\git\spector-search\.spector-bench-bge\memory
+    persistence-path: .spector-bench-bge/memory
     dimensions: 1024
     capacity: 15000   # Same as qwen3 config — 1200-char chunks produce ~13K chunks
     decay-enabled: false
@@ -39,7 +39,7 @@ spector:
     ef-search: 200
 
   ingestion:
-    root: D:\git\spector-search\datasets\scifact\corpus-txt
+    root: datasets/scifact/corpus-txt
     pattern: "**/*.txt"
     chunk-size: 1200
     chunk-overlap: 400

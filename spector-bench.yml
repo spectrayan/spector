@@ -14,7 +14,7 @@ spector:
     similarity: COSINE
     index-type: HNSW
     persistence-mode: DISK
-    data-directory: D:\git\spector-search\.spector-bench\index
+    data-directory: .spector-bench/index
 
   embedding:
     model: qwen3-embedding:latest
@@ -25,7 +25,7 @@ spector:
   memory:
     enabled: true
     persistence-mode: DISK
-    persistence-path: D:\git\spector-search\.spector-bench\memory
+    persistence-path: .spector-bench/memory
     dimensions: 4096
     capacity: 15000   # Must fit full corpus (13255 chunks); multi-partition recall is a known TODO
     decay-enabled: false          # Disable decay for deterministic benchmarks
@@ -40,7 +40,7 @@ spector:
     ef-search: 200
 
   ingestion:
-    root: D:\git\spector-search\datasets\scifact\corpus-txt
+    root: datasets/scifact/corpus-txt
     pattern: "**/*.txt"
     chunk-size: 1200
     chunk-overlap: 400

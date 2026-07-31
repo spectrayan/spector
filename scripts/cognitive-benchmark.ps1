@@ -15,7 +15,11 @@ param(
     [string]$Model      = "nomic-embed-text",
     [int]$HeapMb        = 8192,
     [switch]$SkipBuild,
-    [switch]$MiniDataset    # Use the built-in 50-memory mini-dataset for quick tests
+    [switch]$MiniDataset,          # Use the built-in 50-memory mini-dataset for quick tests
+    [switch]$UseHypergraph,        # Use hypergraph recall path instead of binary entity graph
+    [switch]$NoPersistence,        # Disable disk persistence for ephemeral memory setup
+    [double]$GraphExpansionThreshold = 0.40,  # Similarity threshold below which graph expansion fires
+    [string]$GraphExpansionMode = ""          # GATED (default), ALWAYS, or ENTITY_ONLY
 )
 
 $ErrorActionPreference = "Stop"
@@ -113,8 +117,19 @@ $jvmArgs = @(
     "-Xmx${HeapMb}m"
     "-Dlogback.configurationFile=logback-bench.xml"
     "-Dspector.embedding.cache-dir=$(Join-Path $resolvedDataset '../../.spector-bench')"
+    "-Dspector.benchmark.useHypergraphRecall=$($UseHypergraph.IsPresent.ToString().ToLower())"
+    "-Dspector.benchmark.persistence=$((!$NoPersistence).ToString().ToLower())"
+    "-Dspector.benchmark.graphExpansionThreshold=$GraphExpansionThreshold"
+    "-Dspector.memory.text-segment-size=33554432"
     "-cp", $classpath
 )
+
+# Add expansion mode only if explicitly provided
+if ($GraphExpansionMode -ne "") {
+    $jvmArgs += "-Dspector.memory.graphExpansionMode=$($GraphExpansionMode.ToUpper())"
+    Write-Host "  GraphExpansionMode: $($GraphExpansionMode.ToUpper())" -ForegroundColor Yellow
+}
+Write-Host "  GraphExpansionThreshold: $GraphExpansionThreshold" -ForegroundColor White
 
 # ── Harness arguments ──
 $harnessArgs = @(
