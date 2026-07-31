@@ -46,6 +46,7 @@ package com.spectrayan.spector.memory.pipeline;
  *                                  is triggered (default: 0.40). When the best direct result
  *                                  has similarity ≥ this threshold, graph expansion is skipped
  *                                  to avoid diluting already-strong results with associative noise.
+ * @param graphExpansionMode        controls when graph expansion is triggered (default: GATED)
  */
 public record GraphScoringPolicy(
         float causalBoostWeight,
@@ -57,11 +58,15 @@ public record GraphScoringPolicy(
         int temporalMaxHops,
         int entityMaxHops,
         float graphExpansionThreshold,
-        boolean useHypergraphRecall
+        boolean useHypergraphRecall,
+        GraphExpansionMode graphExpansionMode
 ) {
 
+    /** System property key for configuring the graph expansion threshold at runtime. */
+    public static final String THRESHOLD_SYSTEM_PROPERTY = "spector.benchmark.graphExpansionThreshold";
+
     /**
-     * Backward-compatible constructor — uses default graph expansion threshold and no hypergraph recall.
+     * Backward-compatible constructor — uses default graph expansion threshold, no hypergraph recall, GATED mode.
      */
     public GraphScoringPolicy(float causalBoostWeight, float hebbianBoostFactor,
                                float temporalForwardFactor, float temporalBackwardFactor,
@@ -69,7 +74,7 @@ public record GraphScoringPolicy(
                                int temporalMaxHops, int entityMaxHops) {
         this(causalBoostWeight, hebbianBoostFactor, temporalForwardFactor,
                 temporalBackwardFactor, entityHopAttenuation, hebbianMaxDepth,
-                temporalMaxHops, entityMaxHops, 0.40f, false);
+                temporalMaxHops, entityMaxHops, 0.40f, false, GraphExpansionMode.GATED);
     }
 
     /**
@@ -82,24 +87,59 @@ public record GraphScoringPolicy(
                                float graphExpansionThreshold) {
         this(causalBoostWeight, hebbianBoostFactor, temporalForwardFactor,
                 temporalBackwardFactor, entityHopAttenuation, hebbianMaxDepth,
-                temporalMaxHops, entityMaxHops, graphExpansionThreshold, false);
+                temporalMaxHops, entityMaxHops, graphExpansionThreshold, false, GraphExpansionMode.GATED);
     }
 
     /**
-     * Default policy with the original hardcoded values.
+     * Constructor with all fields except expansion mode — defaults to GATED.
      */
-    public static final GraphScoringPolicy DEFAULT = new GraphScoringPolicy(
-            0.3f,   // causalBoostWeight
-            0.3f,   // hebbianBoostFactor
-            0.8f,   // temporalForwardFactor
-            0.7f,   // temporalBackwardFactor
-            0.25f,  // entityHopAttenuation
-            2,      // hebbianMaxDepth
-            3,      // temporalMaxHops
-            2,      // entityMaxHops
-            0.40f,  // graphExpansionThreshold
-            false   // useHypergraphRecall
-    );
+    public GraphScoringPolicy(float causalBoostWeight, float hebbianBoostFactor,
+                               float temporalForwardFactor, float temporalBackwardFactor,
+                               float entityHopAttenuation, int hebbianMaxDepth,
+                               int temporalMaxHops, int entityMaxHops,
+                               float graphExpansionThreshold, boolean useHypergraphRecall) {
+        this(causalBoostWeight, hebbianBoostFactor, temporalForwardFactor,
+                temporalBackwardFactor, entityHopAttenuation, hebbianMaxDepth,
+                temporalMaxHops, entityMaxHops, graphExpansionThreshold, useHypergraphRecall,
+                GraphExpansionMode.GATED);
+    }
+
+    /**
+     * Default policy — reads runtime overrides from system properties.
+     *
+     * <ul>
+     *   <li>{@code spector.benchmark.useHypergraphRecall} — boolean (default: false)</li>
+     *   <li>{@code spector.benchmark.graphExpansionThreshold} — float (default: 0.40)</li>
+     *   <li>{@code spector.memory.graphExpansionMode} — GATED/ALWAYS/ENTITY_ONLY (default: GATED)</li>
+     * </ul>
+     */
+    public static final GraphScoringPolicy DEFAULT = resolveDefault();
+
+    private static GraphScoringPolicy resolveDefault() {
+        float threshold = 0.40f;
+        String thresholdStr = System.getProperty(THRESHOLD_SYSTEM_PROPERTY);
+        if (thresholdStr != null && !thresholdStr.isBlank()) {
+            try {
+                threshold = Float.parseFloat(thresholdStr);
+            } catch (NumberFormatException ignored) { /* use default */ }
+        }
+        boolean useHypergraph = Boolean.getBoolean("spector.benchmark.useHypergraphRecall");
+        GraphExpansionMode mode = GraphExpansionMode.resolve();
+
+        return new GraphScoringPolicy(
+                0.3f,   // causalBoostWeight
+                0.3f,   // hebbianBoostFactor
+                0.8f,   // temporalForwardFactor
+                0.7f,   // temporalBackwardFactor
+                0.25f,  // entityHopAttenuation
+                2,      // hebbianMaxDepth
+                3,      // temporalMaxHops
+                2,      // entityMaxHops
+                threshold,
+                useHypergraph,
+                mode
+        );
+    }
 
     /**
      * Compact constructor with validation.
@@ -137,10 +177,11 @@ public record GraphScoringPolicy(
             throw new com.spectrayan.spector.commons.error.SpectorValidationException(
                     com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
                     "entityMaxHops", 1, 10, entityMaxHops);
-        if (graphExpansionThreshold < 0f || graphExpansionThreshold > 1.0f)
+        if (graphExpansionThreshold < 0f || graphExpansionThreshold > 100.0f)
             throw new com.spectrayan.spector.commons.error.SpectorValidationException(
                     com.spectrayan.spector.commons.error.ErrorCode.ARGUMENT_OUT_OF_RANGE,
-                    "graphExpansionThreshold", 0, 1.0, graphExpansionThreshold);
+                    "graphExpansionThreshold", 0, 100.0, graphExpansionThreshold);
+        java.util.Objects.requireNonNull(graphExpansionMode, "graphExpansionMode");
     }
 }
 

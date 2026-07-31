@@ -132,18 +132,27 @@ final class GraphExpansionStage {
         }
 
         // ── Similarity-gated expansion ──
-        float maxDirectSimilarity = 0f;
-        for (CognitiveResult r : allResults) {
-            if (r.hasBreakdown()) {
-                maxDirectSimilarity = Math.max(maxDirectSimilarity, r.breakdown().similarity());
-            }
-        }
-        float expansionThreshold = options.graphExpansionThreshold();
-        if (maxDirectSimilarity >= expansionThreshold) {
-            log.debug("Graph expansion skipped: maxDirectSimilarity={} >= threshold={}",
-                    maxDirectSimilarity, expansionThreshold);
+        GraphExpansionMode mode = graphScoringPolicy.graphExpansionMode();
+        if (mode == GraphExpansionMode.ENTITY_ONLY && options.entityHints().isEmpty()) {
+            log.debug("Graph expansion skipped: ENTITY_ONLY mode and no entity hints");
             return;
         }
+
+        if (mode == GraphExpansionMode.GATED) {
+            float maxDirectSimilarity = 0f;
+            for (CognitiveResult r : allResults) {
+                if (r.hasBreakdown()) {
+                    maxDirectSimilarity = Math.max(maxDirectSimilarity, r.breakdown().similarity());
+                }
+            }
+            float expansionThreshold = options.graphExpansionThreshold();
+            if (maxDirectSimilarity >= expansionThreshold) {
+                log.debug("Graph expansion skipped: maxDirectSimilarity={} >= threshold={}",
+                        maxDirectSimilarity, expansionThreshold);
+                return;
+            }
+        }
+        // ALWAYS mode: fall through unconditionally
 
         // Build existingIds ONCE for all three layers
         Set<String> existingIds = new HashSet<>(allResults.size());
