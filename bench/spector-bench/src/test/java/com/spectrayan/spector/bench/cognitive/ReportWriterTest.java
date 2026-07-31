@@ -203,7 +203,7 @@ class ReportWriterTest {
         assertTrue(Files.exists(detailFile));
 
         List<String> lines = Files.readAllLines(detailFile);
-        assertEquals("query_id,baseline_nDCG,cognitive_nDCG,similarity_nDCG,delta,contributing_subsystems,profile,latency_ms",
+        assertEquals("query_id,baseline_nDCG,cognitive_nDCG,similarity_nDCG,delta,contributing_subsystems,profile,latency_ms,expected_subsystem,graph_expanded_candidates,graph_expanded_relevant,graph_delta_nDCG",
                 lines.get(0));
     }
 
