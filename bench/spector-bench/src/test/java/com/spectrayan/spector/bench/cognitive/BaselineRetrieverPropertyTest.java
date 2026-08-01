@@ -20,8 +20,8 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
 
 import net.jqwik.api.Arbitraries;
@@ -45,9 +45,9 @@ class BaselineRetrieverPropertyTest {
 
     private static final int DIMS = 8;
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Property 3: Results strictly ordered by ascending L2 distance
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Property 3: For any random corpus and query vector, the BaselineRetriever
@@ -178,9 +178,9 @@ class BaselineRetrieverPropertyTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Generators
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Provide
     Arbitrary<float[]> queryVectors() {
@@ -198,9 +198,9 @@ class BaselineRetrieverPropertyTest {
         return Arbitraries.integers().between(1, 10);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Helpers
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Generates a deterministic vector based on index to ensure reproducibility

@@ -20,11 +20,11 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -46,9 +46,9 @@ class ImportanceDominancePropertyTest {
 
     private static final int DIMS = 8;
 
-    // ══════════════════════════════════════════════════════════════
-    // Property 13: Higher importance → higher rank (beta > 0)
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Property 13: Higher importance â†’ higher rank (beta > 0)
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Property 13: With identical vectors but different importance, the higher-importance
@@ -70,7 +70,7 @@ class ImportanceDominancePropertyTest {
             MemorySegment segment = arena.allocate(totalBytes);
 
             long nowMs = System.currentTimeMillis();
-            long recentTimestamp = nowMs - 60_000; // 1 minute ago — bucket 0
+            long recentTimestamp = nowMs - 60_000; // 1 minute ago â€” bucket 0
 
             // Both records have IDENTICAL vectors (same L2 distance to query)
             float[] identicalVec = new float[DIMS];
@@ -108,15 +108,15 @@ class ImportanceDominancePropertyTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Support types
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     record ImportancePair(float highImportance, float lowImportance, float beta) {}
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Generators
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Provide
     Arbitrary<ImportancePair> importancePairs() {
@@ -127,9 +127,9 @@ class ImportanceDominancePropertyTest {
         ).as(ImportancePair::new);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Helpers
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
                              int index, float[] vector, float importance,

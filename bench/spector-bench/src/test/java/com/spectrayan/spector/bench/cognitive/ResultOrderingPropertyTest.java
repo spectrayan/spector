@@ -20,11 +20,11 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -39,15 +39,15 @@ import net.jqwik.api.constraints.IntRange;
  * <p><b>Validates: Requirements 3.7</b>
  *
  * <p>Property 12: For any query execution returning N results, the results SHALL be
- * sorted in strictly descending score order, all scores SHALL be > 0.0, and N ≤ topK.
+ * sorted in strictly descending score order, all scores SHALL be > 0.0, and N â‰¤ topK.
  */
 class ResultOrderingPropertyTest {
 
     private static final int DIMS = 8;
 
-    // ══════════════════════════════════════════════════════════════
-    // Property 12: Results sorted descending, scores > 0, count ≤ topK
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Property 12: Results sorted descending, scores > 0, count â‰¤ topK
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Property 12: CognitiveScorer results are sorted in descending score order,
@@ -83,7 +83,7 @@ class ResultOrderingPropertyTest {
             List<CognitiveScorer.ScoredRecord> results = CognitiveScorer.score(
                     segment, corpusSize, layout, queryVector, options, nowMs);
 
-            // Check count ≤ topK
+            // Check count â‰¤ topK
             assert results.size() <= topK
                     : String.format("Result count %d exceeds topK=%d", results.size(), topK);
 
@@ -103,9 +103,9 @@ class ResultOrderingPropertyTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Generators
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Provide
     Arbitrary<float[]> queryVectors() {
@@ -113,9 +113,9 @@ class ResultOrderingPropertyTest {
                 .array(float[].class).ofSize(DIMS);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Helpers
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private float[] generateDeterministicVector(int index, int corpusSize) {
         float[] vec = new float[DIMS];

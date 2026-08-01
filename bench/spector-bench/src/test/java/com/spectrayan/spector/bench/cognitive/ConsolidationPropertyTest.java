@@ -20,11 +20,11 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -46,16 +46,16 @@ class ConsolidationPropertyTest {
     private static final int DIMS = 8;
     private static final float EPSILON = 1e-5f;
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Property 30: Non-pruned memories retrievable unchanged
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Property 30: Non-tombstoned, non-pruned memories score consistently across
      * repeated queries (no mutation during OBSERVE mode scoring).
      *
      * <p>We verify that scoring the same corpus twice produces identical results,
-     * which is the essence of "unchanged after consolidation" — the scoring pipeline
+     * which is the essence of "unchanged after consolidation" â€” the scoring pipeline
      * does not mutate memory state.
      *
      * <p><b>Validates: Requirements 14.2</b>
@@ -86,7 +86,7 @@ class ConsolidationPropertyTest {
                     .topK(corpusSize)
                     .build();
 
-            // Score twice — results should be identical
+            // Score twice â€” results should be identical
             List<CognitiveScorer.ScoredRecord> results1 = CognitiveScorer.score(
                     segment, corpusSize, layout, queryVector, options, nowMs);
             List<CognitiveScorer.ScoredRecord> results2 = CognitiveScorer.score(
@@ -107,9 +107,9 @@ class ConsolidationPropertyTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Generators
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Provide
     Arbitrary<float[]> queryVectors() {
@@ -117,9 +117,9 @@ class ConsolidationPropertyTest {
                 .array(float[].class).ofSize(DIMS);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Helpers
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private float[] generateVector(int index, int corpusSize) {
         float[] vec = new float[DIMS];

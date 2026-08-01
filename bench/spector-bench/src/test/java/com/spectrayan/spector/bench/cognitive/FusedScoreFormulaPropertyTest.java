@@ -20,11 +20,11 @@ import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 
 import net.jqwik.api.Arbitraries;
@@ -40,15 +40,15 @@ import net.jqwik.api.Provide;
  * <p><b>Validates: Requirements 3.5</b>
  *
  * <p>Property 10: For any valid scoring inputs, the CognitiveScorer SHALL compute
- * finalScore = (alpha × similarity + beta × importance × decay) × (1 + tagOverlap × tagRelevanceBoost).
+ * finalScore = (alpha Ã— similarity + beta Ã— importance Ã— decay) Ã— (1 + tagOverlap Ã— tagRelevanceBoost).
  */
 class FusedScoreFormulaPropertyTest {
 
     private static final int DIMS = 8;
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Property 10: Fused score formula verification
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Property 10: For a single record with known parameters, the scorer's output
@@ -70,7 +70,7 @@ class FusedScoreFormulaPropertyTest {
 
             long nowMs = System.currentTimeMillis();
             // Use a recent timestamp to get bucket 0 (fresh) for simplicity
-            long timestamp = nowMs - 1000; // 1 second ago → bucket 0, decay = 1.0
+            long timestamp = nowMs - 1000; // 1 second ago â†’ bucket 0, decay = 1.0
 
             float[] recordVec = new float[DIMS];
             // Set known vector values
@@ -124,15 +124,15 @@ class FusedScoreFormulaPropertyTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Support types
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     record ScoringInput(float alpha, float beta, float importance, float vecComponent) {}
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Generators
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Provide
     Arbitrary<ScoringInput> scoringInputs() {

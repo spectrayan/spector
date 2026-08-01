@@ -25,11 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 
 /**
@@ -45,18 +45,18 @@ import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
  *   <li>Fused score formula</li>
  * </ol>
  *
- * <p><b>Validates: Requirements 3.1–3.7</b>
+ * <p><b>Validates: Requirements 3.1â€“3.7</b>
  */
 class ScoringPipelineValidationTest {
 
     private static final int DIMS = 8;
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Phase 1: Tombstone Exclusion
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
-     * Phase 1: Creates 2 records — identical except one is tombstoned.
+     * Phase 1: Creates 2 records â€” identical except one is tombstoned.
      * Verifies tombstoned record never appears in results.
      */
     @Test
@@ -86,9 +86,9 @@ class ScoringPipelineValidationTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Phase 2: Tag Gating
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Phase 2: Creates records with known Bloom filter encodings.
@@ -128,7 +128,7 @@ class ScoringPipelineValidationTest {
                     segment, corpusSize, layout, vec, options, System.currentTimeMillis());
 
             // Non-matching record (index 1) should be excluded (zero overlap)
-            // Note: CognitiveScorer uses broadened containment — skip only on ZERO overlap.
+            // Note: CognitiveScorer uses broadened containment â€” skip only on ZERO overlap.
             // Record 1 ("cooking", "recipes") has zero overlap with query ("java", "performance")
             boolean nonMatchingPresent = results.stream()
                     .anyMatch(r -> r.index() == 1);
@@ -142,14 +142,14 @@ class ScoringPipelineValidationTest {
                     "Record with full tag match should be present");
 
             // Partial overlap record (index 2) may or may not be present
-            // depending on whether any bits overlap — with broadened containment
+            // depending on whether any bits overlap â€” with broadened containment
             // it passes if ANY overlap exists
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Phase 3: Valence Filtering
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Phase 3: Creates records spanning valence -128 to +127.
@@ -191,9 +191,9 @@ class ScoringPipelineValidationTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Phase 4: Importance Pre-Screen
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Phase 4: Verifies old + low-importance + resolved + unpinned = excluded.
@@ -210,11 +210,11 @@ class ScoringPipelineValidationTest {
             float[] vec = new float[DIMS];
             long veryOldTs = System.currentTimeMillis() - (6L * 365 * 24 * 60 * 60 * 1000);
 
-            // Record 0: low importance, very old, resolved, unpinned → should be excluded
+            // Record 0: low importance, very old, resolved, unpinned â†’ should be excluded
             writeRecordWithTimestamp(segment, layout, 0, vec, 0.5f, veryOldTs,
                     SynapticHeaderConstants.FLAG_RESOLVED, mins, scales);
 
-            // Record 1: high importance, very old → should survive
+            // Record 1: high importance, very old â†’ should survive
             writeRecordWithTimestamp(segment, layout, 1, vec, 8.0f, veryOldTs,
                     SynapticHeaderConstants.FLAG_RESOLVED, mins, scales);
 
@@ -228,9 +228,9 @@ class ScoringPipelineValidationTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Phase 5: L2 Distance Computation
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Phase 5: Known vectors with precomputed distances.
@@ -278,12 +278,12 @@ class ScoringPipelineValidationTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Phase 6: Fused Score Formula
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
-     * Phase 6: Verifies alpha×sim + beta×imp×decay with known inputs.
+     * Phase 6: Verifies alphaÃ—sim + betaÃ—impÃ—decay with known inputs.
      * With alpha=0.5, beta=0.5, the score incorporates both similarity and importance.
      */
     @Test
@@ -406,9 +406,9 @@ class ScoringPipelineValidationTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Helpers
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
                              int index, float[] vector, float importance, long timestamp,

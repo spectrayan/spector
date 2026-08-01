@@ -62,7 +62,7 @@ import com.spectrayan.spector.memory.DataLayoutVersion;
 import com.spectrayan.spector.memory.LayoutMigrator;
 import com.spectrayan.spector.memory.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.StorageLayout;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;

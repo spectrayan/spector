@@ -25,8 +25,8 @@ import java.util.PriorityQueue;
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 /**
  * Baseline retriever that scores corpus memories using <b>only</b> L2 vector distance

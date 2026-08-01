@@ -28,7 +28,7 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 
-import com.spectrayan.spector.memory.StorageLayout;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 
 /**

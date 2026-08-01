@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.StorageLayout;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
