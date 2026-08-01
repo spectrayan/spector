@@ -391,9 +391,23 @@ public final class SpectorMemoryFactory {
             int hyperCap = builder.entityGraphCapacity;
             int hyperEdgeCap = hyperCap * 2;
             if (isDisk && basePath != null) {
-                Path hyperPath = StorageLayout.hyperEntityGraphRuntime(basePath);
-                if (java.nio.file.Files.exists(hyperPath)) {
-                    hyperEntityGraph = HyperEntityGraphMemory.load(hyperPath, hyperCap, hyperEdgeCap);
+                Path runtimeHyper = StorageLayout.hyperEntityGraphRuntime(basePath);
+                Path v2Hyper = resolvedPartitionDir != null
+                        ? StorageLayout.hyperEntityGraph(resolvedPartitionDir) : null;
+                Path loadFrom = getNewerPath(runtimeHyper, v2Hyper, null);
+                if (loadFrom == null) {
+                    loadFrom = runtimeHyper;
+                }
+                try {
+                    com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
+                            com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
+                            com.spectrayan.spector.memory.kernel.MemoryId.of("spector", "hyper-entity-graph"),
+                            new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout(),
+                            loadFrom, null, null);
+                } catch (Exception ignored) {}
+
+                if (java.nio.file.Files.exists(loadFrom)) {
+                    hyperEntityGraph = HyperEntityGraphMemory.load(loadFrom, hyperCap, hyperEdgeCap);
                 } else {
                     hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
                 }
