@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.graph;
 
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.GraphNeighborhood;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -65,6 +66,10 @@ class CognitiveGraphFacadeTest {
         when(entityGraph.nameIndex()).thenReturn(nameIndex);
         when(entityGraph.memoriesForEntity(10)).thenReturn(new int[]{0, 1});
         when(entityGraph.entityType(10)).thenReturn("CONCEPT");
+
+        var mockEdge = mock(HyperEdge.class);
+        when(mockEdge.memoryIdx()).thenReturn(1);
+        when(hyperEntityGraph.findHyperedgesForEntity(10)).thenReturn(List.of(mockEdge));
 
         // Set up inspector to return records for mem-1 and mem-2
         var rec1 = mock(CognitiveRecord.class);

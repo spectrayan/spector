@@ -119,9 +119,9 @@ class HypergraphRecallSpikeTest {
         hyperGraph.addHyperedge(new int[]{0, 2}, new int[]{1, 1}, 1, 1.0f, 99, System.currentTimeMillis());
 
         GraphScoringPolicy policy = new GraphScoringPolicy(
-                0.3f, 0.3f, 0.8f, 0.7f, 0.25f, 2, 3, 2, 0.40f, true // useHypergraphRecall = true
+                0.3f, 0.3f, 0.8f, 0.7f, 0.25f, 2, 3, 2, 0.40f,
+                GraphExpansionMode.GATED
         );
-
         GraphExpansionStage stage = new GraphExpansionStage(
                 null, null, entityGraph, hyperGraph, null, policy, null, null, null, null
         );
