@@ -28,14 +28,6 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Netty BOM — MUST be first (Armeria needs 4.2.x) -->
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-bom</artifactId>
-                <version>4.2.13.Final</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
 
             <!-- Spring Boot 4 BOM -->
             <dependency>
@@ -190,7 +182,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.22</version>
         </dependency>
         <!-- ── Jackson 2.x (needed by LangChain4j, Tika, JacksonConfig ObjectMapper) ── -->
         <dependency>
@@ -206,7 +197,6 @@
         <dependency>
             <groupId>com.spectrayan.sse</groupId>
             <artifactId>sse-server</artifactId>
-            <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -217,12 +207,10 @@
         <dependency>
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-core</artifactId>
-            <version>3.2.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-parsers-standard-package</artifactId>
-            <version>3.2.2</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -230,7 +218,6 @@
         <dependency>
             <groupId>technology.tabula</groupId>
             <artifactId>tabula</artifactId>
-            <version>1.0.5</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -242,7 +229,6 @@
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
-            <version>3.0.8</version>
         </dependency>
 
         <!-- ── Logging runtime ── -->
@@ -297,7 +283,6 @@
         <dependency>
             <groupId>net.jqwik</groupId>
             <artifactId>jqwik</artifactId>
-            <version>1.9.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

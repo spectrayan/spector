@@ -137,6 +137,14 @@
         <flyway.version>12.4.0</flyway.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <langgraph4j.version>1.8.20</langgraph4j.version>
+        <jsqlparser.version>4.9</jsqlparser.version>
+        <tika.version>3.2.2</tika.version>
+        <jqwik.version>1.9.2</jqwik.version>
+        <sse-server.version>2.0.0</sse-server.version>
+        <tabula.version>1.0.5</tabula.version>
+        <pdfbox.version>3.0.8</pdfbox.version>
+        <netty.version>4.2.13.Final</netty.version>
+        <picocli.version>4.7.6</picocli.version>
 
         <!-- Test dependency versions -->
         <junit.version>6.1.2</junit.version>
@@ -152,6 +160,15 @@
         <jacoco-plugin.version>0.8.15</jacoco-plugin.version>
         <license-maven-plugin.version>5.1.1</license-maven-plugin.version>
         <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
+        <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
+        <exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
+        <git-commit-id-plugin.version>10.0.0</git-commit-id-plugin.version>
+        <maven-release-plugin.version>3.1.1</maven-release-plugin.version>
+        <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
+        <central-publishing-maven-plugin.version>0.9.0</central-publishing-maven-plugin.version>
+        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
+        <maven-source-plugin.version>3.3.0</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
 
         <!-- JaCoCo coverage threshold — default 0, modules raise as tests are added (target: 0.80) -->
         <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
@@ -440,7 +457,71 @@
             <dependency>
                 <groupId>com.github.jsqlparser</groupId>
                 <artifactId>jsqlparser</artifactId>
-                <version>4.9</version>
+                <version>${jsqlparser.version}</version>
+            </dependency>
+
+            <!-- Netty BOM -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>${netty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Apache Tika (PDF, DOCX, HTML text extraction) -->
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-core</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-parsers-standard-package</artifactId>
+                <version>${tika.version}</version>
+                <scope>runtime</scope>
+            </dependency>
+
+            <!-- jqwik — property-based testing -->
+            <dependency>
+                <groupId>net.jqwik</groupId>
+                <artifactId>jqwik</artifactId>
+                <version>${jqwik.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Spectrayan SSE Server -->
+            <dependency>
+                <groupId>com.spectrayan.sse</groupId>
+                <artifactId>sse-server</artifactId>
+                <version>${sse-server.version}</version>
+            </dependency>
+
+            <!-- Tabula (structured table extraction from PDFs) -->
+            <dependency>
+                <groupId>technology.tabula</groupId>
+                <artifactId>tabula</artifactId>
+                <version>${tabula.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-simple</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <!-- PDFBox -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
+            </dependency>
+
+            <!-- Picocli -->
+            <dependency>
+                <groupId>info.picocli</groupId>
+                <artifactId>picocli</artifactId>
+                <version>${picocli.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -625,11 +706,32 @@
                     </executions>
                 </plugin>
 
+                <!-- Resources plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>${maven-resources-plugin.version}</version>
+                </plugin>
+
+                <!-- Exec plugin -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>${exec-maven-plugin.version}</version>
+                </plugin>
+
+                <!-- Git commit ID plugin -->
+                <plugin>
+                    <groupId>io.github.git-commit-id</groupId>
+                    <artifactId>git-commit-id-maven-plugin</artifactId>
+                    <version>${git-commit-id-plugin.version}</version>
+                </plugin>
+
                 <!-- Release process and publishing -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-release-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>${maven-release-plugin.version}</version>
                     <configuration>
                         <tagNameFormat>@{project.version}</tagNameFormat>
                         <updateWorkingCopyVersions>true</updateWorkingCopyVersions>
@@ -644,7 +746,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-deploy-plugin</artifactId>
-                    <version>3.1.4</version>
+                    <version>${maven-deploy-plugin.version}</version>
                     <configuration>
                         <altDeploymentRepository>${mavenAltDeploymentRepository}</altDeploymentRepository>
                         <altSnapshotDeploymentRepository>${mavenAltSnapshotDeploymentRepository}</altSnapshotDeploymentRepository>
@@ -653,7 +755,7 @@
                 <plugin>
                     <groupId>org.sonatype.central</groupId>
                     <artifactId>central-publishing-maven-plugin</artifactId>
-                    <version>0.9.0</version>
+                    <version>${central-publishing-maven-plugin.version}</version>
                     <extensions>true</extensions>
                     <configuration>
                         <publishingServerId>central</publishingServerId>
@@ -663,7 +765,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-gpg-plugin</artifactId>
-                    <version>3.2.8</version>
+                    <version>${maven-gpg-plugin.version}</version>
                     <executions>
                         <execution>
                             <id>sign-artifacts</id>
@@ -682,7 +784,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-source-plugin</artifactId>
-                    <version>3.3.0</version>
+                    <version>${maven-source-plugin.version}</version>
                     <executions>
                         <execution>
                             <id>attach-sources</id>
@@ -695,7 +797,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>3.12.0</version>
+                    <version>${maven-javadoc-plugin.version}</version>
                     <configuration>
                         <additionalOptions>--add-modules ${vector.api.module} --enable-preview</additionalOptions>
                         <source>${java.version}</source>

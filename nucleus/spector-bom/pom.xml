@@ -34,6 +34,11 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
+                <artifactId>spector-hdc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-config</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -53,6 +58,12 @@
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-providers</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-test-support</artifactId>
+                <version>${project.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <!-- ── Search Layer ── -->
