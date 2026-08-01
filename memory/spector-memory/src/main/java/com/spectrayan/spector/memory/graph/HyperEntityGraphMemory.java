@@ -68,7 +68,7 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
  * collect co-occurring entities. Cost: O(hyperedges_per_entity × avg_vertices).</p>
  *
  * <h3>Eviction</h3>
- * <p>Per-entity hyperedge cap (MAX_HYPEREDGES_PER_ENTITY=64). When exceeded,
+ * <p>Per-entity hyperedge cap (HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY=64). When exceeded,
  * the weakest hyperedge (by weight) is evicted.</p>
  *
  * @see EntityGraph
@@ -86,29 +86,6 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
 
     // ── Hyperedge Layout ──
 
-    /** Bytes per hyperedge node. */
-    static final int HEDGE_BYTES = 32;
-    private static final int HEDGE_OFF_EDGE_ID = 0;
-    private static final int HEDGE_OFF_TYPE = 4;
-    private static final int HEDGE_OFF_WEIGHT = 8;
-    private static final int HEDGE_OFF_VERTEX_COUNT = 12;
-    private static final int HEDGE_OFF_VERTEX_OFFSET = 16;
-    private static final int HEDGE_OFF_MEMORY_IDX = 20;
-    private static final int HEDGE_OFF_TIMESTAMP = 24;
-
-    /** Bytes per vertex entry. */
-    static final int VERTEX_BYTES = 8;
-    private static final int VERTEX_OFF_ENTITY_ID = 0;
-    private static final int VERTEX_OFF_ROLE_ID = 4;
-
-    /** Max vertices per hyperedge (3-8 entities). */
-    public static final int MAX_VERTICES_PER_EDGE = 8;
-
-    /** Max hyperedges per entity (participation cap). */
-    public static final int MAX_HYPEREDGES_PER_ENTITY = 64;
-
-    /** Bytes per incidence list entry. */
-    private static final int INCIDENCE_ENTRY_BYTES = 4;
 
     // ── Capacity ──
 
@@ -121,10 +98,10 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
 
     private final Arena arena;
 
-    /** Hyperedge segment: HEDGE_BYTES × hyperedgeCapacity. */
+    /** Hyperedge segment: HyperEntityLayout.HEDGE_BYTES × hyperedgeCapacity. */
     private final MemorySegment hedges;
 
-    /** Vertex segment: VERTEX_BYTES × vertexCapacity. */
+    /** Vertex segment: HyperEntityLayout.VERTEX_BYTES × vertexCapacity. */
     private final MemorySegment vertices;
 
     /**
@@ -134,7 +111,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     private final MemorySegment incidenceIndex;
 
     /**
-     * Incidence list: INCIDENCE_ENTRY_BYTES × incidenceCapacity.
+     * Incidence list: HyperEntityLayout.INCIDENCE_ENTRY_BYTES × incidenceCapacity.
      * Packed lists of hyperedge IDs per entity.
      */
     private final MemorySegment incidenceList;
@@ -193,25 +170,25 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     public HyperEntityGraphMemory(int entityCapacity, int hyperedgeCapacity) {
         this.entityCapacity = entityCapacity;
         this.hyperedgeCapacity = hyperedgeCapacity;
-        this.vertexCapacity = hyperedgeCapacity * MAX_VERTICES_PER_EDGE;
-        this.incidenceCapacity = entityCapacity * MAX_HYPEREDGES_PER_ENTITY;
+        this.vertexCapacity = hyperedgeCapacity * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
+        this.incidenceCapacity = entityCapacity * HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY;
         this.nextHyperedgeId = 0;
         this.nextVertexOffset = 0;
         this.totalHyperedges = 0;
 
         this.arena = Arena.ofShared();
 
-        this.hedges = arena.allocate((long) HEDGE_BYTES * hyperedgeCapacity);
+        this.hedges = arena.allocate((long) HyperEntityLayout.HEDGE_BYTES * hyperedgeCapacity);
         hedges.fill((byte) 0);
 
-        this.vertices = arena.allocate((long) VERTEX_BYTES * vertexCapacity);
+        this.vertices = arena.allocate((long) HyperEntityLayout.VERTEX_BYTES * vertexCapacity);
         vertices.fill((byte) 0);
 
         long indexBytes = (long) (entityCapacity + 1) * Integer.BYTES;
         this.incidenceIndex = arena.allocate(indexBytes);
         incidenceIndex.fill((byte) 0);
 
-        this.incidenceList = arena.allocate((long) INCIDENCE_ENTRY_BYTES * incidenceCapacity);
+        this.incidenceList = arena.allocate((long) HyperEntityLayout.INCIDENCE_ENTRY_BYTES * incidenceCapacity);
         incidenceList.fill((byte) 0);
 
         // On-heap incidence lists for fast lookup
@@ -220,10 +197,10 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             incidenceHeap.add(new ArrayList<>(4));
         }
 
-        long totalKB = ((long) HEDGE_BYTES * hyperedgeCapacity
-                + (long) VERTEX_BYTES * vertexCapacity
+        long totalKB = ((long) HyperEntityLayout.HEDGE_BYTES * hyperedgeCapacity
+                + (long) HyperEntityLayout.VERTEX_BYTES * vertexCapacity
                 + indexBytes
-                + (long) INCIDENCE_ENTRY_BYTES * incidenceCapacity) / 1024;
+                + (long) HyperEntityLayout.INCIDENCE_ENTRY_BYTES * incidenceCapacity) / 1024;
 
         log.info("HyperEntityGraphMemory initialized: entities={}, hyperedges={}, memory={}KB",
                 entityCapacity, hyperedgeCapacity, totalKB);
@@ -260,9 +237,9 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     public int addHyperedge(int[] vertexEntities, int[] vertexRoles,
                              int type, float weight, int memoryIdx, long timestamp) {
         if (vertexEntities == null || vertexEntities.length < 2
-                || vertexEntities.length > MAX_VERTICES_PER_EDGE) {
+                || vertexEntities.length > HyperEntityLayout.MAX_VERTICES_PER_EDGE) {
             log.warn("Invalid hyperedge: vertex count {} (must be 2-{})",
-                    vertexEntities != null ? vertexEntities.length : 0, MAX_VERTICES_PER_EDGE);
+                    vertexEntities != null ? vertexEntities.length : 0, HyperEntityLayout.MAX_VERTICES_PER_EDGE);
             return -1;
         }
         if (vertexRoles == null || vertexRoles.length != vertexEntities.length) {
@@ -287,7 +264,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             for (int entityId : vertexEntities) {
                 if (entityId < 0 || entityId >= entityCapacity) continue;
                 List<Integer> participation = incidenceHeap.get(entityId);
-                if (participation.size() >= MAX_HYPEREDGES_PER_ENTITY) {
+                if (participation.size() >= HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY) {
                     // Evict weakest hyperedge for this entity
                     evictWeakestHyperedge(entityId);
                 }
@@ -297,26 +274,26 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             totalHyperedges++;
 
             if (wal != null && !bypassWal) {
-                ByteBuffer buf = ByteBuffer.allocate(HEDGE_BYTES);
+                ByteBuffer buf = ByteBuffer.allocate(HyperEntityLayout.HEDGE_BYTES);
                 buf.putInt(type).putFloat(weight).putInt(vertexCount).putInt(memoryIdx).putLong(timestamp);
                 wal.appendRecordWrite(memoryId.toString(), edgeId, buf.array());
             }
 
             // Write hyperedge header
-            long hedgeOff = (long) edgeId * HEDGE_BYTES;
-            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_EDGE_ID, edgeId);
-            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_TYPE, type);
-            hedges.set(ValueLayout.JAVA_FLOAT, hedgeOff + HEDGE_OFF_WEIGHT, weight);
-            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_COUNT, vertexCount);
-            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_OFFSET, nextVertexOffset);
-            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_MEMORY_IDX, memoryIdx);
-            hedges.set(ValueLayout.JAVA_LONG, hedgeOff + HEDGE_OFF_TIMESTAMP, timestamp);
+            long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
+            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_EDGE_ID, edgeId);
+            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_TYPE, type);
+            hedges.set(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT, weight);
+            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT, vertexCount);
+            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_OFFSET, nextVertexOffset);
+            hedges.set(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_MEMORY_IDX, memoryIdx);
+            hedges.set(ValueLayout.JAVA_LONG, hedgeOff + HyperEntityLayout.HEDGE_OFF_TIMESTAMP, timestamp);
 
             // Write vertex entries
             for (int i = 0; i < vertexCount; i++) {
-                long vOff = (long) (nextVertexOffset + i) * VERTEX_BYTES;
-                vertices.set(ValueLayout.JAVA_INT, vOff + VERTEX_OFF_ENTITY_ID, vertexEntities[i]);
-                vertices.set(ValueLayout.JAVA_INT, vOff + VERTEX_OFF_ROLE_ID, vertexRoles[i]);
+                long vOff = (long) (nextVertexOffset + i) * HyperEntityLayout.VERTEX_BYTES;
+                vertices.set(ValueLayout.JAVA_INT, vOff + HyperEntityLayout.VERTEX_OFF_ENTITY_ID, vertexEntities[i]);
+                vertices.set(ValueLayout.JAVA_INT, vOff + HyperEntityLayout.VERTEX_OFF_ROLE_ID, vertexRoles[i]);
             }
             nextVertexOffset += vertexCount;
 
@@ -342,21 +319,21 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     public HyperEdge getHyperedge(int edgeId) {
         if (edgeId < 0 || edgeId >= nextHyperedgeId) return null;
 
-        long hedgeOff = (long) edgeId * HEDGE_BYTES;
-        int type = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_TYPE);
-        float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HEDGE_OFF_WEIGHT);
-        int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_COUNT);
-        int vertexOffset = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_OFFSET);
-        int memoryIdx = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_MEMORY_IDX);
-        long timestamp = hedges.get(ValueLayout.JAVA_LONG, hedgeOff + HEDGE_OFF_TIMESTAMP);
+        long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
+        int type = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_TYPE);
+        float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT);
+        int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT);
+        int vertexOffset = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_OFFSET);
+        int memoryIdx = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_MEMORY_IDX);
+        long timestamp = hedges.get(ValueLayout.JAVA_LONG, hedgeOff + HyperEntityLayout.HEDGE_OFF_TIMESTAMP);
 
         if (vertexCount == 0) return null; // Deleted
 
         List<HyperEdgeVertex> verts = new ArrayList<>(vertexCount);
         for (int i = 0; i < vertexCount; i++) {
-            long vOff = (long) (vertexOffset + i) * VERTEX_BYTES;
-            int entityId = vertices.get(ValueLayout.JAVA_INT, vOff + VERTEX_OFF_ENTITY_ID);
-            int roleId = vertices.get(ValueLayout.JAVA_INT, vOff + VERTEX_OFF_ROLE_ID);
+            long vOff = (long) (vertexOffset + i) * HyperEntityLayout.VERTEX_BYTES;
+            int entityId = vertices.get(ValueLayout.JAVA_INT, vOff + HyperEntityLayout.VERTEX_OFF_ENTITY_ID);
+            int roleId = vertices.get(ValueLayout.JAVA_INT, vOff + HyperEntityLayout.VERTEX_OFF_ROLE_ID);
             verts.add(new HyperEdgeVertex(entityId, roleId));
         }
 
@@ -456,9 +433,9 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
 
         graphLock.lock();
         try {
-            long hedgeOff = (long) edgeId * HEDGE_BYTES;
-            float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HEDGE_OFF_WEIGHT);
-            hedges.set(ValueLayout.JAVA_FLOAT, hedgeOff + HEDGE_OFF_WEIGHT, weight + weightDelta);
+            long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
+            float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT);
+            hedges.set(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT, weight + weightDelta);
         } finally {
             graphLock.unlock();
         }
@@ -477,11 +454,11 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             int evicted = 0;
 
             for (int i = 0; i < nextHyperedgeId; i++) {
-                long hedgeOff = (long) i * HEDGE_BYTES;
-                int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_COUNT);
+                long hedgeOff = (long) i * HyperEntityLayout.HEDGE_BYTES;
+                int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT);
                 if (vertexCount == 0) continue; // already deleted
 
-                float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HEDGE_OFF_WEIGHT);
+                float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT);
                 float newWeight = weight * decayFactor;
 
                 if (newWeight < minWeight) {
@@ -489,7 +466,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
                     deleteHyperedge(i);
                     evicted++;
                 } else {
-                    hedges.set(ValueLayout.JAVA_FLOAT, hedgeOff + HEDGE_OFF_WEIGHT, newWeight);
+                    hedges.set(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT, newWeight);
                 }
             }
 
@@ -540,7 +517,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
 
             MemorySegment stdHeaderSeg = Arena.ofAuto().allocate(MemoryHeader.HEADER_BYTES);
             MemoryHeader.write(stdHeaderSeg, 0, FILE_VERSION, MemoryShape.GRAPH, 0,
-                    hyperedgeCapacity, totalHyperedges, HEDGE_BYTES, layout.layoutId(),
+                    hyperedgeCapacity, totalHyperedges, HyperEntityLayout.HEDGE_BYTES, layout.layoutId(),
                     System.currentTimeMillis(), System.currentTimeMillis());
             ch.write(stdHeaderSeg.asByteBuffer());
 
@@ -558,9 +535,9 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             ch.write(customHeader);
 
             // Write hyperedge segment
-            writeSegment(ch, hedges, (long) nextHyperedgeId * HEDGE_BYTES);
+            writeSegment(ch, hedges, (long) nextHyperedgeId * HyperEntityLayout.HEDGE_BYTES);
             // Write vertex segment
-            writeSegment(ch, vertices, (long) nextVertexOffset * VERTEX_BYTES);
+            writeSegment(ch, vertices, (long) nextVertexOffset * HyperEntityLayout.VERTEX_BYTES);
 
             ch.force(true);
             log.info("HyperEntityGraphMemory saved: {} hyperedges, {} vertices, file={}",
@@ -640,8 +617,8 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
                     Math.max(loadedHedgeCap, hyperedgeCapacity));
 
             // Read data
-            readIntoSegment(ch, graph.hedges, (long) loadedNextId * HEDGE_BYTES);
-            readIntoSegment(ch, graph.vertices, (long) loadedNextVertexOff * VERTEX_BYTES);
+            readIntoSegment(ch, graph.hedges, (long) loadedNextId * HyperEntityLayout.HEDGE_BYTES);
+            readIntoSegment(ch, graph.vertices, (long) loadedNextVertexOff * HyperEntityLayout.VERTEX_BYTES);
 
             graph.nextHyperedgeId = loadedNextId;
             graph.nextVertexOffset = loadedNextVertexOff;
@@ -694,22 +671,22 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     // ══════════════════════════════════════════════════════════════
 
     private void deleteHyperedge(int edgeId) {
-        long hedgeOff = (long) edgeId * HEDGE_BYTES;
-        int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_COUNT);
+        long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
+        int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT);
         if (vertexCount == 0) return; // already deleted
 
         // Remove from incidence lists
-        int vertexOffset = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_OFFSET);
+        int vertexOffset = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_OFFSET);
         for (int i = 0; i < vertexCount; i++) {
-            long vOff = (long) (vertexOffset + i) * VERTEX_BYTES;
-            int entityId = vertices.get(ValueLayout.JAVA_INT, vOff + VERTEX_OFF_ENTITY_ID);
+            long vOff = (long) (vertexOffset + i) * HyperEntityLayout.VERTEX_BYTES;
+            int entityId = vertices.get(ValueLayout.JAVA_INT, vOff + HyperEntityLayout.VERTEX_OFF_ENTITY_ID);
             if (entityId >= 0 && entityId < entityCapacity) {
                 incidenceHeap.get(entityId).remove(Integer.valueOf(edgeId));
             }
         }
 
         // Tombstone: zero vertex count
-        hedges.set(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_COUNT, 0);
+        hedges.set(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT, 0);
         totalHyperedges--;
     }
 
@@ -721,8 +698,8 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
         int minEdgeId = -1;
 
         for (int edgeId : participation) {
-            long hedgeOff = (long) edgeId * HEDGE_BYTES;
-            float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HEDGE_OFF_WEIGHT);
+            long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
+            float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT);
             if (weight < minWeight) {
                 minWeight = weight;
                 minEdgeId = edgeId;
@@ -743,14 +720,14 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
         }
 
         for (int i = 0; i < nextHyperedgeId; i++) {
-            long hedgeOff = (long) i * HEDGE_BYTES;
-            int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_COUNT);
+            long hedgeOff = (long) i * HyperEntityLayout.HEDGE_BYTES;
+            int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT);
             if (vertexCount == 0) continue;
 
-            int vertexOffset = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HEDGE_OFF_VERTEX_OFFSET);
+            int vertexOffset = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_OFFSET);
             for (int j = 0; j < vertexCount; j++) {
-                long vOff = (long) (vertexOffset + j) * VERTEX_BYTES;
-                int entityId = vertices.get(ValueLayout.JAVA_INT, vOff + VERTEX_OFF_ENTITY_ID);
+                long vOff = (long) (vertexOffset + j) * HyperEntityLayout.VERTEX_BYTES;
+                int entityId = vertices.get(ValueLayout.JAVA_INT, vOff + HyperEntityLayout.VERTEX_OFF_ENTITY_ID);
                 if (entityId >= 0 && entityId < entityCapacity) {
                     incidenceHeap.get(entityId).add(i);
                 }
