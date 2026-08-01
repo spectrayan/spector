@@ -306,7 +306,7 @@ final class GraphExpansionStage {
                 if (entityId < 0) continue;
  
                 Set<Integer> reachableMemories;
-                if (graphScoringPolicy.useHypergraphRecall() && hyperEntityGraph != null) {
+                if (hyperEntityGraph != null) {
                     reachableMemories = hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
                 } else {
                     reachableMemories = entityGraph.collectMemories(

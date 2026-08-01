@@ -58,7 +58,6 @@ public record GraphScoringPolicy(
         int temporalMaxHops,
         int entityMaxHops,
         float graphExpansionThreshold,
-        boolean useHypergraphRecall,
         GraphExpansionMode graphExpansionMode
 ) {
 
@@ -66,7 +65,7 @@ public record GraphScoringPolicy(
     public static final String THRESHOLD_SYSTEM_PROPERTY = "spector.benchmark.graphExpansionThreshold";
 
     /**
-     * Backward-compatible constructor — uses default graph expansion threshold, no hypergraph recall, GATED mode.
+     * Backward-compatible constructor — uses default graph expansion threshold, GATED mode.
      */
     public GraphScoringPolicy(float causalBoostWeight, float hebbianBoostFactor,
                                float temporalForwardFactor, float temporalBackwardFactor,
@@ -74,11 +73,11 @@ public record GraphScoringPolicy(
                                int temporalMaxHops, int entityMaxHops) {
         this(causalBoostWeight, hebbianBoostFactor, temporalForwardFactor,
                 temporalBackwardFactor, entityHopAttenuation, hebbianMaxDepth,
-                temporalMaxHops, entityMaxHops, 0.40f, false, GraphExpansionMode.GATED);
+                temporalMaxHops, entityMaxHops, 0.40f, GraphExpansionMode.GATED);
     }
 
     /**
-     * Backward-compatible constructor — uses custom graph expansion threshold and no hypergraph recall.
+     * Backward-compatible constructor — uses custom graph expansion threshold.
      */
     public GraphScoringPolicy(float causalBoostWeight, float hebbianBoostFactor,
                                float temporalForwardFactor, float temporalBackwardFactor,
@@ -87,28 +86,13 @@ public record GraphScoringPolicy(
                                float graphExpansionThreshold) {
         this(causalBoostWeight, hebbianBoostFactor, temporalForwardFactor,
                 temporalBackwardFactor, entityHopAttenuation, hebbianMaxDepth,
-                temporalMaxHops, entityMaxHops, graphExpansionThreshold, false, GraphExpansionMode.GATED);
-    }
-
-    /**
-     * Constructor with all fields except expansion mode — defaults to GATED.
-     */
-    public GraphScoringPolicy(float causalBoostWeight, float hebbianBoostFactor,
-                               float temporalForwardFactor, float temporalBackwardFactor,
-                               float entityHopAttenuation, int hebbianMaxDepth,
-                               int temporalMaxHops, int entityMaxHops,
-                               float graphExpansionThreshold, boolean useHypergraphRecall) {
-        this(causalBoostWeight, hebbianBoostFactor, temporalForwardFactor,
-                temporalBackwardFactor, entityHopAttenuation, hebbianMaxDepth,
-                temporalMaxHops, entityMaxHops, graphExpansionThreshold, useHypergraphRecall,
-                GraphExpansionMode.GATED);
+                temporalMaxHops, entityMaxHops, graphExpansionThreshold, GraphExpansionMode.GATED);
     }
 
     /**
      * Default policy — reads runtime overrides from system properties.
      *
      * <ul>
-     *   <li>{@code spector.benchmark.useHypergraphRecall} — boolean (default: false)</li>
      *   <li>{@code spector.benchmark.graphExpansionThreshold} — float (default: 0.40)</li>
      *   <li>{@code spector.memory.graphExpansionMode} — GATED/ALWAYS/ENTITY_ONLY (default: GATED)</li>
      * </ul>
@@ -123,7 +107,6 @@ public record GraphScoringPolicy(
                 threshold = Float.parseFloat(thresholdStr);
             } catch (NumberFormatException ignored) { /* use default */ }
         }
-        boolean useHypergraph = Boolean.getBoolean("spector.benchmark.useHypergraphRecall");
         GraphExpansionMode mode = GraphExpansionMode.resolve();
 
         return new GraphScoringPolicy(
@@ -136,7 +119,6 @@ public record GraphScoringPolicy(
                 3,      // temporalMaxHops
                 2,      // entityMaxHops
                 threshold,
-                useHypergraph,
                 mode
         );
     }
