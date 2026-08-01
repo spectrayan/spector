@@ -27,6 +27,7 @@ import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityRelation;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -360,9 +361,9 @@ final class PostIngestSync {
             // Create hyperedge for multi-entity co-occurrence (if >= 2 entities in this memory)
             if (hyperEntityGraph != null && entityIds.size() >= 2) {
                 int[] vertexArr = entityIds.stream().mapToInt(Integer::intValue).toArray();
-                if (vertexArr.length > HyperEntityGraphMemory.MAX_VERTICES_PER_EDGE) {
-                    int[] truncated = new int[HyperEntityGraphMemory.MAX_VERTICES_PER_EDGE];
-                    System.arraycopy(vertexArr, 0, truncated, 0, HyperEntityGraphMemory.MAX_VERTICES_PER_EDGE);
+                if (vertexArr.length > HyperEntityLayout.MAX_VERTICES_PER_EDGE) {
+                    int[] truncated = new int[HyperEntityLayout.MAX_VERTICES_PER_EDGE];
+                    System.arraycopy(vertexArr, 0, truncated, 0, HyperEntityLayout.MAX_VERTICES_PER_EDGE);
                     vertexArr = truncated;
                 }
                 int[] roles = new int[vertexArr.length];
