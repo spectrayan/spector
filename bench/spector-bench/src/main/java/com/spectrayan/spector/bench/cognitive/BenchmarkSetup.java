@@ -192,7 +192,15 @@ public final class BenchmarkSetup implements AutoCloseable {
 
         boolean useHypergraph = Boolean.getBoolean("spector.benchmark.useHypergraphRecall");
         log.info("System property 'spector.benchmark.useHypergraphRecall' is: '{}'", System.getProperty("spector.benchmark.useHypergraphRecall"));
-        log.info("Instantiating GraphScoringPolicy with useHypergraphRecall={}", useHypergraph);
+        float threshold = 0.40f;
+        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold");
+        if (thresholdStr != null && !thresholdStr.isBlank()) {
+            try {
+                threshold = Float.parseFloat(thresholdStr);
+            } catch (NumberFormatException ignored) {}
+        }
+        com.spectrayan.spector.memory.pipeline.GraphExpansionMode expansionMode = com.spectrayan.spector.memory.pipeline.GraphExpansionMode.resolve();
+        log.info("Instantiating GraphScoringPolicy with useHypergraphRecall={}, threshold={}, mode={}", useHypergraph, threshold, expansionMode);
         com.spectrayan.spector.memory.pipeline.GraphScoringPolicy scoringPolicy = new com.spectrayan.spector.memory.pipeline.GraphScoringPolicy(
                 0.3f,   // causalBoostWeight
                 0.3f,   // hebbianBoostFactor
@@ -202,8 +210,9 @@ public final class BenchmarkSetup implements AutoCloseable {
                 2,      // hebbianMaxDepth
                 3,      // temporalMaxHops
                 2,      // entityMaxHops
-                0.40f,  // graphExpansionThreshold
-                useHypergraph
+                threshold,
+                useHypergraph,
+                expansionMode
         );
         builder.graphScoringPolicy(scoringPolicy);
 
