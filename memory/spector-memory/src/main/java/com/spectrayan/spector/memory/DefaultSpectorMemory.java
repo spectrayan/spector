@@ -91,8 +91,8 @@ import com.spectrayan.spector.memory.sync.VacuumCompactor;
 import com.spectrayan.spector.commons.concurrent.DaemonSupervisor;
 import com.spectrayan.spector.commons.concurrent.DaemonPolicy;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -121,6 +121,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
 import com.spectrayan.spector.memory.id.IdStrategy;
 import com.spectrayan.spector.memory.id.MemoryIdGenerator;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 
 /**

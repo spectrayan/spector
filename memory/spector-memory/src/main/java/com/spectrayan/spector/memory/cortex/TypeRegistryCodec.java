@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.codec.Codec;
 import com.spectrayan.spector.memory.kernel.codec.CodecStep;
-import com.spectrayan.spector.memory.kernel.shape.RegistryLayout;
+import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 
 import java.lang.foreign.MemorySegment;
 import java.util.List;

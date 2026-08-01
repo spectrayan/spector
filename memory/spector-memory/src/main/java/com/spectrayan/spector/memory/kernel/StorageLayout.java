@@ -10,7 +10,7 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory;
+package com.spectrayan.spector.memory.kernel;
 
 import java.nio.file.Path;
 import java.util.regex.Pattern;
@@ -335,7 +335,7 @@ public final class StorageLayout {
      * @throws IllegalArgumentException if the identifier is invalid; no path is
      *                                  resolved and no filesystem mutation occurs
      */
-    static void validateNamespaceId(String namespaceId) {
+    public static void validateNamespaceId(String namespaceId) {
         if (namespaceId == null || namespaceId.isBlank()) {
             throw new IllegalArgumentException(
                     "Invalid namespace identifier: must not be null, empty, or whitespace-only");
@@ -407,7 +407,7 @@ public final class StorageLayout {
      * @param input the string to hash
      * @return lowercase hex string of the SHA-256 digest
      */
-    static String sha256Hex(String input) {
+    public static String sha256Hex(String input) {
         try {
             var digest = java.security.MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));

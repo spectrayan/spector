@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
+import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 import com.spectrayan.spector.memory.kernel.Memory;
 
 /**

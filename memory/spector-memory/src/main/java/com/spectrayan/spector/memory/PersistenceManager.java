@@ -24,6 +24,7 @@ import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import java.nio.file.Path;
 
 /**

@@ -12,6 +12,11 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.HeaderLayout;
+import com.spectrayan.spector.memory.kernel.layout.HeaderLayout64;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;

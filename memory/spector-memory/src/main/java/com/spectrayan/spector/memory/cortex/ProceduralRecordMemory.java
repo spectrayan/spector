@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +59,7 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
      */
     public ProceduralRecordMemory(int quantizedVecBytes, int capacity) {
         super(quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.synapse.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
+                (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=false",
                 capacity, layout.stride());
@@ -74,7 +74,7 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
      */
     public ProceduralRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.synapse.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
+                (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
         log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
