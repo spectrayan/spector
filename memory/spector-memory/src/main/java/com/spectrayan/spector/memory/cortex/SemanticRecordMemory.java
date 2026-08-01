@@ -42,7 +42,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *
  * <h3>Design</h3>
  * <ul>
- *   <li>Extends {@link AbstractTierStore} for common Arena/layout/segment lifecycle</li>
+ *   <li>Extends {@link AbstractCognitiveRecordMemory} for common Arena/layout/segment lifecycle</li>
  *   <li>Full cognitive records — header + quantized vector in one slab</li>
  *   <li>Directory-level partitioning: each partition dir has its own {@code semantic.mem}</li>
  *   <li>Flat scan with {@code CognitiveScorer} for distance computation</li>
@@ -82,7 +82,7 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
                 filePath);
 
         log.info("SemanticRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
-                capacity, layout.stride(), count, layout.headerLayout().version());
+                capacity, layout.stride(), getCount(), layout.headerLayout().version());
     }
 
     @Override
@@ -92,61 +92,22 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
 
     @Override
     public long write(CognitiveHeader header, byte[] quantizedVec) {
-        long offset = dataOffset() + (long) count * layout.stride();
+        long offset = dataOffset() + (long) getCount() * layout.stride();
         append(header, quantizedVec);
         return offset;
-    }
-
-    private final ReentrantLock writeLock = new ReentrantLock();
-
-    /**
-     * Appends a full semantic memory (header + quantized vector).
-     *
-     * <p>Stores the complete cognitive record: synaptic header followed by the
-     * INT8 quantized vector payload. This keeps the memory system self-contained —
-     * vectors live alongside their headers in the same tier store file.</p>
-     *
-     * @param header       cognitive header
-     * @param quantizedVec quantized vector bytes
-     */
-    public void append(CognitiveHeader header, byte[] quantizedVec) {
-        writeLock.lock();
-        try {
-            if (count >= capacity()) {
-                throw new SpectorMemoryTierFullException("SEMANTIC", capacity());
-            }
-
-            long offset = dataOffset() + (long) count * layout.stride();
-            layout.writeHeader(segment(), offset, header);
-
-            // Write vector payload (if available — ReflectDaemon promotes with null vec)
-            if (quantizedVec != null) {
-                MemorySegment.copy(
-                        MemorySegment.ofArray(quantizedVec), 0,
-                        segment(), layout.vectorOffset(offset),
-                        quantizedVec.length
-                );
-            }
-            // else: vector region stays zeroed (header-only consolidation)
-
-            count++;
-            persistCount();
-            publishVisible(); // SWMR: make record visible to scanners
-        } finally {
-            writeLock.unlock();
-        }
     }
 
     public int store(CognitiveHeader header) {
         writeLock.lock();
         try {
-            if (count >= capacity()) {
+            if (getCount() >= capacity()) {
                 throw new SpectorMemoryTierFullException("SEMANTIC", capacity());
             }
 
-            long offset = dataOffset() + (long) count * layout.stride();
+            long offset = dataOffset() + (long) getCount() * layout.stride();
             layout.writeHeader(segment(), offset, header);
-            int index = count++;
+            int index = getCount();
+            setCount(index + 1);
             persistCount();
             publishVisible(); // SWMR: make record visible to scanners
             return index;

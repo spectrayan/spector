@@ -30,7 +30,7 @@ import com.spectrayan.spector.index.ColBERTReranker;
 import com.spectrayan.spector.index.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
+import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
@@ -1283,8 +1283,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (shutdownHook != null) {
             try {
                 Runtime.getRuntime().removeShutdownHook(shutdownHook);
-            } catch (IllegalStateException ignored) {
-                // JVM is already shutting down  --  hook is running or already ran
+            } catch (IllegalStateException e) {
+                log.debug("Failed to remove shutdown hook: JVM is already shutting down", e);
             }
         }
 

@@ -40,7 +40,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *
  * <h3>Design</h3>
  * <ul>
- *   <li>Extends {@link AbstractTierStore} for common Arena/layout/segment lifecycle</li>
+ *   <li>Extends {@link AbstractCognitiveRecordMemory} for common Arena/layout/segment lifecycle</li>
  *   <li>Small store (typically &lt;1000 records)</li>
  *   <li>High importance, low TTL — designed for microsecond lookups</li>
  *   <li>Linear append (no eviction — throws when full)</li>
@@ -78,7 +78,7 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
                 filePath);
 
         log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
-                capacity(), layout.stride(), count);
+                capacity(), layout.stride(), getCount());
     }
 
     /**
@@ -95,38 +95,8 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
 
     @Override
     public long write(CognitiveHeader header, byte[] quantizedVec) {
-        long offset = dataOffset() + (long) count * layout.stride();
+        long offset = dataOffset() + (long) getCount() * layout.stride();
         append(header, quantizedVec);
         return offset;
-    }
-
-    private final ReentrantLock writeLock = new ReentrantLock();
-
-    /**
-     * Appends a procedural memory.
-     *
-     * @param header       cognitive header
-     * @param quantizedVec quantized vector bytes
-     */
-    public void append(CognitiveHeader header, byte[] quantizedVec) {
-        writeLock.lock();
-        try {
-            if (count >= capacity()) {
-                throw new SpectorMemoryTierFullException("PROCEDURAL", capacity());
-            }
-
-            long offset = dataOffset() + (long) count * layout.stride();
-            layout.writeHeader(segment(), offset, header);
-            MemorySegment.copy(
-                    MemorySegment.ofArray(quantizedVec), 0,
-                    segment(), layout.vectorOffset(offset),
-                    quantizedVec.length
-            );
-            count++;
-            persistCount();
-            publishVisible(); // SWMR: make record visible to scanners
-        } finally {
-            writeLock.unlock();
-        }
     }
 }

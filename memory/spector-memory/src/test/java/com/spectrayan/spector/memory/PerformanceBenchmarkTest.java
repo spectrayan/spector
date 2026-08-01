@@ -211,7 +211,7 @@ class PerformanceBenchmarkTest {
     void p12_totalCountDirectSum() {
         int quantizedVecBytes = 32;
         var working = new WorkingRecordMemory(quantizedVecBytes, 10);
-        var episodic = new com.spectrayan.spector.memory.cortex.EpisodicMemoryStore(
+        var episodic = new com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory(
                 java.nio.file.Path.of(System.getProperty("java.io.tmpdir"),
                         "perf-test-p12-" + System.nanoTime()),
                 quantizedVecBytes, 100);

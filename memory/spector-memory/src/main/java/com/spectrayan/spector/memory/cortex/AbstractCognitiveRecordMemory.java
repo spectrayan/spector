@@ -145,7 +145,7 @@ public abstract class AbstractCognitiveRecordMemory
               res.arena, res.segment, 0, true, filePath, res.fileChannel);
         this.layout = cogLayout;
         if (res.isNew) {
-            this.count = 0;
+            setCount(0);
             writeMetadata();
             log.info("{} created new persistent file: {} ({}KB)",
                     getClass().getSimpleName(), filePath, (METADATA_HEADER_BYTES + segmentBytes) / 1024);
@@ -163,7 +163,7 @@ public abstract class AbstractCognitiveRecordMemory
         super(MemoryId.of("tier", "pending"), cogLayout, capacity,
               arena, segment, count, persistent, filePath, fileChannel);
         this.layout = cogLayout;
-        this.count = count;
+        setCount(count);
     }
 
     /**
@@ -181,16 +181,16 @@ public abstract class AbstractCognitiveRecordMemory
      */
     protected void readMetadata() {
         if (MemoryHeader.isValid(segment, 0)) {
-            this.count = (int) MemoryHeader.readCount(segment, 0);
+            setCount((int) MemoryHeader.readCount(segment, 0));
             return;
         }
         // Fallback for legacy TIER header
         int magic = segment.get(ValueLayout.JAVA_INT, 0);
         if (magic == TIER_MAGIC) {
-            this.count = segment.get(ValueLayout.JAVA_INT, 8);
+            setCount(segment.get(ValueLayout.JAVA_INT, 8));
         } else {
             log.warn("Invalid header magic in {}: 0x{}", filePath(), Integer.toHexString(magic));
-            this.count = 0;
+            setCount(0);
         }
     }
 
@@ -333,5 +333,31 @@ public abstract class AbstractCognitiveRecordMemory
     @Override
     public void force() {
         super.flush();
+    }
+
+    protected final java.util.concurrent.locks.ReentrantLock writeLock = new java.util.concurrent.locks.ReentrantLock();
+
+    public void append(CognitiveRecordLayout.CognitiveHeader header, byte[] quantizedVec) {
+        writeLock.lock();
+        try {
+            if (count >= capacity()) throw new com.spectrayan.spector.memory.error.SpectorMemoryTierFullException(type().name(), capacity());
+            long offset = dataOffset() + (long) count * layout.stride();
+            layout.writeHeader(segment(), offset, header);
+            if (quantizedVec != null) {
+                MemorySegment.copy(MemorySegment.ofArray(quantizedVec), 0,
+                        segment(), layout.vectorOffset(offset), quantizedVec.length);
+            }
+            count++;
+            persistCount();
+            publishVisible();
+        } finally { writeLock.unlock(); }
+    }
+
+    protected int getCount() {
+        return count;
+    }
+
+    protected void setCount(int c) {
+        this.count = c;
     }
 }

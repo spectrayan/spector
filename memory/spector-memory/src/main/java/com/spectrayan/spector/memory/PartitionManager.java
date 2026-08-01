@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
+import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -175,7 +175,7 @@ final class PartitionManager {
                 Files.createDirectories(newPartition);
 
                 // Create fresh tier stores in new partition
-                EpisodicMemoryStore newEpisodic = new EpisodicMemoryStore(
+                EpisodicPartitionedMemory newEpisodic = new EpisodicPartitionedMemory(
                         StorageLayout.episodicMem(newPartition),
                         quantizedVecBytes, episodicPartitionCapacity);
 
