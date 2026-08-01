@@ -51,7 +51,7 @@ public final class CognitiveAnnotator {
     private static final Logger log = LoggerFactory.getLogger(CognitiveAnnotator.class);
 
     /** Number of records to annotate per LLM batch request. */
-    private static final int BATCH_SIZE = 15;
+    private static final int BATCH_SIZE = 4;
 
     private static final String SYSTEM_PROMPT = """
             You are a cognitive annotation engine. For each memory text provided, assign
@@ -142,7 +142,9 @@ public final class CognitiveAnnotator {
         for (int i = 0; i < batch.size(); i++) {
             BenchmarkCorpusRecord record = batch.get(i);
             sb.append("Memory ").append(i + 1).append(": [").append(record.title()).append("] ");
-            sb.append(record.text()).append("\n");
+            String txt = record.text();
+            String truncated = txt.length() <= 350 ? txt : txt.substring(0, 350) + "...";
+            sb.append(truncated).append("\n");
         }
 
         return sb.toString();

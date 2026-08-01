@@ -106,7 +106,7 @@ public final class OllamaCompletionClient implements AutoCloseable {
      * @throws OllamaCompletionException if all retry attempts are exhausted
      */
     public String complete(String systemPrompt, String userPrompt) {
-        return complete(systemPrompt, userPrompt, 0.7f, 2048);
+        return complete(systemPrompt, userPrompt, 0.7f, 8192);
     }
 
     /**
@@ -226,6 +226,7 @@ public final class OllamaCompletionClient implements AutoCloseable {
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("temperature", temperature);
         options.put("num_predict", maxTokens);
+        options.put("num_ctx", 8192);
         body.put("options", options);
         // Ollama 0.9+: disable <think> blocks for reasoning models (qwen3, deepseek-r1)
         body.put("think", false);
