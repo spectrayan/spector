@@ -264,7 +264,11 @@ public final class QueryGenerator {
                                       List<String> memoryIds, int grade) {
         for (String memId : memoryIds) {
             if (memId != null && !memId.isBlank()) {
-                judgments.add(new RelevanceJudgment(queryId, memId, grade));
+                String cleanId = memId.trim();
+                if (cleanId.startsWith("/")) {
+                    cleanId = cleanId.substring(1);
+                }
+                judgments.add(new RelevanceJudgment(queryId, cleanId, grade));
             }
         }
     }
