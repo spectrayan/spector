@@ -31,6 +31,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.PrimitiveIterator;
+
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 
 /**
  * Hyperedge-based entity layer for graph compression.
@@ -66,7 +73,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @see EntityGraph
  */
-public final class HyperEntityGraphMemory implements AutoCloseable {
+public final class HyperEntityGraphMemory implements AutoCloseable, com.spectrayan.spector.memory.kernel.shape.GraphMemory<HyperEntityLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(HyperEntityGraphMemory.class);
 
@@ -145,6 +152,33 @@ public final class HyperEntityGraphMemory implements AutoCloseable {
     private List<List<Integer>> incidenceHeap;
 
     private final ReentrantLock graphLock = new ReentrantLock();
+
+    private final MemoryId memoryId = MemoryId.of("spector", "hyper-entity-graph");
+    private final HyperEntityLayout layout = new HyperEntityLayout();
+    private MemoryWal wal;
+    private boolean bypassWal = false;
+
+    @Override public MemoryId id() { return memoryId; }
+    @Override public HyperEntityLayout layout() { return layout; }
+    @Override public Arena arena() { return arena; }
+    @Override public MemorySegment segment() { return hedges; }
+    @Override public int size() { return totalHyperedges; }
+    @Override public int capacity() { return hyperedgeCapacity; }
+    @Override public int schemaVersion() { return FILE_VERSION; }
+    @Override public MemoryShape shape() { return MemoryShape.GRAPH; }
+    @Override public void flush() { /* heap allocated, flush no-op */ }
+    @Override public void bindWal(MemoryWal wal) { this.wal = wal; }
+    @Override public void setBypassWal(boolean bypass) { this.bypassWal = bypass; }
+    @Override public boolean isBypassWal() { return bypassWal; }
+    @Override public MemoryWal getWal() { return wal; }
+
+    @Override public int addEdge(int fromNode, int toNode, MemorySegment edgeBytes) { return -1; }
+    @Override public void removeEdge(int edgeId) { deleteHyperedge(edgeId); }
+    @Override public PrimitiveIterator.OfInt neighbours(int nodeId) {
+        return findCoOccurringEntities(nodeId).stream().mapToInt(Integer::intValue).iterator();
+    }
+    @Override public int edgeCount() { return totalHyperedges; }
+    @Override public int nodeCount() { return entityCapacity; }
 
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
@@ -261,6 +295,12 @@ public final class HyperEntityGraphMemory implements AutoCloseable {
 
             int edgeId = nextHyperedgeId++;
             totalHyperedges++;
+
+            if (wal != null && !bypassWal) {
+                ByteBuffer buf = ByteBuffer.allocate(HEDGE_BYTES);
+                buf.putInt(type).putFloat(weight).putInt(vertexCount).putInt(memoryIdx).putLong(timestamp);
+                wal.appendRecordWrite(memoryId.toString(), edgeId, buf.array());
+            }
 
             // Write hyperedge header
             long hedgeOff = (long) edgeId * HEDGE_BYTES;
@@ -498,17 +538,24 @@ public final class HyperEntityGraphMemory implements AutoCloseable {
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE,
                 StandardOpenOption.TRUNCATE_EXISTING)) {
 
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            header.putInt(FILE_MAGIC);
-            header.putInt(FILE_VERSION);
-            header.putInt(entityCapacity);
-            header.putInt(hyperedgeCapacity);
-            header.putInt(nextHyperedgeId);
-            header.putInt(nextVertexOffset);
-            header.putInt(totalHyperedges);
-            header.putInt(0); // reserved
-            header.flip();
-            ch.write(header);
+            MemorySegment stdHeaderSeg = Arena.ofAuto().allocate(MemoryHeader.HEADER_BYTES);
+            MemoryHeader.write(stdHeaderSeg, 0, FILE_VERSION, MemoryShape.GRAPH, 0,
+                    hyperedgeCapacity, totalHyperedges, HEDGE_BYTES, layout.layoutId(),
+                    System.currentTimeMillis(), System.currentTimeMillis());
+            ch.write(stdHeaderSeg.asByteBuffer());
+
+            ByteBuffer customHeader = ByteBuffer.allocate(FILE_HEADER_BYTES);
+            customHeader.order(java.nio.ByteOrder.nativeOrder());
+            customHeader.putInt(FILE_MAGIC);
+            customHeader.putInt(FILE_VERSION);
+            customHeader.putInt(entityCapacity);
+            customHeader.putInt(hyperedgeCapacity);
+            customHeader.putInt(nextHyperedgeId);
+            customHeader.putInt(nextVertexOffset);
+            customHeader.putInt(totalHyperedges);
+            customHeader.putInt(0); // reserved
+            customHeader.flip();
+            ch.write(customHeader);
 
             // Write hyperedge segment
             writeSegment(ch, hedges, (long) nextHyperedgeId * HEDGE_BYTES);
@@ -534,24 +581,58 @@ public final class HyperEntityGraphMemory implements AutoCloseable {
         }
 
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            ch.read(header);
-            header.flip();
+            ByteBuffer firstIntBuf = ByteBuffer.allocate(4);
+            firstIntBuf.order(java.nio.ByteOrder.nativeOrder());
+            ch.read(firstIntBuf);
+            firstIntBuf.flip();
+            int firstInt = firstIntBuf.getInt();
+            ch.position(0);
 
-            int magic = header.getInt();
-            int version = header.getInt();
-            if (magic != FILE_MAGIC || version != FILE_VERSION) {
-                log.warn("Invalid HyperEntityGraphMemory file: magic=0x{}, version={}", 
-                         Integer.toHexString(magic), version);
+            int loadedEntityCap, loadedHedgeCap, loadedNextId, loadedNextVertexOff, loadedTotal;
+            long dataOffset;
+
+            if (firstInt == MemoryHeader.MAGIC) {
+                // Read standard 64B header
+                ByteBuffer stdBuf = ByteBuffer.allocate(MemoryHeader.HEADER_BYTES);
+                stdBuf.order(java.nio.ByteOrder.nativeOrder());
+                ch.read(stdBuf);
+
+                // Read custom 32B header
+                ByteBuffer customBuf = ByteBuffer.allocate(FILE_HEADER_BYTES);
+                customBuf.order(java.nio.ByteOrder.nativeOrder());
+                ch.read(customBuf);
+                customBuf.flip();
+
+                int magic = customBuf.getInt();
+                int version = customBuf.getInt();
+                loadedEntityCap = customBuf.getInt();
+                loadedHedgeCap = customBuf.getInt();
+                loadedNextId = customBuf.getInt();
+                loadedNextVertexOff = customBuf.getInt();
+                loadedTotal = customBuf.getInt();
+
+                dataOffset = MemoryHeader.HEADER_BYTES + FILE_HEADER_BYTES;
+            } else if (firstInt == FILE_MAGIC) {
+                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
+                header.order(java.nio.ByteOrder.nativeOrder());
+                ch.read(header);
+                header.flip();
+
+                int magic = header.getInt();
+                int version = header.getInt();
+                loadedEntityCap = header.getInt();
+                loadedHedgeCap = header.getInt();
+                loadedNextId = header.getInt();
+                loadedNextVertexOff = header.getInt();
+                loadedTotal = header.getInt();
+
+                dataOffset = FILE_HEADER_BYTES;
+            } else {
+                log.warn("Invalid HyperEntityGraphMemory file: magic=0x{}", Integer.toHexString(firstInt));
                 return new HyperEntityGraphMemory(entityCapacity, hyperedgeCapacity);
             }
-
-            int loadedEntityCap = header.getInt();
-            int loadedHedgeCap = header.getInt();
-            int loadedNextId = header.getInt();
-            int loadedNextVertexOff = header.getInt();
-            int loadedTotal = header.getInt();
-            header.getInt(); // reserved
+            
+            ch.position(dataOffset);
 
             // Create graph with loaded capacities
             HyperEntityGraphMemory graph = new HyperEntityGraphMemory(

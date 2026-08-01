@@ -252,6 +252,10 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
 
     /** Enable/disable the HyperEntityGraph layer (default: true). */
+    /**
+     * @deprecated Hypergraph is now standard. This configuration option has no effect and will be removed in a future release.
+     */
+    @Deprecated(since = "1.2.0", forRemoval = true)
     public SpectorMemoryBuilder hyperEntityGraphEnabled(boolean enabled) { this.hyperEntityGraphEnabled = enabled; return this; }
 
     /** Max entities to extract per memory (default: 10). */

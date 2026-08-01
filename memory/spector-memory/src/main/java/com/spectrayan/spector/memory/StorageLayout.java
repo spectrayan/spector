@@ -667,6 +667,15 @@ public final class StorageLayout {
         return partitionDir.resolve(FILE_RELATION_TYPES);
     }
 
+    /**
+     * Resolves the hypergraph.hyeg file within a partition.
+     * @deprecated V3: use {@link #hyperEntityGraphRuntime(Path)} with basePath instead.
+     */
+    @Deprecated(forRemoval = true)
+    public static Path hyperEntityGraph(Path partitionDir) {
+        return partitionDir.resolve(FILE_HYPERGRAPH);
+    }
+
 
 
     // ── WAL resolvers ──

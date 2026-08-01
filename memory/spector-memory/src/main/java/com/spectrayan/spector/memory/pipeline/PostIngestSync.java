@@ -350,16 +350,6 @@ final class PostIngestSync {
                 entityGraph.linkEntityToMemory(eid, memoryIdx);
                 entityIds.add(eid);
                 entitiesAdded++;
-                for (EntityRelation rel : entity.relations()) {
-                    int targetEid = entityGraph.findEntity(rel.targetEntityName());
-                    if (targetEid < 0) {
-                        targetEid = entityGraph.addEntity(rel.targetEntityName(), "OTHER");
-                    }
-                    if (targetEid >= 0) {
-                        entityGraph.addRelation(eid, targetEid, rel.relationTypeName());
-                        relationsAdded++;
-                    }
-                }
             }
         }
         if (entitiesAdded > 0) {

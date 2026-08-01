@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.TextAppendCodec;
 import com.spectrayan.spector.memory.cortex.TypeRegistryCodec;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphCodec;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphCodec;
 import com.spectrayan.spector.memory.index.IndexRecordCodec;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
@@ -37,6 +38,7 @@ public final class Codecs {
             .register(new TypeRegistryCodec())
             .register(new IndexRecordCodec())
             .register(new HebbianGraphCodec())
+            .register(new HyperEntityGraphCodec())
             .build();
 
     private Codecs() {}
