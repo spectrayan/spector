@@ -331,7 +331,11 @@ public final class CheckpointDaemon {
         } catch (IOException e) {
             log.error("Failed to write checkpoint.meta: {}", e.getMessage(), e);
             // Clean up temp file on failure
-            try { Files.deleteIfExists(tempPath); } catch (IOException ignored) {}
+            try {
+                Files.deleteIfExists(tempPath);
+            } catch (IOException cleanupException) {
+                log.debug("Failed to clean up temporary file: {}", tempPath, cleanupException);
+            }
         }
     }
 

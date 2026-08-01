@@ -417,10 +417,14 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
     public void flush() {
         try {
             if (edges != null) edges.force();
-        } catch (UnsupportedOperationException ignored) {}
+        } catch (UnsupportedOperationException e) {
+            log.trace("Memory segment does not support force operation", e);
+        }
         try {
             if (offsets != null) offsets.force();
-        } catch (UnsupportedOperationException ignored) {}
+        } catch (UnsupportedOperationException e) {
+            log.trace("Memory segment does not support force operation", e);
+        }
     }
 
     @Override

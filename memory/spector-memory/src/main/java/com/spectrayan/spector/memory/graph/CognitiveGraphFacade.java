@@ -319,7 +319,9 @@ public final class CognitiveGraphFacade {
                             Math.min(1.0, edge.weight()), null, null));
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Operation failed: Failed to collect Hebbian edges", e);
+        }
     }
 
     private void collectTemporalEdgesForward(String id, int slot, Map<Integer, String> slotToId,
@@ -334,7 +336,9 @@ public final class CognitiveGraphFacade {
                             id, neighborId, "TEMPORAL", null, 0.8, null, null));
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Operation failed: Failed to collect temporal edges", e);
+        }
     }
 
     private void collectEntityEdges(Map<Integer, String> slotToId,
@@ -360,7 +364,9 @@ public final class CognitiveGraphFacade {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Operation failed: Failed to collect entity edges", e);
+        }
     }
 
     private void bfsHebbianNeighbors(String currentId, int slot, Map<Integer, String> slotToId,
@@ -383,7 +389,9 @@ public final class CognitiveGraphFacade {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Operation failed: Failed in BFS Hebbian neighbors", e);
+        }
     }
 
     private void bfsTemporalNeighbors(String currentId, int slot, Map<Integer, String> slotToId,
@@ -415,7 +423,9 @@ public final class CognitiveGraphFacade {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Operation failed: Failed in BFS temporal neighbors", e);
+        }
     }
 
     private void bfsEntityNeighbors(String currentId, int slot, Map<Integer, String> slotToId,
@@ -445,7 +455,9 @@ public final class CognitiveGraphFacade {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Operation failed: Failed in BFS entity neighbors", e);
+        }
     }
 
     private List<String> entityNamesForMemory(int slot) {
