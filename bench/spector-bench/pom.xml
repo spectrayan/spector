@@ -75,7 +75,6 @@
         <dependency>
             <groupId>net.jqwik</groupId>
             <artifactId>jqwik</artifactId>
-            <version>1.9.2</version>
             <scope>test</scope>
         </dependency>
 
@@ -100,7 +99,6 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.5.0</version>
                 <configuration>
                     <!-- exec:exec launches a child JVM with enable-preview flag -->
                     <executable>java</executable>
