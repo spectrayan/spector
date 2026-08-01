@@ -145,7 +145,21 @@ final class GraphExpansionStage {
                     maxDirectSimilarity = Math.max(maxDirectSimilarity, r.breakdown().similarity());
                 }
             }
-            float expansionThreshold = options.graphExpansionThreshold();
+            // Resolve threshold: prefer options value, but fall back to policy if options
+            // has the default (0.40) — this ensures the policy-level override is respected
+            // even when callers don't explicitly set the threshold on RecallOptions.
+            float optionsThreshold = options.graphExpansionThreshold();
+            float policyThreshold = graphScoringPolicy.graphExpansionThreshold();
+            float expansionThreshold = (optionsThreshold == 0.40f && policyThreshold != 0.40f)
+                    ? policyThreshold : optionsThreshold;
+
+            // Diagnostic: emit maxDirectSimilarity for histogram analysis
+            log.info("GATED diagnostic: maxDirectSimilarity={}, threshold={} (options={}, policy={})",
+                    String.format("%.6f", maxDirectSimilarity),
+                    String.format("%.4f", expansionThreshold),
+                    String.format("%.4f", optionsThreshold),
+                    String.format("%.4f", policyThreshold));
+
             if (maxDirectSimilarity >= expansionThreshold) {
                 log.debug("Graph expansion skipped: maxDirectSimilarity={} >= threshold={}",
                         maxDirectSimilarity, expansionThreshold);

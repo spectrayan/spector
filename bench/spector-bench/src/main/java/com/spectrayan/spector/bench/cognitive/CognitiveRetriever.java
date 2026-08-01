@@ -146,6 +146,16 @@ public final class CognitiveRetriever {
             builder.textSearchMode(query.textSearchMode());
         }
 
+        // Wire the graph expansion threshold from system property so sweep values
+        // actually reach GraphExpansionStage (fixes the plumbing disconnect where
+        // RecallOptions.Builder defaulted to 0.40 regardless of -D value)
+        String thresholdStr = System.getProperty("spector.benchmark.graphExpansionThreshold");
+        if (thresholdStr != null && !thresholdStr.isBlank()) {
+            try {
+                builder.graphExpansionThreshold(Float.parseFloat(thresholdStr));
+            } catch (NumberFormatException ignored) { /* use RecallOptions default */ }
+        }
+
         return builder.build();
     }
 
