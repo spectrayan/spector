@@ -26,6 +26,14 @@ public enum MemoryShape {
     /**
      * Backs a partitioned array of fixed-size records, physically or logically divided.
      * Useful for time-series, log-structured merges, or highly concurrent partitioned data.
+     *
+     * <p><b>Retained for on-disk compatibility.</b> This constant has no live code
+     * references (the {@code PartitionedRecordMemory} abstraction was removed as dead
+     * code under #436), but {@link MemoryHeader} persists the shape by
+     * {@link #ordinal()}. Removing this value would shift the ordinals of
+     * {@link #GRAPH}, {@link #CHAIN}, {@link #APPEND} and {@link #REGISTRY}, breaking
+     * every previously-written header. Do NOT delete or reorder without a versioned
+     * on-disk migration.</p>
      */
     PARTITIONED,
 

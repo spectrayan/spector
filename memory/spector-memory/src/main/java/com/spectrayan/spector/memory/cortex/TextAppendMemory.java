@@ -190,27 +190,6 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
     }
 
     /**
-     * Creates a TextAppendMemory for a partition directory, using the standard file name.
-     *
-     * @param partitionDir the partition directory
-     * @return a new TextAppendMemory instance
-     */
-    public static TextAppendMemory forPartition(Path partitionDir) {
-        return new TextAppendMemory(StorageLayout.textDat(partitionDir));
-    }
-
-    /**
-     * Factory for a partition directory with encryption support.
-     *
-     * @param partitionDir the partition directory
-     * @param encryptor    data encryptor (null → NOOP)
-     * @return a new TextAppendMemory instance
-     */
-    public static TextAppendMemory forPartition(Path partitionDir, DataEncryptor encryptor) {
-        return new TextAppendMemory(StorageLayout.textDat(partitionDir), encryptor);
-    }
-
-    /**
      * A single entry in the text.dat file.
      *
      * @param id   memory identifier

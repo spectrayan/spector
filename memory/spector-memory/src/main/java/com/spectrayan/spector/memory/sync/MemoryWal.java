@@ -877,7 +877,10 @@ public final class MemoryWal implements AutoCloseable {
                 bos.write(buffer, 0, count);
             }
         } catch (DataFormatException e) {
-            throw new IOException("Failed to decompress WAL payload", e);
+            // A payload that passed its CRC check but cannot be inflated is unrecoverable
+            // WAL corruption — surface it with a domain exception (MEMORY_WAL_CORRUPTED)
+            // instead of a generic IOException (#433 TD-07).
+            throw new SpectorWalCorruptionException("Failed to decompress WAL payload", e);
         } finally {
             inflater.end();
         }

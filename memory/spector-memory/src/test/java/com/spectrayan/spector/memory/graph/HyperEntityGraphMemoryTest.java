@@ -12,17 +12,20 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdgeVertex;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for {@link HyperEntityGraphMemory} — hyperedge-based entity graph.
@@ -187,6 +190,20 @@ class HyperEntityGraphMemoryTest {
             assertThat(g.findHyperedgesForEntity(0)).hasSize(1);
             assertThat(g.findHyperedgesForEntity(3)).hasSize(1);
         }
+    }
+
+    @Test
+    @DisplayName("corrupt file load throws instead of silently returning empty")
+    void loadCorruptedFileThrows(@TempDir Path tmpDir) throws Exception {
+        // A present-but-unreadable hypergraph file must fail loud rather than silently
+        // discarding the user's data by returning a fresh empty graph (#433 TD-04).
+        Path filePath = tmpDir.resolve("corrupt.hyeg");
+        byte[] garbage = new byte[64];
+        java.util.Arrays.fill(garbage, (byte) 0x01);
+        Files.write(filePath, garbage);
+
+        assertThatThrownBy(() -> HyperEntityGraphMemory.load(filePath, ENTITY_CAP, HEDGE_CAP))
+                .isInstanceOf(SpectorGraphPersistenceException.class);
     }
 
     @Test

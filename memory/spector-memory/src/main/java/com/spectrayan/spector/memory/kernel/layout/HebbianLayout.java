@@ -12,16 +12,41 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 
 /**
- * Memory layout for edges in the Hebbian Graph CSR.
+ * Memory layout for edges in the Hebbian Graph CSR — the single source of truth for the CSR
+ * edge stride and field offsets as well as the SMKM container sub-header framing (#435).
  */
 public final class HebbianLayout implements MemoryLayout {
 
-    private static final int STRIDE = 12; // CSR edge bytes: neighbor(4) + weight(4) + metadata(4)
-    private static final int LAYOUT_ID = 0x48435352; // 'HCSR'
+    /** Layout id / interim HCSR container magic ('HCSR'). */
+    public static final int LAYOUT_ID = 0x48435352;
     private static final int VERSION = 1;
+
+    // ── SMKM container: [64B MemoryHeader][16B graph sub-header][offset slab][edge slab] ──
+    /** Bytes of the Hebbian graph sub-header following the 64-byte kernel {@link MemoryHeader}. */
+    public static final int GRAPH_SUBHEADER_BYTES = 16;
+    /** Sub-header field (relative to {@link MemoryHeader#HEADER_BYTES}): edge-slab capacity (int). */
+    public static final int SUB_OFF_EDGE_CAPACITY = 0;
+    /** Sub-header field: current reflection cycle (int). */
+    public static final int SUB_OFF_CURRENT_CYCLE = 4;
+    /** Byte offset where the CSR offset slab begins in an SMKM file (64 + 16). */
+    public static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
+
+    /** Bytes per CSR edge record: neighbor(4) + weight(4) + lastCycle(2) + bridge(1) + flags(1). */
+    public static final int EDGE_BYTES = 12;
+    /** Edge field: neighbor (target) vertex index. */
+    public static final int EDGE_OFF_NEIGHBOR = 0;
+    /** Edge field: association weight (float). */
+    public static final int EDGE_OFF_WEIGHT = 4;
+    /** Edge field: last reflection cycle the edge was touched (unsigned short). */
+    public static final int EDGE_OFF_LAST_CYCLE = 8;
+    /** Edge field: bridge score for eviction protection (unsigned byte). */
+    public static final int EDGE_OFF_BRIDGE_SCORE = 10;
+    /** Edge field: edge flags (byte). */
+    public static final int EDGE_OFF_EDGE_FLAGS = 11;
 
     @Override
     public int layoutId() {
@@ -35,7 +60,7 @@ public final class HebbianLayout implements MemoryLayout {
 
     @Override
     public int recordStride() {
-        return STRIDE;
+        return EDGE_BYTES;
     }
 
     @Override

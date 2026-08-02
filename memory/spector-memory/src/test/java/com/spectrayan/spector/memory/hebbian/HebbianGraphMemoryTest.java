@@ -180,8 +180,8 @@ class HebbianGraphMemoryTest {
             assertThat(csr.neighbors(0).getFirst().neighborIndex()).isEqualTo(1);
             assertThat(csr.neighbors(1)).hasSize(2); // connected to 0 and 2
 
-            // Verify V2 backup exists
-            Path backup = tmpDir.resolve("hebbian.hgph.v2.bak");
+            // The codec (#435) preserves the pre-migration file as a versioned backup.
+            Path backup = tmpDir.resolve("hebbian.hgph.bak.v1");
             assertThat(backup).exists();
         }
     }

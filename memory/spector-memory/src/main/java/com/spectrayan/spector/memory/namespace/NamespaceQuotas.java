@@ -160,8 +160,8 @@ public final class NamespaceQuotas {
                     config.id(), currentMemoryCount, config.maxMemories());
         } else if (ratio >= SOFT_WARNING_THRESHOLD && !memoryWarningEmitted) {
             memoryWarningEmitted = true;
-            log.warn("Namespace '{}' memory quota at {:.0f}%: {}/{} memories",
-                    config.id(), ratio * 100, currentMemoryCount, config.maxMemories());
+            log.warn("Namespace '{}' memory quota at {}%: {}/{} memories",
+                    config.id(), String.format("%.0f", ratio * 100), currentMemoryCount, config.maxMemories());
         }
     }
 
@@ -174,8 +174,8 @@ public final class NamespaceQuotas {
                     config.id(), currentPartitionCount, config.maxPartitions());
         } else if (ratio >= SOFT_WARNING_THRESHOLD && !partitionWarningEmitted) {
             partitionWarningEmitted = true;
-            log.warn("Namespace '{}' partition quota at {:.0f}%: {}/{} partitions",
-                    config.id(), ratio * 100, currentPartitionCount, config.maxPartitions());
+            log.warn("Namespace '{}' partition quota at {}%: {}/{} partitions",
+                    config.id(), String.format("%.0f", ratio * 100), currentPartitionCount, config.maxPartitions());
         }
     }
 
@@ -188,8 +188,8 @@ public final class NamespaceQuotas {
                     config.id(), currentStorageBytes, config.maxStorageBytes());
         } else if (ratio >= SOFT_WARNING_THRESHOLD && !storageWarningEmitted) {
             storageWarningEmitted = true;
-            log.warn("Namespace '{}' storage quota at {:.0f}%: {}/{} bytes",
-                    config.id(), ratio * 100, currentStorageBytes, config.maxStorageBytes());
+            log.warn("Namespace '{}' storage quota at {}%: {}/{} bytes",
+                    config.id(), String.format("%.0f", ratio * 100), currentStorageBytes, config.maxStorageBytes());
         }
     }
 }

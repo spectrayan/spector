@@ -17,8 +17,10 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 
 /**
- * Shape interface for CSR/slab node+edge structures.
- * Backs EntityGraph, HebbianGraphCsr, HyperEntityGraph, etc.
+ * Shape interface for adjacency (node+edge) graph structures.
+ * Backs EntityGraph, HebbianGraphMemory, HyperEntityGraph, etc. Concrete graphs own their
+ * segment layout on top of the {@link AbstractGraphMemory} kernel substrate; the bundled
+ * {@link AdjacencyListGraphMemory} is a linked-list reference implementation.
  *
  * @param <L> the memory layout type
  */

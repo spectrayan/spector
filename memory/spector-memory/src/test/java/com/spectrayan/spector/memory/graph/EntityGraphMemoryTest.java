@@ -12,16 +12,19 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for EntityGraphMemory: entity management, relations, traversal, and persistence.
@@ -290,6 +293,29 @@ class EntityGraphMemoryTest {
         graph = EntityGraphMemory.load(file, 50, 200);
 
         assertThat(graph.entityCount()).isZero();
+    }
+
+    @Test
+    void loadCorruptedFileThrowsInsteadOfSilentlyReturningEmpty() throws Exception {
+        // A present-but-unreadable file (garbage magic) must NOT be silently swallowed and
+        // replaced by a fresh empty graph — that would destroy user data (#433 TD-04).
+        Path file = tempDir.resolve("corrupt.entity");
+        byte[] garbage = new byte[64];
+        java.util.Arrays.fill(garbage, (byte) 0x01);
+        Files.write(file, garbage);
+
+        assertThatThrownBy(() -> EntityGraphMemory.load(file, 50, 200))
+                .isInstanceOf(SpectorGraphPersistenceException.class);
+    }
+
+    @Test
+    void loadTooSmallFileThrowsInsteadOfSilentlyReturningEmpty() throws Exception {
+        // A present file too small to hold even a magic number is corrupt, not "absent".
+        Path file = tempDir.resolve("tiny.entity");
+        Files.write(file, new byte[]{0, 1});
+
+        assertThatThrownBy(() -> EntityGraphMemory.load(file, 50, 200))
+                .isInstanceOf(SpectorGraphPersistenceException.class);
     }
 
     @Test

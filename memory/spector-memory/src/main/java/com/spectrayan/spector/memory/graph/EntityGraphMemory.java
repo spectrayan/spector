@@ -17,8 +17,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -27,12 +29,39 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
+import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 import java.nio.charset.StandardCharsets;
+
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_ENTRY_BYTES;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_OFF_MEM_IDX;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.DATA_START;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.SUB_OFF_ADJ_CAPACITY;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.SUB_OFF_ADJ_HWM;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.SUB_OFF_EDGE_CAPACITY;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.SUB_OFF_EDGE_COUNT;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_OFF_WEIGHT;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_BYTES;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_BRIDGE_SCORE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_EDGE_FLAGS;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_LAST_CYCLE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_REL_TYPE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_TARGET;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_WEIGHT;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENTITY_NODE_BYTES;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_ADJ_CAPACITY;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_ADJ_COUNT;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_ADJ_OFFSET;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_DEGREE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_EDGE_START;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_NAME_HASH;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_TYPE;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -40,10 +69,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Off-heap entity-relationship graph for multi-hop knowledge traversal.
@@ -88,9 +115,14 @@ import java.util.concurrent.locks.ReentrantLock;
  *     [memIdx:4B][weight:4B]
  * </pre>
  */
-public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.spector.memory.kernel.shape.GraphMemory<com.spectrayan.spector.memory.kernel.layout.EntityLayout> {
+public final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(EntityGraphMemory.class);
+
+    /** Kernel identity for the entity-relationship graph. */
+    private static final MemoryId MEMORY_ID = MemoryId.of("graph", "entity");
+    /** Shared record layout — identifies entity records inside an SMKM container. */
+    private static final EntityLayout LAYOUT = new EntityLayout();
 
 
 
@@ -109,49 +141,24 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
     /** Maximum adjacency entries per entity (for mmap pre-allocation). */
     static final int MAX_ADJ_PER_ENTITY = 64;
 
-    // ── mmap File Header (32 bytes) ──
-    private static final int MMAP_MAGIC = 0x45474D4D; // "EGMM"
-    private static final int MMAP_VERSION = 2;
-    /** V1 edge bytes — for migration detection. */
-    private static final int V1_EDGE_BYTES = 12;
-    private static final int MMAP_HEADER_BYTES = 32;
-    // Header layout: [magic:4B][version:4B][entityCap:4B][edgeCap:4B]
-    //                [entityCount:4B][edgeCount:4B][adjCap:4B][adjHwm:4B]
+    // ── SMKM container framing: single source of truth is EntityLayout (#435, TD-14). ──
+    // GRAPH_SUBHEADER_BYTES / SUB_OFF_* field offsets / DATA_START are static-imported from
+    // EntityLayout; this class only references them. Container shape (current):
+    // [64B MemoryHeader][16B Entity sub-header][entity slab][edge slab][adj slab].
 
-    // ── Entity Node Layout (64 bytes, 8-byte aligned — V2) ──
-    static final int ENTITY_NODE_BYTES = 64;
-    private static final long ENT_OFF_TYPE = 0;             // 4B (entity type id)
-    // pad: 4B for alignment
-    private static final long ENT_OFF_NAME_HASH = 8;        // 8B (8-byte aligned)
-    private static final long ENT_OFF_ADJ_OFFSET = 16;      // 4B (index into adjacency segment)
-    private static final long ENT_OFF_ADJ_COUNT = 20;       // 4B (number of adjacency entries)
-    private static final long ENT_OFF_ADJ_CAPACITY = 24;    // 4B (allocated adjacency slots)
-    // pad: 4B (28-31)
-    // pad: 4B (32-35, was refCount in V1)
-    private static final long ENT_OFF_DEGREE = 36;           // 4B
-    private static final long ENT_OFF_EDGE_START = 40;       // 4B (index into edge segment)
-    // pad: 20B to reach 64B
+    // ── Legacy on-disk container magics (migrated in-class, #435) ──
+    /** Legacy mmap container magic ('EGMM', 32-byte header), migrated to SMKM. */
+    private static final int LEGACY_EGMM_MAGIC = 0x45474D4D; // "EGMM"
+    /** Legacy heap-serialized container magic ('EGPH'), migrated to SMKM. */
+    private static final int LEGACY_EGPH_MAGIC = 0x45475048; // "EGPH"
+    /** Legacy mmap header size in bytes. */
+    private static final int LEGACY_MMAP_HEADER_BYTES = 32;
+    // Legacy EGMM header: [magic:4B][version:4B][entityCap:4B][edgeCap:4B]
+    //                     [entityCount:4B][edgeCount:4B][adjCap:4B][adjHwm:4B]
 
-
-    /**
-     * Entity Edge Layout (16 bytes, V2).
-     *
-     * <pre>
-     *   [0-3]   target      (4B int: target entity ID)
-     *   [4-7]   relType     (4B int: relation type ID)
-     *   [8-11]  weight      (4B float)
-     *   [12-13] lastCycle   (2B short, unsigned: 0-65535)
-     *   [14]    bridgeScore (1B unsigned: 0-255)
-     *   [15]    flags       (1B reserved)
-     * </pre>
-     */
-    static final int EDGE_BYTES = 16;
-    private static final long EDGE_OFF_TARGET = 0;        // 4B
-    private static final long EDGE_OFF_REL_TYPE = 4;      // 4B
-    private static final long EDGE_OFF_WEIGHT = 8;        // 4B (float)
-    private static final long EDGE_OFF_LAST_CYCLE = 12;   // 2B (short)
-    private static final long EDGE_OFF_BRIDGE_SCORE = 14; // 1B
-    private static final long EDGE_OFF_EDGE_FLAGS = 15;   // 1B
+    // ── Record byte layout: single source of truth is EntityLayout (#435, TD-14). ──
+    // ENTITY_NODE_BYTES / EDGE_BYTES / ADJ_ENTRY_BYTES + all *_OFF_ field offsets are
+    // static-imported from EntityLayout; this class only references them.
 
     /**
      * Minimum bridge score (unsigned 0-255) required to protect an entity edge
@@ -162,12 +169,9 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
     /** Maximum entity edge weight — prevents runaway amplification from cross-capture boosts. */
     static final float MAX_EDGE_WEIGHT = 20.0f;
 
-    // ── Adjacency Entry Layout (8 bytes) ──
-    static final int ADJ_ENTRY_BYTES = 8;
-    private static final long ADJ_OFF_MEM_IDX = 0;      // 4B (memory slot index)
-    private static final long ADJ_OFF_WEIGHT = 4;        // 4B (float weight)
-
-    private final Arena arena;
+    // ── Segments: the entity node slab is the kernel segment() (owned by the substrate);
+    //    the edge slab and region-doubling adjacency slab stay Entity-owned. ──
+    /** Alias of the substrate {@link #segment()} — the entity node slab. */
     private final MemorySegment entitySegment;
     private final MemorySegment edgeSegment;
     private MemorySegment adjacencySegment;
@@ -180,13 +184,12 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
 
     /** On-heap name→entityId index for O(1) lookup (case-insensitive). */
     private final ConcurrentHashMap<String, Integer> nameIndex = new ConcurrentHashMap<>();
-    private final ReentrantLock graphLock = new ReentrantLock();
 
     /** True when segments are backed by mmap'd files (DISK mode). */
     private final boolean fileBacked;
-    /** The underlying FileChannel for mmap mode (null for heap mode). */
+    /** The underlying FileChannel for mmap mode (null for heap mode). Mirrors the inherited channel. */
     private final FileChannel mappedChannel;
-    /** Path to the mmap file (null for heap mode). */
+    /** Path to the mmap file (null for heap mode). Mirrors the inherited path. */
     private final Path mmapFilePath;
 
     /** Optional encryptor for name index persistence (set by enterprise layer). */
@@ -208,11 +211,8 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
 
     private final MemoryId memoryId;
 
-    private MemoryWal wal;
-    private boolean bypassWal = false;
-
     /**
-     * Creates a new entity graph with default max degree.
+     * Creates a new heap-backed entity graph with default max degree.
      *
      * @param entityCapacity maximum number of entities
      * @param edgeCapacity   maximum number of edges
@@ -222,7 +222,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
     }
 
     /**
-     * Creates a new entity graph with configurable max degree.
+     * Creates a new heap-backed entity graph with configurable max degree.
      *
      * @param entityCapacity maximum number of entities
      * @param edgeCapacity   maximum number of edges
@@ -230,34 +230,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * @param edgeImportance edge importance scorer
      */
     public EntityGraphMemory(int entityCapacity, int edgeCapacity, int maxDegree, EdgeImportance edgeImportance) {
-        this.entityCapacity = entityCapacity;
-        this.edgeCapacity = edgeCapacity;
-        this.maxDegree = maxDegree;
-        this.edgeImportance = edgeImportance;
-        this.currentCycle = 0;
-        this.entityCount = 0;
-        this.edgeCount = 0;
-        this.arena = Arena.ofShared();
-        this.entitySegment = arena.allocate((long) ENTITY_NODE_BYTES * entityCapacity);
-        this.edgeSegment = arena.allocate((long) EDGE_BYTES * edgeCapacity);
-        this.adjSegmentCapacity = entityCapacity * DEFAULT_ADJ_PER_ENTITY;
-        this.adjHighWaterMark = 0;
-        this.adjacencySegment = arena.allocate((long) ADJ_ENTRY_BYTES * adjSegmentCapacity);
-        entitySegment.fill((byte) 0);
-        edgeSegment.fill((byte) 0);
-        adjacencySegment.fill((byte) 0);
-        this.fileBacked = false;
-        this.mappedChannel = null;
-        this.mmapFilePath = null;
-        this.entityTypeRegistryMemory = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
-        this.relationTypeRegistryMemory = TypeRegistryMemory.seeded("relation-type", RelationType.SEED);
-        this.memoryId = MemoryId.of("graph", "entity");
-
-        log.info("EntityGraph initialized (heap): entities={}, edges={}, maxDegree={}, adjSlots={}, memory={}KB",
-                entityCapacity, edgeCapacity, maxDegree, adjSegmentCapacity,
-                ((long) ENTITY_NODE_BYTES * entityCapacity
-                        + (long) EDGE_BYTES * edgeCapacity
-                        + (long) ADJ_ENTRY_BYTES * adjSegmentCapacity) / 1024);
+        this(Init.heap(entityCapacity, edgeCapacity), maxDegree, edgeImportance);
     }
 
     /**
@@ -270,165 +243,22 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
     /**
      * Creates or opens a file-backed (mmap) entity graph with configurable max degree.
      *
-     * <p>Uses a single contiguous mmap file with layout:
+     * <p>The on-disk container is the kernel SMKM format:
      * <pre>
-     *   [Header: 32B][EntitySegment][EdgeSegment][AdjacencySegment]
+     *   [64B MemoryHeader (SMKM)][16B Entity sub-header][entity slab][edge slab][adjacency slab]
      * </pre>
-     * V1 files (EDGE_BYTES=12) are detected and re-initialized as V2 (one-way migration).</p>
+     * Legacy EGMM (32-byte header) and EGPH (heap-serialized) files are migrated to SMKM in
+     * place — with a {@code .bak} of the original — before mapping (#435).</p>
      *
      * @param filePath       path to the graph file
-     * @param entityCapacity maximum number of entities
-     * @param edgeCapacity   maximum number of edges
+     * @param entityCapacity maximum number of entities (defaults for a fresh file)
+     * @param edgeCapacity   maximum number of edges (defaults for a fresh file)
      * @param maxDegree      maximum edges per entity
      * @param edgeImportance edge importance scorer
      */
     public EntityGraphMemory(Path filePath, int entityCapacity, int edgeCapacity,
-                       int maxDegree, EdgeImportance edgeImportance) {
-        this.maxDegree = maxDegree;
-        this.edgeImportance = edgeImportance;
-        this.currentCycle = 0;
-
-        Path parent = filePath.getParent();
-        if (parent != null) {
-            try {
-                Files.createDirectories(parent);
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("EntityGraph", parent, e);
-            }
-        }
-
-        this.mmapFilePath = filePath;
-        int adjCap = entityCapacity * MAX_ADJ_PER_ENTITY;
-        long entityBytes = (long) ENTITY_NODE_BYTES * entityCapacity;
-        long edgeBytes = (long) EDGE_BYTES * edgeCapacity;
-        long adjBytes = (long) ADJ_ENTRY_BYTES * adjCap;
-        boolean isNew = !Files.exists(filePath);
-
-        try {
-            FileChannel ch = FileChannel.open(filePath,
-                    StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
-            this.mappedChannel = ch;
-
-            if (isNew || ch.size() < MMAP_HEADER_BYTES) {
-                // Brand new file — write V2 header
-                writeNewMmapHeader(ch, entityCapacity, edgeCapacity, adjCap);
-
-                long totalBytes = MMAP_HEADER_BYTES + entityBytes + edgeBytes + adjBytes;
-                if (ch.size() < totalBytes) {
-                    ch.position(totalBytes - 1);
-                    ch.write(ByteBuffer.wrap(new byte[]{0}));
-                }
-                ch.force(true);
-                this.entityCapacity = entityCapacity;
-                this.edgeCapacity = edgeCapacity;
-                this.entityCount = 0;
-                this.edgeCount = 0;
-                this.adjSegmentCapacity = adjCap;
-                this.adjHighWaterMark = 0;
-            } else {
-                // Existing file — read header
-                ByteBuffer header = ByteBuffer.allocate(MMAP_HEADER_BYTES);
-                ch.position(0);
-                ch.read(header);
-                header.flip();
-                int magic = header.getInt();
-                int version = header.getInt();
-                int fileEntityCap = header.getInt();
-                int fileEdgeCap = header.getInt();
-                int fileEntityCount = header.getInt();
-                int fileEdgeCount = header.getInt();
-                int fileAdjCap = header.getInt();
-                int fileAdjHwm = header.getInt();
-
-                if (magic != MMAP_MAGIC) {
-                    log.warn("Invalid EntityGraph mmap file (bad magic), reinitializing: {}", filePath);
-                    ch.truncate(0);
-                    writeNewMmapHeader(ch, entityCapacity, edgeCapacity, adjCap);
-                    long totalBytes = MMAP_HEADER_BYTES + entityBytes + edgeBytes + adjBytes;
-                    ch.position(totalBytes - 1);
-                    ch.write(ByteBuffer.wrap(new byte[]{0}));
-                    ch.force(true);
-                    this.entityCapacity = entityCapacity;
-                    this.edgeCapacity = edgeCapacity;
-                    this.entityCount = 0;
-                    this.edgeCount = 0;
-                    this.adjSegmentCapacity = adjCap;
-                    this.adjHighWaterMark = 0;
-                } else if (version < MMAP_VERSION) {
-                    // V1 → V2 one-way migration: reinitialize with wider edges
-                    log.warn("Migrating EntityGraph v{} → v{} (one-way): {}", version, MMAP_VERSION, filePath);
-                    ch.truncate(0);
-                    writeNewMmapHeader(ch, fileEntityCap, fileEdgeCap, fileAdjCap);
-                    entityBytes = (long) ENTITY_NODE_BYTES * fileEntityCap;
-                    edgeBytes = (long) EDGE_BYTES * fileEdgeCap;
-                    adjBytes = (long) ADJ_ENTRY_BYTES * fileAdjCap;
-                    long totalBytes = MMAP_HEADER_BYTES + entityBytes + edgeBytes + adjBytes;
-                    ch.position(totalBytes - 1);
-                    ch.write(ByteBuffer.wrap(new byte[]{0}));
-                    ch.force(true);
-                    this.entityCapacity = fileEntityCap;
-                    this.edgeCapacity = fileEdgeCap;
-                    this.entityCount = 0;
-                    this.edgeCount = 0;
-                    this.adjSegmentCapacity = fileAdjCap;
-                    this.adjHighWaterMark = 0;
-                } else {
-                    this.entityCapacity = fileEntityCap;
-                    this.edgeCapacity = fileEdgeCap;
-                    this.entityCount = fileEntityCount;
-                    this.edgeCount = fileEdgeCount;
-                    this.adjSegmentCapacity = fileAdjCap;
-                    this.adjHighWaterMark = fileAdjHwm;
-                    entityBytes = (long) ENTITY_NODE_BYTES * fileEntityCap;
-                    edgeBytes = (long) EDGE_BYTES * fileEdgeCap;
-                    adjBytes = (long) ADJ_ENTRY_BYTES * fileAdjCap;
-                }
-            }
-
-            // mmap the three regions after the header
-            this.arena = Arena.ofShared();
-            long offset = MMAP_HEADER_BYTES;
-            this.entitySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, entityBytes, arena);
-            offset += entityBytes;
-            this.edgeSegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, edgeBytes, arena);
-            offset += edgeBytes;
-            this.adjacencySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, adjBytes, arena);
-            this.fileBacked = true;
-
-            // Load TypeRegistries from sidecar files if present
-            if (parent != null) {
-                this.entityTypeRegistryMemory = TypeRegistryMemory.load(
-                        StorageLayout.entityTypes(parent), "entity-type", EntityType.SEED);
-                this.relationTypeRegistryMemory = TypeRegistryMemory.load(
-                        StorageLayout.relationTypes(parent), "relation-type", RelationType.SEED);
-            } else {
-                this.entityTypeRegistryMemory = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
-                this.relationTypeRegistryMemory = TypeRegistryMemory.seeded("relation-type", RelationType.SEED);
-            }
-            this.memoryId = MemoryId.of("graph", "entity");
-
-            log.info("EntityGraph initialized (mmap): entities={}/{}, edges={}/{}, maxDegree={}, version={}, file={}",
-                    this.entityCount, this.entityCapacity, this.edgeCount, this.edgeCapacity,
-                    maxDegree, MMAP_VERSION, filePath.getFileName());
-
-        } catch (IOException e) {
-            throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
-        }
-    }
-
-    private static void writeNewMmapHeader(FileChannel ch, int entityCap, int edgeCap, int adjCap) throws IOException {
-        ByteBuffer header = ByteBuffer.allocate(MMAP_HEADER_BYTES);
-        header.putInt(MMAP_MAGIC);
-        header.putInt(MMAP_VERSION);
-        header.putInt(entityCap);
-        header.putInt(edgeCap);
-        header.putInt(0); // entityCount
-        header.putInt(0); // edgeCount
-        header.putInt(adjCap);
-        header.putInt(0); // adjHighWaterMark
-        header.flip();
-        ch.position(0);
-        ch.write(header);
+                             int maxDegree, EdgeImportance edgeImportance) {
+        this(Init.mmap(filePath, entityCapacity, edgeCapacity), maxDegree, edgeImportance);
     }
 
     public EntityGraphMemory(int entityCapacity) {
@@ -440,37 +270,179 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
                                   MemorySegment adjacencySegment, int adjSegmentCapacity, int adjHighWaterMark,
                                   ConcurrentHashMap<String, Integer> nameIndex,
                                   TypeRegistryMemory entityTypeRegistry, TypeRegistryMemory relationTypeRegistry) {
-        return new EntityGraphMemory(entityCapacity, edgeCapacity, entityCount, edgeCount,
-                arena, entitySegment, edgeSegment, adjacencySegment,
-                adjSegmentCapacity, adjHighWaterMark, nameIndex,
-                entityTypeRegistry, relationTypeRegistry);
+        Init init = new Init(entityCapacity, edgeCapacity, entityCount, edgeCount, arena,
+                entitySegment, edgeSegment, adjacencySegment, adjSegmentCapacity, adjHighWaterMark,
+                false, null, null, entityTypeRegistry, relationTypeRegistry, nameIndex);
+        return new EntityGraphMemory(init, DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
 
-    private EntityGraphMemory(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
-                         Arena arena, MemorySegment entitySegment, MemorySegment edgeSegment,
-                         MemorySegment adjacencySegment, int adjSegmentCapacity, int adjHighWaterMark,
-                         ConcurrentHashMap<String, Integer> nameIndex,
-                         TypeRegistryMemory entityTypeRegistryMemory, TypeRegistryMemory relationTypeRegistryMemory) {
-        this.entityCapacity = entityCapacity;
-        this.edgeCapacity = edgeCapacity;
-        this.entityCount = entityCount;
-        this.edgeCount = edgeCount;
-        this.maxDegree = DEFAULT_MAX_DEGREE;
-        this.edgeImportance = EdgeImportance.DEFAULT;
+    /**
+     * Single delegating constructor. Wraps the pre-built arena + entity node slab as the kernel
+     * substrate {@link #segment()}, and adopts the Entity-owned edge and region-doubling
+     * adjacency slabs.
+     */
+    private EntityGraphMemory(Init init, int maxDegree, EdgeImportance edgeImportance) {
+        super(MEMORY_ID, LAYOUT, init.entityCapacity, init.arena, init.entitySegment, init.entityCount,
+                init.persistent, init.filePath, init.fileChannel);
+        this.entitySegment = init.entitySegment;
+        this.edgeSegment = init.edgeSegment;
+        this.adjacencySegment = init.adjacencySegment;
+        this.entityCapacity = init.entityCapacity;
+        this.edgeCapacity = init.edgeCapacity;
+        this.entityCount = init.entityCount;
+        this.edgeCount = init.edgeCount;
+        this.adjSegmentCapacity = init.adjSegmentCapacity;
+        this.adjHighWaterMark = init.adjHighWaterMark;
+        this.fileBacked = init.persistent;
+        this.mappedChannel = init.fileChannel;
+        this.mmapFilePath = init.filePath;
+        this.maxDegree = maxDegree;
+        this.edgeImportance = edgeImportance;
         this.currentCycle = 0;
-        this.arena = arena;
-        this.entitySegment = entitySegment;
-        this.edgeSegment = edgeSegment;
-        this.adjacencySegment = adjacencySegment;
-        this.adjSegmentCapacity = adjSegmentCapacity;
-        this.adjHighWaterMark = adjHighWaterMark;
-        this.nameIndex.putAll(nameIndex);
-        this.fileBacked = false;
-        this.mappedChannel = null;
-        this.mmapFilePath = null;
-        this.entityTypeRegistryMemory = entityTypeRegistryMemory;
-        this.relationTypeRegistryMemory = relationTypeRegistryMemory;
-        this.memoryId = MemoryId.of("graph", "entity");
+        this.memoryId = MEMORY_ID;
+        this.entityTypeRegistryMemory = init.entityTypeRegistry;
+        this.relationTypeRegistryMemory = init.relationTypeRegistry;
+        if (init.nameIndex != null && !init.nameIndex.isEmpty()) {
+            this.nameIndex.putAll(init.nameIndex);
+        }
+        log.info("EntityGraph initialized ({}): entities={}/{}, edges={}/{}, maxDegree={}, adjCap={}, file={}",
+                init.persistent ? "mmap" : "heap", entityCount, entityCapacity, edgeCount, edgeCapacity,
+                maxDegree, adjSegmentCapacity, mmapFilePath != null ? mmapFilePath.getFileName() : "<heap>");
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // CONSTRUCTION HOLDER + BUILDERS (super() must run first)
+    // ══════════════════════════════════════════════════════════════
+
+    /** Immutable bundle of everything the delegating constructor needs. */
+    private record Init(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
+                        Arena arena, MemorySegment entitySegment, MemorySegment edgeSegment,
+                        MemorySegment adjacencySegment, int adjSegmentCapacity, int adjHighWaterMark,
+                        boolean persistent, Path filePath, FileChannel fileChannel,
+                        TypeRegistryMemory entityTypeRegistry, TypeRegistryMemory relationTypeRegistry,
+                        ConcurrentHashMap<String, Integer> nameIndex) {
+
+        /** Builds a fresh heap-backed graph. */
+        static Init heap(int entityCapacity, int edgeCapacity) {
+            Arena arena = Arena.ofShared();
+            MemorySegment entitySegment = arena.allocate((long) ENTITY_NODE_BYTES * entityCapacity);
+            MemorySegment edgeSegment = arena.allocate((long) EDGE_BYTES * edgeCapacity);
+            int adjCap = entityCapacity * DEFAULT_ADJ_PER_ENTITY;
+            MemorySegment adjacencySegment = arena.allocate((long) ADJ_ENTRY_BYTES * adjCap);
+            entitySegment.fill((byte) 0);
+            edgeSegment.fill((byte) 0);
+            adjacencySegment.fill((byte) 0);
+            return new Init(entityCapacity, edgeCapacity, 0, 0, arena,
+                    entitySegment, edgeSegment, adjacencySegment, adjCap, 0,
+                    false, null, null,
+                    TypeRegistryMemory.seeded("entity-type", EntityType.SEED),
+                    TypeRegistryMemory.seeded("relation-type", RelationType.SEED),
+                    null);
+        }
+
+        /** Opens (or creates) an SMKM mmap file, migrating legacy EGMM/EGPH files in place first. */
+        static Init mmap(Path filePath, int defaultEntityCap, int defaultEdgeCap) {
+            Path parent = filePath.getParent();
+            try {
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+
+                boolean exists = Files.exists(filePath) && Files.size(filePath) >= 4;
+                if (exists) {
+                    int beMagic = peekMagicBE(filePath);
+                    int leMagic = Integer.reverseBytes(beMagic);
+                    if (leMagic != MemoryHeader.MAGIC) {
+                        // Legacy container — migrate in place to SMKM before mapping (#435). This
+                        // is the fallback for a direct public-ctor call; load() migrates up front
+                        // with the caller's encryptor.
+                        migrateLegacyFileToSmkm(filePath, beMagic, defaultEntityCap, defaultEdgeCap, null);
+                    }
+                }
+
+                int entityCap;
+                int edgeCap;
+                int entityCount;
+                int edgeCount;
+                int adjCap;
+                int adjHwm;
+                FileChannel ch = FileChannel.open(filePath,
+                        StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+
+                // A pre-existing file that is too small to hold the SMKM header is truncated/corrupt,
+                // not "fresh" — surface it rather than silently reinitializing (#432/#433 TD-04).
+                if (exists && ch.size() < DATA_START) {
+                    throw new IOException("SMKM entity-graph file truncated: size=" + ch.size()
+                            + " < " + DATA_START + ": " + filePath);
+                }
+
+                if (!exists) {
+                    entityCap = defaultEntityCap;
+                    edgeCap = defaultEdgeCap;
+                    entityCount = 0;
+                    edgeCount = 0;
+                    adjCap = defaultEntityCap * MAX_ADJ_PER_ENTITY;
+                    adjHwm = 0;
+                    writeSmkmHeaderToChannel(ch, entityCap, edgeCap, entityCount, edgeCount, adjCap, adjHwm);
+                    long total = DATA_START + (long) ENTITY_NODE_BYTES * entityCap
+                            + (long) EDGE_BYTES * edgeCap + (long) ADJ_ENTRY_BYTES * adjCap;
+                    if (ch.size() < total) {
+                        ch.position(total - 1);
+                        ch.write(ByteBuffer.wrap(new byte[]{0}));
+                    }
+                    ch.force(true);
+                } else {
+                    try (Arena tmpArena = Arena.ofConfined()) {
+                        MemorySegment head = tmpArena.allocate(DATA_START);
+                        ByteBuffer hb = head.asByteBuffer();
+                        ch.position(0);
+                        while (hb.hasRemaining() && ch.read(hb) >= 0) {
+                            // fill header
+                        }
+                        if (!MemoryHeader.isValid(head, 0L)
+                                || MemoryHeader.readShape(head, 0L) != MemoryShape.GRAPH
+                                || MemoryHeader.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
+                            throw new IOException("invalid SMKM entity-graph header: " + filePath);
+                        }
+                        entityCap = (int) MemoryHeader.readCapacity(head, 0L);
+                        entityCount = (int) MemoryHeader.readCount(head, 0L);
+                        edgeCap = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY);
+                        edgeCount = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_COUNT);
+                        adjCap = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY);
+                        adjHwm = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM);
+                    }
+                }
+
+                long entityBytes = (long) ENTITY_NODE_BYTES * entityCap;
+                long edgeBytes = (long) EDGE_BYTES * edgeCap;
+                long adjBytes = (long) ADJ_ENTRY_BYTES * adjCap;
+                Arena arena = Arena.ofShared();
+                long offset = DATA_START;
+                MemorySegment entitySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, entityBytes, arena);
+                offset += entityBytes;
+                MemorySegment edgeSegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, edgeBytes, arena);
+                offset += edgeBytes;
+                MemorySegment adjacencySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, adjBytes, arena);
+
+                TypeRegistryMemory entityTypes;
+                TypeRegistryMemory relationTypes;
+                if (parent != null) {
+                    entityTypes = TypeRegistryMemory.load(
+                            StorageLayout.entityTypes(parent), "entity-type", EntityType.SEED);
+                    relationTypes = TypeRegistryMemory.load(
+                            StorageLayout.relationTypes(parent), "relation-type", RelationType.SEED);
+                } else {
+                    entityTypes = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+                    relationTypes = TypeRegistryMemory.seeded("relation-type", RelationType.SEED);
+                }
+
+                return new Init(entityCap, edgeCap, entityCount, edgeCount, arena,
+                        entitySegment, edgeSegment, adjacencySegment, adjCap, adjHwm,
+                        true, filePath, ch, entityTypes, relationTypes, null);
+            } catch (IOException e) {
+                throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
+            }
+        }
     }
 
     /**
@@ -524,8 +496,16 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * @param type       relation type
      */
     public void addRelation(int fromEntity, int toEntity, String type) {
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
+            addRelationLocked(fromEntity, toEntity, type);
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /** Core of {@link #addRelation}; the caller must hold the write lock. */
+    private void addRelationLocked(int fromEntity, int toEntity, String type) {
         if (fromEntity < 0 || fromEntity >= entityCount) return;
         if (toEntity < 0 || toEntity >= entityCount) return;
         if (fromEntity == toEntity) return;
@@ -601,9 +581,6 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
 
         entitySegment.set(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_DEGREE, degree + 1);
         edgeCount = edgeIdx + 1;
-        } finally {
-            graphLock.unlock();
-        }
     }
 
     /**
@@ -629,7 +606,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
         if (toEntity < 0 || toEntity >= entityCount) return false;
         if (fromEntity == toEntity || boost <= 0.0f) return false;
 
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
             long entityOffset = (long) fromEntity * ENTITY_NODE_BYTES;
             int degree = entitySegment.get(ValueLayout.JAVA_INT, entityOffset + ENT_OFF_DEGREE);
@@ -652,7 +629,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
             }
             return false;
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -722,10 +699,17 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * @param memoryIdx index of the memory that mentions this entity
      */
     public void linkEntityToMemory(int entityId, int memoryIdx) {
-        if (entityId < 0 || entityId >= entityCount) return;
-
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
+            linkEntityToMemoryLocked(entityId, memoryIdx);
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /** Core of {@link #linkEntityToMemory}; the caller must hold the write lock. */
+    private void linkEntityToMemoryLocked(int entityId, int memoryIdx) {
+        if (entityId < 0 || entityId >= entityCount) return;
             if (wal != null && !bypassWal) {
                 wal.appendGraphLinkMemory(memoryId.toString(), entityId, memoryIdx);
             }
@@ -779,26 +763,27 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
             adjacencySegment.set(ValueLayout.JAVA_INT, entryOff + ADJ_OFF_MEM_IDX, memoryIdx);
             adjacencySegment.set(ValueLayout.JAVA_FLOAT, entryOff + ADJ_OFF_WEIGHT, INITIAL_LINK_WEIGHT);
             entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT, adjCnt + 1);
-        } finally {
-            graphLock.unlock();
-        }
     }
 
     /**
      * Ensures the adjacency segment can hold at least {@code requiredEntries} entries.
      * Doubles the segment capacity if needed, copying existing data.
      *
-     * <p>Must be called under {@link #graphLock}.</p>
+     * <p>Must be called under the substrate write lock (it reassigns {@link #adjacencySegment}).</p>
      */
     private void ensureAdjSegmentCapacity(int requiredEntries) {
         if (requiredEntries <= adjSegmentCapacity) return;
         if (fileBacked) {
             // mmap mode: pre-allocated at max capacity, should never need to grow.
-            // If this triggers, MAX_ADJ_PER_ENTITY needs increasing.
-            throw new IllegalStateException(
-                    "EntityGraph mmap adjacency segment exhausted: required=" + requiredEntries
-                    + ", capacity=" + adjSegmentCapacity
-                    + ". Increase MAX_ADJ_PER_ENTITY (currently " + MAX_ADJ_PER_ENTITY + ")");
+            // If this triggers, MAX_ADJ_PER_ENTITY needs increasing. Surface it as a
+            // domain exception carrying CAPACITY_EXCEEDED rather than the generic
+            // GRAPH_ENTITY_FAILED (#433 TD-07): this is a capacity limit, not an
+            // arbitrary operation failure.
+            throw new SpectorEntityGraphException(
+                    ErrorCode.CAPACITY_EXCEEDED,
+                    "adjacency segment exhausted (mmap); increase MAX_ADJ_PER_ENTITY (currently "
+                            + MAX_ADJ_PER_ENTITY + ")",
+                    adjSegmentCapacity, requiredEntries);
         }
         int newCapacity = Math.max(adjSegmentCapacity * 2, requiredEntries);
         MemorySegment newSeg = arena.allocate((long) ADJ_ENTRY_BYTES * newCapacity);
@@ -832,6 +817,19 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * @return array of memory indices
      */
     public int[] memoriesForEntity(int entityId) {
+        // Validated read lock (NOT optimistic): compactAdjacency()/ensureAdjSegmentCapacity()
+        // reassign the adjacencySegment field under the write lock, so a reader must not race
+        // a compaction and dereference a stale segment (#435 StampedLock hazard).
+        long stamp = lock.readLock();
+        try {
+            return memoriesForEntityLocked(entityId);
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    /** Core of {@link #memoriesForEntity}; the caller must hold at least the read lock. */
+    private int[] memoriesForEntityLocked(int entityId) {
         if (entityId < 0 || entityId >= entityCount) return new int[0];
 
         long entOffset = (long) entityId * ENTITY_NODE_BYTES;
@@ -866,12 +864,18 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      */
     public int memoryRefAt(int entityId, int refIndex) {
         if (entityId < 0 || entityId >= entityCount) return -1;
-        long entOffset = (long) entityId * ENTITY_NODE_BYTES;
-        int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-        int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-        if (adjOff < 0 || refIndex < 0 || refIndex >= adjCnt) return -1;
-        return adjacencySegment.get(ValueLayout.JAVA_INT,
-                (long) (adjOff + refIndex) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
+        // Validated read lock: adjacencySegment may be reassigned by a concurrent compaction.
+        long stamp = lock.readLock();
+        try {
+            long entOffset = (long) entityId * ENTITY_NODE_BYTES;
+            int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+            int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+            if (adjOff < 0 || refIndex < 0 || refIndex >= adjCnt) return -1;
+            return adjacencySegment.get(ValueLayout.JAVA_INT,
+                    (long) (adjOff + refIndex) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
+        } finally {
+            lock.unlockRead(stamp);
+        }
     }
 
     /**
@@ -883,12 +887,18 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      */
     public float memoryRefWeight(int entityId, int refIndex) {
         if (entityId < 0 || entityId >= entityCount) return 0f;
-        long entOffset = (long) entityId * ENTITY_NODE_BYTES;
-        int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
-        int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
-        if (adjOff < 0 || refIndex < 0 || refIndex >= adjCnt) return 0f;
-        return adjacencySegment.get(ValueLayout.JAVA_FLOAT,
-                (long) (adjOff + refIndex) * ADJ_ENTRY_BYTES + ADJ_OFF_WEIGHT);
+        // Validated read lock: adjacencySegment may be reassigned by a concurrent compaction.
+        long stamp = lock.readLock();
+        try {
+            long entOffset = (long) entityId * ENTITY_NODE_BYTES;
+            int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+            int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+            if (adjOff < 0 || refIndex < 0 || refIndex >= adjCnt) return 0f;
+            return adjacencySegment.get(ValueLayout.JAVA_FLOAT,
+                    (long) (adjOff + refIndex) * ADJ_ENTRY_BYTES + ADJ_OFF_WEIGHT);
+        } finally {
+            lock.unlockRead(stamp);
+        }
     }
 
     /**
@@ -1054,7 +1064,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * @return number of edges pruned
      */
     public int decayEdges(float decayFactor, float minWeight, GraphHealthMetrics metrics) {
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
         currentCycle++;
         int pruned = 0;
@@ -1135,7 +1145,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
         }
         return pruned;
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -1261,7 +1271,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * @return number of adjacency entries pruned
      */
     public int decayAdjacencyWeights(float decayFactor, float pruneThreshold) {
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
             int totalPruned = 0;
             for (int e = 0; e < entityCount; e++) {
@@ -1299,7 +1309,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
             }
             return totalPruned;
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -1316,7 +1326,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * @return bytes reclaimed by compaction
      */
     public long compactAdjacency() {
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
             long oldUsed = (long) adjHighWaterMark * ADJ_ENTRY_BYTES;
 
@@ -1394,7 +1404,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
             }
             return Math.max(reclaimed, 0);
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -1413,7 +1423,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * @return number of entities merged
      */
     public int mergeSimilarEntities(int maxEditDistance) {
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
         if (maxEditDistance <= 0 || entityCount < 2) return 0;
 
@@ -1456,18 +1466,23 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
         }
         return mergeCount;
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
     /**
      * Redirects all edges and memory refs from {@code from} to {@code to}.
+     *
+     * <p>Invoked by {@link #mergeSimilarEntities} while it holds the write lock. Because the
+     * substrate {@link #lock} is a non-reentrant {@link java.util.concurrent.locks.StampedLock},
+     * this method calls the unlocked {@code *Locked} cores rather than the public lock-acquiring
+     * methods, and reads edges lock-free (the caller already holds exclusive access).</p>
      */
     private void redirectEntity(int from, int to) {
         // Move memory refs from 'from' to 'to' via adjacency
-        int[] fromMemRefs = memoriesForEntity(from);
+        int[] fromMemRefs = memoriesForEntityLocked(from);
         for (int memIdx : fromMemRefs) {
-            linkEntityToMemory(to, memIdx);
+            linkEntityToMemoryLocked(to, memIdx);
         }
         // Clear 'from' adjacency
         long fromOffset = (long) from * ENTITY_NODE_BYTES;
@@ -1476,7 +1491,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
         // Move edges from 'from' to 'to'
         for (EntityEdge edge : edges(from)) {
             if (edge.targetEntityId() != to) {
-                addRelation(to, edge.targetEntityId(), edge.relationType());
+                addRelationLocked(to, edge.targetEntityId(), edge.relationType());
             }
         }
         // Clear 'from' edges
@@ -1595,90 +1610,294 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
     public record TraversalResult(int entityId, int hopDistance) {}
 
     // ══════════════════════════════════════════════════════════════
-    // PERSISTENCE: save / load (delegated to EntityGraphSerializer)
+    // PERSISTENCE: SMKM container + in-class legacy migration (#435)
     // ══════════════════════════════════════════════════════════════
 
-    /**
-     * Saves the graph to a binary file.
-     *
-     * @param filePath path to write
-     */
+    /** Saves the graph to the SMKM container. */
     public void save(Path filePath) {
         save(filePath, this.dataEncryptor);
     }
 
     /**
-     * Saves the graph to a binary file with optional name index encryption.
+     * Saves the graph to the SMKM container with optional name-index encryption.
      *
-     * <p>For mmap-backed graphs: flushes dirty pages via {@code force()},
-     * updates the header with current counts, and serializes the nameIndex
-     * as a sidecar file. The segments themselves are already on disk.</p>
+     * <p>An mmap-backed graph saved to its own mapped path updates the file's SMKM header +
+     * Entity sub-header and forces all three segments; otherwise a fresh SMKM file is serialized.
+     * The nameIndex and type registries are written as sidecar files in both cases.</p>
      *
      * @param filePath  path to write
      * @param encryptor optional encryptor for name index (null = no encryption)
      */
     public void save(Path filePath, DataEncryptor encryptor) {
-        if (fileBacked) {
+        if (fileBacked && filePath.equals(mmapFilePath)) {
+            long stamp = lock.readLock();
             try {
-                // Update header with current counts
-                ByteBuffer header = ByteBuffer.allocate(MMAP_HEADER_BYTES);
-                header.putInt(MMAP_MAGIC);
-                header.putInt(MMAP_VERSION);
-                header.putInt(entityCapacity);
-                header.putInt(edgeCapacity);
-                header.putInt(entityCount);
-                header.putInt(edgeCount);
-                header.putInt(adjSegmentCapacity);
-                header.putInt(adjHighWaterMark);
-                header.flip();
-                mappedChannel.position(0);
-                mappedChannel.write(header);
-
-                // Force-flush all segments
+                writeSmkmHeaderToChannel(mappedChannel, entityCapacity, edgeCapacity,
+                        entityCount, edgeCount, adjSegmentCapacity, adjHighWaterMark);
                 entitySegment.force();
                 edgeSegment.force();
                 adjacencySegment.force();
                 mappedChannel.force(true);
-
-                // Serialize nameIndex + TypeRegistries (sidecar files)
-                EntityGraphSerializer.saveNameIndexAndRegistries(this, filePath, encryptor);
-
-                log.info("EntityGraph flushed (mmap): entities={}/{}, edges={}, adjHwm={}",
-                        entityCount, entityCapacity, edgeCount, adjHighWaterMark);
             } catch (IOException e) {
                 throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
+            } finally {
+                lock.unlockRead(stamp);
             }
+            EntityGraphSerializer.saveNameIndexAndRegistries(this, filePath, encryptor);
+            log.info("EntityGraph flushed (SMKM mmap): entities={}/{}, edges={}, adjHwm={}",
+                    entityCount, entityCapacity, edgeCount, adjHighWaterMark);
             return;
         }
-
-        // Heap-backed: full serialization
-        EntityGraphSerializer.save(this, filePath, encryptor);
+        // Heap-backed (or saving to a different path): write a fresh SMKM file + sidecars.
+        writeSmkmFile(filePath);
+        EntityGraphSerializer.saveNameIndexAndRegistries(this, filePath, encryptor);
     }
 
     /**
-     * Loads a graph from a binary file, or returns a new empty graph.
+     * Writes this graph's data as a fresh SMKM container at {@code filePath}:
+     * {@code [64B header][16B Entity sub-header][entity slab][edge slab][adjacency slab]}.
+     */
+    private void writeSmkmFile(Path filePath) {
+        Path parent = filePath.getParent();
+        long stamp = lock.readLock();
+        try {
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            long entityBytes = (long) ENTITY_NODE_BYTES * entityCapacity;
+            long edgeBytes = (long) EDGE_BYTES * edgeCapacity;
+            long adjBytes = (long) ADJ_ENTRY_BYTES * adjSegmentCapacity;
+            try (FileChannel ch = FileChannel.open(filePath,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING)) {
+                writeSmkmHeaderToChannel(ch, entityCapacity, edgeCapacity,
+                        entityCount, edgeCount, adjSegmentCapacity, adjHighWaterMark);
+                ch.position(DATA_START);
+                writeSegmentFully(ch, entitySegment, entityBytes);
+                writeSegmentFully(ch, edgeSegment, edgeBytes);
+                writeSegmentFully(ch, adjacencySegment, adjBytes);
+                ch.force(true);
+            }
+            log.info("EntityGraph saved (SMKM): entities={}, edges={}, adjHwm={} -> {}",
+                    entityCount, edgeCount, adjHighWaterMark, filePath);
+        } catch (IOException e) {
+            throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    /**
+     * Loads a graph from disk, or returns a fresh (heap) graph if the file is absent.
      *
      * @param filePath          path to the graph file
-     * @param defaultEntityCap  entity capacity if file doesn't exist
-     * @param defaultEdgeCap    edge capacity if file doesn't exist
-     * @return an EntityGraph (loaded or new)
+     * @param defaultEntityCap  entity capacity if the file doesn't exist
+     * @param defaultEdgeCap    edge capacity if the file doesn't exist
+     * @return an EntityGraphMemory (loaded or fresh)
      */
     public static EntityGraphMemory load(Path filePath, int defaultEntityCap, int defaultEdgeCap) {
-        return EntityGraphSerializer.load(filePath, defaultEntityCap, defaultEdgeCap, null);
+        return load(filePath, defaultEntityCap, defaultEdgeCap, null);
     }
 
     /**
-     * Loads a graph from a binary file with optional name index decryption.
+     * Loads a graph from disk with optional name-index decryption. This is the single in-class
+     * migration authority (#435, CEO decision — not the codec): it classifies the container by
+     * magic and self-heals legacy files.
      *
-     * @param filePath          path to the graph file
-     * @param defaultEntityCap  entity capacity if file doesn't exist
-     * @param defaultEdgeCap    edge capacity if file doesn't exist
-     * @param encryptor         optional encryptor for name index decryption (null = no encryption)
-     * @return an EntityGraphMemory (loaded or new)
+     * <ul>
+     *   <li>SMKM ({@code 0x534D4B4D}) — opened directly.</li>
+     *   <li>Legacy EGMM ({@code 0x45474D4D}, 32-byte mmap header) — migrated in place to SMKM.</li>
+     *   <li>Legacy EGPH ({@code 0x45475048}, heap-serialized) — migrated in place to SMKM.</li>
+     *   <li>Present but unreadable/unknown — throws {@link SpectorGraphPersistenceException}
+     *       (never a silent empty graph, #432/#433 TD-04).</li>
+     *   <li>Absent — a fresh heap graph.</li>
+     * </ul>
      */
     public static EntityGraphMemory load(Path filePath, int defaultEntityCap, int defaultEdgeCap,
                                     DataEncryptor encryptor) {
-        return EntityGraphSerializer.load(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
+        if (filePath == null || !Files.exists(filePath)) {
+            log.info("EntityGraph file not found, creating fresh: {}", filePath);
+            return new EntityGraphMemory(defaultEntityCap, defaultEdgeCap);
+        }
+        try {
+            long size = Files.size(filePath);
+            if (size < 4) {
+                throw new IOException("file too small to contain a magic number: " + size + " bytes");
+            }
+            int beMagic = peekMagicBE(filePath);
+            int leMagic = Integer.reverseBytes(beMagic);
+            if (leMagic == MemoryHeader.MAGIC) {
+                return openSmkm(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
+            }
+            if (beMagic == LEGACY_EGMM_MAGIC || beMagic == LEGACY_EGPH_MAGIC) {
+                log.info("EntityGraph migrating legacy container 0x{} -> SMKM: {}",
+                        Integer.toHexString(beMagic), filePath);
+                migrateLegacyFileToSmkm(filePath, beMagic, defaultEntityCap, defaultEdgeCap, encryptor);
+                return openSmkm(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
+            }
+            throw new IOException("Unrecognized EntityGraph file magic: 0x"
+                    + Integer.toHexString(beMagic) + " (expected SMKM 0x"
+                    + Integer.toHexString(MemoryHeader.MAGIC) + ", EGMM 0x"
+                    + Integer.toHexString(LEGACY_EGMM_MAGIC) + " or EGPH 0x"
+                    + Integer.toHexString(LEGACY_EGPH_MAGIC) + "): " + filePath);
+        } catch (SpectorGraphPersistenceException e) {
+            throw e;
+        } catch (Exception e) {
+            // Present but unreadable is a data-integrity problem, not "start fresh" (#432/#433).
+            log.error("Failed to load EntityGraph from {} (file present but unreadable)", filePath, e);
+            throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
+        }
+    }
+
+    /** Opens an SMKM entity-graph file (mmap) and hydrates the nameIndex sidecar. */
+    private static EntityGraphMemory openSmkm(Path filePath, int defaultEntityCap, int defaultEdgeCap,
+                                              DataEncryptor encryptor) {
+        EntityGraphMemory graph = new EntityGraphMemory(filePath, defaultEntityCap, defaultEdgeCap);
+        ConcurrentHashMap<String, Integer> names =
+                EntityGraphSerializer.loadNameIndexSidecar(filePath, encryptor);
+        if (names != null && !names.isEmpty()) {
+            graph.nameIndexInternal().putAll(names);
+        }
+        graph.setDataEncryptor(encryptor);
+        return graph;
+    }
+
+    // ── SMKM header + region helpers ──
+
+    /** Reads the leading 4-byte magic in big-endian (the order legacy writers used). */
+    private static int peekMagicBE(Path filePath) throws IOException {
+        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
+            ByteBuffer buf = ByteBuffer.allocate(4);
+            if (ch.read(buf) < 4) {
+                throw new IOException("file too small to contain a magic number: " + filePath);
+            }
+            buf.flip();
+            return buf.getInt();
+        }
+    }
+
+    /** Writes the 64-byte SMKM header + 16-byte Entity sub-header to the start of {@code ch}. */
+    private static void writeSmkmHeaderToChannel(FileChannel ch, int entityCap, int edgeCap,
+                                                 int entityCount, int edgeCount, int adjCap, int adjHwm)
+            throws IOException {
+        try (Arena confined = Arena.ofConfined()) {
+            MemorySegment head = confined.allocate(DATA_START);
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+                    entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
+            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCap);
+            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_COUNT, edgeCount);
+            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
+            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
+            ByteBuffer buf = head.asByteBuffer();
+            ch.position(0);
+            while (buf.hasRemaining()) {
+                ch.write(buf);
+            }
+        }
+    }
+
+    private static void writeSegmentFully(FileChannel ch, MemorySegment seg, long bytes)
+            throws IOException {
+        long written = 0;
+        int chunk = 64 * 1024;
+        while (written < bytes) {
+            int toWrite = (int) Math.min(chunk, bytes - written);
+            ByteBuffer buf = seg.asSlice(written, toWrite).asByteBuffer().asReadOnlyBuffer();
+            ch.write(buf);
+            written += toWrite;
+        }
+    }
+
+    // ── Legacy migration (in-class single authority, #435) ──
+
+    /** Dispatches legacy migration by magic; rewrites {@code file} in place to SMKM with a {@code .bak}. */
+    private static void migrateLegacyFileToSmkm(Path file, int beMagic, int defaultEntityCap,
+                                                int defaultEdgeCap, DataEncryptor encryptor) throws IOException {
+        if (beMagic == LEGACY_EGMM_MAGIC) {
+            migrateEgmmToSmkm(file);
+        } else if (beMagic == LEGACY_EGPH_MAGIC) {
+            migrateEgphToSmkm(file, defaultEntityCap, defaultEdgeCap, encryptor);
+        } else {
+            throw new IOException("cannot migrate unknown EntityGraph magic 0x"
+                    + Integer.toHexString(beMagic) + ": " + file);
+        }
+    }
+
+    /**
+     * Migrates a legacy EGMM (32-byte header) mmap file to the SMKM container in place. The
+     * original is preserved as {@code <name>.bak.egmm}; every data region shifts by
+     * {@code DATA_START - 32} bytes and the magic flips EGMM -&gt; SMKM.
+     */
+    private static void migrateEgmmToSmkm(Path file) throws IOException {
+        try (FileChannel in = FileChannel.open(file, StandardOpenOption.READ)) {
+            ByteBuffer h = ByteBuffer.allocate(LEGACY_MMAP_HEADER_BYTES); // legacy header is big-endian
+            in.position(0);
+            if (in.read(h) < LEGACY_MMAP_HEADER_BYTES) {
+                throw new IOException("EGMM header truncated: " + file);
+            }
+            h.flip();
+            int magic = h.getInt();
+            int version = h.getInt();
+            int entityCap = h.getInt();
+            int edgeCap = h.getInt();
+            int entityCount = h.getInt();
+            int edgeCount = h.getInt();
+            int adjCap = h.getInt();
+            int adjHwm = h.getInt();
+            if (magic != LEGACY_EGMM_MAGIC || entityCap < 0 || edgeCap < 0 || adjCap < 0) {
+                throw new IOException("invalid EGMM header (magic=0x" + Integer.toHexString(magic)
+                        + ", version=" + version + "): " + file);
+            }
+            long entityBytes = (long) ENTITY_NODE_BYTES * entityCap;
+            long edgeBytes = (long) EDGE_BYTES * edgeCap;
+            long adjBytes = (long) ADJ_ENTRY_BYTES * adjCap;
+            long dataBytes = entityBytes + edgeBytes + adjBytes;
+            long expected = LEGACY_MMAP_HEADER_BYTES + dataBytes;
+            if (in.size() < expected) {
+                throw new IOException("EGMM file truncated: size=" + in.size() + " < " + expected);
+            }
+
+            Path bak = file.resolveSibling(file.getFileName() + ".bak.egmm");
+            Files.copy(file, bak, StandardCopyOption.REPLACE_EXISTING);
+
+            Path tmp = file.resolveSibling(file.getFileName() + ".smkm.tmp");
+            try (FileChannel out = FileChannel.open(tmp,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                writeSmkmHeaderToChannel(out, entityCap, edgeCap, entityCount, edgeCount, adjCap, adjHwm);
+                out.position(DATA_START);
+                long moved = 0;
+                while (moved < dataBytes) {
+                    long n = in.transferTo(LEGACY_MMAP_HEADER_BYTES + moved, dataBytes - moved, out);
+                    if (n <= 0) break;
+                    moved += n;
+                }
+                if (moved < dataBytes) {
+                    throw new IOException("EGMM->SMKM region copy short: " + moved + " < " + dataBytes);
+                }
+                out.force(true);
+            }
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /**
+     * Migrates a legacy EGPH (heap-serialized) file to the SMKM container in place. The original
+     * is preserved as {@code <name>.bak.egph}. The data is read via {@link EntityGraphSerializer}
+     * and re-serialized as SMKM.
+     */
+    private static void migrateEgphToSmkm(Path file, int defaultEntityCap, int defaultEdgeCap,
+                                          DataEncryptor encryptor) throws IOException {
+        Path bak = file.resolveSibling(file.getFileName() + ".bak.egph");
+        // EGPH stores the name index inline; loadEgph hydrates it, and save() re-emits both the
+        // SMKM data file and the name-index / registry sidecars the SMKM open path expects.
+        EntityGraphMemory heap = EntityGraphSerializer.loadEgph(file, defaultEntityCap, defaultEdgeCap, encryptor);
+        try {
+            Files.copy(file, bak, StandardCopyOption.REPLACE_EXISTING);
+            heap.save(file, encryptor);
+        } finally {
+            heap.close();
+        }
     }
 
     // ── Package-private accessors for EntityGraphSerializer ──
@@ -1700,7 +1919,7 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
      * remains usable for new entities after the reset. Used by privacy wipe.</p>
      */
     public void reset() {
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
             int entitiesBefore = entityCount;
             int edgesBefore = edgeCount;
@@ -1713,52 +1932,22 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
             adjHighWaterMark = 0;
             log.info("EntityGraph reset: {} entities, {} edges cleared", entitiesBefore, edgesBefore);
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
     // ══════════════════════════════════════════════════════════════
     // KERNEL INTEGRATION
     // ══════════════════════════════════════════════════════════════
-
-    @Override
-    public MemoryId id() {
-        return memoryId;
-    }
-
-    @Override
-    public com.spectrayan.spector.memory.kernel.layout.EntityLayout layout() {
-        return new com.spectrayan.spector.memory.kernel.layout.EntityLayout();
-    }
-
-    @Override
-    public Arena arena() {
-        return arena;
-    }
-
-    @Override
-    public MemorySegment segment() {
-        return entitySegment;
-    }
+    //
+    // id(), layout(), arena(), segment() (= the entity node slab), capacity(),
+    // schemaVersion(), shape(), and WAL binding are inherited from the substrate
+    // (AbstractGraphMemory/AbstractMemory). size() is overridden because entityCount is the
+    // authoritative live count; flush()/close() are overridden to cover all three segments.
 
     @Override
     public int size() {
         return entityCount;
-    }
-
-    @Override
-    public int capacity() {
-        return entityCapacity;
-    }
-
-    @Override
-    public int schemaVersion() {
-        return 2;
-    }
-
-    @Override
-    public MemoryShape shape() {
-        return MemoryShape.GRAPH;
     }
 
     @Override
@@ -1795,21 +1984,6 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
 
     public MemoryShape kernelShape() {
         return MemoryShape.GRAPH;
-    }
-
-    @Override
-    public void bindWal(MemoryWal wal) {
-        this.wal = wal;
-    }
-
-    @Override
-    public void setBypassWal(boolean bypass) {
-        this.bypassWal = bypass;
-    }
-
-    @Override
-    public MemoryWal getWal() {
-        return this.wal;
     }
 
     @Override

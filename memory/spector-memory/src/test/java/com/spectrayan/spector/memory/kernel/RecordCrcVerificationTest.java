@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,8 +62,9 @@ class RecordCrcVerificationTest {
                 mem.segment().set(ValueLayout.JAVA_INT, recordOffset, 99999);
 
                 assertThatThrownBy(() -> mem.read(0, dest))
-                        .isInstanceOf(IllegalStateException.class)
-                        .hasMessageContaining("CRC32C corruption");
+                        .isInstanceOf(SpectorStorageException.class)
+                        .satisfies(ex -> assertThat(((SpectorStorageException) ex).errorCode())
+                                .isEqualTo(ErrorCode.RECORD_CRC_CORRUPTED));
             }
         }
     }

@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.graph;
 
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 
 import org.slf4j.Logger;
@@ -109,11 +110,11 @@ final class EntityGraphSerializer {
 
             // Write entity segment
             writeSegment(ch, graph.entitySegment(),
-                    (long) EntityGraphMemory.ENTITY_NODE_BYTES * graph.entityCapacity());
+                    (long) EntityLayout.ENTITY_NODE_BYTES * graph.entityCapacity());
 
             // Write edge segment
             writeSegment(ch, graph.edgeSegment(),
-                    (long) EntityGraphMemory.EDGE_BYTES * graph.edgeCapacity());
+                    (long) EntityLayout.EDGE_BYTES * graph.edgeCapacity());
 
             // Write adjacency segment header: [adjSegmentCapacity:4B][adjHighWaterMark:4B]
             ByteBuffer adjHeader = ByteBuffer.allocate(8);
@@ -125,7 +126,7 @@ final class EntityGraphSerializer {
             // Write adjacency segment data (only up to high water mark)
             if (graph.adjHighWaterMark() > 0) {
                 writeSegment(ch, graph.adjacencySegment(),
-                        (long) EntityGraphMemory.ADJ_ENTRY_BYTES * graph.adjHighWaterMark());
+                        (long) EntityLayout.ADJ_ENTRY_BYTES * graph.adjHighWaterMark());
             }
 
             // Write name index (on-heap → serialized, optionally encrypted)
@@ -190,60 +191,38 @@ final class EntityGraphSerializer {
      * @param encryptor         optional encryptor for name index decryption (null = no encryption)
      * @return an EntityGraphMemory (loaded or new)
      */
-    static EntityGraphMemory load(Path filePath, int defaultEntityCap, int defaultEdgeCap,
-                            DataEncryptor encryptor) {
-        if (filePath == null || !Files.exists(filePath)) {
-            log.info("EntityGraphMemory file not found, creating fresh: {}", filePath);
-            return new EntityGraphMemory(defaultEntityCap, defaultEdgeCap);
+    /**
+     * Loads the {@code entity-names.idx} sidecar next to a graph file, if present. Returns an
+     * empty map when no sidecar exists. Used by the SMKM open path in {@link EntityGraphMemory}.
+     */
+    static ConcurrentHashMap<String, Integer> loadNameIndexSidecar(Path graphFile, DataEncryptor encryptor) {
+        Path parent = graphFile.getParent();
+        Path nameIndexPath = parent != null ? parent.resolve("entity-names.idx") : null;
+        if (nameIndexPath == null || !Files.exists(nameIndexPath)) {
+            return new ConcurrentHashMap<>();
         }
-
-        // Peek at magic to determine format: EGMM (mmap) vs EGPH (serialized)
-        try (FileChannel peekCh = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            if (peekCh.size() < 4) {
-                log.warn("EntityGraphMemory file too small ({}B), creating fresh", peekCh.size());
-                return new EntityGraphMemory(defaultEntityCap, defaultEdgeCap);
-            }
-            ByteBuffer magicBuf = ByteBuffer.allocate(4);
-            peekCh.read(magicBuf);
-            magicBuf.flip();
-            int magic = magicBuf.getInt();
-
-            if (magic == 0x45474D4D) { // EGMM — mmap format
-                peekCh.close();
-                EntityGraphMemory graph = new EntityGraphMemory(filePath, defaultEntityCap, defaultEdgeCap);
-                // Load nameIndex from sidecar file
-                Path nameIndexPath = filePath.getParent() != null
-                        ? filePath.getParent().resolve("entity-names.idx") : null;
-                if (nameIndexPath != null && Files.exists(nameIndexPath)) {
-                    try (FileChannel nameCh = FileChannel.open(nameIndexPath, StandardOpenOption.READ)) {
-                        ConcurrentHashMap<String, Integer> names = readNameIndex(nameCh, encryptor);
-                        graph.nameIndexInternal().putAll(names);
-                        log.info("EntityGraphMemory name index loaded: {} names from {}",
-                                names.size(), nameIndexPath);
-                    }
-                }
-                graph.setDataEncryptor(encryptor);
-                return graph;
-            }
-        } catch (Exception e) {
-            log.error("Failed to peek EntityGraphMemory file: {}", e.getMessage());
+        try (FileChannel nameCh = FileChannel.open(nameIndexPath, StandardOpenOption.READ)) {
+            ConcurrentHashMap<String, Integer> names = readNameIndex(nameCh, encryptor);
+            log.info("EntityGraphMemory name index loaded: {} names from {}", names.size(), nameIndexPath);
+            return names;
+        } catch (IOException e) {
+            throw new SpectorGraphPersistenceException("EntityGraphMemory", nameIndexPath, e);
         }
-
-        // Fall through to EGPH (legacy serialized) format
-        return loadLegacy(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
     }
 
     /**
-     * Loads a graph from the legacy EGPH binary format (heap-allocated segments).
+     * Loads a graph from the legacy EGPH binary format (heap-allocated segments). Package-visible
+     * so {@link EntityGraphMemory} can migrate EGPH files to the SMKM container.
      */
-    private static EntityGraphMemory loadLegacy(Path filePath, int defaultEntityCap, int defaultEdgeCap,
+    static EntityGraphMemory loadEgph(Path filePath, int defaultEntityCap, int defaultEdgeCap,
                                           DataEncryptor encryptor) {
 
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
             long fileSize = ch.size();
             if (fileSize < FILE_HEADER_BYTES) {
-                log.warn("EntityGraphMemory file too small ({}B), creating fresh", fileSize);
-                return new EntityGraphMemory(defaultEntityCap, defaultEdgeCap);
+                throw new SpectorGraphPersistenceException("EntityGraphMemory", filePath,
+                        new IOException("file truncated: " + fileSize + "B < header "
+                                + FILE_HEADER_BYTES + "B"));
             }
 
             ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
@@ -258,31 +237,32 @@ final class EntityGraphSerializer {
             int edgCount = header.getInt();
 
             if (magic != FILE_MAGIC || version != FILE_VERSION) {
-                log.warn("Incompatible EntityGraphMemory file (magic={}, version={}), creating fresh",
-                        Integer.toHexString(magic), version);
-                return new EntityGraphMemory(defaultEntityCap, defaultEdgeCap);
+                throw new SpectorGraphPersistenceException("EntityGraphMemory", filePath,
+                        new IOException("incompatible file: magic=0x" + Integer.toHexString(magic)
+                                + " (expected EGPH 0x" + Integer.toHexString(FILE_MAGIC)
+                                + "), version=" + version + " (expected " + FILE_VERSION + ")"));
             }
 
             // Validate file has enough data for the segments declared in the header
             long minExpectedBytes = FILE_HEADER_BYTES
-                    + (long) EntityGraphMemory.ENTITY_NODE_BYTES * entityCap
-                    + (long) EntityGraphMemory.EDGE_BYTES * edgeCap
+                    + (long) EntityLayout.ENTITY_NODE_BYTES * entityCap
+                    + (long) EntityLayout.EDGE_BYTES * edgeCap
                     + 8; // adjacency header (adjCap + adjHwm)
             if (fileSize < minExpectedBytes) {
-                log.warn("EntityGraphMemory file truncated ({}B < expected {}B), creating fresh",
-                        fileSize, minExpectedBytes);
-                return new EntityGraphMemory(defaultEntityCap, defaultEdgeCap);
+                throw new SpectorGraphPersistenceException("EntityGraphMemory", filePath,
+                        new IOException("file truncated: " + fileSize + "B < expected "
+                                + minExpectedBytes + "B for declared segments"));
             }
 
             Arena arena = Arena.ofShared();
 
             // Read entity segment
-            long entityBytes = (long) EntityGraphMemory.ENTITY_NODE_BYTES * entityCap;
+            long entityBytes = (long) EntityLayout.ENTITY_NODE_BYTES * entityCap;
             MemorySegment entSeg = arena.allocate(entityBytes);
             readSegment(ch, entSeg, entityBytes);
 
             // Read edge segment
-            long edgeBytes = (long) EntityGraphMemory.EDGE_BYTES * edgeCap;
+            long edgeBytes = (long) EntityLayout.EDGE_BYTES * edgeCap;
             MemorySegment edgSeg = arena.allocate(edgeBytes);
             readSegment(ch, edgSeg, edgeBytes);
 
@@ -294,10 +274,10 @@ final class EntityGraphSerializer {
             int adjHwm = adjHeaderBuf.getInt();
 
             // Read adjacency segment
-            MemorySegment adjSeg = arena.allocate((long) EntityGraphMemory.ADJ_ENTRY_BYTES * adjCap);
+            MemorySegment adjSeg = arena.allocate((long) EntityLayout.ADJ_ENTRY_BYTES * adjCap);
             adjSeg.fill((byte) 0);
             if (adjHwm > 0) {
-                readSegment(ch, adjSeg, (long) EntityGraphMemory.ADJ_ENTRY_BYTES * adjHwm);
+                readSegment(ch, adjSeg, (long) EntityLayout.ADJ_ENTRY_BYTES * adjHwm);
             }
 
             // Read name index (with encryption flag detection)
@@ -321,9 +301,14 @@ final class EntityGraphSerializer {
                     encryptor != null && encryptor.isEnabled() ? "enabled" : "none", filePath);
             return graph;
 
+        } catch (SpectorGraphPersistenceException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to load EntityGraphMemory, creating fresh: {}", e.getMessage());
-            return new EntityGraphMemory(defaultEntityCap, defaultEdgeCap);
+            // The file is present (existence checked in load()) but could not be parsed —
+            // returning a fresh empty graph here would silently destroy the user's data.
+            // Fail loud instead (#433 TD-04).
+            log.error("Failed to load EntityGraphMemory (file present but unreadable): {}", filePath, e);
+            throw new SpectorGraphPersistenceException("EntityGraphMemory", filePath, e);
         }
     }
 

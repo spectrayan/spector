@@ -110,9 +110,9 @@ class TierStoreKernelIntegrationTest {
     // ── Episodic Memory ──
 
     @Test
-    @DisplayName("EpisodicPartitionedMemory has kernel identity with EPISODIC type")
+    @DisplayName("EpisodicRecordMemory has kernel identity with EPISODIC type")
     void episodicMemoryStoreHasKernelIdentity() {
-        try (var store = new EpisodicPartitionedMemory(VEC_BYTES, CAPACITY)) {
+        try (var store = new EpisodicRecordMemory(VEC_BYTES, CAPACITY)) {
             MemoryId id = store.memoryId();
             assertThat(id.namespace()).isEqualTo("tier");
             assertThat(id.memoryName()).isEqualTo("episodic");

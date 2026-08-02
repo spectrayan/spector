@@ -322,7 +322,8 @@ public abstract class AbstractCognitiveRecordMemory
 
     @Override
     public int schemaVersion() {
-        return 1;
+        // The layout is the single source of truth for the record schema version (#434 TD-06).
+        return layout().schemaVersion();
     }
 
     @Override

@@ -30,7 +30,7 @@ import com.spectrayan.spector.index.ColBERTReranker;
 import com.spectrayan.spector.index.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
@@ -219,7 +219,7 @@ public final class SpectorMemoryFactory {
         }
 
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(
+            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
                     StorageLayout.episodicMem(resolvedPartitionDir),
                     quantizedVecBytes, builder.episodicPartitionCapacity);
             ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
@@ -230,7 +230,7 @@ public final class SpectorMemoryFactory {
                     StorageLayout.semanticMem(resolvedPartitionDir));
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
-            EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(
+            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
                     quantizedVecBytes, builder.episodicPartitionCapacity);
             ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
                     quantizedVecBytes, builder.proceduralCapacity);
@@ -310,11 +310,22 @@ public final class SpectorMemoryFactory {
             if (loadFrom == null) {
                 loadFrom = legacyGraph;
             }
-            // NOTE(#432): No codec ensureCurrent() call here. HebbianGraphMemory.load()
-            // is the single migration authority — it detects legacy HGPH files and
-            // migrates them in-class to HCSR. Running the codec's HgphToCsrStep here
-            // rewrote HGPH -> SMKM, a format load() cannot read, silently dropping the
-            // graph. See Codecs.defaultRegistry() and #435.
+            // #435: run the codec migration up front (matching the Temporal/HyperEntity
+            // pattern). HebbianGraphCodec migrates legacy HGPH and interim HCSR containers
+            // to the kernel SMKM CSR format, which HebbianGraphMemory.load() reads natively.
+            // This is safe now that load() understands the codec's SMKM output (the exact
+            // bug #432 guarded against). load() also self-heals if this is skipped.
+            if (loadFrom != null) {
+                try {
+                    com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
+                            com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
+                            com.spectrayan.spector.memory.kernel.MemoryId.of("graph", "hebbian-csr"),
+                            new com.spectrayan.spector.memory.kernel.layout.HebbianLayout(),
+                            loadFrom, null, null);
+                } catch (Exception e) {
+                    log.warn("Operation failed: Codec validation for HebbianLayout", e);
+                }
+            }
             hebbianGraph = HebbianGraphMemory.load(loadFrom, graphCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance);
         } else {
@@ -399,15 +410,9 @@ public final class SpectorMemoryFactory {
                 if (loadFrom == null) {
                     loadFrom = runtimeHyper;
                 }
-                try {
-                    com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
-                            com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
-                            com.spectrayan.spector.memory.kernel.MemoryId.of("spector", "hyper-entity-graph"),
-                            new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout(),
-                            loadFrom, null, null);
-                } catch (Exception e) {
-                    log.warn("Operation failed: Codec validation for HyperEntityLayout", e);
-                }
+                // #435: no Codecs.ensureCurrent for HyperEntity — HyperEntityGraphMemory.load()
+                // is the single in-class migration authority (SMKM v2 open / legacy HYEG + hybrid
+                // migrate / present-but-unreadable throw), mirroring EntityGraphMemory.
 
                 if (java.nio.file.Files.exists(loadFrom)) {
                     hyperEntityGraph = HyperEntityGraphMemory.load(loadFrom, hyperCap, hyperEdgeCap);

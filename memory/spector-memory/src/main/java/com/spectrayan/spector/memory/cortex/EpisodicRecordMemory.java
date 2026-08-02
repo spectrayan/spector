@@ -47,9 +47,9 @@ import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
  *   <li>Persistent across JVM restarts via {@code FileChannel.map()}</li>
  * </ul>
  */
-public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory {
+public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
 
-    private static final Logger log = LoggerFactory.getLogger(EpisodicPartitionedMemory.class);
+    private static final Logger log = LoggerFactory.getLogger(EpisodicRecordMemory.class);
 
     /**
      * Creates a volatile Episodic Memory store (in-memory only).
@@ -57,11 +57,11 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory {
      * @param quantizedVecBytes bytes per quantized vector
      * @param capacity          maximum number of episodic memories
      */
-    public EpisodicPartitionedMemory(int quantizedVecBytes, int capacity) {
+    public EpisodicRecordMemory(int quantizedVecBytes, int capacity) {
         super(quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
-        log.info("EpisodicPartitionedMemory initialized: capacity={}, stride={}B, persistent=false",
+        log.info("EpisodicRecordMemory initialized: capacity={}, stride={}B, persistent=false",
                 capacity, layout.stride());
     }
 
@@ -72,16 +72,16 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory {
      * @param capacity          maximum number of episodic memories
      * @param filePath          path to the backing mmap file (e.g., episodic.mem)
      */
-    public EpisodicPartitionedMemory(int quantizedVecBytes, int capacity, Path filePath) {
+    public EpisodicRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
-        log.info("EpisodicPartitionedMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
+        log.info("EpisodicRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
                 capacity, layout.stride(), getCount());
     }
 
-    public EpisodicPartitionedMemory(Path filePath, int quantizedVecBytes, int capacity) {
+    public EpisodicRecordMemory(Path filePath, int quantizedVecBytes, int capacity) {
         this(quantizedVecBytes, capacity, filePath);
     }
 
@@ -112,13 +112,6 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory {
      */
     public int totalRecords() {
         return getCount();
-    }
-
-    /**
-     * Returns the partition count (always 1 — single file per colocated partition).
-     */
-    public int partitionCount() {
-        return 1;
     }
 
     /**
@@ -167,7 +160,7 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory {
     }
 
     /**
-     * Compatibility shim wrapping the EpisodicPartitionedMemory as a single "partition".
+     * Compatibility shim wrapping the EpisodicRecordMemory as a single "partition".
      *
      * <p>Used by ReflectDaemon, RecallPipeline, and TombstoneCompactor which
      * iterate over episodic partitions. In the new architecture, there is always
@@ -178,10 +171,10 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory {
         /** Size of the metadata header in bytes (matches AbstractCognitiveRecordMemory). */
         public static final int METADATA_HEADER_BYTES = AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES;
 
-        private final EpisodicPartitionedMemory store;
+        private final EpisodicRecordMemory store;
         private int tombstoneCount = 0;
 
-        public EpisodicPartition(EpisodicPartitionedMemory store) {
+        public EpisodicPartition(EpisodicRecordMemory store) {
             this.store = store;
         }
 
