@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import java.util.Arrays;
 
 /**
@@ -49,10 +52,11 @@ public record InterestDomain(String topic, InterestLevel level, float[] embeddin
      */
     public InterestDomain {
         if (topic == null || topic.isBlank()) {
-            throw new IllegalArgumentException("Interest topic must not be null or blank");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "topic", "must not be null or blank");
         }
         if (level == null) {
-            throw new IllegalArgumentException("Interest level must not be null");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "level");
         }
         // Defensive copy of embedding
         if (embedding != null) {

@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import java.util.Objects;
 
 /**
@@ -59,7 +62,7 @@ public record MemoryId(String namespace, String memoryName, int partitionSeq) im
         Objects.requireNonNull(namespace, "namespace cannot be null");
         Objects.requireNonNull(memoryName, "memoryName cannot be null");
         if (partitionSeq < 0) {
-            throw new IllegalArgumentException("partitionSeq cannot be negative");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_NEGATIVE, "partitionSeq", partitionSeq);
         }
     }
 

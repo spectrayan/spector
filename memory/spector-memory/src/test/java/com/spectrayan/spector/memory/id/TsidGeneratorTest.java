@@ -22,6 +22,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -107,8 +109,8 @@ class TsidGeneratorTest {
         assertDoesNotThrow(() -> new TsidGenerator(0));
         assertDoesNotThrow(() -> new TsidGenerator(TsidGenerator.MAX_NODE_ID));
 
-        assertThrows(IllegalArgumentException.class, () -> new TsidGenerator(-1));
-        assertThrows(IllegalArgumentException.class, () -> new TsidGenerator(TsidGenerator.MAX_NODE_ID + 1));
+        assertThrows(SpectorValidationException.class, () -> new TsidGenerator(-1));
+        assertThrows(SpectorValidationException.class, () -> new TsidGenerator(TsidGenerator.MAX_NODE_ID + 1));
     }
 
     @Test
@@ -150,11 +152,11 @@ class TsidGeneratorTest {
 
     @Test
     void decodeCrockford_invalidLength() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(SpectorValidationException.class,
                 () -> TsidGenerator.decodeCrockford("SHORT"));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(SpectorValidationException.class,
                 () -> TsidGenerator.decodeCrockford("TOOLONGSTRING1234"));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(SpectorValidationException.class,
                 () -> TsidGenerator.decodeCrockford(null));
     }
 

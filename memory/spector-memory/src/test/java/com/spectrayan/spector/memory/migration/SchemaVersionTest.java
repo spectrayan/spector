@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.migration;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.migration.migrations.V1_0_to_V1_1_EncryptionMarker;
 import com.spectrayan.spector.memory.migration.migrations.V1_1_to_V2_0_AnalyticsAndSharding;
 
@@ -46,7 +47,7 @@ class SchemaVersionTest {
     @DisplayName("Parse invalid throws")
     void parseInvalid() {
         assertThatThrownBy(() -> SchemaVersion.parse("1.0"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test

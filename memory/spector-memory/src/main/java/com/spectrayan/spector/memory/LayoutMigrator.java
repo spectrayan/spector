@@ -20,6 +20,9 @@ import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
 import org.slf4j.Logger;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import org.slf4j.LoggerFactory;
 
@@ -87,11 +90,11 @@ public final class LayoutMigrator {
      * @param dataRoot      the memory persistence root directory
      * @param defaultUserId the user id whose namespace the flat layout is relocated into;
      *                      this value is itself the namespace id (no {@code user-} prefix)
-     * @throws NullPointerException     if {@code dataRoot} is {@code null}
-     * @throws IllegalArgumentException if {@code defaultUserId} is not a valid namespace id
-     *                                  (see {@link StorageLayout#namespaceDirSharded(Path, String)})
-     * @throws UncheckedIOException     if an I/O error prevents copying or verification
-     * @throws IllegalStateException    if the copied layout fails byte-for-byte verification
+     * @throws NullPointerException       if {@code dataRoot} is {@code null}
+     * @throws SpectorValidationException if {@code defaultUserId} is not a valid namespace id
+     *                                    (see {@link StorageLayout#namespaceDirSharded(Path, String)})
+     * @throws UncheckedIOException       if an I/O error prevents copying or verification
+     * @throws SpectorStorageException    if the copied layout fails byte-for-byte verification
      */
     public static void migrateIfNeeded(Path dataRoot, String defaultUserId) {
         Objects.requireNonNull(dataRoot, "dataRoot");
@@ -180,16 +183,16 @@ public final class LayoutMigrator {
                 }
                 Path target = dst.resolve(src.relativize(source).toString());
                 if (!Files.isRegularFile(target)) {
-                    throw new IllegalStateException(
-                            "Layout migration verification failed: missing destination file "
+                    throw new SpectorStorageException(ErrorCode.STORAGE_MIGRATION_FAILED,
+                            "verification failed: missing destination file "
                                     + target + " for source " + source);
                 }
                 // Files.mismatch returns -1 when the files are byte-for-byte identical,
                 // and detects length differences as well as content differences.
                 long mismatch = Files.mismatch(source, target);
                 if (mismatch != -1L) {
-                    throw new IllegalStateException(
-                            "Layout migration verification failed: content mismatch at byte "
+                    throw new SpectorStorageException(ErrorCode.STORAGE_MIGRATION_FAILED,
+                            "verification failed: content mismatch at byte "
                                     + mismatch + " between " + source + " and " + target);
                 }
             }

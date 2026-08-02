@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorInternalException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import java.nio.file.Path;
 import java.util.regex.Pattern;
 
@@ -332,24 +336,24 @@ public final class StorageLayout {
      * </ul>
      *
      * @param namespaceId the namespace (tenant or user) identifier to validate
-     * @throws IllegalArgumentException if the identifier is invalid; no path is
+     * @throws SpectorValidationException if the identifier is invalid; no path is
      *                                  resolved and no filesystem mutation occurs
      */
     public static void validateNamespaceId(String namespaceId) {
         if (namespaceId == null || namespaceId.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Invalid namespace identifier: must not be null, empty, or whitespace-only");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "namespace identifier", "must not be null, empty, or whitespace-only");
         }
         if (namespaceId.length() > MAX_NAMESPACE_ID_LENGTH) {
-            throw new IllegalArgumentException(
-                    "Invalid namespace identifier: length " + namespaceId.length()
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "namespace identifier", "length " + namespaceId.length()
                             + " exceeds maximum of " + MAX_NAMESPACE_ID_LENGTH + " characters");
         }
         for (int i = 0; i < namespaceId.length(); i++) {
             char c = namespaceId.charAt(i);
             if (c == '/' || c == '\\' || c == '.' || c <= '\u001F') {
-                throw new IllegalArgumentException(
-                        "Invalid namespace identifier: illegal character at index " + i
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                        "namespace identifier", "illegal character at index " + i
                                 + " (code point U+" + String.format("%04X", (int) c) + ")");
             }
         }
@@ -362,14 +366,14 @@ public final class StorageLayout {
      * two directory levels: {@code namespaces/a3/f7/agent-alpha/}</p>
      *
      * <p>The {@code namespaceId} is validated via {@link #validateNamespaceId(String)}
-     * before any resolution. Invalid identifiers raise {@link IllegalArgumentException}
+     * before any resolution. Invalid identifiers raise {@link SpectorValidationException}
      * and no path is resolved. This method is a pure function of its arguments and
      * performs no filesystem mutation.</p>
      *
      * @param basePath     root persistence path
      * @param namespaceId  the namespace (tenant or user) identifier
      * @return sharded path: basePath/namespaces/XX/YY/namespaceId/
-     * @throws IllegalArgumentException if {@code namespaceId} is invalid
+     * @throws SpectorValidationException if {@code namespaceId} is invalid
      */
     public static Path namespaceDirSharded(Path basePath, String namespaceId) {
         validateNamespaceId(namespaceId);
@@ -417,7 +421,7 @@ public final class StorageLayout {
             }
             return sb.toString();
         } catch (java.security.NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
+            throw new SpectorInternalException(ErrorCode.INTERNAL_ERROR, e, "SHA-256 not available");
         }
     }
 

@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.id;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -108,12 +111,12 @@ public final class TsidGenerator implements MemoryIdGenerator {
      * Creates a TSID generator with an explicit node ID.
      *
      * @param nodeId unique node identifier (0–1023)
-     * @throws IllegalArgumentException if nodeId is out of range
+     * @throws SpectorValidationException if nodeId is out of range
      */
     public TsidGenerator(int nodeId) {
         if (nodeId < 0 || nodeId > MAX_NODE_ID) {
-            throw new IllegalArgumentException(
-                    "nodeId must be in range [0, " + MAX_NODE_ID + "], got: " + nodeId);
+            throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_OUT_OF_RANGE, "nodeId", 0, MAX_NODE_ID, nodeId);
         }
         this.nodeId = nodeId;
     }
@@ -215,12 +218,12 @@ public final class TsidGenerator implements MemoryIdGenerator {
      *
      * @param tsid the 13-character TSID string
      * @return the decoded 64-bit value
-     * @throws IllegalArgumentException if the string length is not 13 or contains invalid characters
+     * @throws SpectorValidationException if the string length is not 13 or contains invalid characters
      */
     public static long decodeCrockford(String tsid) {
         if (tsid == null || tsid.length() != TSID_STRING_LENGTH) {
-            throw new IllegalArgumentException(
-                    "TSID must be " + TSID_STRING_LENGTH + " characters, got: " + tsid);
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "TSID", tsid + " (must be " + TSID_STRING_LENGTH + " characters)");
         }
         long value = 0;
         for (int i = 0; i < TSID_STRING_LENGTH; i++) {
@@ -263,7 +266,8 @@ public final class TsidGenerator implements MemoryIdGenerator {
             case 'X' -> 29;
             case 'Y' -> 30;
             case 'Z' -> 31;
-            default -> throw new IllegalArgumentException("Invalid Crockford Base32 character: " + c);
+            default -> throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_INVALID, "Crockford Base32 character", c);
         };
     }
 

@@ -23,6 +23,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -203,7 +204,7 @@ class LayoutMigratorTest {
         Files.write(destSemantic.resolve("blocker.tmp"), new byte[] {9});
 
         assertThatThrownBy(() -> LayoutMigrator.migrateIfNeeded(dataRoot, DEFAULT_USER_ID))
-                .isInstanceOfAny(UncheckedIOException.class, IllegalStateException.class);
+                .isInstanceOfAny(UncheckedIOException.class, SpectorStorageException.class);
 
         assertThat(DataLayoutVersion.read(dataRoot))
                 .as("version must not advance when the new layout cannot be verified")

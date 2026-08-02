@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -146,26 +147,26 @@ class StorageLayoutShardTest {
     @Test
     void rejectsNullIdentifier() {
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsEmptyIdentifier() {
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, ""))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsWhitespaceOnlyIdentifier() {
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "   \t\n"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsIdentifierExceeding256Characters() {
         String tooLong = "a".repeat(257);
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, tooLong))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
@@ -178,27 +179,27 @@ class StorageLayoutShardTest {
     @Test
     void rejectsForwardSlash() {
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a/b"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsBackslash() {
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a\\b"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsDot() {
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a.b"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, ".."))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void rejectsNullByte() {
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, "a\u0000b"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
@@ -207,7 +208,7 @@ class StorageLayoutShardTest {
             String id = "a" + c + "b";
             assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(tempDir, id))
                     .as("control char U+%04X must be rejected", (int) c)
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(SpectorValidationException.class);
         }
     }
 

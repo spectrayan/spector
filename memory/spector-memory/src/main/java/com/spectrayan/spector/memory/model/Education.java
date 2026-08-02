@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 /**
  * Educational background entry — represents a single degree or qualification.
  *
@@ -49,16 +52,20 @@ public record Education(
      */
     public Education {
         if (institution == null || institution.isBlank()) {
-            throw new IllegalArgumentException("Education institution must not be null or blank");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "institution", "must not be null or blank");
         }
         if (degree == null || degree.isBlank()) {
-            throw new IllegalArgumentException("Education degree must not be null or blank");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "degree", "must not be null or blank");
         }
         if (startYear < 1900 || startYear > 2100) {
-            throw new IllegalArgumentException("Start year must be between 1900 and 2100");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE,
+                    "startYear", 1900, 2100, startYear);
         }
         if (endYear != null && endYear < startYear) {
-            throw new IllegalArgumentException("End year must not be before start year");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "endYear", endYear + " must not be before start year " + startYear);
         }
     }
 

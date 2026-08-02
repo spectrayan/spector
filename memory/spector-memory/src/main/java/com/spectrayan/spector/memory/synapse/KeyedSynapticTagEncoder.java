@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import java.nio.ByteBuffer;
@@ -67,7 +70,7 @@ public final class KeyedSynapticTagEncoder {
      * Creates a keyed tag encoder with the given tenant secret key.
      *
      * @param tenantKey the HMAC secret key (must be suitable for HmacSHA256)
-     * @throws IllegalArgumentException if the key is invalid for HmacSHA256
+     * @throws SpectorValidationException if the key is invalid for HmacSHA256
      */
     public KeyedSynapticTagEncoder(SecretKey tenantKey) {
         // Validate the key eagerly — fail fast on construction, not first use
@@ -77,7 +80,8 @@ public final class KeyedSynapticTagEncoder {
         } catch (NoSuchAlgorithmException e) {
             throw new AssertionError("HmacSHA256 not available", e);
         } catch (InvalidKeyException e) {
-            throw new IllegalArgumentException("Invalid key for HmacSHA256", e);
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, e,
+                    "tenantKey", "not suitable for HmacSHA256");
         }
 
         this.macPool = ThreadLocal.withInitial(() -> {

@@ -29,6 +29,7 @@ import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.lifecycle.AfterContainer;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import net.jqwik.api.lifecycle.BeforeContainer;
 
@@ -158,7 +159,7 @@ class StorageLayoutIsolationPropertyTest {
         List<Path> before = snapshot(base);
 
         assertThatThrownBy(() -> StorageLayout.namespaceDirSharded(base, badId))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
 
         List<Path> after = snapshot(base);
         assertThat(after).as("no filesystem mutation may occur during rejection").isEqualTo(before);

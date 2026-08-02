@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.codec;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
@@ -33,7 +35,7 @@ public record MigrationContext(
 ) {
     public MigrationContext {
         if (sourcePath == null) {
-            throw new IllegalArgumentException("sourcePath cannot be null");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "sourcePath");
         }
         if (sidecars == null) {
             sidecars = Map.of();
