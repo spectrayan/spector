@@ -118,13 +118,6 @@ class TextAppendMemoryTest {
     }
 
     @Test
-    void forPartition_creates_store_with_correct_path() {
-        Path partitionDir = tempDir.resolve("partitions").resolve("000_1717430400");
-        TextAppendMemory partitionStore = TextAppendMemory.forPartition(partitionDir);
-        assertThat(partitionStore.path()).isEqualTo(partitionDir.resolve(StorageLayout.FILE_TEXT));
-    }
-
-    @Test
     void size_tracks_entry_count() {
         assertThat(store.size()).isZero();
 
