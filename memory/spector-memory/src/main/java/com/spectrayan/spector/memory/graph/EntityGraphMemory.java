@@ -1759,7 +1759,8 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
 
     @Override
     public int schemaVersion() {
-        return 2;
+        // The layout (EntityLayout) is authoritative for the schema version (#434 TD-06).
+        return layout().schemaVersion();
     }
 
     @Override

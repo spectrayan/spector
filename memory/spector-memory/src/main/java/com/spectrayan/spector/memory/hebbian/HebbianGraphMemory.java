@@ -405,7 +405,12 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
 
     @Override
     public int schemaVersion() {
-        return 1;
+        // Delegate to the layout so the record schema version has a single source of
+        // truth (#434 TD-06). NOTE: this is the *record schema* version (HebbianLayout.VERSION),
+        // which is intentionally distinct from FILE_VERSION — the on-disk *file container*
+        // version (currently 3: CSR layout, migrated from legacy HGPH/V2). Hebbian is not yet
+        // on the kernel record path (deferred to #435), so the two versions differ by design.
+        return layout().schemaVersion();
     }
 
     @Override
