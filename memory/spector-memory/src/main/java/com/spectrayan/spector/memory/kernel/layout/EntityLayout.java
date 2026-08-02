@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 
 /**
@@ -38,6 +39,20 @@ public final class EntityLayout implements MemoryLayout {
 
     private static final int LAYOUT_ID = 0x45474D4D; // 'EGMM'
     private static final int VERSION = 2;
+
+    // ── SMKM container: [64B MemoryHeader][16B Entity sub-header][entity slab][edge slab][adj slab] ──
+    /** Bytes of the Entity graph sub-header following the 64-byte kernel {@link MemoryHeader}. */
+    public static final int GRAPH_SUBHEADER_BYTES = 16;
+    /** Sub-header field (relative to {@link MemoryHeader#HEADER_BYTES}): edge-slab capacity (int). */
+    public static final int SUB_OFF_EDGE_CAPACITY = 0;
+    /** Sub-header field: current edge count (int). */
+    public static final int SUB_OFF_EDGE_COUNT = 4;
+    /** Sub-header field: adjacency-segment capacity in entries (int). */
+    public static final int SUB_OFF_ADJ_CAPACITY = 8;
+    /** Sub-header field: adjacency-segment high-water mark in entries (int). */
+    public static final int SUB_OFF_ADJ_HWM = 12;
+    /** Byte offset where the entity node slab begins in an SMKM file (64 + 16). */
+    public static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
 
     // ── Entity Node record (64 bytes, 8-byte aligned — V2) ──
     /** Bytes per entity-node record; also the substrate record stride. */

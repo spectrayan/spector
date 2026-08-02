@@ -41,12 +41,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.DATA_START;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_BYTES;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_BRIDGE_SCORE;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_EDGE_FLAGS;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_LAST_CYCLE;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_NEIGHBOR;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_WEIGHT;
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.SUB_OFF_CURRENT_CYCLE;
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.SUB_OFF_EDGE_CAPACITY;
 
 /**
  * Compressed Sparse Row (CSR) layout for the Hebbian association graph, implementing
@@ -73,15 +76,9 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     /** Bytes of the interim HCSR header: magic+version+capacity+edgeCap+totalEdges+cycle. */
     static final int HCSR_HEADER_BYTES = 24;
 
-    // ── SMKM container: [64B MemoryHeader][16B graph sub-header][offset slab][edge slab] ──
-    /** Bytes of the Hebbian graph sub-header following the 64-byte kernel MemoryHeader. */
-    static final int GRAPH_SUBHEADER_BYTES = 16;
-    /** Sub-header field (relative to MemoryHeader.HEADER_BYTES): edge-slab capacity (int). */
-    static final int SUB_OFF_EDGE_CAPACITY = 0;
-    /** Sub-header field: current reflection cycle (int). */
-    static final int SUB_OFF_CURRENT_CYCLE = 4;
-    /** Byte offset where the CSR offset slab begins in an SMKM file (64 + 16). */
-    static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
+    // ── SMKM container framing: single source of truth is HebbianLayout (#435, TD-14). ──
+    // GRAPH_SUBHEADER_BYTES / SUB_OFF_* field offsets / DATA_START are static-imported from
+    // HebbianLayout; this class only references them.
 
     /** Minimum bridge score to protect an edge from eviction during decay. */
     static final int BRIDGE_PROTECTION_THRESHOLD = 224;

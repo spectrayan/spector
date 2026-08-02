@@ -200,7 +200,8 @@ class HebbianGraphMemoryMigrationTest {
         int totalEdges = (int) le.getLong(24);  // MemoryHeader count (offset 24)
         int edgeCap = le.getInt(64);             // sub-header edgeCapacity (offset 64)
         int cycle = le.getInt(68);               // sub-header currentCycle (offset 68)
-        int dataStart = (int) HebbianGraphMemory.DATA_START; // 80
+        // DATA_START now lives solely on HebbianLayout — single source consumed by impl + test.
+        int dataStart = (int) com.spectrayan.spector.memory.kernel.layout.HebbianLayout.DATA_START; // 80
         byte[] slab = Arrays.copyOfRange(all, dataStart, all.length);
 
         ByteBuffer hdr = ByteBuffer.allocate(HebbianGraphMemory.HCSR_HEADER_BYTES); // big-endian

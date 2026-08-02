@@ -40,6 +40,12 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 
+import static com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout.DATA_START;
+import static com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout.SUB_OFF_ENTITY_CAP;
+import static com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout.SUB_OFF_NEXT_HYPEREDGE_ID;
+import static com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout.SUB_OFF_NEXT_VERTEX_OFFSET;
+import static com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout.SUB_OFF_TOTAL_HYPEREDGES;
+
 /**
  * Hyperedge-based entity layer for graph compression.
  *
@@ -103,19 +109,9 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     /** Shared record layout — identifies hyperedge records inside an SMKM container. */
     private static final HyperEntityLayout LAYOUT = new HyperEntityLayout();
 
-    // ── SMKM v2 container (current) ──
-    /** Bytes of the HyperEntity sub-header following the 64-byte kernel {@link MemoryHeader}. */
-    static final int GRAPH_SUBHEADER_BYTES = 16;
-    /** Sub-header field (relative to {@link MemoryHeader#HEADER_BYTES}): entity capacity (int). */
-    static final int SUB_OFF_ENTITY_CAP = 0;
-    /** Sub-header field: next free hyperedge id (int). */
-    static final int SUB_OFF_NEXT_HYPEREDGE_ID = 4;
-    /** Sub-header field: next free vertex offset (int). */
-    static final int SUB_OFF_NEXT_VERTEX_OFFSET = 8;
-    /** Sub-header field: total (live) hyperedges (int). */
-    static final int SUB_OFF_TOTAL_HYPEREDGES = 12;
-    /** Byte offset where the hyperedge slab begins in an SMKM v2 file (64 + 16). */
-    static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
+    // ── SMKM v2 container framing: single source of truth is HyperEntityLayout (#435, TD-14). ──
+    // GRAPH_SUBHEADER_BYTES / SUB_OFF_* field offsets / DATA_START are static-imported from
+    // HyperEntityLayout; this class only references them.
 
     // ── Legacy on-disk container (migrated in-class, #435) ──
     /** Legacy "HYEG" magic used by the bespoke 32-byte custom header. */

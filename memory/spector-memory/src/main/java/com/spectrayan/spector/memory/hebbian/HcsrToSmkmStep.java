@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.DATA_START;
 import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_BYTES;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
@@ -88,7 +89,7 @@ public final class HcsrToSmkmStep extends RewriteFileStep {
             long slabBytes = offsetBytes + edgeBytes;
 
             // Write the SMKM 64-byte header + 16-byte graph sub-header.
-            MemorySegment head = arena.allocate(HebbianGraphMemory.DATA_START);
+            MemorySegment head = arena.allocate(DATA_START);
             HebbianGraphMemory.writeSmkmHeader(head, capacity, edgeCap, totalEdges, cycle);
             dstCh.write(head.asByteBuffer());
 

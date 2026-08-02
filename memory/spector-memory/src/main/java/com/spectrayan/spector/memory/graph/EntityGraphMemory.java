@@ -41,6 +41,11 @@ import java.nio.charset.StandardCharsets;
 
 import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_ENTRY_BYTES;
 import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_OFF_MEM_IDX;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.DATA_START;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.SUB_OFF_ADJ_CAPACITY;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.SUB_OFF_ADJ_HWM;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.SUB_OFF_EDGE_CAPACITY;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.SUB_OFF_EDGE_COUNT;
 import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_OFF_WEIGHT;
 import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_BYTES;
 import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_BRIDGE_SCORE;
@@ -136,19 +141,10 @@ public final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     /** Maximum adjacency entries per entity (for mmap pre-allocation). */
     static final int MAX_ADJ_PER_ENTITY = 64;
 
-    // ── SMKM container (current): [64B MemoryHeader][16B Entity sub-header][entity slab][edge slab][adj slab] ──
-    /** Bytes of the Entity graph sub-header following the 64-byte kernel {@link MemoryHeader}. */
-    static final int GRAPH_SUBHEADER_BYTES = 16;
-    /** Sub-header field (relative to {@link MemoryHeader#HEADER_BYTES}): edge-slab capacity (int). */
-    static final int SUB_OFF_EDGE_CAPACITY = 0;
-    /** Sub-header field: current edge count (int). */
-    static final int SUB_OFF_EDGE_COUNT = 4;
-    /** Sub-header field: adjacency-segment capacity in entries (int). */
-    static final int SUB_OFF_ADJ_CAPACITY = 8;
-    /** Sub-header field: adjacency-segment high-water mark in entries (int). */
-    static final int SUB_OFF_ADJ_HWM = 12;
-    /** Byte offset where the entity node slab begins in an SMKM file (64 + 16). */
-    static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
+    // ── SMKM container framing: single source of truth is EntityLayout (#435, TD-14). ──
+    // GRAPH_SUBHEADER_BYTES / SUB_OFF_* field offsets / DATA_START are static-imported from
+    // EntityLayout; this class only references them. Container shape (current):
+    // [64B MemoryHeader][16B Entity sub-header][entity slab][edge slab][adj slab].
 
     // ── Legacy on-disk container magics (migrated in-class, #435) ──
     /** Legacy mmap container magic ('EGMM', 32-byte header), migrated to SMKM. */
