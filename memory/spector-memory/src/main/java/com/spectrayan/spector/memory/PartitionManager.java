@@ -13,9 +13,12 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.PartitionHandle;
+import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -31,25 +34,41 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import java.time.Instant;
 
 /**
- * Manages colocated partition directories for DISK persistence mode.
+ * Manages colocated partition directories for DISK persistence mode and owns the
+ * partition registry (issue #443, Phase 1).
  *
- * <p>Encapsulates partition discovery, creation, and rolling. Owns the volatile
- * {@code cognitiveRouter} and {@code activePartitionDir} fields, ensuring all
- * synchronization is centralized in one place.</p>
+ * <p>Encapsulates partition discovery, creation, and rolling. Holds a
+ * copy-on-write {@link #registry} — a {@code volatile} immutable
+ * {@code List<PartitionHandle>} whose last element is the single writable/active
+ * partition; all earlier handles are frozen, read-only, and remain OPEN so recall
+ * can fan out across them. Keeping frozen stores open is the fix for the pre-#443
+ * arena/mmap leak.</p>
+ *
+ * <h3>Roll handshake</h3>
+ * <p>On {@link #rollPartition()} the manager: (1) creates a new partition dir with
+ * fresh tier stores and a fresh {@code text.dat}; (2) freezes the current active
+ * handle (kept open); (3) publishes a new immutable snapshot with a single volatile
+ * store; (4) atomically points the ingestion target at the new router, the new text
+ * store and the new active sequence, and updates the index's active-partition seq.
+ * A missed field here would reintroduce split-brain, so all four updates happen
+ * together under {@link #partitionRollLock}.</p>
  *
  * <h3>Thread Safety</h3>
- * <p>Partition rolls are synchronized on an internal lock. The volatile
- * {@code cognitiveRouter} field ensures concurrent readers see the latest swap
- * without acquiring the lock. This provides safe publication for the
- * happens-before guarantee required by the ingestion pipeline.</p>
+ * <p>Frozen handles are immutable and read-only — no lock is required to read them.
+ * Readers take a single volatile {@link #snapshot()} read and iterate that fixed list.
+ * Rolls hold {@link #partitionRollLock} for the create-then-publish sequence. Never
+ * uses {@code synchronized}.</p>
  *
  * @see StorageLayout
+ * @see PartitionHandle
  */
-final class PartitionManager {
+final class PartitionManager implements PartitionRegistry, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionManager.class);
 
@@ -62,10 +81,14 @@ final class PartitionManager {
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final CognitiveIngestionTarget cognitiveTarget;
+    private final DataEncryptor encryptor;
 
-    private volatile CognitiveMemoryRouter cognitiveRouter;
-    private volatile Path activePartitionDir;
-    private final java.util.concurrent.locks.ReentrantLock partitionRollLock = new java.util.concurrent.locks.ReentrantLock();
+    /** Copy-on-write registry: immutable list, last element = active. Never null. */
+    private volatile List<PartitionHandle> registry;
+    private final java.util.concurrent.locks.ReentrantLock partitionRollLock =
+            new java.util.concurrent.locks.ReentrantLock();
+    private final java.util.concurrent.atomic.AtomicBoolean closed =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
     PartitionManager(Path basePath,
                      int quantizedVecBytes,
@@ -74,31 +97,74 @@ final class PartitionManager {
                      int proceduralCapacity,
                      CognitiveMemoryRouter initialRouter,
                      Path initialPartitionDir,
+                     TextAppendMemory initialText,
+                     int initialSeq,
                      MemoryIndex index,
                      HebbianGraphBase hebbianGraph,
                      TemporalChainMemory temporalChain,
-                     CognitiveIngestionTarget cognitiveTarget) {
+                     CognitiveIngestionTarget cognitiveTarget,
+                     DataEncryptor encryptor) {
         this.basePath = basePath;
         this.quantizedVecBytes = quantizedVecBytes;
         this.semanticCapacity = semanticCapacity;
         this.episodicPartitionCapacity = episodicPartitionCapacity;
         this.proceduralCapacity = proceduralCapacity;
-        this.cognitiveRouter = initialRouter;
-        this.activePartitionDir = initialPartitionDir;
         this.index = index;
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.cognitiveTarget = cognitiveTarget;
+        this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
+
+        PartitionHandle initial = new PartitionHandle(
+                initialSeq, initialPartitionDir, initialRouter, initialText, true);
+        this.registry = List.of(initial);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // PartitionRegistry (read side — used by recall + direct-resolve)
+    // ══════════════════════════════════════════════════════════════
+
+    @Override
+    public List<PartitionHandle> snapshot() {
+        return registry; // single volatile read of an immutable list
+    }
+
+    @Override
+    public PartitionHandle handleFor(int seq) {
+        List<PartitionHandle> snap = registry;
+        for (int i = snap.size() - 1; i >= 0; i--) {
+            PartitionHandle h = snap.get(i);
+            if (h.seq() == seq) return h;
+        }
+        return null;
+    }
+
+    @Override
+    public CognitiveMemoryRouter activeRouter() {
+        List<PartitionHandle> snap = registry;
+        return snap.get(snap.size() - 1).router();
+    }
+
+    /** Returns the active (writable) partition handle. */
+    PartitionHandle activeHandle() {
+        List<PartitionHandle> snap = registry;
+        return snap.get(snap.size() - 1);
     }
 
     /** Returns the current cognitive memory router (volatile read — safe for concurrent access). */
-    CognitiveMemoryRouter cognitiveRouter() { return cognitiveRouter; }
+    CognitiveMemoryRouter cognitiveRouter() { return activeRouter(); }
 
     /** Returns the active partition directory (volatile read). */
-    Path activePartitionDir() { return activePartitionDir; }
+    Path activePartitionDir() { return activeHandle().dir(); }
+
+    /** Returns the active partition sequence number. */
+    int activeSeq() { return activeHandle().seq(); }
 
     /**
      * Discovers existing partitions or creates partition 000 if none exist.
+     *
+     * <p>Phase 1 (issue #443) opens only the newest partition on load; open-all-on-load
+     * is deferred to Phase 2 (restart correctness).</p>
      *
      * @param basePath the memory persistence root
      * @return path to the active (latest) partition directory
@@ -140,11 +206,10 @@ final class PartitionManager {
      * Rolls to a new colocated partition directory.
      *
      * <p>Called automatically when a tier store reaches capacity during ingestion.
-     * Creates a new partition directory, fresh tier stores, and atomically swaps
-     * the CognitiveMemoryRouter so subsequent writes go to the new partition.</p>
-     *
-     * <p>Thread-safe: synchronized on internal lock so concurrent ingestion threads
-     * see a consistent swap.</p>
+     * Creates a new partition directory, fresh tier stores and a fresh {@code text.dat},
+     * freezes the current active handle (kept open), publishes a new immutable snapshot,
+     * then atomically repoints the ingestion target at the new router, text store and
+     * active sequence.</p>
      */
     void rollPartition() {
         partitionRollLock.lock();
@@ -187,22 +252,42 @@ final class PartitionManager {
                         quantizedVecBytes, semanticCapacity,
                         StorageLayout.semanticMem(newPartition));
 
+                // Fresh partition-scoped text.dat (D3b: text rolls with the partition)
+                TextAppendMemory newText = new TextAppendMemory(
+                        StorageLayout.textDat(newPartition), encryptor);
+
                 // Preserve working memory (global, not partitioned)
-                WorkingRecordMemory workingStore = cognitiveRouter.working();
+                WorkingRecordMemory workingStore = activeRouter().working();
 
                 // Flush index + graphs to runtime/ before rolling
                 flushGlobalState();
 
-                // Atomic swap
-                this.cognitiveRouter = new CognitiveMemoryRouter(workingStore, newEpisodic,
-                        newSemantic, newProcedural);
-                this.activePartitionDir = newPartition;
+                // Build the new active router (fully constructed before publication)
+                CognitiveMemoryRouter newRouter = new CognitiveMemoryRouter(
+                        workingStore, newEpisodic, newSemantic, newProcedural);
 
-                // Update ingestion target's router reference
-                cognitiveTarget.updateCognitiveRouter(this.cognitiveRouter);
+                // Freeze the current active handle (kept OPEN — leak fix) and publish
+                // a new immutable snapshot = frozen… + newlyFrozen + newActive.
+                List<PartitionHandle> current = registry;
+                List<PartitionHandle> next = new ArrayList<>(current.size() + 1);
+                for (int i = 0; i < current.size() - 1; i++) {
+                    next.add(current.get(i)); // already frozen
+                }
+                next.add(current.get(current.size() - 1).asFrozen()); // freeze prev active
+                PartitionHandle newActive = new PartitionHandle(
+                        nextSeq, newPartition, newRouter, newText, true);
+                next.add(newActive);
+                this.registry = List.copyOf(next); // single volatile publish
 
-                log.info("Rolled to new partition: {} (seq={}, semantic capacity={})",
-                        newPartition.getFileName(), nextSeq, semanticCapacity);
+                // Atomically repoint the ingestion target: router + text + active seq.
+                cognitiveTarget.updateCognitiveRouter(newRouter);
+                cognitiveTarget.updateTextDataStore(newText);
+                cognitiveTarget.updateActivePartitionSeq(nextSeq);
+                // Keep the index's active-partition seq in sync for reverse-key resolution.
+                index.setActivePartitionSeq(nextSeq);
+
+                log.info("Rolled to new partition: {} (seq={}, semantic capacity={}, live partitions={})",
+                        newPartition.getFileName(), nextSeq, semanticCapacity, this.registry.size());
 
             } catch (IOException e) {
                 throw new SpectorServerException(ErrorCode.INTERNAL_ERROR,
@@ -210,6 +295,40 @@ final class PartitionManager {
             }
         } finally {
             partitionRollLock.unlock();
+        }
+    }
+
+    /**
+     * Closes frozen partition handles at component shutdown (leak fix, issue #443).
+     *
+     * <p>Only frozen (non-active) handles' partition-scoped stores plus the active
+     * handle's {@code text.dat} are closed here. The active router (working + active
+     * tier stores) is closed by {@code PersistenceManager}. Working memory is global
+     * and is never closed by a handle. Idempotent.</p>
+     */
+    @Override
+    public void close() {
+        if (!closed.compareAndSet(false, true)) return;
+        List<PartitionHandle> snap = registry;
+        for (int i = 0; i < snap.size(); i++) {
+            PartitionHandle h = snap.get(i);
+            boolean isActive = (i == snap.size() - 1);
+            if (isActive) {
+                // Active tier stores + working are closed by PersistenceManager; close
+                // only the active text.dat here (PersistenceManager does not own it).
+                closeQuietly(h.text());
+            } else {
+                h.close(); // frozen: episodic/semantic/procedural + text (never working)
+            }
+        }
+    }
+
+    private static void closeQuietly(AutoCloseable c) {
+        if (c == null) return;
+        try {
+            c.close();
+        } catch (Exception e) {
+            log.debug("Failed to close active text store: {}", e.getMessage());
         }
     }
 

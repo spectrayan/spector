@@ -82,8 +82,9 @@ final class PostIngestSync {
     private final EntityExtractor entityExtractor;
     private final EntityGraphMemory entityGraph;
     private final MemoryBM25Index bm25Index;
-    private final TextAppendMemory textDataStore;
-    private final int activePartitionIndex;
+    private volatile TextAppendMemory textDataStore;  // volatile: rolled with the partition (#443)
+    private final int activePartitionIndex;           // BM25/SPLADE slot (always 0 — one partition slot)
+    private volatile int activePartitionSeq;          // colocated-partition seq stamped on MemoryLocation (#443)
     private final MemorySpladeIndex spladeIndex;
     private final SparseEmbeddingProvider spladeProvider;
     private final DataEncryptor encryptor;
@@ -113,11 +114,22 @@ final class PostIngestSync {
         this.spladeProvider = spladeProvider;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.hyperEntityGraph = hyperEntityGraph;
+        this.activePartitionSeq = 0;
     }
 
     /** Called when the cognitive memory router is swapped after a partition roll. */
     void updateCognitiveRouter(CognitiveMemoryRouter newRouter) {
         this.cognitiveRouter = newRouter;
+    }
+
+    /** Called when the partition-scoped {@code text.dat} is rolled (#443, D3b). */
+    void updateTextDataStore(TextAppendMemory newText) {
+        this.textDataStore = newText;
+    }
+
+    /** Called when the active partition sequence changes on roll (#443). */
+    void updateActivePartitionSeq(int seq) {
+        this.activePartitionSeq = seq;
     }
 
     /**
@@ -167,8 +179,11 @@ final class PostIngestSync {
         // Step 8: Register in ID index (with text.dat byte offsets for off-heap reads)
         long textOffset = (textPos != null) ? textPos.textOffset() : -1L;
         int textLength = (textPos != null) ? textPos.textLength() : -1;
+        // #443: stamp the colocated partition (activePartitionSeq) so recall, text
+        // resolution and direct-resolve can locate this record's partition. storeIndex
+        // remains the semantic/graph node slot (partitionIndex — behaviour unchanged).
         var location = new MemoryLocation(params.type(), params.offset(), storeIndex,
-                textOffset, textLength);
+                activePartitionSeq, textOffset, textLength);
 
         if (params.metadata() != null) {
             index.register(params.id(), location,

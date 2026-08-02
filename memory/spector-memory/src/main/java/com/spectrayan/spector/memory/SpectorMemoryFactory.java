@@ -208,6 +208,11 @@ public final class SpectorMemoryFactory {
             }
         }
 
+        // #443: sequence of the active (newest) partition — Phase 1 opens only this one.
+        final int initialPartitionSeq = resolvedPartitionDir != null
+                ? StorageLayout.parsePartitionSeqNo(resolvedPartitionDir.getFileName().toString())
+                : 0;
+
         //  Cognitive Memory stores 
         CognitiveMemoryRouter cognitiveRouter;
         WorkingRecordMemory workingStore;
@@ -258,6 +263,16 @@ public final class SpectorMemoryFactory {
             }
         } else {
             index = new MemoryIndex();
+        }
+
+        // #443: stamp loaded records with the active partition seq (Phase 1 opens only the
+        // newest partition, so all loaded records physically live there). Keeps the
+        // in-memory reverse key, text resolution and active-seq consistent. In-memory only —
+        // the .midx on-disk format is unchanged (persisting colocatedPartition is Phase 2).
+        if (isDisk && basePath != null && index.size() > 0) {
+            index.stampColocatedPartition(initialPartitionSeq);
+        } else {
+            index.setActivePartitionSeq(initialPartitionSeq);
         }
 
         //  WAL 
@@ -515,25 +530,35 @@ public final class SpectorMemoryFactory {
             }
         }
 
+        //  Seed the ingestion target's active partition seq (#443) 
+        cognitiveTarget.updateActivePartitionSeq(initialPartitionSeq);
+
         //  Partition Manager 
         PartitionManager partitionManager;
         if (isDisk) {
             partitionManager = new PartitionManager(
                     basePath, quantizedVecBytes, builder.semanticCapacity,
                     builder.episodicPartitionCapacity, builder.proceduralCapacity,
-                    cognitiveRouter, resolvedPartitionDir,
-                    index, hebbianGraph, temporalChain, cognitiveTarget);
+                    cognitiveRouter, resolvedPartitionDir, textDataStore, initialPartitionSeq,
+                    index, hebbianGraph, temporalChain, cognitiveTarget, builder.dataEncryptor);
             cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
         } else {
             partitionManager = new PartitionManager(
                     null, quantizedVecBytes, builder.semanticCapacity,
                     builder.episodicPartitionCapacity, builder.proceduralCapacity,
-                    cognitiveRouter, null,
-                    index, hebbianGraph, temporalChain, cognitiveTarget);
+                    cognitiveRouter, null, textDataStore, initialPartitionSeq,
+                    index, hebbianGraph, temporalChain, cognitiveTarget, builder.dataEncryptor);
         }
 
+        // #443 (D3b): resolve MemoryIndex.text(id) via the memory's colocated partition,
+        // backed by the live registry (replaces the single setTextDataStore for reads).
+        index.setTextResolver(seq -> {
+            var handle = partitionManager.handleFor(seq);
+            return handle != null ? handle.text() : null;
+        });
+
         //  WAL Recovery 
-        performWalRecovery(wal, cognitiveRouter, index, hebbianGraph, temporalChain, temporalKnowledgeGraph, entityGraph, coActivationTracker, cognitiveTarget, basePath);
+        performWalRecovery(wal, cognitiveRouter, index, hebbianGraph, temporalChain, temporalKnowledgeGraph, entityGraph, coActivationTracker, cognitiveTarget, basePath, initialPartitionSeq);
 
         if (wal != null) {
             if (entityGraph != null) {
@@ -570,7 +595,7 @@ public final class SpectorMemoryFactory {
 
         //  Recall Pipeline 
         RecallPipeline recallPipeline = new RecallPipeline(
-                embeddingProvider, cognitiveRouter, index,
+                embeddingProvider, partitionManager, index,
                 suppressionSet, habituationPenalty, prospectiveScheduler, wal,
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
                 null, hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
@@ -578,7 +603,7 @@ public final class SpectorMemoryFactory {
                 memorySpladeIndex, builder.SparseEmbeddingProvider, colbertReranker,
                 recallHistory);
 
-        recallPipeline.addListener(new LtpReconsolidationListener(index, cognitiveRouter, wal));
+        recallPipeline.addListener(new LtpReconsolidationListener(index, partitionManager, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
 
         //  Extracted Components 
@@ -768,7 +793,8 @@ public final class SpectorMemoryFactory {
             EntityGraphMemory entityGraph,
             CoActivationRecordMemory coActivationTracker,
             CognitiveIngestionTarget cognitiveTarget,
-            Path basePath) {
+            Path basePath,
+            int activePartitionSeq) {
         
         if (wal == null || !wal.isPersistent()) {
             return;
@@ -882,7 +908,8 @@ public final class SpectorMemoryFactory {
                             int storeIndex = (int) (lastRecordOffset / stride);
                             com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation loc =
                                     new com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation(
-                                            lastRecordType, lastRecordOffset, -1, lastTextOffset, lastTextLength);
+                                            lastRecordType, lastRecordOffset, -1, activePartitionSeq,
+                                            lastTextOffset, lastTextLength);
                             
                             String text = "";
                             if (index.textDataStore() != null && lastTextOffset != -1) {

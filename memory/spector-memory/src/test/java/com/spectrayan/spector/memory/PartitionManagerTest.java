@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
@@ -118,9 +119,11 @@ class PartitionManagerTest {
     }
 
     private PartitionManager newManager(CognitiveMemoryRouter router, Path activeDir) {
+        int seq = StorageLayout.parsePartitionSeqNo(activeDir.getFileName().toString());
         return new PartitionManager(
                 basePath, VEC_BYTES, SEMANTIC_CAP, EPISODIC_CAP, PROCEDURAL_CAP,
-                router, activeDir, index, hebbian, temporal, cognitiveTarget);
+                router, activeDir, /* initialText */ null, seq,
+                index, hebbian, temporal, cognitiveTarget, DataEncryptor.NOOP);
     }
 
     private static CognitiveHeader episodicHeader(long timestampMs) {
@@ -301,5 +304,54 @@ class PartitionManagerTest {
                 .as("Hebbian graph flushed to runtime/").isTrue();
         assertThat(Files.exists(StorageLayout.temporalChainRuntime(basePath)))
                 .as("Temporal chain flushed to runtime/").isTrue();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // (e) Leak / lifecycle (issue #443, D6 test 6)
+    // ──────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("leak: after N rolls frozen handles stay OPEN/readable, then close exactly once at close()")
+    void frozenHandlesStayOpenThenCloseOnce() throws Exception {
+        Path p0 = PartitionManager.discoverOrCreatePartition(basePath);
+        CognitiveMemoryRouter router0 = newRouter(p0);
+        PartitionManager pm = newManager(router0, p0);
+
+        // Seed the initial (soon-to-be-frozen) partition with readable records.
+        EpisodicRecordMemory episodic0 = router0.episodic();
+        for (int i = 0; i < EPISODIC_CAP; i++) {
+            episodic0.append(episodicHeader(1_000L + i), vec());
+        }
+
+        final int rolls = 5;
+        for (int i = 0; i < rolls; i++) {
+            pm.rollPartition();
+        }
+
+        // Registry now holds the initial partition + one handle per roll; last = active.
+        List<PartitionHandle> snapshot = pm.snapshot();
+        assertThat(snapshot).hasSize(rolls + 1);
+        assertThat(snapshot.get(snapshot.size() - 1).writable()).isTrue();
+        for (int i = 0; i < snapshot.size() - 1; i++) {
+            assertThat(snapshot.get(i).writable()).as("earlier handles are frozen").isFalse();
+        }
+
+        // FROZEN handles remain OPEN and readable (this is the leak fix — old Arenas kept mapped).
+        assertThat(episodic0.totalRecords()).isEqualTo(EPISODIC_CAP);
+        assertThat(episodic0.readHeader(0).timestampMs()).isEqualTo(1_000L);
+        assertThat(episodic0.readHeader(EPISODIC_CAP - 1).timestampMs())
+                .isEqualTo(1_000L + (EPISODIC_CAP - 1));
+
+        // Ensure the active roll-created router is closed by tearDown.
+        routersToClose.add(pm.cognitiveRouter());
+
+        // Close once: frozen handles' stores are released (reads now throw on closed Arena).
+        pm.close();
+        assertThatThrownBy(() -> episodic0.readHeader(0))
+                .as("frozen store's arena is closed after component close()")
+                .isInstanceOf(RuntimeException.class);
+
+        // Idempotent: a second close() is a no-op (each handle closed exactly once).
+        pm.close();
     }
 }

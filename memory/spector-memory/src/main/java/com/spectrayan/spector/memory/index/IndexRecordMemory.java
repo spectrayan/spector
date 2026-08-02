@@ -76,8 +76,16 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     // ── Reverse index: (type, offset) → id ──
     private final ConcurrentHashMap<Long, String> reverseIndex = new ConcurrentHashMap<>();
 
-    // ── Off-heap text data store ──
+    // ── Off-heap text data store (active partition; back-compat / fallback) ──
     private volatile TextAppendMemory textDataStore;
+
+    // ── Registry-backed per-partition text resolver (issue #443, D3b) ──
+    // Resolves a colocated-partition seq → that partition's TextAppendMemory.
+    private volatile java.util.function.IntFunction<TextAppendMemory> textResolver;
+
+    // ── Active partition sequence (issue #443) — used by the legacy, partition-
+    //    unaware findIdByOffset(type, offset) overload to resolve the reverse key. ──
+    private volatile int activePartitionSeq = 0;
 
     // ── Inverted tag index ──
     private final ConcurrentHashMap<String, java.util.Set<String>> tagToIds = new ConcurrentHashMap<>();
@@ -87,12 +95,24 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     /**
      * Tracks where a memory is physically stored.
+     *
+     * <p><b>issue #443 (Phase 1):</b> {@code colocatedPartition} identifies the DISK
+     * partition the record's tier store + {@code text.dat} live in. It is populated
+     * in-memory at ingest/load; it is <b>not</b> persisted to the {@code .midx} slot in
+     * Phase 1 (that on-disk change is Phase 2). {@code partitionIndex} remains the
+     * (misnamed) semantic HNSW / Hebbian graph node slot — its behaviour is unchanged.</p>
      */
     public record MemoryLocation(MemoryType type, long offset, int partitionIndex,
-                                  long textOffset, int textLength) {
+                                  int colocatedPartition, long textOffset, int textLength) {
 
         public MemoryLocation(MemoryType type, long offset, int partitionIndex) {
-            this(type, offset, partitionIndex, -1L, -1);
+            this(type, offset, partitionIndex, 0, -1L, -1);
+        }
+
+        /** Back-compat ctor — colocatedPartition defaults to 0. */
+        public MemoryLocation(MemoryType type, long offset, int partitionIndex,
+                              long textOffset, int textLength) {
+            this(type, offset, partitionIndex, 0, textOffset, textLength);
         }
 
         public boolean hasTextPosition() {
@@ -110,8 +130,17 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return MemoryHeader.HEADER_BYTES + index * layout.recordStride();
     }
 
-    private static long reverseKey(MemoryType type, long offset) {
-        return ((long) type.ordinal() << 48) | (offset & 0x0000_FFFF_FFFF_FFFFL);
+    // Reverse-index key (issue #443): partition-aware IN MEMORY only.
+    //   bits [52:64) partition (up to 4096), [48:52) type ordinal, [0:48) offset.
+    // WORKING memory is a single GLOBAL store that never rolls, so its (type, offset)
+    // pairs are globally unique — its key is partition-independent (fixed 0). This keeps
+    // working-record reverse lookups consistent regardless of which partition seq was
+    // active at ingest time.
+    private static long reverseKey(int partition, MemoryType type, long offset) {
+        int p = (type == MemoryType.WORKING) ? 0 : partition;
+        return (((long) p & 0xFFFL) << 52)
+                | (((long) type.ordinal() & 0xFL) << 48)
+                | (offset & 0x0000_FFFF_FFFF_FFFFL);
     }
 
     public void register(String id, MemoryLocation location, String text,
@@ -133,7 +162,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
             metadataMap.put(id, Map.copyOf(metadata));
         }
 
-        reverseIndex.put(reverseKey(location.type(), location.offset()), id);
+        reverseIndex.put(reverseKey(location.colocatedPartition(), location.type(), location.offset()), id);
 
         synchronized (orderedIds) {
             orderedIds.add(id);
@@ -159,7 +188,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         metadataMap.remove(id);
 
         if (loc != null) {
-            reverseIndex.remove(reverseKey(loc.type(), loc.offset()));
+            reverseIndex.remove(reverseKey(loc.colocatedPartition(), loc.type(), loc.offset()));
         }
 
         if (removedTags != null) {
@@ -182,11 +211,29 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     public String text(String id) {
         MemoryLocation loc = locations.get(id);
-        if (loc != null && loc.hasTextPosition() && textDataStore != null) {
-            String offHeapText = textDataStore.readTextDirect(loc.textOffset(), loc.textLength());
-            if (offHeapText != null) return offHeapText;
+        if (loc != null && loc.hasTextPosition()) {
+            // issue #443 (D3b): resolve the text store by the memory's colocated
+            // partition; fall back to the active store, then the on-heap map.
+            TextAppendMemory store = resolveTextStore(loc.colocatedPartition());
+            if (store != null) {
+                String offHeapText = store.readTextDirect(loc.textOffset(), loc.textLength());
+                if (offHeapText != null) return offHeapText;
+            }
+            if (textDataStore != null && store != textDataStore) {
+                String offHeapText = textDataStore.readTextDirect(loc.textOffset(), loc.textLength());
+                if (offHeapText != null) return offHeapText;
+            }
         }
         return texts.getOrDefault(id, "");
+    }
+
+    private TextAppendMemory resolveTextStore(int partition) {
+        var resolver = this.textResolver;
+        if (resolver != null) {
+            TextAppendMemory store = resolver.apply(partition);
+            if (store != null) return store;
+        }
+        return textDataStore;
     }
 
     public MemorySource source(String id) {
@@ -242,8 +289,17 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         });
     }
 
+    /** Partition-aware reverse lookup (issue #443). */
+    public String findIdByOffset(int partition, MemoryType type, long offset) {
+        return reverseIndex.get(reverseKey(partition, type, offset));
+    }
+
+    /**
+     * Legacy, partition-unaware reverse lookup. Resolves against the active partition
+     * seq — correct for active-partition operations (graph expansion, HNSW rebuild).
+     */
     public String findIdByOffset(MemoryType type, long offset) {
-        return reverseIndex.get(reverseKey(type, offset));
+        return reverseIndex.get(reverseKey(activePartitionSeq, type, offset));
     }
 
     public String findTextByOffset(MemoryType type, long offset) {
@@ -257,6 +313,45 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     public TextAppendMemory textDataStore() {
         return this.textDataStore;
+    }
+
+    /** Injects the registry-backed per-partition text resolver (issue #443, D3b). */
+    public void setTextResolver(java.util.function.IntFunction<TextAppendMemory> resolver) {
+        this.textResolver = resolver;
+    }
+
+    /** Sets the active partition sequence used by the legacy reverse-lookup overload. */
+    public void setActivePartitionSeq(int seq) {
+        this.activePartitionSeq = seq;
+    }
+
+    /** Returns the active partition sequence. */
+    public int activePartitionSeq() {
+        return this.activePartitionSeq;
+    }
+
+    /**
+     * Re-stamps every location's colocated partition and rebuilds the reverse index
+     * (issue #443). Called once after load: Phase 1 opens only the newest partition, so
+     * all loaded records physically live in {@code seq}. This keeps the in-memory reverse
+     * key, text resolution and active-seq consistent. NOTE: this is in-memory only and
+     * does not alter the {@code .midx} on-disk format (persisting colocatedPartition is
+     * Phase 2).
+     */
+    public void stampColocatedPartition(int seq) {
+        for (Map.Entry<String, MemoryLocation> e : locations.entrySet()) {
+            MemoryLocation old = e.getValue();
+            if (old.colocatedPartition() == seq) continue;
+            MemoryLocation updated = new MemoryLocation(old.type(), old.offset(),
+                    old.partitionIndex(), seq, old.textOffset(), old.textLength());
+            e.setValue(updated);
+        }
+        reverseIndex.clear();
+        for (Map.Entry<String, MemoryLocation> e : locations.entrySet()) {
+            MemoryLocation loc = e.getValue();
+            reverseIndex.put(reverseKey(loc.colocatedPartition(), loc.type(), loc.offset()), e.getKey());
+        }
+        this.activePartitionSeq = seq;
     }
 
     public int size() {
@@ -310,13 +405,13 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         MemoryLocation oldLoc = locations.get(id);
         if (oldLoc == null) return;
 
-        reverseIndex.remove(reverseKey(oldLoc.type(), oldLoc.offset()));
+        reverseIndex.remove(reverseKey(oldLoc.colocatedPartition(), oldLoc.type(), oldLoc.offset()));
 
         MemoryLocation newLoc = new MemoryLocation(oldLoc.type(), newOffset, oldLoc.partitionIndex(),
-                oldLoc.textOffset(), oldLoc.textLength());
+                oldLoc.colocatedPartition(), oldLoc.textOffset(), oldLoc.textLength());
         locations.put(id, newLoc);
 
-        reverseIndex.put(reverseKey(newLoc.type(), newOffset), id);
+        reverseIndex.put(reverseKey(newLoc.colocatedPartition(), newLoc.type(), newOffset), id);
     }
 
     public void relocateBatch(Map<String, Long> relocations) {
