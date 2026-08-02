@@ -21,7 +21,11 @@ public final class HyperEntityLayout implements MemoryLayout {
 
     private static final int STRIDE = 32;
     private static final int LAYOUT_ID = 0x48594547; // 'HYEG'
-    private static final int VERSION = 1;
+    // v1: legacy container ([32B HYEG] pure, or [64B SMKM][32B HYEG] hybrid).
+    // v2: kernel SMKM container ([64B kernel header][16B HyperEntity sub-header][hedges][vertices]),
+    //     migrated in-class by HyperEntityGraphMemory.load() (#435). The on-disk kernel-header
+    //     schemaVersion distinguishes the current SMKM container (>=2) from the legacy hybrid (==1).
+    private static final int VERSION = 2;
 
     public static final int HEDGE_BYTES = 32;
     public static final int HEDGE_OFF_EDGE_ID = 0;

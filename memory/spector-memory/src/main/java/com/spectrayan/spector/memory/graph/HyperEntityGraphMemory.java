@@ -22,22 +22,23 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.PrimitiveIterator;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
-import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 
 /**
  * Hyperedge-based entity layer for graph compression.
@@ -46,6 +47,13 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
  * <p>Binary entity graphs decompose "Alice manages Project Alpha at Spectrayan"
  * into 3 binary edges (9 graph atoms). Hypergraphs collapse this into a single
  * hyperedge connecting 3 entities with roles (4 graph atoms — 55% reduction).</p>
+ *
+ * <h3>Kernel Substrate (SUBSTRATE mode, #435)</h3>
+ * <p>This graph extends the {@link AbstractGraphMemory} kernel substrate: the substrate owns
+ * the shared {@link Arena}, the {@link java.util.concurrent.locks.StampedLock} SWMR guard, the
+ * kernel identity/shape/layout, and the WAL binding. The kernel {@link #segment()} is the
+ * hyperedge slab; HyperEntity keeps all four of its own segments (hedges, vertices, incidence
+ * index, incidence list) and overrides {@link #flush()}/{@link #close()} to cover them.</p>
  *
  * <h3>Off-Heap Layout (Panama FFM)</h3>
  * <pre>
@@ -63,6 +71,19 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
  *     [hyperedgeId]
  * </pre>
  *
+ * <h3>On-Disk Container (SMKM v2)</h3>
+ * <pre>
+ *   [64B kernel MemoryHeader (SMKM, shape=GRAPH, layoutId=HYEG, schemaVersion=2)]
+ *   [16B HyperEntity sub-header: entityCap, nextHyperedgeId, nextVertexOffset, totalHyperedges]
+ *   [hedges: nextHyperedgeId × HEDGE_BYTES]
+ *   [vertices: nextVertexOffset × VERTEX_BYTES]
+ * </pre>
+ * <p>The incidence structures are not persisted; they are rebuilt from the hyperedge/vertex
+ * data on load. {@link #load} is the single in-class migration authority (#435, CEO decision —
+ * not the codec): it migrates the legacy pure-HYEG container and the interim
+ * {@code [64B SMKM][32B HYEG]} hybrid container to SMKM v2 in place, preserving the original as
+ * {@code <name>.bak.hyeg}.</p>
+ *
  * <h3>Traversal</h3>
  * <p>"Find everything related to entity X" → find all hyperedges containing X,
  * collect co-occurring entities. Cost: O(hyperedges_per_entity × avg_vertices).</p>
@@ -71,21 +92,41 @@ import com.spectrayan.spector.memory.sync.MemoryWal;
  * <p>Per-entity hyperedge cap (HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY=64). When exceeded,
  * the weakest hyperedge (by weight) is evicted.</p>
  *
- * @see EntityGraph
+ * @see EntityGraphMemory
  */
-public final class HyperEntityGraphMemory implements AutoCloseable, com.spectrayan.spector.memory.kernel.shape.GraphMemory<HyperEntityLayout> {
+public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntityLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(HyperEntityGraphMemory.class);
 
-    // ── File Format ──
+    /** Kernel identity for the hyper-entity graph. */
+    private static final MemoryId MEMORY_ID = MemoryId.of("spector", "hyper-entity-graph");
+    /** Shared record layout — identifies hyperedge records inside an SMKM container. */
+    private static final HyperEntityLayout LAYOUT = new HyperEntityLayout();
 
-    /** File magic: "HYEG" in ASCII. */
-    private static final int FILE_MAGIC = 0x48594547;
-    private static final int FILE_VERSION = 1;
-    private static final int FILE_HEADER_BYTES = 32;
+    // ── SMKM v2 container (current) ──
+    /** Bytes of the HyperEntity sub-header following the 64-byte kernel {@link MemoryHeader}. */
+    static final int GRAPH_SUBHEADER_BYTES = 16;
+    /** Sub-header field (relative to {@link MemoryHeader#HEADER_BYTES}): entity capacity (int). */
+    static final int SUB_OFF_ENTITY_CAP = 0;
+    /** Sub-header field: next free hyperedge id (int). */
+    static final int SUB_OFF_NEXT_HYPEREDGE_ID = 4;
+    /** Sub-header field: next free vertex offset (int). */
+    static final int SUB_OFF_NEXT_VERTEX_OFFSET = 8;
+    /** Sub-header field: total (live) hyperedges (int). */
+    static final int SUB_OFF_TOTAL_HYPEREDGES = 12;
+    /** Byte offset where the hyperedge slab begins in an SMKM v2 file (64 + 16). */
+    static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
 
-    // ── Hyperedge Layout ──
-
+    // ── Legacy on-disk container (migrated in-class, #435) ──
+    /** Legacy "HYEG" magic used by the bespoke 32-byte custom header. */
+    private static final int FILE_MAGIC = 0x48594547; // "HYEG"
+    /** Legacy custom-header schema version (both the pure-HYEG and hybrid forms). */
+    private static final int LEGACY_FILE_VERSION = 1;
+    /** Legacy custom header size in bytes. */
+    private static final int LEGACY_HEADER_BYTES = 32;
+    // Legacy custom header (native byte order):
+    //   [magic:4B][version:4B][entityCap:4B][hyperedgeCap:4B]
+    //   [nextHyperedgeId:4B][nextVertexOffset:4B][totalHyperedges:4B][reserved:4B]
 
     // ── Capacity ──
 
@@ -94,11 +135,9 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     private final int entityCapacity;
     private final int incidenceCapacity;
 
-    // ── Off-heap segments ──
+    // ── Off-heap segments (all owned by the substrate arena; the hyperedge slab is segment()) ──
 
-    private final Arena arena;
-
-    /** Hyperedge segment: HyperEntityLayout.HEDGE_BYTES × hyperedgeCapacity. */
+    /** Hyperedge segment: HyperEntityLayout.HEDGE_BYTES × hyperedgeCapacity. Alias of {@link #segment()}. */
     private final MemorySegment hedges;
 
     /** Vertex segment: HyperEntityLayout.VERTEX_BYTES × vertexCapacity. */
@@ -123,39 +162,10 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     private int totalHyperedges;
 
     /**
-     * On-heap incidence tracking (rebuilt during compaction).
+     * On-heap incidence tracking (rebuilt during load/compaction).
      * incidence[entityId] = list of hyperedge IDs that entity participates in.
      */
-    private List<List<Integer>> incidenceHeap;
-
-    private final ReentrantLock graphLock = new ReentrantLock();
-
-    private final MemoryId memoryId = MemoryId.of("spector", "hyper-entity-graph");
-    private final HyperEntityLayout layout = new HyperEntityLayout();
-    private MemoryWal wal;
-    private boolean bypassWal = false;
-
-    @Override public MemoryId id() { return memoryId; }
-    @Override public HyperEntityLayout layout() { return layout; }
-    @Override public Arena arena() { return arena; }
-    @Override public MemorySegment segment() { return hedges; }
-    @Override public int size() { return totalHyperedges; }
-    @Override public int capacity() { return hyperedgeCapacity; }
-    @Override public int schemaVersion() { return FILE_VERSION; }
-    @Override public MemoryShape shape() { return MemoryShape.GRAPH; }
-    @Override public void flush() { /* heap allocated, flush no-op */ }
-    @Override public void bindWal(MemoryWal wal) { this.wal = wal; }
-    @Override public void setBypassWal(boolean bypass) { this.bypassWal = bypass; }
-    @Override public boolean isBypassWal() { return bypassWal; }
-    @Override public MemoryWal getWal() { return wal; }
-
-    @Override public int addEdge(int fromNode, int toNode, MemorySegment edgeBytes) { return -1; }
-    @Override public void removeEdge(int edgeId) { deleteHyperedge(edgeId); }
-    @Override public PrimitiveIterator.OfInt neighbours(int nodeId) {
-        return findCoOccurringEntities(nodeId).stream().mapToInt(Integer::intValue).iterator();
-    }
-    @Override public int edgeCount() { return totalHyperedges; }
-    @Override public int nodeCount() { return entityCapacity; }
+    private final List<List<Integer>> incidenceHeap;
 
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
@@ -168,42 +178,151 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
      * @param hyperedgeCapacity max number of hyperedges
      */
     public HyperEntityGraphMemory(int entityCapacity, int hyperedgeCapacity) {
-        this.entityCapacity = entityCapacity;
-        this.hyperedgeCapacity = hyperedgeCapacity;
-        this.vertexCapacity = hyperedgeCapacity * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
-        this.incidenceCapacity = entityCapacity * HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY;
-        this.nextHyperedgeId = 0;
-        this.nextVertexOffset = 0;
-        this.totalHyperedges = 0;
+        this(Init.heap(entityCapacity, hyperedgeCapacity));
+    }
 
-        this.arena = Arena.ofShared();
+    /**
+     * Single delegating constructor. Wraps the pre-built arena + hyperedge slab as the kernel
+     * substrate {@link #segment()} and adopts the HyperEntity-owned vertex/incidence segments.
+     */
+    private HyperEntityGraphMemory(Init init) {
+        super(MEMORY_ID, LAYOUT, init.hyperedgeCapacity, init.arena, init.hedges,
+                init.totalHyperedges, false, null, null);
+        this.entityCapacity = init.entityCapacity;
+        this.hyperedgeCapacity = init.hyperedgeCapacity;
+        this.vertexCapacity = init.vertexCapacity;
+        this.incidenceCapacity = init.incidenceCapacity;
+        this.hedges = init.hedges;
+        this.vertices = init.vertices;
+        this.incidenceIndex = init.incidenceIndex;
+        this.incidenceList = init.incidenceList;
+        this.nextHyperedgeId = init.nextHyperedgeId;
+        this.nextVertexOffset = init.nextVertexOffset;
+        this.totalHyperedges = init.totalHyperedges;
 
-        this.hedges = arena.allocate((long) HyperEntityLayout.HEDGE_BYTES * hyperedgeCapacity);
-        hedges.fill((byte) 0);
-
-        this.vertices = arena.allocate((long) HyperEntityLayout.VERTEX_BYTES * vertexCapacity);
-        vertices.fill((byte) 0);
-
-        long indexBytes = (long) (entityCapacity + 1) * Integer.BYTES;
-        this.incidenceIndex = arena.allocate(indexBytes);
-        incidenceIndex.fill((byte) 0);
-
-        this.incidenceList = arena.allocate((long) HyperEntityLayout.INCIDENCE_ENTRY_BYTES * incidenceCapacity);
-        incidenceList.fill((byte) 0);
-
-        // On-heap incidence lists for fast lookup
+        // On-heap incidence lists for fast lookup.
         this.incidenceHeap = new ArrayList<>(entityCapacity);
         for (int i = 0; i < entityCapacity; i++) {
             incidenceHeap.add(new ArrayList<>(4));
         }
+        if (nextHyperedgeId > 0) {
+            rebuildIncidenceLists();
+        }
 
         long totalKB = ((long) HyperEntityLayout.HEDGE_BYTES * hyperedgeCapacity
                 + (long) HyperEntityLayout.VERTEX_BYTES * vertexCapacity
-                + indexBytes
+                + (long) (entityCapacity + 1) * Integer.BYTES
                 + (long) HyperEntityLayout.INCIDENCE_ENTRY_BYTES * incidenceCapacity) / 1024;
 
-        log.info("HyperEntityGraphMemory initialized: entities={}, hyperedges={}, memory={}KB",
-                entityCapacity, hyperedgeCapacity, totalKB);
+        log.info("HyperEntityGraphMemory initialized: entities={}, hyperedges={}/{}, memory={}KB",
+                entityCapacity, totalHyperedges, hyperedgeCapacity, totalKB);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // CONSTRUCTION HOLDER + BUILDERS (super() must run first)
+    // ══════════════════════════════════════════════════════════════
+
+    /** Immutable bundle of everything the delegating constructor needs. */
+    private record Init(int entityCapacity, int hyperedgeCapacity, int vertexCapacity, int incidenceCapacity,
+                        Arena arena, MemorySegment hedges, MemorySegment vertices,
+                        MemorySegment incidenceIndex, MemorySegment incidenceList,
+                        int nextHyperedgeId, int nextVertexOffset, int totalHyperedges) {
+
+        /** Allocates a fresh set of zeroed segments in a new shared arena. */
+        static Init heap(int entityCapacity, int hyperedgeCapacity) {
+            int vertexCapacity = hyperedgeCapacity * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
+            int incidenceCapacity = entityCapacity * HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY;
+            Arena arena = Arena.ofShared();
+
+            MemorySegment hedges = arena.allocate((long) HyperEntityLayout.HEDGE_BYTES * hyperedgeCapacity);
+            hedges.fill((byte) 0);
+            MemorySegment vertices = arena.allocate((long) HyperEntityLayout.VERTEX_BYTES * vertexCapacity);
+            vertices.fill((byte) 0);
+            MemorySegment incidenceIndex = arena.allocate((long) (entityCapacity + 1) * Integer.BYTES);
+            incidenceIndex.fill((byte) 0);
+            MemorySegment incidenceList =
+                    arena.allocate((long) HyperEntityLayout.INCIDENCE_ENTRY_BYTES * incidenceCapacity);
+            incidenceList.fill((byte) 0);
+
+            return new Init(entityCapacity, hyperedgeCapacity, vertexCapacity, incidenceCapacity,
+                    arena, hedges, vertices, incidenceIndex, incidenceList, 0, 0, 0);
+        }
+
+        /**
+         * Reads an SMKM v2 container into a fresh set of segments. Capacities are the max of the
+         * on-disk values and the caller-supplied defaults so a re-opened graph never shrinks.
+         */
+        static Init fromSmkmFile(Path filePath, int defaultEntityCap, int defaultHedgeCap)
+                throws IOException {
+            try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ);
+                 Arena headerArena = Arena.ofConfined()) {
+                long fileSize = ch.size();
+                if (fileSize < DATA_START) {
+                    throw new IOException("SMKM hyper-entity file truncated: size=" + fileSize
+                            + " < " + DATA_START + ": " + filePath);
+                }
+                MemorySegment head = headerArena.allocate(DATA_START);
+                ByteBuffer hb = head.asByteBuffer();
+                ch.position(0);
+                while (hb.hasRemaining() && ch.read(hb) >= 0) {
+                    // fill header
+                }
+                if (!MemoryHeader.isValid(head, 0L)
+                        || MemoryHeader.readShape(head, 0L) != MemoryShape.GRAPH
+                        || MemoryHeader.readLayoutId(head, 0L) != LAYOUT.layoutId()) {
+                    throw new IOException("invalid SMKM hyper-entity header: " + filePath);
+                }
+
+                int loadedHedgeCap = (int) MemoryHeader.readCapacity(head, 0L);
+                int loadedTotal = (int) MemoryHeader.readCount(head, 0L);
+                int loadedEntityCap = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ENTITY_CAP);
+                int nextId = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID);
+                int nextVertexOff = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET);
+                int totalHedges = head.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_TOTAL_HYPEREDGES);
+
+                if (loadedHedgeCap < 0 || loadedEntityCap < 0 || nextId < 0 || nextVertexOff < 0) {
+                    throw new IOException("invalid SMKM hyper-entity sub-header: " + filePath);
+                }
+
+                int entityCapacity = Math.max(loadedEntityCap, defaultEntityCap);
+                int hyperedgeCapacity = Math.max(loadedHedgeCap, defaultHedgeCap);
+                int vertexCapacity = hyperedgeCapacity * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
+                int incidenceCapacity = entityCapacity * HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY;
+
+                long hedgeBytes = (long) nextId * HyperEntityLayout.HEDGE_BYTES;
+                long vertexBytes = (long) nextVertexOff * HyperEntityLayout.VERTEX_BYTES;
+                if (fileSize < DATA_START + hedgeBytes + vertexBytes) {
+                    throw new IOException("SMKM hyper-entity data truncated: size=" + fileSize
+                            + " < " + (DATA_START + hedgeBytes + vertexBytes) + ": " + filePath);
+                }
+                if (nextId > hyperedgeCapacity || nextVertexOff > vertexCapacity) {
+                    throw new IOException("SMKM hyper-entity counts exceed capacity: nextId=" + nextId
+                            + " (cap " + hyperedgeCapacity + "), nextVertexOffset=" + nextVertexOff
+                            + " (cap " + vertexCapacity + "): " + filePath);
+                }
+
+                Arena arena = Arena.ofShared();
+                MemorySegment hedges =
+                        arena.allocate((long) HyperEntityLayout.HEDGE_BYTES * hyperedgeCapacity);
+                hedges.fill((byte) 0);
+                MemorySegment vertices =
+                        arena.allocate((long) HyperEntityLayout.VERTEX_BYTES * vertexCapacity);
+                vertices.fill((byte) 0);
+                MemorySegment incidenceIndex = arena.allocate((long) (entityCapacity + 1) * Integer.BYTES);
+                incidenceIndex.fill((byte) 0);
+                MemorySegment incidenceList =
+                        arena.allocate((long) HyperEntityLayout.INCIDENCE_ENTRY_BYTES * incidenceCapacity);
+                incidenceList.fill((byte) 0);
+
+                ch.position(DATA_START);
+                readIntoSegment(ch, hedges, hedgeBytes);
+                readIntoSegment(ch, vertices, vertexBytes);
+
+                return new Init(entityCapacity, hyperedgeCapacity, vertexCapacity, incidenceCapacity,
+                        arena, hedges, vertices, incidenceIndex, incidenceList,
+                        nextId, nextVertexOff, totalHedges);
+            }
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -247,7 +366,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             return -1;
         }
 
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
             if (nextHyperedgeId >= hyperedgeCapacity) {
                 log.warn("HyperEntityGraphMemory full: {} hyperedges at capacity", hyperedgeCapacity);
@@ -276,7 +395,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             if (wal != null && !bypassWal) {
                 ByteBuffer buf = ByteBuffer.allocate(HyperEntityLayout.HEDGE_BYTES);
                 buf.putInt(type).putFloat(weight).putInt(vertexCount).putInt(memoryIdx).putLong(timestamp);
-                wal.appendRecordWrite(memoryId.toString(), edgeId, buf.array());
+                wal.appendRecordWrite(id().toString(), edgeId, buf.array());
             }
 
             // Write hyperedge header
@@ -306,7 +425,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
 
             return edgeId;
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -317,6 +436,18 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
      * @return the hyperedge record, or null if invalid/deleted
      */
     public HyperEdge getHyperedge(int edgeId) {
+        // Validated read lock (NOT optimistic): a concurrent writer mutates hyperedge/vertex
+        // contents in place, so a reader must observe a consistent record (#435 SWMR).
+        long stamp = lock.readLock();
+        try {
+            return getHyperedgeLocked(edgeId);
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    /** Core of {@link #getHyperedge}; the caller must hold at least the read lock. */
+    private HyperEdge getHyperedgeLocked(int edgeId) {
         if (edgeId < 0 || edgeId >= nextHyperedgeId) return null;
 
         long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
@@ -347,13 +478,25 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
      * @return list of hyperedge records, sorted by descending weight
      */
     public List<HyperEdge> findHyperedgesForEntity(int entityId) {
+        // Validated read lock: incidenceHeap is a plain ArrayList mutated by writers
+        // (addHyperedge/deleteHyperedge), so a reader must not iterate it concurrently.
+        long stamp = lock.readLock();
+        try {
+            return findHyperedgesForEntityLocked(entityId);
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    /** Core of {@link #findHyperedgesForEntity}; the caller must hold at least the read lock. */
+    private List<HyperEdge> findHyperedgesForEntityLocked(int entityId) {
         if (entityId < 0 || entityId >= entityCapacity) return List.of();
 
         List<Integer> edgeIds = incidenceHeap.get(entityId);
         List<HyperEdge> result = new ArrayList<>(edgeIds.size());
 
         for (int edgeId : edgeIds) {
-            HyperEdge edge = getHyperedge(edgeId);
+            HyperEdge edge = getHyperedgeLocked(edgeId);
             if (edge != null) {
                 result.add(edge);
             }
@@ -372,9 +515,19 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
      * @return set of co-occurring entity IDs (excluding the query entity)
      */
     public Set<Integer> findCoOccurringEntities(int entityId) {
+        long stamp = lock.readLock();
+        try {
+            return findCoOccurringEntitiesLocked(entityId);
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    /** Core of {@link #findCoOccurringEntities}; the caller must hold at least the read lock. */
+    private Set<Integer> findCoOccurringEntitiesLocked(int entityId) {
         Set<Integer> result = new HashSet<>();
 
-        List<HyperEdge> edges = findHyperedgesForEntity(entityId);
+        List<HyperEdge> edges = findHyperedgesForEntityLocked(entityId);
         for (HyperEdge edge : edges) {
             for (HyperEdgeVertex v : edge.vertices()) {
                 if (v.entityId() != entityId) {
@@ -396,20 +549,21 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     public Set<Integer> collectMemories(int startEntity, int maxHops) {
         Set<Integer> memories = new HashSet<>();
         Set<Integer> visitedEntities = new HashSet<>();
-        graphLock.lock();
+        long stamp = lock.readLock();
         try {
             collectMemoriesRecursive(startEntity, maxHops, visitedEntities, memories);
         } finally {
-            graphLock.unlock();
+            lock.unlockRead(stamp);
         }
         return memories;
     }
 
+    /** Recursive traversal core; the caller must hold at least the read lock. */
     private void collectMemoriesRecursive(int entityId, int hopsLeft, Set<Integer> visited, Set<Integer> memories) {
         if (hopsLeft < 0 || !visited.add(entityId)) {
             return;
         }
-        List<HyperEdge> edges = findHyperedgesForEntity(entityId);
+        List<HyperEdge> edges = findHyperedgesForEntityLocked(entityId);
         for (HyperEdge edge : edges) {
             if (edge.memoryIdx() >= 0) {
                 memories.add(edge.memoryIdx());
@@ -431,13 +585,14 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     public void strengthen(int edgeId, float weightDelta) {
         if (edgeId < 0 || edgeId >= nextHyperedgeId) return;
 
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
+            if (edgeId >= nextHyperedgeId) return;
             long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
             float weight = hedges.get(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT);
             hedges.set(ValueLayout.JAVA_FLOAT, hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT, weight + weightDelta);
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -449,7 +604,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
      * @return number of hyperedges evicted
      */
     public int decayHyperedges(float decayFactor, float minWeight) {
-        graphLock.lock();
+        long stamp = lock.writeLock();
         try {
             int evicted = 0;
 
@@ -476,7 +631,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             }
             return evicted;
         } finally {
-            graphLock.unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -488,68 +643,58 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
                 + incidenceIndex.byteSize() + incidenceList.byteSize();
     }
 
-    @Override
-    public void close() {
-        log.info("HyperEntityGraphMemory closing: {} hyperedges", totalHyperedges);
-        arena.close();
-    }
-
     // ══════════════════════════════════════════════════════════════
-    // PERSISTENCE
+    // PERSISTENCE: SMKM v2 container + in-class legacy migration (#435)
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Saves the hypergraph to a binary file.
+     * Saves the hypergraph as a fresh SMKM v2 container:
+     * {@code [64B kernel header][16B sub-header][hedges][vertices]}. The incidence structures
+     * are not persisted — they are rebuilt on load.
      */
     public void save(Path filePath) {
         Path parent = filePath.getParent();
-        if (parent != null) {
-            try {
+        long stamp = lock.readLock();
+        try {
+            if (parent != null) {
                 Files.createDirectories(parent);
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("HyperEntityGraphMemory", parent, e);
             }
-        }
-
-        try (FileChannel ch = FileChannel.open(filePath,
-                StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                StandardOpenOption.TRUNCATE_EXISTING)) {
-
-            MemorySegment stdHeaderSeg = Arena.ofAuto().allocate(MemoryHeader.HEADER_BYTES);
-            MemoryHeader.write(stdHeaderSeg, 0, FILE_VERSION, MemoryShape.GRAPH, 0,
-                    hyperedgeCapacity, totalHyperedges, HyperEntityLayout.HEDGE_BYTES, layout.layoutId(),
-                    System.currentTimeMillis(), System.currentTimeMillis());
-            ch.write(stdHeaderSeg.asByteBuffer());
-
-            ByteBuffer customHeader = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            customHeader.order(java.nio.ByteOrder.nativeOrder());
-            customHeader.putInt(FILE_MAGIC);
-            customHeader.putInt(FILE_VERSION);
-            customHeader.putInt(entityCapacity);
-            customHeader.putInt(hyperedgeCapacity);
-            customHeader.putInt(nextHyperedgeId);
-            customHeader.putInt(nextVertexOffset);
-            customHeader.putInt(totalHyperedges);
-            customHeader.putInt(0); // reserved
-            customHeader.flip();
-            ch.write(customHeader);
-
-            // Write hyperedge segment
-            writeSegment(ch, hedges, (long) nextHyperedgeId * HyperEntityLayout.HEDGE_BYTES);
-            // Write vertex segment
-            writeSegment(ch, vertices, (long) nextVertexOffset * HyperEntityLayout.VERTEX_BYTES);
-
-            ch.force(true);
-            log.info("HyperEntityGraphMemory saved: {} hyperedges, {} vertices, file={}",
+            long hedgeBytes = (long) nextHyperedgeId * HyperEntityLayout.HEDGE_BYTES;
+            long vertexBytes = (long) nextVertexOffset * HyperEntityLayout.VERTEX_BYTES;
+            try (FileChannel ch = FileChannel.open(filePath,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING)) {
+                writeSmkmHeaderToChannel(ch, entityCapacity, hyperedgeCapacity,
+                        nextHyperedgeId, nextVertexOffset, totalHyperedges);
+                ch.position(DATA_START);
+                writeSegment(ch, hedges, hedgeBytes);
+                writeSegment(ch, vertices, vertexBytes);
+                ch.force(true);
+            }
+            log.info("HyperEntityGraphMemory saved (SMKM v2): {} hyperedges, {} vertices -> {}",
                     totalHyperedges, nextVertexOffset, filePath);
-
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("HyperEntityGraphMemory", filePath, e);
+        } finally {
+            lock.unlockRead(stamp);
         }
     }
 
     /**
-     * Loads a hypergraph from file, or creates a new one if not found.
+     * Loads a hypergraph from disk, or creates a fresh (heap) graph if the file is absent.
+     *
+     * <p>This is the single in-class migration authority (#435, CEO decision — not the codec):
+     * it classifies the container by magic and self-heals legacy files.</p>
+     *
+     * <ul>
+     *   <li>SMKM v2 ({@code 0x534D4B4D} magic, kernel-header schemaVersion &ge; 2) — opened directly.</li>
+     *   <li>Legacy hybrid ({@code 0x534D4B4D} magic, schemaVersion == 1, a 32-byte "HYEG" custom
+     *       header at offset 64) — migrated in place to SMKM v2.</li>
+     *   <li>Legacy pure ({@code 0x48594547} "HYEG" magic, 32-byte header) — migrated in place.</li>
+     *   <li>Present but unreadable/unknown/truncated — throws {@link SpectorGraphPersistenceException}
+     *       (never a silent empty graph, #432/#433 TD-04).</li>
+     *   <li>Absent — a fresh heap graph.</li>
+     * </ul>
      */
     public static HyperEntityGraphMemory load(Path filePath, int entityCapacity, int hyperedgeCapacity) {
         if (filePath == null || !Files.exists(filePath)) {
@@ -557,90 +702,142 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             return new HyperEntityGraphMemory(entityCapacity, hyperedgeCapacity);
         }
 
-        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            ByteBuffer firstIntBuf = ByteBuffer.allocate(4);
-            firstIntBuf.order(java.nio.ByteOrder.nativeOrder());
-            ch.read(firstIntBuf);
-            firstIntBuf.flip();
-            int firstInt = firstIntBuf.getInt();
-            ch.position(0);
-
-            int loadedEntityCap, loadedHedgeCap, loadedNextId, loadedNextVertexOff, loadedTotal;
-            long dataOffset;
-
-            if (firstInt == MemoryHeader.MAGIC) {
-                // Read standard 64B header
-                ByteBuffer stdBuf = ByteBuffer.allocate(MemoryHeader.HEADER_BYTES);
-                stdBuf.order(java.nio.ByteOrder.nativeOrder());
-                ch.read(stdBuf);
-
-                // Read custom 32B header
-                ByteBuffer customBuf = ByteBuffer.allocate(FILE_HEADER_BYTES);
-                customBuf.order(java.nio.ByteOrder.nativeOrder());
-                ch.read(customBuf);
-                customBuf.flip();
-
-                int magic = customBuf.getInt();
-                int version = customBuf.getInt();
-                loadedEntityCap = customBuf.getInt();
-                loadedHedgeCap = customBuf.getInt();
-                loadedNextId = customBuf.getInt();
-                loadedNextVertexOff = customBuf.getInt();
-                loadedTotal = customBuf.getInt();
-
-                dataOffset = MemoryHeader.HEADER_BYTES + FILE_HEADER_BYTES;
-            } else if (firstInt == FILE_MAGIC) {
-                ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-                header.order(java.nio.ByteOrder.nativeOrder());
-                ch.read(header);
-                header.flip();
-
-                int magic = header.getInt();
-                int version = header.getInt();
-                loadedEntityCap = header.getInt();
-                loadedHedgeCap = header.getInt();
-                loadedNextId = header.getInt();
-                loadedNextVertexOff = header.getInt();
-                loadedTotal = header.getInt();
-
-                dataOffset = FILE_HEADER_BYTES;
-            } else {
-                // File is present but carries an unrecognized magic — corrupt, not absent.
-                // Returning a fresh empty graph would silently discard data (#433 TD-04).
-                throw new SpectorGraphPersistenceException("HyperEntityGraphMemory", filePath,
-                        new IOException("unrecognized file magic: 0x" + Integer.toHexString(firstInt)
-                                + " (expected HYEG 0x" + Integer.toHexString(FILE_MAGIC)
-                                + " or standard header 0x" + Integer.toHexString(MemoryHeader.MAGIC) + ")"));
+        try {
+            long size = Files.size(filePath);
+            if (size < 8) {
+                throw new IOException("file too small to contain a header: " + size + " bytes");
             }
-            
-            ch.position(dataOffset);
-
-            // Create graph with loaded capacities
-            HyperEntityGraphMemory graph = new HyperEntityGraphMemory(
-                    Math.max(loadedEntityCap, entityCapacity),
-                    Math.max(loadedHedgeCap, hyperedgeCapacity));
-
-            // Read data
-            readIntoSegment(ch, graph.hedges, (long) loadedNextId * HyperEntityLayout.HEDGE_BYTES);
-            readIntoSegment(ch, graph.vertices, (long) loadedNextVertexOff * HyperEntityLayout.VERTEX_BYTES);
-
-            graph.nextHyperedgeId = loadedNextId;
-            graph.nextVertexOffset = loadedNextVertexOff;
-            graph.totalHyperedges = loadedTotal;
-
-            // Rebuild incidence lists from loaded data
-            graph.rebuildIncidenceLists();
-
-            log.info("HyperEntityGraphMemory loaded: {} hyperedges, file={}", loadedTotal, filePath);
-            return graph;
-
+            int firstInt = peekIntNative(filePath, 0);
+            if (firstInt == MemoryHeader.MAGIC) {
+                int schemaVersion = peekIntNative(filePath, 4);
+                if (schemaVersion >= 2) {
+                    return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
+                }
+                // Interim hybrid: [64B SMKM header (schemaVersion==1)][32B HYEG custom header][data].
+                log.info("HyperEntityGraphMemory migrating legacy hybrid container -> SMKM v2: {}", filePath);
+                migrateLegacyToSmkm(filePath, MemoryHeader.HEADER_BYTES);
+                return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
+            }
+            if (firstInt == FILE_MAGIC) {
+                log.info("HyperEntityGraphMemory migrating legacy pure-HYEG container -> SMKM v2: {}", filePath);
+                migrateLegacyToSmkm(filePath, 0);
+                return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
+            }
+            // File present but unrecognized magic — corrupt, not absent. Returning a fresh empty
+            // graph would silently discard the user's data (#432/#433 TD-04).
+            throw new IOException("unrecognized HyperEntityGraph file magic: 0x"
+                    + Integer.toHexString(firstInt) + " (expected SMKM 0x"
+                    + Integer.toHexString(MemoryHeader.MAGIC) + " or HYEG 0x"
+                    + Integer.toHexString(FILE_MAGIC) + "): " + filePath);
         } catch (SpectorGraphPersistenceException e) {
             throw e;
         } catch (Exception e) {
-            // The file is present (existence checked above) but could not be read — surface
-            // it rather than silently returning an empty graph (#433 TD-04).
             log.error("Failed to load HyperEntityGraphMemory (file present but unreadable): {}", filePath, e);
             throw new SpectorGraphPersistenceException("HyperEntityGraphMemory", filePath, e);
+        }
+    }
+
+    /** Opens an SMKM v2 hyper-entity file and rebuilds the incidence structures. */
+    private static HyperEntityGraphMemory openSmkm(Path filePath, int defaultEntityCap, int defaultHedgeCap)
+            throws IOException {
+        HyperEntityGraphMemory graph = new HyperEntityGraphMemory(
+                Init.fromSmkmFile(filePath, defaultEntityCap, defaultHedgeCap));
+        log.info("HyperEntityGraphMemory loaded (SMKM v2): {} hyperedges, file={}",
+                graph.totalHyperedges, filePath);
+        return graph;
+    }
+
+    /**
+     * Migrates a legacy container to SMKM v2 in place, preserving the original as
+     * {@code <name>.bak.hyeg}. {@code customHeaderPos} is the byte offset of the 32-byte "HYEG"
+     * custom header: 0 for the pure-HYEG container, 64 for the {@code [64B SMKM][32B HYEG]} hybrid.
+     */
+    private static void migrateLegacyToSmkm(Path file, int customHeaderPos) throws IOException {
+        try (FileChannel in = FileChannel.open(file, StandardOpenOption.READ)) {
+            long fileSize = in.size();
+            long legacyDataStart = (long) customHeaderPos + LEGACY_HEADER_BYTES;
+            if (fileSize < legacyDataStart) {
+                throw new IOException("legacy HYEG header truncated: size=" + fileSize
+                        + " < " + legacyDataStart + ": " + file);
+            }
+            ByteBuffer hb = ByteBuffer.allocate(LEGACY_HEADER_BYTES).order(ByteOrder.nativeOrder());
+            in.position(customHeaderPos);
+            readFully(in, hb);
+            hb.flip();
+            int magic = hb.getInt();
+            int version = hb.getInt();
+            int entityCap = hb.getInt();
+            int hedgeCap = hb.getInt();
+            int nextId = hb.getInt();
+            int nextVertexOff = hb.getInt();
+            int totalHedges = hb.getInt();
+            // remaining 4 bytes reserved
+
+            if (magic != FILE_MAGIC || entityCap < 0 || hedgeCap < 0 || nextId < 0 || nextVertexOff < 0) {
+                throw new IOException("invalid legacy HYEG header (magic=0x" + Integer.toHexString(magic)
+                        + ", version=" + version + "): " + file);
+            }
+
+            long hedgeBytes = (long) nextId * HyperEntityLayout.HEDGE_BYTES;
+            long vertexBytes = (long) nextVertexOff * HyperEntityLayout.VERTEX_BYTES;
+            long dataBytes = hedgeBytes + vertexBytes;
+            if (fileSize < legacyDataStart + dataBytes) {
+                throw new IOException("legacy HYEG file truncated: size=" + fileSize
+                        + " < " + (legacyDataStart + dataBytes) + ": " + file);
+            }
+
+            Path bak = file.resolveSibling(file.getFileName() + ".bak.hyeg");
+            Files.copy(file, bak, StandardCopyOption.REPLACE_EXISTING);
+
+            Path tmp = file.resolveSibling(file.getFileName() + ".smkm.tmp");
+            try (FileChannel out = FileChannel.open(tmp,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                writeSmkmHeaderToChannel(out, entityCap, hedgeCap, nextId, nextVertexOff, totalHedges);
+                out.position(DATA_START);
+                long moved = 0;
+                while (moved < dataBytes) {
+                    long n = in.transferTo(legacyDataStart + moved, dataBytes - moved, out);
+                    if (n <= 0) break;
+                    moved += n;
+                }
+                if (moved < dataBytes) {
+                    throw new IOException("legacy HYEG -> SMKM region copy short: " + moved + " < " + dataBytes);
+                }
+                out.force(true);
+            }
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /** Writes the 64-byte kernel header + 16-byte HyperEntity sub-header to the start of {@code ch}. */
+    private static void writeSmkmHeaderToChannel(FileChannel ch, int entityCap, int hedgeCap,
+                                                 int nextId, int nextVertexOff, int totalHedges)
+            throws IOException {
+        try (Arena confined = Arena.ofConfined()) {
+            MemorySegment head = confined.allocate(DATA_START);
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x00,
+                    hedgeCap, totalHedges, HyperEntityLayout.HEDGE_BYTES, LAYOUT.layoutId(), now, now);
+            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ENTITY_CAP, entityCap);
+            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID, nextId);
+            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET, nextVertexOff);
+            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_TOTAL_HYPEREDGES, totalHedges);
+            ByteBuffer buf = head.asByteBuffer();
+            ch.position(0);
+            while (buf.hasRemaining()) {
+                ch.write(buf);
+            }
+        }
+    }
+
+    /** Reads a native-order int at {@code offset} from the start of {@code filePath}. */
+    private static int peekIntNative(Path filePath, int offset) throws IOException {
+        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
+            ByteBuffer buf = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder());
+            ch.position(offset);
+            readFully(ch, buf);
+            buf.flip();
+            return buf.getInt();
         }
     }
 
@@ -675,10 +872,73 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
     public static final int ROLE_UNSPECIFIED = 0;
 
     // ══════════════════════════════════════════════════════════════
-    // INTERNAL
+    // KERNEL INTEGRATION
+    // ══════════════════════════════════════════════════════════════
+    //
+    // id(), layout(), arena(), segment() (= the hyperedge slab), capacity(), schemaVersion(),
+    // shape(), and WAL binding are inherited from the substrate (AbstractGraphMemory/
+    // AbstractMemory). size()/flush()/close() are overridden below to reflect the live hyperedge
+    // count and to cover all four HyperEntity-owned segments.
+
+    @Override
+    public int size() {
+        return totalHyperedges;
+    }
+
+    @Override
+    public void flush() {
+        // Heap-backed graph: force() is only valid on mapped segments. Guard each so a
+        // heap-only graph is a no-op while still covering all four segments if ever mapped.
+        forceIfMapped(hedges);
+        forceIfMapped(vertices);
+        forceIfMapped(incidenceIndex);
+        forceIfMapped(incidenceList);
+    }
+
+    private static void forceIfMapped(MemorySegment seg) {
+        if (seg != null && seg.isMapped()) {
+            seg.force();
+        }
+    }
+
+    @Override
+    public int addEdge(int fromNode, int toNode, MemorySegment edgeBytes) { return -1; }
+
+    @Override
+    public void removeEdge(int edgeId) {
+        long stamp = lock.writeLock();
+        try {
+            deleteHyperedge(edgeId);
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    @Override
+    public PrimitiveIterator.OfInt neighbours(int nodeId) {
+        return findCoOccurringEntities(nodeId).stream().mapToInt(Integer::intValue).iterator();
+    }
+
+    @Override
+    public int edgeCount() { return totalHyperedges; }
+
+    @Override
+    public int nodeCount() { return entityCapacity; }
+
+    @Override
+    public void close() {
+        // All four segments share the substrate arena, so arena.close() releases them together.
+        log.info("HyperEntityGraphMemory closing: {} hyperedges", totalHyperedges);
+        arena.close();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // INTERNAL — mutators; caller MUST hold the substrate write lock
     // ══════════════════════════════════════════════════════════════
 
+    /** Tombstones a hyperedge and removes it from the incidence lists. Requires the write lock. */
     private void deleteHyperedge(int edgeId) {
+        if (edgeId < 0 || edgeId >= nextHyperedgeId) return;
         long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
         int vertexCount = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT);
         if (vertexCount == 0) return; // already deleted
@@ -698,6 +958,7 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
         totalHyperedges--;
     }
 
+    /** Evicts the weakest hyperedge an entity participates in. Requires the write lock. */
     private void evictWeakestHyperedge(int entityId) {
         List<Integer> participation = incidenceHeap.get(entityId);
         if (participation.isEmpty()) return;
@@ -721,8 +982,11 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
         }
     }
 
+    /**
+     * Rebuilds the on-heap incidence lists from the hyperedge/vertex segments. Invoked during
+     * construction from a loaded file (single-threaded), so it does not acquire the lock.
+     */
     private void rebuildIncidenceLists() {
-        // Clear and rebuild from hyperedge data
         for (List<Integer> list : incidenceHeap) {
             list.clear();
         }
@@ -769,6 +1033,15 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             buf.flip();
             MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, segment, read, n);
             read += n;
+        }
+    }
+
+    /** Reads until {@code buf} is full or EOF; throws if EOF is hit early. */
+    private static void readFully(FileChannel ch, ByteBuffer buf) throws IOException {
+        while (buf.hasRemaining()) {
+            if (ch.read(buf) < 0) {
+                throw new IOException("unexpected EOF while reading " + buf.capacity() + " bytes");
+            }
         }
     }
 }

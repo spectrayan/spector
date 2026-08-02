@@ -410,15 +410,9 @@ public final class SpectorMemoryFactory {
                 if (loadFrom == null) {
                     loadFrom = runtimeHyper;
                 }
-                try {
-                    com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
-                            com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
-                            com.spectrayan.spector.memory.kernel.MemoryId.of("spector", "hyper-entity-graph"),
-                            new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout(),
-                            loadFrom, null, null);
-                } catch (Exception e) {
-                    log.warn("Operation failed: Codec validation for HyperEntityLayout", e);
-                }
+                // #435: no Codecs.ensureCurrent for HyperEntity — HyperEntityGraphMemory.load()
+                // is the single in-class migration authority (SMKM v2 open / legacy HYEG + hybrid
+                // migrate / present-but-unreadable throw), mirroring EntityGraphMemory.
 
                 if (java.nio.file.Files.exists(loadFrom)) {
                     hyperEntityGraph = HyperEntityGraphMemory.load(loadFrom, hyperCap, hyperEdgeCap);
