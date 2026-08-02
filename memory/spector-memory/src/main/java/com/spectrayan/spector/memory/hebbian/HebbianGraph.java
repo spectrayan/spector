@@ -60,6 +60,12 @@ public final class HebbianGraph implements HebbianGraphBase {
 
     private static final Logger log = LoggerFactory.getLogger(HebbianGraph.class);
 
+    // NOTE (#438): The format constants below (FILE_MAGIC/FILE_VERSION/V1_EDGE_BYTES/
+    // FILE_HEADER_BYTES/EDGE_BYTES/EDGE_OFF_*) describe the LEGACY HGPH on-disk format and are
+    // private to this @Deprecated class, used only for the V1->V2 migration path. They are not
+    // referenced by, nor do they duplicate, any current-format (SMKM kernel) constant. They stay
+    // here until this legacy class is removed.
+
     /** File magic: "HGPH" in ASCII. */
     private static final int FILE_MAGIC = 0x48475048;
 
