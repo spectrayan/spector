@@ -558,13 +558,21 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
                 log.info("Detected legacy V2 HebbianGraph file, migrating to CSR: {}", filePath);
                 return migrateFromV2(filePath, maxDegree, edgeImportance);
             } else {
-                log.warn("Unknown HebbianGraph file magic: 0x{}, creating fresh", Integer.toHexString(magic));
-                return new HebbianGraphMemory(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
+                // The file EXISTS (checked above) but carries an unrecognized magic.
+                // Returning a fresh empty graph here would silently discard the user's
+                // entire association graph (#432). Fail loud instead.
+                throw new IOException("Unrecognized HebbianGraph file magic: 0x"
+                        + Integer.toHexString(magic) + " (expected HCSR 0x"
+                        + Integer.toHexString(FILE_MAGIC) + " or legacy HGPH 0x"
+                        + Integer.toHexString(LEGACY_MAGIC) + "): " + filePath);
             }
         } catch (Exception e) {
-            log.error("Failed to load HebbianGraphMemory from {}, creating fresh: {}",
-                    filePath, e.getMessage());
-            return new HebbianGraphMemory(defaultCapacity, defaultCapacity * 2, maxDegree, edgeImportance);
+            // A file that is present but unreadable is a data-integrity problem, not a
+            // "start fresh" signal. Surface it so callers cannot silently lose data (#432).
+            // (File-absent was already handled above and returns a fresh graph.)
+            log.error("Failed to load HebbianGraphMemory from {} (file present but unreadable)",
+                    filePath, e);
+            throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath, e);
         }
     }
 
