@@ -39,6 +39,25 @@ import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 import java.nio.charset.StandardCharsets;
 
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_ENTRY_BYTES;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_OFF_MEM_IDX;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ADJ_OFF_WEIGHT;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_BYTES;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_BRIDGE_SCORE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_EDGE_FLAGS;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_LAST_CYCLE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_REL_TYPE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_TARGET;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.EDGE_OFF_WEIGHT;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENTITY_NODE_BYTES;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_ADJ_CAPACITY;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_ADJ_COUNT;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_ADJ_OFFSET;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_DEGREE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_EDGE_START;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_NAME_HASH;
+import static com.spectrayan.spector.memory.kernel.layout.EntityLayout.ENT_OFF_TYPE;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -141,40 +160,9 @@ public final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     // Legacy EGMM header: [magic:4B][version:4B][entityCap:4B][edgeCap:4B]
     //                     [entityCount:4B][edgeCount:4B][adjCap:4B][adjHwm:4B]
 
-    // ── Entity Node Layout (64 bytes, 8-byte aligned — V2) ──
-    static final int ENTITY_NODE_BYTES = 64;
-    private static final long ENT_OFF_TYPE = 0;             // 4B (entity type id)
-    // pad: 4B for alignment
-    private static final long ENT_OFF_NAME_HASH = 8;        // 8B (8-byte aligned)
-    private static final long ENT_OFF_ADJ_OFFSET = 16;      // 4B (index into adjacency segment)
-    private static final long ENT_OFF_ADJ_COUNT = 20;       // 4B (number of adjacency entries)
-    private static final long ENT_OFF_ADJ_CAPACITY = 24;    // 4B (allocated adjacency slots)
-    // pad: 4B (28-31)
-    // pad: 4B (32-35, was refCount in V1)
-    private static final long ENT_OFF_DEGREE = 36;           // 4B
-    private static final long ENT_OFF_EDGE_START = 40;       // 4B (index into edge segment)
-    // pad: 20B to reach 64B
-
-
-    /**
-     * Entity Edge Layout (16 bytes, V2).
-     *
-     * <pre>
-     *   [0-3]   target      (4B int: target entity ID)
-     *   [4-7]   relType     (4B int: relation type ID)
-     *   [8-11]  weight      (4B float)
-     *   [12-13] lastCycle   (2B short, unsigned: 0-65535)
-     *   [14]    bridgeScore (1B unsigned: 0-255)
-     *   [15]    flags       (1B reserved)
-     * </pre>
-     */
-    static final int EDGE_BYTES = 16;
-    private static final long EDGE_OFF_TARGET = 0;        // 4B
-    private static final long EDGE_OFF_REL_TYPE = 4;      // 4B
-    private static final long EDGE_OFF_WEIGHT = 8;        // 4B (float)
-    private static final long EDGE_OFF_LAST_CYCLE = 12;   // 2B (short)
-    private static final long EDGE_OFF_BRIDGE_SCORE = 14; // 1B
-    private static final long EDGE_OFF_EDGE_FLAGS = 15;   // 1B
+    // ── Record byte layout: single source of truth is EntityLayout (#435, TD-14). ──
+    // ENTITY_NODE_BYTES / EDGE_BYTES / ADJ_ENTRY_BYTES + all *_OFF_ field offsets are
+    // static-imported from EntityLayout; this class only references them.
 
     /**
      * Minimum bridge score (unsigned 0-255) required to protect an entity edge
@@ -184,11 +172,6 @@ public final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
 
     /** Maximum entity edge weight — prevents runaway amplification from cross-capture boosts. */
     static final float MAX_EDGE_WEIGHT = 20.0f;
-
-    // ── Adjacency Entry Layout (8 bytes) ──
-    static final int ADJ_ENTRY_BYTES = 8;
-    private static final long ADJ_OFF_MEM_IDX = 0;      // 4B (memory slot index)
-    private static final long ADJ_OFF_WEIGHT = 4;        // 4B (float weight)
 
     // ── Segments: the entity node slab is the kernel segment() (owned by the substrate);
     //    the edge slab and region-doubling adjacency slab stay Entity-owned. ──

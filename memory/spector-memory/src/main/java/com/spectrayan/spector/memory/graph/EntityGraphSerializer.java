@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.graph;
 
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 
 import org.slf4j.Logger;
@@ -109,11 +110,11 @@ final class EntityGraphSerializer {
 
             // Write entity segment
             writeSegment(ch, graph.entitySegment(),
-                    (long) EntityGraphMemory.ENTITY_NODE_BYTES * graph.entityCapacity());
+                    (long) EntityLayout.ENTITY_NODE_BYTES * graph.entityCapacity());
 
             // Write edge segment
             writeSegment(ch, graph.edgeSegment(),
-                    (long) EntityGraphMemory.EDGE_BYTES * graph.edgeCapacity());
+                    (long) EntityLayout.EDGE_BYTES * graph.edgeCapacity());
 
             // Write adjacency segment header: [adjSegmentCapacity:4B][adjHighWaterMark:4B]
             ByteBuffer adjHeader = ByteBuffer.allocate(8);
@@ -125,7 +126,7 @@ final class EntityGraphSerializer {
             // Write adjacency segment data (only up to high water mark)
             if (graph.adjHighWaterMark() > 0) {
                 writeSegment(ch, graph.adjacencySegment(),
-                        (long) EntityGraphMemory.ADJ_ENTRY_BYTES * graph.adjHighWaterMark());
+                        (long) EntityLayout.ADJ_ENTRY_BYTES * graph.adjHighWaterMark());
             }
 
             // Write name index (on-heap → serialized, optionally encrypted)
@@ -244,8 +245,8 @@ final class EntityGraphSerializer {
 
             // Validate file has enough data for the segments declared in the header
             long minExpectedBytes = FILE_HEADER_BYTES
-                    + (long) EntityGraphMemory.ENTITY_NODE_BYTES * entityCap
-                    + (long) EntityGraphMemory.EDGE_BYTES * edgeCap
+                    + (long) EntityLayout.ENTITY_NODE_BYTES * entityCap
+                    + (long) EntityLayout.EDGE_BYTES * edgeCap
                     + 8; // adjacency header (adjCap + adjHwm)
             if (fileSize < minExpectedBytes) {
                 throw new SpectorGraphPersistenceException("EntityGraphMemory", filePath,
@@ -256,12 +257,12 @@ final class EntityGraphSerializer {
             Arena arena = Arena.ofShared();
 
             // Read entity segment
-            long entityBytes = (long) EntityGraphMemory.ENTITY_NODE_BYTES * entityCap;
+            long entityBytes = (long) EntityLayout.ENTITY_NODE_BYTES * entityCap;
             MemorySegment entSeg = arena.allocate(entityBytes);
             readSegment(ch, entSeg, entityBytes);
 
             // Read edge segment
-            long edgeBytes = (long) EntityGraphMemory.EDGE_BYTES * edgeCap;
+            long edgeBytes = (long) EntityLayout.EDGE_BYTES * edgeCap;
             MemorySegment edgSeg = arena.allocate(edgeBytes);
             readSegment(ch, edgSeg, edgeBytes);
 
@@ -273,10 +274,10 @@ final class EntityGraphSerializer {
             int adjHwm = adjHeaderBuf.getInt();
 
             // Read adjacency segment
-            MemorySegment adjSeg = arena.allocate((long) EntityGraphMemory.ADJ_ENTRY_BYTES * adjCap);
+            MemorySegment adjSeg = arena.allocate((long) EntityLayout.ADJ_ENTRY_BYTES * adjCap);
             adjSeg.fill((byte) 0);
             if (adjHwm > 0) {
-                readSegment(ch, adjSeg, (long) EntityGraphMemory.ADJ_ENTRY_BYTES * adjHwm);
+                readSegment(ch, adjSeg, (long) EntityLayout.ADJ_ENTRY_BYTES * adjHwm);
             }
 
             // Read name index (with encryption flag detection)
