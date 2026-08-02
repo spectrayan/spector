@@ -310,11 +310,22 @@ public final class SpectorMemoryFactory {
             if (loadFrom == null) {
                 loadFrom = legacyGraph;
             }
-            // NOTE(#432): No codec ensureCurrent() call here. HebbianGraphMemory.load()
-            // is the single migration authority — it detects legacy HGPH files and
-            // migrates them in-class to HCSR. Running the codec's HgphToCsrStep here
-            // rewrote HGPH -> SMKM, a format load() cannot read, silently dropping the
-            // graph. See Codecs.defaultRegistry() and #435.
+            // #435: run the codec migration up front (matching the Temporal/HyperEntity
+            // pattern). HebbianGraphCodec migrates legacy HGPH and interim HCSR containers
+            // to the kernel SMKM CSR format, which HebbianGraphMemory.load() reads natively.
+            // This is safe now that load() understands the codec's SMKM output (the exact
+            // bug #432 guarded against). load() also self-heals if this is skipped.
+            if (loadFrom != null) {
+                try {
+                    com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
+                            com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
+                            com.spectrayan.spector.memory.kernel.MemoryId.of("graph", "hebbian-csr"),
+                            new com.spectrayan.spector.memory.kernel.layout.HebbianLayout(),
+                            loadFrom, null, null);
+                } catch (Exception e) {
+                    log.warn("Operation failed: Codec validation for HebbianLayout", e);
+                }
+            }
             hebbianGraph = HebbianGraphMemory.load(loadFrom, graphCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance);
         } else {

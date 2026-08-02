@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.cortex.TextAppendCodec;
 import com.spectrayan.spector.memory.cortex.TypeRegistryCodec;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphCodec;
+import com.spectrayan.spector.memory.hebbian.HebbianGraphCodec;
 import com.spectrayan.spector.memory.index.IndexRecordCodec;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
@@ -36,13 +37,12 @@ public final class Codecs {
             .register(new TextAppendCodec())
             .register(new TypeRegistryCodec())
             .register(new IndexRecordCodec())
-            // NOTE(#432): HebbianGraphCodec is deliberately NOT registered. Its
-            // HgphToCsrStep rewrites legacy HGPH files into an SMKM 64-byte header,
-            // but HebbianGraphMemory.save()/load() speak the HCSR 24-byte format and
-            // never recognize SMKM — so the codec produced a format nothing could read,
-            // silently discarding the user's association graph on upgrade. The in-class
-            // HebbianGraphMemory.migrateFromV2 (HGPH -> HCSR) is now the single migration
-            // authority. Full SMKM/kernel adoption for Hebbian is deferred to #435.
+            // #435: HebbianGraphCodec is the single migration authority for the Hebbian
+            // association graph. It migrates BOTH the legacy HGPH container and the interim
+            // HCSR container (#432) to the kernel SMKM CSR format, which
+            // HebbianGraphMemory.load() now reads natively — resolving the #432 data-loss
+            // regression where the codec produced a format the loader could not read.
+            .register(new HebbianGraphCodec())
             .register(new HyperEntityGraphCodec())
             .build();
 

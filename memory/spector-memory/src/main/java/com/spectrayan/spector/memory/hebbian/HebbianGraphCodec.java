@@ -34,16 +34,19 @@ public final class HebbianGraphCodec implements Codec<HebbianLayout> {
 
     @Override
     public Set<Integer> legacyMagics() {
-        return Set.of(HgphToCsrStep.FROM_FORMAT.magic());
+        return Set.of(HgphToCsrStep.FROM_MAGIC, HcsrToSmkmStep.FROM_MAGIC);
     }
 
     @Override
     public int versionOf(int magic, MemorySegment headerPrefix) {
-        return 2;
+        return 1;
     }
 
     @Override
     public List<CodecStep> steps() {
-        return List.of(new HgphToCsrStep());
+        // Two terminal hops to the SMKM CSR container: from the legacy HGPH format and
+        // from the interim HCSR format (#432). Both are the single migration authority
+        // for Hebbian (#435); load() understands the SMKM output they produce.
+        return List.of(new HgphToCsrStep(), new HcsrToSmkmStep());
     }
 }

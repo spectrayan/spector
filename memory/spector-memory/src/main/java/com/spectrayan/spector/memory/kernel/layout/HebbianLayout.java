@@ -19,9 +19,22 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  */
 public final class HebbianLayout implements MemoryLayout {
 
-    private static final int STRIDE = 12; // CSR edge bytes: neighbor(4) + weight(4) + metadata(4)
-    private static final int LAYOUT_ID = 0x48435352; // 'HCSR'
+    /** Layout id / interim HCSR container magic ('HCSR'). */
+    public static final int LAYOUT_ID = 0x48435352;
     private static final int VERSION = 1;
+
+    /** Bytes per CSR edge record: neighbor(4) + weight(4) + lastCycle(2) + bridge(1) + flags(1). */
+    public static final int EDGE_BYTES = 12;
+    /** Edge field: neighbor (target) vertex index. */
+    public static final int EDGE_OFF_NEIGHBOR = 0;
+    /** Edge field: association weight (float). */
+    public static final int EDGE_OFF_WEIGHT = 4;
+    /** Edge field: last reflection cycle the edge was touched (unsigned short). */
+    public static final int EDGE_OFF_LAST_CYCLE = 8;
+    /** Edge field: bridge score for eviction protection (unsigned byte). */
+    public static final int EDGE_OFF_BRIDGE_SCORE = 10;
+    /** Edge field: edge flags (byte). */
+    public static final int EDGE_OFF_EDGE_FLAGS = 11;
 
     @Override
     public int layoutId() {
@@ -35,7 +48,7 @@ public final class HebbianLayout implements MemoryLayout {
 
     @Override
     public int recordStride() {
-        return STRIDE;
+        return EDGE_BYTES;
     }
 
     @Override

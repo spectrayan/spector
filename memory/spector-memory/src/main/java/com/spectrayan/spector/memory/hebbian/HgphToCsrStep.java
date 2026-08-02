@@ -12,27 +12,33 @@
  */
 package com.spectrayan.spector.memory.hebbian;
 
-import com.spectrayan.spector.memory.kernel.MemoryHeader;
-import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.kernel.codec.FormatId;
 import com.spectrayan.spector.memory.kernel.codec.MigrationContext;
 import com.spectrayan.spector.memory.kernel.codec.RewriteFileStep;
 
 import java.io.IOException;
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
- * Migration step converting legacy Hebbian Graph format (HGPH v2) to SMKM CSR format.
+ * Migration step converting the legacy Hebbian Graph container (HGPH, magic
+ * {@code 0x48475048}) to the kernel SMKM CSR container.
+ *
+ * <p>Unlike the earlier draft (which merely re-wrapped the legacy bytes in an SMKM header
+ * and produced a file the loader could not read — the #432 data-loss bug), this step
+ * actually decodes the legacy graph via {@link HebbianGraph} and re-serializes it through
+ * {@link HebbianGraphMemory#save} so the output is a valid SMKM CSR file that
+ * {@code HebbianGraphMemory.load} can read.</p>
+ *
+ * <p>The legacy 'HGPH' magic is written big-endian on disk, but {@code FormatDetector}
+ * sniffs the leading int in native (little-endian) byte order — so {@link #from()} uses the
+ * byte-reversed magic to match what the detector actually sees.</p>
  */
 public final class HgphToCsrStep extends RewriteFileStep {
 
-    public static final FormatId FROM_FORMAT = new FormatId(0x48475048, 2);
+    /** Legacy 'HGPH' magic as read in native (little-endian) order by FormatDetector. */
+    public static final int FROM_MAGIC = Integer.reverseBytes(HebbianGraphMemory.LEGACY_HGPH_MAGIC);
+    public static final FormatId FROM_FORMAT = new FormatId(FROM_MAGIC, 1);
     public static final FormatId TO_FORMAT = FormatId.smkm(1);
 
     @Override
@@ -47,24 +53,20 @@ public final class HgphToCsrStep extends RewriteFileStep {
 
     @Override
     protected void rewrite(Path source, Path target, MigrationContext ctx) throws IOException {
-        try (FileChannel srcCh = FileChannel.open(source, READ);
-             FileChannel dstCh = FileChannel.open(target, CREATE, READ, WRITE);
-             Arena arena = Arena.ofConfined()) {
-
-            long srcSize = srcCh.size();
-            long dataSize = Math.max(0, srcSize - 24);
-            long totalDstSize = MemoryHeader.HEADER_BYTES + dataSize;
-            long now = System.currentTimeMillis();
-
-            MemorySegment dstMapped = dstCh.map(FileChannel.MapMode.READ_WRITE, 0, totalDstSize, arena);
-            MemoryHeader.write(dstMapped, 0L, ctx.layout().schemaVersion(), MemoryShape.GRAPH, 1,
-                    0L, 0L, ctx.layout().recordStride(), ctx.layout().layoutId(), now, now);
-
-            if (dataSize > 0) {
-                MemorySegment srcMapped = srcCh.map(FileChannel.MapMode.READ_ONLY, 24, dataSize, arena);
-                MemorySegment.copy(srcMapped, 0, dstMapped, MemoryHeader.HEADER_BYTES, dataSize);
+        // Decode the legacy fixed-width HGPH graph, rebuild it as a CSR graph, and write
+        // the result as an SMKM container to the migration target.
+        HebbianGraph legacy = HebbianGraph.load(source, 1024,
+                HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+        try {
+            HebbianGraphMemory csr = HebbianGraphMemory.fromNeighbors(
+                    legacy, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
+            try {
+                csr.save(target);
+            } finally {
+                csr.close();
             }
-            dstMapped.force();
+        } finally {
+            legacy.close();
         }
     }
 }

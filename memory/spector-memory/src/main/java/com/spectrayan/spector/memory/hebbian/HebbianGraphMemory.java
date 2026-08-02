@@ -17,11 +17,12 @@ import com.spectrayan.spector.memory.graph.BridgeDetector;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.codec.Codecs;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
-import com.spectrayan.spector.memory.kernel.shape.GraphMemory;
-import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +38,15 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_BYTES;
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_BRIDGE_SCORE;
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_EDGE_FLAGS;
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_LAST_CYCLE;
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_NEIGHBOR;
+import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.EDGE_OFF_WEIGHT;
 
 /**
  * Compressed Sparse Row (CSR) layout for the Hebbian association graph, implementing
@@ -45,33 +54,36 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @see HebbianGraph
  */
-public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<HebbianLayout> {
+public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
+        implements HebbianGraphBase {
 
     private static final Logger log = LoggerFactory.getLogger(HebbianGraphMemory.class);
 
-    /** File magic: "HCSR" in ASCII. */
-    private static final int FILE_MAGIC = 0x48435352;
+    /** Shared record layout — single source of truth for stride + edge offsets (TD-14). */
+    private static final HebbianLayout LAYOUT = new HebbianLayout();
 
-    /** File format version (v3: CSR layout). */
-    private static final int FILE_VERSION = 3;
+    /** Kernel identity for the Hebbian association graph. */
+    private static final MemoryId MEMORY_ID = MemoryId.of("graph", "hebbian-csr");
 
-    /** Legacy file magic for migration detection. */
-    private static final int LEGACY_MAGIC = 0x48475048; // "HGPH"
+    // ── On-disk container magics (logical values, as read big-endian) ──
+    /** Legacy fixed-width container magic ('HGPH'), migrated via the codec. */
+    static final int LEGACY_HGPH_MAGIC = 0x48475048;
+    /** Interim CSR container magic ('HCSR', #432), migrated via the codec. */
+    static final int INTERIM_HCSR_MAGIC = 0x48435352;
+    /** Bytes of the interim HCSR header: magic+version+capacity+edgeCap+totalEdges+cycle. */
+    static final int HCSR_HEADER_BYTES = 24;
 
-    /** File header: 6 × 4B = 24 bytes. */
-    private static final int FILE_HEADER_BYTES = 24;
+    // ── SMKM container: [64B MemoryHeader][16B graph sub-header][offset slab][edge slab] ──
+    /** Bytes of the Hebbian graph sub-header following the 64-byte kernel MemoryHeader. */
+    static final int GRAPH_SUBHEADER_BYTES = 16;
+    /** Sub-header field (relative to MemoryHeader.HEADER_BYTES): edge-slab capacity (int). */
+    static final int SUB_OFF_EDGE_CAPACITY = 0;
+    /** Sub-header field: current reflection cycle (int). */
+    static final int SUB_OFF_CURRENT_CYCLE = 4;
+    /** Byte offset where the CSR offset slab begins in an SMKM file (64 + 16). */
+    static final long DATA_START = MemoryHeader.HEADER_BYTES + GRAPH_SUBHEADER_BYTES;
 
-    /** Bytes per edge (same as V2 for compatibility). */
-    static final int EDGE_BYTES = 12;
-    private static final int EDGE_OFF_NEIGHBOR = 0;
-    private static final int EDGE_OFF_WEIGHT = 4;
-    private static final int EDGE_OFF_LAST_CYCLE = 8;
-    private static final int EDGE_OFF_BRIDGE_SCORE = 10;
-    private static final int EDGE_OFF_EDGE_FLAGS = 11;
-
-    /**
-     * Minimum bridge score to protect an edge from eviction during decay.
-     */
+    /** Minimum bridge score to protect an edge from eviction during decay. */
     static final int BRIDGE_PROTECTION_THRESHOLD = 224;
 
     /** Maximum degree per node (prevents graph explosion). */
@@ -83,45 +95,28 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
     /** Current reflection cycle. */
     private int currentCycle;
 
-    /** Maximum number of nodes. */
-    private final int capacity;
-
     /** Total edges stored in CSR. */
     private int totalEdgeCount;
 
-    /** Maximum edge slots allocated. */
+    /** Maximum edge slots allocated in the edge slab. */
     private final int edgeCapacity;
 
-    // ── Off-heap segments ──
-
-    private final Arena arena;
-
-    /**
-     * Offset segment: 4B × (capacity + 1).
-     */
+    // ── Off-heap slabs (views over the single kernel-owned segment) ──
+    /** Offset slab view: 4B × (capacity + 1). */
     private final MemorySegment offsets;
-
-    /**
-     * Edge segment: 12B × edgeCapacity.
-     */
+    /** Edge slab view: {@code EDGE_BYTES} × edgeCapacity. */
     private final MemorySegment edges;
 
     // ── Overflow for edge insertion between compaction cycles ──
-
     @SuppressWarnings("unchecked")
     private List<int[]>[] overflow; // int[] = {neighbor, Float.floatToRawIntBits(weight)}
-
     private int overflowEdgeCount;
 
     // ── Thread safety & session ──
-
     private final ReentrantLock graphLock = new ReentrantLock();
     private volatile long lastActivityMs = System.currentTimeMillis();
     private volatile long sessionBoundaryMs = 30 * 60 * 1000L;
     private volatile HebbianGraph.DecayModulator decayModulator;
-    private final MemoryId memoryId;
-    private MemoryWal wal;
-    private boolean bypassWal = false;
 
     // ══════════════════════════════════════════════════════════════
     // CONSTRUCTORS
@@ -130,28 +125,28 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
     @SuppressWarnings("unchecked")
     public HebbianGraphMemory(int capacity, int edgeCapacity, int maxDegree,
                                EdgeImportance edgeImportance) {
-        this.capacity = capacity;
+        // Substrate mode: the kernel base owns one off-heap segment + arena and the SMKM
+        // identity/shape. This class lays the segment out as an offset slab followed by an
+        // edge slab and drives the specialized prefix-sum CSR algorithms itself.
+        super(MEMORY_ID, LAYOUT, capacity,
+                (long) (capacity + 1) * Integer.BYTES + (long) edgeCapacity * EDGE_BYTES);
         this.edgeCapacity = edgeCapacity;
         this.maxDegree = maxDegree;
         this.edgeImportance = edgeImportance;
         this.currentCycle = 0;
         this.totalEdgeCount = 0;
         this.overflowEdgeCount = 0;
-        this.arena = Arena.ofShared();
 
         long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
-        this.offsets = arena.allocate(offsetBytes);
-        offsets.fill((byte) 0);
-
         long edgeBytes = (long) edgeCapacity * EDGE_BYTES;
-        this.edges = arena.allocate(edgeBytes);
-        edges.fill((byte) 0);
+        // Arena.allocate zero-fills, so both slabs start empty.
+        this.offsets = segment().asSlice(0, offsetBytes);
+        this.edges = segment().asSlice(offsetBytes, edgeBytes);
 
         this.overflow = new List[capacity];
-        this.memoryId = MemoryId.of("graph", "hebbian-csr");
 
         long totalKB = (offsetBytes + edgeBytes) / 1024;
-        log.info("HebbianGraphMemory initialized (heap): capacity={}, edgeCap={}, maxDegree={}, memory={}KB",
+        log.info("HebbianGraphMemory initialized: capacity={}, edgeCap={}, maxDegree={}, memory={}KB",
                 capacity, edgeCapacity, maxDegree, totalKB);
     }
 
@@ -178,7 +173,7 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
             if (wal != null && !bypassWal) {
                 ByteBuffer buf = ByteBuffer.allocate(4);
                 buf.putFloat(weightDelta);
-                wal.appendAdjAddEdge(memoryId.toString(), nodeA, nodeB, buf.array());
+                wal.appendAdjAddEdge(id().toString(), nodeA, nodeB, buf.array());
             }
 
             addOrUpdateEdge(nodeA, nodeB, weightDelta);
@@ -378,58 +373,19 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
     // KERNEL INTEGRATION
     // ══════════════════════════════════════════════════════════════
 
-    @Override
-    public MemoryId id() {
-        return memoryId;
-    }
+    // id(), arena(), segment(), shape(), flush(), close() and the WAL-binding methods are
+    // inherited from AbstractGraphMemory/AbstractMemory. schemaVersion() delegates to
+    // HebbianLayout.VERSION (the record schema version); the on-disk container is now the
+    // kernel SMKM format (magic 0x534D4B4D) rather than the bespoke 24-byte HCSR header.
 
     @Override
     public HebbianLayout layout() {
-        return new HebbianLayout();
-    }
-
-    @Override
-    public Arena arena() {
-        return arena;
-    }
-
-    @Override
-    public MemorySegment segment() {
-        return edges;
+        return LAYOUT;
     }
 
     @Override
     public int size() {
         return totalEdges();
-    }
-
-    @Override
-    public int schemaVersion() {
-        // Delegate to the layout so the record schema version has a single source of
-        // truth (#434 TD-06). NOTE: this is the *record schema* version (HebbianLayout.VERSION),
-        // which is intentionally distinct from FILE_VERSION — the on-disk *file container*
-        // version (currently 3: CSR layout, migrated from legacy HGPH/V2). Hebbian is not yet
-        // on the kernel record path (deferred to #435), so the two versions differ by design.
-        return layout().schemaVersion();
-    }
-
-    @Override
-    public MemoryShape shape() {
-        return MemoryShape.GRAPH;
-    }
-
-    @Override
-    public void flush() {
-        try {
-            if (edges != null) edges.force();
-        } catch (UnsupportedOperationException e) {
-            log.trace("Memory segment does not support force operation", e);
-        }
-        try {
-            if (offsets != null) offsets.force();
-        } catch (UnsupportedOperationException e) {
-            log.trace("Memory segment does not support force operation", e);
-        }
     }
 
     @Override
@@ -440,7 +396,7 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
 
     @Override
     public void removeEdge(int edgeId) {
-        // CSR decays and compacts edges
+        // CSR edges are pruned structurally via decay/compaction, not by edge id.
     }
 
     @Override
@@ -455,42 +411,21 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
 
     @Override
     public int nodeCount() {
-        int activeNodes = 0;
+        int active = 0;
         for (int i = 0; i < capacity; i++) {
             if (degree(i) > 0) {
-                activeNodes++;
+                active++;
             }
         }
-        return activeNodes;
+        return active;
     }
 
     public MemoryId memoryId() {
-        return memoryId;
+        return id();
     }
 
     public MemoryShape kernelShape() {
         return MemoryShape.GRAPH;
-    }
-
-    @Override
-    public void bindWal(MemoryWal wal) {
-        this.wal = wal;
-    }
-
-    @Override
-    public void setBypassWal(boolean bypass) {
-        this.bypassWal = bypass;
-    }
-
-    @Override
-    public MemoryWal getWal() {
-        return this.wal;
-    }
-
-    @Override
-    public void close() {
-        log.info("HebbianGraphMemory closing (capacity={}, edges={})", capacity, totalEdgeCount);
-        arena.close();
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -510,31 +445,43 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
 
         compactIfNeeded();
 
+        long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
+        long edgeBytes = (long) totalEdgeCount * EDGE_BYTES;
+
         try (FileChannel ch = FileChannel.open(filePath,
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                StandardOpenOption.TRUNCATE_EXISTING)) {
+                StandardOpenOption.TRUNCATE_EXISTING);
+             Arena confined = Arena.ofConfined()) {
 
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            header.putInt(FILE_MAGIC);
-            header.putInt(FILE_VERSION);
-            header.putInt(capacity);
-            header.putInt(edgeCapacity);
-            header.putInt(totalEdgeCount);
-            header.putInt(currentCycle);
-            header.flip();
-            ch.write(header);
+            // [64B SMKM MemoryHeader][16B Hebbian graph sub-header]
+            MemorySegment head = confined.allocate(DATA_START);
+            writeSmkmHeader(head, capacity, edgeCapacity, totalEdgeCount, currentCycle);
+            ch.write(head.asByteBuffer());
 
-            writeSegmentToChannel(offsets, (long) (capacity + 1) * Integer.BYTES, ch);
-
-            writeSegmentToChannel(edges, (long) totalEdgeCount * EDGE_BYTES, ch);
+            writeSegmentToChannel(offsets, offsetBytes, ch);
+            writeSegmentToChannel(edges, edgeBytes, ch);
 
             ch.force(true);
-            log.info("HebbianGraphMemory saved: capacity={}, edges={}, file={}",
+            log.info("HebbianGraphMemory saved (SMKM): capacity={}, edges={}, file={}",
                     capacity, totalEdgeCount, filePath);
 
         } catch (IOException e) {
             throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath, e);
         }
+    }
+
+    /**
+     * Writes the SMKM 64-byte kernel header plus the 16-byte Hebbian graph sub-header
+     * into the first {@link #DATA_START} bytes of {@code head}. Shared by {@link #save}
+     * and the {@code HcsrToSmkmStep} codec.
+     */
+    static void writeSmkmHeader(MemorySegment head, int capacity, int edgeCapacity,
+                                int totalEdges, int currentCycle) {
+        long now = System.currentTimeMillis();
+        MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+                capacity, totalEdges, EDGE_BYTES, LAYOUT.layoutId(), now, now);
+        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCapacity);
+        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_CURRENT_CYCLE, currentCycle);
     }
 
     public static HebbianGraphMemory load(Path filePath, int defaultCapacity) {
@@ -549,36 +496,143 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
         }
 
         try {
-            int magic;
-            try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-                ByteBuffer buf = ByteBuffer.allocate(4);
-                ch.read(buf);
-                buf.flip();
-                magic = buf.getInt();
+            // SMKM stores its magic in native (little-endian) order via the kernel
+            // MemoryHeader, whereas the legacy HGPH/HCSR containers wrote their magic
+            // big-endian (ByteBuffer). Read both interpretations to classify the file.
+            int beMagic = readMagic(filePath);
+            int leMagic = Integer.reverseBytes(beMagic);
+            if (leMagic == MemoryHeader.MAGIC) {
+                return loadSmkm(filePath, maxDegree, edgeImportance);
             }
-
-            if (magic == FILE_MAGIC) {
-                return loadV3(filePath, maxDegree, edgeImportance);
-            } else if (magic == LEGACY_MAGIC) {
-                log.info("Detected legacy V2 HebbianGraph file, migrating to CSR: {}", filePath);
-                return migrateFromV2(filePath, maxDegree, edgeImportance);
-            } else {
-                // The file EXISTS (checked above) but carries an unrecognized magic.
-                // Returning a fresh empty graph here would silently discard the user's
-                // entire association graph (#432). Fail loud instead.
-                throw new IOException("Unrecognized HebbianGraph file magic: 0x"
-                        + Integer.toHexString(magic) + " (expected HCSR 0x"
-                        + Integer.toHexString(FILE_MAGIC) + " or legacy HGPH 0x"
-                        + Integer.toHexString(LEGACY_MAGIC) + "): " + filePath);
+            int magic = beMagic;
+            if (magic == LEGACY_HGPH_MAGIC || magic == INTERIM_HCSR_MAGIC) {
+                // The codec is the single migration authority (#435): it rewrites the file
+                // in place to the SMKM CSR container, which loadSmkm then reads. This is the
+                // self-healing path for direct load() calls; the factory also runs
+                // Codecs.ensureCurrent up front for the same effect.
+                log.info("HebbianGraphMemory migrating legacy container 0x{} -> SMKM: {}",
+                        Integer.toHexString(magic), filePath);
+                Codecs.ensureCurrent(Codecs.defaultRegistry(), MEMORY_ID, LAYOUT,
+                        filePath, null, Map.of());
+                return loadSmkm(filePath, maxDegree, edgeImportance);
             }
+            // File present (checked above) but unrecognized magic — never silently drop (#432).
+            throw new IOException("Unrecognized HebbianGraph file magic: 0x"
+                    + Integer.toHexString(magic) + " (expected SMKM 0x"
+                    + Integer.toHexString(MemoryHeader.MAGIC) + ", HCSR 0x"
+                    + Integer.toHexString(INTERIM_HCSR_MAGIC) + " or HGPH 0x"
+                    + Integer.toHexString(LEGACY_HGPH_MAGIC) + "): " + filePath);
+        } catch (SpectorGraphPersistenceException e) {
+            throw e;
         } catch (Exception e) {
             // A file that is present but unreadable is a data-integrity problem, not a
-            // "start fresh" signal. Surface it so callers cannot silently lose data (#432).
-            // (File-absent was already handled above and returns a fresh graph.)
+            // "start fresh" signal (#432/#433 TD-04).
             log.error("Failed to load HebbianGraphMemory from {} (file present but unreadable)",
                     filePath, e);
             throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath, e);
         }
+    }
+
+    /** Reads the leading 4-byte magic in big-endian (the order legacy writers used). */
+    private static int readMagic(Path filePath) throws IOException {
+        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
+            ByteBuffer buf = ByteBuffer.allocate(4);
+            int n = ch.read(buf);
+            if (n < 4) {
+                throw new IOException("File too small to contain a magic header: " + filePath);
+            }
+            buf.flip();
+            return buf.getInt();
+        }
+    }
+
+    /** Loads a native SMKM CSR container. */
+    private static HebbianGraphMemory loadSmkm(Path filePath, int maxDegree,
+                                               EdgeImportance edgeImportance) throws IOException {
+        long fileSize = Files.size(filePath);
+        if (fileSize < DATA_START) {
+            throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath,
+                    new IOException("SMKM file truncated: size=" + fileSize + " < " + DATA_START));
+        }
+        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ);
+             Arena confined = Arena.ofConfined()) {
+            MemorySegment head = confined.allocate(DATA_START);
+            ByteBuffer headBuf = head.asByteBuffer();
+            while (headBuf.hasRemaining()) {
+                if (ch.read(headBuf) < 0) break;
+            }
+            if (!MemoryHeader.isValid(head, 0L)) {
+                throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath,
+                        new IOException("SMKM header magic/CRC invalid"));
+            }
+            int capacity = (int) MemoryHeader.readCapacity(head, 0L);
+            int totalEdges = (int) MemoryHeader.readCount(head, 0L);
+            int edgeCap = head.get(ValueLayout.JAVA_INT,
+                    MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY);
+            int cycle = head.get(ValueLayout.JAVA_INT,
+                    MemoryHeader.HEADER_BYTES + SUB_OFF_CURRENT_CYCLE);
+
+            if (capacity < 0 || totalEdges < 0 || edgeCap < 0) {
+                throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath,
+                        new IOException("SMKM header has negative dimensions"));
+            }
+            long expected = DATA_START + (long) (capacity + 1) * Integer.BYTES
+                    + (long) totalEdges * EDGE_BYTES;
+            if (fileSize < expected) {
+                throw new SpectorGraphPersistenceException("HebbianGraphMemory", filePath,
+                        new IOException("SMKM file truncated: size=" + fileSize
+                                + " < expected " + expected));
+            }
+
+            int effectiveEdgeCap = Math.max(edgeCap, totalEdges);
+            HebbianGraphMemory graph =
+                    new HebbianGraphMemory(capacity, effectiveEdgeCap, maxDegree, edgeImportance);
+            graph.currentCycle = cycle;
+            graph.totalEdgeCount = totalEdges;
+
+            readIntoSegment(ch, graph.offsets, (long) (capacity + 1) * Integer.BYTES);
+            readIntoSegment(ch, graph.edges, (long) totalEdges * EDGE_BYTES);
+
+            log.info("HebbianGraphMemory loaded (SMKM): capacity={}, edges={}, cycle={}, file={}",
+                    capacity, totalEdges, cycle, filePath);
+            return graph;
+        }
+    }
+
+    /**
+     * Builds a populated CSR graph from any {@link HebbianGraphBase} by copying its
+     * neighbour lists. Used by the {@code HgphToCsrStep} codec to convert legacy HGPH
+     * files into the SMKM CSR container. Package-visible for the codec.
+     */
+    static HebbianGraphMemory fromNeighbors(HebbianGraphBase legacy, int maxDegree,
+                                            EdgeImportance edgeImportance) {
+        int cap = legacy.capacity();
+        int totalEdges = legacy.totalEdges();
+        int edgeCap = Math.max(totalEdges * 2, cap * 2);
+        HebbianGraphMemory csr = new HebbianGraphMemory(cap, edgeCap, maxDegree, edgeImportance);
+
+        int writePos = 0;
+        int[] newOffsets = new int[cap + 1];
+        for (int node = 0; node < cap; node++) {
+            newOffsets[node] = writePos;
+            for (HebbianEdge edge : legacy.neighbors(node)) {
+                if (writePos < edgeCap) {
+                    long edgeOff = (long) writePos * EDGE_BYTES;
+                    csr.edges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, edge.neighborIndex());
+                    csr.edges.set(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT, edge.weight());
+                    csr.edges.set(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE, (short) 0);
+                    csr.edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) edge.bridgeScore());
+                    csr.edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_EDGE_FLAGS, (byte) 0);
+                    writePos++;
+                }
+            }
+        }
+        newOffsets[cap] = writePos;
+        csr.totalEdgeCount = writePos;
+        for (int i = 0; i <= cap; i++) {
+            csr.offsets.set(ValueLayout.JAVA_INT, (long) i * Integer.BYTES, newOffsets[i]);
+        }
+        return csr;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -874,92 +928,6 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
         if (rank[ra] < rank[rb]) { int t = ra; ra = rb; rb = t; }
         parent[rb] = ra;
         if (rank[ra] == rank[rb]) rank[ra]++;
-    }
-
-    private static HebbianGraphMemory loadV3(Path filePath, int maxDegree,
-                                             EdgeImportance edgeImportance) throws IOException {
-        try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            ByteBuffer header = ByteBuffer.allocate(FILE_HEADER_BYTES);
-            ch.read(header);
-            header.flip();
-
-            int magic = header.getInt();
-            int version = header.getInt();
-            int capacity = header.getInt();
-            int edgeCap = header.getInt();
-            int totalEdges = header.getInt();
-            int cycle = header.getInt();
-
-            if (magic != FILE_MAGIC || version != FILE_VERSION) {
-                throw new IOException("Invalid CSR file: magic=0x" + Integer.toHexString(magic)
-                        + " version=" + version);
-            }
-
-            HebbianGraphMemory graph = new HebbianGraphMemory(capacity, edgeCap, maxDegree, edgeImportance);
-            graph.currentCycle = cycle;
-            graph.totalEdgeCount = totalEdges;
-
-            long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
-            readIntoSegment(ch, graph.offsets, offsetBytes);
-
-            long edgeBytes = (long) totalEdges * EDGE_BYTES;
-            readIntoSegment(ch, graph.edges, edgeBytes);
-
-            log.info("HebbianGraphMemory loaded V3: capacity={}, edges={}, cycle={}, file={}",
-                    capacity, totalEdges, cycle, filePath);
-
-            return graph;
-        }
-    }
-
-    private static HebbianGraphMemory migrateFromV2(Path filePath, int maxDegree,
-                                                    EdgeImportance edgeImportance) throws IOException {
-        log.info("HebbianGraph V2 → V3 CSR Migration starting: {}", filePath);
-
-        HebbianGraph legacy = HebbianGraph.load(filePath, 1024, maxDegree, edgeImportance);
-        int legacyCapacity = legacy.capacity();
-
-        int totalEdges = legacy.totalEdges();
-
-        int edgeCap = Math.max(totalEdges * 2, legacyCapacity * 2);
-        HebbianGraphMemory csr = new HebbianGraphMemory(legacyCapacity, edgeCap, maxDegree, edgeImportance);
-
-        int migratedEdges = 0;
-        int writePos = 0;
-        int[] newOffsets = new int[legacyCapacity + 1];
-
-        for (int node = 0; node < legacyCapacity; node++) {
-            newOffsets[node] = writePos;
-            List<HebbianEdge> neighbors = legacy.neighbors(node);
-            for (HebbianEdge edge : neighbors) {
-                if (writePos < edgeCap) {
-                    long edgeOff = (long) writePos * EDGE_BYTES;
-                    csr.edges.set(ValueLayout.JAVA_INT, edgeOff + EDGE_OFF_NEIGHBOR, edge.neighborIndex());
-                    csr.edges.set(ValueLayout.JAVA_FLOAT, edgeOff + EDGE_OFF_WEIGHT, edge.weight());
-                    csr.edges.set(ValueLayout.JAVA_SHORT, edgeOff + EDGE_OFF_LAST_CYCLE, (short) 0);
-                    csr.edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_BRIDGE_SCORE, (byte) edge.bridgeScore());
-                    csr.edges.set(ValueLayout.JAVA_BYTE, edgeOff + EDGE_OFF_EDGE_FLAGS, (byte) 0);
-                    writePos++;
-                    migratedEdges++;
-                }
-            }
-        }
-
-        newOffsets[legacyCapacity] = writePos;
-        csr.totalEdgeCount = writePos;
-
-        for (int i = 0; i <= legacyCapacity; i++) {
-            csr.offsets.set(ValueLayout.JAVA_INT, (long) i * Integer.BYTES, newOffsets[i]);
-        }
-
-        legacy.close();
-
-        Path backupPath = filePath.resolveSibling(filePath.getFileName() + ".v2.bak");
-        Files.move(filePath, backupPath);
-
-        csr.save(filePath);
-
-        return csr;
     }
 
     private static void readIntoSegment(FileChannel ch, MemorySegment segment, long bytes) throws IOException {
