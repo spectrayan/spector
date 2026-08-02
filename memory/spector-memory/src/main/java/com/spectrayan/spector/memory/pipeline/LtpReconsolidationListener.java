@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.pipeline;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -52,12 +53,12 @@ public final class LtpReconsolidationListener implements RecallListener {
     private static final long AUTO_LTP_COOLDOWN_MS = 300_000L; // 5 minutes
 
     private final MemoryIndex index;
-    private final CognitiveMemoryRouter cognitiveRouter;
+    private final PartitionRegistry partitionRegistry;
     private final MemoryWal wal;
 
-    public LtpReconsolidationListener(MemoryIndex index, CognitiveMemoryRouter cognitiveRouter, MemoryWal wal) {
+    public LtpReconsolidationListener(MemoryIndex index, PartitionRegistry partitionRegistry, MemoryWal wal) {
         this.index = index;
-        this.cognitiveRouter = cognitiveRouter;
+        this.partitionRegistry = partitionRegistry;
         this.wal = wal;
     }
 
@@ -67,9 +68,11 @@ public final class LtpReconsolidationListener implements RecallListener {
         for (CognitiveResult r : results) {
             MemoryLocation loc = index.locate(r.id());
             if (loc != null) {
-                MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
+                // #443: resolve the header segment by the memory's colocated partition.
+                CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
+                MemorySegment segment = router.segmentFor(loc.type());
                 if (segment != null) {
-                    CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
+                    CognitiveRecordLayout layout = router.layoutFor(loc.type());
 
                     if (layout.headerLayout().version() >= 3) {
                         long creationMs = layout.readTimestamp(segment, loc.offset());
@@ -101,7 +104,7 @@ public final class LtpReconsolidationListener implements RecallListener {
 
                 // Log recall hit for analytics
                 wal.append(WalEvent.EventType.RECALL_HIT,
-                        index.findIdByOffset(loc.type(), loc.offset()), null);
+                        index.findIdByOffset(loc.colocatedPartition(), loc.type(), loc.offset()), null);
             }
         }
     }

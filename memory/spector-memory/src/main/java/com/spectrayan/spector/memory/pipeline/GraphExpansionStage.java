@@ -31,6 +31,7 @@ import com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
+import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
@@ -77,7 +78,7 @@ final class GraphExpansionStage {
     private final EntityExtractor entityExtractor;
     private final GraphScoringPolicy graphScoringPolicy;
     private final MemoryIndex index;
-    private final CognitiveMemoryRouter cognitiveRouter;
+    private final PartitionRegistry partitionRegistry;   // #443: live registry (nullable in tests)
     private final float[] calibrationMins;
     private final float[] calibrationScales;
 
@@ -88,7 +89,7 @@ final class GraphExpansionStage {
                         EntityExtractor entityExtractor,
                         GraphScoringPolicy graphScoringPolicy,
                         MemoryIndex index,
-                        CognitiveMemoryRouter cognitiveRouter,
+                        PartitionRegistry partitionRegistry,
                         float[] calibrationMins,
                         float[] calibrationScales) {
         this.hebbianGraph = hebbianGraph;
@@ -98,9 +99,17 @@ final class GraphExpansionStage {
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
         this.index = index;
-        this.cognitiveRouter = cognitiveRouter;
+        this.partitionRegistry = partitionRegistry;
         this.calibrationMins = calibrationMins;
         this.calibrationScales = calibrationScales;
+    }
+
+    /**
+     * Active router for graph-slot resolution. Graph expansion operates on the active
+     * partition for #443 (spanning frozen partitions for graphs is a deferred follow-up).
+     */
+    private CognitiveMemoryRouter activeRouter() {
+        return partitionRegistry != null ? partitionRegistry.activeRouter() : null;
     }
 
     /**
@@ -378,8 +387,9 @@ final class GraphExpansionStage {
      * Converts a MemoryLocation's byte offset to a record index.
      */
     int offsetToRecordIndex(MemoryIndex.MemoryLocation loc) {
-        int stride = cognitiveRouter.layoutFor(loc.type()).stride();
-        com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = cognitiveRouter.get(loc.type());
+        CognitiveMemoryRouter router = activeRouter();
+        int stride = router.layoutFor(loc.type()).stride();
+        com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(loc.type());
         long dataOffset = (store != null && store.isPersistent())
                 ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
         return (int) ((loc.offset() - dataOffset) / stride);
@@ -389,17 +399,19 @@ final class GraphExpansionStage {
      * Finds a memory ID by approximate index across all tiers.
      */
     String findMemoryByApproximateIndex(int approxIdx) {
+        CognitiveMemoryRouter router = activeRouter();
+        if (router == null) return null;
         for (MemoryType type : MemoryType.values()) {
-            if (cognitiveRouter != null) {
-                var layout = cognitiveRouter.layoutFor(type);
-                if (layout == null) continue;
-                com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = cognitiveRouter.get(type);
-                long dataOffset = AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES;
-                long baseOffset = (store != null && store.isPersistent()) ? dataOffset : 0;
-                long offset = baseOffset + (long) approxIdx * layout.stride();
-                String id = index.findIdByOffset(type, offset);
-                if (id != null) return id;
-            }
+            var layout = router.layoutFor(type);
+            if (layout == null) continue;
+            com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(type);
+            long dataOffset = AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES;
+            long baseOffset = (store != null && store.isPersistent()) ? dataOffset : 0;
+            long offset = baseOffset + (long) approxIdx * layout.stride();
+            // Legacy overload resolves against the active partition seq (graph expansion
+            // is active-partition-focused for #443).
+            String id = index.findIdByOffset(type, offset);
+            if (id != null) return id;
         }
         return null;
     }
@@ -412,10 +424,14 @@ final class GraphExpansionStage {
             MemoryIndex.MemoryLocation loc = index.locate(memoryId);
             if (loc == null) return 0f;
 
-            MemorySegment seg = cognitiveRouter.segmentFor(loc.type());
+            // #443: resolve the neighbor's segment by the partition it actually lives in.
+            CognitiveMemoryRouter router = partitionRegistry != null
+                    ? partitionRegistry.routerFor(loc.colocatedPartition()) : null;
+            if (router == null) return 0f;
+            MemorySegment seg = router.segmentFor(loc.type());
             if (seg == null) return 0f;
 
-            CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
+            CognitiveRecordLayout layout = router.layoutFor(loc.type());
             float l2dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
                     queryVector, seg, layout.vectorOffset(loc.offset()),
                     calibrationMins, calibrationScales, layout.quantizedVecBytes());

@@ -699,9 +699,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 log.warn("Forget: memory '{}' not found in index", id);
                 return;
             }
-            MemorySegment segment = partitionManager.cognitiveRouter().segmentFor(loc.type());
+            CognitiveMemoryRouter router = partitionManager.routerFor(loc.colocatedPartition());
+            MemorySegment segment = router.segmentFor(loc.type());
             if (segment != null) {
-                CognitiveRecordLayout layout = partitionManager.cognitiveRouter().layoutFor(loc.type());
+                CognitiveRecordLayout layout = router.layoutFor(loc.type());
                 layout.tombstone(segment, loc.offset());
             }
             wal.appendForget(id);
@@ -759,7 +760,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             reinforcementHandler.reinforce(memoryId, valence,
-                    partitionManager.cognitiveRouter(), index);
+                    partitionManager, index);
         } finally {
             releaseLease();
         }
@@ -771,7 +772,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             reinforcementHandler.reinforceWithHints(memoryId, valence, updatedHints,
-                    partitionManager.cognitiveRouter(), index);
+                    partitionManager, index);
         } finally {
             releaseLease();
         }
@@ -814,8 +815,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         try {
             var loc = index.locate(memoryId);
             if (loc == null) return;
-            partitionManager.cognitiveRouter().layoutFor(loc.type())
-                    .markResolved(partitionManager.cognitiveRouter().segmentFor(loc.type()), loc.offset());
+            CognitiveMemoryRouter router = partitionManager.routerFor(loc.colocatedPartition());
+            router.layoutFor(loc.type())
+                    .markResolved(router.segmentFor(loc.type()), loc.offset());
             log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
         } finally {
             releaseLease();
@@ -828,8 +830,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         try {
             var loc = index.locate(memoryId);
             if (loc == null) return;
-            partitionManager.cognitiveRouter().layoutFor(loc.type())
-                    .markUnresolved(partitionManager.cognitiveRouter().segmentFor(loc.type()), loc.offset());
+            CognitiveMemoryRouter router = partitionManager.routerFor(loc.colocatedPartition());
+            router.layoutFor(loc.type())
+                    .markUnresolved(router.segmentFor(loc.type()), loc.offset());
             log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
         } finally {
             releaseLease();
@@ -858,8 +861,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         "Memory '" + memoryId + "' does not exist in the index.");
             }
 
-            var layout = partitionManager.cognitiveRouter().layoutFor(loc.type());
-            var segment = partitionManager.cognitiveRouter().segmentFor(loc.type());
+            CognitiveMemoryRouter whyNotRouter = partitionManager.routerFor(loc.colocatedPartition());
+            var layout = whyNotRouter.layoutFor(loc.type());
+            var segment = whyNotRouter.segmentFor(loc.type());
             if (layout != null && segment != null) {
                 byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
                         loc.offset() + SynapticHeaderConstants.OFFSET_FLAGS);
@@ -928,8 +932,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         MemorySource source = index.source(id);
         String[] memTags = index.tags(id);
 
-        MemorySegment segment = partitionManager.cognitiveRouter().segmentFor(loc.type());
-        CognitiveRecordLayout layout = partitionManager.cognitiveRouter().layoutFor(loc.type());
+        CognitiveMemoryRouter inspectRouter = partitionManager.routerFor(loc.colocatedPartition());
+        MemorySegment segment = inspectRouter.segmentFor(loc.type());
+        CognitiveRecordLayout layout = inspectRouter.layoutFor(loc.type());
 
         if (segment == null || layout == null) return null;
 
@@ -959,7 +964,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 header.importance(), header.agentRecallCount(), spectorRecallCount,
                 header.centroidId(), header.valence(), header.arousal(),
                 header.storageStrength(), header.flags(), consolidationFlags,
-                quantizedVec, loc.partitionIndex(), loc.offset(),
+                quantizedVec, loc.graphSlot(), loc.offset(),
                 metadata, suppressed);
     }
 
@@ -981,8 +986,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             MemoryLocation loc = index.locate(memId);
             if (loc == null) continue;
 
-            MemorySegment segment = partitionManager.cognitiveRouter().segmentFor(loc.type());
-            CognitiveRecordLayout layout = partitionManager.cognitiveRouter().layoutFor(loc.type());
+            CognitiveMemoryRouter browseRouter = partitionManager.routerFor(loc.colocatedPartition());
+            MemorySegment segment = browseRouter.segmentFor(loc.type());
+            CognitiveRecordLayout layout = browseRouter.layoutFor(loc.type());
 
             if (segment != null && layout != null) {
                 var header = layout.readHeader(segment, loc.offset());
@@ -998,7 +1004,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             header.centroidId(), header.valence(), header.arousal(),
                             header.storageStrength(), header.flags(), consolidationFlags,
                             null, // no vector for browse (use inspect for full detail)
-                            loc.partitionIndex(), loc.offset(),
+                            loc.graphSlot(), loc.offset(),
                             java.util.Map.of(), suppressionSet.isSuppressed(memId)));
                 }
             }
@@ -1048,10 +1054,30 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
-    public int totalMemories() { return partitionManager.cognitiveRouter().totalCount(); }
+    public int totalMemories() {
+        // #443: aggregate across all live partitions. Working memory is global (shared by
+        // every router) so it is counted once; the other tiers are summed per partition.
+        int total = partitionManager.activeRouter().countFor(MemoryType.WORKING);
+        for (var handle : partitionManager.snapshot()) {
+            var router = handle.router();
+            total += router.countFor(MemoryType.EPISODIC)
+                    + router.countFor(MemoryType.SEMANTIC)
+                    + router.countFor(MemoryType.PROCEDURAL);
+        }
+        return total;
+    }
 
     @Override
-    public int memoryCount(MemoryType type) { return partitionManager.cognitiveRouter().countFor(type); }
+    public int memoryCount(MemoryType type) {
+        if (type == MemoryType.WORKING) {
+            return partitionManager.activeRouter().countFor(MemoryType.WORKING);
+        }
+        int total = 0;
+        for (var handle : partitionManager.snapshot()) {
+            total += handle.router().countFor(type);
+        }
+        return total;
+    }
 
     @Override
     public int decay(Duration olderThan, float factor) {
@@ -1334,6 +1360,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 partitionManager.activePartitionDir(),
                 index, hebbianGraph, temporalChain, entityGraph, hyperEntityGraph,
                 coActivationTracker, temporalKnowledgeGraph, partitionManager.cognitiveRouter(), wal);
+
+        // #443: release frozen partition handles (active router + working already closed
+        // by PersistenceManager). Closes the pre-#443 arena/mmap leak.
+        partitionManager.close();
     }
 
     // ==============================================================

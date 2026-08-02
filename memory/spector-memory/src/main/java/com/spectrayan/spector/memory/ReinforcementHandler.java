@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
@@ -89,11 +90,11 @@ final class ReinforcementHandler {
      *
      * @param memoryId   the memory ID to reinforce
      * @param valence    positive/negative outcome signal (-128 to +127)
-     * @param cognitiveRouter the current cognitive memory router
+     * @param partitionRegistry the live partition registry (#443)
      * @param index           the memory index
      */
     void reinforce(String memoryId, byte valence,
-                   CognitiveMemoryRouter cognitiveRouter, MemoryIndex index) {
+                   PartitionRegistry partitionRegistry, MemoryIndex index) {
         if (memoryId == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "memoryId");
         }
@@ -103,6 +104,8 @@ final class ReinforcementHandler {
             return;
         }
 
+        // #443: resolve the store by the memory's colocated partition.
+        CognitiveMemoryRouter cognitiveRouter = partitionRegistry.routerFor(loc.colocatedPartition());
         MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment != null) {
             CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
@@ -183,19 +186,20 @@ final class ReinforcementHandler {
      * @param memoryId     the memory ID to reinforce
      * @param valence      positive/negative outcome (-128 to +127)
      * @param updatedHints   optional ICNU hints for re-fusion (null = auto-compute)
-     * @param cognitiveRouter the current cognitive memory router
+     * @param partitionRegistry the live partition registry (#443)
      * @param index          the memory index
      */
     void reinforceWithHints(String memoryId, byte valence,
                             IngestionHints updatedHints,
-                            CognitiveMemoryRouter cognitiveRouter, MemoryIndex index) {
+                            PartitionRegistry partitionRegistry, MemoryIndex index) {
         // Delegate core reinforcement
-        reinforce(memoryId, valence, cognitiveRouter, index);
+        reinforce(memoryId, valence, partitionRegistry, index);
 
         // Importance re-fusion
         MemoryLocation loc = index.locate(memoryId);
         if (loc == null) return;
 
+        CognitiveMemoryRouter cognitiveRouter = partitionRegistry.routerFor(loc.colocatedPartition());
         MemorySegment segment = cognitiveRouter.segmentFor(loc.type());
         if (segment == null) return;
 
@@ -211,7 +215,7 @@ final class ReinforcementHandler {
             newImportance = 0.5f * currentImportance + 0.5f * refusedImportance;
         } else {
             // Degree centrality boost from Hebbian graph
-            int graphIdx = loc.partitionIndex();
+            int graphIdx = loc.graphSlot();
             if (graphIdx >= 0 && hebbianGraph != null) {
                 var edges = hebbianGraph.neighbors(graphIdx);
                 int degree = edges.size();

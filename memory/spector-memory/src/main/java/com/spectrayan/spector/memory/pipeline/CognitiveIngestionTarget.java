@@ -232,6 +232,23 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.postIngestSync.updateCognitiveRouter(newRouter);
     }
 
+    /**
+     * Updates the partition-scoped {@code text.dat} store after a roll (#443, D3b).
+     * Called by {@code PartitionManager.rollPartition()} under the roll lock.
+     */
+    public void updateTextDataStore(TextAppendMemory newText) {
+        this.postIngestSync.updateTextDataStore(newText);
+    }
+
+    /**
+     * Updates the active colocated-partition sequence after a roll (#443).
+     * Called by {@code PartitionManager.rollPartition()} under the roll lock, and once
+     * at wiring time to seed the initial partition seq.
+     */
+    public void updateActivePartitionSeq(int seq) {
+        this.postIngestSync.updateActivePartitionSeq(seq);
+    }
+
 
 
     /**
