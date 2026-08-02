@@ -17,8 +17,8 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory.EpisodicPartition;
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
@@ -189,12 +189,12 @@ public final class ReflectDaemon {
      * @param semanticStore the semantic store to promote into (may be null for basic mode)
      * @return report summarizing what was done
      */
-    public ReflectReport runCycle(EpisodicPartitionedMemory episodicStore,
+    public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
                                    CognitiveIngestionTarget ingestionTarget) {
         return runCycle(episodicStore, ingestionTarget, null);
     }
 
-    public ReflectReport runCycle(EpisodicPartitionedMemory episodicStore,
+    public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
                                    CognitiveIngestionTarget ingestionTarget,
                                    Function<Long, String> textLookup) {
         if (!running.compareAndSet(false, true)) {
@@ -211,10 +211,8 @@ public final class ReflectDaemon {
             long nowMs = System.currentTimeMillis();
 
             //  Phase 1: Deep Sleep (Synaptic Pruning)  --  parallel partitions 
-            log.info("Deep Sleep starting  --  scanning {} partitions",
-                    episodicStore.partitionCount());
-
             List<EpisodicPartition> allPartitions = episodicStore.partitions();
+            log.info("Deep Sleep starting  --  scanning {} partitions", allPartitions.size());
             
             // Native POSIX Optimization: advise sequential access on all episodic segments before scan
             for (EpisodicPartition partition : allPartitions) {

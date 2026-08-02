@@ -30,7 +30,7 @@ import com.spectrayan.spector.index.ColBERTReranker;
 import com.spectrayan.spector.index.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;

@@ -29,7 +29,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for mmap-backed EpisodicPartitionedMemory persistence.
+ * Tests for mmap-backed EpisodicRecordMemory persistence.
  */
 class EpisodicMmapPersistenceTest {
 
@@ -51,7 +51,7 @@ class EpisodicMmapPersistenceTest {
     @Test
     void appendAndRecoverAcrossRestart() {
         // Write records to the store
-        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 50; i++) {
                 CognitiveHeader header = CognitiveHeader.create(
                         System.currentTimeMillis(), i * 7L, 1.0f,
@@ -63,12 +63,11 @@ class EpisodicMmapPersistenceTest {
         }
 
         // Reopen — should recover all records from mmap files
-        try (EpisodicPartitionedMemory store2 = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store2 = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             assertThat(store2.totalRecords()).isEqualTo(50);
-            assertThat(store2.partitionCount()).isEqualTo(1);
 
             // Verify record content
-            EpisodicPartitionedMemory.EpisodicPartition partition = store2.partitions().getFirst();
+            EpisodicRecordMemory.EpisodicPartition partition = store2.partitions().getFirst();
             CognitiveRecordLayout layout = partition.layout();
             var segment = partition.segment();
 
@@ -84,7 +83,7 @@ class EpisodicMmapPersistenceTest {
 
     @Test
     void metadataHeaderPreservesCountAndTombstones() {
-        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 20; i++) {
                 CognitiveHeader header = CognitiveHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC);
@@ -92,7 +91,7 @@ class EpisodicMmapPersistenceTest {
             }
 
             // Tombstone some records
-            EpisodicPartitionedMemory.EpisodicPartition partition = store.partitions().getFirst();
+            EpisodicRecordMemory.EpisodicPartition partition = store.partitions().getFirst();
             var segment = partition.segment();
             var layout = partition.layout();
             for (int i = 0; i < 5; i++) {
@@ -105,8 +104,8 @@ class EpisodicMmapPersistenceTest {
         }
 
         // Reopen and verify metadata (count is persisted; tombstoneCount is shim-level, not persisted)
-        try (EpisodicPartitionedMemory store2 = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
-            EpisodicPartitionedMemory.EpisodicPartition partition = store2.partitions().getFirst();
+        try (EpisodicRecordMemory store2 = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
+            EpisodicRecordMemory.EpisodicPartition partition = store2.partitions().getFirst();
             assertThat(partition.count()).isEqualTo(20);
             // tombstoneCount lives on the shim, not persisted — starts at 0 on reload
             // The actual tombstone state is in the record flags (byte-level)
@@ -115,14 +114,14 @@ class EpisodicMmapPersistenceTest {
 
     @Test
     void appendAfterRecovery() {
-        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 10; i++) {
                 store.append(CognitiveHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(i));
             }
         }
 
-        try (EpisodicPartitionedMemory store2 = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store2 = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             assertThat(store2.totalRecords()).isEqualTo(10);
 
             // Append more records
@@ -134,10 +133,10 @@ class EpisodicMmapPersistenceTest {
         }
 
         // Third open — verify all 20
-        try (EpisodicPartitionedMemory store3 = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store3 = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             assertThat(store3.totalRecords()).isEqualTo(20);
 
-            EpisodicPartitionedMemory.EpisodicPartition partition = store3.partitions().getFirst();
+            EpisodicRecordMemory.EpisodicPartition partition = store3.partitions().getFirst();
             var layout = partition.layout();
             var segment = partition.segment();
 
@@ -151,16 +150,16 @@ class EpisodicMmapPersistenceTest {
 
     @Test
     void partitionStatesLifecycle() {
-        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             store.append(CognitiveHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(0));
 
-            EpisodicPartitionedMemory.EpisodicPartition partition = store.partitions().getFirst();
+            EpisodicRecordMemory.EpisodicPartition partition = store.partitions().getFirst();
             // Shim state methods are no-ops for single-file store — always ACTIVE
-            assertThat(partition.state()).isEqualTo(EpisodicPartitionedMemory.PartitionState.ACTIVE);
+            assertThat(partition.state()).isEqualTo(EpisodicRecordMemory.PartitionState.ACTIVE);
 
             partition.seal();  // no-op
-            assertThat(partition.state()).isEqualTo(EpisodicPartitionedMemory.PartitionState.ACTIVE);
+            assertThat(partition.state()).isEqualTo(EpisodicRecordMemory.PartitionState.ACTIVE);
         }
     }
 
@@ -168,7 +167,7 @@ class EpisodicMmapPersistenceTest {
 
     @Test
     void partitionFileCreatedOnDisk() throws IOException {
-        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             store.append(CognitiveHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(0));
         }
@@ -180,20 +179,20 @@ class EpisodicMmapPersistenceTest {
 
     @Test
     void recordOffsetAccountsForMetadataHeader() {
-        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             store.append(CognitiveHeader.create(
                     System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(0));
 
-            EpisodicPartitionedMemory.EpisodicPartition partition = store.partitions().getFirst();
+            EpisodicRecordMemory.EpisodicPartition partition = store.partitions().getFirst();
 
             // First record should be at offset 64 (METADATA_HEADER_BYTES)
             long offset0 = partition.recordOffset(0);
-            assertThat(offset0).isEqualTo(EpisodicPartitionedMemory.EpisodicPartition.METADATA_HEADER_BYTES);
+            assertThat(offset0).isEqualTo(EpisodicRecordMemory.EpisodicPartition.METADATA_HEADER_BYTES);
 
             // Second record should be at offset 64 + stride
             long offset1 = partition.recordOffset(1);
             assertThat(offset1).isEqualTo(
-                    EpisodicPartitionedMemory.EpisodicPartition.METADATA_HEADER_BYTES + partition.layout().stride());
+                    EpisodicRecordMemory.EpisodicPartition.METADATA_HEADER_BYTES + partition.layout().stride());
         }
     }
 
@@ -201,13 +200,13 @@ class EpisodicMmapPersistenceTest {
 
     @Test
     void replacePartitionIsNoOpForSingleFileStore() {
-        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicRecordMemory store = new EpisodicRecordMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 10; i++) {
                 store.append(CognitiveHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, (float) i, (short) 0, MemoryType.EPISODIC), makeVec(i));
             }
 
-            EpisodicPartitionedMemory.EpisodicPartition old = store.partitions().getFirst();
+            EpisodicRecordMemory.EpisodicPartition old = store.partitions().getFirst();
             String key = store.keyForPartition(old);
             assertThat(key).isEqualTo("default");
 

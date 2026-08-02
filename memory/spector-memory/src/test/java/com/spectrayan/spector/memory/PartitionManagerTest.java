@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
@@ -106,7 +106,7 @@ class PartitionManagerTest {
     /** Builds a real router with fresh tier stores rooted in the given partition dir. */
     private CognitiveMemoryRouter newRouter(Path partitionDir) {
         WorkingRecordMemory working = new WorkingRecordMemory(VEC_BYTES, 64);
-        EpisodicPartitionedMemory episodic = new EpisodicPartitionedMemory(
+        EpisodicRecordMemory episodic = new EpisodicRecordMemory(
                 StorageLayout.episodicMem(partitionDir), VEC_BYTES, EPISODIC_CAP);
         SemanticRecordMemory semantic = new SemanticRecordMemory(
                 VEC_BYTES, SEMANTIC_CAP, StorageLayout.semanticMem(partitionDir));
@@ -187,7 +187,7 @@ class PartitionManagerTest {
         PartitionManager pm = newManager(router0, p0);
 
         // Fill the active episodic store to capacity.
-        EpisodicPartitionedMemory episodic0 = router0.episodic();
+        EpisodicRecordMemory episodic0 = router0.episodic();
         for (int i = 0; i < EPISODIC_CAP; i++) {
             episodic0.append(episodicHeader(1_000L + i), vec());
         }
@@ -230,7 +230,7 @@ class PartitionManagerTest {
         CognitiveMemoryRouter router0 = newRouter(p0);
         PartitionManager pm = newManager(router0, p0);
 
-        EpisodicPartitionedMemory episodic0 = router0.episodic();
+        EpisodicRecordMemory episodic0 = router0.episodic();
         for (int i = 0; i < EPISODIC_CAP; i++) {
             episodic0.append(episodicHeader(1_000L + i), vec());
         }

@@ -30,7 +30,7 @@ import com.spectrayan.spector.index.ColBERTReranker;
 import com.spectrayan.spector.index.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
@@ -219,7 +219,7 @@ public final class SpectorMemoryFactory {
         }
 
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(
+            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
                     StorageLayout.episodicMem(resolvedPartitionDir),
                     quantizedVecBytes, builder.episodicPartitionCapacity);
             ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
@@ -230,7 +230,7 @@ public final class SpectorMemoryFactory {
                     StorageLayout.semanticMem(resolvedPartitionDir));
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
-            EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(
+            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
                     quantizedVecBytes, builder.episodicPartitionCapacity);
             ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
                     quantizedVecBytes, builder.proceduralCapacity);

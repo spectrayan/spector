@@ -43,7 +43,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     // ── Typed accessors for store-specific operations ──
     private final WorkingRecordMemory workingStore;
-    private final EpisodicPartitionedMemory episodicStore;
+    private final EpisodicRecordMemory episodicStore;
     private final SemanticRecordMemory semanticStore;
     private final ProceduralRecordMemory proceduralStore;
 
@@ -51,7 +51,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Creates a CognitiveMemoryRouter with all four cognitive memory stores.
      */
     public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
-                                 EpisodicPartitionedMemory episodicStore,
+                                 EpisodicRecordMemory episodicStore,
                                  SemanticRecordMemory semanticStore,
                                  ProceduralRecordMemory proceduralStore) {
         this.workingStore = workingStore;
@@ -150,7 +150,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     public WorkingRecordMemory working() { return workingStore; }
 
     /** Returns the Episodic Memory store (for partition iteration). */
-    public EpisodicPartitionedMemory episodic() { return episodicStore; }
+    public EpisodicRecordMemory episodic() { return episodicStore; }
 
     /** Returns the Semantic Memory store (for header slab access). */
     public SemanticRecordMemory semantic() { return semanticStore; }

@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.hippocampus;
 
-import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
-import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory.EpisodicPartition;
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
@@ -43,7 +43,7 @@ import java.util.Map;
  * <h3>V3: Full Partition Rebuild</h3>
  * <p>When compaction is triggered, a new dense partition is created containing
  * only live (non-tombstoned) records. The old partition is atomically swapped
- * out via {@link EpisodicPartitionedMemory#replacePartition}. An offset remap is
+ * out via {@link EpisodicRecordMemory#replacePartition}. An offset remap is
  * produced so callers can update their ID index entries.</p>
  */
 public final class TombstoneCompactor {
@@ -149,7 +149,7 @@ public final class TombstoneCompactor {
 
         // Create new dense store as the compacted partition
         Path compactedPath = basePath.resolve("episodic-compacted.mem");
-        EpisodicPartitionedMemory compactedStore = new EpisodicPartitionedMemory(
+        EpisodicRecordMemory compactedStore = new EpisodicRecordMemory(
                 compactedPath, layout.quantizedVecBytes(), liveCount);
         EpisodicPartition compacted = compactedStore.partitions().getFirst();
 
