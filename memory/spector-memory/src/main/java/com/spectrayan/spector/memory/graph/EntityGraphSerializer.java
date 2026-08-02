@@ -190,63 +190,30 @@ final class EntityGraphSerializer {
      * @param encryptor         optional encryptor for name index decryption (null = no encryption)
      * @return an EntityGraphMemory (loaded or new)
      */
-    static EntityGraphMemory load(Path filePath, int defaultEntityCap, int defaultEdgeCap,
-                            DataEncryptor encryptor) {
-        if (filePath == null || !Files.exists(filePath)) {
-            log.info("EntityGraphMemory file not found, creating fresh: {}", filePath);
-            return new EntityGraphMemory(defaultEntityCap, defaultEdgeCap);
+    /**
+     * Loads the {@code entity-names.idx} sidecar next to a graph file, if present. Returns an
+     * empty map when no sidecar exists. Used by the SMKM open path in {@link EntityGraphMemory}.
+     */
+    static ConcurrentHashMap<String, Integer> loadNameIndexSidecar(Path graphFile, DataEncryptor encryptor) {
+        Path parent = graphFile.getParent();
+        Path nameIndexPath = parent != null ? parent.resolve("entity-names.idx") : null;
+        if (nameIndexPath == null || !Files.exists(nameIndexPath)) {
+            return new ConcurrentHashMap<>();
         }
-
-        // Peek at magic to determine format: EGMM (mmap) vs EGPH (serialized)
-        try (FileChannel peekCh = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            if (peekCh.size() < 4) {
-                // File exists but is too small to hold even a magic number — corrupt,
-                // not "absent". Fail loud instead of silently discarding data (#433 TD-04).
-                throw new SpectorGraphPersistenceException("EntityGraphMemory", filePath,
-                        new IOException("file too small to contain a magic number: "
-                                + peekCh.size() + " bytes"));
-            }
-            ByteBuffer magicBuf = ByteBuffer.allocate(4);
-            peekCh.read(magicBuf);
-            magicBuf.flip();
-            int magic = magicBuf.getInt();
-
-            if (magic == 0x45474D4D) { // EGMM — mmap format
-                peekCh.close();
-                EntityGraphMemory graph = new EntityGraphMemory(filePath, defaultEntityCap, defaultEdgeCap);
-                // Load nameIndex from sidecar file
-                Path nameIndexPath = filePath.getParent() != null
-                        ? filePath.getParent().resolve("entity-names.idx") : null;
-                if (nameIndexPath != null && Files.exists(nameIndexPath)) {
-                    try (FileChannel nameCh = FileChannel.open(nameIndexPath, StandardOpenOption.READ)) {
-                        ConcurrentHashMap<String, Integer> names = readNameIndex(nameCh, encryptor);
-                        graph.nameIndexInternal().putAll(names);
-                        log.info("EntityGraphMemory name index loaded: {} names from {}",
-                                names.size(), nameIndexPath);
-                    }
-                }
-                graph.setDataEncryptor(encryptor);
-                return graph;
-            }
-            // Magic is not EGMM — this is (or should be) a legacy EGPH file.
-            // Fall through to the legacy loader below on an explicit magic mismatch only.
-        } catch (SpectorGraphPersistenceException e) {
-            throw e;
-        } catch (Exception e) {
-            // A present file that cannot be read (I/O error, bad mmap) is a data-integrity
-            // problem, not a "start fresh" signal — surface it (#433 TD-04).
-            log.error("Failed to read EntityGraphMemory file (present but unreadable): {}", filePath, e);
-            throw new SpectorGraphPersistenceException("EntityGraphMemory", filePath, e);
+        try (FileChannel nameCh = FileChannel.open(nameIndexPath, StandardOpenOption.READ)) {
+            ConcurrentHashMap<String, Integer> names = readNameIndex(nameCh, encryptor);
+            log.info("EntityGraphMemory name index loaded: {} names from {}", names.size(), nameIndexPath);
+            return names;
+        } catch (IOException e) {
+            throw new SpectorGraphPersistenceException("EntityGraphMemory", nameIndexPath, e);
         }
-
-        // Fall through to EGPH (legacy serialized) format
-        return loadLegacy(filePath, defaultEntityCap, defaultEdgeCap, encryptor);
     }
 
     /**
-     * Loads a graph from the legacy EGPH binary format (heap-allocated segments).
+     * Loads a graph from the legacy EGPH binary format (heap-allocated segments). Package-visible
+     * so {@link EntityGraphMemory} can migrate EGPH files to the SMKM container.
      */
-    private static EntityGraphMemory loadLegacy(Path filePath, int defaultEntityCap, int defaultEdgeCap,
+    static EntityGraphMemory loadEgph(Path filePath, int defaultEntityCap, int defaultEdgeCap,
                                           DataEncryptor encryptor) {
 
         try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
