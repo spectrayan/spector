@@ -29,17 +29,18 @@ import java.util.PrimitiveIterator;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Contract tests for the real Compressed-Sparse-Row {@link AbstractGraphMemory} base.
+ * Contract tests for the bundled {@link AdjacencyListGraphMemory} reference impl over the
+ * kernel {@link AbstractGraphMemory} substrate.
  *
- * <p>Exercises the base's generic CSR mechanics (node/edge add + remove, adjacency
+ * <p>Exercises the reference impl's adjacency-list mechanics (node/edge add + remove, adjacency
  * iteration, edge payloads, and the vertex/edge free-lists) through a minimal concrete
- * implementation, rather than the former dead stub.</p>
+ * implementation.</p>
  */
 class GraphMemoryContractTest {
 
     /** Real edge layout: base 8-byte prefix (target + next) followed by a 4-byte weight. */
     static final class TestGraphLayout implements MemoryLayout {
-        static final int EDGE_OFF_WEIGHT = AbstractGraphMemory.EDGE_HEADER_BYTES; // 8
+        static final int EDGE_OFF_WEIGHT = AdjacencyListGraphMemory.EDGE_HEADER_BYTES; // 8
 
         @Override public int layoutId() { return 0x47525048; } // 'GRPH'
         @Override public int schemaVersion() { return 1; }
@@ -48,8 +49,8 @@ class GraphMemoryContractTest {
         @Override public String name() { return "TestGraphLayout"; }
     }
 
-    /** Minimal real graph over the generic CSR base (no bespoke storage). */
-    static final class SimpleGraphMemory extends AbstractGraphMemory<TestGraphLayout> {
+    /** Minimal real graph over the adjacency-list reference base (no bespoke storage). */
+    static final class SimpleGraphMemory extends AdjacencyListGraphMemory<TestGraphLayout> {
         SimpleGraphMemory(MemoryId id, TestGraphLayout layout, int vertexCap, int edgeCap) {
             super(id, layout, vertexCap, edgeCap);
         }
