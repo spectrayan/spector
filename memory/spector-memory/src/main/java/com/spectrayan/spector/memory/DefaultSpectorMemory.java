@@ -964,7 +964,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 header.importance(), header.agentRecallCount(), spectorRecallCount,
                 header.centroidId(), header.valence(), header.arousal(),
                 header.storageStrength(), header.flags(), consolidationFlags,
-                quantizedVec, loc.partitionIndex(), loc.offset(),
+                quantizedVec, loc.graphSlot(), loc.offset(),
                 metadata, suppressed);
     }
 
@@ -1004,7 +1004,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             header.centroidId(), header.valence(), header.arousal(),
                             header.storageStrength(), header.flags(), consolidationFlags,
                             null, // no vector for browse (use inspect for full detail)
-                            loc.partitionIndex(), loc.offset(),
+                            loc.graphSlot(), loc.offset(),
                             java.util.Map.of(), suppressionSet.isSuppressed(memId)));
                 }
             }

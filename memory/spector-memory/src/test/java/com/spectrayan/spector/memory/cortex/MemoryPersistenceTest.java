@@ -183,7 +183,7 @@ class MemoryPersistenceTest {
         assertThat(loaded.locate("mem-1")).isNotNull();
         assertThat(loaded.locate("mem-1").type()).isEqualTo(MemoryType.EPISODIC);
         assertThat(loaded.locate("mem-1").offset()).isEqualTo(64L);
-        assertThat(loaded.locate("mem-1").partitionIndex()).isEqualTo(0);
+        assertThat(loaded.locate("mem-1").graphSlot()).isEqualTo(0);
         assertThat(loaded.text("mem-1")).isEqualTo("The cat sat on the mat");
         assertThat(loaded.source("mem-1")).isEqualTo(MemorySource.OBSERVED);
         assertThat(loaded.tags("mem-1")).containsExactly("animal", "location");

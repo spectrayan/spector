@@ -181,7 +181,7 @@ final class PostIngestSync {
         int textLength = (textPos != null) ? textPos.textLength() : -1;
         // #443: stamp the colocated partition (activePartitionSeq) so recall, text
         // resolution and direct-resolve can locate this record's partition. storeIndex
-        // remains the semantic/graph node slot (partitionIndex — behaviour unchanged).
+        // remains the semantic/graph node slot (graphSlot — behaviour unchanged).
         var location = new MemoryLocation(params.type(), params.offset(), storeIndex,
                 activePartitionSeq, textOffset, textLength);
 
@@ -282,8 +282,8 @@ final class PostIngestSync {
             try {
                 MemoryLocation targetLoc = index.locate(edgeHint.targetMemoryId());
                 if (targetLoc != null) {
-                    int targetIdx = targetLoc.partitionIndex() >= 0
-                            ? targetLoc.partitionIndex()
+                    int targetIdx = targetLoc.graphSlot() >= 0
+                            ? targetLoc.graphSlot()
                             : (int) (targetLoc.offset() / 164);
                     hebbianGraph.strengthen(memoryIdx, targetIdx, edgeHint.weight());
                 }
@@ -304,8 +304,8 @@ final class PostIngestSync {
             try {
                 MemoryLocation predLoc = index.locate(linkHint.predecessorMemoryId());
                 if (predLoc != null) {
-                    int predIdx = predLoc.partitionIndex() >= 0
-                            ? predLoc.partitionIndex()
+                    int predIdx = predLoc.graphSlot() >= 0
+                            ? predLoc.graphSlot()
                             : (int) (predLoc.offset() / 164);
                     temporalChain.linkNodes(predIdx, memoryIdx, linkHint.sessionId(), (int) (System.currentTimeMillis() / 1000));
                 }

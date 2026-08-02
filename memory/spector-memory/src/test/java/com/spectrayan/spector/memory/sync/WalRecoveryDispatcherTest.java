@@ -90,8 +90,9 @@ class WalRecoveryDispatcherTest {
             entityGraph.bindWal(wal);
             temporalChain.bindWal(wal);
 
-            // Write checkpoint mutations
-            byte[] bytes = new byte[40];
+            // Write checkpoint mutations (source must be a full record stride wide; the
+            // IndexEntryLayout slot is 48 bytes as of the v6 .midx format — issue #443).
+            byte[] bytes = new byte[new IndexEntryLayout().recordStride()];
             bytes[0] = 11;
             recordMem.write(0, MemorySegment.ofArray(bytes));
             registryMem.intern("CHECKPOINT_KEY");
@@ -133,7 +134,7 @@ class WalRecoveryDispatcherTest {
             hebbianGraph.bindWal(wal);
 
             // Mutate RecordMemory
-            byte[] bytes = new byte[40];
+            byte[] bytes = new byte[new IndexEntryLayout().recordStride()];
             bytes[0] = 42;
             recordMem.write(1, MemorySegment.ofArray(bytes));
 

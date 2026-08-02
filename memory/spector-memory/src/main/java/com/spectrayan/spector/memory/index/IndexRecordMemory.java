@@ -55,6 +55,10 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     /** Legacy file magic: "MIDX" in ASCII. */
     private static final int LEGACY_INDEX_MAGIC = 0x4D494458;
 
+    /** Standard SMKM schema versions. v6 adds the persisted colocatedPartition (#443). */
+    private static final int INDEX_VERSION_V6 = 6;
+    private static final int INDEX_VERSION_V5 = 5;
+
     /** Legacy V1-V4 formats. */
     private static final int INDEX_VERSION_V4 = 4;
     private static final int INDEX_VERSION_V3 = 3;
@@ -96,23 +100,28 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     /**
      * Tracks where a memory is physically stored.
      *
-     * <p><b>issue #443 (Phase 1):</b> {@code colocatedPartition} identifies the DISK
-     * partition the record's tier store + {@code text.dat} live in. It is populated
-     * in-memory at ingest/load; it is <b>not</b> persisted to the {@code .midx} slot in
-     * Phase 1 (that on-disk change is Phase 2). {@code partitionIndex} remains the
-     * (misnamed) semantic HNSW / Hebbian graph node slot — its behaviour is unchanged.</p>
+     * <p><b>issue #443 (Phase 2):</b> {@code colocatedPartition} identifies the DISK
+     * partition the record's tier store + {@code text.dat} live in. As of Phase 2 it is
+     * <b>persisted</b> to the {@code .midx} v6 slot at {@code [40:4]}, so recall fan-out
+     * and direct-resolve work across partitions after restart.</p>
+     *
+     * <p>{@code graphSlot} is the semantic HNSW / Hebbian graph node slot (persisted at
+     * {@code [24:4]}). It was misnamed {@code partitionIndex} through v5 — the rename in
+     * Phase 2 ends the misnomer; its behaviour is unchanged (it never identified the
+     * colocated partition).</p>
      */
-    public record MemoryLocation(MemoryType type, long offset, int partitionIndex,
+    public record MemoryLocation(MemoryType type, long offset, int graphSlot,
                                   int colocatedPartition, long textOffset, int textLength) {
 
-        public MemoryLocation(MemoryType type, long offset, int partitionIndex) {
-            this(type, offset, partitionIndex, 0, -1L, -1);
+        /** Convenience ctor — colocatedPartition defaults to 0, no text position. */
+        public MemoryLocation(MemoryType type, long offset, int graphSlot) {
+            this(type, offset, graphSlot, 0, -1L, -1);
         }
 
-        /** Back-compat ctor — colocatedPartition defaults to 0. */
-        public MemoryLocation(MemoryType type, long offset, int partitionIndex,
+        /** Convenience ctor — colocatedPartition defaults to 0. */
+        public MemoryLocation(MemoryType type, long offset, int graphSlot,
                               long textOffset, int textLength) {
-            this(type, offset, partitionIndex, 0, textOffset, textLength);
+            this(type, offset, graphSlot, 0, textOffset, textLength);
         }
 
         public boolean hasTextPosition() {
@@ -122,7 +131,29 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     public IndexRecordMemory() {
         super(MemoryId.of("kernel", "index"), new IndexEntryLayout(), 100_000,
-              Arena.ofShared(), Arena.ofShared().allocate(100_000 * 40L, 64), 0, false, null, null);
+              Arena.ofShared(), Arena.ofShared().allocate(100_000 * (long) INDEX_SLOT_STRIDE, 64),
+              0, false, null, null);
+    }
+
+    /** Slot stride of the current on-disk index layout (v6 = 48 bytes). */
+    private static final int INDEX_SLOT_STRIDE = new IndexEntryLayout().recordStride();
+
+    /**
+     * Whether the loaded {@code .midx} persisted a per-record {@code colocatedPartition}
+     * (v6+). When {@code false} (v5/legacy load or a fresh index), the colocated partition
+     * of every record defaults to 0 and callers must not assume a per-record partition map
+     * survived the round-trip.
+     */
+    private volatile boolean colocatedPartitionPersisted = false;
+
+    /** Returns {@code true} if load read a v6 {@code .midx} carrying colocatedPartition. */
+    public boolean isColocatedPartitionPersisted() {
+        return colocatedPartitionPersisted;
+    }
+
+    /** Marks that a per-record colocatedPartition was loaded from a v6 {@code .midx}. */
+    void markColocatedPartitionPersisted() {
+        this.colocatedPartitionPersisted = true;
     }
 
     @Override
@@ -331,19 +362,18 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     }
 
     /**
-     * Re-stamps every location's colocated partition and rebuilds the reverse index
-     * (issue #443). Called once after load: Phase 1 opens only the newest partition, so
-     * all loaded records physically live in {@code seq}. This keeps the in-memory reverse
-     * key, text resolution and active-seq consistent. NOTE: this is in-memory only and
-     * does not alter the {@code .midx} on-disk format (persisting colocatedPartition is
-     * Phase 2).
+     * Re-stamps every location's colocated partition to {@code seq} and rebuilds the reverse
+     * index (issue #443). In-memory only. As of Phase 2 the {@code .midx} v6 format persists
+     * {@code colocatedPartition} per record, so the factory no longer force-stamps loaded
+     * records — this helper is retained for callers that deliberately collapse a store into a
+     * single partition (e.g. compaction) and is a no-op for records already at {@code seq}.
      */
     public void stampColocatedPartition(int seq) {
         for (Map.Entry<String, MemoryLocation> e : locations.entrySet()) {
             MemoryLocation old = e.getValue();
             if (old.colocatedPartition() == seq) continue;
             MemoryLocation updated = new MemoryLocation(old.type(), old.offset(),
-                    old.partitionIndex(), seq, old.textOffset(), old.textLength());
+                    old.graphSlot(), seq, old.textOffset(), old.textLength());
             e.setValue(updated);
         }
         reverseIndex.clear();
@@ -384,10 +414,13 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         }
     }
 
-    public Map<String, String> textsByPartition(int partitionIndex) {
+    // NOTE (issue #443): this remains keyed on graphSlot (the former misnamed field), not
+    // the colocated partition. Re-pointing it at colocatedPartition is a consolidation
+    // follow-up (see ADR-0002 D5) and is intentionally out of scope for #443.
+    public Map<String, String> textsByPartition(int graphSlot) {
         Map<String, String> result = new java.util.HashMap<>();
         for (Map.Entry<String, MemoryLocation> entry : locations.entrySet()) {
-            if (entry.getValue().partitionIndex() == partitionIndex) {
+            if (entry.getValue().graphSlot() == graphSlot) {
                 String text = text(entry.getKey());
                 if (text != null && !text.isEmpty()) {
                     result.put(entry.getKey(), text);
@@ -407,7 +440,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
         reverseIndex.remove(reverseKey(oldLoc.colocatedPartition(), oldLoc.type(), oldLoc.offset()));
 
-        MemoryLocation newLoc = new MemoryLocation(oldLoc.type(), newOffset, oldLoc.partitionIndex(),
+        MemoryLocation newLoc = new MemoryLocation(oldLoc.type(), newOffset, oldLoc.graphSlot(),
                 oldLoc.colocatedPartition(), oldLoc.textOffset(), oldLoc.textLength());
         locations.put(id, newLoc);
 
@@ -469,7 +502,10 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 
                 MemoryId slotId = MemoryId.of("index", "slot");
                 IndexEntryLayout slotLayout = new IndexEntryLayout();
-                long totalSlotBytes = (long) entryCount * 40;
+                // #443 Phase 2: stride flows from the layout (v6 = 48). The 64-byte header
+                // records recordStride + schemaVersion, so the loader can version-gate.
+                final int stride = slotLayout.recordStride();
+                long totalSlotBytes = (long) entryCount * stride;
                 try (DefaultRecordMemory<IndexEntryLayout> slotMemory = new DefaultRecordMemory<>(
                         slotId, slotLayout, entryCount, MemoryHeader.HEADER_BYTES + totalSlotBytes, filePath)) {
                     
@@ -483,18 +519,20 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                         long poolOffset = poolMemory.append(MemorySegment.ofArray(blobBytes));
                         int poolLen = blobBytes.length;
                         
-                        // Create a temporary 40-byte segment for the slot entry
-                        byte[] slotBytes = new byte[40];
+                        // Temporary slot segment sized to the current layout stride (v6 = 48B).
+                        byte[] slotBytes = new byte[stride];
                         ByteBuffer slotBuf = ByteBuffer.wrap(slotBytes);
                         slotBuf.order(java.nio.ByteOrder.nativeOrder());
                         
-                        slotBuf.putLong(poolOffset);
-                        slotBuf.putInt(poolLen);
-                        slotBuf.putInt(loc.type().ordinal());
-                        slotBuf.putLong(loc.offset());
-                        slotBuf.putInt(loc.partitionIndex());
-                        slotBuf.putLong(loc.textOffset());
-                        slotBuf.putInt(loc.textLength());
+                        slotBuf.putLong(poolOffset);            // [0:8]  idPoolOffset
+                        slotBuf.putInt(poolLen);                // [8:4]  idPoolLength
+                        slotBuf.putInt(loc.type().ordinal());   // [12:4] typeOrdinal
+                        slotBuf.putLong(loc.offset());          // [16:8] offset
+                        slotBuf.putInt(loc.graphSlot());        // [24:4] graphSlot
+                        slotBuf.putLong(loc.textOffset());      // [28:8] textOffset
+                        slotBuf.putInt(loc.textLength());       // [36:4] textLength
+                        slotBuf.putInt(loc.colocatedPartition());// [40:4] colocatedPartition (v6)
+                        slotBuf.putInt(0);                      // [44:4] reserved (v6)
                         
                         slotMemory.write(index, MemorySegment.ofArray(slotBytes));
                         
@@ -521,8 +559,9 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
         try {
             long fileSize = Files.size(filePath);
-            if (fileSize < 16) {
-                log.warn("MemoryIndex file too small ({}B), starting fresh", fileSize);
+            if (fileSize < 4) {
+                // Too small to even classify (no magic). Treat an empty placeholder as fresh.
+                log.warn("MemoryIndex file too small to classify ({}B), starting fresh", fileSize);
                 return index;
             }
 
@@ -539,7 +578,15 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
             boolean isLegacy = (magic == LEGACY_INDEX_MAGIC || magic == 0x5844494D);
 
             if (isStandard) {
-                // New standard format (V5+)
+                // Standard SMKM format (v5+) carries the full 64-byte MemoryHeader. A file
+                // that claims the SMKM magic but is shorter than the header is corrupt/truncated
+                // — throw rather than silently returning an empty index (#443 Phase 2 discipline).
+                if (fileSize < MemoryHeader.HEADER_BYTES) {
+                    throw new SpectorStorageException(ErrorCode.FILE_FORMAT_INVALID,
+                            "MemoryIndex truncated: " + filePath + " (" + fileSize + "B < "
+                                    + MemoryHeader.HEADER_BYTES + "B header)");
+                }
+
                 String fileName = filePath.getFileName().toString();
                 String poolName = fileName.endsWith(".midx") ? fileName.replace(".midx", ".idpl") : fileName + ".idpl";
                 Path idPoolPath = filePath.resolveSibling(poolName);
@@ -548,7 +595,28 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 IndexEntryLayout slotLayout = new IndexEntryLayout();
                 try (DefaultRecordMemory<IndexEntryLayout> slotMemory = new DefaultRecordMemory<>(
                         slotId, slotLayout, 0, 0, filePath)) {
-                    
+
+                    // #443 Phase 2: version-gate on the persisted schemaVersion (throw-on-unreadable).
+                    int schemaVersion = MemoryHeader.readSchemaVersion(slotMemory.segment(), 0);
+                    final int slotStride;
+                    final boolean readColocated;
+                    switch (schemaVersion) {
+                        case INDEX_VERSION_V6 -> {
+                            slotStride = 48;      // v6 slot: 48 bytes incl. colocatedPartition + reserved
+                            readColocated = true;
+                        }
+                        case INDEX_VERSION_V5 -> {
+                            slotStride = 40;      // v5 slot: 40 bytes, no colocatedPartition
+                            readColocated = false;
+                            log.warn("v5 .midx: multi-partition data not recoverable, treating as partition 0 ({})",
+                                    filePath.getFileName());
+                        }
+                        default -> throw new SpectorStorageException(ErrorCode.FILE_FORMAT_INVALID,
+                                "MemoryIndex unsupported schema version v" + schemaVersion
+                                        + (schemaVersion > INDEX_VERSION_V6 ? " (newer than supported v6)" : "")
+                                        + ": " + filePath);
+                    }
+
                     int entryCount = slotMemory.size();
                     MemoryId poolId = MemoryId.of("index", "idpool");
                     IdBlobLayout poolLayout = new IdBlobLayout();
@@ -559,17 +627,21 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                         long slotBase = slotMemory.dataOffset();
                         
                         for (int i = 0; i < entryCount; i++) {
-                            long slotOffset = slotBase + (long) i * 40;
+                            long slotOffset = slotBase + (long) i * slotStride;
                             long poolOffset = slotSeg.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset);
                             int poolLen = slotSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 8);
                             int typeOrd = slotSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 12);
                             long offset = slotSeg.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset + 16);
-                            int partitionIndex = slotSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 24);
+                            int graphSlot = slotSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 24);
                             long textOffset = slotSeg.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset + 28);
                             int textLength = slotSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 36);
+                            // v6: colocatedPartition at [40:4]; v5: absent → default 0.
+                            int colocatedPartition = readColocated
+                                    ? slotSeg.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 40) : 0;
                             
                             MemoryType type = MemoryType.values()[typeOrd];
-                            MemoryLocation loc = new MemoryLocation(type, offset, partitionIndex, textOffset, textLength);
+                            MemoryLocation loc = new MemoryLocation(type, offset, graphSlot,
+                                    colocatedPartition, textOffset, textLength);
                             
                             MemorySegment blobSeg = poolMemory.read(poolOffset, poolLen);
                             DeserializedEntry target = new DeserializedEntry();
@@ -578,8 +650,14 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                             index.register(target.id, loc, target.textFallback, target.source, target.tags, target.metadata);
                         }
                     }
+
+                    // Only a v6 file carries a persisted per-record colocated partition.
+                    if (readColocated) {
+                        index.markColocatedPartitionPersisted();
+                    }
+                    log.info("MemoryIndex loaded (SMKM v{}): {} entries from {}",
+                            schemaVersion, index.size(), filePath.getFileName());
                 }
-                log.info("MemoryIndex loaded (SMKM V5): {} entries from {}", index.size(), filePath.getFileName());
             } else if (isLegacy) {
                 // Legacy index loading (V1-V4)
                 try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
@@ -603,6 +681,10 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
             } else {
                 log.warn("Invalid MemoryIndex magic: 0x{}, starting fresh", Integer.toHexString(magic));
             }
+        } catch (SpectorStorageException sse) {
+            // Format errors (unknown/newer schema, truncation) must NOT be silently swallowed
+            // into an empty index — that would erase durable data (#443 Phase 2; #432/#433).
+            throw sse;
         } catch (Exception e) {
             log.error("Failed to load MemoryIndex from {}, starting fresh: {}", filePath, e.getMessage());
         }
@@ -732,7 +814,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         locBuf.flip();
         int typeOrd = locBuf.getInt();
         long offset = locBuf.getLong();
-        int partitionIndex = locBuf.getInt();
+        int graphSlot = locBuf.getInt();
         MemoryType type = MemoryType.values()[typeOrd];
 
         String text = readString(ch);
@@ -778,7 +860,8 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
             textLength = tpBuf.getInt();
         }
 
-        MemoryLocation loc = new MemoryLocation(type, offset, partitionIndex, textOffset, textLength);
+        // Legacy (v1–v4) has no colocated partition → default 0 (partition 0).
+        MemoryLocation loc = new MemoryLocation(type, offset, graphSlot, textOffset, textLength);
         index.register(id, loc, text, source, tagArray, metadata);
     }
 

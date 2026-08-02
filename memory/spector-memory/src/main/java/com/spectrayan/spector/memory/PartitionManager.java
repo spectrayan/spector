@@ -99,6 +99,7 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                      Path initialPartitionDir,
                      TextAppendMemory initialText,
                      int initialSeq,
+                     List<PartitionHandle> initialFrozen,
                      MemoryIndex index,
                      HebbianGraphBase hebbianGraph,
                      TemporalChainMemory temporalChain,
@@ -115,9 +116,21 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
         this.cognitiveTarget = cognitiveTarget;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
 
-        PartitionHandle initial = new PartitionHandle(
+        // #443 Phase 2 (open-all-on-load): the registry is seeded with every discovered
+        // partition — all older ones frozen/read-only, the newest active/writable.
+        PartitionHandle active = new PartitionHandle(
                 initialSeq, initialPartitionDir, initialRouter, initialText, true);
-        this.registry = List.of(initial);
+        List<PartitionHandle> initial = new ArrayList<>();
+        if (initialFrozen != null) {
+            for (PartitionHandle f : initialFrozen) {
+                if (f != null && f.seq() != initialSeq) {
+                    initial.add(f.asFrozen());
+                }
+            }
+            initial.sort(java.util.Comparator.comparingInt(PartitionHandle::seq));
+        }
+        initial.add(active); // active is last (highest seq)
+        this.registry = List.copyOf(initial);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -161,45 +174,93 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
     int activeSeq() { return activeHandle().seq(); }
 
     /**
-     * Discovers existing partitions or creates partition 000 if none exist.
-     *
-     * <p>Phase 1 (issue #443) opens only the newest partition on load; open-all-on-load
-     * is deferred to Phase 2 (restart correctness).</p>
+     * Discovers existing partitions or creates partition 000 if none exist, returning the
+     * newest (active) partition directory.
      *
      * @param basePath the memory persistence root
      * @return path to the active (latest) partition directory
      */
     static Path discoverOrCreatePartition(Path basePath) throws IOException {
+        List<Path> all = discoverAllPartitions(basePath);
+        return all.get(all.size() - 1); // newest = active
+    }
+
+    /**
+     * Enumerates <b>all</b> partition directories under {@code basePath}, ascending by
+     * sequence number, creating partition 000 if none exist (issue #443, Phase 2 —
+     * open-all-on-load). The last element is the newest (active) partition; all earlier
+     * elements are the frozen partitions the factory must open read-only.
+     *
+     * @param basePath the memory persistence root
+     * @return all partition dirs sorted by sequence (never empty; last = active)
+     */
+    static List<Path> discoverAllPartitions(Path basePath) throws IOException {
         Path partitionsDir = StorageLayout.partitionsDir(basePath);
         Files.createDirectories(partitionsDir);
 
-        // Scan for existing partition directories
-        Path latestPartition = null;
-        int maxSeq = -1;
+        java.util.TreeMap<Integer, Path> bySeq = new java.util.TreeMap<>();
         try (var stream = Files.newDirectoryStream(partitionsDir)) {
             for (Path dir : stream) {
                 if (!Files.isDirectory(dir)) continue;
                 String name = dir.getFileName().toString();
                 if (StorageLayout.isPartitionDir(name)) {
-                    int seq = StorageLayout.parsePartitionSeqNo(name);
-                    if (seq > maxSeq) {
-                        maxSeq = seq;
-                        latestPartition = dir;
-                    }
+                    bySeq.put(StorageLayout.parsePartitionSeqNo(name), dir);
                 }
             }
         }
 
-        if (latestPartition != null) {
-            return latestPartition;
+        if (bySeq.isEmpty()) {
+            // No partitions found → create partition 000
+            long epochSecs = Instant.now().getEpochSecond();
+            Path newPartition = StorageLayout.partitionDir(basePath, 0, epochSecs);
+            Files.createDirectories(newPartition);
+            log.info("Created initial partition: {}", newPartition.getFileName());
+            return List.of(newPartition);
         }
 
-        // No partitions found → create partition 000
-        long epochSecs = Instant.now().getEpochSecond();
-        Path newPartition = StorageLayout.partitionDir(basePath, 0, epochSecs);
-        Files.createDirectories(newPartition);
-        log.info("Created initial partition: {}", newPartition.getFileName());
-        return newPartition;
+        log.info("Discovered {} partition(s) on load: {}", bySeq.size(), bySeq.keySet());
+        return new ArrayList<>(bySeq.values()); // ascending by seq (last = newest/active)
+    }
+
+    /**
+     * Opens a single frozen (read-only) partition directory on load, building a
+     * {@link PartitionHandle} with its own tier stores and partition-scoped
+     * {@code text.dat} (issue #443, Phase 2). The handle shares the global
+     * {@code workingStore} (working memory is not partitioned and is never closed by a
+     * handle). The returned handle is marked non-writable/frozen.
+     *
+     * @param dir          the partition directory
+     * @param seq          the partition sequence number
+     * @param workingStore the global working-memory store (shared, never closed here)
+     * @param quantizedVecBytes quantized vector byte width
+     * @param semanticCapacity  semantic tier capacity
+     * @param episodicPartitionCapacity episodic tier capacity
+     * @param proceduralCapacity procedural tier capacity
+     * @param encryptor    the data encryptor (or NOOP)
+     * @return a frozen partition handle wrapping the opened stores
+     */
+    static PartitionHandle openFrozenPartition(Path dir, int seq,
+                                               WorkingRecordMemory workingStore,
+                                               int quantizedVecBytes,
+                                               int semanticCapacity,
+                                               int episodicPartitionCapacity,
+                                               int proceduralCapacity,
+                                               DataEncryptor encryptor) {
+        EpisodicRecordMemory episodic = new EpisodicRecordMemory(
+                StorageLayout.episodicMem(dir), quantizedVecBytes, episodicPartitionCapacity);
+        ProceduralRecordMemory procedural = new ProceduralRecordMemory(
+                quantizedVecBytes, proceduralCapacity, StorageLayout.proceduralMem(dir));
+        SemanticRecordMemory semantic = new SemanticRecordMemory(
+                quantizedVecBytes, semanticCapacity, StorageLayout.semanticMem(dir));
+
+        TextAppendMemory text = new TextAppendMemory(
+                StorageLayout.textDat(dir), encryptor != null ? encryptor : DataEncryptor.NOOP);
+        text.readAll();
+
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(
+                workingStore, episodic, semantic, procedural);
+        log.info("Opened frozen partition seq={} ({})", seq, dir.getFileName());
+        return new PartitionHandle(seq, dir, router, text, false);
     }
 
     /**

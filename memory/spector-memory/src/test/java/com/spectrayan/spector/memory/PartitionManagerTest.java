@@ -123,6 +123,7 @@ class PartitionManagerTest {
         return new PartitionManager(
                 basePath, VEC_BYTES, SEMANTIC_CAP, EPISODIC_CAP, PROCEDURAL_CAP,
                 router, activeDir, /* initialText */ null, seq,
+                /* initialFrozen */ java.util.List.of(),
                 index, hebbian, temporal, cognitiveTarget, DataEncryptor.NOOP);
     }
 

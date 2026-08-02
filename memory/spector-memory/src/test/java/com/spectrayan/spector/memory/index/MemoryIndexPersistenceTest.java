@@ -70,7 +70,7 @@ class MemoryIndexPersistenceTest {
         assertThat(loc2).isNotNull();
         assertThat(loc2.type()).isEqualTo(MemoryType.EPISODIC);
         assertThat(loc2.offset()).isEqualTo(1024L);
-        assertThat(loc2.partitionIndex()).isEqualTo(5);
+        assertThat(loc2.graphSlot()).isEqualTo(5);
         assertThat(loc2.textOffset()).isEqualTo(200L);
         assertThat(loc2.textLength()).isEqualTo(11);
         assertThat(loaded.source("mem-2")).isEqualTo(MemorySource.INFERRED);

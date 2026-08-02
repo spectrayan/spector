@@ -215,7 +215,7 @@ final class ReinforcementHandler {
             newImportance = 0.5f * currentImportance + 0.5f * refusedImportance;
         } else {
             // Degree centrality boost from Hebbian graph
-            int graphIdx = loc.partitionIndex();
+            int graphIdx = loc.graphSlot();
             if (graphIdx >= 0 && hebbianGraph != null) {
                 var edges = hebbianGraph.neighbors(graphIdx);
                 int degree = edges.size();

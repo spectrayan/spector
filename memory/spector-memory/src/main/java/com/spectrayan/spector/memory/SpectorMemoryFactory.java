@@ -197,18 +197,27 @@ public final class SpectorMemoryFactory {
         int quantizedVecBytes = builder.dimensions;
 
         Path resolvedPartitionDir = null;
+        // #443 Phase 2: open ALL partitions on load. The newest is active/writable; every
+        // older partition dir is opened read-only (frozen) so recall fan-out + direct-resolve
+        // work across partitions after restart.
+        List<Path> frozenPartitionDirs = List.of();
         if (isDisk && basePath != null) {
             try {
                 createDirectoriesSecure(StorageLayout.runtimeDir(basePath));
                 createDirectoriesSecure(StorageLayout.partitionsDir(basePath));
-                resolvedPartitionDir = PartitionManager.discoverOrCreatePartition(basePath);
-                log.info("Active partition: {}", resolvedPartitionDir.getFileName());
+                List<Path> allPartitions = PartitionManager.discoverAllPartitions(basePath);
+                resolvedPartitionDir = allPartitions.get(allPartitions.size() - 1); // newest = active
+                if (allPartitions.size() > 1) {
+                    frozenPartitionDirs = List.copyOf(allPartitions.subList(0, allPartitions.size() - 1));
+                }
+                log.info("Active partition: {} ({} frozen partition(s) to open)",
+                        resolvedPartitionDir.getFileName(), frozenPartitionDirs.size());
             } catch (java.io.IOException e) {
                 log.error("Failed to initialize partition layout: {}", e.getMessage(), e);
             }
         }
 
-        // #443: sequence of the active (newest) partition — Phase 1 opens only this one.
+        // #443: sequence of the active (newest) partition.
         final int initialPartitionSeq = resolvedPartitionDir != null
                 ? StorageLayout.parsePartitionSeqNo(resolvedPartitionDir.getFileName().toString())
                 : 0;
@@ -265,15 +274,18 @@ public final class SpectorMemoryFactory {
             index = new MemoryIndex();
         }
 
-        // #443: stamp loaded records with the active partition seq (Phase 1 opens only the
-        // newest partition, so all loaded records physically live there). Keeps the
-        // in-memory reverse key, text resolution and active-seq consistent. In-memory only —
-        // the .midx on-disk format is unchanged (persisting colocatedPartition is Phase 2).
-        if (isDisk && basePath != null && index.size() > 0) {
-            index.stampColocatedPartition(initialPartitionSeq);
-        } else {
-            index.setActivePartitionSeq(initialPartitionSeq);
+        // #443 Phase 2: colocated-partition provenance on load.
+        //  • v6 index → each record carries its persisted colocatedPartition (register()
+        //    already keyed the reverse index by it). Do NOT overwrite — just record the
+        //    active seq for the legacy partition-unaware reverse-lookup overload.
+        //  • v5/legacy index → no persisted partition; records default to partition 0
+        //    (ADR-0002: v5 loads with colocatedPartition=0; multi-partition v5 data is
+        //    unrecoverable and is not auto-healed). For the common single-partition store,
+        //    partition 0 IS the active partition, so this is correct.
+        if (index.size() > 0 && index.isColocatedPartitionPersisted()) {
+            log.info("Loaded a v6 index with persisted colocated partitions ({} records)", index.size());
         }
+        index.setActivePartitionSeq(initialPartitionSeq);
 
         //  WAL 
         MemoryWal wal;
@@ -533,6 +545,25 @@ public final class SpectorMemoryFactory {
         //  Seed the ingestion target's active partition seq (#443) 
         cognitiveTarget.updateActivePartitionSeq(initialPartitionSeq);
 
+        //  Frozen partition handles (#443 Phase 2 open-all-on-load) 
+        // Open every older partition dir read-only; each gets its own tier stores + text.dat
+        // and shares the global working store. These join the registry as frozen handles.
+        List<com.spectrayan.spector.memory.cortex.PartitionHandle> frozenHandles = new java.util.ArrayList<>();
+        if (isDisk && basePath != null && !frozenPartitionDirs.isEmpty()) {
+            for (Path frozenDir : frozenPartitionDirs) {
+                int frozenSeq = StorageLayout.parsePartitionSeqNo(frozenDir.getFileName().toString());
+                try {
+                    frozenHandles.add(PartitionManager.openFrozenPartition(
+                            frozenDir, frozenSeq, workingStore, quantizedVecBytes,
+                            builder.semanticCapacity, builder.episodicPartitionCapacity,
+                            builder.proceduralCapacity, builder.dataEncryptor));
+                } catch (RuntimeException e) {
+                    log.error("Failed to open frozen partition {} — records there will be unreadable: {}",
+                            frozenDir.getFileName(), e.getMessage(), e);
+                }
+            }
+        }
+
         //  Partition Manager 
         PartitionManager partitionManager;
         if (isDisk) {
@@ -540,6 +571,7 @@ public final class SpectorMemoryFactory {
                     basePath, quantizedVecBytes, builder.semanticCapacity,
                     builder.episodicPartitionCapacity, builder.proceduralCapacity,
                     cognitiveRouter, resolvedPartitionDir, textDataStore, initialPartitionSeq,
+                    frozenHandles,
                     index, hebbianGraph, temporalChain, cognitiveTarget, builder.dataEncryptor);
             cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
         } else {
@@ -547,6 +579,7 @@ public final class SpectorMemoryFactory {
                     null, quantizedVecBytes, builder.semanticCapacity,
                     builder.episodicPartitionCapacity, builder.proceduralCapacity,
                     cognitiveRouter, null, textDataStore, initialPartitionSeq,
+                    List.of(),
                     index, hebbianGraph, temporalChain, cognitiveTarget, builder.dataEncryptor);
         }
 
