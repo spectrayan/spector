@@ -64,7 +64,7 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      * @param capacity          maximum number of records (default: 100)
      */
     public WorkingRecordMemory(int quantizedVecBytes, int capacity) {
-        super(quantizedVecBytes, capacity,
+        super(MemoryType.WORKING, quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, total={}KB, persistent=false",
@@ -83,7 +83,7 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      * @param filePath          path to the backing mmap file
      */
     public WorkingRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        super(quantizedVecBytes, capacity,
+        super(MemoryType.WORKING, quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 

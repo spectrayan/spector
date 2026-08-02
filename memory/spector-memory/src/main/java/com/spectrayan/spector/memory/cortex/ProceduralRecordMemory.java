@@ -58,7 +58,7 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
      * @param capacity          maximum number of procedural memories (default: 1000)
      */
     public ProceduralRecordMemory(int quantizedVecBytes, int capacity) {
-        super(quantizedVecBytes, capacity,
+        super(MemoryType.PROCEDURAL, quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("ProceduralRecordMemory initialized: capacity={}, stride={}B, persistent=false",
@@ -73,7 +73,7 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
      * @param filePath          path to the backing mmap file
      */
     public ProceduralRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        super(quantizedVecBytes, capacity,
+        super(MemoryType.PROCEDURAL, quantizedVecBytes, capacity,
                 (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
