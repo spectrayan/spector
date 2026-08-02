@@ -14,12 +14,12 @@ package com.spectrayan.spector.memory.hippocampus;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
-import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
+import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
@@ -99,7 +99,7 @@ class ReflectDaemonClusteringTest {
 
     @Test
     void clustersBycentroidIdAndPromotes() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
 
             // Create 20 memories across 3 centroids (ids: 1, 2, 3)
             // Centroid 1: 10 records, Centroid 2: 5 records, Centroid 3: 3 records, Centroid 0: 2 records
@@ -142,7 +142,7 @@ class ReflectDaemonClusteringTest {
 
     @Test
     void withLlmProviderSynthesizes() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
 
             // Create 6 memories in the same centroid
             for (int i = 0; i < 6; i++) {
@@ -179,7 +179,7 @@ class ReflectDaemonClusteringTest {
 
     @Test
     void withoutCentroidRouterUsesV1Fallback() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
 
             // Create 5 memories with importance  >=  1.0
             for (int i = 0; i < 5; i++) {
@@ -205,7 +205,7 @@ class ReflectDaemonClusteringTest {
 
     @Test
     void marksClusterMembersAsConsolidated() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
 
             // Create 6 memories in centroid 1
             for (int i = 0; i < 6; i++) {
@@ -240,7 +240,7 @@ class ReflectDaemonClusteringTest {
 
     @Test
     void secondReflectDoesNotReprocessConsolidated() {
-        try (EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
 
             // 6 memories in centroid 1
             for (int i = 0; i < 6; i++) {

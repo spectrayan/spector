@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 
 import java.lang.foreign.MemorySegment;
 import java.util.EnumMap;
@@ -43,7 +43,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
 
     // ── Typed accessors for store-specific operations ──
     private final WorkingRecordMemory workingStore;
-    private final EpisodicMemoryStore episodicStore;
+    private final EpisodicPartitionedMemory episodicStore;
     private final SemanticRecordMemory semanticStore;
     private final ProceduralRecordMemory proceduralStore;
 
@@ -51,7 +51,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
      * Creates a CognitiveMemoryRouter with all four cognitive memory stores.
      */
     public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
-                                 EpisodicMemoryStore episodicStore,
+                                 EpisodicPartitionedMemory episodicStore,
                                  SemanticRecordMemory semanticStore,
                                  ProceduralRecordMemory proceduralStore) {
         this.workingStore = workingStore;
@@ -150,7 +150,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     public WorkingRecordMemory working() { return workingStore; }
 
     /** Returns the Episodic Memory store (for partition iteration). */
-    public EpisodicMemoryStore episodic() { return episodicStore; }
+    public EpisodicPartitionedMemory episodic() { return episodicStore; }
 
     /** Returns the Semantic Memory store (for header slab access). */
     public SemanticRecordMemory semantic() { return semanticStore; }

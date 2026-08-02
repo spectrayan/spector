@@ -12,10 +12,14 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.HeaderLayout;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 
 import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
@@ -23,7 +27,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.*;
+import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
 
 /**
  * Fused SIMD cognitive scoring loop — the heart of Spector Memory's

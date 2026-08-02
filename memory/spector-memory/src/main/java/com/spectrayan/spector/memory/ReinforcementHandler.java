@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.RecallPipeline;
 import com.spectrayan.spector.memory.synapse.ActRActivation;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -155,7 +155,7 @@ final class ReinforcementHandler {
                 // Read profile ordinal from synaptic header byte 60
                 byte profileOrdinal = segment.get(
                         java.lang.foreign.ValueLayout.JAVA_BYTE,
-                        loc.offset() + com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE);
+                        loc.offset() + com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE);
                 if (profileOrdinal >= 0 && profileOrdinal < com.spectrayan.spector.memory.model.CognitiveProfile.values().length) {
                     com.spectrayan.spector.memory.model.CognitiveProfile usedProfile =
                             com.spectrayan.spector.memory.model.CognitiveProfile.values()[profileOrdinal];

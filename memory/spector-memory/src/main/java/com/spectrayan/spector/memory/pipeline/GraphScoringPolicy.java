@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Configurable weights and limits for the 3-Layer Cognitive Graph scoring steps.
  *
@@ -61,6 +64,8 @@ public record GraphScoringPolicy(
         GraphExpansionMode graphExpansionMode
 ) {
 
+    private static final Logger log = LoggerFactory.getLogger(GraphScoringPolicy.class);
+
     /** System property key for configuring the graph expansion threshold at runtime. */
     public static final String THRESHOLD_SYSTEM_PROPERTY = "spector.benchmark.graphExpansionThreshold";
 
@@ -105,7 +110,9 @@ public record GraphScoringPolicy(
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
                 threshold = Float.parseFloat(thresholdStr);
-            } catch (NumberFormatException ignored) { /* use default */ }
+            } catch (NumberFormatException e) {
+                log.debug("Could not parse value, using default: {}", e.getMessage());
+            }
         }
         GraphExpansionMode mode = GraphExpansionMode.resolve();
 

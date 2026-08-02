@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -110,9 +110,9 @@ class TierStoreKernelIntegrationTest {
     // ── Episodic Memory ──
 
     @Test
-    @DisplayName("EpisodicMemoryStore has kernel identity with EPISODIC type")
+    @DisplayName("EpisodicPartitionedMemory has kernel identity with EPISODIC type")
     void episodicMemoryStoreHasKernelIdentity() {
-        try (var store = new EpisodicMemoryStore(VEC_BYTES, CAPACITY)) {
+        try (var store = new EpisodicPartitionedMemory(VEC_BYTES, CAPACITY)) {
             MemoryId id = store.memoryId();
             assertThat(id.namespace()).isEqualTo("tier");
             assertThat(id.memoryName()).isEqualTo("episodic");

@@ -16,6 +16,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 
 /**

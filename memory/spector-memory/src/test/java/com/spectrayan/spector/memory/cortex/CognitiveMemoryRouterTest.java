@@ -25,7 +25,7 @@ class CognitiveMemoryRouterTest {
     void getReturnsCorrectStoreForEachType() {
         // CognitiveMemoryRouter.close() cascades to child stores, so only close the router
         WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
-        EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
+        EpisodicPartitionedMemory episodic = new EpisodicPartitionedMemory(128, 100);
         SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
@@ -41,7 +41,7 @@ class CognitiveMemoryRouterTest {
     @DisplayName("Typed accessors return correct instances")
     void typedAccessorsReturnCorrectInstances() {
         WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
-        EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
+        EpisodicPartitionedMemory episodic = new EpisodicPartitionedMemory(128, 100);
         SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
@@ -57,7 +57,7 @@ class CognitiveMemoryRouterTest {
     @DisplayName("totalCount sums all stores")
     void totalCountSumsAllStores() {
         WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
-        EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
+        EpisodicPartitionedMemory episodic = new EpisodicPartitionedMemory(128, 100);
         SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
 
@@ -93,7 +93,7 @@ class CognitiveMemoryRouterTest {
     @DisplayName("close() closes all stores without throwing")
     void closeClosesAllStores() {
         WorkingRecordMemory working = new WorkingRecordMemory(128, 100);
-        EpisodicMemoryStore episodic = new EpisodicMemoryStore(128, 100);
+        EpisodicPartitionedMemory episodic = new EpisodicPartitionedMemory(128, 100);
         SemanticRecordMemory semantic = new SemanticRecordMemory(128, 100);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(128, 100);
         

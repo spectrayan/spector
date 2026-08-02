@@ -21,11 +21,11 @@ import java.util.List;
 
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.RecallOptions;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -38,7 +38,7 @@ import net.jqwik.api.constraints.IntRange;
  *
  * <p>Properties 22, 23:
  * <ul>
- *   <li>22: DEBUGGING profile constrains valence ≤ -10;
+ *   <li>22: DEBUGGING profile constrains valence â‰¤ -10;
  *       DEFAULT_MODE_NETWORK restricts to SEMANTIC/PROCEDURAL types</li>
  *   <li>23: HYPERFOCUS profile uses alpha=1.0, beta=0.0</li>
  * </ul>
@@ -47,12 +47,12 @@ class CognitiveProfilePropertyTest {
 
     private static final int DIMS = 8;
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Property 22a: DEBUGGING valence constraint
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
-     * Property 22a: With DEBUGGING profile, all results SHALL have valence ≤ -10.
+     * Property 22a: With DEBUGGING profile, all results SHALL have valence â‰¤ -10.
      *
      * <p><b>Validates: Requirements 11.2</b>
      */
@@ -97,9 +97,9 @@ class CognitiveProfilePropertyTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Property 23: HYPERFOCUS alpha=1, beta=0
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Property 23: HYPERFOCUS profile has alpha=1.0 and beta=0.0.
@@ -117,7 +117,7 @@ class CognitiveProfilePropertyTest {
 
     /**
      * Property 23b: With HYPERFOCUS profile and a focus mask, scoring relies
-     * purely on similarity (alpha=1.0, beta=0.0 means importance×decay is zeroed out).
+     * purely on similarity (alpha=1.0, beta=0.0 means importanceÃ—decay is zeroed out).
      *
      * <p><b>Validates: Requirements 11.3</b>
      */
@@ -148,7 +148,7 @@ class CognitiveProfilePropertyTest {
 
             float[] queryVec = new float[DIMS]; // zero vector
 
-            // HYPERFOCUS with alpha=1.0, beta=0.0 → pure similarity
+            // HYPERFOCUS with alpha=1.0, beta=0.0 â†’ pure similarity
             RecallOptions options = RecallOptions.builder()
                     .topK(2)
                     .alpha(CognitiveProfile.HYPERFOCUS.alpha())
@@ -166,9 +166,9 @@ class CognitiveProfilePropertyTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Helpers
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private void writeRecord(MemorySegment segment, CognitiveRecordLayout layout,
                              int index, float[] vector, byte valence, long timestamp,

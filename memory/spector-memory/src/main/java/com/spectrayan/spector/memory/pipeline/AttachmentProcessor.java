@@ -233,7 +233,9 @@ public final class AttachmentProcessor {
         try {
             String probed = Files.probeContentType(file);
             if (probed != null) return probed;
-        } catch (IOException ignored) {}
+        } catch (IOException e) {
+            log.debug("Failed to probe content type for file: {}", file, e);
+        }
 
         // Fallback: extension-based detection
         String name = originalPath.toLowerCase();
@@ -281,7 +283,9 @@ public final class AttachmentProcessor {
         if (originalPath.contains("://") && !originalPath.startsWith("file://")) {
             try {
                 Files.deleteIfExists(localFile);
-            } catch (IOException ignored) {}
+            } catch (IOException e) {
+                log.debug("Failed to clean up temporary file: {}", localFile, e);
+            }
         }
     }
 }

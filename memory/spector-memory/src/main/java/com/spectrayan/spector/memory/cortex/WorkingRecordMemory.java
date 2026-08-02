@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +41,7 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * <h3>Design</h3>
  * <ul>
- *   <li>Extends {@link AbstractTierStore} for common Arena/layout/segment lifecycle</li>
+ *   <li>Extends {@link AbstractCognitiveRecordMemory} for common Arena/layout/segment lifecycle</li>
  *   <li>Fixed capacity (default: 100 records)</li>
  *   <li>FIFO eviction when full — oldest items are overwritten (circular buffer)</li>
  *   <li>Flat Panama scan — no index needed (working set is small)</li>
@@ -65,7 +65,7 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      */
     public WorkingRecordMemory(int quantizedVecBytes, int capacity) {
         super(quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.synapse.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
+                (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, total={}KB, persistent=false",
                 capacity, layout.stride(), (long) layout.stride() * capacity / 1024);
@@ -84,13 +84,13 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      */
     public WorkingRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
         super(quantizedVecBytes, capacity,
-                (long) new com.spectrayan.spector.memory.synapse.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
+                (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
         // Restore writeIndex from metadata header extra1 field
-        if (isPersistent() && count > 0) {
+        if (isPersistent() && getCount() > 0) {
             this.writeIndex = segment().get(ValueLayout.JAVA_INT, META_EXTRA1);
-            log.info("WorkingRecordMemory restored: writeIndex={}, count={}", writeIndex, count);
+            log.info("WorkingRecordMemory restored: writeIndex={}, count={}", writeIndex, getCount());
         }
 
         log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, persistent=true",
@@ -113,7 +113,7 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      * Returns the number of live records currently in working memory.
      */
     public int count() {
-        return count;
+        return getCount();
     }
 
     @Override
@@ -122,8 +122,6 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
         put(header, quantizedVec);
         return offset;
     }
-
-    private final ReentrantLock writeLock = new ReentrantLock();
 
     /**
      * Appends a record to the working memory circular buffer.
@@ -140,7 +138,7 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
             long offset = dataOffset() + (long) writeIndex * layout.stride();
 
             // If we're overwriting an existing record, mark it as evicted
-            if (count >= capacity()) {
+            if (getCount() >= capacity()) {
                 log.trace("Working memory full — evicting slot {}", writeIndex);
             }
 
@@ -156,7 +154,7 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
 
             // Advance circular buffer
             writeIndex = (writeIndex + 1) % capacity();
-            count = Math.min(count + 1, capacity());
+            setCount(Math.min(getCount() + 1, capacity()));
 
             // Persist count and writeIndex to metadata header
             if (isPersistent()) {
@@ -179,10 +177,11 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      * @return array of offsets that passed the filter, for scoring
      */
     public long[] scan(long queryTagMask) {
-        long[] matches = new long[count];
+        int currentCount = getCount();
+        long[] matches = new long[currentCount];
         int matchCount = 0;
 
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < currentCount; i++) {
             long offset = dataOffset() + (long) i * layout.stride();
 
             // Phase 1: Skip tombstones
@@ -223,10 +222,11 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
      * @return minimum L2 distance to any live record, or {@code Float.MAX_VALUE} if empty
      */
     public float nearestDistance(float[] queryVector, float[] mins, float[] scales) {
-        if (count == 0) return Float.MAX_VALUE;
+        int currentCount = getCount();
+        if (currentCount == 0) return Float.MAX_VALUE;
 
         float minDist = Float.MAX_VALUE;
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < currentCount; i++) {
             long offset = dataOffset() + (long) i * layout.stride();
 
             // Skip tombstoned records

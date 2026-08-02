@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+// TODO(#428): Extract common index infrastructure to AbstractMemoryIndex
 /**
  * Per-partition BM25 index manager for text similarity search.
  *

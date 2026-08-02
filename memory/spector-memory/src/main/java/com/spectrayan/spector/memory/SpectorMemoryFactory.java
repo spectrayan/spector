@@ -30,7 +30,7 @@ import com.spectrayan.spector.index.ColBERTReranker;
 import com.spectrayan.spector.index.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
+import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
@@ -72,7 +72,7 @@ import com.spectrayan.spector.memory.pipeline.RecallPipeline;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
@@ -89,6 +89,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import java.util.Map;
 
 /**
@@ -218,7 +219,7 @@ public final class SpectorMemoryFactory {
         }
 
         if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
+            EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(
                     StorageLayout.episodicMem(resolvedPartitionDir),
                     quantizedVecBytes, builder.episodicPartitionCapacity);
             ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
@@ -229,7 +230,7 @@ public final class SpectorMemoryFactory {
                     StorageLayout.semanticMem(resolvedPartitionDir));
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
-            EpisodicMemoryStore episodicStore = new EpisodicMemoryStore(
+            EpisodicPartitionedMemory episodicStore = new EpisodicPartitionedMemory(
                     quantizedVecBytes, builder.episodicPartitionCapacity);
             ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
                     quantizedVecBytes, builder.proceduralCapacity);
@@ -315,7 +316,9 @@ public final class SpectorMemoryFactory {
                         com.spectrayan.spector.memory.kernel.MemoryId.of("hebbian", "graph"),
                         new com.spectrayan.spector.memory.kernel.layout.HebbianLayout(),
                         loadFrom, null, null);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Operation failed: Codec validation for HebbianLayout", e);
+            }
             hebbianGraph = HebbianGraphMemory.load(loadFrom, graphCapacity,
                     builder.hebbianMaxDegree, builder.edgeImportance);
         } else {
@@ -340,7 +343,9 @@ public final class SpectorMemoryFactory {
                         com.spectrayan.spector.memory.kernel.MemoryId.of("temporal", "chain"),
                         new com.spectrayan.spector.memory.kernel.layout.TemporalLayout(),
                         loadFrom, null, null);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Operation failed: Codec validation for TemporalLayout", e);
+            }
             temporalChain = new TemporalChainMemory(loadFrom, temporalCapacity);
         } else {
             temporalChain = new TemporalChainMemory(temporalCapacity);
@@ -404,7 +409,9 @@ public final class SpectorMemoryFactory {
                             com.spectrayan.spector.memory.kernel.MemoryId.of("spector", "hyper-entity-graph"),
                             new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout(),
                             loadFrom, null, null);
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.warn("Operation failed: Codec validation for HyperEntityLayout", e);
+                }
 
                 if (java.nio.file.Files.exists(loadFrom)) {
                     hyperEntityGraph = HyperEntityGraphMemory.load(loadFrom, hyperCap, hyperEdgeCap);
@@ -688,7 +695,9 @@ public final class SpectorMemoryFactory {
                     latestTime = t;
                     target = runtimePath;
                 }
-            } catch (java.io.IOException ignored) {}
+            } catch (java.io.IOException e) {
+                log.debug("Failed to read last modified time for path: {}", runtimePath, e);
+            }
         }
 
         if (partitionPath != null && java.nio.file.Files.exists(partitionPath)) {
@@ -698,7 +707,9 @@ public final class SpectorMemoryFactory {
                     latestTime = t;
                     target = partitionPath;
                 }
-            } catch (java.io.IOException ignored) {}
+            } catch (java.io.IOException e) {
+                log.debug("Failed to read last modified time for path: {}", partitionPath, e);
+            }
         }
 
         if (legacyPath != null && java.nio.file.Files.exists(legacyPath)) {
@@ -708,7 +719,9 @@ public final class SpectorMemoryFactory {
                     latestTime = t;
                     target = legacyPath;
                 }
-            } catch (java.io.IOException ignored) {}
+            } catch (java.io.IOException e) {
+                log.debug("Failed to read last modified time for path: {}", legacyPath, e);
+            }
         }
 
         return target;
@@ -874,7 +887,9 @@ public final class SpectorMemoryFactory {
                             if (index.textDataStore() != null && lastTextOffset != -1) {
                                 try {
                                     text = index.textDataStore().readTextDirect(lastTextOffset, lastTextLength);
-                                } catch (Exception ignored) {}
+                                } catch (Exception e) {
+                                    log.warn("Operation failed: Failed to read text from DataStore", e);
+                                }
                             }
                             
                             index.register(event.memoryId(), loc, text, MemorySource.OBSERVED, new String[0]);

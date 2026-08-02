@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.StorageLayout;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextEntry;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory.TextPosition;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;

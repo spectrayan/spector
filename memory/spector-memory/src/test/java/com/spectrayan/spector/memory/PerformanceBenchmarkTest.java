@@ -17,8 +17,8 @@ import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer;
 import com.spectrayan.spector.memory.synapse.CognitiveScorer.ScoredRecord;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
@@ -211,7 +211,7 @@ class PerformanceBenchmarkTest {
     void p12_totalCountDirectSum() {
         int quantizedVecBytes = 32;
         var working = new WorkingRecordMemory(quantizedVecBytes, 10);
-        var episodic = new com.spectrayan.spector.memory.cortex.EpisodicMemoryStore(
+        var episodic = new com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory(
                 java.nio.file.Path.of(System.getProperty("java.io.tmpdir"),
                         "perf-test-p12-" + System.nanoTime()),
                 quantizedVecBytes, 100);

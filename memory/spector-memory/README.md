@@ -47,7 +47,7 @@ spector-memory/
 │     ├── TierStore.java                (Strategy interface)
 │     ├── TierRouter.java               (Registry + polymorphic dispatch)
 │     ├── WorkingMemoryStore.java       (Prefrontal Cortex — volatile circular buffer)
-│     ├── EpisodicMemoryStore.java      (Hippocampus — time-partitioned mmap)
+│     ├── EpisodicPartitionedMemory.java      (Hippocampus — time-partitioned mmap)
 │     ├── SemanticMemoryStore.java      (Neocortex — single-file semantic storage)
 │     ├── PartitionedSemanticStore.java (Neocortex — rolling partitioned semantic storage)
 │     ├── StorageMigrator.java          (Single-file → partitioned migration)

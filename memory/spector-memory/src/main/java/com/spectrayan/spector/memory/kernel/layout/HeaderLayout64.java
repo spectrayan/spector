@@ -10,12 +10,12 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory.synapse;
+package com.spectrayan.spector.memory.kernel.layout;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
-import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.*;
+import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.*;
 
 /**
  * The 64-byte cache-line-aligned header layout.

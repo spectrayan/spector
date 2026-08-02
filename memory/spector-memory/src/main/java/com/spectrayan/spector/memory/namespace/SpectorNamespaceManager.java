@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.spectrayan.spector.memory.StorageLayout;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.migration.MigrationPipeline;
 
 /**

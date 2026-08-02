@@ -12,8 +12,8 @@
  */
 package com.spectrayan.spector.memory.graph;
 
-import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isPinned;
-import static com.spectrayan.spector.memory.synapse.SynapticHeaderConstants.isResolved;
+import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isPinned;
+import static com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isResolved;
 
 /**
  * Neuroscience-informed edge importance scoring for graph eviction decisions.

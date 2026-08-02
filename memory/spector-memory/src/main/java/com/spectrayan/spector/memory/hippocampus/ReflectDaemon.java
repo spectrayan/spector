@@ -17,12 +17,12 @@ import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
+import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory.EpisodicPartition;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
@@ -189,12 +189,12 @@ public final class ReflectDaemon {
      * @param semanticStore the semantic store to promote into (may be null for basic mode)
      * @return report summarizing what was done
      */
-    public ReflectReport runCycle(EpisodicMemoryStore episodicStore,
+    public ReflectReport runCycle(EpisodicPartitionedMemory episodicStore,
                                    CognitiveIngestionTarget ingestionTarget) {
         return runCycle(episodicStore, ingestionTarget, null);
     }
 
-    public ReflectReport runCycle(EpisodicMemoryStore episodicStore,
+    public ReflectReport runCycle(EpisodicPartitionedMemory episodicStore,
                                    CognitiveIngestionTarget ingestionTarget,
                                    Function<Long, String> textLookup) {
         if (!running.compareAndSet(false, true)) {

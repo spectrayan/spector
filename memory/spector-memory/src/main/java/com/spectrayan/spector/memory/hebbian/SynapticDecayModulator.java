@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.hebbian;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import java.lang.foreign.MemorySegment;
 

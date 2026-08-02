@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,26 +41,13 @@ import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
  * sub-partitioning within a partition.</p>
  *
  * <ul>
- *   <li>Extends {@link AbstractTierStore} for common Arena/layout/segment lifecycle</li>
+ *   <li>Extends {@link AbstractCognitiveRecordMemory} for common Arena/layout/segment lifecycle</li>
  *   <li>Full cognitive records — header + quantized vector in one slab</li>
  *   <li>Flat SIMD scan via the scorer</li>
  *   <li>Persistent across JVM restarts via {@code FileChannel.map()}</li>
  * </ul>
  */
-import com.spectrayan.spector.memory.kernel.shape.PartitionedRecordMemory;
-import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
-
-/**
- * Episodic memory store — stores time-ordered personal experiences.
- * Implements {@link PartitionedRecordMemory<CognitiveRecordLayout>} per SMK Phase 2 (Issue #381).
- *
- * <h3>Biological Analog: Hippocampus</h3>
- * <p>The hippocampus encodes events as time-ordered episodic traces. New events are
- * appended rapidly (one-trial learning), and during sleep the hippocampus replays
- * sequences for consolidation into cortical (semantic) memory.</p>
- */
-public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory 
-        implements PartitionedRecordMemory<CognitiveRecordLayout> {
+public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicPartitionedMemory.class);
 
@@ -91,28 +78,14 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory
                 filePath);
 
         log.info("EpisodicPartitionedMemory initialized: capacity={}, stride={}B, persistent=true, count={}",
-                capacity, layout.stride(), count);
+                capacity, layout.stride(), getCount());
     }
 
     public EpisodicPartitionedMemory(Path filePath, int quantizedVecBytes, int capacity) {
         this(quantizedVecBytes, capacity, filePath);
     }
 
-    @Override
-    public RecordMemory<CognitiveRecordLayout> activePartition() {
-        return this;
-    }
 
-    @Override
-    public List<RecordMemory<CognitiveRecordLayout>> historicalPartitions() {
-        return List.of();
-    }
-
-    @Override
-    public RecordMemory<CognitiveRecordLayout> rollPartition() {
-        log.info("Rolling partition for EpisodicPartitionedMemory");
-        return this;
-    }
 
     @Override
     public MemoryType type() {
@@ -121,43 +94,9 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory
 
     @Override
     public long write(CognitiveHeader header, byte[] quantizedVec) {
-        long offset = dataOffset() + (long) count * layout.stride();
+        long offset = dataOffset() + (long) getCount() * layout.stride();
         append(header, quantizedVec);
         return offset;
-    }
-
-    private final ReentrantLock writeLock = new ReentrantLock();
-
-    /**
-     * Appends a full episodic memory (header + quantized vector).
-     *
-     * @param header       cognitive header
-     * @param quantizedVec quantized vector bytes (nullable for header-only writes)
-     */
-    public void append(CognitiveHeader header, byte[] quantizedVec) {
-        writeLock.lock();
-        try {
-            if (count >= capacity) {
-                throw new SpectorMemoryTierFullException("EPISODIC", capacity);
-            }
-
-            long offset = dataOffset() + (long) count * layout.stride();
-            layout.writeHeader(segment, offset, header);
-
-            if (quantizedVec != null) {
-                MemorySegment.copy(
-                        MemorySegment.ofArray(quantizedVec), 0,
-                        segment, layout.vectorOffset(offset),
-                        quantizedVec.length
-                );
-            }
-
-            count++;
-            persistCount();
-            publishVisible(); // SWMR: make record visible to scanners
-        } finally {
-            writeLock.unlock();
-        }
     }
 
     /**
@@ -172,7 +111,7 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory
      * Returns the total record count.
      */
     public int totalRecords() {
-        return count;
+        return getCount();
     }
 
     /**
@@ -228,7 +167,7 @@ public class EpisodicPartitionedMemory extends AbstractCognitiveRecordMemory
     }
 
     /**
-     * Compatibility shim wrapping the EpisodicMemoryStore as a single "partition".
+     * Compatibility shim wrapping the EpisodicPartitionedMemory as a single "partition".
      *
      * <p>Used by ReflectDaemon, RecallPipeline, and TombstoneCompactor which
      * iterate over episodic partitions. In the new architecture, there is always

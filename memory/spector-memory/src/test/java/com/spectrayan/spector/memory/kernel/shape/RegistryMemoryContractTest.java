@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 
+import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RegistryMemoryContractTest {

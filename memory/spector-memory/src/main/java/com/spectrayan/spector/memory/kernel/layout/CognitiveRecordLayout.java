@@ -10,7 +10,7 @@
  * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.memory.synapse;
+package com.spectrayan.spector.memory.kernel.layout;
 
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.model.MemoryType;

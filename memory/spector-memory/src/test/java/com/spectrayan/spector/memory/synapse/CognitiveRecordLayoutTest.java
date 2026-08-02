@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.synapse;
 
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+
 import com.spectrayan.spector.memory.model.MemoryType;
 import org.junit.jupiter.api.Test;
 

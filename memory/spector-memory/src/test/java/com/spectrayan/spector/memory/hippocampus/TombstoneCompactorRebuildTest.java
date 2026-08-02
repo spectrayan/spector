@@ -13,11 +13,11 @@
 package com.spectrayan.spector.memory.hippocampus;
 
 import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.cortex.EpisodicMemoryStore;
+import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicPartitionedMemory.EpisodicPartition;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -51,7 +51,7 @@ class TombstoneCompactorRebuildTest {
 
     @Test
     void compactRemovesTombstonedRecords() {
-        try (EpisodicMemoryStore store = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
             // Add 100 records
             for (int i = 0; i < 100; i++) {
                 CognitiveHeader header = CognitiveHeader.create(
@@ -103,7 +103,7 @@ class TombstoneCompactorRebuildTest {
 
     @Test
     void compactPreservesVectorPayload() {
-        try (EpisodicMemoryStore store = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
             // Add 10 records with distinctive vectors
             for (int i = 0; i < 10; i++) {
                 CognitiveHeader header = CognitiveHeader.create(
@@ -141,7 +141,7 @@ class TombstoneCompactorRebuildTest {
 
     @Test
     void buildOffsetRemapProducesCorrectMapping() {
-        try (EpisodicMemoryStore store = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 10; i++) {
                 CognitiveHeader header = CognitiveHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC);
@@ -182,7 +182,7 @@ class TombstoneCompactorRebuildTest {
 
     @Test
     void replacePartitionSwapsInStore() {
-        try (EpisodicMemoryStore store = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 20; i++) {
                 CognitiveHeader header = CognitiveHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC);
@@ -218,7 +218,7 @@ class TombstoneCompactorRebuildTest {
 
     @Test
     void compactWithAllTombstonedReturnsNull() {
-        try (EpisodicMemoryStore store = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 5; i++) {
                 store.append(CognitiveHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(i));
@@ -238,7 +238,7 @@ class TombstoneCompactorRebuildTest {
 
     @Test
     void shouldCompactRespectThreshold() {
-        try (EpisodicMemoryStore store = new EpisodicMemoryStore(storePath, VEC_BYTES, CAPACITY)) {
+        try (EpisodicPartitionedMemory store = new EpisodicPartitionedMemory(storePath, VEC_BYTES, CAPACITY)) {
             for (int i = 0; i < 10; i++) {
                 store.append(CognitiveHeader.create(
                         System.currentTimeMillis(), 0L, 1.0f, 1.0f, (short) 0, MemoryType.EPISODIC), makeVec(i));

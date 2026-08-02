@@ -31,7 +31,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory;
 import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory;
-import com.spectrayan.spector.memory.kernel.shape.RegistryLayout;
+import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
 import com.spectrayan.spector.memory.kernel.layout.IdBlobLayout;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;

@@ -46,7 +46,7 @@ import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 
 /**
  * Main entry point for the cognitive memory benchmark.
@@ -347,7 +347,7 @@ public final class CognitiveBenchmarkHarness {
 
                 perQueryContributions.put(query.id(), queryContributions);
 
-                // ── Graph-expansion telemetry (P1#8) ──
+                // â”€â”€ Graph-expansion telemetry (P1#8) â”€â”€
                 // Count candidates added by graph expansion and their qrels precision
                 int graphExpandedCandidates = 0;
                 int graphExpandedRelevant = 0;
@@ -361,7 +361,7 @@ public final class CognitiveBenchmarkHarness {
                         }
                     }
                 }
-                // Δ nDCG: cognitive (with graph) vs similarity (without graph scoring)
+                // Î” nDCG: cognitive (with graph) vs similarity (without graph scoring)
                 double graphDeltaNdcg = cognitiveNdcg - similarityNdcg;
 
                 // Format contributing subsystems for CSV output

@@ -22,10 +22,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.spectrayan.spector.bench.cognitive.model.ScoredResult;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.synapse.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.IdentityCalibration;
-import com.spectrayan.spector.memory.synapse.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -46,9 +46,9 @@ class TombstoneExclusionPropertyTest {
 
     private static final int DIMS = 8;
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Property 6: Tombstoned memories never appear in results
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /**
      * Property 6: For any corpus where some records are tombstoned, those records
@@ -83,12 +83,12 @@ class TombstoneExclusionPropertyTest {
                 float[] vec;
                 byte flags;
                 if (i < actualTombstones) {
-                    // Tombstoned — use the query vector itself for max similarity
+                    // Tombstoned â€” use the query vector itself for max similarity
                     vec = queryVector.clone();
                     flags = SynapticHeaderConstants.FLAG_TOMBSTONE;
                     tombstonedIds.add(ids[i]);
                 } else {
-                    // Non-tombstoned — use a distant vector
+                    // Non-tombstoned â€” use a distant vector
                     vec = generateDeterministicVector(i, corpusSize);
                     flags = SynapticHeaderConstants.FLAG_RESOLVED; // alive and resolved
                 }
@@ -112,9 +112,9 @@ class TombstoneExclusionPropertyTest {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Generators
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Provide
     Arbitrary<float[]> queryVectors() {
@@ -122,9 +122,9 @@ class TombstoneExclusionPropertyTest {
                 .array(float[].class).ofSize(DIMS);
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Helpers
-    // ══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     private float[] generateDeterministicVector(int index, int corpusSize) {
         float[] vec = new float[DIMS];
@@ -144,8 +144,8 @@ class TombstoneExclusionPropertyTest {
                 System.currentTimeMillis(),
                 0L,
                 1.0f,
-                5.0f,    // high importance — should not override tombstone
-                10,      // high recall count — should not override tombstone
+                5.0f,    // high importance â€” should not override tombstone
+                10,      // high recall count â€” should not override tombstone
                 (short) 0,
                 (byte) 0,
                 flags

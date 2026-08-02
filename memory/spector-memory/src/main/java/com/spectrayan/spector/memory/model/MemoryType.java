@@ -24,7 +24,7 @@ package com.spectrayan.spector.memory.model;
  * </ul>
  *
  * <p>The ordinal values (0–3) are encoded as 2 bits in the flags byte of the
- * {@link com.spectrayan.spector.memory.synapse.SynapticHeaderConstants synaptic header}.</p>
+ * {@link com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants synaptic header}.</p>
  */
 public enum MemoryType {
 
