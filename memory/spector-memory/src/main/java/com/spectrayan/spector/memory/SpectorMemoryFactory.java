@@ -13,84 +13,44 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.commons.concurrent.DaemonSupervisor;
-import com.spectrayan.spector.commons.concurrent.DaemonPolicy;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
-import com.spectrayan.spector.memory.pipeline.RecallHistory;
 import com.spectrayan.spector.provider.embedding.EmbedConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
-import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
-import com.spectrayan.spector.provider.generation.LlmProvider;
-import com.spectrayan.spector.provider.embedding.TokenEmbeddingProvider;
-import com.spectrayan.spector.index.BM25Index;
-import com.spectrayan.spector.index.ColBERTReranker;
-import com.spectrayan.spector.index.ColBERTTokenCache;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
-import com.spectrayan.spector.memory.cortex.CentroidRouter;
-import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
-import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
-import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
-import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
-import com.spectrayan.spector.memory.graph.EntityExtractionMode;
-import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
-import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
-import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
-import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
 import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
 import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
-import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
-import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
+import com.spectrayan.spector.memory.pipeline.AttachmentProcessor;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
-import com.spectrayan.spector.memory.pipeline.LtpReconsolidationListener;
 import com.spectrayan.spector.memory.pipeline.RecallPipeline;
 import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
-import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
-import com.spectrayan.spector.memory.pipeline.AttachmentProcessor;
-import com.spectrayan.spector.memory.sync.WalRecoveryDispatcher;
-import com.spectrayan.spector.memory.sync.WalEvent;
-import com.spectrayan.spector.memory.kernel.Memory;
-import com.spectrayan.spector.memory.kernel.MemoryId;
-import java.nio.file.Files;
-import java.util.List;
-import java.nio.ByteBuffer;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+
+import java.nio.file.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.file.Path;
-import com.spectrayan.spector.memory.kernel.StorageLayout;
-import java.util.Map;
 
 /**
  * Factory class for assembling the core subsystems of a {@code DefaultSpectorMemory} instance.
@@ -98,6 +58,15 @@ import java.util.Map;
  * <p>Constructs and wires the ingestion pipeline, recall pipeline, persistence managers,
  * biological subsystem trackers, cognitive graphs, and search indices from configuration
  * properties in {@link SpectorMemoryBuilder}.</p>
+ *
+ * <p>The heavy lifting is delegated to a set of single-responsibility subsystem builders
+ * (see {@link CognitiveCortexBuilder}, {@link MemoryIndexBuilder},
+ * {@link BiologicalSubsystemsBuilder}, {@link CognitiveGraphBuilder},
+ * {@link RetrievalIndexBuilder}, {@link CognitiveIngestionTargetBuilder},
+ * {@link PartitionManagerBuilder}, {@link RecallPipelineBuilder},
+ * {@link DaemonSupervisorBuilder}, {@link MigrationPathResolver} and
+ * {@link MemoryWalRecovery}). {@link #assemble} is the orchestrator that invokes them in
+ * the correct dependency order and collects the results into a {@link SubsystemBundle}.</p>
  *
  * @since 1.1.0
  */
@@ -153,461 +122,53 @@ public final class SpectorMemoryFactory {
         ParallelEmbeddingPipeline parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider);
         EmbedConfig embedConfig = new EmbedConfig(builder.embedBatchSize, 3);
 
-        boolean isDisk = builder.persistenceMode == MemoryPersistenceMode.DISK;
-
-        //  Resolve persistence path 
-        Path basePath;
-        if (isDisk && builder.persistencePath != null) {
-            basePath = builder.persistencePath;
-        } else if (isDisk) {
-            try {
-                basePath = createSecureTempDirectory("spector-memory-");
-                log.warn("DISK persistence mode with no explicit path  --  using secure temp directory: {}", basePath);
-            } catch (java.io.IOException e) {
-                throw new SpectorValidationException(ErrorCode.INTERNAL_ERROR,
-                        "Failed to create secure temp directory", e);
-            }
-        } else {
-            basePath = null;
-        }
-
-        //  Quantizer 
-        ScalarQuantizer quantizer;
-        if (builder.quantizer != null) {
-            quantizer = builder.quantizer;
-        } else {
-            float[] defaultMins = new float[builder.dimensions];
-            float[] defaultMaxs = new float[builder.dimensions];
-            java.util.Arrays.fill(defaultMins, -1.0f);
-            java.util.Arrays.fill(defaultMaxs, 1.0f);
-            quantizer = ScalarQuantizer.fromBounds(builder.dimensions, defaultMins, defaultMaxs);
-        }
-
-
-        //  Namespace Manager 
-        SpectorNamespaceManager namespaceManager;
-        if (isDisk && basePath != null) {
-            namespaceManager = new SpectorNamespaceManager(basePath);
-            log.info("NamespaceManager initialized: {} namespaces discovered", namespaceManager.count());
-        } else {
-            namespaceManager = null;
-        }
-
-        //  Partition layout 
-        int quantizedVecBytes = builder.dimensions;
-
-        Path resolvedPartitionDir = null;
-        // #443 Phase 2: open ALL partitions on load. The newest is active/writable; every
-        // older partition dir is opened read-only (frozen) so recall fan-out + direct-resolve
-        // work across partitions after restart.
-        List<Path> frozenPartitionDirs = List.of();
-        if (isDisk && basePath != null) {
-            try {
-                createDirectoriesSecure(StorageLayout.runtimeDir(basePath));
-                createDirectoriesSecure(StorageLayout.partitionsDir(basePath));
-                List<Path> allPartitions = PartitionManager.discoverAllPartitions(basePath);
-                resolvedPartitionDir = allPartitions.get(allPartitions.size() - 1); // newest = active
-                if (allPartitions.size() > 1) {
-                    frozenPartitionDirs = List.copyOf(allPartitions.subList(0, allPartitions.size() - 1));
-                }
-                log.info("Active partition: {} ({} frozen partition(s) to open)",
-                        resolvedPartitionDir.getFileName(), frozenPartitionDirs.size());
-            } catch (java.io.IOException e) {
-                log.error("Failed to initialize partition layout: {}", e.getMessage(), e);
-            }
-        }
-
-        // #443: sequence of the active (newest) partition.
-        final int initialPartitionSeq = resolvedPartitionDir != null
-                ? StorageLayout.parsePartitionSeqNo(resolvedPartitionDir.getFileName().toString())
-                : 0;
-
-        //  Cognitive Memory stores 
-        CognitiveMemoryRouter cognitiveRouter;
-        WorkingRecordMemory workingStore;
-        if (isDisk && builder.persistWorkingMemory && basePath != null) {
-            workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity,
-                    StorageLayout.workingMem(basePath));
-        } else {
-            workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity);
-        }
-
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
-                    StorageLayout.episodicMem(resolvedPartitionDir),
-                    quantizedVecBytes, builder.episodicPartitionCapacity);
-            ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
-                    quantizedVecBytes, builder.proceduralCapacity,
-                    StorageLayout.proceduralMem(resolvedPartitionDir));
-            SemanticRecordMemory semanticStore = new SemanticRecordMemory(
-                    quantizedVecBytes, builder.semanticCapacity,
-                    StorageLayout.semanticMem(resolvedPartitionDir));
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
-        } else {
-            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
-                    quantizedVecBytes, builder.episodicPartitionCapacity);
-            ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
-                    quantizedVecBytes, builder.proceduralCapacity);
-            SemanticRecordMemory semanticStore = new SemanticRecordMemory(
-                    quantizedVecBytes, builder.semanticCapacity);
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
-        }
+        //  Storage + cortex foundation (path, quantizer, namespace, partitions, tier stores) 
+        CognitiveCortexBuilder.CortexFoundation cortex = CognitiveCortexBuilder.build(builder);
 
         //  Memory Index 
-        MemoryIndex index;
-        if (isDisk && basePath != null) {
-            Path runtimeIndex = StorageLayout.indexMidxRuntime(basePath);
-            Path partitionIndex = resolvedPartitionDir != null ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX) : null;
-
-            Path loadFrom = getNewerPath(runtimeIndex, partitionIndex, null);
-            if (loadFrom != null) {
-                index = MemoryIndex.load(loadFrom);
-                if (loadFrom.equals(partitionIndex)) {
-                    log.info("Loaded index from partition (newer than runtime index): {}", loadFrom);
-                } else {
-                    log.info("Loaded index from runtime: {}", loadFrom);
-                }
-            } else {
-                index = new MemoryIndex();
-            }
-        } else {
-            index = new MemoryIndex();
-        }
-
-        // #443 Phase 2: colocated-partition provenance on load.
-        //  • v6 index → each record carries its persisted colocatedPartition (register()
-        //    already keyed the reverse index by it). Do NOT overwrite — just record the
-        //    active seq for the legacy partition-unaware reverse-lookup overload.
-        //  • v5/legacy index → no persisted partition; records default to partition 0
-        //    (ADR-0002: v5 loads with colocatedPartition=0; multi-partition v5 data is
-        //    unrecoverable and is not auto-healed). For the common single-partition store,
-        //    partition 0 IS the active partition, so this is correct.
-        if (index.size() > 0 && index.isColocatedPartitionPersisted()) {
-            log.info("Loaded a v6 index with persisted colocated partitions ({} records)", index.size());
-        }
-        index.setActivePartitionSeq(initialPartitionSeq);
+        MemoryIndex index = MemoryIndexBuilder.build(cortex);
 
         //  WAL 
         MemoryWal wal;
-        if (isDisk && basePath != null) {
-            wal = new MemoryWal(StorageLayout.walDir(basePath));
+        if (cortex.isDisk() && cortex.basePath() != null) {
+            wal = new MemoryWal(StorageLayout.walDir(cortex.basePath()));
         } else {
             wal = new MemoryWal();
         }
 
-        //  Biological Subsystems 
-        SurpriseDetector surpriseDetector = new SurpriseDetector(builder.surpriseWarmup);
-        IcnuWeights icnuWeights = builder.icnuWeights != null ? builder.icnuWeights : IcnuWeights.DEFAULT;
-        FlashbulbPolicy flashbulbPolicy = new FlashbulbPolicy(builder.flashbulbThreshold);
-        ValenceTracker valenceTracker = new ValenceTracker(builder.valenceLearningRate);
+        //  Biological subsystem trackers 
+        BiologicalSubsystemsBuilder.BiologicalSubsystems bio =
+                BiologicalSubsystemsBuilder.build(builder, embeddingProvider, cortex);
 
-        CoActivationRecordMemory coActivationTracker;
-        if (isDisk && basePath != null) {
-            coActivationTracker = CoActivationRecordMemory.load(
-                    StorageLayout.coactivationTracker(basePath), 10_000, 20_000);
-        } else {
-            coActivationTracker = new CoActivationRecordMemory();
-        }
-        SuppressionSet suppressionSet = new SuppressionSet();
-        HabituationPenalty habituationPenalty = new HabituationPenalty(0.2f, builder.inhibitionTtlMs, builder.inhibitionFloor);
-        ProspectiveScheduler prospectiveScheduler = new ProspectiveScheduler();
-        MemoryIntrospector introspector = new MemoryIntrospector(coActivationTracker);
-        LateralEvaluator lateralEvaluator = new LateralEvaluator();
+        //  3-Layer cognitive graph (+ facade) 
+        CognitiveGraphBuilder.CognitiveGraphs graphs =
+                CognitiveGraphBuilder.build(builder, cortex, index);
 
-        ReflectDaemon reflectDaemon = new ReflectDaemon(
-                builder.circadianPolicy,
-                builder.dimensions > 0 ? new CentroidRouter(builder.dimensions) : null,
-                builder.LlmProvider,
-                embeddingProvider,
-                5, // minClusterSize
-                builder.pinSourceEpisodes,
-                builder.pinnedQuota);
+        //  Retrieval indices (BM25 + SPLADE + ColBERT) 
+        RetrievalIndexBuilder.RetrievalIndices retrieval =
+                RetrievalIndexBuilder.build(builder, cortex, index);
 
-        //  3-Layer Cognitive Graph 
-        int graphCapacity = builder.hebbianGraphCapacity > 0
-                ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
-
-        HebbianGraphBase hebbianGraph;
-        if (isDisk && basePath != null) {
-            Path runtimeGraph = StorageLayout.hebbianGraphRuntime(basePath);
-            Path legacyGraph = basePath.resolve(StorageLayout.FILE_HEBBIAN);
-            Path v2Graph = resolvedPartitionDir != null
-                    ? StorageLayout.hebbianGraph(resolvedPartitionDir) : null;
-            Path loadFrom = getNewerPath(runtimeGraph, v2Graph, legacyGraph);
-            if (loadFrom == null) {
-                loadFrom = legacyGraph;
-            }
-            // #435: run the codec migration up front (matching the Temporal/HyperEntity
-            // pattern). HebbianGraphCodec migrates legacy HGPH and interim HCSR containers
-            // to the kernel SMKM CSR format, which HebbianGraphMemory.load() reads natively.
-            // This is safe now that load() understands the codec's SMKM output (the exact
-            // bug #432 guarded against). load() also self-heals if this is skipped.
-            if (loadFrom != null) {
-                try {
-                    com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
-                            com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
-                            com.spectrayan.spector.memory.kernel.MemoryId.of("graph", "hebbian-csr"),
-                            new com.spectrayan.spector.memory.kernel.layout.HebbianLayout(),
-                            loadFrom, null, null);
-                } catch (Exception e) {
-                    log.warn("Operation failed: Codec validation for HebbianLayout", e);
-                }
-            }
-            hebbianGraph = HebbianGraphMemory.load(loadFrom, graphCapacity,
-                    builder.hebbianMaxDegree, builder.edgeImportance);
-        } else {
-            hebbianGraph = new HebbianGraphMemory(graphCapacity);
-        }
-
-        int temporalCapacity = builder.temporalChainCapacity > 0
-                ? builder.temporalChainCapacity : graphCapacity;
-        TemporalChainMemory temporalChain;
-        if (isDisk && basePath != null) {
-            Path runtimeChain = StorageLayout.temporalChainRuntime(basePath);
-            Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
-            Path v2Chain = resolvedPartitionDir != null
-                    ? StorageLayout.temporalChain(resolvedPartitionDir) : null;
-            Path loadFrom = getNewerPath(runtimeChain, v2Chain, legacyChain);
-            if (loadFrom == null) {
-                loadFrom = legacyChain;
-            }
-            try {
-                com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
-                        com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
-                        com.spectrayan.spector.memory.kernel.MemoryId.of("temporal", "chain"),
-                        new com.spectrayan.spector.memory.kernel.layout.TemporalLayout(),
-                        loadFrom, null, null);
-            } catch (Exception e) {
-                log.warn("Operation failed: Codec validation for TemporalLayout", e);
-            }
-            temporalChain = new TemporalChainMemory(loadFrom, temporalCapacity);
-        } else {
-            temporalChain = new TemporalChainMemory(temporalCapacity);
-        }
-
-        EntityExtractor entityExtractor;
-        if (builder.entityExtractionMode == EntityExtractionMode.LLM
-                && builder.LlmProvider != null) {
-            entityExtractor = new LlmEntityExtractor(
-                    builder.LlmProvider,
-                    builder.maxEntitiesPerMemory, builder.maxRelationsPerMemory,
-                    builder.llmGenerationOptions);
-        } else if (builder.entityExtractionMode == EntityExtractionMode.CUSTOM
-                && builder.entityExtractor != null) {
-            entityExtractor = builder.entityExtractor;
-        } else {
-            entityExtractor = NoOpEntityExtractor.INSTANCE;
-        }
-
-        boolean entityEnabled = builder.entityExtractionMode != EntityExtractionMode.NONE;
-        EntityGraphMemory entityGraph;
-        if (entityEnabled) {
-            int entityCap = builder.entityGraphCapacity;
-            int edgeCap = entityCap * builder.entityMaxDegree;
-            if (isDisk && basePath != null) {
-                Path runtimeEntity = StorageLayout.entityGraphRuntime(basePath);
-                Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);
-                Path v2Entity = resolvedPartitionDir != null
-                        ? StorageLayout.entityGraph(resolvedPartitionDir) : null;
-
-                Path loadFrom = getNewerPath(runtimeEntity, v2Entity, legacyEntity);
-                if (loadFrom != null) {
-                    entityGraph = EntityGraphMemory.load(loadFrom, entityCap, edgeCap);
-                } else {
-                    entityGraph = new EntityGraphMemory(runtimeEntity, entityCap, edgeCap,
-                            builder.entityMaxDegree, builder.edgeImportance);
-                }
-            } else {
-                entityGraph = new EntityGraphMemory(entityCap, edgeCap,
-                        builder.entityMaxDegree, builder.edgeImportance);
-            }
-        } else {
-            entityGraph = null;
-        }
-
-        HyperEntityGraphMemory hyperEntityGraph;
-        if (entityEnabled && builder.hyperEntityGraphEnabled) {
-            int hyperCap = builder.entityGraphCapacity;
-            int hyperEdgeCap = hyperCap * 2;
-            if (isDisk && basePath != null) {
-                Path runtimeHyper = StorageLayout.hyperEntityGraphRuntime(basePath);
-                Path v2Hyper = resolvedPartitionDir != null
-                        ? StorageLayout.hyperEntityGraph(resolvedPartitionDir) : null;
-                Path loadFrom = getNewerPath(runtimeHyper, v2Hyper, null);
-                if (loadFrom == null) {
-                    loadFrom = runtimeHyper;
-                }
-                // #435: no Codecs.ensureCurrent for HyperEntity — HyperEntityGraphMemory.load()
-                // is the single in-class migration authority (SMKM v2 open / legacy HYEG + hybrid
-                // migrate / present-but-unreadable throw), mirroring EntityGraphMemory.
-
-                if (java.nio.file.Files.exists(loadFrom)) {
-                    hyperEntityGraph = HyperEntityGraphMemory.load(loadFrom, hyperCap, hyperEdgeCap);
-                } else {
-                    hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
-                }
-            } else {
-                hyperEntityGraph = new HyperEntityGraphMemory(hyperCap, hyperEdgeCap);
-            }
-        } else {
-            hyperEntityGraph = null;
-        }
-
-        TemporalKnowledgeGraph temporalKnowledgeGraph;
-        TypeRegistryMemory predRegistry = (entityGraph != null) ? entityGraph.relationTypeRegistry() : new TypeRegistryMemory("relation-type");
-        if (isDisk && basePath != null) {
-            Path runtimeTkg = StorageLayout.temporalFactsRuntime(basePath);
-            long initialSize = 16L * 1024 * 1024; // 16MB
-            temporalKnowledgeGraph = new TemporalKnowledgeGraph(runtimeTkg, initialSize, predRegistry);
-        } else {
-            temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
-        }
-
-        //  BM25 Text Search 
-        MemoryBM25Index bm25Index;
-        TextAppendMemory textDataStore;
+        //  Ingestion target 
         int activePartitionIndex = 0;
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            textDataStore = new TextAppendMemory(StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
-            textDataStore.readAll();
-            index.setTextDataStore(textDataStore);
+        CognitiveIngestionTarget cognitiveTarget = CognitiveIngestionTargetBuilder.build(
+                builder, cortex, bio, graphs, retrieval, index, wal, activePartitionIndex);
 
-            java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
-            java.nio.file.Path v2Bm25 = resolvedPartitionDir != null ? StorageLayout.bm25Bidx(resolvedPartitionDir) : null;
-            java.nio.file.Path loadFrom = getNewerPath(bm25Path, v2Bm25, null);
-            if (loadFrom != null) {
-                bm25Path = loadFrom;
-            }
-            BM25Index loadedBm25 = BM25Index.load(bm25Path);
-            bm25Index = new MemoryBM25Index(1);
-            if (loadedBm25 != null) {
-                bm25Index.setPartition(0, loadedBm25);
-                log.info("BM25 loaded from binary index: {} docs", loadedBm25.size());
-            } else {
-                Map<String, String> allTexts = new java.util.HashMap<>();
-                for (var entry : index.locationMap().entrySet()) {
-                    String text = index.text(entry.getKey());
-                    if (text != null && !text.isEmpty()) {
-                        allTexts.put(entry.getKey(), text);
-                    }
-                }
-                if (!allTexts.isEmpty()) {
-                    bm25Index.rebuildPartition(0, allTexts);
-                    log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
-                    bm25Index.partition(0).save(bm25Path);
-                }
-            }
-        } else {
-            bm25Index = new MemoryBM25Index(1);
-            textDataStore = null;
-        }
-
-        //  SPLADE Index 
-        com.spectrayan.spector.memory.cortex.MemorySpladeIndex memorySpladeIndex = null;
-        if (builder.SparseEmbeddingProvider != null) {
-            memorySpladeIndex = new com.spectrayan.spector.memory.cortex.MemorySpladeIndex(1);
-            log.info("SPLADE index enabled: provider={}", builder.SparseEmbeddingProvider.modelName());
-        }
-
-        //  ColBERT Reranker 
-        ColBERTReranker colbertReranker = null;
-        if (builder.tokenEmbeddingProvider != null) {
-            ColBERTTokenCache tokenCache = new ColBERTTokenCache(
-                    builder.tokenEmbeddingProvider.tokenDimensions(), 10_000);
-            colbertReranker = new ColBERTReranker(builder.tokenEmbeddingProvider, tokenCache);
-            log.info("ColBERT reranker enabled: provider={}, tokenDims={}",
-                    builder.tokenEmbeddingProvider.modelName(),
-                    builder.tokenEmbeddingProvider.tokenDimensions());
-        }
-
-        //  Ingestion Target 
-        CognitiveIngestionTarget cognitiveTarget = new CognitiveIngestionTarget(
-                quantizer, surpriseDetector, flashbulbPolicy,
-                cognitiveRouter, index, wal, workingStore, builder.icnuWeights,
-                builder.semanticIndex, builder.tagExtractor, true,
-                hebbianGraph, temporalChain, entityExtractor, entityGraph,
-                hyperEntityGraph,
-                bm25Index, textDataStore, activePartitionIndex,
-                memorySpladeIndex, builder.SparseEmbeddingProvider,
-                builder.dataEncryptor);
-
-        //  Wire Salience Profile Provider 
-        if (builder.salienceProfileProvider != null) {
-            SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
-            if (effective != null && !effective.isNeutral()) {
-                cognitiveTarget.setSalienceProfile(effective);
-                log.info("Salience profile applied: interests={}, disinterests={}, icnuOverride={}",
-                        effective.interests().size(), effective.disinterests().size(),
-                        effective.hasIcnuOverride());
-            }
-        }
-
-        //  Seed the ingestion target's active partition seq (#443) 
-        cognitiveTarget.updateActivePartitionSeq(initialPartitionSeq);
-
-        //  Frozen partition handles (#443 Phase 2 open-all-on-load) 
-        // Open every older partition dir read-only; each gets its own tier stores + text.dat
-        // and shares the global working store. These join the registry as frozen handles.
-        List<com.spectrayan.spector.memory.cortex.PartitionHandle> frozenHandles = new java.util.ArrayList<>();
-        if (isDisk && basePath != null && !frozenPartitionDirs.isEmpty()) {
-            for (Path frozenDir : frozenPartitionDirs) {
-                int frozenSeq = StorageLayout.parsePartitionSeqNo(frozenDir.getFileName().toString());
-                try {
-                    frozenHandles.add(PartitionManager.openFrozenPartition(
-                            frozenDir, frozenSeq, workingStore, quantizedVecBytes,
-                            builder.semanticCapacity, builder.episodicPartitionCapacity,
-                            builder.proceduralCapacity, builder.dataEncryptor));
-                } catch (RuntimeException e) {
-                    log.error("Failed to open frozen partition {} — records there will be unreadable: {}",
-                            frozenDir.getFileName(), e.getMessage(), e);
-                }
-            }
-        }
-
-        //  Partition Manager 
-        PartitionManager partitionManager;
-        if (isDisk) {
-            partitionManager = new PartitionManager(
-                    basePath, quantizedVecBytes, builder.semanticCapacity,
-                    builder.episodicPartitionCapacity, builder.proceduralCapacity,
-                    cognitiveRouter, resolvedPartitionDir, textDataStore, initialPartitionSeq,
-                    frozenHandles,
-                    index, hebbianGraph, temporalChain, cognitiveTarget, builder.dataEncryptor);
-            cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
-        } else {
-            partitionManager = new PartitionManager(
-                    null, quantizedVecBytes, builder.semanticCapacity,
-                    builder.episodicPartitionCapacity, builder.proceduralCapacity,
-                    cognitiveRouter, null, textDataStore, initialPartitionSeq,
-                    List.of(),
-                    index, hebbianGraph, temporalChain, cognitiveTarget, builder.dataEncryptor);
-        }
-
-        // #443 (D3b): resolve MemoryIndex.text(id) via the memory's colocated partition,
-        // backed by the live registry (replaces the single setTextDataStore for reads).
-        index.setTextResolver(seq -> {
-            var handle = partitionManager.handleFor(seq);
-            return handle != null ? handle.text() : null;
-        });
+        //  Partition manager (+ #443 frozen-partition registry, roll callback, text resolver) 
+        PartitionManager partitionManager = PartitionManagerBuilder.build(
+                builder, cortex, retrieval, index, graphs, cognitiveTarget);
 
         //  WAL Recovery 
-        performWalRecovery(wal, cognitiveRouter, index, hebbianGraph, temporalChain, temporalKnowledgeGraph, entityGraph, coActivationTracker, cognitiveTarget, basePath, initialPartitionSeq);
+        MemoryWalRecovery.recover(wal, cortex.cognitiveRouter(), index, graphs.hebbianGraph(),
+                graphs.temporalChain(), graphs.temporalKnowledgeGraph(), graphs.entityGraph(),
+                bio.coActivationTracker(), cognitiveTarget, cortex.basePath(), cortex.initialPartitionSeq());
 
         if (wal != null) {
-            if (entityGraph != null) {
-                entityGraph.bindWal(wal);
+            if (graphs.entityGraph() != null) {
+                graphs.entityGraph().bindWal(wal);
             }
-            if (hebbianGraph instanceof com.spectrayan.spector.memory.hebbian.HebbianGraphMemory hgm) {
+            if (graphs.hebbianGraph() instanceof HebbianGraphMemory hgm) {
                 hgm.bindWal(wal);
             }
-        }
-
-
-        //  Semantic Recall Strategy + HNSW Rebuild 
-        SemanticRecallStrategy semanticStrategy = null;
-        if (builder.semanticIndex != null && cognitiveRouter.semantic() != null) {
-            semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, cognitiveRouter.semantic(), index);
-            rebuildHnswIfNeeded(builder, cognitiveRouter, index, quantizer);
         }
 
         //  ProfileAdaptor (Contextual Bandit) 
@@ -619,41 +180,25 @@ public final class SpectorMemoryFactory {
             }
         }
         ProfileAdaptor profileAdaptor = new ProfileAdaptor(salienceDefault);
-        if (!coActivationTracker.banditStats().isEmpty()) {
-            profileAdaptor.loadStats(coActivationTracker.banditStats());
+        if (!bio.coActivationTracker().banditStats().isEmpty()) {
+            profileAdaptor.loadStats(bio.coActivationTracker().banditStats());
         }
 
-        //  RecallHistory (Executive Dysfunction context buffer) 
-        RecallHistory recallHistory = new RecallHistory();
-
-        //  Recall Pipeline 
-        RecallPipeline recallPipeline = new RecallPipeline(
-                embeddingProvider, partitionManager, index,
-                suppressionSet, habituationPenalty, prospectiveScheduler, wal,
-                quantizer.mins(), quantizer.scales(), semanticStrategy,
-                null, hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
-                builder.graphScoringPolicy, bm25Index,
-                memorySpladeIndex, builder.SparseEmbeddingProvider, colbertReranker,
-                recallHistory);
-
-        recallPipeline.addListener(new LtpReconsolidationListener(index, partitionManager, wal));
-        recallPipeline.addListener(new HebbianCoActivationListener(coActivationTracker));
+        //  Recall Pipeline (semantic strategy + HNSW rebuild + history + pipeline + listeners) 
+        RecallPipeline recallPipeline = RecallPipelineBuilder.build(
+                builder, embeddingProvider, cortex, bio, graphs, retrieval, index, partitionManager, wal);
 
         //  Extracted Components 
         ImportanceEstimator importanceEstimator = new ImportanceEstimator(
-                surpriseDetector, flashbulbPolicy, icnuWeights, quantizer);
+                bio.surpriseDetector(), bio.flashbulbPolicy(), bio.icnuWeights(), cortex.quantizer());
 
         ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
-                reflectDaemon, hebbianGraph, temporalChain, entityGraph,
-                hyperEntityGraph, wal, builder.temporalRetentionDays);
+                bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityGraph(),
+                graphs.hyperEntityGraph(), wal, builder.temporalRetentionDays);
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
-                valenceTracker, hebbianGraph, lateralEvaluator, recallPipeline,
+                bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPipeline,
                 wal, builder.twoFactorConfig, profileAdaptor);
-
-        //  Cognitive Graph Facade 
-        CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
-                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, index);
 
         //  ID Generator 
         MemoryIdGenerator idGenerator = builder.idGenerator != null
@@ -661,29 +206,8 @@ public final class SpectorMemoryFactory {
                 : builder.idStrategy.createGenerator();
 
         //  Daemon Supervisor + Checkpoint Daemon  (DISK mode only)
-        CheckpointDaemon checkpointDaemon;
-        DaemonSupervisor daemonSupervisor;
-        if (isDisk && basePath != null && builder.checkpointIntervalSeconds > 0) {
-            Path indexSavePath = resolvedPartitionDir != null
-                    ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX)
-                    : StorageLayout.indexMidxRuntime(basePath);
-            checkpointDaemon = new CheckpointDaemon(
-                    cognitiveRouter, wal,
-                    StorageLayout.checkpointMeta(basePath),
-                    index, indexSavePath,
-                    hebbianGraph, temporalChain, entityGraph,
-                    hyperEntityGraph, coActivationTracker,
-                    resolvedPartitionDir, basePath);
-            daemonSupervisor = new DaemonSupervisor("memory");
-            daemonSupervisor.schedule(
-                    "checkpoint",
-                    checkpointDaemon::checkpoint,
-                    java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds),
-                    DaemonPolicy.CRITICAL);
-        } else {
-            checkpointDaemon = null;
-            daemonSupervisor = null;
-        }
+        DaemonSupervisorBuilder.DaemonBundle daemons = DaemonSupervisorBuilder.build(
+                builder, cortex, bio, graphs, index, wal);
 
         //  Multimodal Attachment Processor 
         AttachmentProcessor attachmentProcessor;
@@ -695,276 +219,16 @@ public final class SpectorMemoryFactory {
         }
 
         return new SubsystemBundle(
-                cognitiveTarget, embeddingProvider, recallPipeline, index, quantizer,
+                cognitiveTarget, embeddingProvider, recallPipeline, index, cortex.quantizer(),
                 partitionManager, importanceEstimator, reflectionOrchestrator,
-                reinforcementHandler, valenceTracker, coActivationTracker,
-                suppressionSet, habituationPenalty, prospectiveScheduler,
-                introspector, lateralEvaluator, wal, hebbianGraph, temporalChain,
-                temporalKnowledgeGraph,
-                entityGraph, hyperEntityGraph, graphFacade, idGenerator,
-                checkpointDaemon, daemonSupervisor, bm25Index, attachmentProcessor,
-                parallelPipeline, embedConfig, resolvedPartitionDir, basePath,
-                namespaceManager, profileAdaptor
+                reinforcementHandler, bio.valenceTracker(), bio.coActivationTracker(),
+                bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),
+                bio.introspector(), bio.lateralEvaluator(), wal, graphs.hebbianGraph(), graphs.temporalChain(),
+                graphs.temporalKnowledgeGraph(),
+                graphs.entityGraph(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
+                daemons.checkpointDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
+                parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
+                cortex.namespaceManager(), profileAdaptor
         );
-    }
-
-    private static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer) {
-        var semStore = cognitiveRouter.semantic();
-        int storeSize = semStore.size();
-        if (storeSize > 0 && builder.semanticIndex.size() == 0) {
-            log.info("Rebuilding HNSW index from {} persisted semantic records...", storeSize);
-            long startMs = System.currentTimeMillis();
-            var seg = semStore.primarySegment();
-            var recLayout = semStore.layout();
-            int stride = recLayout.stride();
-            int vecBytes = recLayout.quantizedVecBytes();
-            long baseOffset = semStore.filePath() != null
-                    ? com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
-
-            int rebuilt = 0;
-            for (int i = 0; i < storeSize; i++) {
-                long recordOff = baseOffset + (long) i * stride;
-                byte[] quantized = new byte[vecBytes];
-                java.lang.foreign.MemorySegment.copy(
-                        seg, java.lang.foreign.ValueLayout.JAVA_BYTE,
-                        recLayout.vectorOffset(recordOff),
-                        java.lang.foreign.MemorySegment.ofArray(quantized),
-                        java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
-
-                float[] vector = quantizer.decode(quantized);
-                String id = index.findIdByOffset(MemoryType.SEMANTIC, recordOff);
-                if (id != null && !builder.semanticIndex.isReadOnly()) {
-                    builder.semanticIndex.add(id, i, vector);
-                    rebuilt++;
-                }
-            }
-            long elapsed = System.currentTimeMillis() - startMs;
-            log.info("HNSW rebuild complete: {}/{} vectors added in {}ms", rebuilt, storeSize, elapsed);
-        }
-    }
-
-    private static Path getNewerPath(Path runtimePath, Path partitionPath, Path legacyPath) {
-        Path target = null;
-        long latestTime = Long.MIN_VALUE;
-
-        if (runtimePath != null && java.nio.file.Files.exists(runtimePath)) {
-            try {
-                long t = java.nio.file.Files.getLastModifiedTime(runtimePath).toMillis();
-                if (t > latestTime) {
-                    latestTime = t;
-                    target = runtimePath;
-                }
-            } catch (java.io.IOException e) {
-                log.debug("Failed to read last modified time for path: {}", runtimePath, e);
-            }
-        }
-
-        if (partitionPath != null && java.nio.file.Files.exists(partitionPath)) {
-            try {
-                long t = java.nio.file.Files.getLastModifiedTime(partitionPath).toMillis();
-                if (t > latestTime) {
-                    latestTime = t;
-                    target = partitionPath;
-                }
-            } catch (java.io.IOException e) {
-                log.debug("Failed to read last modified time for path: {}", partitionPath, e);
-            }
-        }
-
-        if (legacyPath != null && java.nio.file.Files.exists(legacyPath)) {
-            try {
-                long t = java.nio.file.Files.getLastModifiedTime(legacyPath).toMillis();
-                if (t > latestTime) {
-                    latestTime = t;
-                    target = legacyPath;
-                }
-            } catch (java.io.IOException e) {
-                log.debug("Failed to read last modified time for path: {}", legacyPath, e);
-            }
-        }
-
-        return target;
-    }
-
-    private static void createDirectoriesSecure(Path path) throws java.io.IOException {
-        if (java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
-            java.nio.file.attribute.FileAttribute<java.util.Set<java.nio.file.attribute.PosixFilePermission>> attrs =
-                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
-                            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
-            java.nio.file.Files.createDirectories(path, attrs);
-        } else {
-            java.nio.file.Files.createDirectories(path);
-        }
-    }
-
-    private static Path createSecureTempDirectory(String prefix) throws java.io.IOException {
-        if (java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
-            java.nio.file.attribute.FileAttribute<java.util.Set<java.nio.file.attribute.PosixFilePermission>> attrs =
-                    java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
-                            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
-            return java.nio.file.Files.createTempDirectory(prefix, attrs);
-        } else {
-            Path tempDir = java.nio.file.Files.createTempDirectory(prefix);
-            java.io.File file = tempDir.toFile();
-            boolean readable = file.setReadable(true, true);
-            boolean writable = file.setWritable(true, true);
-            boolean executable = file.setExecutable(true, true);
-            if (!readable || !writable || !executable) {
-                log.warn("Could not set strict file permissions on temporary directory: {}", tempDir);
-            }
-            return tempDir;
-        }
-    }
-
-    private static void performWalRecovery(
-            MemoryWal wal,
-            CognitiveMemoryRouter cognitiveRouter,
-            MemoryIndex index,
-            HebbianGraphBase hebbianGraph,
-            TemporalChainMemory temporalChain,
-            TemporalKnowledgeGraph temporalKnowledgeGraph,
-            EntityGraphMemory entityGraph,
-            CoActivationRecordMemory coActivationTracker,
-            CognitiveIngestionTarget cognitiveTarget,
-            Path basePath,
-            int activePartitionSeq) {
-        
-        if (wal == null || !wal.isPersistent()) {
-            return;
-        }
-        
-        long checkpointHwm = 0;
-        if (basePath != null) {
-            Path metaPath = StorageLayout.checkpointMeta(basePath);
-            if (Files.exists(metaPath)) {
-                checkpointHwm = CheckpointDaemon.readCheckpointHwm(metaPath);
-                log.info("WAL recovery: loaded checkpoint HWM {}", checkpointHwm);
-            }
-        }
-        
-        List<WalEvent> events = wal.replay(checkpointHwm);
-        if (events.isEmpty()) {
-            log.info("WAL recovery: no events to replay after HWM {}", checkpointHwm);
-            return;
-        }
-        
-        log.info("WAL recovery: replaying {} events after HWM {}", events.size(), checkpointHwm);
-        
-        // 1. Gather all shape-specific Memory instances
-        java.util.Map<MemoryId, Memory<?>> memories = new java.util.HashMap<>();
-        
-        if (cognitiveRouter != null) {
-            if (cognitiveRouter.working() != null) {
-                memories.put(cognitiveRouter.working().id(), cognitiveRouter.working());
-            }
-            if (cognitiveRouter.semantic() != null) {
-                memories.put(cognitiveRouter.semantic().id(), cognitiveRouter.semantic());
-            }
-            if (cognitiveRouter.procedural() != null) {
-                memories.put(cognitiveRouter.procedural().id(), cognitiveRouter.procedural());
-            }
-        }
-        
-        if (entityGraph != null) {
-            memories.put(entityGraph.id(), entityGraph);
-        }
-        if (hebbianGraph instanceof HebbianGraphMemory hg) {
-            memories.put(hg.id(), hg);
-        }
-        if (temporalChain != null) {
-            memories.put(MemoryId.of("temporal", "chain"), temporalChain);
-        }
-        if (temporalKnowledgeGraph != null) {
-            memories.put(temporalKnowledgeGraph.id(), temporalKnowledgeGraph.backing());
-        }
-
-        // Add textDataStore memory if available
-        MemoryId textId = MemoryId.of("cortex", "text");
-        if (index.textDataStore() != null) {
-            memories.put(textId, index.textDataStore());
-        }
-
-        long countBeforeRecovery = 0;
-        Memory<?> textMem = memories.get(textId);
-        if (textMem instanceof com.spectrayan.spector.memory.kernel.shape.AppendMemory<?> am) {
-            countBeforeRecovery = am.appendCursor();
-        }
-        
-        // 2. Dispatch shape mutations directly to target memory segments
-        WalRecoveryDispatcher.recover(wal, memories);
-        
-        // 3. Rebuild MemoryIndex on-heap maps from high-level REMEMBER/FORGET/REINFORCE events
-        long lastRecordOffset = -1;
-        MemoryType lastRecordType = null;
-        long lastTextOffset = -1;
-        int lastTextLength = -1;
-        long currentTextCursor = countBeforeRecovery;
-        
-        for (WalEvent event : events) {
-            if (event.sequence() <= checkpointHwm) {
-                continue;
-            }
-            
-            try {
-                switch (event.type()) {
-                    case RECORD_WRITE -> {
-                        ByteBuffer buf = java.nio.ByteBuffer.wrap(event.payload());
-                        long recordId = buf.getLong();
-                        MemoryId targetId = MemoryId.parse(event.memoryId());
-                        Memory<?> target = memories.get(targetId);
-                        if (target instanceof com.spectrayan.spector.memory.kernel.shape.RecordMemory<?> rm) {
-                            lastRecordOffset = rm.recordOffset(recordId);
-                            String pathName = targetId.memoryName();
-                            if ("working".equals(pathName)) lastRecordType = MemoryType.WORKING;
-                            else if ("semantic".equals(pathName)) lastRecordType = MemoryType.SEMANTIC;
-                            else if ("procedural".equals(pathName)) lastRecordType = MemoryType.PROCEDURAL;
-                            else if ("episodic".equals(pathName)) lastRecordType = MemoryType.EPISODIC;
-                        }
-                    }
-                    case APPEND -> {
-                        MemoryId targetId = MemoryId.parse(event.memoryId());
-                        if ("cortex".equals(targetId.namespace()) && "text".equals(targetId.memoryName())) {
-                            lastTextOffset = currentTextCursor;
-                            lastTextLength = event.payload().length;
-                            currentTextCursor += 4 + lastTextLength;
-                        }
-                    }
-                    case REMEMBER -> {
-                        if (lastRecordOffset != -1 && lastRecordType != null) {
-                            // CognitiveRecordLayout has dynamic stride
-                            int stride = 164; // default
-                            MemoryId targetId = MemoryId.of("tier", lastRecordType.name().toLowerCase());
-                            Memory<?> target = memories.get(targetId);
-                            if (target != null) {
-                                stride = target.layout().recordStride();
-                            }
-                            int storeIndex = (int) (lastRecordOffset / stride);
-                            com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation loc =
-                                    new com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation(
-                                            lastRecordType, lastRecordOffset, -1, activePartitionSeq,
-                                            lastTextOffset, lastTextLength);
-                            
-                            String text = "";
-                            if (index.textDataStore() != null && lastTextOffset != -1) {
-                                try {
-                                    text = index.textDataStore().readTextDirect(lastTextOffset, lastTextLength);
-                                } catch (Exception e) {
-                                    log.warn("Operation failed: Failed to read text from DataStore", e);
-                                }
-                            }
-                            
-                            index.register(event.memoryId(), loc, text, MemorySource.OBSERVED, new String[0]);
-                        }
-                    }
-                    case FORGET -> {
-                        index.remove(event.memoryId());
-                    }
-                    default -> {}
-                }
-            } catch (Exception e) {
-                log.warn("WAL recovery index sync failed for event seq={}, type={}: {}", 
-                        event.sequence(), event.type(), e.getMessage());
-            }
-        }
     }
 }
