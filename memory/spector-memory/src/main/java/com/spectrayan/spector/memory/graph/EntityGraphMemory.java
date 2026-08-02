@@ -17,8 +17,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -794,11 +796,15 @@ public final class EntityGraphMemory implements AutoCloseable, com.spectrayan.sp
         if (requiredEntries <= adjSegmentCapacity) return;
         if (fileBacked) {
             // mmap mode: pre-allocated at max capacity, should never need to grow.
-            // If this triggers, MAX_ADJ_PER_ENTITY needs increasing.
-            throw new IllegalStateException(
-                    "EntityGraph mmap adjacency segment exhausted: required=" + requiredEntries
-                    + ", capacity=" + adjSegmentCapacity
-                    + ". Increase MAX_ADJ_PER_ENTITY (currently " + MAX_ADJ_PER_ENTITY + ")");
+            // If this triggers, MAX_ADJ_PER_ENTITY needs increasing. Surface it as a
+            // domain exception carrying CAPACITY_EXCEEDED rather than the generic
+            // GRAPH_ENTITY_FAILED (#433 TD-07): this is a capacity limit, not an
+            // arbitrary operation failure.
+            throw new SpectorEntityGraphException(
+                    ErrorCode.CAPACITY_EXCEEDED,
+                    "adjacency segment exhausted (mmap); increase MAX_ADJ_PER_ENTITY (currently "
+                            + MAX_ADJ_PER_ENTITY + ")",
+                    adjSegmentCapacity, requiredEntries);
         }
         int newCapacity = Math.max(adjSegmentCapacity * 2, requiredEntries);
         MemorySegment newSeg = arena.allocate((long) ADJ_ENTRY_BYTES * newCapacity);

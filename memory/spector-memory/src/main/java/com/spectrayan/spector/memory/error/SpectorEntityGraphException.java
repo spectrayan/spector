@@ -18,9 +18,12 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * Exception thrown when an entity graph operation fails.
  *
  * <p>Covers entity addition, relation linking, entity lookup,
- * memory linking, and graph traversal ({@code SPE-310-008}).</p>
+ * memory linking, and graph traversal ({@code SPE-310-008}). Defaults to
+ * {@link ErrorCode#GRAPH_ENTITY_FAILED}, but can carry a more specific code
+ * such as {@link ErrorCode#CAPACITY_EXCEEDED} for adjacency exhaustion.</p>
  *
  * @see ErrorCode#GRAPH_ENTITY_FAILED
+ * @see ErrorCode#CAPACITY_EXCEEDED
  */
 public class SpectorEntityGraphException extends SpectorGraphException {
 
@@ -33,6 +36,24 @@ public class SpectorEntityGraphException extends SpectorGraphException {
 
     public SpectorEntityGraphException(String operation, Throwable cause) {
         super(ErrorCode.GRAPH_ENTITY_FAILED, cause, operation);
+        this.operation = operation;
+    }
+
+    /**
+     * Creates an entity graph exception with a specific {@link ErrorCode}.
+     *
+     * <p>Use this when the failure maps to a more precise code than the default
+     * {@link ErrorCode#GRAPH_ENTITY_FAILED} (for example
+     * {@link ErrorCode#CAPACITY_EXCEEDED} when an adjacency segment is
+     * exhausted). The {@code operation} is retained for {@link #getOperation()};
+     * the {@code messageArgs} are formatted into the code's message template.</p>
+     *
+     * @param errorCode   the specific error code to surface
+     * @param operation   the entity graph operation that failed (for diagnostics)
+     * @param messageArgs arguments substituted into {@code errorCode}'s template
+     */
+    public SpectorEntityGraphException(ErrorCode errorCode, String operation, Object... messageArgs) {
+        super(errorCode, messageArgs);
         this.operation = operation;
     }
 

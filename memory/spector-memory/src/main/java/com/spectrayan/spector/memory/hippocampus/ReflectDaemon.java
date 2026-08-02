@@ -245,8 +245,8 @@ public final class ReflectDaemon {
             for (EpisodicPartition partition : allPartitions) {
                 if (compactor.shouldCompact(partition)) {
                     String key = episodicStore.keyForPartition(partition);
-                    log.info("Partition {} exceeds tombstone threshold ({:.0f}%)  --  compacting",
-                            partition.path(), partition.tombstoneRatio() * 100);
+                    log.info("Partition {} exceeds tombstone threshold ({}%)  --  compacting",
+                            partition.path(), String.format("%.0f", partition.tombstoneRatio() * 100));
 
                     if (key != null) {
                         EpisodicPartition compacted = compactor.compact(

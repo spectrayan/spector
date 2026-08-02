@@ -175,8 +175,8 @@ public final class CentroidRouter {
                 for (int c = 0; c < activeCentroids && activeCentroids < MAX_CENTROIDS; c++) {
                     if (variances[c] > SPLIT_VARIANCE_THRESHOLD && counts[c] > 10) {
                         splitCentroid(c);
-                        log.info("Centroid {} split (variance={:.3f}). Active centroids: {}",
-                                c, variances[c], activeCentroids);
+                        log.info("Centroid {} split (variance={}). Active centroids: {}",
+                                c, String.format("%.3f", variances[c]), activeCentroids);
                     }
                 }
             }

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
@@ -109,7 +111,7 @@ public abstract class AbstractRecordMemory<L extends MemoryLayout> extends Abstr
             int expectedChecksum = (int) crc32c.getValue();
             int actualChecksum = segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + payloadLen);
             if (expectedChecksum != actualChecksum) {
-                throw new IllegalStateException("Record CRC32C corruption detected at recordId " + recordId);
+                throw new SpectorStorageException(ErrorCode.RECORD_CRC_CORRUPTED, recordId);
             }
         }
 

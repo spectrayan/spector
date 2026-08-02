@@ -605,8 +605,12 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
 
                 dataOffset = FILE_HEADER_BYTES;
             } else {
-                log.warn("Invalid HyperEntityGraphMemory file: magic=0x{}", Integer.toHexString(firstInt));
-                return new HyperEntityGraphMemory(entityCapacity, hyperedgeCapacity);
+                // File is present but carries an unrecognized magic — corrupt, not absent.
+                // Returning a fresh empty graph would silently discard data (#433 TD-04).
+                throw new SpectorGraphPersistenceException("HyperEntityGraphMemory", filePath,
+                        new IOException("unrecognized file magic: 0x" + Integer.toHexString(firstInt)
+                                + " (expected HYEG 0x" + Integer.toHexString(FILE_MAGIC)
+                                + " or standard header 0x" + Integer.toHexString(MemoryHeader.MAGIC) + ")"));
             }
             
             ch.position(dataOffset);
@@ -630,9 +634,13 @@ public final class HyperEntityGraphMemory implements AutoCloseable, com.spectray
             log.info("HyperEntityGraphMemory loaded: {} hyperedges, file={}", loadedTotal, filePath);
             return graph;
 
+        } catch (SpectorGraphPersistenceException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to load HyperEntityGraphMemory from {}: {}", filePath, e.getMessage());
-            return new HyperEntityGraphMemory(entityCapacity, hyperedgeCapacity);
+            // The file is present (existence checked above) but could not be read — surface
+            // it rather than silently returning an empty graph (#433 TD-04).
+            log.error("Failed to load HyperEntityGraphMemory (file present but unreadable): {}", filePath, e);
+            throw new SpectorGraphPersistenceException("HyperEntityGraphMemory", filePath, e);
         }
     }
 

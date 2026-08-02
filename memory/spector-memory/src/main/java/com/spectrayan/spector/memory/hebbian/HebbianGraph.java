@@ -1000,10 +1000,14 @@ public final class HebbianGraph implements HebbianGraphBase {
 
         try {
             return new HebbianGraph(filePath, defaultCapacity, maxDegree, edgeImportance);
+        } catch (SpectorGraphPersistenceException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to mmap HebbianGraph from {}, creating fresh: {}",
-                    filePath, e.getMessage());
-            return new HebbianGraph(defaultCapacity, maxDegree, edgeImportance);
+            // File is present (existence checked above) but could not be mmap'd/read — this is
+            // a data-integrity failure, not a "start fresh" signal. Returning a fresh empty
+            // graph would silently discard the user's associations (#433 TD-04).
+            log.error("Failed to mmap HebbianGraph from {} (file present but unreadable)", filePath, e);
+            throw new SpectorGraphPersistenceException("HebbianGraph", filePath, e);
         }
     }
 

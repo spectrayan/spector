@@ -333,8 +333,8 @@ public final class HebbianGraphMemory implements HebbianGraphBase, GraphMemory<H
             }
 
             if (removed > 0) {
-                log.debug("HebbianGraphMemory decay: {} edges removed (factor={:.3f}), {} surviving, cycle={}",
-                        removed, decayFactor, totalEdgeCount, currentCycle);
+                log.debug("HebbianGraphMemory decay: {} edges removed (factor={}), {} surviving, cycle={}",
+                        removed, String.format("%.3f", decayFactor), totalEdgeCount, currentCycle);
             }
             return removed;
         } finally {

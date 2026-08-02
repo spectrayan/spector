@@ -240,6 +240,10 @@ public enum ErrorCode {
     FILE_RENAME_FAILED        (210_011, ErrorCategory.STORAGE,
             "File rename failed from {} to {}: {}"),
 
+    /** A record's CRC32C integrity check failed — the record is corrupted on disk. */
+    RECORD_CRC_CORRUPTED      (210_012, ErrorCategory.STORAGE,
+            "Record CRC32C integrity check failed at recordId {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // EMBEDDING (SPE-300-xxx)
     // ══════════════════════════════════════════════════════════════════════
