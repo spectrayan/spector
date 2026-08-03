@@ -388,10 +388,12 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             int edgeId = nextHyperedgeId++;
             totalHyperedges++;
 
+            // Write-ahead durability (ADR-0003 #460 / #417): log the full hyperedge before writing
+            // the segments so a crash between checkpoints can replay it. Replaced the previous dead
+            // appendRecordWrite path (HyperEntity is a GraphMemory, not a RecordMemory).
             if (wal != null && !bypassWal) {
-                ByteBuffer buf = ByteBuffer.allocate(HyperEntityLayout.HEDGE_BYTES);
-                buf.putInt(type).putFloat(weight).putInt(vertexCount).putInt(memoryIdx).putLong(timestamp);
-                wal.appendRecordWrite(id().toString(), edgeId, buf.array());
+                wal.appendHyperedgeAdd(id().toString(), vertexEntities, vertexRoles,
+                        type, weight, memoryIdx, timestamp);
             }
 
             // Write hyperedge header

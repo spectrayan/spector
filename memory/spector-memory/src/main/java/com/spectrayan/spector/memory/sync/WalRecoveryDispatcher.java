@@ -27,6 +27,7 @@ import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
@@ -143,6 +144,24 @@ public final class WalRecoveryDispatcher {
                             int sessionId = payload.getInt();
                             if (target instanceof TemporalChainMemory tc) {
                                 tc.link(fromIdx, toIdx, sessionId);
+                            }
+                        }
+                        case HYPEREDGE_ADD -> {
+                            // ADR-0003 #460 / #417: replay a hyperedge. addHyperedge reassigns the
+                            // edge id by replay order (matching the original ingest).
+                            int type = payload.getInt();
+                            float weight = payload.getFloat();
+                            int memoryIdx = payload.getInt();
+                            long timestamp = payload.getLong();
+                            int vertexCount = payload.getInt();
+                            int[] verts = new int[vertexCount];
+                            int[] roles = new int[vertexCount];
+                            for (int i = 0; i < vertexCount; i++) {
+                                verts[i] = payload.getInt();
+                                roles[i] = payload.getInt();
+                            }
+                            if (target instanceof HyperEntityGraphMemory hg) {
+                                hg.addHyperedge(verts, roles, type, weight, memoryIdx, timestamp);
                             }
                         }
                         default -> {

@@ -162,7 +162,7 @@ public final class SpectorMemoryFactory {
         //  WAL Recovery 
         MemoryWalRecovery.recover(wal, cortex.cognitiveRouter(), index, graphs.hebbianGraph(),
                 graphs.temporalChain(), graphs.temporalKnowledgeGraph(), graphs.entityGraph(),
-                graphs.entityDirectory(),
+                graphs.entityDirectory(), graphs.hyperEntityGraph(),
                 bio.coActivationTracker(), cognitiveTarget, cortex.basePath(), cortex.initialPartitionSeq());
 
         // ADR-0003 #456 (P2): the EntityDirectory is now the authoritative identity store, WAL-bound
@@ -172,6 +172,10 @@ public final class SpectorMemoryFactory {
         if (wal != null) {
             if (graphs.entityDirectory() != null) {
                 graphs.entityDirectory().bindWal(wal);
+            }
+            // ADR-0003 #460 / #417: bind the hypergraph so hyperedges are durable between checkpoints.
+            if (graphs.hyperEntityGraph() != null) {
+                graphs.hyperEntityGraph().bindWal(wal);
             }
             if (graphs.hebbianGraph() instanceof HebbianGraphMemory hgm) {
                 hgm.bindWal(wal);

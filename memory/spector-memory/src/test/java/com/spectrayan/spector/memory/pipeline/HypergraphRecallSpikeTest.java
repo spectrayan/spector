@@ -133,6 +133,55 @@ class HypergraphRecallSpikeTest {
     }
 
     @Test
+    @DisplayName("HyperEntityGraph WAL round-trip recovery restores hyperedges (#460 / #417)")
+    void hyperedgeWal_roundTripRecovery_restoresHyperedges() throws IOException {
+        Path tempDir = Files.createTempDirectory("spector-hyperedge-wal");
+        try {
+            MemoryWal wal = new MemoryWal(tempDir);
+            HyperEntityGraphMemory original = new HyperEntityGraphMemory(100, 500);
+            original.bindWal(wal);
+
+            int edge = original.addHyperedge(new int[]{0, 1, 2}, new int[]{1, 3, 3},
+                    5, 2.0f, 77, 123456789L);
+            assertThat(edge).isGreaterThanOrEqualTo(0);
+            assertThat(original.collectMemories(0, 1)).contains(77);
+
+            wal.close();
+
+            // Simulate a crash between checkpoints: reopen the WAL against a fresh (empty) hypergraph.
+            MemoryWal recoveryWal = new MemoryWal(tempDir);
+            HyperEntityGraphMemory recovered = new HyperEntityGraphMemory(100, 500);
+            assertThat(recovered.totalHyperedges()).isZero();
+
+            java.util.Map<com.spectrayan.spector.memory.kernel.MemoryId, com.spectrayan.spector.memory.kernel.Memory<?>> memories = new java.util.HashMap<>();
+            memories.put(recovered.id(), recovered);
+            WalRecoveryDispatcher.recover(recoveryWal, memories);
+            recoveryWal.close();
+
+            assertThat(recovered.totalHyperedges()).isEqualTo(1);
+            assertThat(recovered.collectMemories(0, 1)).contains(77);
+            var edges = recovered.findHyperedgesForEntity(1);
+            assertThat(edges).hasSize(1);
+            assertThat(edges.get(0).memoryIdx()).isEqualTo(77);
+            assertThat(edges.get(0).type()).isEqualTo(5);
+            assertThat(edges.get(0).vertices()).hasSize(3);
+
+            recovered.close();
+            original.close();
+        } finally {
+            try {
+                Files.walk(tempDir)
+                     .sorted((a, b) -> b.compareTo(a))
+                     .forEach(p -> {
+                         try {
+                             Files.delete(p);
+                         } catch (IOException ignored) {}
+                     });
+            } catch (IOException ignored) {}
+        }
+    }
+
+    @Test
     @DisplayName("WAL binding round-trip recovery reconstructs EntityDirectory identity and HebbianGraph (#456)")
     void walBinding_roundTripRecovery_reconstructsGraphs() throws IOException {
         Path tempDir = Files.createTempDirectory("spector-wal-roundtrip");

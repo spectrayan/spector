@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
@@ -66,6 +67,7 @@ final class MemoryWalRecovery {
             TemporalKnowledgeGraph temporalKnowledgeGraph,
             EntityGraphMemory entityGraph,
             EntityDirectory entityDirectory,
+            HyperEntityGraphMemory hyperEntityGraph,
             CoActivationRecordMemory coActivationTracker,
             CognitiveIngestionTarget cognitiveTarget,
             Path basePath,
@@ -114,6 +116,10 @@ final class MemoryWalRecovery {
         // GRAPH_LINK_MEMORY events (emitted under the directory's id) dispatch here.
         if (entityDirectory != null) {
             memories.put(entityDirectory.id(), entityDirectory);
+        }
+        // ADR-0003 #460 / #417: the hypergraph is now WAL-recovered (HYPEREDGE_ADD replay).
+        if (hyperEntityGraph != null) {
+            memories.put(hyperEntityGraph.id(), hyperEntityGraph);
         }
         if (hebbianGraph instanceof HebbianGraphMemory hg) {
             memories.put(hg.id(), hg);
