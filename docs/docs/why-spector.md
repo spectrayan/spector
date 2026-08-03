@@ -75,17 +75,18 @@ Spector models memory the way brains do — based on peer-reviewed cognitive sci
 
 ### 3. Zero Dependencies, Flexible Deployment
 
-Spector runs anywhere the JVM runs — no Docker, no Python, no external services:
+One self-contained engine, no Docker and no external services — run it wherever the JVM runs and connect from any language:
 
 - **Embedded library**: Add a single JAR to your Java/Kotlin/Scala application
-- **Standalone server**: REST + gRPC + MCP APIs on a single port
+- **Standalone server**: REST + gRPC + MCP APIs on a single port — reachable from any language (Python, TypeScript, Go, and more)
+- **Python SDK**: A native client that drives the MCP server over stdio
 - **Clustered mode**: gRPC fan-out across multiple nodes with namespace sharding
 - **Kubernetes**: Helm chart with horizontal pod autoscaling
 - **Spring AI / Micronaut**: First-class framework integration
 
 ### 4. Built-In MCP Server
 
-Spector includes a 13-tool MCP server for AI agent integration — Claude Desktop, Cursor, and custom agents can use cognitive memory out of the box. No wrapper libraries needed.
+Spector includes a 16-tool MCP server for AI agent integration — Claude Desktop, Cursor, and custom agents can use cognitive memory out of the box. No wrapper libraries needed.
 
 ### 5. Enterprise-Grade Security
 
@@ -111,7 +112,7 @@ Every tenant gets physically separate files with independent encryption keys:
 | **Off-heap / Zero GC** | ✅ Panama FFM | N/A | Partial | ✅ (Rust) | Partial | ❌ | N/A |
 | **Fused cognitive scoring** | ✅ 6-phase pipeline | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Hybrid search** | ✅ HNSW + BM25 + RRF | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Built-in MCP server** | ✅ 13 tools | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Built-in MCP server** | ✅ 16 tools | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Cognitive memory** | ✅ 4-tier, bio-inspired | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Quantization** | SVASQ-8/4, IVF-PQ | ✅ | ✅ BQ | ✅ SQ/PQ | ✅ IVF-PQ/SQ | ❌ | ❌ |
 | **GPU acceleration** | ✅ CUDA via Panama | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |

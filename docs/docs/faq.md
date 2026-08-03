@@ -44,6 +44,21 @@ try (var engine = new SpectorEngine(SpectorConfig.DEFAULT.withDimensions(384))) 
 
 ---
 
+### Do I have to write Java to use Spector?
+
+**No.** Embedding the JAR in a JVM app is one option, not a requirement. Spector is language-agnostic — reach it from any stack through:
+
+| Access path | Best for |
+|-------------|----------|
+| **MCP server** (stdio + Streamable HTTP at `/mcp`) | AI agents and MCP clients (Claude Desktop, Cursor, custom) |
+| **REST / gRPC gateway** | Any language over HTTP or gRPC |
+| **Python SDK** (`sdks/python`) | Python apps — wraps the MCP server over stdio |
+| **JVM embed** | Java/Kotlin/Scala/Spring apps that want zero network hops |
+
+Java 25, Project Panama, and the Vector API are the performance engine under the hood — not a prerequisite for using Spector.
+
+---
+
 ### What about persistence? Do I lose data on restart?
 
 **No!** Spector supports persistence through memory-mapped files. The HNSW index uses a page-aligned binary format that loads instantly via `mmap` — no deserialization needed. Vector data survives restarts.

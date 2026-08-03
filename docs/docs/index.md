@@ -1,15 +1,15 @@
 ---
 title: "Spector — Zero-Overhead AI Memory & Cognitive Graph"
-description: "Spector is a Java-native AI cognitive memory system combining SIMD-accelerated dense vector similarity, BM25 text matching, SPLADE sparse retrieval, and associative graph capabilities."
+description: "Spector is a language-agnostic, agent-ready AI memory backbone — reachable from any language via MCP, REST/gRPC, and a Python SDK — combining dense vector similarity, BM25 text matching, SPLADE sparse retrieval, and associative cognitive graphs."
 ---
 
 # ⚡ Spector — The AI Memory Backbone
 
-> **Zero-overhead, agent-ready AI cognitive memory — embedded in a single JVM.**
+> **Zero-overhead, agent-ready AI cognitive memory — reachable from any language.**
 
-Spector is a **Java-native AI cognitive memory system** that combines SIMD-accelerated dense vector similarity, keyword matching (BM25), SPLADE learned sparse retrieval, associative Hebbian graphs, and biologically-inspired memory consolidation into a single embeddable library. No Docker, no external databases, no Python — just a JAR.
+Spector is a **language-agnostic, agent-ready AI memory backbone** that combines SIMD-accelerated dense vector similarity, keyword matching (BM25), SPLADE learned sparse retrieval, associative Hebbian graphs, and biologically-inspired memory consolidation into one cognitive engine. Reach it from **any language**: the in-process **MCP server** (stdio + Streamable HTTP), the **REST/gRPC** gateway, or the **Python SDK** — and embed it directly in the JVM when you want zero network hops.
 
-Connect AI agents via the **built-in MCP server** (Claude Desktop, Cursor, custom agents), embed directly in your Spring Boot app, or run standalone. Spector delivers **sub-millisecond recall** at scale with **zero garbage collection pressure** thanks to Project Panama off-heap memory.
+Embed Spector as a single JAR with **zero infrastructure** — no Docker, no external databases — **or** run it as a service and connect from any stack. Under the hood, Java 25, Project Panama, and the Vector API drive **sub-millisecond recall** at scale with **zero garbage collection pressure**.
 
 ---
 
@@ -84,8 +84,8 @@ graph LR
 
 ### What Makes Spector Different
 
-- **Embedded deployment** — runs as a library inside your JVM. No Docker, no servers, no network hops.
-- **Agent-native** — 13 MCP tools for search, memory, and cognitive operations. Connect Claude Desktop or Cursor in one config line.
+- **Flexible deployment** — embed as a single JAR inside your JVM (zero network hops) or run it as a service and connect from any language over MCP, REST, or gRPC.
+- **Agent-native** — 16 MCP tools for memory, recall, and cognitive operations. Connect Claude Desktop or Cursor in one config line.
 - **Cognitive memory** — the only system combining power-law decay, Two-Factor strengthening (Bjork & Bjork), emotional valence, and Hebbian association in a single scoring formula.
 - **Zero GC pressure** — all vector data and headers live off-heap via Project Panama. The JVM garbage collector never sees memory records.
 - **SIMD everywhere** — vector distance, quantization, and scoring use Java Vector API (AVX2/AVX-512/NEON) for hardware-accelerated computation.
@@ -105,7 +105,7 @@ graph LR
 | **Dependencies** | Zero (JDK only) |
 | **SIMD** | AVX2 / AVX-512 / NEON |
 | **GPU** | CUDA via Panama FFM |
-| **MCP** | Built-in, 13 agent-ready tools |
+| **MCP** | Built-in, 16 agent-ready tools |
 | **Distributed** | gRPC fan-out + consistent hashing |
 
 ---

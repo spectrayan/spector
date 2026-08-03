@@ -1,15 +1,15 @@
 ---
 title: "What is Spector? — AI Cognitive Memory Backbone"
-description: "Spector is a Java-native AI cognitive memory system combining dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, and biologically-inspired cognitive memory tiers in a single embeddable library."
+description: "Spector is a language-agnostic, agent-ready AI memory backbone — reachable from any language via MCP, REST/gRPC, and a Python SDK — combining dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, and biologically-inspired cognitive memory tiers."
 ---
 
 # 🌟 What is Spector?
 
 > **The Zero-Overhead, Agent-Ready AI Memory Backbone.**
 >
-> Legacy AI architectures bolted memory onto stateless vector databases. Spector is designed from the ground up for modern AI — combining dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, Hebbian graph structures, and hybrid ranking in a single embeddable library with zero external dependencies. Connect any AI agent via the built-in MCP server, or embed directly in your application.
+> Legacy AI architectures bolted memory onto stateless vector databases. Spector is designed from the ground up for modern AI — combining dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, Hebbian graph structures, and hybrid ranking in a single cognitive engine with zero external dependencies. Reach it from any language via the built-in MCP server, the REST/gRPC gateway, or the Python SDK — or embed it directly in your JVM application.
 
-Spector is an open-source, high-performance cognitive memory system built entirely on modern Java 25. It's designed for developers who want sub-millisecond memory retrieval, native AI agent integration, and zero infrastructure complexity. Drop in a JAR, write a few lines of code, and you have production-grade cognitive memory with built-in agent support.
+Spector is an open-source, high-performance cognitive memory system for developers who want sub-millisecond memory retrieval, native AI agent integration, and zero infrastructure complexity. Connect from any stack over MCP, REST/gRPC, or the Python SDK, or drop the JAR straight into a Java/Spring app — either way you get production-grade cognitive memory with built-in agent support. Modern Java 25, Project Panama, and the Vector API are the performance engine under the hood.
 
 ---
 
@@ -67,12 +67,12 @@ Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) s
 > [!TIP]
 > See the [MCP Server Guide](sdk-usage/mcp-server.md) to connect Claude Desktop, Cursor, or any MCP client in minutes.
 
-### 📦 Pure Java, Zero Dependencies
+### 📦 Pure-Java Engine, Zero Dependencies
 
-Unlike most vector databases that rely on C++, Rust, or Python bindings, Spector is 100% Java. It uses the JDK's own Vector API for SIMD acceleration — no JNI, no native libraries, no external infrastructure.
+The engine itself is 100% Java — an implementation choice that pays off in portability. Unlike most vector databases that rely on C++, Rust, or Python bindings, Spector uses the JDK's own Vector API for SIMD acceleration with no JNI, no platform-specific native libraries, and no external infrastructure: one artifact runs everywhere the JVM runs. This is about *how* Spector is built, not *who* can use it — non-JVM applications connect over MCP, REST/gRPC, or the Python SDK.
 
 > [!TIP]
-> Add the JAR to your classpath and you're done. No Docker, no clusters, no ops.
+> Embedding in a JVM app? Add the JAR to your classpath and you're done — no Docker, no clusters, no ops. On another stack? Run Spector as a service and connect over MCP or REST.
 
 ### 🚀 Modern JVM Technologies
 
@@ -190,7 +190,7 @@ Drop Spector into existing Java applications without infrastructure changes. Per
 > **Choose Spector when:**
 > - You want AI agents to autonomously manage their memories (MCP integration)
 > - You want sub-millisecond hybrid recall without infrastructure complexity
-> - Your stack is Java/JVM and you want native integration
+> - You want to reach cognitive memory from any language — over MCP, REST/gRPC, or the Python SDK — or embed it natively in a Java/JVM app
 > - You need an embedded cognitive memory library with server-mode option
 > - You want GPU acceleration without leaving the JVM
 > - Zero external dependencies matters to your deployment
@@ -198,7 +198,6 @@ Drop Spector into existing Java applications without infrastructure changes. Per
 > [!WARNING]
 > **Consider alternatives when:**
 > - You need a managed cloud service with zero ops
-> - Your team primarily works in Python/Rust/Go
 > - You need built-in ML model serving
 
 ---

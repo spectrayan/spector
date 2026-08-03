@@ -17,7 +17,7 @@
 
 ---
 
-Legacy AI architectures bolted memory onto stateless vector databases. **Spector** is designed from the ground up for modern AI as a unified cognitive memory backbone — leveraging Java Project Panama to achieve C++ bare-metal SIMD speeds natively across dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, and associative Hebbian graph memory, with a built-in MCP server that turns any AI agent into a memory-augmented reasoning machine.
+**Spector** is a language-agnostic, agent-ready cognitive memory backbone that unifies dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, and associative Hebbian graph memory — reachable from any language via an in-process MCP server (stdio + Streamable HTTP), a REST/gRPC gateway, and a Python SDK, or embeddable directly in the JVM. Under the hood, Java 25, Project Panama, and the Vector API deliver C++ bare-metal SIMD speeds with zero-GC off-heap storage — the performance engine, not a prerequisite for using it.
 
 ---
 
@@ -75,9 +75,9 @@ Spector Memory is a **biologically-inspired cognitive memory system** that gives
 | 🧊 **Off-Heap Storage** | Panama MemorySegment · zero-copy I/O | 0.01% GC overhead |
 | 🗜️ **Quantization** | SVASQ-8/4 · IVF-PQ · FWHT rotation | 4–32× compression · 99.5% recall |
 | 🔍 **Hybrid Retrieval** | 4-Layer Stack: Dense HNSW + BM25 + SPLADE / Li-LSR + ColBERT v2 | Multi-way RRF fusion + MaxSim SIMD reranking |
-| 📄 **Off-Heap Doc Store** | Encrypted `TextDataStore` (AES-256-GCM) | Zero-copy mmap'd `readTextDirect` · zero GC pressure |
+| 📄 **Off-Heap Doc Store** | Encrypted, zero-copy off-heap document store (AES-256-GCM) | Reads documents in place · zero GC pressure |
 | 🔗 **Cognitive Graphs** | Hebbian co-activation + LLM Entity Graphs | Spreading activation, temporal chains & entity links |
-| 🎛️ **Retrieval Modes** | 8 `TextSearchMode` paths (HYBRID, FULL_STACK, etc.) | Graceful degradation & flexible query optimization |
+| 🎛️ **Retrieval Modes** | Hybrid, keyword, vector, sparse & full-stack retrieval | Multiple modes with graceful degradation & query optimization |
 | 🖥️ **GPU Acceleration** | CUDA via Panama FFM | Optional · zero-copy transfer |
 | 📦 **Flexible Deployment** | Embedded JAR · Standalone · Distributed | Zero to cluster in one config |
 
