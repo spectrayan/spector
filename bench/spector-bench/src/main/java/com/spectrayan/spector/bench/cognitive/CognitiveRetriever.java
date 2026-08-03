@@ -163,24 +163,9 @@ public final class CognitiveRetriever {
      * Builds options with pipeline tracing enabled for diagnostic queries.
      */
     RecallOptions buildOptionsWithTrace(BenchmarkQuery query) {
-        RecallOptions base = buildOptions(query);
-        RecallOptions.Builder traceBuilder = RecallOptions.builder()
-                .topK(base.topK())
-                .recallMode(base.recallMode())
-                .enableTrace(true)
-                .entityHints(base.entityHints());
-
-        // Re-apply profile the same way as buildOptions
-        if ("NONE".equals(profileOverride)) {
-            // no profile
-        } else if (profileOverride != null) {
-            traceBuilder.profile(CognitiveProfile.valueOf(profileOverride));
-        } else {
-            traceBuilder.profile(query.cognitiveProfile());
-        }
-
-        return traceBuilder.build();
+        return buildOptions(query).toBuilder().enableTrace(true).build();
     }
+
 
     /**
      * Executes a recall query through the full cognitive pipeline and maps
@@ -212,9 +197,10 @@ public final class CognitiveRetriever {
      * @return full cognitive results with breakdown metadata
      */
     public List<CognitiveResult> retrieveWithBreakdown(String queryText, BenchmarkQuery query) {
-        RecallOptions options = buildOptions(query);
+        RecallOptions options = buildOptionsWithTrace(query);
         return memory.recall(queryText, options);
     }
+
 
     /**
      * Builds {@link RecallOptions} configured with {@link ScoringMode#SIMILARITY}.

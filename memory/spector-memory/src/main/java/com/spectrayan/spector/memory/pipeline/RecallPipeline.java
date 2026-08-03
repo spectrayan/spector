@@ -617,7 +617,22 @@ public final class RecallPipeline {
             return allResults;
         }
 
-        // Step 3b: BM25 text search  --  parallel to tier scans
+        // Step 4: Filter suppressed memories (inhibition)  --  always active
+        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
+
+        //  Steps 5-5b: Cognitive post-processing (shared flow) 
+        // In SIMILARITY mode, applyCognitiveScoring skips ALL cognitive scoring
+        // modifications (habituation, causal boost) so benchmarks measure pure
+        // retrieval quality.
+        applyCognitiveScoring(allResults, options, nowMs);
+
+        // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
+        graphExpansionStage.expand(allResults, queryVector, options);
+
+        // Sort vector candidates by cognitive score descending before RRF rank assignment
+        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+
+        // Step 5f: BM25 text search & fusion (if enabled)
         if (bm25Index != null && options.enableTextSearch()
                 && options.textSearchMode() != TextSearchMode.VECTOR_ONLY) {
             try {
@@ -630,7 +645,7 @@ public final class RecallPipeline {
             }
         }
 
-        // Step 3c: SPLADE learned sparse search
+        // Step 5g: SPLADE learned sparse search & fusion (if enabled)
         if (options.enableTextSearch() && options.textSearchMode().usesSPLADE()) {
             if (spladeIndex != null && spladeProvider != null) {
                 try {
@@ -654,18 +669,6 @@ public final class RecallPipeline {
                 spladeWarnLogged = true;
             }
         }
-
-        // Step 4: Filter suppressed memories (inhibition)  --  always active
-        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
-
-        //  Steps 5-5b: Cognitive post-processing (shared flow) 
-        // In SIMILARITY mode, applyCognitiveScoring skips ALL cognitive scoring
-        // modifications (habituation, causal boost) so benchmarks measure pure
-        // retrieval quality.
-        applyCognitiveScoring(allResults, options, nowMs);
-
-        // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
-        graphExpansionStage.expand(allResults, queryVector, options);
 
         // Step 6: Sort by score descending, limit to topK
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());

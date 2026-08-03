@@ -30,7 +30,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.RecallTrace;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
+
 
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.SerializationFeature;
@@ -336,6 +338,31 @@ public final class ReportWriter {
                         breakdown.put("available", false);
                     }
                     resultMap.put("breakdown", breakdown);
+
+                    
+                    if (cr.metadata() != null && cr.metadata().containsKey("graph_source")) {
+                        resultMap.put("graphSource", cr.metadata().get("graph_source"));
+                        resultMap.put("graphSeedId", cr.metadata().get("graph_seed_id"));
+                        if (cr.metadata().containsKey("graph_seed_score")) {
+                            resultMap.put("graphSeedScore", Double.parseDouble(cr.metadata().get("graph_seed_score")));
+                        }
+                    }
+
+                    RecallTrace trace = cr.trace();
+                    if (trace != null) {
+                        List<Map<String, Object>> traceSteps = new ArrayList<>();
+                        for (var step : trace.steps()) {
+                            Map<String, Object> stepMap = new LinkedHashMap<>();
+                            stepMap.put("phase", step.phaseName());
+                            stepMap.put("before", round(step.scoreBefore(), 6));
+                            stepMap.put("after", round(step.scoreAfter(), 6));
+                            stepMap.put("detail", step.detail());
+                            traceSteps.add(stepMap);
+                        }
+                        resultMap.put("trace", traceSteps);
+                    }
+
+
 
                     // Include snippet of text (first 100 chars)
                     if (cr.text() != null && !cr.text().isEmpty()) {
