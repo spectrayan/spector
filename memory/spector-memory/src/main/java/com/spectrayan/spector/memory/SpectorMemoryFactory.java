@@ -204,7 +204,7 @@ public final class SpectorMemoryFactory {
                 bio.surpriseDetector(), bio.flashbulbPolicy(), bio.icnuWeights(), cortex.quantizer());
 
         ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
-                bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityGraph(),
+                bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
                 graphs.hyperEntityGraph(), wal, builder.temporalRetentionDays);
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(

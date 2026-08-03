@@ -729,7 +729,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     partitionManager.cognitiveRouter(),
                     index,
                     quantizer,
-                    entityGraph,
+                    entityDirectory,
+                    hyperEntityGraph,
                     cognitiveTarget,
                     wal,
                     this::inspect

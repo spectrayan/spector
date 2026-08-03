@@ -16,7 +16,8 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -61,7 +62,8 @@ public final class ConsolidationService {
      * Executes the consolidation cycle across the semantic store.
      */
     public void consolidate(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer,
-                            EntityGraphMemory entityGraph, CognitiveIngestionTarget ingestionTarget,
+                            EntityDirectory entityDirectory, HyperEntityGraphMemory hyperEntityGraph,
+                            CognitiveIngestionTarget ingestionTarget,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
         CognitiveRecordMemory semanticStore = cognitiveRouter.semantic();
         if (semanticStore == null || semanticStore.visibleCount() < 2) {
@@ -81,12 +83,12 @@ public final class ConsolidationService {
 
         // Map memory slot indices to entity IDs
         Map<Integer, List<Integer>> memToEntities = new HashMap<>();
-        if (entityGraph != null) {
-            int ecnt = entityGraph.entityCount();
+        if (entityDirectory != null) {
+            int ecnt = entityDirectory.entityCount();
             for (int e = 0; e < ecnt; e++) {
-                int refCount = entityGraph.memoryRefCount(e);
+                int refCount = entityDirectory.memoryRefCount(e);
                 for (int r = 0; r < refCount; r++) {
-                    int memIdx = entityGraph.memoryRefAt(e, r);
+                    int memIdx = entityDirectory.memoryRefAt(e, r);
                     if (memIdx >= 0) {
                         memToEntities.computeIfAbsent(memIdx, k -> new ArrayList<>(2)).add(e);
                     }
@@ -124,8 +126,8 @@ public final class ConsolidationService {
                 layout.markContradicted(segment, offsetA);
                 layout.markContradicted(segment, offsetB);
 
-                // Add CONTRADICTS relation in EntityGraph
-                if (entityGraph != null) {
+                // Add CONTRADICTS relation as a 2-vertex typed hyperedge (ADR-0003 #459)
+                if (hyperEntityGraph != null) {
                     int slotA = (int) ((offsetA - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
                     int slotB = (int) ((offsetB - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
 
@@ -136,7 +138,11 @@ public final class ConsolidationService {
                         for (int eA : entitiesA) {
                             for (int eB : entitiesB) {
                                 if (eA != eB) {
-                                    entityGraph.addRelation(eA, eB, "CONTRADICTS");
+                                    hyperEntityGraph.addHyperedge(
+                                            new int[]{eA, eB},
+                                            new int[]{HyperEntityGraphMemory.ROLE_SUBJECT, HyperEntityGraphMemory.ROLE_CONTEXT},
+                                            1, // type id 1 = CONTRADICTS
+                                            1.0f, -1, System.currentTimeMillis());
                                 }
                             }
                         }

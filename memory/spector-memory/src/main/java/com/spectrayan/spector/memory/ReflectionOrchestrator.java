@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.error.SpectorGraphDecayException;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.GraphHealthMetrics;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 // RelationType enum replaced by open-schema strings via TypeRegistry
@@ -106,7 +106,7 @@ final class ReflectionOrchestrator {
     private final ReflectDaemon reflectDaemon;
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraphMemory entityGraph;
+    private final EntityDirectory entityDirectory;
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final MemoryWal wal;
     private final int temporalRetentionDays;
@@ -114,14 +114,14 @@ final class ReflectionOrchestrator {
     ReflectionOrchestrator(ReflectDaemon reflectDaemon,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
-                           EntityGraphMemory entityGraph,
+                           EntityDirectory entityDirectory,
                            HyperEntityGraphMemory hyperEntityGraph,
                            MemoryWal wal,
                            int temporalRetentionDays) {
         this.reflectDaemon = reflectDaemon;
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
-        this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.wal = wal;
         this.temporalRetentionDays = temporalRetentionDays;
@@ -279,15 +279,16 @@ final class ReflectionOrchestrator {
      * @param metrics collector for cross-capture telemetry
      */
     private void crossCaptureHebbianToEntity(GraphHealthMetrics metrics) {
-        if (entityGraph == null || entityGraph.entityCount() == 0) return;
+        if (entityDirectory == null || entityDirectory.entityCount() == 0) return;
+        if (hyperEntityGraph == null) return;
         try {
             // Build reverse index: memoryIdx → List<entityId>
-            int ecnt = entityGraph.entityCount();
+            int ecnt = entityDirectory.entityCount();
             Map<Integer, List<Integer>> memToEntities = new HashMap<>();
             for (int e = 0; e < ecnt; e++) {
-                int refCount = entityGraph.memoryRefCount(e);
+                int refCount = entityDirectory.memoryRefCount(e);
                 for (int r = 0; r < refCount; r++) {
-                    int memIdx = entityGraph.memoryRefAt(e, r);
+                    int memIdx = entityDirectory.memoryRefAt(e, r);
                     if (memIdx >= 0) {
                         memToEntities.computeIfAbsent(memIdx, k -> new ArrayList<>(2)).add(e);
                     }
@@ -316,12 +317,12 @@ final class ReflectionOrchestrator {
                     for (int eA : entitiesA) {
                         for (int eB : entitiesB) {
                             if (eA != eB) {
-                                // Boost both directions (entity edges are directional)
-                                if (entityGraph.boostEdgeWeight(eA, eB, boost)) {
+                                // Boost 2-vertex hyperedges (ADR-0003 #459: replaces directional binary edges)
+                                if (hyperEntityGraph.boostHyperedgeWeight(eA, eB, boost)) {
                                     captured++;
                                     if (metrics != null) metrics.recordCrossCapture();
                                 }
-                                if (entityGraph.boostEdgeWeight(eB, eA, boost)) {
+                                if (hyperEntityGraph.boostHyperedgeWeight(eB, eA, boost)) {
                                     captured++;
                                     if (metrics != null) metrics.recordCrossCapture();
                                 }
@@ -352,15 +353,16 @@ final class ReflectionOrchestrator {
      * @return number of entity relations created or strengthened
      */
     private int promoteHebbianToEntity(float minWeight) {
-        if (entityGraph == null || entityGraph.entityCount() == 0) return 0;
+        if (entityDirectory == null || entityDirectory.entityCount() == 0) return 0;
+        if (hyperEntityGraph == null) return 0;
 
         // Build reverse index: memoryIdx → List<entityId>
-        int ecnt = entityGraph.entityCount();
+        int ecnt = entityDirectory.entityCount();
         Map<Integer, List<Integer>> memToEntities = new HashMap<>();
         for (int e = 0; e < ecnt; e++) {
-            int refCount = entityGraph.memoryRefCount(e);
+            int refCount = entityDirectory.memoryRefCount(e);
             for (int r = 0; r < refCount; r++) {
-                int memIdx = entityGraph.memoryRefAt(e, r);
+                int memIdx = entityDirectory.memoryRefAt(e, r);
                 if (memIdx >= 0) {
                     memToEntities.computeIfAbsent(memIdx, k -> new ArrayList<>(2)).add(e);
                 }
@@ -384,7 +386,12 @@ final class ReflectionOrchestrator {
                 for (int eA : entitiesA) {
                     for (int eB : entitiesB) {
                         if (eA != eB) {
-                            entityGraph.addRelation(eA, eB, "RELATED_TO");
+                            // ADR-0003 #459: RELATED_TO becomes a 2-vertex typed hyperedge
+                            hyperEntityGraph.addHyperedge(
+                                    new int[]{eA, eB},
+                                    new int[]{HyperEntityGraphMemory.ROLE_SUBJECT, HyperEntityGraphMemory.ROLE_OBJECT},
+                                    0, // type id 0 = RELATED_TO (default/untyped)
+                                    1.0f, -1, System.currentTimeMillis());
                             promoted++;
                         }
                     }
@@ -397,14 +404,11 @@ final class ReflectionOrchestrator {
     // ── Phase 5: Entity Graph Maintenance ──
 
     private void maintainEntityGraph(GraphHealthMetrics metrics) {
-        if (entityGraph == null || entityGraph.entityCount() == 0) return;
+        // ADR-0003 #459: identity maintenance (merge) uses EntityDirectory;
+        // hyperedge decay is handled separately in decayHyperEntityGraph().
+        if (entityDirectory == null || entityDirectory.entityCount() == 0) return;
         try {
-            int entityDecayed = entityGraph.decayEdges(
-                    ENTITY_DECAY_FACTOR, ENTITY_PRUNE_THRESHOLD, metrics);
-            if (entityDecayed > 0) {
-                log.info("Reflect: entity graph decayed {} weak edges", entityDecayed);
-            }
-            int entityMerged = entityGraph.mergeSimilarEntities(ENTITY_MERGE_DISTANCE);
+            int entityMerged = entityDirectory.mergeSimilarEntities(ENTITY_MERGE_DISTANCE);
             if (entityMerged > 0) {
                 log.info("Reflect: merged {} similar entities", entityMerged);
             }
@@ -416,9 +420,9 @@ final class ReflectionOrchestrator {
     // ── Phase 5b: Entity→Memory Adjacency LTD Decay ──
 
     private void decayEntityAdjacency() {
-        if (entityGraph == null || entityGraph.entityCount() == 0) return;
+        if (entityDirectory == null || entityDirectory.entityCount() == 0) return;
         try {
-            int pruned = entityGraph.decayAdjacencyWeights(
+            int pruned = entityDirectory.decayAdjacencyWeights(
                     ENTITY_ADJ_DECAY_FACTOR, ENTITY_ADJ_PRUNE_THRESHOLD);
             if (pruned > 0) {
                 log.info("Reflect: LTD decayed entity→memory adjacency, pruned {} weak links", pruned);
@@ -431,9 +435,9 @@ final class ReflectionOrchestrator {
     // ── Phase 5c: Adjacency Compaction (Defragmentation) ──
 
     private void compactEntityAdjacency() {
-        if (entityGraph == null || entityGraph.entityCount() == 0) return;
+        if (entityDirectory == null || entityDirectory.entityCount() == 0) return;
         try {
-            long reclaimed = entityGraph.compactAdjacency();
+            long reclaimed = entityDirectory.compactAdjacency();
             if (reclaimed > 0) {
                 log.info("Reflect: adjacency compaction reclaimed {}KB", reclaimed / 1024);
             }
