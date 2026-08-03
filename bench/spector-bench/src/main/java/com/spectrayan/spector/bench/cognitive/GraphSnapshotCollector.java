@@ -19,7 +19,8 @@ import java.time.Instant;
 import java.util.List;
 
 import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -83,15 +84,16 @@ public final class GraphSnapshotCollector {
         long entityDegreeSum = 0;
         int entityAdjHighWaterMark = 0;
 
-        EntityGraphMemory eg = memory.admin().entityGraph();
-        if (eg != null) {
+        EntityDirectory eg = memory.admin().entityDirectory();
+        HyperEntityGraphMemory hyper = memory.admin().hyperEntityGraph();
+        if (eg != null && hyper != null) {
             entityCount = eg.entityCount();
-            entityEdgeCount = eg.edgeCount();
-            entityAdjHighWaterMark = eg.adjHighWaterMark();
+            entityEdgeCount = hyper.totalHyperedges();
+            entityAdjHighWaterMark = 0; // Obsolete metric
 
             // Scan entity edge degrees
-            for (int i = 0; i < entityCount; i++) {
-                int edgeSize = eg.edges(i).size();
+            for (int entityId : eg.nameIndex().values()) {
+                int edgeSize = hyper.findHyperedgesForEntity(entityId).size();
                 entityDegreeSum += edgeSize;
                 if (edgeSize > entityMaxDegree) {
                     entityMaxDegree = edgeSize;

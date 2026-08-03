@@ -24,7 +24,6 @@ import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
@@ -96,7 +95,6 @@ public final class SpectorMemoryFactory {
             HebbianGraphBase hebbianGraph,
             TemporalChainMemory temporalChain,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            EntityGraphMemory entityGraph,
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             CognitiveGraphFacade graphFacade,
@@ -161,14 +159,11 @@ public final class SpectorMemoryFactory {
 
         //  WAL Recovery 
         MemoryWalRecovery.recover(wal, cortex.cognitiveRouter(), index, graphs.hebbianGraph(),
-                graphs.temporalChain(), graphs.temporalKnowledgeGraph(), graphs.entityGraph(),
+                graphs.temporalChain(), graphs.temporalKnowledgeGraph(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(),
                 bio.coActivationTracker(), cognitiveTarget, cortex.basePath(), cortex.initialPartitionSeq());
-
         // ADR-0003 #456 (P2): the EntityDirectory is now the authoritative identity store, WAL-bound
-        // and recovered directly (WalRecoveryDispatcher GRAPH_ADD_NODE/LINK repointed to it). The
-        // EntityGraphMemory is no longer WAL-bound — it is kept only for derive-on-load and (until the
-        // #459 reflection port) the reflection/consolidation binary ops.
+        // and recovered directly (WalRecoveryDispatcher GRAPH_ADD_NODE/LINK repointed to it).
         if (wal != null) {
             if (graphs.entityDirectory() != null) {
                 graphs.entityDirectory().bindWal(wal);
@@ -236,7 +231,7 @@ public final class SpectorMemoryFactory {
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),
                 bio.introspector(), bio.lateralEvaluator(), wal, graphs.hebbianGraph(), graphs.temporalChain(),
                 graphs.temporalKnowledgeGraph(),
-                graphs.entityGraph(), graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
+                graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
                 daemons.checkpointDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor

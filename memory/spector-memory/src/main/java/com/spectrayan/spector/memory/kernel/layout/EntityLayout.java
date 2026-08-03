@@ -16,10 +16,10 @@ import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 
 /**
- * Memory layout for nodes/relations in the Entity Graph — the single source of truth for the
- * entity-node stride and every per-record byte offset (edge, adjacency) as well as the SMKM
- * container sub-header framing (#435). {@code EntityGraphMemory} references these constants
- * rather than declaring its own.
+ * Memory layout for nodes/relations in the legacy Entity Graph.
+ *
+ * @deprecated Retained for {@code EntityGraphMemory} (migration CLI only).
+ *             New code should use {@link EntityDirectoryLayout}.
  *
  * <h3>Record layouts</h3>
  * <pre>

@@ -27,11 +27,10 @@ import net.jqwik.api.constraints.IntRange;
  *
  * <p><b>Validates: Requirements 5.2, 6.2, 7.2</b>
  *
- * <p>Properties 15, 17, 19:
+ * <p>Properties 15, 17:
  * <ul>
  *   <li>15: Hebbian spreading activation attenuates by 0.3× per hop</li>
  *   <li>17: Temporal adjacency attenuates by 0.8× forward, 0.7× backward per hop</li>
- *   <li>19: Entity graph traversal attenuates by 0.25× per hop</li>
  * </ul>
  */
 class GraphTraversalPropertyTest {
@@ -133,55 +132,4 @@ class GraphTraversalPropertyTest {
         chain.close();
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // Property 19: Entity graph traversal attenuation (structural)
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Property 19: Entity graph traverse() returns results with depth information
-     * up to maxHops.
-     *
-     * <p><b>Validates: Requirements 7.2</b>
-     */
-    @Property(tries = 100)
-    void entityTraversal_respectsMaxHops(
-            @ForAll @IntRange(min = 1, max = 2) int maxHops) {
-
-        var graph = new com.spectrayan.spector.memory.graph.EntityGraphMemory(20, 20);
-
-        // Build a graph: Entity0 → Entity1 → Entity2
-        String entityType = "PERSON";
-        String relType = "KNOWS";
-
-        int e0 = graph.addEntity("Entity0", entityType);
-        int e1 = graph.addEntity("Entity1", entityType);
-        int e2 = graph.addEntity("Entity2", entityType);
-
-        graph.addRelation(e0, e1, relType);
-        graph.addRelation(e1, e2, relType);
-
-        // Link memories to entities
-        graph.linkEntityToMemory(e0, 0);
-        graph.linkEntityToMemory(e1, 1);
-        graph.linkEntityToMemory(e2, 2);
-
-        // Traverse from Entity0
-        var results = graph.traverse(e0, relType, maxHops);
-
-        // All results should have depth ≤ maxHops
-        for (var result : results) {
-            assert result.hopDistance() <= maxHops
-                    : String.format("Traversal depth %d exceeds maxHops %d",
-                    result.hopDistance(), maxHops);
-        }
-
-        // At depth 1, should find Entity1 (attenuation 0.25)
-        // At depth 2, should find Entity2 (attenuation 0.0625)
-        if (maxHops >= 1) {
-            boolean hasDepth1 = results.stream().anyMatch(r -> r.hopDistance() == 1);
-            assert hasDepth1 : "Should have depth-1 results";
-        }
-
-        graph.close();
-    }
 }

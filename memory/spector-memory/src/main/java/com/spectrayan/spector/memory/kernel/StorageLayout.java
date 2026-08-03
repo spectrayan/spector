@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
  * │   ├── index.midx
  * │   ├── hebbian.graph
  * │   ├── temporal.chain
- * │   ├── entity.graph
+ * │   ├── entity-directory.edir
  * │   ├── entity-types.treg
  * │   ├── relation-types.treg
  * │   └── bm25.bidx
@@ -161,7 +161,12 @@ public final class StorageLayout {
     /** Temporal Knowledge Graph facts (bitemporal append-only log). Stored in runtime/ (V3). */
     public static final String FILE_TEMPORAL_FACTS = "temporal-facts.tfacts";
 
-    /** Global entity knowledge graph. Stored in runtime/ (V3). */
+    /**
+     * Legacy entity knowledge graph file name.
+     * @deprecated Retained only for {@link com.spectrayan.spector.memory.graph.EntityGraphMigrationCli}
+     *             reads. New code must use {@link #FILE_ENTITY_DIRECTORY}.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_ENTITY = "entity.graph";
 
     /** HyperEntityGraph binary file (hyperedge storage). Stored in runtime/ (V3). */
@@ -494,7 +499,11 @@ public final class StorageLayout {
         return runtimeDir(basePath).resolve(FILE_TEMPORAL_FACTS);
     }
 
-    /** Resolves the entity.graph file path (in runtime/). */
+    /**
+     * Resolves the legacy entity.graph file path (in runtime/).
+     * @deprecated Retained only for migration CLI reads. Use {@link #entityDirectoryRuntime(Path)}.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path entityGraphRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_ENTITY);
     }
@@ -652,14 +661,7 @@ public final class StorageLayout {
         return partitionDir.resolve(FILE_TEMPORAL);
     }
 
-    /**
-     * Resolves the entity.graph file within a partition.
-     * @deprecated V3: use {@link #entityGraphRuntime(Path)} with basePath instead.
-     */
-    @Deprecated(forRemoval = true)
-    public static Path entityGraph(Path partitionDir) {
-        return partitionDir.resolve(FILE_ENTITY);
-    }
+
 
     /**
      * Resolves the entity-types.treg file within a partition.

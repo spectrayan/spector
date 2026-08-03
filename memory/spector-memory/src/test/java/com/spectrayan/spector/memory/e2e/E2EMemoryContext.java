@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.e2e;
 
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
 import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;

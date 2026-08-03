@@ -65,7 +65,7 @@ final class DaemonSupervisorBuilder {
                     cortex.cognitiveRouter(), wal,
                     StorageLayout.checkpointMeta(basePath),
                     index, indexSavePath,
-                    graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityGraph(),
+                    graphs.hebbianGraph(), graphs.temporalChain(),
                     graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                     resolvedPartitionDir, basePath);
             daemonSupervisor = new DaemonSupervisor("memory");

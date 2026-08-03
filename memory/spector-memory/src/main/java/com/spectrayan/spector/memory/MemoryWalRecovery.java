@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
@@ -65,7 +65,6 @@ final class MemoryWalRecovery {
             HebbianGraphBase hebbianGraph,
             TemporalChainMemory temporalChain,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
-            EntityGraphMemory entityGraph,
             EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             CoActivationRecordMemory coActivationTracker,
@@ -109,9 +108,7 @@ final class MemoryWalRecovery {
             }
         }
 
-        if (entityGraph != null) {
-            memories.put(entityGraph.id(), entityGraph);
-        }
+
         // ADR-0003 #456: the directory is the WAL-recovered identity store; GRAPH_ADD_NODE /
         // GRAPH_LINK_MEMORY events (emitted under the directory's id) dispatch here.
         if (entityDirectory != null) {

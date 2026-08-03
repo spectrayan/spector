@@ -37,7 +37,8 @@ import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
@@ -317,8 +318,8 @@ public final class BenchmarkSetup implements AutoCloseable {
             } else {
                 log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
             }
-            if (memory.admin().entityGraph() != null) {
-                loadEntityGraph(memory.admin().entityGraph(), dataset.entityRelations(), corpus);
+            if (memory.admin().entityDirectory() != null && memory.admin().hyperEntityGraph() != null) {
+                loadEntityGraph(memory.admin().entityDirectory(), memory.admin().hyperEntityGraph(), dataset.entityRelations(), corpus);
             } else {
                 log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
             }
@@ -443,7 +444,7 @@ public final class BenchmarkSetup implements AutoCloseable {
      * @param relations entity relation definitions from the dataset
      * @param corpus    the corpus records (used for entity mention  ->  memory linking)
      */
-    void loadEntityGraph(EntityGraphMemory graph, List<EntityRelation> relations,
+    void loadEntityGraph(EntityDirectory dir, HyperEntityGraphMemory hyper, List<EntityRelation> relations,
                          List<BenchmarkCorpusRecord> corpus) {
         // Build a lookup from memory ID to corpus index
         Map<String, Integer> idToIndex = new HashMap<>(corpus.size());
@@ -454,29 +455,34 @@ public final class BenchmarkSetup implements AutoCloseable {
         int relationsLoaded = 0;
 
         for (EntityRelation relation : relations) {
-            // Pass type strings directly  --  TypeRegistry auto-registers unknown types
-            int fromEntityId = graph.addEntity(relation.fromEntity().name(), relation.fromEntity().type());
+            int fromEntityId = dir.intern(relation.fromEntity().name(), relation.fromEntity().type());
             if (fromEntityId < 0) {
                 log.warn("Failed to add from-entity '{}' to graph", relation.fromEntity().name());
                 continue;
             }
 
-            int toEntityId = graph.addEntity(relation.toEntity().name(), relation.toEntity().type());
+            int toEntityId = dir.intern(relation.toEntity().name(), relation.toEntity().type());
             if (toEntityId < 0) {
                 log.warn("Failed to add to-entity '{}' to graph", relation.toEntity().name());
                 continue;
             }
 
-            // Add the typed relation
-            graph.addRelation(fromEntityId, toEntityId, relation.relationType());
-            relationsLoaded++;
-
             // Link entities to their source memories
             for (String memoryId : relation.sourceMemoryIds()) {
                 Integer memIdx = idToIndex.get(memoryId);
                 if (memIdx != null) {
-                    graph.linkEntityToMemory(fromEntityId, memIdx);
-                    graph.linkEntityToMemory(toEntityId, memIdx);
+                    dir.linkEntityToMemory(fromEntityId, memIdx);
+                    dir.linkEntityToMemory(toEntityId, memIdx);
+                    
+                    hyper.addHyperedge(
+                        new int[]{fromEntityId, toEntityId},
+                        new int[]{1, 1},
+                        1,
+                        1.0f,
+                        memIdx,
+                        System.currentTimeMillis()
+                    );
+                    relationsLoaded++;
                 } else {
                     log.warn("Entity relation source memory '{}' not found in corpus", memoryId);
                 }
@@ -484,7 +490,7 @@ public final class BenchmarkSetup implements AutoCloseable {
         }
 
         log.info("Loaded {} entity relations into graph (entities={})",
-                relationsLoaded, graph.entityCount());
+                relationsLoaded, dir.entityCount());
     }
 
     /**

@@ -83,13 +83,13 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityDirectory entityGraph = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
+             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10)) {
 
             recordMem.bindWal(wal);
             appendMem.bindWal(wal);
             registryMem.bindWal(wal);
-            entityGraph.bindWal(wal);
+            entityDirectory.bindWal(wal);
             temporalChain.bindWal(wal);
 
             // Write checkpoint mutations (source must be a full record stride wide; the
@@ -98,14 +98,14 @@ class WalRecoveryDispatcherTest {
             bytes[0] = 11;
             recordMem.write(0, MemorySegment.ofArray(bytes));
             registryMem.intern("CHECKPOINT_KEY");
-            entityGraph.intern("CheckpointEntity", "TypeA");
+            entityDirectory.intern("CheckpointEntity", "TypeA");
             temporalChain.link(0, 1, 100);
 
             // Flush all to disk
             recordMem.flush();
             appendMem.flush();
             registryMem.flush();
-            entityGraph.flush();
+            entityDirectory.flush();
             temporalChain.flush();
         }
 
@@ -124,14 +124,14 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityDirectory entityGraph = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
+             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10);
              HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(10)) {
 
             recordMem.bindWal(wal);
             appendMem.bindWal(wal);
             registryMem.bindWal(wal);
-            entityGraph.bindWal(wal);
+            entityDirectory.bindWal(wal);
             temporalChain.bindWal(wal);
             hebbianGraph.bindWal(wal);
 
@@ -147,10 +147,10 @@ class WalRecoveryDispatcherTest {
             // Mutate RegistryMemory
             registryMem.intern("CRASH_KEY");
 
-            // Mutate EntityGraphMemory
-            int e1 = entityGraph.intern("CrashEntity1", "TypeA");
-            entityGraph.intern("CrashEntity2", "TypeB");
-            entityGraph.linkEntityToMemory(e1, 7);
+            // Mutate EntityDirectory
+            int e1 = entityDirectory.intern("CrashEntity1", "TypeA");
+            entityDirectory.intern("CrashEntity2", "TypeB");
+            entityDirectory.linkEntityToMemory(e1, 7);
 
             // Mutate TemporalChain
             temporalChain.link(2, 3, 999);
@@ -162,7 +162,7 @@ class WalRecoveryDispatcherTest {
             recordMem.flush();
             appendMem.flush();
             registryMem.flush();
-            entityGraph.flush();
+            entityDirectory.flush();
             temporalChain.flush();
             hebbianGraph.flush();
         }
@@ -181,7 +181,7 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityDirectory entityGraph = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
+             EntityDirectory entityDirectory = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10);
              HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(10)) {
 
@@ -191,7 +191,7 @@ class WalRecoveryDispatcherTest {
             assertThat(readBytes[0]).isEqualTo((byte) 0); // was reset
             
             assertThat(registryMem.idOf("CRASH_KEY")).isEqualTo(-1);
-            assertThat(entityGraph.findEntity("CrashEntity1")).isEqualTo(-1);
+            assertThat(entityDirectory.findEntity("CrashEntity1")).isEqualTo(-1);
             assertThat(temporalChain.prev(2)).isEqualTo(-1);
             assertThat(getEdgeWeight(hebbianGraph, 2, 3)).isEqualTo(0.0f);
 
@@ -201,7 +201,7 @@ class WalRecoveryDispatcherTest {
                 memories.put(recordMem.id(), recordMem);
                 memories.put(appendMem.id(), appendMem);
                 memories.put(registryMem.id(), registryMem);
-                memories.put(entityGraph.id(), entityGraph);
+                memories.put(entityDirectory.id(), entityDirectory);
                 memories.put(MemoryId.of("temporal", "chain"), temporalChain);
                 memories.put(hebbianGraph.id(), hebbianGraph);
 
@@ -213,7 +213,7 @@ class WalRecoveryDispatcherTest {
             assertThat(readBytes[0]).isEqualTo((byte) 42); // recovered!
 
             assertThat(registryMem.idOf("CRASH_KEY")).isNotEqualTo(-1);
-            assertThat(entityGraph.findEntity("CrashEntity1")).isNotEqualTo(-1);
+            assertThat(entityDirectory.findEntity("CrashEntity1")).isNotEqualTo(-1);
             assertThat(temporalChain.prev(2)).isEqualTo(3);
             assertThat(getEdgeWeight(hebbianGraph, 2, 3)).isEqualTo(1.5f);
         }

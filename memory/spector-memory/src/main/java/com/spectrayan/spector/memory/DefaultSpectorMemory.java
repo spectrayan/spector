@@ -45,7 +45,6 @@ import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
@@ -188,7 +187,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
-    private final EntityGraphMemory entityGraph;
     private final EntityDirectory entityDirectory;
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final CognitiveGraphFacade graphFacade;
@@ -261,7 +259,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.hebbianGraph = bundle.hebbianGraph();
         this.temporalChain = bundle.temporalChain();
         this.temporalKnowledgeGraph = bundle.temporalKnowledgeGraph();
-        this.entityGraph = bundle.entityGraph();
         this.entityDirectory = bundle.entityDirectory();
         this.hyperEntityGraph = bundle.hyperEntityGraph();
         this.graphFacade = bundle.graphFacade();
@@ -1171,8 +1168,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public HebbianGraphBase hebbianGraph() { return graphFacade.hebbianGraph(); }
     @SuppressWarnings("deprecation")
     @Override public TemporalChainMemory temporalChain() { return graphFacade.temporalChain(); }
-    @SuppressWarnings("deprecation")
-    @Override public EntityGraphMemory entityGraph() { return graphFacade.entityGraph(); }
 
     @Override public EntityDirectory entityDirectory() { return entityDirectory; }
     @SuppressWarnings("deprecation")
@@ -1326,7 +1321,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         PersistenceManager.flushAndClose(
                 persistenceMode, persistencePath,
                 partitionManager.activePartitionDir(),
-                index, hebbianGraph, temporalChain, entityGraph, entityDirectory, hyperEntityGraph,
+                index, hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
                 coActivationTracker, temporalKnowledgeGraph, partitionManager.cognitiveRouter(), wal);
 
         // #443: release frozen partition handles (active router + working already closed

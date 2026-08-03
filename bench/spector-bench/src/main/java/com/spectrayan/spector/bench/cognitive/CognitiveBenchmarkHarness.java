@@ -230,7 +230,8 @@ public final class CognitiveBenchmarkHarness {
         // Get graph references for subsystem detection
         var hebbianGraph = memory.admin().hebbianGraph();
         var temporalChain = memory.admin().temporalChain();
-        var entityGraph = memory.admin().entityGraph();
+        var entityDirectory = memory.admin().entityDirectory();
+        var hyperEntityGraph = memory.admin().hyperEntityGraph();
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -338,7 +339,7 @@ public final class CognitiveBenchmarkHarness {
                             Set<ContributingSubsystem> resultContributions =
                                     ContributingSubsystem.detect(
                                             cogId, baselineTop10Set,
-                                            hebbianGraph, temporalChain, entityGraph,
+                                            hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
                                             breakdown, idToSlot);
                             queryContributions.addAll(resultContributions);
                         }

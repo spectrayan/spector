@@ -51,7 +51,7 @@ public final class CognitiveGraphFacade {
 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraphMemory entityGraph;
+
     /** Identity companion (ADR-0003 #455). When present, all identity reads route here. */
     private final EntityDirectory entityDirectory;
     private final HyperEntityGraphMemory hyperEntityGraph;
@@ -63,21 +63,18 @@ public final class CognitiveGraphFacade {
      */
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
                                 TemporalChainMemory temporalChain,
-                                EntityGraphMemory entityGraph,
                                 HyperEntityGraphMemory hyperEntityGraph,
                                 MemoryIndex index) {
-        this(hebbianGraph, temporalChain, entityGraph, null, hyperEntityGraph, index);
+        this(hebbianGraph, temporalChain, null, hyperEntityGraph, index);
     }
 
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
                                 TemporalChainMemory temporalChain,
-                                EntityGraphMemory entityGraph,
                                 EntityDirectory entityDirectory,
                                 HyperEntityGraphMemory hyperEntityGraph,
                                 MemoryIndex index) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
-        this.entityGraph = entityGraph;
         this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.index = index;
@@ -87,17 +84,15 @@ public final class CognitiveGraphFacade {
 
     /** True when entity identity is available (directory or legacy graph). */
     private boolean hasIdentity() {
-        return entityDirectory != null || entityGraph != null;
+        return entityDirectory != null;
     }
 
     private java.util.Map<String, Integer> identityNameIndex() {
-        if (entityDirectory != null) return entityDirectory.nameIndex();
-        return entityGraph != null ? entityGraph.nameIndex() : java.util.Map.of();
+        return entityDirectory != null ? entityDirectory.nameIndex() : java.util.Map.of();
     }
 
     private int[] identityMemoriesForEntity(int entityId) {
-        if (entityDirectory != null) return entityDirectory.memoriesForEntity(entityId);
-        return entityGraph != null ? entityGraph.memoriesForEntity(entityId) : new int[0];
+        return entityDirectory != null ? entityDirectory.memoriesForEntity(entityId) : new int[0];
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -111,10 +106,6 @@ public final class CognitiveGraphFacade {
     /** @deprecated Use {@link #graphStats()} or {@link #neighborhood(String, int, Function)} instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
     public TemporalChainMemory temporalChain() { return temporalChain; }
-
-    /** @deprecated Use {@link #graphStats()} or {@link #topologyStats()} instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    public EntityGraphMemory entityGraph() { return entityGraph; }
 
     /** @deprecated Use {@link #topologyStats()} instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
@@ -131,8 +122,8 @@ public final class CognitiveGraphFacade {
      */
     public GraphStats graphStats() {
         int hebbian = hebbianGraph != null ? hebbianGraph.totalEdges() : 0;
-        int entityNodes = entityGraph != null ? entityGraph.entityCount() : 0;
-        int entityEdges = entityGraph != null ? entityGraph.edgeCount() : 0;
+        int entityNodes = entityDirectory != null ? entityDirectory.entityCount() : 0;
+        int entityEdges = hyperEntityGraph != null ? hyperEntityGraph.totalHyperedges() : 0;
         int temporalLinks = 0;
         if (temporalChain != null) {
             int cap = temporalChain.capacity();
@@ -515,8 +506,7 @@ public final class CognitiveGraphFacade {
 
     private String safeEntityType(int entityId) {
         try {
-            if (entityDirectory != null) return entityDirectory.entityType(entityId);
-            return entityGraph.entityType(entityId);
+            return entityDirectory != null ? entityDirectory.entityType(entityId) : "ENTITY";
         } catch (Exception e) {
             return "ENTITY";
         }

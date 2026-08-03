@@ -18,7 +18,6 @@ import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -74,7 +73,6 @@ final class GraphExpansionStage {
     // ── Dependencies (all nullable — graceful degradation) ──
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraphMemory entityGraph;
     /** Identity companion (ADR-0003 #455). When present, identity reads (findEntity/fanFactor) route here. */
     private final EntityDirectory entityDirectory;
     private final com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph;
@@ -87,7 +85,6 @@ final class GraphExpansionStage {
 
     GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
-                        EntityGraphMemory entityGraph,
                         EntityDirectory entityDirectory,
                         com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                         EntityExtractor entityExtractor,
@@ -98,7 +95,6 @@ final class GraphExpansionStage {
                         float[] calibrationScales) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
-        this.entityGraph = entityGraph;
         this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
@@ -121,7 +117,7 @@ final class GraphExpansionStage {
      * Returns true if any graph subsystem is available for expansion.
      */
     boolean hasGraphSubsystems() {
-        return hebbianGraph != null || temporalChain != null || entityGraph != null || hyperEntityGraph != null;
+        return hebbianGraph != null || temporalChain != null || hyperEntityGraph != null;
     }
 
     /**
@@ -216,7 +212,7 @@ final class GraphExpansionStage {
             }
             log.debug("Graph expansion added {} candidates (from {} layers)",
                     graphCandidates.size(),
-                    (hebbianGraph != null ? 1 : 0) + (temporalChain != null ? 1 : 0) + (entityGraph != null ? 1 : 0));
+                    (hebbianGraph != null ? 1 : 0) + (temporalChain != null ? 1 : 0) + (entityDirectory != null ? 1 : 0));
         }
 
     }

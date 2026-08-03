@@ -38,12 +38,12 @@ class CognitiveGraphFacadeTest {
         // Arrange
         var hebbianGraph = mock(HebbianGraph.class);
         var temporalChain = mock(TemporalChainMemory.class);
-        var entityGraph = mock(EntityGraphMemory.class);
+        var entityDirectory = mock(EntityDirectory.class);
         var hyperEntityGraph = mock(HyperEntityGraphMemory.class);
         var index = mock(MemoryIndex.class);
 
         var facade = new CognitiveGraphFacade(
-                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, index
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, index
         );
 
         String mem1 = "mem-1";
@@ -63,9 +63,9 @@ class CognitiveGraphFacadeTest {
         // Entities: "ENTITY_1" -> id 10, associated with slots 0 and 1 (shared entity)
         Map<String, Integer> nameIndex = new LinkedHashMap<>();
         nameIndex.put("ENTITY_1", 10);
-        when(entityGraph.nameIndex()).thenReturn(nameIndex);
-        when(entityGraph.memoriesForEntity(10)).thenReturn(new int[]{0, 1});
-        when(entityGraph.entityType(10)).thenReturn("CONCEPT");
+        when(entityDirectory.nameIndex()).thenReturn(nameIndex);
+        when(entityDirectory.memoriesForEntity(10)).thenReturn(new int[]{0, 1});
+        when(entityDirectory.entityType(10)).thenReturn("CONCEPT");
 
         var mockEdge = mock(HyperEdge.class);
         when(mockEdge.memoryIdx()).thenReturn(1);

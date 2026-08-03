@@ -18,7 +18,6 @@ package com.spectrayan.spector.bench.cognitive;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.RelationType;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
@@ -36,11 +35,10 @@ import net.jqwik.api.constraints.IntRange;
  *
  * <p><b>Validates: Requirements 5.1, 6.1, 7.1</b>
  *
- * <p>Properties 14, 16, 18:
+ * <p>Properties 14, 16:
  * <ul>
  *   <li>14: Hebbian edges are bidirectional after loading</li>
  *   <li>16: Temporal chain is doubly-linked after loading</li>
- *   <li>18: Entity graph has typed edges after loading</li>
  * </ul>
  */
 class GraphLoadingPropertyTest {
@@ -120,38 +118,6 @@ class GraphLoadingPropertyTest {
         }
 
         chain.close();
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // Property 18: Entity graph typed edges
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Property 18: After adding a typed relation between two entities,
-     * a typed edge matching the specified relationType exists.
-     *
-     * <p><b>Validates: Requirements 7.1</b>
-     */
-    @Property(tries = 100)
-    void entityRelation_createsTypedEdge(
-            @ForAll("relationTypes") String relationType) {
-
-        EntityGraphMemory graph = new EntityGraphMemory(50, 50);
-
-        int entityA = graph.addEntity("Alice", "PERSON");
-        int entityB = graph.addEntity("ProjectX", "PRODUCT");
-        graph.addRelation(entityA, entityB, relationType);
-
-        // Verify the edge exists with the correct type
-        var edges = graph.edges(entityA);
-        boolean found = edges.stream()
-                .anyMatch(e -> e.targetEntityId() == entityB && e.relationType().equals(relationType));
-
-        assert found
-                : String.format("Expected typed edge %s from %d to %d",
-                relationType, entityA, entityB);
-
-        graph.close();
     }
 
     // ══════════════════════════════════════════════════════════════

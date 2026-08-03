@@ -14,9 +14,9 @@ package com.spectrayan.spector.memory.pipeline;
 
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+
 import com.spectrayan.spector.memory.graph.EntityType;
-import com.spectrayan.spector.memory.graph.EdgeImportance;
+
 import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -55,69 +55,12 @@ class HypergraphRecallSpikeTest {
         assertThat(memoriesHop1).containsExactlyInAnyOrder(10, 20);
     }
 
-    @Test
-    @DisplayName("WAL binding: entity and Hebbian mutations write to the Write-Ahead Log")
-    void walBinding_mutations_areLoggedToWal() throws IOException {
-        Path tempDir = Files.createTempDirectory("spector-wal-test");
-        try {
-            MemoryWal wal = new MemoryWal(tempDir);
-            EntityGraphMemory entityGraph = new EntityGraphMemory(100, 500, 32, EdgeImportance.DEFAULT);
-            HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(100);
 
-            // Bind WAL
-            entityGraph.bindWal(wal);
-            hebbianGraph.bindWal(wal);
-
-            // Perform mutations
-            int e0 = entityGraph.addEntity("Alpha", "CONCEPT");
-            int e1 = entityGraph.addEntity("Beta", "CONCEPT");
-            entityGraph.addRelation(e0, e1, "ASSOCIATED_WITH");
-
-            hebbianGraph.strengthen(10, 20, 2.5f);
-
-            // Replay and assert WAL event presence
-            List<WalEvent> events = wal.replay(0);
-            assertThat(events).isNotEmpty();
-
-            boolean foundNode = false;
-            boolean foundEdge = false;
-            boolean foundHebbian = false;
-
-            for (WalEvent ev : events) {
-                if (ev.type() == WalEvent.EventType.GRAPH_ADD_NODE) {
-                    foundNode = true;
-                } else if (ev.type() == WalEvent.EventType.ADJ_ADD_EDGE) {
-                    // Both EntityGraph and HebbianGraph append ADJ_ADD_EDGE
-                    foundEdge = true;
-                    foundHebbian = true;
-                }
-            }
-
-            assertThat(foundNode).isTrue();
-            assertThat(foundEdge).isTrue();
-            assertThat(foundHebbian).isTrue();
-        } finally {
-            // Cleanup WAL dir
-            try {
-                Files.walk(tempDir)
-                     .sorted((a, b) -> b.compareTo(a))
-                     .forEach(p -> {
-                         try {
-                             Files.delete(p);
-                         } catch (IOException ignored) {}
-                     });
-            } catch (IOException ignored) {}
-        }
-    }
 
     @Test
     @DisplayName("GraphExpansionStage reports hypergraph subsystem availability")
-    void graphExpansionStage_queriesHyperEntityGraph_whenUseHypergraphRecallTrue() {
-        EntityGraphMemory entityGraph = new EntityGraphMemory(100, 500, 32, EdgeImportance.DEFAULT);
+    void graphExpansionStage_queriesHyperEntityGraph() {
         HyperEntityGraphMemory hyperGraph = new HyperEntityGraphMemory(100, 500);
-
-        int e0 = entityGraph.addEntity("Alpha", "CONCEPT");
-        int e2 = entityGraph.addEntity("Gamma", "CONCEPT");
 
         hyperGraph.addHyperedge(new int[]{0, 2}, new int[]{1, 1}, 1, 1.0f, 99, System.currentTimeMillis());
 
@@ -126,7 +69,7 @@ class HypergraphRecallSpikeTest {
                 GraphExpansionMode.GATED
         );
         GraphExpansionStage stage = new GraphExpansionStage(
-                null, null, entityGraph, null, hyperGraph, null, policy, null, null, null, null
+                null, null, null, hyperGraph, null, policy, null, null, null, null
         );
 
         assertThat(stage.hasGraphSubsystems()).isTrue();

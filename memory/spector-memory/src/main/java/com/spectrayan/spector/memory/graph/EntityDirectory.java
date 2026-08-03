@@ -65,7 +65,7 @@ import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.
  * identity: the name&harr;id index, per-entity type, and the entity&rarr;memory adjacency
  * (crucially including <b>single-entity</b> memories, which never produce a hyperedge because
  * {@code addHyperedge} requires &ge;2 vertices) all lived only in the legacy
- * {@link EntityGraphMemory}. {@code EntityDirectory} absorbs exactly that identity surface —
+ * EntityGraphMemory. {@code EntityDirectory} absorbs exactly that identity surface —
  * it is {@code EntityGraphMemory} minus the binary edge / traversal machinery — so the binary
  * graph can eventually be retired without losing identity or single-entity adjacency.</p>
  *
@@ -89,7 +89,6 @@ import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.
  * identity-only {@link EntityDirectoryLayout}. The name-index codec is shared via
  * {@link EntityDirectorySerializer}.</p>
  *
- * @see EntityGraphMemory
  * @see HyperEntityGraphMemory
  */
 public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLayout> {
@@ -567,7 +566,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
 
     /**
      * Decays all entity→memory adjacency weights and prunes weak links (LTD). Mirrors
-     * {@link EntityGraphMemory#decayAdjacencyWeights(float, float)}.
+     * the legacy EntityGraphMemory#decayAdjacencyWeights(float, float).
      *
      * @param decayFactor    multiplicative factor per cycle
      * @param pruneThreshold links with weight below this after decay are removed
@@ -614,7 +613,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
 
     /**
      * Compacts the adjacency segment by defragmenting per-entity blocks. Mirrors
-     * {@link EntityGraphMemory#compactAdjacency()}.
+     * the legacy EntityGraphMemory#compactAdjacency().
      *
      * @return bytes reclaimed by compaction
      */
@@ -687,7 +686,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
 
     /**
      * Merges entities with similar names using Levenshtein distance (identity-level dedup). Moved
-     * verbatim from {@link EntityGraphMemory#mergeSimilarEntities(int)} (the directory now owns
+     * verbatim from the legacy EntityGraphMemory#mergeSimilarEntities(int) (the directory now owns
      * identity). Only entity&rarr;memory adjacency is redirected — the directory has no binary edges.
      *
      * @param maxEditDistance maximum Levenshtein distance for merge
@@ -786,7 +785,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     // ══════════════════════════════════════════════════════════════
 
     /**
-     * Derives directory contents from a loaded {@link EntityGraphMemory}, preserving the exact
+     * Derives directory contents from a loaded legacy EntityGraphMemory, preserving the exact
      * entity-id&harr;name alignment (so hyperedge vertex ids stay valid) and the entity&rarr;memory
      * adjacency including single-entity memories.
      *

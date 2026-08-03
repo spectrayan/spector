@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -60,7 +60,6 @@ final class PersistenceManager {
      * @param index              the memory index
      * @param hebbianGraph       the Hebbian graph
      * @param temporalChain      the temporal chain
-     * @param entityGraph        the entity graph (nullable)
      * @param coActivationTracker the co-activation tracker
      * @param cognitiveRouter    the cognitive memory router
      * @param wal                the write-ahead log
@@ -71,7 +70,6 @@ final class PersistenceManager {
                               MemoryIndex index,
                               HebbianGraphBase hebbianGraph,
                               TemporalChainMemory temporalChain,
-                              EntityGraphMemory entityGraph,
                               EntityDirectory entityDirectory,
                               com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                               CoActivationRecordMemory coActivationTracker,
@@ -93,11 +91,7 @@ final class PersistenceManager {
             saveSubsystem("TemporalChain", () ->
                     temporalChain.save(StorageLayout.temporalChainRuntime(persistencePath)));
 
-            // 4. EntityGraph: runtime/ (if enabled)
-            if (entityGraph != null) {
-                saveSubsystem("EntityGraph", () ->
-                        entityGraph.save(StorageLayout.entityGraphRuntime(persistencePath)));
-            }
+
 
             // 5. HyperEntityGraph: runtime/ (if enabled)
             if (hyperEntityGraph != null) {
@@ -131,7 +125,6 @@ final class PersistenceManager {
             }
         }
         coActivationTracker.close();
-        if (entityGraph != null) entityGraph.close();
         if (entityDirectory != null) entityDirectory.close();
         if (hyperEntityGraph != null) hyperEntityGraph.close();
     }
