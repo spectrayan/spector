@@ -774,6 +774,14 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
                 migrateLegacyToSmkm(filePath, 0);
                 return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
             }
+            // Legacy files may have been written with big-endian byte order (ASCII: "HYEG")
+            // while peekIntNative reads with native order (little-endian on x86), producing
+            // the byte-swapped value. Handle both endiannesses defensively.
+            if (firstInt == Integer.reverseBytes(FILE_MAGIC)) {
+                log.info("HyperEntityGraphMemory migrating legacy pure-HYEG container (BE magic) -> SMKM v2: {}", filePath);
+                migrateLegacyToSmkm(filePath, 0);
+                return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
+            }
             // File present but unrecognized magic — corrupt, not absent. Returning a fresh empty
             // graph would silently discard the user's data (#432/#433 TD-04).
             throw new IOException("unrecognized HyperEntityGraph file magic: 0x"
@@ -816,6 +824,21 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             readFully(in, hb);
             hb.flip();
             int magic = hb.getInt();
+            // Legacy files may have been written with either native or big-endian byte order.
+            // Detect which order the magic matches and re-read the header fields accordingly.
+            ByteOrder headerOrder;
+            if (magic == FILE_MAGIC) {
+                headerOrder = ByteOrder.nativeOrder();
+            } else if (magic == Integer.reverseBytes(FILE_MAGIC)) {
+                headerOrder = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
+                        ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN;
+                hb.order(headerOrder);
+                hb.position(0);
+                magic = hb.getInt(); // re-read with correct order
+            } else {
+                throw new IOException("invalid legacy HYEG header (magic=0x" + Integer.toHexString(magic)
+                        + "): " + file);
+            }
             int version = hb.getInt();
             int entityCap = hb.getInt();
             int hedgeCap = hb.getInt();
@@ -824,7 +847,7 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             int totalHedges = hb.getInt();
             // remaining 4 bytes reserved
 
-            if (magic != FILE_MAGIC || entityCap < 0 || hedgeCap < 0 || nextId < 0 || nextVertexOff < 0) {
+            if (entityCap < 0 || hedgeCap < 0 || nextId < 0 || nextVertexOff < 0) {
                 throw new IOException("invalid legacy HYEG header (magic=0x" + Integer.toHexString(magic)
                         + ", version=" + version + "): " + file);
             }
