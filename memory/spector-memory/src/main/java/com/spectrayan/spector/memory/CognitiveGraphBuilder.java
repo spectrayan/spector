@@ -228,6 +228,12 @@ final class CognitiveGraphBuilder {
                     entityDirectory = new EntityDirectory(edir, dirCap, entityTypeRegistry);
                     entityDirectory.setDataEncryptor(builder.dataEncryptor);
                     if (entityGraph != null) {
+                        Path legacyFile = StorageLayout.entityGraphRuntime(basePath);
+                        if (java.nio.file.Files.exists(legacyFile)) {
+                            log.warn("[DEPRECATED] Deriving EntityDirectory from legacy entity.graph at startup. "
+                                    + "Run EntityGraphMigrationCli to pre-migrate before the next major version "
+                                    + "removes on-the-fly derivation (ADR-0003 #457).");
+                        }
                         entityDirectory.deriveFrom(entityGraph);
                     }
                 }
