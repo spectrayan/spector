@@ -40,14 +40,14 @@ Add the following to your agent's MCP configuration (see per-agent sections belo
 
 ### 3. Start Using
 
-Your AI agent now has access to up to 21 tools. With cognitive memory enabled (`spector.memory.enabled: true`), all tools are registered. In `SEARCH` mode, only the 6 engine tools are available:
+With cognitive memory enabled (`spector.memory.enabled: true`), your AI agent now has access to all 16 cognitive memory tools:
 
-- *"Search for documents about SIMD acceleration"* → `engine_search`
-- *"Find articles mentioning 'Panama' and related to memory management"* → `engine_hybrid_search`
-- *"What does the codebase say about quantization?"* → `engine_rag`
-- *"Add this document to the index: ..."* → `engine_ingest`
 - *"Remember that the user prefers dark mode"* → `memory_remember`
 - *"What do you remember about the user's preferences?"* → `memory_recall`
+- *"That answer was wrong — downgrade it"* → `memory_reinforce`
+- *"Jot this down while I think it through"* → `memory_scratchpad`
+- *"What do you actually know about this project?"* → `memory_introspect`
+- *"Forget what I told you about the old API key"* → `memory_forget`
 
 ---
 
@@ -227,7 +227,7 @@ curl -X POST http://localhost:7070/mcp \
 # Step 3: Call a tool
 curl -X POST http://localhost:7070/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"engine_status","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"memory_status","arguments":{}}}'
 ```
 
 > [!TIP]
@@ -237,20 +237,7 @@ curl -X POST http://localhost:7070/mcp \
 
 ## MCP Tools Overview
 
-Once connected, your agent has access to these tools:
-
-### Engine Tools (available in SEARCH and HYBRID mode)
-
-| Tool | Description | Requires Embedding |
-|:---|:---|:---|
-| `engine_search` | Vector similarity search | ✅ |
-| `engine_hybrid_search` | Keyword + vector with RRF fusion | Partial (keyword mode works without) |
-| `engine_rag` | Retrieval-Augmented Generation context | ✅ |
-| `engine_ingest` | Add documents to the index | ✅ (for auto-embedding) |
-| `engine_delete` | Remove documents by ID | ❌ |
-| `engine_status` | Engine capabilities and stats | ❌ |
-
-### Memory Tools (available in MEMORY and HYBRID mode)
+Once connected, your agent has access to Spector's 16 cognitive memory tools:
 
 | Tool | Description |
 |:---|:---|
@@ -262,13 +249,14 @@ Once connected, your agent has access to these tools:
 | `memory_forget` | Tombstone a memory by ID |
 | `memory_reinforce` | Report positive/negative outcome for a memory |
 | `memory_suppress` | Suppress a memory from recall results |
-| `memory_resolve` | Mark a memory as resolved |
+| `memory_resolve` | Mark a memory as resolved or unresolved |
 | `memory_introspect` | Metamemory self-analysis on a topic |
 | `memory_compute_importance` | Read-only importance estimation for text |
 | `memory_scratchpad` | Quick-write to working memory |
 | `memory_reminder` | Schedule a time-triggered reminder |
 | `memory_why_not` | Explain why a memory was not recalled |
 | `memory_status` | Memory tier counts and persistence info |
+| `memory_salience` | Inspect and tune the active salience profile |
 
 > [!NOTE]
 > For full tool schemas and parameter details, see the [MCP Integration Architecture](../architecture/mcp-integration.md#tool-reference) page.
@@ -285,7 +273,7 @@ Once connected, your agent has access to these tools:
 
 ### "Embedding provider not configured" errors
 
-The `engine_search` and `engine_rag` tools require an embedding provider. Ensure:
+The cognitive memory tools embed text to store and recall memories, so they require an embedding provider. Ensure:
 
 1. Ollama is running: `ollama serve`
 2. The model is pulled: `ollama pull nomic-embed-text`

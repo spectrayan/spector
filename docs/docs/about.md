@@ -1,15 +1,15 @@
 ---
 title: "What is Spector? — AI Cognitive Memory Backbone"
-description: "Spector is a Java-native AI cognitive memory system combining dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, and biologically-inspired cognitive memory tiers in a single embeddable library."
+description: "Spector is a cognitive memory backbone for AI agents, combining biologically-inspired memory tiers, associative Hebbian graphs, and fused semantic and hybrid retrieval in a single embeddable library with a built-in MCP server."
 ---
 
 # 🌟 What is Spector?
 
 > **The Zero-Overhead, Agent-Ready AI Memory Backbone.**
 >
-> Legacy AI architectures bolted memory onto stateless vector databases. Spector is designed from the ground up for modern AI — combining dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, Hebbian graph structures, and hybrid ranking in a single embeddable library with zero external dependencies. Connect any AI agent via the built-in MCP server, or embed directly in your application.
+> Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. Spector is built from the ground up for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and entity links — then retrieves with fused semantic and hybrid scoring. Connect any AI agent through the built-in MCP server, call it over REST/gRPC, drive it from the Python SDK, or embed it directly in the JVM.
 
-Spector is an open-source, high-performance cognitive memory system built entirely on modern Java 25. It's designed for developers who want sub-millisecond memory retrieval, native AI agent integration, and zero infrastructure complexity. Drop in a JAR, write a few lines of code, and you have production-grade cognitive memory with built-in agent support.
+Spector is an open-source, high-performance cognitive memory system. It delivers sub-millisecond memory retrieval, native AI agent integration, and zero infrastructure complexity — reach it from any language over MCP or REST/gRPC, use the Python SDK, or embed it as a single JAR. Every user, agent, or tenant is physically isolated in its own on-disk namespace. Under the hood, modern Java 25, Project Panama, and the Vector API deliver the performance.
 
 ---
 
@@ -53,7 +53,7 @@ graph LR
 
 ### 🤖 Agent-Native (MCP Protocol)
 
-Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server with 16 tools. AI agents connect directly via JSON-RPC — no Python frameworks, no network round-trips.
+Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server with 16 cognitive memory tools. AI agents connect directly via JSON-RPC — no adapter layer, no network round-trips.
 
 | Feature | Python Vector DB MCP | **Spector MCP** |
 |:---|:---|:---|
@@ -67,9 +67,17 @@ Includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) s
 > [!TIP]
 > See the [MCP Server Guide](sdk-usage/mcp-server.md) to connect Claude Desktop, Cursor, or any MCP client in minutes.
 
-### 📦 Pure Java, Zero Dependencies
+### � Associative Cognitive Graphs
 
-Unlike most vector databases that rely on C++, Rust, or Python bindings, Spector is 100% Java. It uses the JDK's own Vector API for SIMD acceleration — no JNI, no native libraries, no external infrastructure.
+Spector doesn't just store vectors — it links memories. Hebbian co-activation, temporal chains, and an LLM-powered entity graph connect related memories, and spreading activation means recall surfaces what's *related*, not just what matches. It's memory that forms associations, the way a brain does.
+
+### 🔒 Physical Namespace Isolation
+
+Every user, agent, or tenant's memory lives in its own on-disk directory tree — true data separation, not a `WHERE tenant_id = ?` filter over a shared store. Namespaces are hash-sharded to scale to millions and encrypted at rest (AES-256-GCM).
+
+### �📦 Pure-Java Engine, Zero Dependencies
+
+Unlike most vector databases that rely on C++, Rust, or Python bindings, Spector's engine is pure Java — no JNI, no native libraries, no external infrastructure to install. It uses the JDK's own Vector API for SIMD acceleration.
 
 > [!TIP]
 > Add the JAR to your classpath and you're done. No Docker, no clusters, no ops.
@@ -164,7 +172,7 @@ Spector offers two quantization paths:
 
 ### 🤖 Agentic AI Memory
 
-Connect AI agents (Claude, Cursor, custom) directly to Spector via the built-in MCP server. The agent autonomously ingests documents, searches for relevant context, and retrieves information — all with zero Python glue-code. *"Point your LLM at Spector's MCP port, and it instantly has mathematically-perfect long-term memory."*
+Connect AI agents (Claude, Cursor, custom) directly to Spector via the built-in MCP server. The agent autonomously ingests documents, searches for relevant context, and retrieves information — all with zero glue-code. *"Point your LLM at Spector's MCP port, and it instantly has mathematically-perfect long-term memory."*
 
 ### 🔍 Semantic Search & Recall Applications
 
@@ -190,15 +198,15 @@ Drop Spector into existing Java applications without infrastructure changes. Per
 > **Choose Spector when:**
 > - You want AI agents to autonomously manage their memories (MCP integration)
 > - You want sub-millisecond hybrid recall without infrastructure complexity
-> - Your stack is Java/JVM and you want native integration
-> - You need an embedded cognitive memory library with server-mode option
+> - You work in any language — connect over MCP or REST/gRPC, drive it from the Python SDK, or embed it natively in the JVM
+> - You need cognitive memory that forms associations, not just a vector store
 > - You want GPU acceleration without leaving the JVM
 > - Zero external dependencies matters to your deployment
 
 > [!WARNING]
 > **Consider alternatives when:**
 > - You need a managed cloud service with zero ops
-> - Your team primarily works in Python/Rust/Go
+> - You need multi-modal retrieval across images, audio, and video out of the box
 > - You need built-in ML model serving
 
 ---

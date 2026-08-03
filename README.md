@@ -17,7 +17,7 @@
 
 ---
 
-Legacy AI architectures bolted memory onto stateless vector databases. **Spector** is designed from the ground up for modern AI as a unified cognitive memory backbone — leveraging Java Project Panama to achieve C++ bare-metal SIMD speeds natively across dense vector similarity, BM25 keyword matching, SPLADE learned sparse retrieval, and associative Hebbian graph memory, with a built-in MCP server that turns any AI agent into a memory-augmented reasoning machine.
+Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. **Spector** is a cognitive memory backbone for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and entity links — then retrieves with fused semantic and hybrid scoring at sub-millisecond latency. Connect any AI agent through the built-in **MCP server**, call it over **REST/gRPC**, drive it from the **Python SDK**, or embed it directly in the JVM. Every user, agent, or tenant is physically isolated in its own on-disk namespace — true data separation, not a shared-store filter. Under the hood, Java Project Panama and the Vector API deliver C++-class SIMD speed with zero garbage-collection pressure.
 
 ---
 
@@ -68,18 +68,18 @@ Spector Memory is a **biologically-inspired cognitive memory system** that gives
 
 ## ✨ Key Capabilities
 
-| Capability | Technology | Performance / Specifications |
-|:---|:---|:---|
-| 🤖 **Agent-Native (MCP)** | Model Context Protocol · 16 tools · stdio + Streamable HTTP | Claude · Cursor · autonomous agents |
-| ⚡ **SIMD Scoring** | Java Vector API (AVX2/AVX-512/NEON) | 0.13ms p50 recall |
-| 🧊 **Off-Heap Storage** | Panama MemorySegment · zero-copy I/O | 0.01% GC overhead |
-| 🗜️ **Quantization** | SVASQ-8/4 · IVF-PQ · FWHT rotation | 4–32× compression · 99.5% recall |
-| 🔍 **Hybrid Retrieval** | 4-Layer Stack: Dense HNSW + BM25 + SPLADE / Li-LSR + ColBERT v2 | Multi-way RRF fusion + MaxSim SIMD reranking |
-| 📄 **Off-Heap Doc Store** | Encrypted `TextDataStore` (AES-256-GCM) | Zero-copy mmap'd `readTextDirect` · zero GC pressure |
-| 🔗 **Cognitive Graphs** | Hebbian co-activation + LLM Entity Graphs | Spreading activation, temporal chains & entity links |
-| 🎛️ **Retrieval Modes** | 8 `TextSearchMode` paths (HYBRID, FULL_STACK, etc.) | Graceful degradation & flexible query optimization |
-| 🖥️ **GPU Acceleration** | CUDA via Panama FFM | Optional · zero-copy transfer |
-| 📦 **Flexible Deployment** | Embedded JAR · Standalone · Distributed | Zero to cluster in one config |
+| Capability | What makes it different |
+|:---|:---|
+| 🧠 **Cognitive memory tiers** | Working → Episodic → Semantic → Procedural, with decay, consolidation, and emotional valence — memory that behaves like memory, not a key-value store |
+| 🔗 **Associative memory graphs** | Hebbian co-activation, temporal chains, and entity links with spreading activation — recall surfaces what's *related*, not just what matches |
+| 🤖 **In-process MCP server** | Cognitive tools over stdio + Streamable HTTP — agents call memory directly, zero network hops |
+| ⚡ **Fused SIMD scoring** | Similarity × importance × decay in one pass — 0.13ms p50 recall at 1M memories |
+| 🔍 **Hybrid retrieval** | Dense + sparse + late-interaction reranking, fused with RRF, with graceful degradation |
+| 🔒 **Physical namespace isolation** | Every user, agent, or tenant's memory lives in its own on-disk directory tree — true data separation, not a logical filter — hash-sharded to millions of namespaces, encrypted at rest (AES-256-GCM) |
+| 🧊 **Zero-GC off-heap storage** | 100% off-heap via Panama — ~0.01% GC overhead measured |
+| 🗜️ **Quantization** | SVASQ-8/4 + IVF-PQ — 4–32× compression at ~99.5% recall |
+| 🖥️ **GPU acceleration** | Optional CUDA via Panama FFM, zero-copy transfer |
+| 📦 **Flexible deployment** | Embedded JAR, standalone, or distributed |
 
 ---
 
