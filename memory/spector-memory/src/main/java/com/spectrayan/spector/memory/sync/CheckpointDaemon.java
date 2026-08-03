@@ -19,6 +19,7 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -95,6 +96,7 @@ public final class CheckpointDaemon {
     private final HebbianGraphBase hebbianGraph;           // nullable
     private final TemporalChainMemory temporalChain;         // nullable
     private final EntityGraphMemory entityGraph;             // nullable
+    private final EntityDirectory entityDirectory;           // nullable (ADR-0003 #455)
     private final HyperEntityGraphMemory hyperEntityGraph; // nullable
     private final CoActivationRecordMemory coActivationTracker; // nullable
     private final Path partitionDir;                   // nullable — active partition dir for graph saves
@@ -131,6 +133,7 @@ public final class CheckpointDaemon {
                             HebbianGraphBase hebbianGraph,
                             TemporalChainMemory temporalChain,
                             EntityGraphMemory entityGraph,
+                            EntityDirectory entityDirectory,
                             HyperEntityGraphMemory hyperEntityGraph,
                             CoActivationRecordMemory coActivationTracker,
                             Path partitionDir, Path basePath) {
@@ -142,6 +145,7 @@ public final class CheckpointDaemon {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.coActivationTracker = coActivationTracker;
         this.partitionDir = partitionDir;
@@ -158,7 +162,7 @@ public final class CheckpointDaemon {
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath) {
         this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -197,6 +201,10 @@ public final class CheckpointDaemon {
             if (hyperEntityGraph != null) {
                 saveGraph("HyperEntityGraph", () ->
                         hyperEntityGraph.save(StorageLayout.hyperEntityGraphRuntime(basePath)));
+            }
+            if (entityDirectory != null) {
+                saveGraph("EntityDirectory", () ->
+                        entityDirectory.save(StorageLayout.entityDirectoryRuntime(basePath)));
             }
         }
 

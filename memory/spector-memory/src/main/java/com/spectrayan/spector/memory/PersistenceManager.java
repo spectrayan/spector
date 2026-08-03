@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
@@ -71,6 +72,7 @@ final class PersistenceManager {
                               HebbianGraphBase hebbianGraph,
                               TemporalChainMemory temporalChain,
                               EntityGraphMemory entityGraph,
+                              EntityDirectory entityDirectory,
                               com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                               CoActivationRecordMemory coActivationTracker,
                               com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
@@ -103,6 +105,12 @@ final class PersistenceManager {
                         hyperEntityGraph.save(StorageLayout.hyperEntityGraphRuntime(persistencePath)));
             }
 
+            // 5b. EntityDirectory: runtime/ (ADR-0003 #455 — identity companion)
+            if (entityDirectory != null) {
+                saveSubsystem("EntityDirectory", () ->
+                        entityDirectory.save(StorageLayout.entityDirectoryRuntime(persistencePath)));
+            }
+
             // 6. CoActivationTracker: runtime/
             saveSubsystem("CoActivationTracker", () ->
                     coActivationTracker.save(
@@ -124,6 +132,7 @@ final class PersistenceManager {
         }
         coActivationTracker.close();
         if (entityGraph != null) entityGraph.close();
+        if (entityDirectory != null) entityDirectory.close();
         if (hyperEntityGraph != null) hyperEntityGraph.close();
     }
 

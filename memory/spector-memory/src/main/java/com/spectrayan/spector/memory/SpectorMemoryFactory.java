@@ -23,6 +23,7 @@ import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
@@ -96,6 +97,7 @@ public final class SpectorMemoryFactory {
             TemporalChainMemory temporalChain,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
             EntityGraphMemory entityGraph,
+            EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             CognitiveGraphFacade graphFacade,
             MemoryIdGenerator idGenerator,
@@ -162,6 +164,17 @@ public final class SpectorMemoryFactory {
                 graphs.temporalChain(), graphs.temporalKnowledgeGraph(), graphs.entityGraph(),
                 bio.coActivationTracker(), cognitiveTarget, cortex.basePath(), cortex.initialPartitionSeq());
 
+        // ADR-0003 #455 (P1): the EntityDirectory is a read-through mirror of the (still-authoritative)
+        // EntityGraphMemory during the transition. WAL recovery above replays GRAPH_ADD_NODE /
+        // GRAPH_LINK_MEMORY into the entity graph only, so the directory (derived earlier in the
+        // builder from the pre-replay graph) can be stale. Re-derive it from the fully-recovered graph
+        // so identity reads are byte-identical to the legacy path. The directory becomes WAL-bound in
+        // its own right in P2 (#456), at which point this re-derive is dropped.
+        if (graphs.entityDirectory() != null && graphs.entityGraph() != null) {
+            graphs.entityDirectory().reset();
+            graphs.entityDirectory().deriveFrom(graphs.entityGraph());
+        }
+
         if (wal != null) {
             if (graphs.entityGraph() != null) {
                 graphs.entityGraph().bindWal(wal);
@@ -225,7 +238,7 @@ public final class SpectorMemoryFactory {
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),
                 bio.introspector(), bio.lateralEvaluator(), wal, graphs.hebbianGraph(), graphs.temporalChain(),
                 graphs.temporalKnowledgeGraph(),
-                graphs.entityGraph(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
+                graphs.entityGraph(), graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
                 daemons.checkpointDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor

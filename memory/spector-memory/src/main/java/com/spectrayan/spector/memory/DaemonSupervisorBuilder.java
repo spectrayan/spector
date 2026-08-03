@@ -66,7 +66,7 @@ final class DaemonSupervisorBuilder {
                     StorageLayout.checkpointMeta(basePath),
                     index, indexSavePath,
                     graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityGraph(),
-                    graphs.hyperEntityGraph(), bio.coActivationTracker(),
+                    graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                     resolvedPartitionDir, basePath);
             daemonSupervisor = new DaemonSupervisor("memory");
             daemonSupervisor.schedule(

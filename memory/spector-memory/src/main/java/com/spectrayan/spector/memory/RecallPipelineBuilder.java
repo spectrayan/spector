@@ -75,7 +75,7 @@ final class RecallPipelineBuilder {
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(), wal,
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
                 null, graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityGraph(),
-                graphs.hyperEntityGraph(), graphs.entityExtractor(),
+                graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.entityExtractor(),
                 builder.graphScoringPolicy, retrieval.bm25Index(),
                 retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider, retrieval.colbertReranker(),
                 recallHistory);

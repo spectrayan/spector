@@ -123,7 +123,7 @@ class HypergraphRecallSpikeTest {
                 GraphExpansionMode.GATED
         );
         GraphExpansionStage stage = new GraphExpansionStage(
-                null, null, entityGraph, hyperGraph, null, policy, null, null, null, null
+                null, null, entityGraph, null, hyperGraph, null, policy, null, null, null, null
         );
 
         assertThat(stage.hasGraphSubsystems()).isTrue();

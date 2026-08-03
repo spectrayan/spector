@@ -23,6 +23,7 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.EntityRelation;
@@ -81,6 +82,7 @@ final class PostIngestSync {
     private final TemporalChainMemory temporalChain;
     private final EntityExtractor entityExtractor;
     private final EntityGraphMemory entityGraph;
+    private final EntityDirectory entityDirectory;
     private final MemoryBM25Index bm25Index;
     private volatile TextAppendMemory textDataStore;  // volatile: rolled with the partition (#443)
     private final int activePartitionIndex;           // BM25/SPLADE slot (always 0 — one partition slot)
@@ -94,6 +96,7 @@ final class PostIngestSync {
                    VectorIndex semanticIndex,
                    HebbianGraphBase hebbianGraph, TemporalChainMemory temporalChain,
                    EntityExtractor entityExtractor, EntityGraphMemory entityGraph,
+                   EntityDirectory entityDirectory,
                    MemoryBM25Index bm25Index, TextAppendMemory textDataStore,
                    int activePartitionIndex,
                    MemorySpladeIndex spladeIndex, SparseEmbeddingProvider spladeProvider,
@@ -107,6 +110,7 @@ final class PostIngestSync {
         this.temporalChain = temporalChain;
         this.entityExtractor = entityExtractor;
         this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.bm25Index = bm25Index;
         this.textDataStore = textDataStore;
         this.activePartitionIndex = activePartitionIndex;
@@ -364,6 +368,19 @@ final class PostIngestSync {
             int eid = entityGraph.addEntity(entity.name(), entity.typeName());
             if (eid >= 0) {
                 entityGraph.linkEntityToMemory(eid, memoryIdx);
+                // ADR-0003 #455 (P1): populate the identity directory in lockstep with the legacy
+                // graph. The directory shares the same dense id space, so intern() returns the same
+                // id the hyperedge is built with; a drift here would desync directory↔hyperedge ids.
+                if (entityDirectory != null) {
+                    int did = entityDirectory.intern(entity.name(), entity.typeName());
+                    if (did >= 0) {
+                        entityDirectory.linkEntityToMemory(did, memoryIdx);
+                        if (did != eid) {
+                            log.warn("EntityDirectory id drift for '{}': directory={} vs graph={}",
+                                    entity.name(), did, eid);
+                        }
+                    }
+                }
                 entityIds.add(eid);
                 entitiesAdded++;
             }

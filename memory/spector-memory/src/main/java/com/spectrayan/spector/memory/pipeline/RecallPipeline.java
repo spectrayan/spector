@@ -60,6 +60,7 @@ import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -151,6 +152,7 @@ public final class RecallPipeline {
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final EntityGraphMemory entityGraph;
+    private final EntityDirectory entityDirectory;
     private final com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph;
     private final EntityExtractor entityExtractor;
 
@@ -201,7 +203,7 @@ public final class RecallPipeline {
                            float[] calibrationScales) {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales, null, null,
-                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
                 null, null, null);
     }
 
@@ -224,7 +226,7 @@ public final class RecallPipeline {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, null,
-                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
                 null, null, null);
     }
 
@@ -249,7 +251,7 @@ public final class RecallPipeline {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker,
-                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
                 null, null, null);
     }
 
@@ -270,6 +272,7 @@ public final class RecallPipeline {
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityGraphMemory entityGraph,
+                           EntityDirectory entityDirectory,
                            com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
@@ -291,6 +294,7 @@ public final class RecallPipeline {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
@@ -302,7 +306,7 @@ public final class RecallPipeline {
 
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
-                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
+                hebbianGraph, temporalChain, entityGraph, entityDirectory, hyperEntityGraph, entityExtractor,
                 this.graphScoringPolicy, index, partitionRegistry,
                 calibrationMins, calibrationScales);
     }
@@ -324,6 +328,7 @@ public final class RecallPipeline {
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
                            EntityGraphMemory entityGraph,
+                           EntityDirectory entityDirectory,
                            com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
@@ -346,6 +351,7 @@ public final class RecallPipeline {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
@@ -357,7 +363,7 @@ public final class RecallPipeline {
 
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
-                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
+                hebbianGraph, temporalChain, entityGraph, entityDirectory, hyperEntityGraph, entityExtractor,
                 this.graphScoringPolicy, index, partitionRegistry,
                 calibrationMins, calibrationScales);
     }

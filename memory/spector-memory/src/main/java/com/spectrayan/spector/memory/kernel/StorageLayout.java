@@ -167,6 +167,9 @@ public final class StorageLayout {
     /** HyperEntityGraph binary file (hyperedge storage). Stored in runtime/ (V3). */
     public static final String FILE_HYPERGRAPH = "hypergraph.hyeg";
 
+    /** Entity directory (identity + entity→memory adjacency) SMKM container. Stored in runtime/ (ADR-0003, #455). */
+    public static final String FILE_ENTITY_DIRECTORY = "entity-directory.edir";
+
     /** BM25 inverted index binary file. Stored in runtime/ (V3). */
     public static final String FILE_BM25 = "bm25.bidx";
 
@@ -499,6 +502,11 @@ public final class StorageLayout {
     /** Resolves the hypergraph.hyeg file path (in runtime/). */
     public static Path hyperEntityGraphRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_HYPERGRAPH);
+    }
+
+    /** Resolves the entity-directory.edir file path (in runtime/). */
+    public static Path entityDirectoryRuntime(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_ENTITY_DIRECTORY);
     }
 
     /** Resolves the entity-types.treg file path (in runtime/). */

@@ -55,7 +55,7 @@ final class CognitiveIngestionTargetBuilder {
                 cortex.cognitiveRouter(), index, wal, cortex.workingStore(), builder.icnuWeights,
                 builder.semanticIndex, builder.tagExtractor, true,
                 graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityExtractor(), graphs.entityGraph(),
-                graphs.hyperEntityGraph(),
+                graphs.entityDirectory(), graphs.hyperEntityGraph(),
                 retrieval.bm25Index(), retrieval.textDataStore(), activePartitionIndex,
                 retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider,
                 builder.dataEncryptor);
