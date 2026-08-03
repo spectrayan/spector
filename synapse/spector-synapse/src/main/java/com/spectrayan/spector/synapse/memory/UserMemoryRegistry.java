@@ -257,8 +257,8 @@ public final class UserMemoryRegistry implements AutoCloseable {
      */
     private SpectorMemory buildInstance(String userId) {
         // namespaceId is the userId (TSID) itself — no "user-" prefix. namespaceDirSharded
-        // validates the identifier and throws IllegalArgumentException on unsafe input before any
-        // path is resolved (fail-closed).
+        // validates the identifier and throws SpectorValidationException (SPE-100-013) on unsafe
+        // input before any path is resolved (fail-closed).
         Path dir = StorageLayout.namespaceDirSharded(basePath(), userId);
 
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
