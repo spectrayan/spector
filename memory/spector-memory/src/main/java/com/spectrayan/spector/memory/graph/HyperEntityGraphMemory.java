@@ -388,10 +388,12 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             int edgeId = nextHyperedgeId++;
             totalHyperedges++;
 
+            // Write-ahead durability (ADR-0003 #460 / #417): log the full hyperedge before writing
+            // the segments so a crash between checkpoints can replay it. Replaced the previous dead
+            // appendRecordWrite path (HyperEntity is a GraphMemory, not a RecordMemory).
             if (wal != null && !bypassWal) {
-                ByteBuffer buf = ByteBuffer.allocate(HyperEntityLayout.HEDGE_BYTES);
-                buf.putInt(type).putFloat(weight).putInt(vertexCount).putInt(memoryIdx).putLong(timestamp);
-                wal.appendRecordWrite(id().toString(), edgeId, buf.array());
+                wal.appendHyperedgeAdd(id().toString(), vertexEntities, vertexRoles,
+                        type, weight, memoryIdx, timestamp);
             }
 
             // Write hyperedge header
@@ -632,6 +634,59 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     }
 
     /**
+     * Boosts the weight of existing hyperedges connecting two entities (ADR-0003 #459).
+     *
+     * <p>Scans hyperedges incident to {@code entityA} for 2-vertex edges that also contain
+     * {@code entityB}. For each match, the weight is increased by {@code boost} (capped at
+     * the maximum float value). This replaces the legacy {@code EntityGraphMemory.boostEdgeWeight}
+     * for the STC cross-capture use case in reflection.</p>
+     *
+     * @param entityA first entity id
+     * @param entityB second entity id
+     * @param boost   additive weight increase
+     * @return {@code true} if at least one matching hyperedge was boosted
+     */
+    public boolean boostHyperedgeWeight(int entityA, int entityB, float boost) {
+        long stamp = lock.writeLock();
+        try {
+            boolean boosted = false;
+            // Walk the incidence list for entityA
+            if (entityA < 0 || entityA >= entityCapacity) return false;
+            long idxOff = (long) entityA * 2L * HyperEntityLayout.INCIDENCE_ENTRY_BYTES;
+            int start = incidenceIndex.get(ValueLayout.JAVA_INT, idxOff);
+            int count = incidenceIndex.get(ValueLayout.JAVA_INT, idxOff + HyperEntityLayout.INCIDENCE_ENTRY_BYTES);
+
+            for (int i = start; i < start + count; i++) {
+                int edgeId = incidenceList.get(ValueLayout.JAVA_INT,
+                        (long) i * HyperEntityLayout.INCIDENCE_ENTRY_BYTES);
+                long hedgeOff = (long) edgeId * HyperEntityLayout.HEDGE_BYTES;
+                int vc = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_COUNT);
+                if (vc != 2) continue; // only boost binary (2-vertex) relationship edges
+
+                int vOff = hedges.get(ValueLayout.JAVA_INT, hedgeOff + HyperEntityLayout.HEDGE_OFF_VERTEX_OFFSET);
+                // Check both vertices for entityB
+                boolean foundB = false;
+                for (int v = 0; v < vc; v++) {
+                    long vertOff = (long) (vOff + v) * HyperEntityLayout.VERTEX_BYTES;
+                    int eid = vertices.get(ValueLayout.JAVA_INT, vertOff + HyperEntityLayout.VERTEX_OFF_ENTITY_ID);
+                    if (eid == entityB) { foundB = true; break; }
+                }
+                if (foundB) {
+                    float current = hedges.get(ValueLayout.JAVA_FLOAT,
+                            hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT);
+                    float newWeight = Math.min(current + boost, Float.MAX_VALUE);
+                    hedges.set(ValueLayout.JAVA_FLOAT,
+                            hedgeOff + HyperEntityLayout.HEDGE_OFF_WEIGHT, newWeight);
+                    boosted = true;
+                }
+            }
+            return boosted;
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /**
      * Returns memory usage in bytes (off-heap only).
      */
     public long memoryUsageBytes() {
@@ -719,6 +774,14 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
                 migrateLegacyToSmkm(filePath, 0);
                 return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
             }
+            // Legacy files may have been written with big-endian byte order (ASCII: "HYEG")
+            // while peekIntNative reads with native order (little-endian on x86), producing
+            // the byte-swapped value. Handle both endiannesses defensively.
+            if (firstInt == Integer.reverseBytes(FILE_MAGIC)) {
+                log.info("HyperEntityGraphMemory migrating legacy pure-HYEG container (BE magic) -> SMKM v2: {}", filePath);
+                migrateLegacyToSmkm(filePath, 0);
+                return openSmkm(filePath, entityCapacity, hyperedgeCapacity);
+            }
             // File present but unrecognized magic — corrupt, not absent. Returning a fresh empty
             // graph would silently discard the user's data (#432/#433 TD-04).
             throw new IOException("unrecognized HyperEntityGraph file magic: 0x"
@@ -761,6 +824,21 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             readFully(in, hb);
             hb.flip();
             int magic = hb.getInt();
+            // Legacy files may have been written with either native or big-endian byte order.
+            // Detect which order the magic matches and re-read the header fields accordingly.
+            ByteOrder headerOrder;
+            if (magic == FILE_MAGIC) {
+                headerOrder = ByteOrder.nativeOrder();
+            } else if (magic == Integer.reverseBytes(FILE_MAGIC)) {
+                headerOrder = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
+                        ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN;
+                hb.order(headerOrder);
+                hb.position(0);
+                magic = hb.getInt(); // re-read with correct order
+            } else {
+                throw new IOException("invalid legacy HYEG header (magic=0x" + Integer.toHexString(magic)
+                        + "): " + file);
+            }
             int version = hb.getInt();
             int entityCap = hb.getInt();
             int hedgeCap = hb.getInt();
@@ -769,7 +847,7 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
             int totalHedges = hb.getInt();
             // remaining 4 bytes reserved
 
-            if (magic != FILE_MAGIC || entityCap < 0 || hedgeCap < 0 || nextId < 0 || nextVertexOff < 0) {
+            if (entityCap < 0 || hedgeCap < 0 || nextId < 0 || nextVertexOff < 0) {
                 throw new IOException("invalid legacy HYEG header (magic=0x" + Integer.toHexString(magic)
                         + ", version=" + version + "): " + file);
             }

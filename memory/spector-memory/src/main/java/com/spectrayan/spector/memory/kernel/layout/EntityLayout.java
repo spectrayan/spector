@@ -16,10 +16,10 @@ import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 
 /**
- * Memory layout for nodes/relations in the Entity Graph — the single source of truth for the
- * entity-node stride and every per-record byte offset (edge, adjacency) as well as the SMKM
- * container sub-header framing (#435). {@code EntityGraphMemory} references these constants
- * rather than declaring its own.
+ * Memory layout for nodes/relations in the legacy Entity Graph.
+ *
+ * @deprecated Retained for {@code EntityGraphMemory} (migration CLI only).
+ *             New code should use {@link EntityDirectoryLayout}.
  *
  * <h3>Record layouts</h3>
  * <pre>
@@ -34,7 +34,12 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  *   Adjacency Entry ({@value #ADJ_ENTRY_BYTES} bytes):
  *     [memIdx:4B][weight:4B]
  * </pre>
+ *
+ * @deprecated Retired with {@link com.spectrayan.spector.memory.graph.EntityGraphMemory} by the
+ * hypergraph graduation (ADR-0003). Its identity/adjacency offsets were copied into
+ * {@code EntityDirectoryLayout}. Removed in P4 (#458).
  */
+@Deprecated(since = "1.2.0", forRemoval = true)
 public final class EntityLayout implements MemoryLayout {
 
     private static final int LAYOUT_ID = 0x45474D4D; // 'EGMM'

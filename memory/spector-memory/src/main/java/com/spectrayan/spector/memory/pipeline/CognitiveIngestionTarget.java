@@ -23,10 +23,9 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.EntityRelation;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -112,7 +111,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final EntityExtractor entityExtractor;
-    private final EntityGraphMemory entityGraph;
+    private final EntityDirectory entityDirectory;
     private final HyperEntityGraphMemory hyperEntityGraph;
 
     //  BM25 Text Search (nullable  --  graceful degradation) 
@@ -152,7 +151,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HebbianGraphBase hebbianGraph,
                                      TemporalChainMemory temporalChain,
                                      EntityExtractor entityExtractor,
-                                     EntityGraphMemory entityGraph,
+                                     EntityDirectory entityDirectory,
                                      HyperEntityGraphMemory hyperEntityGraph,
                                      MemoryBM25Index bm25Index,
                                      TextAppendMemory textDataStore,
@@ -162,8 +161,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this(quantizer, surpriseDetector, flashbulbPolicy, cognitiveRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, normalizeAtIngest,
-                hebbianGraph, temporalChain, entityExtractor, entityGraph,
-                hyperEntityGraph,
+                hebbianGraph, temporalChain, entityExtractor,
+                entityDirectory, hyperEntityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
                 spladeIndex, spladeProvider, DataEncryptor.NOOP);
     }
@@ -185,7 +184,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      HebbianGraphBase hebbianGraph,
                                      TemporalChainMemory temporalChain,
                                      EntityExtractor entityExtractor,
-                                     EntityGraphMemory entityGraph,
+                                     EntityDirectory entityDirectory,
                                      HyperEntityGraphMemory hyperEntityGraph,
                                      MemoryBM25Index bm25Index,
                                      TextAppendMemory textDataStore,
@@ -207,7 +206,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityExtractor = entityExtractor;
-        this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.bm25Index = bm25Index;
         this.textDataStore = textDataStore;
@@ -218,7 +217,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.salienceProfile = SalienceProfile.NEUTRAL;
         this.postIngestSync = new PostIngestSync(
                 cognitiveRouter, index, wal, semanticIndex,
-                hebbianGraph, temporalChain, entityExtractor, entityGraph,
+                hebbianGraph, temporalChain, entityExtractor, entityDirectory,
                 bm25Index, textDataStore, activePartitionIndex,
                 spladeIndex, spladeProvider, this.encryptor, hyperEntityGraph);
     }

@@ -70,6 +70,12 @@ public record WalEvent(
         /** EntityGraph link entity to memory. */
         GRAPH_LINK_MEMORY,
         /** TemporalChain link. */
-        CHAIN_LINK
+        CHAIN_LINK,
+        /**
+         * HyperEntityGraph hyperedge add (ADR-0003 #460 / #417). Payload:
+         * {@code [type:4][weight:4f][memoryIdx:4][timestamp:8][vertexCount:4]
+         * [(entityId:4, roleId:4) * vertexCount]}. Appended last to keep existing ordinals stable.
+         */
+        HYPEREDGE_ADD
     }
 }

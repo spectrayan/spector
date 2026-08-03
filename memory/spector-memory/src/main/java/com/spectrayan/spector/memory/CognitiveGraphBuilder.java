@@ -13,9 +13,9 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
@@ -62,7 +62,7 @@ final class CognitiveGraphBuilder {
             HebbianGraphBase hebbianGraph,
             TemporalChainMemory temporalChain,
             EntityExtractor entityExtractor,
-            EntityGraphMemory entityGraph,
+            EntityDirectory entityDirectory,
             HyperEntityGraphMemory hyperEntityGraph,
             TemporalKnowledgeGraph temporalKnowledgeGraph,
             CognitiveGraphFacade graphFacade
@@ -152,33 +152,10 @@ final class CognitiveGraphBuilder {
         }
 
         boolean entityEnabled = builder.entityExtractionMode != EntityExtractionMode.NONE;
-        EntityGraphMemory entityGraph;
-        if (entityEnabled) {
-            int entityCap = builder.entityGraphCapacity;
-            int edgeCap = entityCap * builder.entityMaxDegree;
-            if (isDisk && basePath != null) {
-                Path runtimeEntity = StorageLayout.entityGraphRuntime(basePath);
-                Path legacyEntity = basePath.resolve(StorageLayout.FILE_ENTITY);
-                Path v2Entity = resolvedPartitionDir != null
-                        ? StorageLayout.entityGraph(resolvedPartitionDir) : null;
-
-                Path loadFrom = MigrationPathResolver.getNewerPath(runtimeEntity, v2Entity, legacyEntity);
-                if (loadFrom != null) {
-                    entityGraph = EntityGraphMemory.load(loadFrom, entityCap, edgeCap);
-                } else {
-                    entityGraph = new EntityGraphMemory(runtimeEntity, entityCap, edgeCap,
-                            builder.entityMaxDegree, builder.edgeImportance);
-                }
-            } else {
-                entityGraph = new EntityGraphMemory(entityCap, edgeCap,
-                        builder.entityMaxDegree, builder.edgeImportance);
-            }
-        } else {
-            entityGraph = null;
-        }
+        
 
         HyperEntityGraphMemory hyperEntityGraph;
-        if (entityEnabled && builder.hyperEntityGraphEnabled) {
+        if (entityEnabled) {
             int hyperCap = builder.entityGraphCapacity;
             int hyperEdgeCap = hyperCap * 2;
             if (isDisk && basePath != null) {
@@ -205,8 +182,35 @@ final class CognitiveGraphBuilder {
             hyperEntityGraph = null;
         }
 
+        // ── EntityDirectory (ADR-0003 #455): identity companion. P1 = behavior-preserving mirror. ──
+        // Shares EntityGraph's entity-type registry instance so entityType(id) resolves identically
+        // and no divergent registry is written (the standalone-registry split lands in P2, along with
+        // the directory becoming the .treg persistence authority). Load entity-directory.edir if it
+        // exists; otherwise derive the directory in-memory from the loaded EntityGraphMemory so no
+        // user action is needed while the binary graph is still present.
+        EntityDirectory entityDirectory;
+        if (entityEnabled) {
+            int dirCap = builder.entityGraphCapacity;
+            TypeRegistryMemory entityTypeRegistry = TypeRegistryMemory.seeded("entity-type", com.spectrayan.spector.memory.graph.EntityType.SEED);
+            if (isDisk && basePath != null) {
+                Path edir = StorageLayout.entityDirectoryRuntime(basePath);
+                if (java.nio.file.Files.exists(edir)) {
+                    entityDirectory = EntityDirectory.load(edir, dirCap, entityTypeRegistry,
+                            builder.dataEncryptor);
+                } else {
+                    entityDirectory = new EntityDirectory(edir, dirCap, entityTypeRegistry);
+                    entityDirectory.setDataEncryptor(builder.dataEncryptor);
+                }
+            } else {
+                entityDirectory = new EntityDirectory(dirCap, entityTypeRegistry);
+            }
+        } else {
+            entityDirectory = null;
+        }
+
+
         TemporalKnowledgeGraph temporalKnowledgeGraph;
-        TypeRegistryMemory predRegistry = (entityGraph != null) ? entityGraph.relationTypeRegistry() : new TypeRegistryMemory("relation-type");
+        TypeRegistryMemory predRegistry = new TypeRegistryMemory("relation-type");
         if (isDisk && basePath != null) {
             Path runtimeTkg = StorageLayout.temporalFactsRuntime(basePath);
             long initialSize = 16L * 1024 * 1024; // 16MB
@@ -217,10 +221,10 @@ final class CognitiveGraphBuilder {
 
         //  Cognitive Graph Facade 
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
-                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, index);
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, index);
 
         return new CognitiveGraphs(
-                hebbianGraph, temporalChain, entityExtractor, entityGraph,
+                hebbianGraph, temporalChain, entityExtractor, entityDirectory,
                 hyperEntityGraph, temporalKnowledgeGraph, graphFacade);
     }
 }

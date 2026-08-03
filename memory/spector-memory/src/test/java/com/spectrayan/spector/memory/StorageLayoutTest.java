@@ -171,7 +171,6 @@ class StorageLayoutTest {
         @Test void indexMidx()     { assertThat(StorageLayout.indexMidx(partDir).getFileName().toString()).isEqualTo("index.midx"); }
         @Test void hebbianGraph()  { assertThat(StorageLayout.hebbianGraph(partDir).getFileName().toString()).isEqualTo("hebbian.graph"); }
         @Test void temporalChain() { assertThat(StorageLayout.temporalChain(partDir).getFileName().toString()).isEqualTo("temporal.chain"); }
-        @Test void entityGraph()   { assertThat(StorageLayout.entityGraph(partDir).getFileName().toString()).isEqualTo("entity.graph"); }
     }
 
     // ══════════════════════════════════════════════════════════════

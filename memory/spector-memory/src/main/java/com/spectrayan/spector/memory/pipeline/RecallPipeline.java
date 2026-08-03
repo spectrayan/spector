@@ -60,7 +60,7 @@ import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
@@ -150,7 +150,7 @@ public final class RecallPipeline {
     //  3-Layer Cognitive Graph (all nullable) 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraphMemory entityGraph;
+    private final EntityDirectory entityDirectory;
     private final com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph;
     private final EntityExtractor entityExtractor;
 
@@ -269,7 +269,7 @@ public final class RecallPipeline {
                            CoActivationRecordMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
-                           EntityGraphMemory entityGraph,
+                           EntityDirectory entityDirectory,
                            com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
@@ -290,7 +290,7 @@ public final class RecallPipeline {
         this.coActivationTracker = coActivationTracker;
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
-        this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
@@ -302,7 +302,7 @@ public final class RecallPipeline {
 
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
-                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, entityExtractor,
                 this.graphScoringPolicy, index, partitionRegistry,
                 calibrationMins, calibrationScales);
     }
@@ -323,7 +323,7 @@ public final class RecallPipeline {
                            CoActivationRecordMemory coActivationTracker,
                            HebbianGraphBase hebbianGraph,
                            TemporalChainMemory temporalChain,
-                           EntityGraphMemory entityGraph,
+                           EntityDirectory entityDirectory,
                            com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
@@ -345,7 +345,7 @@ public final class RecallPipeline {
         this.coActivationTracker = coActivationTracker;
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
-        this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
@@ -357,7 +357,7 @@ public final class RecallPipeline {
 
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
-                hebbianGraph, temporalChain, entityGraph, hyperEntityGraph, entityExtractor,
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, entityExtractor,
                 this.graphScoringPolicy, index, partitionRegistry,
                 calibrationMins, calibrationScales);
     }

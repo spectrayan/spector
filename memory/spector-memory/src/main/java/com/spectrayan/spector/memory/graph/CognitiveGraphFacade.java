@@ -51,20 +51,48 @@ public final class CognitiveGraphFacade {
 
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraphMemory entityGraph;
+
+    /** Identity companion (ADR-0003 #455). When present, all identity reads route here. */
+    private final EntityDirectory entityDirectory;
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final MemoryIndex index;
 
+    /**
+     * Legacy constructor (no {@link EntityDirectory}) — identity reads fall back to the binary
+     * {@code entityGraph}. Retained for callers/tests predating the hypergraph graduation.
+     */
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
                                 TemporalChainMemory temporalChain,
-                                EntityGraphMemory entityGraph,
+                                HyperEntityGraphMemory hyperEntityGraph,
+                                MemoryIndex index) {
+        this(hebbianGraph, temporalChain, null, hyperEntityGraph, index);
+    }
+
+    public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
+                                TemporalChainMemory temporalChain,
+                                EntityDirectory entityDirectory,
                                 HyperEntityGraphMemory hyperEntityGraph,
                                 MemoryIndex index) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
-        this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.index = index;
+    }
+
+    // ── Identity read helpers: route to the directory when present (ADR-0003 #455). ──
+
+    /** True when entity identity is available (directory or legacy graph). */
+    private boolean hasIdentity() {
+        return entityDirectory != null;
+    }
+
+    private java.util.Map<String, Integer> identityNameIndex() {
+        return entityDirectory != null ? entityDirectory.nameIndex() : java.util.Map.of();
+    }
+
+    private int[] identityMemoriesForEntity(int entityId) {
+        return entityDirectory != null ? entityDirectory.memoriesForEntity(entityId) : new int[0];
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -78,10 +106,6 @@ public final class CognitiveGraphFacade {
     /** @deprecated Use {@link #graphStats()} or {@link #neighborhood(String, int, Function)} instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
     public TemporalChainMemory temporalChain() { return temporalChain; }
-
-    /** @deprecated Use {@link #graphStats()} or {@link #topologyStats()} instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    public EntityGraphMemory entityGraph() { return entityGraph; }
 
     /** @deprecated Use {@link #topologyStats()} instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)
@@ -98,8 +122,8 @@ public final class CognitiveGraphFacade {
      */
     public GraphStats graphStats() {
         int hebbian = hebbianGraph != null ? hebbianGraph.totalEdges() : 0;
-        int entityNodes = entityGraph != null ? entityGraph.entityCount() : 0;
-        int entityEdges = entityGraph != null ? entityGraph.edgeCount() : 0;
+        int entityNodes = entityDirectory != null ? entityDirectory.entityCount() : 0;
+        int entityEdges = hyperEntityGraph != null ? hyperEntityGraph.totalHyperedges() : 0;
         int temporalLinks = 0;
         if (temporalChain != null) {
             int cap = temporalChain.capacity();
@@ -179,9 +203,9 @@ public final class CognitiveGraphFacade {
 
             // Build slot-to-entity ID mapping for fast O(1) traversal lookups
             Map<Integer, List<Integer>> slotToEntities = new java.util.HashMap<>();
-            if (entityGraph != null) {
-                for (int entityId : entityGraph.nameIndex().values()) {
-                    int[] mems = entityGraph.memoriesForEntity(entityId);
+            if (hasIdentity()) {
+                for (int entityId : identityNameIndex().values()) {
+                    int[] mems = identityMemoriesForEntity(entityId);
                     for (int m : mems) {
                         slotToEntities.computeIfAbsent(m, _ -> new ArrayList<>()).add(entityId);
                     }
@@ -239,9 +263,9 @@ public final class CognitiveGraphFacade {
      * @return topology stats, or empty if entity graph is not configured
      */
     public TopologyStats topologyStats() {
-        if (hyperEntityGraph == null || entityGraph == null) return TopologyStats.empty();
+        if (hyperEntityGraph == null || !hasIdentity()) return TopologyStats.empty();
         try {
-            var nameIndex = entityGraph.nameIndex();
+            var nameIndex = identityNameIndex();
 
             Map<String, int[]> entityTypeAgg = new LinkedHashMap<>();
             Map<String, int[]> relationTypeAgg = new LinkedHashMap<>();
@@ -343,9 +367,9 @@ public final class CognitiveGraphFacade {
 
     private void collectEntityEdges(Map<Integer, String> slotToId,
                                     HashSet<String> validIds, List<GraphEdge> edges) {
-        if (hyperEntityGraph == null || entityGraph == null) return;
+        if (hyperEntityGraph == null || !hasIdentity()) return;
         try {
-            var nameIndex = entityGraph.nameIndex();
+            var nameIndex = identityNameIndex();
             for (var entry : nameIndex.entrySet()) {
                 int entityId = entry.getValue();
                 String entityType = safeEntityType(entityId);
@@ -461,12 +485,12 @@ public final class CognitiveGraphFacade {
     }
 
     private List<String> entityNamesForMemory(int slot) {
-        if (entityGraph == null || slot < 0) return List.of();
+        if (!hasIdentity() || slot < 0) return List.of();
         try {
             List<String> names = new ArrayList<>();
-            var nameIndex = entityGraph.nameIndex();
+            var nameIndex = identityNameIndex();
             for (var entry : nameIndex.entrySet()) {
-                int[] mems = entityGraph.memoriesForEntity(entry.getValue());
+                int[] mems = identityMemoriesForEntity(entry.getValue());
                 for (int m : mems) {
                     if (m == slot) {
                         names.add(entry.getKey());
@@ -482,7 +506,7 @@ public final class CognitiveGraphFacade {
 
     private String safeEntityType(int entityId) {
         try {
-            return entityGraph.entityType(entityId);
+            return entityDirectory != null ? entityDirectory.entityType(entityId) : "ENTITY";
         } catch (Exception e) {
             return "ENTITY";
         }

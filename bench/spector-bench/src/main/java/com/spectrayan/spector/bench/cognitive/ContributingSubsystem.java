@@ -21,7 +21,8 @@ import java.util.Map;
 import java.util.Set;
 
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
@@ -103,7 +104,8 @@ public enum ContributingSubsystem {
      * @param baselineTop10 the set of memory IDs in the baseline retriever's top-10
      * @param hebbian       the Hebbian association graph (may be null if disabled)
      * @param temporal      the temporal chain (may be null if disabled)
-     * @param entity        the entity graph (may be null if disabled)
+     * @param entityDirectory the entity directory (may be null if disabled)
+     * @param hyperEntityGraph the hyper entity graph (may be null if disabled)
      * @param breakdown     the score breakdown for this result (may be null)
      * @param idToSlot      mapping from memory IDs to their slot indices in the graphs
      * @return the set of contributing subsystems (never null, may be empty)
@@ -113,7 +115,8 @@ public enum ContributingSubsystem {
             Set<String> baselineTop10,
             HebbianGraphBase hebbian,
             TemporalChainMemory temporal,
-            EntityGraphMemory entity,
+            EntityDirectory entityDirectory,
+            HyperEntityGraphMemory hyperEntityGraph,
             ScoreBreakdown breakdown,
             Map<String, Integer> idToSlot) {
 
@@ -134,7 +137,7 @@ public enum ContributingSubsystem {
             }
 
             // Check entity graph connectivity with any baseline seed
-            if (entity != null && isEntityReachable(targetSlot, baselineTop10, entity, idToSlot)) {
+            if (entityDirectory != null && hyperEntityGraph != null && isEntityReachable(targetSlot, baselineTop10, entityDirectory, hyperEntityGraph, idToSlot)) {
                 contributions.add(ENTITY_GRAPH);
             }
         }
@@ -163,7 +166,7 @@ public enum ContributingSubsystem {
                 // Graph boost present but couldn't pinpoint which graph — add all that are non-null
                 if (hebbian != null) contributions.add(HEBBIAN_GRAPH);
                 if (temporal != null) contributions.add(TEMPORAL_CHAIN);
-                if (entity != null) contributions.add(ENTITY_GRAPH);
+                if (entityDirectory != null && hyperEntityGraph != null) contributions.add(ENTITY_GRAPH);
             }
         }
 
@@ -221,22 +224,16 @@ public enum ContributingSubsystem {
      * that connects to a baseline seed's entity within 2 hops).
      */
     private static boolean isEntityReachable(int targetSlot, Set<String> baselineTop10,
-                                              EntityGraphMemory entity, Map<String, Integer> idToSlot) {
-        // Collect all entity IDs that reference the target memory
-        // and all entity IDs that reference baseline seeds, then check connectivity
-
+                                              EntityDirectory dir, HyperEntityGraphMemory hyper, Map<String, Integer> idToSlot) {
+        if (dir == null || hyper == null) return false;
         for (String baselineId : baselineTop10) {
             Integer seedSlot = idToSlot.get(baselineId);
             if (seedSlot == null) continue;
 
-            // For each entity in the graph, check if it links to the seed
-            // and if any connected entity links to the target
-            Map<String, Integer> nameIndex = entity.nameIndex();
+            Map<String, Integer> nameIndex = dir.nameIndex();
             for (int entityId : nameIndex.values()) {
-                // Check if this entity references the seed memory
-                if (entityReferencesMemory(entity, entityId, seedSlot)) {
-                    // Collect all memories reachable from this entity within 2 hops
-                    Set<Integer> reachableMemories = entity.collectMemories(entityId, null, 2);
+                if (entityReferencesMemory(dir, entityId, seedSlot)) {
+                    Set<Integer> reachableMemories = hyper.collectMemories(entityId, 2);
                     if (reachableMemories.contains(targetSlot)) {
                         return true;
                     }
@@ -249,12 +246,11 @@ public enum ContributingSubsystem {
     /**
      * Checks if a given entity has a memory reference to the specified slot.
      */
-    private static boolean entityReferencesMemory(EntityGraphMemory entity, int entityId, int memorySlot) {
-        int refCount = entity.memoryRefCount(entityId);
-        for (int i = 0; i < refCount; i++) {
-            if (entity.memoryRefAt(entityId, i) == memorySlot) {
-                return true;
-            }
+    private static boolean entityReferencesMemory(EntityDirectory dir, int entityId, int memorySlot) {
+        int[] mems = dir.memoriesForEntity(entityId);
+        if (mems == null) return false;
+        for (int mem : mems) {
+            if (mem == memorySlot) return true;
         }
         return false;
     }

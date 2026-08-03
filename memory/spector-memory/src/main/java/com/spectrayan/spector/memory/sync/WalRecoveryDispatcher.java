@@ -26,7 +26,8 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
 import com.spectrayan.spector.memory.kernel.shape.AppendMemory;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
@@ -109,12 +110,11 @@ public final class WalRecoveryDispatcher {
                             ((RegistryMemory) target).putDirect(name, id);
                         }
                         case ADJ_ADD_EDGE -> {
+                            // Binary entity relations are gone post-graduation (ADR-0003 #456);
+                            // only the Hebbian co-activation graph still emits ADJ_ADD_EDGE.
                             int from = payload.getInt();
                             int to = payload.getInt();
-                            if (target instanceof EntityGraphMemory eg) {
-                                String relType = new String(event.payload(), 8, event.payload().length - 8, StandardCharsets.UTF_8);
-                                eg.addRelation(from, to, relType);
-                            } else if (target instanceof HebbianGraphMemory hg) {
+                            if (target instanceof HebbianGraphMemory hg) {
                                 float weightDelta = payload.getFloat();
                                 hg.strengthen(from, to, weightDelta);
                             }
@@ -125,15 +125,17 @@ public final class WalRecoveryDispatcher {
                             String name = new String(event.payload(), 8, nameLen, StandardCharsets.UTF_8);
                             int typeLen = payload.getInt(8 + nameLen);
                             String type = new String(event.payload(), 8 + nameLen + 4, typeLen, StandardCharsets.UTF_8);
-                            if (target instanceof EntityGraphMemory eg) {
-                                eg.addEntity(name, type);
+                            // Repointed EntityGraphMemory → EntityDirectory (ADR-0003 #456). intern()
+                            // reassigns ids by replay order, matching the original ingest allocation.
+                            if (target instanceof EntityDirectory dir) {
+                                dir.intern(name, type);
                             }
                         }
                         case GRAPH_LINK_MEMORY -> {
                             int entityId = payload.getInt();
                             int memoryIdx = payload.getInt();
-                            if (target instanceof EntityGraphMemory eg) {
-                                eg.linkEntityToMemory(entityId, memoryIdx);
+                            if (target instanceof EntityDirectory dir) {
+                                dir.linkEntityToMemory(entityId, memoryIdx);
                             }
                         }
                         case CHAIN_LINK -> {
@@ -142,6 +144,24 @@ public final class WalRecoveryDispatcher {
                             int sessionId = payload.getInt();
                             if (target instanceof TemporalChainMemory tc) {
                                 tc.link(fromIdx, toIdx, sessionId);
+                            }
+                        }
+                        case HYPEREDGE_ADD -> {
+                            // ADR-0003 #460 / #417: replay a hyperedge. addHyperedge reassigns the
+                            // edge id by replay order (matching the original ingest).
+                            int type = payload.getInt();
+                            float weight = payload.getFloat();
+                            int memoryIdx = payload.getInt();
+                            long timestamp = payload.getLong();
+                            int vertexCount = payload.getInt();
+                            int[] verts = new int[vertexCount];
+                            int[] roles = new int[vertexCount];
+                            for (int i = 0; i < vertexCount; i++) {
+                                verts[i] = payload.getInt();
+                                roles[i] = payload.getInt();
+                            }
+                            if (target instanceof HyperEntityGraphMemory hg) {
+                                hg.addHyperedge(verts, roles, type, weight, memoryIdx, timestamp);
                             }
                         }
                         default -> {

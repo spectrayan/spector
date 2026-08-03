@@ -74,8 +74,8 @@ final class RecallPipelineBuilder {
                 embeddingProvider, partitionManager, index,
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(), wal,
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
-                null, graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityGraph(),
-                graphs.hyperEntityGraph(), graphs.entityExtractor(),
+                null, graphs.hebbianGraph(), graphs.temporalChain(),
+                graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.entityExtractor(),
                 builder.graphScoringPolicy, retrieval.bm25Index(),
                 retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider, retrieval.colbertReranker(),
                 recallHistory);

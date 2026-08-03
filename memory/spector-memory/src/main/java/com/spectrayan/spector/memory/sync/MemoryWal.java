@@ -325,6 +325,34 @@ public final class MemoryWal implements AutoCloseable {
     }
 
     /**
+     * Appends a HYPEREDGE_ADD event (ADR-0003 #460 / #417). Serializes the full hyperedge so it can
+     * be replayed via {@code HyperEntityGraphMemory.addHyperedge}.
+     *
+     * @param memoryId       the hypergraph memory id
+     * @param vertexEntities entity ids participating in the hyperedge
+     * @param vertexRoles    role ids (same length as {@code vertexEntities})
+     * @param type           relation type id
+     * @param weight         edge weight
+     * @param memoryIdx      source memory index
+     * @param timestamp      creation timestamp (epoch millis)
+     */
+    public WalEvent appendHyperedgeAdd(String memoryId, int[] vertexEntities, int[] vertexRoles,
+                                       int type, float weight, int memoryIdx, long timestamp) {
+        int vc = vertexEntities.length;
+        ByteBuffer buf = ByteBuffer.allocate(4 + 4 + 4 + 8 + 4 + vc * 8);
+        buf.putInt(type);
+        buf.putFloat(weight);
+        buf.putInt(memoryIdx);
+        buf.putLong(timestamp);
+        buf.putInt(vc);
+        for (int i = 0; i < vc; i++) {
+            buf.putInt(vertexEntities[i]);
+            buf.putInt(vertexRoles[i]);
+        }
+        return append(WalEvent.EventType.HYPEREDGE_ADD, memoryId, buf.array());
+    }
+
+    /**
      * Appends a CHAIN_LINK event.
      */
     public WalEvent appendChainLink(String memoryId, int fromIdx, int toIdx, int sessionId) {

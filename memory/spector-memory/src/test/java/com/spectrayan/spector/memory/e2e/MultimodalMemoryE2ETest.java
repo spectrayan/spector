@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.e2e;
 
 import com.spectrayan.spector.provider.generation.GenerationOptions;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ollama.OllamaLlmProvider;
 import com.spectrayan.spector.ingestion.sensory.AssetStore;
 import com.spectrayan.spector.ingestion.sensory.LocalAssetStore;

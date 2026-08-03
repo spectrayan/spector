@@ -16,8 +16,8 @@ package com.spectrayan.spector.memory.pipeline;
 import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
 import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
@@ -73,7 +73,8 @@ final class GraphExpansionStage {
     // ── Dependencies (all nullable — graceful degradation) ──
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
-    private final EntityGraphMemory entityGraph;
+    /** Identity companion (ADR-0003 #455). When present, identity reads (findEntity/fanFactor) route here. */
+    private final EntityDirectory entityDirectory;
     private final com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph;
     private final EntityExtractor entityExtractor;
     private final GraphScoringPolicy graphScoringPolicy;
@@ -84,7 +85,7 @@ final class GraphExpansionStage {
 
     GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
-                        EntityGraphMemory entityGraph,
+                        EntityDirectory entityDirectory,
                         com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
                         EntityExtractor entityExtractor,
                         GraphScoringPolicy graphScoringPolicy,
@@ -94,7 +95,7 @@ final class GraphExpansionStage {
                         float[] calibrationScales) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
-        this.entityGraph = entityGraph;
+        this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.entityExtractor = entityExtractor;
         this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
@@ -116,7 +117,7 @@ final class GraphExpansionStage {
      * Returns true if any graph subsystem is available for expansion.
      */
     boolean hasGraphSubsystems() {
-        return hebbianGraph != null || temporalChain != null || entityGraph != null || hyperEntityGraph != null;
+        return hebbianGraph != null || temporalChain != null || hyperEntityGraph != null;
     }
 
     /**
@@ -133,7 +134,7 @@ final class GraphExpansionStage {
     void expand(List<CognitiveResult> allResults, float[] queryVector, RecallOptions options) {
         boolean cognitiveScoring = options.scoringMode() != ScoringMode.SIMILARITY;
         boolean hasSubsystems = hebbianGraph != null || temporalChain != null
-                || (entityGraph != null && (entityExtractor != null && entityExtractor.isAvailable()
+                || (entityDirectory != null && (entityExtractor != null && entityExtractor.isAvailable()
                         || !options.entityHints().isEmpty()));
 
         if (!cognitiveScoring || !hasSubsystems || allResults.isEmpty()) {
@@ -197,8 +198,9 @@ final class GraphExpansionStage {
             expandTemporal(allResults, existingIds, graphCandidates, queryVector);
         }
 
-        // Step 5e: Entity graph traversal
-        if (entityGraph != null) {
+        // Step 5e: Entity graph traversal (hyper-only — identity from the directory,
+        // topology from the hypergraph; ADR-0003 #456)
+        if (entityDirectory != null) {
             expandEntity(allResults, existingIds, graphCandidates, queryVector, options);
         }
 
@@ -210,7 +212,7 @@ final class GraphExpansionStage {
             }
             log.debug("Graph expansion added {} candidates (from {} layers)",
                     graphCandidates.size(),
-                    (hebbianGraph != null ? 1 : 0) + (temporalChain != null ? 1 : 0) + (entityGraph != null ? 1 : 0));
+                    (hebbianGraph != null ? 1 : 0) + (temporalChain != null ? 1 : 0) + (entityDirectory != null ? 1 : 0));
         }
 
     }
@@ -309,23 +311,20 @@ final class GraphExpansionStage {
         if (queryEntities == null || queryEntities.isEmpty()) return;
 
         try {
+            // Identity (name→id, fan factor) from the directory; topology (reachable memories)
+            // from the hypergraph — unconditionally, no binary-graph fallback (ADR-0003 #456).
+            if (entityDirectory == null || hyperEntityGraph == null) return;
             for (var entity : queryEntities) {
-                if (entityGraph == null) continue;
-                int entityId = entityGraph.findEntity(entity.name());
+                int entityId = entityDirectory.findEntity(entity.name());
                 if (entityId < 0) continue;
- 
-                Set<Integer> reachableMemories;
-                if (hyperEntityGraph != null) {
-                    reachableMemories = hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
-                } else {
-                    reachableMemories = entityGraph.collectMemories(
-                            entityId, null, graphScoringPolicy.entityMaxHops());
-                }
+
+                Set<Integer> reachableMemories =
+                        hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
                 for (int memIdx : reachableMemories) {
                     String memId = findMemoryByApproximateIndex(memIdx);
                     if (memId != null && !existingIds.contains(memId)) {
                         float neighborSim = computeNeighborSimilarity(memId, queryVector);
-                        float fanAttenuation = entityGraph.fanFactor(entityId);
+                        float fanAttenuation = entityDirectory.fanFactor(entityId);
                         float entityScore = neighborSim
                                 + allResults.getFirst().score()
                                   * graphScoringPolicy.entityHopAttenuation()

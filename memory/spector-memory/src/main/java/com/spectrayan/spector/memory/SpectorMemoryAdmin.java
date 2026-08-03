@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
@@ -117,9 +117,13 @@ public interface SpectorMemoryAdmin {
     @Deprecated(since = "1.1.0", forRemoval = true)
     TemporalChainMemory temporalChain();
 
-    /** @deprecated Use {@link #graph()} and its query methods instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    EntityGraphMemory entityGraph();
+    /**
+     * Returns the entity identity directory — the name&harr;id index, per-entity type, and the
+     * authoritative entity&rarr;memory adjacency (including single-entity memories). This is the
+     * graduated replacement for {@link #entityGraph()} identity access (ADR-0003, #455/#456).
+     * May be {@code null} when entity extraction is disabled.
+     */
+    EntityDirectory entityDirectory();
 
     /** @deprecated Use {@link #graph()} and its query methods instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)

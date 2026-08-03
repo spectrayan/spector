@@ -24,7 +24,6 @@ import com.spectrayan.spector.ingestion.sensory.SensoryExtractor;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
@@ -103,13 +102,12 @@ public final class SpectorMemoryBuilder {
     GenerationOptions llmGenerationOptions;
     GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
     int temporalRetentionDays = 7;
-    boolean hyperEntityGraphEnabled = true;
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
 
     //  Edge importance configuration 
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
     int hebbianMaxDegree = HebbianGraph.DEFAULT_MAX_DEGREE;
-    int entityMaxDegree = EntityGraphMemory.DEFAULT_MAX_DEGREE;
+    int entityMaxDegree = 16;
 
     //  ID generation strategy 
     IdStrategy idStrategy = IdStrategy.TSID;
@@ -250,13 +248,6 @@ public final class SpectorMemoryBuilder {
 
     /** Entity graph capacity  --  max entities (default: 50,000). */
     public SpectorMemoryBuilder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
-
-    /** Enable/disable the HyperEntityGraph layer (default: true). */
-    /**
-     * @deprecated Hypergraph is now standard. This configuration option has no effect and will be removed in a future release.
-     */
-    @Deprecated(since = "1.2.0", forRemoval = true)
-    public SpectorMemoryBuilder hyperEntityGraphEnabled(boolean enabled) { this.hyperEntityGraphEnabled = enabled; return this; }
 
     /** Max entities to extract per memory (default: 10). */
     public SpectorMemoryBuilder maxEntitiesPerMemory(int c) { this.maxEntitiesPerMemory = c; return this; }

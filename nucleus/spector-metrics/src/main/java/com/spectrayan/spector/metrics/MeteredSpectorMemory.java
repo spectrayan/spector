@@ -27,7 +27,6 @@ import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
@@ -290,8 +289,8 @@ public class MeteredSpectorMemory implements SpectorMemory {
                 phase, cycleId,
                 delegate.admin().hebbianGraph() != null ? delegate.admin().hebbianGraph().totalEdges() : 0,
                 delegate.admin().temporalChain() != null ? delegate.admin().temporalChain().capacity() : 0,
-                delegate.admin().entityGraph() != null ? delegate.admin().entityGraph().entityCount() : 0,
-                delegate.admin().entityGraph() != null ? delegate.admin().entityGraph().edgeCount() : 0,
+                delegate.admin().entityDirectory() != null ? delegate.admin().entityDirectory().entityCount() : 0,
+                delegate.admin().hyperEntityGraph() != null ? delegate.admin().hyperEntityGraph().totalHyperedges() : 0,
                 0L, // offHeapBytes — from Micrometer gauge
                 0,  // tombstoneCount — TBD
                 delegate.admin().coActivation() != null ? delegate.admin().coActivation().pairCount() : 0,
