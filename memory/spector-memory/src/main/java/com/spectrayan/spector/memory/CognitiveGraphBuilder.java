@@ -180,7 +180,7 @@ final class CognitiveGraphBuilder {
         }
 
         HyperEntityGraphMemory hyperEntityGraph;
-        if (entityEnabled && builder.hyperEntityGraphEnabled) {
+        if (entityEnabled) {
             int hyperCap = builder.entityGraphCapacity;
             int hyperEdgeCap = hyperCap * 2;
             if (isDisk && basePath != null) {

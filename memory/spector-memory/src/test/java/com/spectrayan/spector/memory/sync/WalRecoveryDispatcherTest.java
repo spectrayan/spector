@@ -34,7 +34,9 @@ import com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory;
 import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
 import com.spectrayan.spector.memory.kernel.layout.IdBlobLayout;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
+import com.spectrayan.spector.memory.graph.EntityType;
+import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
@@ -81,7 +83,7 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityGraphMemory entityGraph = new EntityGraphMemory(entityFile, 10, 20);
+             EntityDirectory entityGraph = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10)) {
 
             recordMem.bindWal(wal);
@@ -96,7 +98,7 @@ class WalRecoveryDispatcherTest {
             bytes[0] = 11;
             recordMem.write(0, MemorySegment.ofArray(bytes));
             registryMem.intern("CHECKPOINT_KEY");
-            entityGraph.addEntity("CheckpointEntity", "TypeA");
+            entityGraph.intern("CheckpointEntity", "TypeA");
             temporalChain.link(0, 1, 100);
 
             // Flush all to disk
@@ -122,7 +124,7 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityGraphMemory entityGraph = new EntityGraphMemory(entityFile, 10, 20);
+             EntityDirectory entityGraph = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10);
              HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(10)) {
 
@@ -146,9 +148,8 @@ class WalRecoveryDispatcherTest {
             registryMem.intern("CRASH_KEY");
 
             // Mutate EntityGraphMemory
-            int e1 = entityGraph.addEntity("CrashEntity1", "TypeA");
-            int e2 = entityGraph.addEntity("CrashEntity2", "TypeB");
-            entityGraph.addRelation(e1, e2, "REL");
+            int e1 = entityGraph.intern("CrashEntity1", "TypeA");
+            entityGraph.intern("CrashEntity2", "TypeB");
             entityGraph.linkEntityToMemory(e1, 7);
 
             // Mutate TemporalChain
@@ -180,7 +181,7 @@ class WalRecoveryDispatcherTest {
                      MemoryId.of("test", "append"), new IdBlobLayout(), 10, 1000, appendFile);
              DefaultRegistryMemory registryMem = new DefaultRegistryMemory(
                      MemoryId.of("test", "registry"), new RegistryLayout(), 10, 1000, registryFile);
-             EntityGraphMemory entityGraph = new EntityGraphMemory(entityFile, 10, 20);
+             EntityDirectory entityGraph = new EntityDirectory(entityFile, 10, TypeRegistryMemory.seeded("entity-type", EntityType.SEED));
              TemporalChainMemory temporalChain = new TemporalChainMemory(chainFile, 10);
              HebbianGraphMemory hebbianGraph = new HebbianGraphMemory(10)) {
 

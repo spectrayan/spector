@@ -34,7 +34,12 @@ import com.spectrayan.spector.memory.kernel.MemoryLayout;
  *   Adjacency Entry ({@value #ADJ_ENTRY_BYTES} bytes):
  *     [memIdx:4B][weight:4B]
  * </pre>
+ *
+ * @deprecated Retired with {@link com.spectrayan.spector.memory.graph.EntityGraphMemory} by the
+ * hypergraph graduation (ADR-0003). Its identity/adjacency offsets were copied into
+ * {@code EntityDirectoryLayout}. Removed in P4 (#458).
  */
+@Deprecated(since = "1.2.0", forRemoval = true)
 public final class EntityLayout implements MemoryLayout {
 
     private static final int LAYOUT_ID = 0x45474D4D; // 'EGMM'

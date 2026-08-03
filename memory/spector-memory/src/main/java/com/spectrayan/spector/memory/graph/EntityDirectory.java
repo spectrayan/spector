@@ -296,13 +296,14 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                 return -1;
             }
             int entityId = entityCount;
+            // Write-ahead: log the mutation before applying it (matches EntityGraphMemory).
+            if (wal != null && !bypassWal) {
+                wal.appendGraphAddNode(memoryId.toString(), entityId, normalized, type);
+            }
             writeEntityNode(entityId, normalized, type);
             entityCount++;
             persistCount();
             nameIndex.put(normalized, entityId);
-            if (wal != null && !bypassWal) {
-                wal.appendGraphAddNode(memoryId.toString(), entityId, normalized, type);
-            }
             log.trace("Directory entity interned: id={}, name='{}', type={}", entityId, name, type);
             return entityId;
         } finally {

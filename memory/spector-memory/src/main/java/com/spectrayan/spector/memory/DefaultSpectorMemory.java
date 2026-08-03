@@ -1172,6 +1172,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public TemporalChainMemory temporalChain() { return graphFacade.temporalChain(); }
     @SuppressWarnings("deprecation")
     @Override public EntityGraphMemory entityGraph() { return graphFacade.entityGraph(); }
+
+    @Override public EntityDirectory entityDirectory() { return entityDirectory; }
     @SuppressWarnings("deprecation")
     @Override public HyperEntityGraphMemory hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }

@@ -53,7 +53,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Extracted from {@link EntityGraph} to separate persistence concerns
  * from graph data structure and traversal logic.</p>
+ *
+ * @deprecated Retired with {@link EntityGraphMemory} by the hypergraph graduation (ADR-0003).
+ * The name-index codec now lives in {@code EntityDirectorySerializer}. Removed in P4 (#458).
  */
+@Deprecated(since = "1.2.0", forRemoval = true)
 final class EntityGraphSerializer {
 
     private static final Logger log = LoggerFactory.getLogger(EntityGraphSerializer.class);

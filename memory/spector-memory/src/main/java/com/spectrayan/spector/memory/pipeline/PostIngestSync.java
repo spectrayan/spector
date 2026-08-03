@@ -25,8 +25,6 @@ import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.EntityGraphMemory;
-import com.spectrayan.spector.memory.graph.EntityRelation;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
@@ -81,7 +79,6 @@ final class PostIngestSync {
     private final HebbianGraphBase hebbianGraph;
     private final TemporalChainMemory temporalChain;
     private final EntityExtractor entityExtractor;
-    private final EntityGraphMemory entityGraph;
     private final EntityDirectory entityDirectory;
     private final MemoryBM25Index bm25Index;
     private volatile TextAppendMemory textDataStore;  // volatile: rolled with the partition (#443)
@@ -95,8 +92,7 @@ final class PostIngestSync {
     PostIngestSync(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, MemoryWal wal,
                    VectorIndex semanticIndex,
                    HebbianGraphBase hebbianGraph, TemporalChainMemory temporalChain,
-                   EntityExtractor entityExtractor, EntityGraphMemory entityGraph,
-                   EntityDirectory entityDirectory,
+                   EntityExtractor entityExtractor, EntityDirectory entityDirectory,
                    MemoryBM25Index bm25Index, TextAppendMemory textDataStore,
                    int activePartitionIndex,
                    MemorySpladeIndex spladeIndex, SparseEmbeddingProvider spladeProvider,
@@ -109,7 +105,6 @@ final class PostIngestSync {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityExtractor = entityExtractor;
-        this.entityGraph = entityGraph;
         this.entityDirectory = entityDirectory;
         this.bm25Index = bm25Index;
         this.textDataStore = textDataStore;
@@ -245,7 +240,7 @@ final class PostIngestSync {
      * @param memoryIdx memory index for entity -> memory linking
      */
     void syncEntityExtraction(String id, String text, int memoryIdx) {
-        if (entityExtractor != null && entityGraph != null && entityExtractor.isAvailable()) {
+        if (entityExtractor != null && entityDirectory != null && entityExtractor.isAvailable()) {
             try {
                 List<ExtractedEntity> entities = entityExtractor.extract(id, text);
                 populateEntities(entities, memoryIdx, id);
@@ -253,7 +248,7 @@ final class PostIngestSync {
                 SpectorEntityGraphException ex = new SpectorEntityGraphException("extraction", e);
                 log.warn(ex.getMessage());
             }
-        } else if (entityGraph != null) {
+        } else if (entityDirectory != null) {
             log.debug("[Ingest] '{}' entity extraction skipped: extractor={}, available={}",
                     id, entityExtractor != null ? entityExtractor.getClass().getSimpleName() : "null",
                     entityExtractor != null && entityExtractor.isAvailable());
@@ -268,7 +263,7 @@ final class PostIngestSync {
      * @param id        memory ID (for logging)
      */
     void syncPreExtractedEntities(List<ExtractedEntity> entities, int memoryIdx, String id) {
-        if (entityGraph == null) return;
+        if (entityDirectory == null) return;
         try {
             populateEntities(entities, memoryIdx, id);
         } catch (RuntimeException e) {
@@ -364,23 +359,13 @@ final class PostIngestSync {
         int entitiesAdded = 0;
         int relationsAdded = 0;
         var entityIds = new java.util.ArrayList<Integer>(entities.size());
+        // ADR-0003 #456 (P2): the EntityDirectory is the sole entity-id provider and owns
+        // entity→memory adjacency (including single-entity memories). No binary edges are written
+        // at ingest anymore; topology is carried entirely by the hypergraph below.
         for (ExtractedEntity entity : entities) {
-            int eid = entityGraph.addEntity(entity.name(), entity.typeName());
+            int eid = entityDirectory.intern(entity.name(), entity.typeName());
             if (eid >= 0) {
-                entityGraph.linkEntityToMemory(eid, memoryIdx);
-                // ADR-0003 #455 (P1): populate the identity directory in lockstep with the legacy
-                // graph. The directory shares the same dense id space, so intern() returns the same
-                // id the hyperedge is built with; a drift here would desync directory↔hyperedge ids.
-                if (entityDirectory != null) {
-                    int did = entityDirectory.intern(entity.name(), entity.typeName());
-                    if (did >= 0) {
-                        entityDirectory.linkEntityToMemory(did, memoryIdx);
-                        if (did != eid) {
-                            log.warn("EntityDirectory id drift for '{}': directory={} vs graph={}",
-                                    entity.name(), did, eid);
-                        }
-                    }
-                }
+                entityDirectory.linkEntityToMemory(eid, memoryIdx);
                 entityIds.add(eid);
                 entitiesAdded++;
             }

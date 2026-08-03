@@ -114,7 +114,12 @@ import java.util.concurrent.ConcurrentHashMap;
  *   Adjacency Entry (8 bytes):
  *     [memIdx:4B][weight:4B]
  * </pre>
+ *
+ * @deprecated Being retired by the hypergraph graduation (ADR-0003). Entity identity now lives in
+ * {@link EntityDirectory} and topology in {@link HyperEntityGraphMemory}. Kept for derive-on-load and
+ * the reflection/consolidation binary ops until the #459 port; removed in P4 (#458).
  */
+@Deprecated(since = "1.2.0", forRemoval = true)
 public final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(EntityGraphMemory.class);

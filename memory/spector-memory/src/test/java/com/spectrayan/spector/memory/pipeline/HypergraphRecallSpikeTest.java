@@ -13,8 +13,11 @@
 package com.spectrayan.spector.memory.pipeline;
 
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityGraphMemory;
+import com.spectrayan.spector.memory.graph.EntityType;
 import com.spectrayan.spector.memory.graph.EdgeImportance;
+import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
@@ -108,7 +111,7 @@ class HypergraphRecallSpikeTest {
     }
 
     @Test
-    @DisplayName("GraphExpansionStage queries HyperEntityGraph when useHypergraphRecall is true")
+    @DisplayName("GraphExpansionStage reports hypergraph subsystem availability")
     void graphExpansionStage_queriesHyperEntityGraph_whenUseHypergraphRecallTrue() {
         EntityGraphMemory entityGraph = new EntityGraphMemory(100, 500, 32, EdgeImportance.DEFAULT);
         HyperEntityGraphMemory hyperGraph = new HyperEntityGraphMemory(100, 500);
@@ -130,30 +133,29 @@ class HypergraphRecallSpikeTest {
     }
 
     @Test
-    @DisplayName("WAL binding round-trip recovery reconstructs EntityGraph and HebbianGraph")
+    @DisplayName("WAL binding round-trip recovery reconstructs EntityDirectory identity and HebbianGraph (#456)")
     void walBinding_roundTripRecovery_reconstructsGraphs() throws IOException {
         Path tempDir = Files.createTempDirectory("spector-wal-roundtrip");
         try {
             MemoryWal wal = new MemoryWal(tempDir);
-            EntityGraphMemory originalEntityGraph = new EntityGraphMemory(100, 500, 32, EdgeImportance.DEFAULT);
+            TypeRegistryMemory reg = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+            EntityDirectory originalDir = new EntityDirectory(100, reg);
             HebbianGraphMemory originalHebbianGraph = new HebbianGraphMemory(100);
 
-            // Bind WAL
-            originalEntityGraph.bindWal(wal);
+            // Bind WAL (ADR-0003 #456: the directory is the WAL-recovered identity store)
+            originalDir.bindWal(wal);
             originalHebbianGraph.bindWal(wal);
 
-            // Mutate
-            int e0 = originalEntityGraph.addEntity("Alpha", "CONCEPT");
-            int e1 = originalEntityGraph.addEntity("Beta", "CONCEPT");
-            originalEntityGraph.addRelation(e0, e1, "ASSOCIATED_WITH");
-            originalEntityGraph.linkEntityToMemory(e0, 42);
+            // Mutate: intern entities + link a single-entity memory adjacency
+            int e0 = originalDir.intern("Alpha", "CONCEPT");
+            int e1 = originalDir.intern("Beta", "CONCEPT");
+            originalDir.linkEntityToMemory(e0, 42);
 
             originalHebbianGraph.strengthen(10, 20, 2.5f);
 
-            // Ensure the changes are in the memory instances before closing
-            assertThat(originalEntityGraph.findEntity("Alpha")).isEqualTo(e0);
-            assertThat(originalEntityGraph.findEntity("Beta")).isEqualTo(e1);
-            assertThat(originalEntityGraph.memoriesForEntity(e0)).contains(42);
+            assertThat(originalDir.findEntity("Alpha")).isEqualTo(e0);
+            assertThat(originalDir.findEntity("Beta")).isEqualTo(e1);
+            assertThat(originalDir.memoriesForEntity(e0)).contains(42);
             assertThat(originalHebbianGraph.neighbors(10))
                     .anyMatch(edge -> edge.neighborIndex() == 20 && edge.weight() == 2.5f);
 
@@ -163,34 +165,35 @@ class HypergraphRecallSpikeTest {
             // Reopen WAL for recovery
             MemoryWal recoveryWal = new MemoryWal(tempDir);
 
-            // Create fresh empty graph instances (representing restart state before recovery)
-            EntityGraphMemory recoveredEntityGraph = new EntityGraphMemory(100, 500, 32, EdgeImportance.DEFAULT);
+            // Fresh empty instances (restart state before recovery)
+            TypeRegistryMemory recoveryReg = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+            EntityDirectory recoveredDir = new EntityDirectory(100, recoveryReg);
             HebbianGraphMemory recoveredHebbianGraph = new HebbianGraphMemory(100);
 
-            // Verify they start empty
-            assertThat(recoveredEntityGraph.findEntity("Alpha")).isEqualTo(-1);
-            assertThat(recoveredEntityGraph.findEntity("Beta")).isEqualTo(-1);
+            assertThat(recoveredDir.findEntity("Alpha")).isEqualTo(-1);
+            assertThat(recoveredDir.findEntity("Beta")).isEqualTo(-1);
             assertThat(recoveredHebbianGraph.neighbors(10)).isEmpty();
 
-            // Prepare dispatcher memories map
             java.util.Map<com.spectrayan.spector.memory.kernel.MemoryId, com.spectrayan.spector.memory.kernel.Memory<?>> memories = new java.util.HashMap<>();
-            memories.put(recoveredEntityGraph.id(), recoveredEntityGraph);
+            memories.put(recoveredDir.id(), recoveredDir);
             memories.put(recoveredHebbianGraph.id(), recoveredHebbianGraph);
 
             // Dispatch replay
             WalRecoveryDispatcher.recover(recoveryWal, memories);
-
-            // Close recovery WAL
             recoveryWal.close();
 
-            // Assert everything is reconstructed
-            int recoveredE0 = recoveredEntityGraph.findEntity("Alpha");
-            int recoveredE1 = recoveredEntityGraph.findEntity("Beta");
-            assertThat(recoveredE0).isNotEqualTo(-1);
-            assertThat(recoveredE1).isNotEqualTo(-1);
-            assertThat(recoveredEntityGraph.memoriesForEntity(recoveredE0)).contains(42);
+            // Identity + single-entity adjacency reconstructed via GRAPH_ADD_NODE/GRAPH_LINK_MEMORY.
+            int recoveredE0 = recoveredDir.findEntity("Alpha");
+            int recoveredE1 = recoveredDir.findEntity("Beta");
+            assertThat(recoveredE0).isEqualTo(e0);
+            assertThat(recoveredE1).isEqualTo(e1);
+            assertThat(recoveredDir.memoriesForEntity(recoveredE0)).contains(42);
+            assertThat(recoveredDir.entityType(recoveredE0)).isEqualTo("CONCEPT");
             assertThat(recoveredHebbianGraph.neighbors(10))
                     .anyMatch(edge -> edge.neighborIndex() == 20 && edge.weight() == 2.5f);
+
+            recoveredDir.close();
+            originalDir.close();
         } finally {
             // Cleanup WAL dir
             try {

@@ -162,22 +162,16 @@ public final class SpectorMemoryFactory {
         //  WAL Recovery 
         MemoryWalRecovery.recover(wal, cortex.cognitiveRouter(), index, graphs.hebbianGraph(),
                 graphs.temporalChain(), graphs.temporalKnowledgeGraph(), graphs.entityGraph(),
+                graphs.entityDirectory(),
                 bio.coActivationTracker(), cognitiveTarget, cortex.basePath(), cortex.initialPartitionSeq());
 
-        // ADR-0003 #455 (P1): the EntityDirectory is a read-through mirror of the (still-authoritative)
-        // EntityGraphMemory during the transition. WAL recovery above replays GRAPH_ADD_NODE /
-        // GRAPH_LINK_MEMORY into the entity graph only, so the directory (derived earlier in the
-        // builder from the pre-replay graph) can be stale. Re-derive it from the fully-recovered graph
-        // so identity reads are byte-identical to the legacy path. The directory becomes WAL-bound in
-        // its own right in P2 (#456), at which point this re-derive is dropped.
-        if (graphs.entityDirectory() != null && graphs.entityGraph() != null) {
-            graphs.entityDirectory().reset();
-            graphs.entityDirectory().deriveFrom(graphs.entityGraph());
-        }
-
+        // ADR-0003 #456 (P2): the EntityDirectory is now the authoritative identity store, WAL-bound
+        // and recovered directly (WalRecoveryDispatcher GRAPH_ADD_NODE/LINK repointed to it). The
+        // EntityGraphMemory is no longer WAL-bound — it is kept only for derive-on-load and (until the
+        // #459 reflection port) the reflection/consolidation binary ops.
         if (wal != null) {
-            if (graphs.entityGraph() != null) {
-                graphs.entityGraph().bindWal(wal);
+            if (graphs.entityDirectory() != null) {
+                graphs.entityDirectory().bindWal(wal);
             }
             if (graphs.hebbianGraph() instanceof HebbianGraphMemory hgm) {
                 hgm.bindWal(wal);

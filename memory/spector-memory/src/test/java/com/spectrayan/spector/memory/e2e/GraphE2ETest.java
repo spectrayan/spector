@@ -161,8 +161,8 @@ class GraphE2ETest extends AbstractE2ETest {
     @Order(20)
     @DisplayName("Entity graph is populated with expected entities from seed data")
     void entityGraphPopulated() {
-        assertThat(memory.admin().entityGraph())
-                .as("Entity graph should be initialized")
+        assertThat(memory.admin().entityDirectory())
+                .as("Entity directory should be initialized")
                 .isNotNull();
 
         // Verify specific expected entities from seed data
@@ -173,7 +173,7 @@ class GraphE2ETest extends AbstractE2ETest {
 
         int foundCount = 0;
         for (String entityName : expectedEntities) {
-            int eid = memory.admin().entityGraph().findEntity(entityName);
+            int eid = memory.admin().entityDirectory().findEntity(entityName);
             log.info("  Entity '{}': id={}", entityName, eid);
             if (eid >= 0) foundCount++;
         }
@@ -218,7 +218,7 @@ class GraphE2ETest extends AbstractE2ETest {
     @Order(22)
     @DisplayName("Technology entity links to memories mentioning it")
     void technologyEntityLinks() {
-        int pgId = memory.admin().entityGraph().findEntity("PostgreSQL");
+        int pgId = memory.admin().entityDirectory().findEntity("PostgreSQL");
         if (pgId >= 0) {
             // PostgreSQL should be mentioned in many db-* and entity-* memories
             log.info("PostgreSQL entity id: {}", pgId);
@@ -287,7 +287,7 @@ class GraphE2ETest extends AbstractE2ETest {
     @Order(33)
     @DisplayName("Entity graph handles unknown entity lookup gracefully")
     void entityGraphUnknownEntity() {
-        int unknown = memory.admin().entityGraph().findEntity("NonExistentEntity_XYZ_12345");
+        int unknown = memory.admin().entityDirectory().findEntity("NonExistentEntity_XYZ_12345");
         assertThat(unknown)
                 .as("Unknown entity should return -1 or negative sentinel")
                 .isLessThan(0);

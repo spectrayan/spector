@@ -138,7 +138,7 @@ final class GraphExpansionStage {
     void expand(List<CognitiveResult> allResults, float[] queryVector, RecallOptions options) {
         boolean cognitiveScoring = options.scoringMode() != ScoringMode.SIMILARITY;
         boolean hasSubsystems = hebbianGraph != null || temporalChain != null
-                || (entityGraph != null && (entityExtractor != null && entityExtractor.isAvailable()
+                || (entityDirectory != null && (entityExtractor != null && entityExtractor.isAvailable()
                         || !options.entityHints().isEmpty()));
 
         if (!cognitiveScoring || !hasSubsystems || allResults.isEmpty()) {
@@ -202,8 +202,9 @@ final class GraphExpansionStage {
             expandTemporal(allResults, existingIds, graphCandidates, queryVector);
         }
 
-        // Step 5e: Entity graph traversal
-        if (entityGraph != null) {
+        // Step 5e: Entity graph traversal (hyper-only — identity from the directory,
+        // topology from the hypergraph; ADR-0003 #456)
+        if (entityDirectory != null) {
             expandEntity(allResults, existingIds, graphCandidates, queryVector, options);
         }
 
@@ -314,35 +315,20 @@ final class GraphExpansionStage {
         if (queryEntities == null || queryEntities.isEmpty()) return;
 
         try {
+            // Identity (name→id, fan factor) from the directory; topology (reachable memories)
+            // from the hypergraph — unconditionally, no binary-graph fallback (ADR-0003 #456).
+            if (entityDirectory == null || hyperEntityGraph == null) return;
             for (var entity : queryEntities) {
-                // Identity (name→id, fan factor) from the directory when present, else the legacy
-                // graph (ADR-0003 #455). Topology (reachable memories) still from the hypergraph.
-                int entityId;
-                if (entityDirectory != null) {
-                    entityId = entityDirectory.findEntity(entity.name());
-                } else if (entityGraph != null) {
-                    entityId = entityGraph.findEntity(entity.name());
-                } else {
-                    continue;
-                }
+                int entityId = entityDirectory.findEntity(entity.name());
                 if (entityId < 0) continue;
 
-                Set<Integer> reachableMemories;
-                if (hyperEntityGraph != null) {
-                    reachableMemories = hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
-                } else if (entityGraph != null) {
-                    reachableMemories = entityGraph.collectMemories(
-                            entityId, null, graphScoringPolicy.entityMaxHops());
-                } else {
-                    continue;
-                }
+                Set<Integer> reachableMemories =
+                        hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
                 for (int memIdx : reachableMemories) {
                     String memId = findMemoryByApproximateIndex(memIdx);
                     if (memId != null && !existingIds.contains(memId)) {
                         float neighborSim = computeNeighborSimilarity(memId, queryVector);
-                        float fanAttenuation = (entityDirectory != null)
-                                ? entityDirectory.fanFactor(entityId)
-                                : entityGraph.fanFactor(entityId);
+                        float fanAttenuation = entityDirectory.fanFactor(entityId);
                         float entityScore = neighborSim
                                 + allResults.getFirst().score()
                                   * graphScoringPolicy.entityHopAttenuation()

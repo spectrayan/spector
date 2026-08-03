@@ -103,7 +103,6 @@ public final class SpectorMemoryBuilder {
     GenerationOptions llmGenerationOptions;
     GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
     int temporalRetentionDays = 7;
-    boolean hyperEntityGraphEnabled = true;
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
 
     //  Edge importance configuration 
@@ -250,13 +249,6 @@ public final class SpectorMemoryBuilder {
 
     /** Entity graph capacity  --  max entities (default: 50,000). */
     public SpectorMemoryBuilder entityGraphCapacity(int c) { this.entityGraphCapacity = c; return this; }
-
-    /** Enable/disable the HyperEntityGraph layer (default: true). */
-    /**
-     * @deprecated Hypergraph is now standard. This configuration option has no effect and will be removed in a future release.
-     */
-    @Deprecated(since = "1.2.0", forRemoval = true)
-    public SpectorMemoryBuilder hyperEntityGraphEnabled(boolean enabled) { this.hyperEntityGraphEnabled = enabled; return this; }
 
     /** Max entities to extract per memory (default: 10). */
     public SpectorMemoryBuilder maxEntitiesPerMemory(int c) { this.maxEntitiesPerMemory = c; return this; }
