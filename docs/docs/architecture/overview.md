@@ -24,7 +24,7 @@ graph TB
     end
 
     subgraph Transport["Transport Layer"]
-        mcp["MCP Server<br/><i>stdio · Streamable HTTP · 21 tools (6 search + 15 memory)</i>"]
+        mcp["MCP Server<br/><i>stdio · Streamable HTTP · 16 cognitive memory tools</i>"]
         armeria["Armeria Server :7070<br/><i>REST + gRPC + SSE streaming</i>"]
     end
 
@@ -172,34 +172,26 @@ graph TB
 
     subgraph MCP["MCP Server — Dual Transport · JSON-RPC 2.0"]
         transport["Transport Layer<br/><i>stdio (stdin/stdout) for CLI agents<br/>Streamable HTTP (/mcp) for remote agents</i>"]
-        registry["SpectorToolRegistry<br/><i>21 tools · auto-registration</i>"]
+        registry["SpectorToolRegistry<br/><i>16 tools · auto-registration</i>"]
         handler["McpToolHandler<br/><i>Base class · thread-safe · virtual threads</i>"]
 
-        subgraph Engine["Engine Tools — 6"]
-            e1["engine_search — Semantic vector search"]
-            e2["engine_hybrid_search — Vector + BM25 + RRF"]
-            e3["engine_rag — RAG with context assembly"]
-            e4["engine_ingest — File/text ingestion"]
-            e5["engine_delete — Document removal"]
-            e6["engine_status — Index stats & health"]
-        end
-
-        subgraph Mem["Cognitive Memory Tools — 15"]
+        subgraph Mem["Cognitive Memory Tools — 16"]
             m1["memory_remember — Store with importance & tags"]
             m2["memory_recall — Fused SIMD scoring recall"]
-            m3["working_memory_scratchpad — Reasoning scratch space"]
+            m3["memory_scratchpad — Working-memory scratch space"]
             m4["memory_reinforce — Outcome feedback +/-"]
             m5["memory_forget — Intentional forgetting"]
             m6["memory_status — Per-tier statistics"]
             m7["memory_introspect — Self-reflection"]
             m8["memory_suppress — Temporary suppression"]
-            m9["memory_resolve — Conflict resolution"]
+            m9["memory_resolve — Mark resolved/unresolved"]
             m10["memory_reminder — Proactive reminders"]
             m11["memory_why_not — Explain recall misses"]
             m12["memory_compute_importance — Pre-ingestion scoring"]
             m13["memory_inspect — Full cognitive X-ray"]
             m14["memory_export — Bulk memory export"]
             m15["memory_browse — Browse by tag/tier"]
+            m16["memory_salience — Tune salience profile"]
         end
     end
 
@@ -210,12 +202,11 @@ graph TB
     end
 
     Agents -->|stdio / HTTP| transport --> registry --> handler
-    handler --> Engine & Mem
-    Engine & Mem --> runtime --> simd --> panama
+    handler --> Mem
+    Mem --> runtime --> simd --> panama
 
     style Agents fill:#5b6abf,stroke:#e94560,color:#fff
     style MCP fill:#4a6fa5,stroke:#3b82f6,color:#fff
-    style Engine fill:#3b82f6,stroke:#7c3aed,color:#fff
     style Mem fill:#7c3aed,stroke:#e94560,color:#fff
     style Core fill:#5b6abf,stroke:#e94560,color:#fff
 ```
@@ -244,11 +235,11 @@ sequenceDiagram
     Runtime->>SIMD: Fused scoring: sim × importance × decay
     SIMD-->>Agent: 📋 Ranked memories (~0.13ms)
 
-    Agent->>MCP: tools/call {"name": "engine_hybrid_search", ...}
-    MCP->>Tools: Route → EngineHybridSearchTool
-    Tools->>Runtime: search().hybridSearch(text, topK)
-    Runtime->>SIMD: Parallel HNSW + BM25 → RRF
-    SIMD-->>Agent: 🔍 Ranked results (~88µs)
+    Agent->>MCP: tools/call {"name": "memory_introspect", ...}
+    MCP->>Tools: Route → MemoryIntrospectTool
+    Tools->>Runtime: memory().introspect(topic)
+    Runtime->>SIMD: Confidence + knowledge-gap analysis over tiers
+    SIMD-->>Agent: 🔍 Knowledge report (~0.2ms)
 ```
 
 ### Performance: MCP-Native vs. Adapter Pattern
@@ -258,7 +249,7 @@ sequenceDiagram
 | **Architecture** | Engine + MCP in one JVM | Python → HTTP → DB → HTTP → agent |
 | **Search latency** | **88µs** (SIMD) | 5–50ms (network round-trip) |
 | **Memory recall** | **0.13ms** (fused scoring) | 50–200ms (Mem0/Letta/Zep) |
-| **Tools** | **21** (6 engine + 15 cognitive) | 3–5 basic CRUD |
+| **Tools** | **16** (cognitive memory tools) | 3–5 basic CRUD |
 | **GC pressure** | **Zero** (Panama off-heap) | Full GC overhead |
 | **Deployment** | `java -jar spector.jar` | Python + pip + DB + config |
 

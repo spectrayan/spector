@@ -1,19 +1,19 @@
 ---
 title: "MCP Integration — Model Context Protocol Server"
-description: "Connect AI agents to Spector via the built-in MCP server. 13 tools for search, memory, and cognitive operations. Works with Claude Desktop, Cursor, and custom agents."
+description: "Connect AI agents to Spector via the built-in MCP server — 16 cognitive memory tools for storing, recalling, and introspecting memory. Works with Claude Desktop, Cursor, and custom agents."
 ---
 
 # 🤖 MCP Integration Architecture
 
-> **Spector's built-in Model Context Protocol (MCP) server gives any AI agent instant, in-process access to SIMD-accelerated vector search — with zero network overhead.**
+> **Spector's built-in Model Context Protocol (MCP) server gives any AI agent instant, in-process access to SIMD-accelerated cognitive memory — with zero network overhead.**
 
 ---
 
 ## Overview
 
-The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is Anthropic's open standard for connecting AI agents to external data sources. Instead of writing custom Python glue-code with orchestration frameworks, agents connect directly to an MCP server via JSON-RPC and autonomously invoke tools.
+The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is Anthropic's open standard for connecting AI agents to external data sources. Instead of writing custom glue-code with orchestration frameworks, agents connect directly to an MCP server via JSON-RPC and autonomously invoke tools.
 
-**Spector's MCP server runs in-process.** When Claude Desktop or Cursor calls `engine_search`, the request goes from JSON-RPC → Java method call → SIMD kernel — never touching a network socket. This makes Spector **23–113× faster than Python-based MCP servers** that route through HTTP/gRPC.
+**Spector's MCP server runs in-process.** When Claude Desktop or Cursor calls `memory_recall`, the request goes from JSON-RPC → Java method call → SIMD kernel — never touching a network socket. This makes Spector **23–113× faster than Python-based MCP servers** that route through HTTP/gRPC.
 
 Spector supports **two MCP transports**:
 
@@ -41,21 +41,12 @@ graph LR
             PP["\ud83d\udcac SpectorPromptProvider"]
         end
 
-        subgraph "Engine Tools"
-            T1["EngineSearchTool"]
-            T2["EngineHybridSearchTool"]
-            T3["EngineRagTool"]
-            T4["EngineIngestTool"]
-            T5["EngineDeleteTool"]
-            T6["EngineStatusTool"]
-        end
-
-        subgraph "Memory Tools"
+        subgraph "Cognitive Memory Tools — 16"
             M1["MemoryRememberTool"]
             M2["MemoryRecallTool"]
             M3["MemoryForgetTool"]
             M4["MemoryIntrospectTool"]
-            M5["... 11 more"]
+            M5["... 12 more"]
         end
 
         subgraph Foundation
@@ -69,8 +60,8 @@ graph LR
         Runtime["\u26a1 SpectorRuntime<br/><i>Composition Root</i>"]
     end
 
-    subgraph "spector-engine"
-        Engine["\ud83d\udd27 SpectorEngine"]
+    subgraph "spector-memory"
+        Memory["\ud83e\udde0 SpectorMemory"]
     end
 
     subgraph "spector-core"
@@ -82,14 +73,13 @@ graph LR
     StdioTransport --> Server
     HttpTransport --> Server
     Server --> TR & RP & PP
-    TR --> T1 & T2 & T3 & T4 & T5 & T6
-    T1 & T2 & T3 & T4 & T5 & T6 --> TH
-    T1 & T2 & T3 & T4 & T5 & T6 --> SB
-    T1 & T2 & T3 --> RF
-    T6 --> RF
-    T1 & T2 & T3 & T4 & T5 & T6 --> Runtime
-    Runtime --> Engine
-    Engine --> SIMD
+    TR --> M1 & M2 & M3 & M4 & M5
+    M1 & M2 & M3 & M4 & M5 --> TH
+    M1 & M2 & M3 & M4 & M5 --> SB
+    M1 & M2 & M3 & M4 & M5 --> RF
+    M1 & M2 & M3 & M4 & M5 --> Runtime
+    Runtime --> Memory
+    Memory --> SIMD
 ```
 
 ### Data Flow
@@ -100,25 +90,25 @@ sequenceDiagram
     participant MCP as \ud83d\udce1 MCP Transport (stdio / Streamable HTTP)
     participant Handler as \ud83d\udd27 McpToolHandler
     participant Runtime as \u26a1 SpectorRuntime
-    participant Engine as \ud83d\udd27 SpectorEngine
+    participant Memory as \ud83e\udde0 SpectorMemory
     participant SIMD as \ud83d\udd2c SIMD Kernel
 
-    Agent->>MCP: tools/call {"name": "engine_search", "arguments": {"query": "..."}}
-    MCP->>Handler: EngineSearchTool.execute(runtime, args)
+    Agent->>MCP: tools/call {"name": "memory_recall", "arguments": {"query": "..."}}
+    MCP->>Handler: MemoryRecallTool.execute(runtime, args)
     
     Note over Handler: requireString(args, "query")<br/>optionalInt(args, "top_k", 5)
     
-    Handler->>Runtime: runtime.search().query(query, topK)
-    Runtime->>Engine: engine.search(query, topK)
-    Engine->>SIMD: HNSW traversal (off-heap MemorySegment)
-    SIMD-->>Engine: ScoredResult[] (~100µs)
-    Engine-->>Runtime: SearchResponse
+    Handler->>Runtime: runtime.memory().recall(query, topK)
+    Runtime->>Memory: memory.recall(query, topK)
+    Memory->>SIMD: Fused scoring: sim × importance × decay (off-heap MemorySegment)
+    SIMD-->>Memory: ScoredMemory[] (~0.13ms)
+    Memory-->>Runtime: RecallResult
     Runtime-->>Handler: SpectorResult[]
     
-    Note over Handler: ResultFormatter.formatSearchResults()<br/>McpToolHandler.textResult()
+    Note over Handler: ResultFormatter.formatRecallResults()<br/>McpToolHandler.textResult()
     
     Handler-->>MCP: CallToolResult (text content)
-    MCP-->>Agent: {"content": [{"type": "text", "text": "Found 5 results..."}]}
+    MCP-->>Agent: {"content": [{"type": "text", "text": "Recalled 5 memories..."}]}
 ```
 
 ---
@@ -133,26 +123,25 @@ spector-mcp/src/main/java/com/spectrayan/spector/mcp/
 │   └── ToolSchemaBuilder.java     ← Type-safe fluent builder for JSON schemas
 ├── tools/
 │   ├── McpToolHandler.java        ← Abstract base with timing, error handling
-│   ├── SpectorToolRegistry.java   ← Mode-aware tool discovery & registration
-│   ├── engine/                    ← Engine tools (available in SEARCH/HYBRID mode)
-│   │   ├── EngineSearchTool.java
-│   │   ├── EngineHybridSearchTool.java
-│   │   ├── EngineRagTool.java
-│   │   ├── EngineIngestTool.java
-│   │   ├── EngineDeleteTool.java
-│   │   └── EngineStatusTool.java
-│   └── memory/                    ← Memory tools (available in MEMORY/HYBRID mode)
+│   ├── SpectorToolRegistry.java   ← Tool discovery & registration
+│   └── memory/                    ← 16 cognitive memory tools
+│       ├── MemoryToolHandler.java     ← Memory-aware base handler
 │       ├── MemoryRememberTool.java
 │       ├── MemoryRecallTool.java
-│       ├── MemoryForgetTool.java
+│       ├── MemoryScratchpadTool.java
 │       ├── MemoryReinforceTool.java
+│       ├── MemoryForgetTool.java
+│       ├── MemoryStatusTool.java
+│       ├── MemoryIntrospectTool.java
 │       ├── MemorySuppressTool.java
 │       ├── MemoryResolveTool.java
-│       ├── MemoryIntrospectTool.java
-│       ├── MemoryScratchpadTool.java
 │       ├── MemoryReminderTool.java
 │       ├── MemoryWhyNotTool.java
-│       └── MemoryStatusTool.java
+│       ├── MemoryComputeImportanceTool.java
+│       ├── MemoryInspectTool.java
+│       ├── MemoryExportTool.java
+│       ├── MemoryBrowseTool.java
+│       └── MemorySalienceTool.java
 ├── resources/
 │   └── SpectorResourceProvider.java   ← Resource definitions & handlers
 ├── prompts/
@@ -165,75 +154,26 @@ spector-mcp/src/main/java/com/spectrayan/spector/mcp/
 
 ## Tool Reference
 
-### `engine_search`
+The MCP server exposes **16 cognitive memory tools**. All are registered when cognitive memory is enabled (`spector.memory.enabled: true`). Memory tools embed text to store and recall memories, so an embedding provider (e.g., Ollama) must be configured.
 
-Performs semantic similarity search using vector embeddings. Requires an embedding provider (e.g., Ollama) to be configured.
-
-| Parameter | Type | Required | Default | Description |
-|:---|:---|:---|:---|:---|
-| `query` | string | ✅ | — | Natural language search query |
-| `top_k` | integer | ❌ | 5 | Number of results to return (1–100) |
-
-### `engine_hybrid_search`
-
-Combined keyword (BM25) + semantic (vector) search with reciprocal rank fusion. Falls back to keyword-only if no embedding provider is configured.
-
-| Parameter | Type | Required | Default | Description |
-|:---|:---|:---|:---|:---|
-| `query` | string | ✅ | — | Search query for both keyword and semantic matching |
-| `top_k` | integer | ❌ | 5 | Number of results to return |
-| `mode` | enum | ❌ | `hybrid` | Search mode: `hybrid`, `keyword`, or `vector` |
-
-### `engine_rag`
-
-Retrieval-Augmented Generation — retrieves relevant context with source citations formatted for LLM consumption.
-
-| Parameter | Type | Required | Default | Description |
-|:---|:---|:---|:---|:---|
-| `query` | string | ✅ | — | The question or topic to retrieve context for |
-| `top_k` | integer | ❌ | 5 | Number of context passages to retrieve |
-
-### `engine_ingest`
-
-Ingests a document into the search index with automatic embedding and optional chunking.
-
-| Parameter | Type | Required | Default | Description |
-|:---|:---|:---|:---|:---|
-| `id` | string | ✅ | — | Unique document identifier |
-| `content` | string | ✅ | — | Document text content |
-| `title` | string | ❌ | — | Optional document title |
-
-### `engine_delete`
-
-Removes a document from the search index by ID.
-
-| Parameter | Type | Required | Default | Description |
-|:---|:---|:---|:---|:---|
-| `id` | string | ✅ | — | Document ID to delete |
-
-### `engine_status`
-
-Returns engine metadata including document count, dimensions, SIMD capabilities, embedding provider status, and GPU availability.
-
-| Parameter | Type | Required | Default | Description |
-|:---|:---|:---|:---|:---|
-| *(none)* | — | — | — | No input parameters required |
-
-### Memory Tools
-
-| Tool | Parameters | Description |
+| Tool | Key parameters | Description |
 |:---|:---|:---|
-| `memory_remember` | `id`, `text`, `type`, `source`, `tags` | Store a cognitive memory |
-| `memory_recall` | `query`, `top_k`, `tags`, `types` | Cognitive recall across all tiers |
-| `memory_forget` | `id` | Tombstone a memory |
-| `memory_reinforce` | `id`, `valence` | Positive/negative feedback |
-| `memory_suppress` | `id`, `reason` | Suppress from recall |
-| `memory_resolve` | `id` | Mark as resolved |
-| `memory_introspect` | `topic` | Topic knowledge analysis |
-| `memory_scratchpad` | `text` | Quick-write to working memory |
-| `memory_reminder` | `text`, `delay_seconds`, `tags` | Schedule future reminder |
-| `memory_why_not` | `memory_id`, `query`, `top_k` | Explain why not recalled |
-| `memory_status` | *(none)* | Tier counts and partition info |
+| `memory_remember` | `text` (req), `tier`, `tags`, `source`, `interest`/`challenge`/`urgency`, `valence`, `arousal` | Store a memory with cognitive metadata (ID auto-generated) |
+| `memory_recall` | `query` (req), `top_k`, `profile`, `synaptic_filter`, `min_importance`, `point_in_time` | Fused cognitive recall across all tiers |
+| `memory_scratchpad` | `text` (req) | Quick-write a short-lived note to working memory |
+| `memory_reinforce` | `memory_id` (req), `valence` (req) | Report a positive/negative outcome for a memory |
+| `memory_forget` | `memory_id` (req) | Tombstone a memory by ID |
+| `memory_status` | *(none)* | Memory tier counts and persistence info |
+| `memory_introspect` | `topic` (req) | Metamemory self-analysis on a topic |
+| `memory_suppress` | `memory_id` (req), `action` (req), `reason` | Suppress or unsuppress a memory from recall |
+| `memory_resolve` | `memory_id` (req), `resolved` (req) | Mark a memory resolved/unresolved (Zeigarnik) |
+| `memory_reminder` | `text` (req), `delay_seconds` (req), `tags` | Schedule a time-triggered reminder |
+| `memory_why_not` | `memory_id` (req), `query` (req), `top_k` | Explain why a memory was not recalled |
+| `memory_compute_importance` | `text` (req), `interest`/`challenge`/`urgency`, `valence`, `arousal` | Preview importance without storing |
+| `memory_inspect` | `id` (req) | Full cognitive X-ray of a memory |
+| `memory_export` | `format` | Bulk export of all live memories |
+| `memory_browse` | `tags` (req) | Browse memories by tag (AND semantics, no vector search) |
+| `memory_salience` | `operation` (req), profile fields | Inspect and tune the active salience profile |
 
 ---
 
@@ -248,7 +188,7 @@ public abstract class McpToolHandler {
     abstract String name();
     abstract String description();
     abstract Map<String, Object> inputSchema();
-    abstract CallToolResult execute(SpectorEngine engine, Map<String, Object> args);
+    abstract CallToolResult execute(SpectorRuntime runtime, Map<String, Object> args);
 
     // Base class automatically provides:
     // - Timing wrapper (nanoTime → milliseconds)
@@ -262,24 +202,19 @@ Define the tool schema with `ToolSchemaBuilder`:
 
 ```java
 var schema = ToolSchemaBuilder.object()
-    .requiredString("query", "Natural language search query.")
+    .requiredString("query", "Natural language query for memory recall.")
     .optionalInt("top_k", "Number of results to return.", 5)
-    .optionalEnum("mode", "Search mode.", "hybrid", "hybrid", "keyword", "vector")
+    .optionalString("profile", "Cognitive scoring profile preset.", "")
     .build();
 ```
 
-Register the tool in `SpectorToolRegistry.handlers()`:
+Register the tool in `SpectorToolRegistry.handlers()` — one line per tool:
 
 ```java
-List.of(
-    new EngineSearchTool(),
-    new EngineHybridSearchTool(),
-    new EngineRagTool(),
-    new EngineIngestTool(),
-    new EngineDeleteTool(),
-    new EngineStatusTool(serverVersion)
-    // new YourNewTool()  ← just add here
-);
+handlers.add(new MemoryRememberTool(memory));
+handlers.add(new MemoryRecallTool(memory));
+// ... 14 more cognitive memory tools
+// handlers.add(new YourNewTool(memory));  ← just add here
 ```
 
 ---
@@ -313,7 +248,7 @@ graph LR
 graph LR
     A2["🤖 Agent"] --> B2["JSON-RPC"]
     B2 --> C2["☕ Virtual Thread"]
-    C2 --> D2["SpectorEngine.search()"]
+    C2 --> D2["SpectorMemory.recall()"]
     D2 --> E2["Off-heap MemorySegment"]
     E2 --> F2["SIMD registers"]
     F2 --> G2["✅ Results"]
@@ -339,11 +274,10 @@ graph LR
 ## Security Considerations
 
 > [!WARNING]
-> The `engine_ingest` and `engine_delete` tools allow agents to modify the search index. In production environments, consider:
-> - Running the MCP server in read-only mode (expose only search tools)
-> - Using `SEARCH` mode to disable memory write tools
-> - Implementing document-level access control
-> - Rate limiting ingestion operations
+> Several tools mutate memory state — `memory_remember`, `memory_forget`, `memory_suppress`, `memory_reinforce`, `memory_resolve`, and `memory_scratchpad`. In production environments, consider:
+> - Restricting write tools via OAuth 2.1 scopes (`memory:write`) — Spector Enterprise filters tools at `list_tools` time and enforces them per request
+> - Implementing namespace/tenant-level access control
+> - Rate limiting write operations
 > - Auditing all write operations
 
 ---

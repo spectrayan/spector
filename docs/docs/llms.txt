@@ -2,13 +2,13 @@
 
 > The Zero-Overhead, Agent-Ready AI Memory Backbone.
 
-Spector is a Java-native AI search engine and cognitive memory system. It uses Project Panama for off-heap memory (zero GC), Java Vector API for SIMD-accelerated search (AVX2/AVX-512/NEON), and includes a built-in MCP server for AI agent integration.
+Spector is an agent-ready AI cognitive memory backbone. It gives AI agents memory that remembers, forgets, consolidates, and forms associations across biologically-inspired tiers linked by Hebbian, temporal, and entity graphs, with fused semantic and hybrid retrieval. Connect agents through the built-in MCP server, call it over REST/gRPC, drive it from the Python SDK, or embed it in the JVM. Under the hood, Project Panama (off-heap, zero GC) and the Java Vector API (AVX2/AVX-512/NEON) deliver the performance.
 
 ## Key Features
 
 - SIMD-accelerated vector search: 88µs p50, 61K QPS
 - Cognitive Memory: biologically-inspired 4-tier memory engine with 0.13ms recall at 1M memories
-- Built-in MCP Server with 13 tools (6 search + 7 cognitive memory)
+- Built-in MCP Server with 16 cognitive memory tools
 - 100% off-heap Panama storage — zero garbage collection pressure
 - SVASQ quantization: Float32 recall at INT8 memory sizes (99.5%+ recall)
 - Hybrid search: semantic (HNSW) + keyword (BM25) with RRF fusion

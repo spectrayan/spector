@@ -5,7 +5,7 @@ description: "Why existing databases can't solve AI memory — and how Spector's
 
 # Why Spector?
 
-> **The short answer**: AI memory requires fusing semantic similarity, temporal decay, emotional valence, and adaptive importance into a single sub-millisecond ranking decision. No existing database — SQL, NoSQL, or vector — can do this. Spector was built from scratch to solve exactly this problem.
+> **The short answer**: AI memory requires fusing semantic similarity, temporal decay, emotional valence, adaptive importance, and the associations *between* memories into a single sub-millisecond ranking decision. No existing database — SQL, NoSQL, or vector — can do this. Spector was built from scratch to solve exactly this problem.
 
 ---
 
@@ -75,7 +75,7 @@ Spector models memory the way brains do — based on peer-reviewed cognitive sci
 
 ### 3. Zero Dependencies, Flexible Deployment
 
-Spector runs anywhere the JVM runs — no Docker, no Python, no external services:
+Spector needs no Docker, no external database, and no extra services. Reach it from any language over MCP or REST/gRPC, drive it from the Python SDK, or embed it directly:
 
 - **Embedded library**: Add a single JAR to your Java/Kotlin/Scala application
 - **Standalone server**: REST + gRPC + MCP APIs on a single port
@@ -85,7 +85,7 @@ Spector runs anywhere the JVM runs — no Docker, no Python, no external service
 
 ### 4. Built-In MCP Server
 
-Spector includes a 13-tool MCP server for AI agent integration — Claude Desktop, Cursor, and custom agents can use cognitive memory out of the box. No wrapper libraries needed.
+Spector includes a 16-tool MCP server for AI agent integration — Claude Desktop, Cursor, and custom agents can use cognitive memory out of the box. No wrapper libraries needed.
 
 ### 5. Enterprise-Grade Security
 
@@ -111,7 +111,7 @@ Every tenant gets physically separate files with independent encryption keys:
 | **Off-heap / Zero GC** | ✅ Panama FFM | N/A | Partial | ✅ (Rust) | Partial | ❌ | N/A |
 | **Fused cognitive scoring** | ✅ 6-phase pipeline | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Hybrid search** | ✅ HNSW + BM25 + RRF | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Built-in MCP server** | ✅ 13 tools | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Built-in MCP server** | ✅ 16 tools | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Cognitive memory** | ✅ 4-tier, bio-inspired | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Quantization** | SVASQ-8/4, IVF-PQ | ✅ | ✅ BQ | ✅ SQ/PQ | ✅ IVF-PQ/SQ | ❌ | ❌ |
 | **GPU acceleration** | ✅ CUDA via Panama | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
@@ -139,7 +139,7 @@ Every tenant gets physically separate files with independent encryption keys:
 ## When to Choose Something Else
 
 - You need a **managed cloud service** with zero ops → Pinecone
-- You're building in **Python** and want the simplest path → ChromaDB
+- You want a **pure-Python** library with no JVM in the process at all → ChromaDB
 - You already have **PostgreSQL** and just want to add basic vector search → pgvector
 - You need **multi-modal** search (images, video, audio) → Weaviate, Milvus
 

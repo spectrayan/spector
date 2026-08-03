@@ -7,7 +7,7 @@ description: "Install and use the Spector Python SDK to control cognitive memory
 
 > **Zero-dependency Python client wrapping Spector's MCP server.**
 
-The Python SDK spawns the Spector JVM as a subprocess and communicates via JSON-RPC 2.0 over stdio. All 21 MCP tools are accessible through a clean Pythonic API.
+The Python SDK spawns the Spector JVM as a subprocess and communicates via JSON-RPC 2.0 over stdio. All 16 MCP tools are accessible through a clean Pythonic API.
 
 ---
 
@@ -188,7 +188,7 @@ logging.getLogger("spector").setLevel(logging.DEBUG)
 │   Python SDK     │  ─────── stdio ──────────►    │  Spector JVM     │
 │                  │                                │  (MCP Server)    │
 │  SpectorClient   │  ◄────── stdout ──────────    │                  │
-│  ├── memory      │                                │  21 MCP tools    │
+│  ├── memory      │                                │  16 MCP tools    │
 │  └── engine      │         stderr → logging       │  Off-heap memory │
 └──────────────────┘                                └──────────────────┘
 ```

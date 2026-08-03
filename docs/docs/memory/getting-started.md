@@ -215,7 +215,7 @@ Then configure your agent:
 }
 ```
 
-With `memory.enabled: true`, the MCP server registers all 13 tools (6 search + 7 cognitive memory).
+With `memory.enabled: true`, the MCP server registers all 16 cognitive memory tools.
 
 ---
 
