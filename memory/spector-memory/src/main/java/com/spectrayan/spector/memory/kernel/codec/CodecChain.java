@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.kernel.codec;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorInternalException;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.Duration;
@@ -29,7 +32,8 @@ public final class CodecChain {
         this.codec = codec;
         for (CodecStep step : codec.steps()) {
             if (stepMap.put(step.from(), step) != null) {
-                throw new IllegalArgumentException("Duplicate migration step for format: " + step.from());
+                throw new SpectorInternalException(
+                        ErrorCode.INVARIANT_VIOLATED, "duplicate migration step for format " + step.from());
             }
         }
     }

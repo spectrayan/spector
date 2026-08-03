@@ -23,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 
 /**
@@ -40,13 +41,15 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
  * <ul>
  *   <li><strong>Unsafe namespace identifier → {@code 400}.</strong> When a resolved {@code User_Id}
  *       yields an unsafe namespace identifier, {@code StorageLayout.namespaceDirSharded(...)} throws
- *       an {@link IllegalArgumentException} whose message begins with
- *       {@value #UNSAFE_NAMESPACE_PREFIX} <em>before</em> any path is resolved or any filesystem
- *       mutation occurs. Such failures are mapped to HTTP {@code 400}, logged at <strong>DEBUG</strong>
- *       with the exception's own (value-free) diagnostic message but <strong>never</strong> the raw
- *       identifier, and answered with a generic body (Requirement 19.4). Any other
- *       {@code IllegalArgumentException} from these packages preserves the pre-existing {@code 400}
- *       "Bad Request" behavior so no unrelated contract changes.</li>
+ *       a {@link SpectorValidationException} ({@code SPE-100-013}) whose message names the
+ *       {@value #NAMESPACE_ID_MARKER} but <em>never</em> carries the raw value, thrown <em>before</em>
+ *       any path is resolved or any filesystem mutation occurs. Such failures are mapped to HTTP
+ *       {@code 400}, logged at <strong>DEBUG</strong> with the exception's own (value-free) diagnostic
+ *       message but <strong>never</strong> the raw identifier, and answered with the fixed, value-free
+ *       body {@value #MSG_INVALID_NAMESPACE} that also withholds the internal {@code SPE} code and the
+ *       offending code point (Requirement 19.4, 19.6). Any other {@code IllegalArgumentException} from
+ *       these packages preserves the pre-existing {@code 400} "Bad Request" behavior so no unrelated
+ *       contract changes.</li>
  *   <li><strong>Auth data store unavailable → {@code 401}.</strong> A
  *       {@link DataAccessException} surfacing on a request thread (the authentication data store is
  *       unreachable) fails the request closed with HTTP {@code 401}, logged via SLF4J at
@@ -76,8 +79,21 @@ public class AuthExceptionHandler {
      */
     static final String UNSAFE_NAMESPACE_PREFIX = "Invalid namespace identifier";
 
+    /**
+     * Value-free marker present in every {@code StorageLayout.validateNamespaceId(...)} rejection
+     * message (the literal field name passed to {@code ARGUMENT_INVALID}). The raw identifier is
+     * never included in that message, so matching on this marker classifies the namespace-safety
+     * failure without ever reading the raw value. This is the classifier for the
+     * {@link SpectorValidationException} path introduced when namespace validation moved from a raw
+     * {@link IllegalArgumentException} to a typed domain exception (SPE-100-013).
+     */
+    static final String NAMESPACE_ID_MARKER = "namespace identifier";
+
     /** Generic, value-free body returned for an unsafe namespace identifier. */
     static final String MSG_INVALID_NAMESPACE = "Invalid namespace identifier";
+
+    /** Generic, value-free body for any other domain validation failure (no message echo). */
+    static final String MSG_INVALID_REQUEST = "Invalid request";
 
     /** Uniform body returned when authentication cannot be completed (store unavailable). */
     static final String MSG_AUTH_FAILED = "Authentication failed";
@@ -119,6 +135,43 @@ public class AuthExceptionHandler {
         return ResponseEntity.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new ErrorResponse(400, "Bad Request", message));
+    }
+
+    /**
+     * Maps a domain validation failure ({@link SpectorValidationException}, {@code SPE-100-xxx}) to a
+     * fail-closed {@code 400}. Since {@code StorageLayout.validateNamespaceId(...)} was hardened to
+     * throw this typed exception (Refs #438) instead of a raw {@link IllegalArgumentException}, this
+     * handler restores the pre-existing security contract for the namespace-safety case.
+     *
+     * <p>The namespace-identifier case (classified by the value-free {@value #NAMESPACE_ID_MARKER}
+     * marker) returns the exact contract body {@value #MSG_INVALID_NAMESPACE}. The response
+     * <strong>never</strong> echoes the raw identifier, the {@code SPE} code, or the offending
+     * code point (Requirements 19.4, 19.6). Any other domain validation failure also fails closed
+     * with {@code 400} but withholds the domain message — that message can embed argument values or
+     * the {@code SPE} code — returning the generic {@value #MSG_INVALID_REQUEST} instead.</p>
+     *
+     * @param ex the raised domain validation exception
+     * @return a {@code 400} response with a value-free body
+     */
+    @ExceptionHandler(SpectorValidationException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(SpectorValidationException ex) {
+        String message = ex.getMessage();
+        if (message != null && message.contains(NAMESPACE_ID_MARKER)) {
+            // DEBUG only; ex.getMessage() carries the SPE code + index/code-point diagnostics but
+            // NOT the raw identifier value, so it is safe to log while the client body stays
+            // value-free (Req 19.4). The client body is the fixed sanitized message below.
+            log.debug("[Auth] Rejecting unsafe namespace identifier (raw value withheld): {}", message);
+            return ResponseEntity.badRequest()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new ErrorResponse(400, "Bad Request", MSG_INVALID_NAMESPACE));
+        }
+        // Other domain validation failures: 400, but the domain message is withheld from the client
+        // because it may carry argument values or the internal SPE code (Req 19.6). Log the stable
+        // code id (value-free) for diagnostics.
+        log.debug("[Auth] Domain validation failure [{}] -> 400 (message withheld)", ex.codeId());
+        return ResponseEntity.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(400, "Bad Request", MSG_INVALID_REQUEST));
     }
 
     /**

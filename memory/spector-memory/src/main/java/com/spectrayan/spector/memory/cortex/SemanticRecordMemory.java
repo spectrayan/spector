@@ -62,7 +62,7 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
      * @param capacity          maximum number of semantic memories (default: 100_000)
      */
     public SemanticRecordMemory(int quantizedVecBytes, int capacity) {
-        super(quantizedVecBytes, capacity,
+        super(MemoryType.SEMANTIC, quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("SemanticRecordMemory initialized: capacity={}, stride={}B, persistent=false, headerVersion=V{}",
@@ -77,7 +77,7 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
      * @param filePath          path to the backing mmap file
      */
     public SemanticRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        super(quantizedVecBytes, capacity,
+        super(MemoryType.SEMANTIC, quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 

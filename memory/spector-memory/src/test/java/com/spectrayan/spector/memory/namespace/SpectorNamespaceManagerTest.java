@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -84,7 +86,7 @@ class SpectorNamespaceManagerTest {
         var config = new NamespaceConfig("has spaces", "Test", -1, -1, -1, false);
 
         assertThatThrownBy(() -> manager.createNamespace(config))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test

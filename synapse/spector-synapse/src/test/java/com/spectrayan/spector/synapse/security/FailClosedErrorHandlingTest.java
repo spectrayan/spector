@@ -28,6 +28,7 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 
@@ -97,13 +98,15 @@ class FailClosedErrorHandlingTest {
 
     @Test
     void unsafeNamespaceIdentifierYields400WithoutEchoingRawValue() {
-        // A real StorageLayout rejection for an identifier containing a path separator.
+        // A real StorageLayout rejection for an identifier containing a path separator. Since #438
+        // this is a typed domain exception (SpectorValidationException, SPE-100-013), not a raw
+        // IllegalArgumentException — the security contract below must hold unchanged.
         String rawUnsafeId = "evil/../../secret";
-        IllegalArgumentException ex = catchThrowableOfType(IllegalArgumentException.class,
+        SpectorValidationException ex = catchThrowableOfType(SpectorValidationException.class,
                 () -> StorageLayout.namespaceDirSharded(Path.of("base"), rawUnsafeId));
         assertThat(ex).isNotNull();
 
-        ResponseEntity<ErrorResponse> result = new AuthExceptionHandler().handleIllegalArgument(ex);
+        ResponseEntity<ErrorResponse> result = new AuthExceptionHandler().handleValidation(ex);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         ErrorResponse body = result.getBody();
@@ -111,6 +114,8 @@ class FailClosedErrorHandlingTest {
         assertThat(body.status()).isEqualTo(400);
         // The raw identifier value must never appear in the response body (Req 19.4, 19.6).
         assertThat(body.message()).doesNotContain(rawUnsafeId);
+        // Nor may the response leak the internal SPE code or the offending code point (Req 19.6).
+        assertThat(body.message()).doesNotContain("SPE-");
         assertThat(body.message()).isEqualTo("Invalid namespace identifier");
     }
 

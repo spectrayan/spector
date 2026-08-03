@@ -15,6 +15,8 @@ package com.spectrayan.spector.memory.pipeline;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,11 +90,11 @@ public final class RecallHistory {
      * Creates a recall history with the specified capacity.
      *
      * @param capacity maximum number of recall contexts to retain
-     * @throws IllegalArgumentException if capacity is less than 1
+     * @throws SpectorValidationException if capacity is less than 1
      */
     public RecallHistory(int capacity) {
         if (capacity < 1) {
-            throw new IllegalArgumentException("Capacity must be ≥ 1, got: " + capacity);
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "capacity", capacity + " (must be >= 1)");
         }
         this.capacity = capacity;
         this.ringBuffer = new String[capacity][];

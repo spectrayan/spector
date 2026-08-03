@@ -24,6 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.migration.MigrationPipeline;
 
@@ -182,14 +184,17 @@ public class SpectorNamespaceManager {
      *
      * @param config namespace configuration
      * @return the namespace context
-     * @throws IllegalArgumentException if the namespace ID is invalid
-     * @throws IllegalStateException    if the namespace already exists
+     * @throws SpectorValidationException if the namespace ID is invalid
+     * @throws IllegalStateException      if the namespace already exists
      */
     public NamespaceContext createNamespace(NamespaceConfig config) {
         if (!config.isValidId()) {
-            throw new IllegalArgumentException("Invalid namespace ID: " + config.id());
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "namespace ID", config.id());
         }
         if (namespaces.containsKey(config.id())) {
+            // No domain conflict ErrorCode exists in the MEMORY category; a namespace that
+            // already exists is a caller-state conflict, so the standard IllegalStateException
+            // is retained here intentionally (see #438 notes).
             throw new IllegalStateException("Namespace already exists: " + config.id());
         }
 

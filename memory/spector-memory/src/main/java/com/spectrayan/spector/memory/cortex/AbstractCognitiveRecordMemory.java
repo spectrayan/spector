@@ -20,6 +20,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.model.MemoryType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,8 +29,6 @@ import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -51,8 +50,6 @@ public abstract class AbstractCognitiveRecordMemory
 
     private static final Logger log = LoggerFactory.getLogger(AbstractCognitiveRecordMemory.class);
 
-    private volatile MemoryId memoryId;
-
     /** Legacy metadata header magic: "TIER" in ASCII (0x54494552). */
     public static final int TIER_MAGIC = 0x54494552;
 
@@ -61,23 +58,6 @@ public abstract class AbstractCognitiveRecordMemory
 
     /** Size of the metadata header in bytes. */
     public static final int METADATA_HEADER_BYTES = MemoryHeader.HEADER_BYTES;
-
-    // ── SWMR Visibility Barrier ──
-    private static final VarHandle VISIBLE_COUNT_HANDLE;
-    static {
-        try {
-            VISIBLE_COUNT_HANDLE = MethodHandles.lookup()
-                    .findVarHandle(AbstractCognitiveRecordMemory.class, "maxVisibleRecord", int.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
-    protected final CognitiveRecordLayout layout;
-    protected int count = 0;
-
-    @SuppressWarnings("unused") // accessed via VarHandle
-    private volatile int maxVisibleRecord = 0;
 
     private static final class MmapResult {
         final Arena arena;
@@ -119,13 +99,16 @@ public abstract class AbstractCognitiveRecordMemory
 
     /**
      * Volatile constructor — allocates a single contiguous off-heap segment (no file).
+     *
+     * @param type the cognitive tier this store represents; used to derive the stable
+     *             {@link MemoryId} up-front so identity is final and lock-free.
      */
-    protected AbstractCognitiveRecordMemory(int quantizedVecBytes, int capacity, long segmentBytes) {
-        this(quantizedVecBytes, capacity, segmentBytes, Arena.ofShared());
+    protected AbstractCognitiveRecordMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes) {
+        this(type, quantizedVecBytes, capacity, segmentBytes, Arena.ofShared());
     }
 
-    private AbstractCognitiveRecordMemory(int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
-        this(new CognitiveRecordLayout(quantizedVecBytes),
+    private AbstractCognitiveRecordMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Arena sharedArena) {
+        this(type, new CognitiveRecordLayout(quantizedVecBytes),
              capacity, sharedArena,
              sharedArena.allocate(segmentBytes, SynapticHeaderConstants.HEADER_BYTES),
              0, false, null, null);
@@ -133,17 +116,19 @@ public abstract class AbstractCognitiveRecordMemory
 
     /**
      * File-backed constructor — creates or opens a persistent mmap'd file.
+     *
+     * @param type the cognitive tier this store represents; used to derive the stable
+     *             {@link MemoryId} up-front so identity is final and lock-free.
      */
-    protected AbstractCognitiveRecordMemory(int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
-        this(new CognitiveRecordLayout(quantizedVecBytes),
+    protected AbstractCognitiveRecordMemory(MemoryType type, int quantizedVecBytes, int capacity, long segmentBytes, Path filePath) {
+        this(type, new CognitiveRecordLayout(quantizedVecBytes),
              capacity, segmentBytes, filePath, mmapFile(filePath, segmentBytes));
     }
 
-    private AbstractCognitiveRecordMemory(CognitiveRecordLayout cogLayout,
+    private AbstractCognitiveRecordMemory(MemoryType type, CognitiveRecordLayout cogLayout,
                                           int capacity, long segmentBytes, Path filePath, MmapResult res) {
-        super(MemoryId.of("tier", "pending"), cogLayout, capacity,
+        super(tierId(type), cogLayout, capacity,
               res.arena, res.segment, 0, true, filePath, res.fileChannel);
-        this.layout = cogLayout;
         if (res.isNew) {
             setCount(0);
             writeMetadata();
@@ -157,13 +142,17 @@ public abstract class AbstractCognitiveRecordMemory
         }
     }
 
-    private AbstractCognitiveRecordMemory(CognitiveRecordLayout cogLayout,
+    private AbstractCognitiveRecordMemory(MemoryType type, CognitiveRecordLayout cogLayout,
                                           int capacity, Arena arena, MemorySegment segment, int count,
                                           boolean persistent, Path filePath, FileChannel fileChannel) {
-        super(MemoryId.of("tier", "pending"), cogLayout, capacity,
+        super(tierId(type), cogLayout, capacity,
               arena, segment, count, persistent, filePath, fileChannel);
-        this.layout = cogLayout;
         setCount(count);
+    }
+
+    /** Derives the stable, tier-scoped identity for this store (e.g. {@code tier/semantic}). */
+    private static MemoryId tierId(MemoryType type) {
+        return MemoryId.of("tier", type.name().toLowerCase());
     }
 
     /**
@@ -217,15 +206,6 @@ public abstract class AbstractCognitiveRecordMemory
     @Override
     public int size() {
         return count;
-    }
-
-    @Override
-    public int visibleCount() {
-        return (int) VISIBLE_COUNT_HANDLE.getAcquire(this);
-    }
-
-    protected void publishVisible() {
-        VISIBLE_COUNT_HANDLE.setRelease(this, count);
     }
 
     @Override
@@ -306,18 +286,15 @@ public abstract class AbstractCognitiveRecordMemory
         return (float) tombstoneCount() / count;
     }
 
+    /**
+     * Returns the stable, tier-scoped identity of this store (e.g. {@code tier/semantic}).
+     *
+     * <p>The identity is initialized up-front from the tier {@link MemoryType} passed to
+     * the constructor and held by the kernel base ({@link #id()}), so this accessor is
+     * lock-free and allocation-free.</p>
+     */
     public MemoryId memoryId() {
-        MemoryId id = this.memoryId;
-        if (id == null) {
-            synchronized (this) {
-                id = this.memoryId;
-                if (id == null) {
-                    id = MemoryId.of("tier", type().name().toLowerCase());
-                    this.memoryId = id;
-                }
-            }
-        }
-        return id;
+        return id();
     }
 
     @Override

@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.shape;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorInternalException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryLayout;
 import com.spectrayan.spector.memory.kernel.layout.AdjacencyListLayout;
@@ -376,8 +378,8 @@ public abstract class AdjacencyListGraphMemory<L extends MemoryLayout>
 
     private void requireEdgeStride() {
         if (edgeStride < EDGE_HEADER_BYTES) {
-            throw new IllegalArgumentException(
-                    "Edge stride (" + edgeStride + ") must be >= " + EDGE_HEADER_BYTES
+            throw new SpectorInternalException(ErrorCode.INVARIANT_VIOLATED,
+                    "edge stride (" + edgeStride + ") must be >= " + EDGE_HEADER_BYTES
                             + " for adjacency-list graph " + getClass().getName());
         }
     }

@@ -58,7 +58,7 @@ public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
      * @param capacity          maximum number of episodic memories
      */
     public EpisodicRecordMemory(int quantizedVecBytes, int capacity) {
-        super(quantizedVecBytes, capacity,
+        super(MemoryType.EPISODIC, quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity);
 
         log.info("EpisodicRecordMemory initialized: capacity={}, stride={}B, persistent=false",
@@ -73,7 +73,7 @@ public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
      * @param filePath          path to the backing mmap file (e.g., episodic.mem)
      */
     public EpisodicRecordMemory(int quantizedVecBytes, int capacity, Path filePath) {
-        super(quantizedVecBytes, capacity,
+        super(MemoryType.EPISODIC, quantizedVecBytes, capacity,
                 (long) new CognitiveRecordLayout(quantizedVecBytes).stride() * capacity,
                 filePath);
 
@@ -185,7 +185,7 @@ public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
 
         public MemorySegment segment() { return store.segment(); }
 
-        public CognitiveRecordLayout layout() { return store.layout; }
+        public CognitiveRecordLayout layout() { return store.layout(); }
 
         public int capacity() { return store.capacity(); }
 

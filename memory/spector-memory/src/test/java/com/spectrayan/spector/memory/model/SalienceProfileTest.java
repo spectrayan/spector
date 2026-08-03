@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.SalienceProfileProvider;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 
@@ -56,21 +57,21 @@ class SalienceProfileTest {
     @Test
     @DisplayName("InterestDomain validates null topic")
     void interestDomainNullTopic() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(SpectorValidationException.class,
                 () -> new InterestDomain(null, InterestLevel.HIGH));
     }
 
     @Test
     @DisplayName("InterestDomain validates blank topic")
     void interestDomainBlankTopic() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(SpectorValidationException.class,
                 () -> new InterestDomain("   ", InterestLevel.HIGH));
     }
 
     @Test
     @DisplayName("InterestDomain validates null level")
     void interestDomainNullLevel() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(SpectorValidationException.class,
                 () -> new InterestDomain("test", null));
     }
 

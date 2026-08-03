@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.kernel.layout;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 import java.lang.foreign.MemorySegment;
 
 /**
@@ -202,13 +205,13 @@ public sealed interface HeaderLayout
      *
      * @param version layout version (currently only 1 is supported)
      * @return the corresponding layout instance (singleton)
-     * @throws IllegalArgumentException if version is unknown
+     * @throws SpectorValidationException if version is unknown
      */
     static HeaderLayout forVersion(int version) {
         return switch (version) {
             case 1 -> HeaderLayout64.INSTANCE;
-            default -> throw new IllegalArgumentException(
-                    "Unknown header layout version: " + version + ". Supported: 1");
+            default -> throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_INVALID, "header layout version", version + " (supported: 1)");
         };
     }
 

@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.kernel;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorStorageException;
+
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.zip.CRC32C;
@@ -129,7 +132,7 @@ public final class MemoryHeader {
         if (ordinal >= 0 && ordinal < values.length) {
             return values[ordinal];
         }
-        throw new IllegalStateException("Invalid shape ordinal in header: " + ordinal);
+        throw new SpectorStorageException(ErrorCode.FILE_FORMAT_INVALID, "shape ordinal " + ordinal);
     }
 
     /**

@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.kernel.codec;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorInternalException;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -48,7 +51,8 @@ public final class CodecRegistry {
         public Builder register(Codec<?> codec) {
             int layoutId = codec.layout().layoutId();
             if (byLayoutId.put(layoutId, codec) != null) {
-                throw new IllegalArgumentException("Duplicate codec registration for layoutId: " + layoutId);
+                throw new SpectorInternalException(
+                        ErrorCode.INVARIANT_VIOLATED, "duplicate codec registration for layoutId " + layoutId);
             }
             for (int magic : codec.legacyMagics()) {
                 byLegacyMagic.put(magic, codec);

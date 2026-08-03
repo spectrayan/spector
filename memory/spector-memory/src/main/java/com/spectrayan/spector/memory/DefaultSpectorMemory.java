@@ -699,12 +699,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 log.warn("Forget: memory '{}' not found in index", id);
                 return;
             }
-            CognitiveMemoryRouter router = partitionManager.routerFor(loc.colocatedPartition());
-            MemorySegment segment = router.segmentFor(loc.type());
-            if (segment != null) {
-                CognitiveRecordLayout layout = router.layoutFor(loc.type());
-                layout.tombstone(segment, loc.offset());
-            }
+            partitionManager.routerFor(loc.colocatedPartition()).tombstone(loc);
             wal.appendForget(id);
             index.remove(id);
             log.debug("Forget: '{}' tombstoned", id);
@@ -815,9 +810,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         try {
             var loc = index.locate(memoryId);
             if (loc == null) return;
-            CognitiveMemoryRouter router = partitionManager.routerFor(loc.colocatedPartition());
-            router.layoutFor(loc.type())
-                    .markResolved(router.segmentFor(loc.type()), loc.offset());
+            partitionManager.routerFor(loc.colocatedPartition()).markResolved(loc);
             log.debug("Zeigarnik: marked '{}' as RESOLVED", memoryId);
         } finally {
             releaseLease();
@@ -830,9 +823,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         try {
             var loc = index.locate(memoryId);
             if (loc == null) return;
-            CognitiveMemoryRouter router = partitionManager.routerFor(loc.colocatedPartition());
-            router.layoutFor(loc.type())
-                    .markUnresolved(router.segmentFor(loc.type()), loc.offset());
+            partitionManager.routerFor(loc.colocatedPartition()).markUnresolved(loc);
             log.debug("Zeigarnik: marked '{}' as UNRESOLVED", memoryId);
         } finally {
             releaseLease();
@@ -861,17 +852,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         "Memory '" + memoryId + "' does not exist in the index.");
             }
 
-            CognitiveMemoryRouter whyNotRouter = partitionManager.routerFor(loc.colocatedPartition());
-            var layout = whyNotRouter.layoutFor(loc.type());
-            var segment = whyNotRouter.segmentFor(loc.type());
-            if (layout != null && segment != null) {
-                byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS,
-                        loc.offset() + SynapticHeaderConstants.OFFSET_FLAGS);
-                if (SynapticHeaderConstants.isTombstoned(flags)) {
-                    return new WhyNotExplanation(memoryId, queryText, true, false,
-                            null, 0f, WhyNotExplanation.Reason.TOMBSTONED,
-                            "Memory '" + memoryId + "' has been deleted (tombstone flag set).");
-                }
+            if (partitionManager.routerFor(loc.colocatedPartition()).isTombstoned(loc)) {
+                return new WhyNotExplanation(memoryId, queryText, true, false,
+                        null, 0f, WhyNotExplanation.Reason.TOMBSTONED,
+                        "Memory '" + memoryId + "' has been deleted (tombstone flag set).");
             }
 
             if (suppressionSet.isSuppressed(memoryId)) {
@@ -932,27 +916,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         MemorySource source = index.source(id);
         String[] memTags = index.tags(id);
 
-        CognitiveMemoryRouter inspectRouter = partitionManager.routerFor(loc.colocatedPartition());
-        MemorySegment segment = inspectRouter.segmentFor(loc.type());
-        CognitiveRecordLayout layout = inspectRouter.layoutFor(loc.type());
+        var body = partitionManager.routerFor(loc.colocatedPartition()).readRecordBody(loc, true);
+        if (body == null) return null;
 
-        if (segment == null || layout == null) return null;
-
-        // Read the 64-byte cognitive header
-        var header = layout.readHeader(segment, loc.offset());
-
-        // Read the quantized vector payload
-        int vecBytes = layout.quantizedVecBytes();
-        byte[] quantizedVec = new byte[vecBytes];
-        long vecOffset = layout.vectorOffset(loc.offset());
-        MemorySegment.copy(
-                segment, java.lang.foreign.ValueLayout.JAVA_BYTE, vecOffset,
-                MemorySegment.ofArray(quantizedVec),
-                java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
-
-        // Read extended fields that aren't in the base CognitiveHeader
-        int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
-        byte consolidationFlags = layout.readConsolidationFlags(segment, loc.offset());
+        var header = body.header();
 
         // Metadata and suppression state
         var metadata = java.util.Map.<String, String>of();
@@ -961,10 +928,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         return new CognitiveRecord(
                 id, text, loc.type(), source, memTags,
                 header.timestampMs(), header.synapticTags(), header.exactNorm(),
-                header.importance(), header.agentRecallCount(), spectorRecallCount,
+                header.importance(), header.agentRecallCount(), body.spectorRecallCount(),
                 header.centroidId(), header.valence(), header.arousal(),
-                header.storageStrength(), header.flags(), consolidationFlags,
-                quantizedVec, loc.graphSlot(), loc.offset(),
+                header.storageStrength(), header.flags(), body.consolidationFlags(),
+                body.quantizedVector(), loc.graphSlot(), loc.offset(),
                 metadata, suppressed);
     }
 
@@ -986,23 +953,18 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             MemoryLocation loc = index.locate(memId);
             if (loc == null) continue;
 
-            CognitiveMemoryRouter browseRouter = partitionManager.routerFor(loc.colocatedPartition());
-            MemorySegment segment = browseRouter.segmentFor(loc.type());
-            CognitiveRecordLayout layout = browseRouter.layoutFor(loc.type());
-
-            if (segment != null && layout != null) {
-                var header = layout.readHeader(segment, loc.offset());
+            var body = partitionManager.routerFor(loc.colocatedPartition()).readRecordBody(loc, false);
+            if (body != null) {
+                var header = body.header();
                 if (!SynapticHeaderConstants.isTombstoned(header.flags())) {
-                    int spectorRecallCount = layout.readSpectorRecallCount(segment, loc.offset());
-                    byte consolidationFlags = layout.readConsolidationFlags(segment, loc.offset());
                     String[] memTags = index.tags(memId);
                     results.add(new CognitiveRecord(
                             memId, index.text(memId), loc.type(),
                             index.source(memId), memTags,
                             header.timestampMs(), header.synapticTags(), header.exactNorm(),
-                            header.importance(), header.agentRecallCount(), spectorRecallCount,
+                            header.importance(), header.agentRecallCount(), body.spectorRecallCount(),
                             header.centroidId(), header.valence(), header.arousal(),
-                            header.storageStrength(), header.flags(), consolidationFlags,
+                            header.storageStrength(), header.flags(), body.consolidationFlags(),
                             null, // no vector for browse (use inspect for full detail)
                             loc.graphSlot(), loc.offset(),
                             java.util.Map.of(), suppressionSet.isSuppressed(memId)));

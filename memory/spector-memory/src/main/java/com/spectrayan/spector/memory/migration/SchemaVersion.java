@@ -12,6 +12,9 @@
  */
 package com.spectrayan.spector.memory.migration;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
+
 /**
  * Represents a semantic version for namespace schema.
  *
@@ -51,7 +54,7 @@ public record SchemaVersion(int major, int minor, int patch)
      *
      * @param versionString dot-separated version (e.g., "1.0.0")
      * @return parsed SchemaVersion
-     * @throws IllegalArgumentException if format is invalid
+     * @throws SpectorValidationException if format is invalid
      */
     public static SchemaVersion parse(String versionString) {
         if (versionString == null || versionString.isBlank()) {
@@ -59,8 +62,8 @@ public record SchemaVersion(int major, int minor, int patch)
         }
         String[] parts = versionString.trim().split("\\.");
         if (parts.length != 3) {
-            throw new IllegalArgumentException("Invalid schema version: " + versionString
-                    + " (expected format: major.minor.patch)");
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID,
+                    "schema version", versionString + " (expected format: major.minor.patch)");
         }
         try {
             return new SchemaVersion(
@@ -68,7 +71,8 @@ public record SchemaVersion(int major, int minor, int patch)
                     Integer.parseInt(parts[1]),
                     Integer.parseInt(parts[2]));
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid schema version numbers: " + versionString, e);
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, e,
+                    "schema version", versionString);
         }
     }
 

@@ -81,6 +81,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 
@@ -369,6 +371,136 @@ public final class RecallPipeline {
         if (listener == null) { throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "listener"); } listeners.add(listener);
     }
 
+    // ==============================================================
+    // SHARED RECALL FLOW HELPERS (issue #437)
+    //
+    // The vector-driven recall(float[],…) and text-driven recall(String,…)
+    // entry points share three verbatim-identical phases: prospective-reminder
+    // seeding, the parallel tier scan (+ sequential fallback), and cognitive
+    // post-scoring (habituation + STDP). These helpers hold that shared logic so
+    // the two entry flows differ only where they genuinely must (text search,
+    // reranking, profile-ordinal write, tracing).
+    // ==============================================================
+
+    /** Seeds due prospective reminders as top-priority working results. */
+    private void seedProspectiveReminders(List<CognitiveResult> allResults) {
+        List<Reminder> dueReminders = prospectiveScheduler.collectDue();
+        for (Reminder r : dueReminders) {
+            allResults.add(new CognitiveResult(
+                    r.id(), r.text(), 10.0f, 10.0f, 0f,
+                    (short) 0, (byte) 0, MemoryType.WORKING, MemorySource.PROCEDURAL,
+                    new String[]{"prospective"}, 1.0f, 1.0f));
+        }
+    }
+
+    /**
+     * Runs the parallel tier scan (with sequential fallback), appending tier results
+     * to {@code allResults}. Returns {@code false} if the scan was interrupted and the
+     * caller should return the partial results immediately.
+     */
+    private boolean runTierScan(List<CognitiveResult> allResults, float[] queryVector,
+                                RecallOptions options, long nowMs, MemoryType[] targetTypes) {
+        List<Callable<List<CognitiveResult>>> scanTasks = buildScanTasks(
+                queryVector, options, nowMs, targetTypes);
+        if (!scanTasks.isEmpty()) {
+            try {
+                List<List<CognitiveResult>> tierResults = ConcurrentTasks.forkJoinAll(scanTasks);
+                for (List<CognitiveResult> tier : tierResults) {
+                    allResults.addAll(tier);
+                }
+            } catch (ConcurrentExecutionException e) {
+                log.error("Parallel tier scan failed: {}", e.getMessage(), e);
+                // Fallback: sequential scan
+                allResults.addAll(sequentialScan(queryVector, options, nowMs, targetTypes));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Recall interrupted during parallel scan");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Applies cognitive post-scoring in place: habituation + inhibition-of-return +
+     * semantic satiation penalties, then STDP causal boost. No-op in SIMILARITY mode
+     * (benchmarks measure pure retrieval quality — no cognitive modifications).
+     */
+    private void applyCognitiveScoring(List<CognitiveResult> allResults,
+                                       RecallOptions options, long nowMs) {
+        if (options.scoringMode() == ScoringMode.SIMILARITY) return;
+
+        // Habituation penalty + inhibition of return + semantic satiation
+        for (int i = 0; i < allResults.size(); i++) {
+            CognitiveResult r = allResults.get(i);
+            float habPenalty = (options.recallMode() == RecallMode.LEARN)
+                    ? habituationPenalty.recordAndComputePenalty(r.id())
+                    : habituationPenalty.currentPenalty(r.id());
+            float iorPenalty = habituationPenalty.computeInhibitionOfReturn(r.id(), nowMs);
+            float combinedPenalty = Math.min(habPenalty, iorPenalty); // stronger suppression wins
+
+            // Semantic Satiation: 0.5x penalty for results in the hot LRU cache
+            if (satiationCache.containsKey(r.id())) {
+                combinedPenalty *= SATIATION_PENALTY;
+            }
+
+            if (combinedPenalty < 1.0f) {
+                float newScore = r.score() * combinedPenalty;
+                // Carry breakdown with actual habituation penalty recorded
+                ScoreBreakdown bd = r.breakdown() != null
+                        ? new ScoreBreakdown(
+                                r.breakdown().similarity(),
+                                r.breakdown().importanceDecay(),
+                                r.breakdown().tagBoostFactor(),
+                                combinedPenalty,
+                                r.breakdown().graphBoost(),
+                                r.breakdown().valenceAlignment(),
+                                newScore)
+                        : null;
+                allResults.set(i, new CognitiveResult(
+                        r.id(), r.text(), newScore, r.importance(), r.ageDays(),
+                        r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
+                        r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
+                        r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
+            }
+        }
+
+        // STDP causal boost — cross-boost results whose tags are causally linked.
+        // For each result, check if earlier results' tags predict its tags (via STDP
+        // edges). This promotes memories that form causal chains.
+        if (coActivationTracker != null && allResults.size() >= 2) {
+            // Use tags from the first few results as "context tags" to boost subsequent
+            // results (imperative loop — avoids Stream API allocation overhead in hot path)
+            Set<String> contextTagSet = new HashSet<>();
+            int contextLimit = Math.min(3, allResults.size());
+            for (int cl = 0; cl < contextLimit; cl++) {
+                String[] ctxTags = allResults.get(cl).synapticTags();
+                if (ctxTags != null) {
+                    for (String t : ctxTags) contextTagSet.add(t);
+                }
+            }
+
+            if (!contextTagSet.isEmpty()) {
+                List<String> contextTags = new ArrayList<>(contextTagSet);
+                for (int i = 0; i < allResults.size(); i++) {
+                    CognitiveResult r = allResults.get(i);
+                    if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
+
+                    float predictive = coActivationTracker.getPredictiveStrength(
+                            contextTags, r.synapticTags());
+                    if (predictive > 0) {
+                        float boostedScore = r.score() * (1.0f + predictive * graphScoringPolicy.causalBoostWeight());
+                        allResults.set(i, new CognitiveResult(
+                                r.id(), r.text(), boostedScore, r.importance(), r.ageDays(),
+                                r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
+                                r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
+                                r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * Executes the full recall pipeline with parallel tier scanning.
      *
@@ -394,105 +526,19 @@ public final class RecallPipeline {
         List<CognitiveResult> allResults = new ArrayList<>();
 
         // Collect due prospective reminders
-        List<Reminder> dueReminders = prospectiveScheduler.collectDue();
-        for (Reminder r : dueReminders) {
-            allResults.add(new CognitiveResult(
-                    r.id(), r.text(), 10.0f, 10.0f, 0f,
-                    (short) 0, (byte) 0, MemoryType.WORKING, MemorySource.PROCEDURAL,
-                    new String[]{"prospective"}, 1.0f, 1.0f));
-        }
+        seedProspectiveReminders(allResults);
 
-        // Parallel tier scanning
+        // Parallel tier scanning (shared flow)
         MemoryType[] targetTypes = options.memoryTypes();
-        List<Callable<List<CognitiveResult>>> scanTasks = buildScanTasks(
-                queryVector, options, nowMs, targetTypes);
-
-        if (!scanTasks.isEmpty()) {
-            try {
-                List<List<CognitiveResult>> tierResults = ConcurrentTasks.forkJoinAll(scanTasks);
-                for (List<CognitiveResult> tier : tierResults) {
-                    allResults.addAll(tier);
-                }
-            } catch (ConcurrentExecutionException e) {
-                log.error("Parallel tier scan failed: {}", e.getMessage(), e);
-                allResults.addAll(sequentialScan(queryVector, options, nowMs, targetTypes));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("Recall interrupted during parallel scan");
-                return allResults;
-            }
+        if (!runTierScan(allResults, queryVector, options, nowMs, targetTypes)) {
+            return allResults;
         }
 
         // Filter suppressed memories
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
-        boolean cognitiveScoring = options.scoringMode() != ScoringMode.SIMILARITY;
-
-        if (cognitiveScoring) {
-            // Apply habituation penalty + inhibition of return + semantic satiation
-            for (int i = 0; i < allResults.size(); i++) {
-                CognitiveResult r = allResults.get(i);
-                float habPenalty = (options.recallMode() == RecallMode.LEARN)
-                        ? habituationPenalty.recordAndComputePenalty(r.id())
-                        : habituationPenalty.currentPenalty(r.id());
-                float iorPenalty = habituationPenalty.computeInhibitionOfReturn(r.id(), nowMs);
-                float combinedPenalty = Math.min(habPenalty, iorPenalty);
-
-                if (satiationCache.containsKey(r.id())) {
-                    combinedPenalty *= SATIATION_PENALTY;
-                }
-
-                if (combinedPenalty < 1.0f) {
-                    float newScore = r.score() * combinedPenalty;
-                    ScoreBreakdown bd = r.breakdown() != null
-                            ? new ScoreBreakdown(
-                                    r.breakdown().similarity(),
-                                    r.breakdown().importanceDecay(),
-                                    r.breakdown().tagBoostFactor(),
-                                    combinedPenalty,
-                                    r.breakdown().graphBoost(),
-                                    r.breakdown().valenceAlignment(),
-                                    newScore)
-                            : null;
-                    allResults.set(i, new CognitiveResult(
-                            r.id(), r.text(), newScore, r.importance(), r.ageDays(),
-                            r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                            r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
-                }
-            }
-
-            // STDP causal boost
-            if (coActivationTracker != null && allResults.size() >= 2) {
-                Set<String> contextTagSet = new HashSet<>();
-                int contextLimit = Math.min(3, allResults.size());
-                for (int cl = 0; cl < contextLimit; cl++) {
-                    String[] ctxTags = allResults.get(cl).synapticTags();
-                    if (ctxTags != null) {
-                        for (String t : ctxTags) contextTagSet.add(t);
-                    }
-                }
-
-                if (!contextTagSet.isEmpty()) {
-                    List<String> contextTags = new ArrayList<>(contextTagSet);
-                    for (int i = 0; i < allResults.size(); i++) {
-                        CognitiveResult r = allResults.get(i);
-                        if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
-
-                        float predictive = coActivationTracker.getPredictiveStrength(
-                                contextTags, r.synapticTags());
-                        if (predictive > 0) {
-                            float boostedScore = r.score() * (1.0f + predictive * graphScoringPolicy.causalBoostWeight());
-                            allResults.set(i, new CognitiveResult(
-                                    r.id(), r.text(), boostedScore, r.importance(), r.ageDays(),
-                                    r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                                    r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                                    r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
-                        }
-                    }
-                }
-            }
-        }
+        // Cognitive post-scoring: habituation + STDP (shared flow)
+        applyCognitiveScoring(allResults, options, nowMs);
 
         // Graph expansion
         graphExpansionStage.expand(allResults, queryVector, options);
@@ -562,35 +608,13 @@ public final class RecallPipeline {
         long nowMs = System.currentTimeMillis();
         List<CognitiveResult> allResults = new ArrayList<>();
 
-        // Step 2: Collect due prospective reminders
-        List<Reminder> dueReminders = prospectiveScheduler.collectDue();
-        for (Reminder r : dueReminders) {
-            allResults.add(new CognitiveResult(
-                    r.id(), r.text(), 10.0f, 10.0f, 0f,
-                    (short) 0, (byte) 0, MemoryType.WORKING, MemorySource.PROCEDURAL,
-                    new String[]{"prospective"}, 1.0f, 1.0f));
-        }
+        // Step 2: Collect due prospective reminders (shared flow)
+        seedProspectiveReminders(allResults);
 
-        // Step 3: Parallel tier scanning via ConcurrentTasks.forkJoinAll
+        // Step 3: Parallel tier scanning via ConcurrentTasks.forkJoinAll (shared flow)
         MemoryType[] targetTypes = options.memoryTypes();
-        List<Callable<List<CognitiveResult>>> scanTasks = buildScanTasks(
-                queryVector, options, nowMs, targetTypes);
-
-        if (!scanTasks.isEmpty()) {
-            try {
-                List<List<CognitiveResult>> tierResults = ConcurrentTasks.forkJoinAll(scanTasks);
-                for (List<CognitiveResult> tier : tierResults) {
-                    allResults.addAll(tier);
-                }
-            } catch (ConcurrentExecutionException e) {
-                log.error("Parallel tier scan failed: {}", e.getMessage(), e);
-                // Fallback: sequential scan
-                allResults.addAll(sequentialScan(queryVector, options, nowMs, targetTypes));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("Recall interrupted during parallel scan");
-                return allResults;
-            }
+        if (!runTierScan(allResults, queryVector, options, nowMs, targetTypes)) {
+            return allResults;
         }
 
         // Step 3b: BM25 text search  --  parallel to tier scans
@@ -634,84 +658,11 @@ public final class RecallPipeline {
         // Step 4: Filter suppressed memories (inhibition)  --  always active
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
-        //  Steps 5-5e: Cognitive post-processing 
-        // In SIMILARITY mode, skip ALL cognitive scoring modifications:
-        // habituation, causal boost, Hebbian, temporal chains, entity graph.
-        // This ensures benchmarks measure pure retrieval quality.
-        boolean cognitiveScoring = options.scoringMode() != ScoringMode.SIMILARITY;
-
-        if (cognitiveScoring) {
-        // Step 5: Apply habituation penalty + inhibition of return + semantic satiation
-        for (int i = 0; i < allResults.size(); i++) {
-            CognitiveResult r = allResults.get(i);
-            float habPenalty = (options.recallMode() == RecallMode.LEARN)
-                    ? habituationPenalty.recordAndComputePenalty(r.id())
-                    : habituationPenalty.currentPenalty(r.id());
-            float iorPenalty = habituationPenalty.computeInhibitionOfReturn(r.id(), nowMs);
-            float combinedPenalty = Math.min(habPenalty, iorPenalty); // stronger suppression wins
-
-            // Semantic Satiation: 0.5x penalty for results in the hot LRU cache
-            if (satiationCache.containsKey(r.id())) {
-                combinedPenalty *= SATIATION_PENALTY;
-            }
-
-            if (combinedPenalty < 1.0f) {
-                float newScore = r.score() * combinedPenalty;
-                // Carry breakdown with actual habituation penalty recorded
-                ScoreBreakdown bd = r.breakdown() != null
-                        ? new ScoreBreakdown(
-                                r.breakdown().similarity(),
-                                r.breakdown().importanceDecay(),
-                                r.breakdown().tagBoostFactor(),
-                                combinedPenalty,
-                                r.breakdown().graphBoost(),
-                                r.breakdown().valenceAlignment(),
-                                newScore)
-                        : null;
-                allResults.set(i, new CognitiveResult(
-                        r.id(), r.text(), newScore, r.importance(), r.ageDays(),
-                        r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                        r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                        r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
-            }
-        }
-
-        // Step 5b: STDP causal boost  --  cross-boost results whose tags are causally linked
-        // For each result, check if earlier results' tags predict its tags (via STDP edges).
-        // This promotes memories that form causal chains.
-        if (coActivationTracker != null && allResults.size() >= 2) {
-            // Use tags from the first few results as "context tags" to boost subsequent results
-            // (imperative loop  --  avoids Stream API allocation overhead in hot path)
-            Set<String> contextTagSet = new HashSet<>();
-            int contextLimit = Math.min(3, allResults.size());
-            for (int cl = 0; cl < contextLimit; cl++) {
-                String[] ctxTags = allResults.get(cl).synapticTags();
-                if (ctxTags != null) {
-                    for (String t : ctxTags) contextTagSet.add(t);
-                }
-            }
-
-            if (!contextTagSet.isEmpty()) {
-                // Convert to list once for getPredictiveStrength API
-                List<String> contextTags = new ArrayList<>(contextTagSet);
-                for (int i = 0; i < allResults.size(); i++) {
-                    CognitiveResult r = allResults.get(i);
-                    if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
-
-                    float predictive = coActivationTracker.getPredictiveStrength(
-                            contextTags, r.synapticTags());
-                    if (predictive > 0) {
-                        float boostedScore = r.score() * (1.0f + predictive * graphScoringPolicy.causalBoostWeight());
-                        allResults.set(i, new CognitiveResult(
-                                r.id(), r.text(), boostedScore, r.importance(), r.ageDays(),
-                                r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                                r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                                r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
-                    }
-                }
-            }
-        }
-        } // end cognitiveScoring
+        //  Steps 5-5b: Cognitive post-processing (shared flow) 
+        // In SIMILARITY mode, applyCognitiveScoring skips ALL cognitive scoring
+        // modifications (habituation, causal boost) so benchmarks measure pure
+        // retrieval quality.
+        applyCognitiveScoring(allResults, options, nowMs);
 
         // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
         graphExpansionStage.expand(allResults, queryVector, options);
@@ -1053,114 +1004,223 @@ public final class RecallPipeline {
     private List<Callable<List<CognitiveResult>>> buildScanTasks(
             float[] queryVector, RecallOptions options, long nowMs, MemoryType[] targetTypes) {
         List<Callable<List<CognitiveResult>>> tasks = new ArrayList<>();
+        scan(new ParallelScanEmitter(tasks, queryVector, options, nowMs), targetTypes);
+        return tasks;
+    }
 
-        // #443 (D4b): consult the LIVE partition registry snapshot at recall start —
-        // one volatile read of an immutable list. Recall fans out across every live
-        // partition; frozen semantic partitions are scored via the SIMD slab scan.
+    /**
+     * Shared scan traversal driving both {@link #buildScanTasks} (parallel) and
+     * {@link #sequentialScan} (sequential fallback). The parallel-vs-sequential
+     * difference is isolated to the {@link ScanEmitter}; the per-tier decision logic
+     * lives in the {@link TierScanStrategy} registry (OCP).
+     *
+     * <p><b>#443 (D4b):</b> one volatile read of the immutable partition snapshot at
+     * recall start. Working memory is GLOBAL — scanned once (emitted first, to preserve
+     * result ordering); the record tiers fan out per partition (D2) in snapshot order.</p>
+     */
+    private void scan(ScanEmitter emitter, MemoryType[] targetTypes) {
         List<PartitionHandle> snapshot = partitionRegistry.snapshot();
         CognitiveMemoryRouter active = partitionRegistry.activeRouter();
         boolean singlePartition = snapshot.size() == 1;
-        final int activeSeq = snapshot.get(snapshot.size() - 1).seq();
+        int activeSeq = snapshot.get(snapshot.size() - 1).seq();
+        boolean semanticHnswAvailable =
+                semanticRecallStrategy != null && semanticRecallStrategy.isAvailable();
+        ScanContext ctx = new ScanContext(targetTypes, active, singlePartition,
+                activeSeq, semanticHnswAvailable);
 
-        // Working Memory scan (GLOBAL — scanned once via the active router)
-        if (CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, targetTypes)
-                && active.working().visibleCount() > 0) {
+        PartitionHandle activeHandle = snapshot.get(snapshot.size() - 1);
+
+        // Working memory — GLOBAL, scanned once (baseOffset 0) via the active router.
+        WORKING_SCAN.contribute(ctx, activeHandle, emitter);
+
+        // #443 (D2): record tiers fan out — one scan per partition segment per tier.
+        // Disjoint segments → zero contention. Snapshot order preserved.
+        for (PartitionHandle handle : snapshot) {
+            for (TierScanStrategy strategy : PER_PARTITION_SCANS) {
+                strategy.contribute(ctx, handle, emitter);
+            }
+        }
+    }
+
+    /** Immutable per-recall context shared by every {@link TierScanStrategy}. */
+    private record ScanContext(MemoryType[] targetTypes, CognitiveMemoryRouter active,
+                               boolean singlePartition, int activeSeq,
+                               boolean semanticHnswAvailable) {
+    }
+
+    /**
+     * Turns a strategy's per-tier scan decision into actual work: either a deferred
+     * parallel {@link Callable} (build-tasks mode) or an immediate synchronous scan
+     * (sequential-fallback mode). Segment/visibleCount are supplied lazily so the
+     * parallel path reads them at task-execution time (matching the pre-refactor lambdas).
+     */
+    private interface ScanEmitter {
+        /** Emits a full-record slab scan of the given store slice. */
+        void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
+                          CognitiveRecordLayout layout, MemoryType type,
+                          long baseOffset, int partitionSeq);
+
+        /** Emits the semantic HNSW fast-path recall (active single partition only). */
+        void emitSemanticHnsw();
+    }
+
+    /** Parallel emitter — each scan becomes an {@code madvise}-wrapped {@link Callable}. */
+    private final class ParallelScanEmitter implements ScanEmitter {
+        private final List<Callable<List<CognitiveResult>>> tasks;
+        private final float[] queryVector;
+        private final RecallOptions options;
+        private final long nowMs;
+
+        ParallelScanEmitter(List<Callable<List<CognitiveResult>>> tasks,
+                            float[] queryVector, RecallOptions options, long nowMs) {
+            this.tasks = tasks;
+            this.queryVector = queryVector;
+            this.options = options;
+            this.nowMs = nowMs;
+        }
+
+        @Override
+        public void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
+                                 CognitiveRecordLayout layout, MemoryType type,
+                                 long baseOffset, int partitionSeq) {
             tasks.add(() -> {
-                MemorySegment seg = active.working().segment();
+                MemorySegment seg = segment.get();
                 NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
                 try {
-                    return scoreStoreToList(
-                            seg, active.working().visibleCount(),
-                            active.working().cognitiveLayout(), queryVector, options, nowMs,
-                            MemoryType.WORKING, 0L, activeSeq);
+                    return scoreStoreToList(seg, visibleCount.getAsInt(), layout,
+                            queryVector, options, nowMs, type, baseOffset, partitionSeq);
                 } finally {
                     NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
                 }
             });
         }
 
-        // #443 (D2): one scan task per partition segment per tier. Disjoint segments
-        // → zero contention, matching the existing per-partition task model.
-        for (PartitionHandle handle : snapshot) {
-            CognitiveMemoryRouter router = handle.router();
-
-            // Episodic — one task per episodic partition of this handle
-            if (CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
-                for (EpisodicPartition partition : router.episodic().partitions()) {
-                    if (partition.visibleCount() > 0) {
-                        tasks.add(() -> {
-                            MemorySegment seg = partition.segment();
-                            NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
-                            try {
-                                return scoreStoreToList(
-                                        seg, partition.visibleCount(),
-                                        partition.layout(), queryVector, options, nowMs,
-                                        MemoryType.EPISODIC, partition.dataOffset(), handle.seq());
-                            } finally {
-                                NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
-                            }
-                        });
-                    }
-                }
-            }
-
-            // Semantic — active partition uses the HNSW fast path ONLY while there is a
-            // single partition (the global HNSW's per-store slot indices collide across
-            // partitions after a roll). Once rolled, every semantic partition (including
-            // the active one) is scored on its full-record slab via CognitiveScorer,
-            // which computes similarity (SemanticRecordMemory stores header + vector).
-            if (CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)) {
-                SemanticRecordMemoryRef sem = new SemanticRecordMemoryRef(router.semantic());
-                if (sem.store != null && sem.store.visibleCount() > 0) {
-                    boolean useHnsw = handle.writable() && singlePartition
-                            && semanticRecallStrategy != null && semanticRecallStrategy.isAvailable();
-                    if (useHnsw) {
-                        tasks.add(() -> semanticRecallStrategy.recall(queryVector, options, nowMs));
-                    } else {
-                        tasks.add(() -> {
-                            MemorySegment seg = sem.store.segment();
-                            NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
-                            try {
-                                return scoreStoreToList(
-                                        seg, sem.store.visibleCount(),
-                                        sem.store.cognitiveLayout(), queryVector, options, nowMs,
-                                        MemoryType.SEMANTIC, sem.store.dataOffset(), handle.seq());
-                            } finally {
-                                NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
-                            }
-                        });
-                    }
-                }
-            }
-
-            // Procedural
-            if (CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, targetTypes)
-                    && router.procedural().visibleCount() > 0) {
-                tasks.add(() -> {
-                    MemorySegment seg = router.procedural().segment();
-                    NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
-                    try {
-                        return scoreStoreToList(
-                                seg, router.procedural().visibleCount(),
-                                router.procedural().cognitiveLayout(), queryVector, options, nowMs,
-                                MemoryType.PROCEDURAL, router.procedural().dataOffset(), handle.seq());
-                    } finally {
-                        NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
-                    }
-                });
-            }
-        }
-
-        return tasks;
-    }
-
-    /** Tiny holder so lambdas can capture a stable semantic-store reference per handle. */
-    private static final class SemanticRecordMemoryRef {
-        final com.spectrayan.spector.memory.cortex.SemanticRecordMemory store;
-        SemanticRecordMemoryRef(com.spectrayan.spector.memory.cortex.SemanticRecordMemory store) {
-            this.store = store;
+        @Override
+        public void emitSemanticHnsw() {
+            tasks.add(() -> semanticRecallStrategy.recall(queryVector, options, nowMs));
         }
     }
+
+    /** Sequential emitter — each scan runs immediately (no {@code madvise}), matching the fallback path. */
+    private final class SequentialScanEmitter implements ScanEmitter {
+        private final List<CognitiveResult> results;
+        private final float[] queryVector;
+        private final RecallOptions options;
+        private final long nowMs;
+
+        SequentialScanEmitter(List<CognitiveResult> results,
+                              float[] queryVector, RecallOptions options, long nowMs) {
+            this.results = results;
+            this.queryVector = queryVector;
+            this.options = options;
+            this.nowMs = nowMs;
+        }
+
+        @Override
+        public void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
+                                 CognitiveRecordLayout layout, MemoryType type,
+                                 long baseOffset, int partitionSeq) {
+            results.addAll(scoreStoreToList(segment.get(), visibleCount.getAsInt(), layout,
+                    queryVector, options, nowMs, type, baseOffset, partitionSeq));
+        }
+
+        @Override
+        public void emitSemanticHnsw() {
+            results.addAll(semanticRecallStrategy.recall(queryVector, options, nowMs));
+        }
+    }
+
+    /**
+     * Produces the scan work for a single memory tier given a {@link PartitionHandle}.
+     * One implementation per {@link MemoryType} removes the per-tier if/else that used
+     * to live inline in the scan builders (OCP), while preserving the #443 per-partition
+     * fan-out and the single-partition HNSW-vs-slab decision for SEMANTIC exactly.
+     */
+    private interface TierScanStrategy {
+        MemoryType tier();
+        void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter);
+    }
+
+    /** Working memory is GLOBAL — scanned once via the active router (baseOffset 0). */
+    private static final class WorkingTierScanStrategy implements TierScanStrategy {
+        @Override public MemoryType tier() { return MemoryType.WORKING; }
+
+        @Override
+        public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
+            if (!CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, ctx.targetTypes())) return;
+            CognitiveRecordMemory working = ctx.active().working();
+            if (working.visibleCount() <= 0) return;
+            emitter.emitSlabScan(working::segment, working::visibleCount,
+                    working.cognitiveLayout(), MemoryType.WORKING, 0L, ctx.activeSeq());
+        }
+    }
+
+    /** Episodic — one scan per episodic partition of the handle. */
+    private static final class EpisodicTierScanStrategy implements TierScanStrategy {
+        @Override public MemoryType tier() { return MemoryType.EPISODIC; }
+
+        @Override
+        public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
+            if (!CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, ctx.targetTypes())) return;
+            for (EpisodicPartition partition : handle.router().episodic().partitions()) {
+                if (partition.visibleCount() > 0) {
+                    emitter.emitSlabScan(partition::segment, partition::visibleCount,
+                            partition.layout(), MemoryType.EPISODIC,
+                            partition.dataOffset(), handle.seq());
+                }
+            }
+        }
+    }
+
+    /**
+     * Semantic — the active partition uses the HNSW fast path ONLY while there is a
+     * single partition (the global HNSW's per-store slot indices collide across
+     * partitions after a roll). Once rolled, every semantic partition (including the
+     * active one) is scored on its full-record slab via CognitiveScorer, which computes
+     * similarity (SemanticRecordMemory stores header + vector).
+     */
+    private static final class SemanticTierScanStrategy implements TierScanStrategy {
+        @Override public MemoryType tier() { return MemoryType.SEMANTIC; }
+
+        @Override
+        public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
+            if (!CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, ctx.targetTypes())) return;
+            CognitiveRecordMemory semantic = handle.router().semantic();
+            if (semantic == null || semantic.visibleCount() <= 0) return;
+            boolean useHnsw = handle.writable() && ctx.singlePartition() && ctx.semanticHnswAvailable();
+            if (useHnsw) {
+                emitter.emitSemanticHnsw();
+            } else {
+                emitter.emitSlabScan(semantic::segment, semantic::visibleCount,
+                        semantic.cognitiveLayout(), MemoryType.SEMANTIC,
+                        semantic.dataOffset(), handle.seq());
+            }
+        }
+    }
+
+    /** Procedural — a single flat slab scan per handle. */
+    private static final class ProceduralTierScanStrategy implements TierScanStrategy {
+        @Override public MemoryType tier() { return MemoryType.PROCEDURAL; }
+
+        @Override
+        public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
+            if (!CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, ctx.targetTypes())) return;
+            CognitiveRecordMemory procedural = handle.router().procedural();
+            if (procedural.visibleCount() <= 0) return;
+            emitter.emitSlabScan(procedural::segment, procedural::visibleCount,
+                    procedural.cognitiveLayout(), MemoryType.PROCEDURAL,
+                    procedural.dataOffset(), handle.seq());
+        }
+    }
+
+    /** Global (working) tier strategy — invoked once per scan. */
+    private static final TierScanStrategy WORKING_SCAN = new WorkingTierScanStrategy();
+
+    /** Per-partition tier strategies, in the fixed emit order EPISODIC → SEMANTIC → PROCEDURAL. */
+    private static final List<TierScanStrategy> PER_PARTITION_SCANS = List.of(
+            new EpisodicTierScanStrategy(),
+            new SemanticTierScanStrategy(),
+            new ProceduralTierScanStrategy());
 
     /**
      * Fallback sequential scan (used if parallel scan fails).
@@ -1168,48 +1228,7 @@ public final class RecallPipeline {
     private List<CognitiveResult> sequentialScan(float[] queryVector, RecallOptions options,
                                                    long nowMs, MemoryType[] targetTypes) {
         List<CognitiveResult> results = new ArrayList<>();
-        List<PartitionHandle> snapshot = partitionRegistry.snapshot();
-        CognitiveMemoryRouter active = partitionRegistry.activeRouter();
-        boolean singlePartition = snapshot.size() == 1;
-        final int activeSeq = snapshot.get(snapshot.size() - 1).seq();
-
-        // Working (global — once)
-        if (CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, targetTypes)
-                && active.working().visibleCount() > 0) {
-            results.addAll(scoreStoreToList(active.working().segment(),
-                    active.working().visibleCount(), active.working().cognitiveLayout(),
-                    queryVector, options, nowMs, MemoryType.WORKING, 0L, activeSeq));
-        }
-
-        for (PartitionHandle handle : snapshot) {
-            CognitiveMemoryRouter router = handle.router();
-            if (CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, targetTypes)) {
-                for (EpisodicPartition p : router.episodic().partitions()) {
-                    if (p.visibleCount() > 0) {
-                        results.addAll(scoreStoreToList(p.segment(), p.visibleCount(), p.layout(),
-                                queryVector, options, nowMs, MemoryType.EPISODIC, p.dataOffset(), handle.seq()));
-                    }
-                }
-            }
-            if (CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, targetTypes)
-                    && router.semantic() != null && router.semantic().visibleCount() > 0) {
-                boolean useHnsw = handle.writable() && singlePartition
-                        && semanticRecallStrategy != null && semanticRecallStrategy.isAvailable();
-                if (useHnsw) {
-                    results.addAll(semanticRecallStrategy.recall(queryVector, options, nowMs));
-                } else {
-                    results.addAll(scoreStoreToList(router.semantic().segment(),
-                            router.semantic().visibleCount(), router.semantic().cognitiveLayout(),
-                            queryVector, options, nowMs, MemoryType.SEMANTIC, router.semantic().dataOffset(), handle.seq()));
-                }
-            }
-            if (CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, targetTypes)
-                    && router.procedural().visibleCount() > 0) {
-                results.addAll(scoreStoreToList(router.procedural().segment(),
-                        router.procedural().visibleCount(), router.procedural().cognitiveLayout(),
-                        queryVector, options, nowMs, MemoryType.PROCEDURAL, router.procedural().dataOffset(), handle.seq()));
-            }
-        }
+        scan(new SequentialScanEmitter(results, queryVector, options, nowMs), targetTypes);
         return results;
     }
 
