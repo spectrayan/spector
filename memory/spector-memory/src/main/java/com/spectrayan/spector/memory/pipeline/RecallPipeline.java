@@ -534,14 +534,14 @@ public final class RecallPipeline {
             return allResults;
         }
 
-        // Filter suppressed memories
-        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
-
         // Cognitive post-scoring: habituation + STDP (shared flow)
         applyCognitiveScoring(allResults, options, nowMs);
 
         // Graph expansion
         graphExpansionStage.expand(allResults, queryVector, options);
+
+        // Filter suppressed memories (inhibition)  --  always active
+        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
         // Sort and limit
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
@@ -617,9 +617,6 @@ public final class RecallPipeline {
             return allResults;
         }
 
-        // Step 4: Filter suppressed memories (inhibition)  --  always active
-        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
-
         //  Steps 5-5b: Cognitive post-processing (shared flow) 
         // In SIMILARITY mode, applyCognitiveScoring skips ALL cognitive scoring
         // modifications (habituation, causal boost) so benchmarks measure pure
@@ -669,6 +666,9 @@ public final class RecallPipeline {
                 spladeWarnLogged = true;
             }
         }
+
+        // Step 5h: Filter suppressed memories (inhibition)  --  always active
+        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
         // Step 6: Sort by score descending, limit to topK
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
