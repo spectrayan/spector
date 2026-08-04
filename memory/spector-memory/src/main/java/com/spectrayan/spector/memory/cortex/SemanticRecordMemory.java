@@ -21,6 +21,7 @@ import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 import java.util.concurrent.locks.ReentrantLock;
@@ -83,6 +84,32 @@ public final class SemanticRecordMemory extends AbstractCognitiveRecordMemory {
 
         log.info("SemanticRecordMemory initialized: capacity={}, stride={}B, persistent=true, count={}, headerVersion=V{}",
                 capacity, layout.stride(), getCount(), layout.headerLayout().version());
+    }
+
+    /**
+     * Creates a bundle-backed Semantic Memory store from a pre-sliced region segment.
+     *
+     * <p>The region slice contains a 64-byte SMKM header followed by record data.
+     * The arena is shared across all bundle regions and is <b>not</b> owned by this store.</p>
+     *
+     * @param arena        the shared arena from the owning bundle
+     * @param regionSlice  the memory segment sliced from the bundle's master segment
+     * @param capacity     the maximum number of semantic memories in this region
+     * @param quantizedVecBytes bytes per quantized vector (for layout calculation)
+     * @param bundlePath   the path to the bundle file (for diagnostics)
+     * @param isNew        true if the region was just created
+     * @return a new bundle-backed SemanticRecordMemory
+     */
+    public static SemanticRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                                   int capacity, int quantizedVecBytes,
+                                                   Path bundlePath, boolean isNew) {
+        return new SemanticRecordMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    private SemanticRecordMemory(Arena arena, MemorySegment regionSlice, int capacity,
+                                  int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.SEMANTIC, new CognitiveRecordLayout(quantizedVecBytes),
+              capacity, arena, regionSlice, bundlePath, isNew);
     }
 
     @Override

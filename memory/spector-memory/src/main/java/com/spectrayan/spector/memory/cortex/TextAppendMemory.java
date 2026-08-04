@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.codec.XxHash64;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
@@ -91,6 +92,43 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
                 write(entry.id(), entry.tier(), entry.text());
             }
             flush();
+        }
+    }
+
+    /**
+     * Creates a bundle-backed TextAppendMemory from a pre-sliced region segment.
+     *
+     * <p>The region slice contains a 64-byte SMKM header followed by append-log data.
+     * The arena is shared across all bundle regions and is <b>not</b> owned by this store.</p>
+     *
+     * @param arena        the shared arena from the owning bundle
+     * @param regionSlice  the memory segment sliced from the bundle's master segment
+     * @param bundlePath   the path to the bundle file (for diagnostics)
+     * @param isNew        true if the region was just created
+     * @return a new bundle-backed TextAppendMemory
+     */
+    public static TextAppendMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                               Path bundlePath, boolean isNew) {
+        return new TextAppendMemory(arena, regionSlice, bundlePath, isNew);
+    }
+
+    private TextAppendMemory(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
+        super(MemoryId.of("cortex", "text"), new TextBlobLayout(), 0,
+              arena, regionSlice,
+              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
+              true, bundlePath, null, true);  // bundleManaged=true
+        this.file = bundlePath;
+        this.encryptor = DataEncryptor.NOOP;
+        this.entryCount = 0;
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(segment(), 0, 1, MemoryShape.APPEND, 1, 0, 0,
+                    layout.recordStride(), layout.layoutId(), now, now);
+            log.info("TextAppendMemory initialized new bundle region in: {} ({}KB)",
+                    bundlePath, regionSlice.byteSize() / 1024);
+        } else {
+            log.info("TextAppendMemory loaded from bundle region in: {} (cursor={}B)",
+                    bundlePath, count);
         }
     }
 
