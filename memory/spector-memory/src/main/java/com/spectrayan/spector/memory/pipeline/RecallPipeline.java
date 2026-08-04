@@ -630,12 +630,14 @@ public final class RecallPipeline {
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
 
         // Step 5f: BM25 text search & fusion (if enabled)
+        boolean rrfFused = false;
         if (bm25Index != null && options.enableTextSearch()
                 && options.textSearchMode() != TextSearchMode.VECTOR_ONLY) {
             try {
                 List<BM25Candidate> bm25Hits = bm25Index.search(queryText, options.topK() * 2);
                 if (!bm25Hits.isEmpty()) {
                     fuseBM25Candidates(allResults, bm25Hits, options, nowMs);
+                    rrfFused = true;
                 }
             } catch (RuntimeException e) {
                 log.warn("BM25 search failed, continuing with vector-only results", e);
@@ -656,6 +658,7 @@ public final class RecallPipeline {
                                         sc.id(), sc.spladeScore(), sc.partitionIndex()))
                                 .toList();
                         fuseBM25Candidates(allResults, asBm25, options, nowMs);
+                        rrfFused = true;
                     }
                 } catch (RuntimeException e) {
                     log.warn("SPLADE search failed, continuing without", e);
@@ -665,6 +668,14 @@ public final class RecallPipeline {
                          "not configured  --  degrading to BM25", options.textSearchMode());
                 spladeWarnLogged = true;
             }
+        }
+
+        // Apply cognitive scoring to RRF fused results if fusion occurred
+        if (rrfFused) {
+            RecallOptions peekOptions = options.recallMode() == RecallMode.LEARN
+                    ? options.toBuilder().recallMode(RecallMode.OBSERVE).build()
+                    : options;
+            applyCognitiveScoring(allResults, peekOptions, nowMs);
         }
 
         // Step 5h: Filter suppressed memories (inhibition)  --  always active
