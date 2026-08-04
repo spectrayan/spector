@@ -194,7 +194,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     /** True when segments are backed by mmap'd files (DISK mode). */
     private final boolean fileBacked;
     /** The underlying FileChannel for mmap mode (null for heap mode). Mirrors the inherited channel. */
-    private final FileChannel mappedChannel;
+    private final MemorySegment headerSegment;
     /** Path to the mmap file (null for heap mode). Mirrors the inherited path. */
     private final Path mmapFilePath;
 
@@ -289,7 +289,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
      */
     private EntityGraphMemory(Init init, int maxDegree, EdgeImportance edgeImportance) {
         super(MEMORY_ID, LAYOUT, init.entityCapacity, init.arena, init.entitySegment, init.entityCount,
-                init.persistent, init.filePath, init.fileChannel);
+                init.persistent, init.filePath, null);
         this.entitySegment = init.entitySegment;
         this.edgeSegment = init.edgeSegment;
         this.adjacencySegment = init.adjacencySegment;
@@ -300,7 +300,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
         this.adjSegmentCapacity = init.adjSegmentCapacity;
         this.adjHighWaterMark = init.adjHighWaterMark;
         this.fileBacked = init.persistent;
-        this.mappedChannel = init.fileChannel;
+        this.headerSegment = init.headerSegment;
         this.mmapFilePath = init.filePath;
         this.maxDegree = maxDegree;
         this.edgeImportance = edgeImportance;
@@ -324,7 +324,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     private record Init(int entityCapacity, int edgeCapacity, int entityCount, int edgeCount,
                         Arena arena, MemorySegment entitySegment, MemorySegment edgeSegment,
                         MemorySegment adjacencySegment, int adjSegmentCapacity, int adjHighWaterMark,
-                        boolean persistent, Path filePath, FileChannel fileChannel,
+                        boolean persistent, Path filePath, MemorySegment headerSegment,
                         TypeRegistryMemory entityTypeRegistry, TypeRegistryMemory relationTypeRegistry,
                         ConcurrentHashMap<String, Integer> nameIndex) {
 
@@ -429,6 +429,8 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
                 MemorySegment edgeSegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, edgeBytes, arena);
                 offset += edgeBytes;
                 MemorySegment adjacencySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, adjBytes, arena);
+                MemorySegment headerSegment = ch.map(FileChannel.MapMode.READ_WRITE, 0, DATA_START, arena);
+                ch.close();
 
                 TypeRegistryMemory entityTypes;
                 TypeRegistryMemory relationTypes;
@@ -444,7 +446,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
 
                 return new Init(entityCap, edgeCap, entityCount, edgeCount, arena,
                         entitySegment, edgeSegment, adjacencySegment, adjCap, adjHwm,
-                        true, filePath, ch, entityTypes, relationTypes, null);
+                        true, filePath, headerSegment, entityTypes, relationTypes, null);
             } catch (IOException e) {
                 throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
             }
@@ -1638,14 +1640,12 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
         if (fileBacked && filePath.equals(mmapFilePath)) {
             long stamp = lock.readLock();
             try {
-                writeSmkmHeaderToChannel(mappedChannel, entityCapacity, edgeCapacity,
+                writeSmkmHeaderToSegment(headerSegment, entityCapacity, edgeCapacity,
                         entityCount, edgeCount, adjSegmentCapacity, adjHighWaterMark);
+                headerSegment.force();
                 entitySegment.force();
                 edgeSegment.force();
                 adjacencySegment.force();
-                mappedChannel.force(true);
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("EntityGraph", filePath, e);
             } finally {
                 lock.unlockRead(stamp);
             }
@@ -1801,6 +1801,18 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
                 ch.write(buf);
             }
         }
+    }
+
+    /** Writes the 64-byte SMKM header + 16-byte Entity sub-header to mapped segment directly. */
+    private static void writeSmkmHeaderToSegment(MemorySegment header, int entityCap, int edgeCap,
+                                                 int entityCount, int edgeCount, int adjCap, int adjHwm) {
+        long now = System.currentTimeMillis();
+        MemoryHeader.write(header, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+                entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
+        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_CAPACITY, edgeCap);
+        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_EDGE_COUNT, edgeCount);
+        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
+        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
     }
 
     private static void writeSegmentFully(FileChannel ch, MemorySegment seg, long bytes)
@@ -1996,18 +2008,18 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     public void close() {
         log.info("EntityGraph closing (entities={}, edges={}, adjEntries={}, fileBacked={})",
                 entityCount, edgeCount, adjHighWaterMark, fileBacked);
-        if (fileBacked && mappedChannel != null) {
-            try {
-                entitySegment.force();
-                edgeSegment.force();
-                adjacencySegment.force();
-                mappedChannel.force(true);
-                mappedChannel.close();
-            } catch (IOException e) {
-                log.warn("Error closing EntityGraph mmap channel: {}", e.getMessage());
-            }
+        if (fileBacked && headerSegment != null) {
+            entitySegment.force();
+            edgeSegment.force();
+            adjacencySegment.force();
+            headerSegment.force();
         }
         arena.close();
+    }
+
+    @Override
+    public MemorySegment headerSegment() {
+        return headerSegment;
     }
 
     /** Returns true if this graph is backed by mmap'd files. */

@@ -147,7 +147,7 @@ public final class HebbianGraph implements HebbianGraphBase {
     private final MemorySegment segment;
     private final int capacity;
     /** The file channel for mmap'd graphs (null for in-memory). */
-    private final FileChannel mappedChannel;
+    private final MemorySegment headerSegment;
     /** True if this graph is backed by an mmap'd file (vs. heap allocation). */
     private final boolean fileBacked;
 
@@ -175,7 +175,7 @@ public final class HebbianGraph implements HebbianGraphBase {
         this.currentCycle = 0;
         this.arena = Arena.ofShared();
         this.segment = arena.allocate((long) nodeBytesPerNode * capacity);
-        this.mappedChannel = null;
+        this.headerSegment = null;
         this.fileBacked = false;
         segment.fill((byte) 0);
 
@@ -227,7 +227,6 @@ public final class HebbianGraph implements HebbianGraphBase {
         try {
             FileChannel ch = FileChannel.open(filePath,
                     StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
-            this.mappedChannel = ch;
 
             if (isNew || ch.size() < FILE_HEADER_BYTES) {
                 // Brand new file — write V2 header
@@ -342,6 +341,8 @@ public final class HebbianGraph implements HebbianGraphBase {
             this.segment = ch.map(FileChannel.MapMode.READ_WRITE, FILE_HEADER_BYTES,
                     dataBytes, arena);
             this.fileBacked = true;
+            this.headerSegment = ch.map(FileChannel.MapMode.READ_WRITE, 0, FILE_HEADER_BYTES, arena);
+            ch.close();
 
             log.info("HebbianGraph initialized (mmap): capacity={}, maxDegree={}, version={}, file={}, memory={}KB",
                     this.capacity, maxDegree, FILE_VERSION, filePath.getFileName(), dataBytes / 1024);
@@ -364,7 +365,7 @@ public final class HebbianGraph implements HebbianGraphBase {
 
     private HebbianGraph(int capacity, int maxDegree, EdgeImportance edgeImportance,
                           Arena arena, MemorySegment segment,
-                          FileChannel mappedChannel, boolean fileBacked) {
+                          MemorySegment headerSegment, boolean fileBacked) {
         this.capacity = capacity;
         this.maxDegree = maxDegree;
         this.edgeImportance = edgeImportance;
@@ -372,7 +373,7 @@ public final class HebbianGraph implements HebbianGraphBase {
         this.currentCycle = 0;
         this.arena = arena;
         this.segment = segment;
-        this.mappedChannel = mappedChannel;
+        this.headerSegment = headerSegment;
         this.fileBacked = fileBacked;
     }
 
@@ -921,14 +922,10 @@ public final class HebbianGraph implements HebbianGraphBase {
     public void save(Path filePath) {
         // mmap-backed: force flush dirty pages to disk
         if (fileBacked) {
-            try {
-                segment.force();
-                if (mappedChannel != null) mappedChannel.force(true);
-                log.info("HebbianGraph flushed (mmap): capacity={}, edges={}",
-                        capacity, totalEdges());
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("HebbianGraph", filePath, e);
-            }
+            segment.force();
+            if (headerSegment != null) headerSegment.force();
+            log.info("HebbianGraph flushed (mmap): capacity={}, edges={}",
+                    capacity, totalEdges());
             return;
         }
 
@@ -1046,13 +1043,9 @@ public final class HebbianGraph implements HebbianGraphBase {
     @Override
     public void close() {
         log.info("HebbianGraph closing (capacity={}, fileBacked={})", capacity, fileBacked);
-        if (fileBacked && mappedChannel != null) {
-            try {
-                segment.force();
-                mappedChannel.close();
-            } catch (IOException e) {
-                log.warn("Failed to close HebbianGraph channel: {}", e.getMessage());
-            }
+        if (fileBacked && headerSegment != null) {
+            segment.force();
+            headerSegment.force();
         }
         arena.close();
     }

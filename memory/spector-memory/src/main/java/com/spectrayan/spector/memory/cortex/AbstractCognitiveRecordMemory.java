@@ -91,7 +91,8 @@ public abstract class AbstractCognitiveRecordMemory
             }
             long mapSize = Math.max(totalBytes, fc.size());
             MemorySegment mapped = fc.map(FileChannel.MapMode.READ_WRITE, 0, mapSize, arena);
-            return new MmapResult(arena, mapped, fc, isNew);
+            fc.close();
+            return new MmapResult(arena, mapped, null, isNew);
         } catch (IOException e) {
             throw new SpectorStorageException(ErrorCode.MMAP_FAILED, e, filePath);
         }
