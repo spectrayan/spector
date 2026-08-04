@@ -50,6 +50,15 @@ public interface Memory<L extends MemoryLayout> extends AutoCloseable {
     MemorySegment segment();
     
     /** 
+     * Root header segment containing the SMKM MemoryHeader.
+     * 
+     * @return The header segment backing this memory.
+     */
+    default MemorySegment headerSegment() {
+        return null;
+    }
+    
+    /** 
      * Live record count, published with release/acquire semantics. 
      * 
      * @return The current number of live records.

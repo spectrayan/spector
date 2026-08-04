@@ -196,6 +196,9 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
             long mapSize = Math.max(totalBytes, fileChannel.size());
             this.segment = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, mapSize, arena);
 
+            fileChannel.close();
+            this.fileChannel = null;
+
             if (isNew) {
                 this.count = 0;
                 MemoryHeader.write(segment, 0, layout.schemaVersion(), shape(),
@@ -266,6 +269,14 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     @Override
     public MemorySegment segment() {
         return segment;
+    }
+
+    @Override
+    public MemorySegment headerSegment() {
+        if (persistent && segment != null) {
+            return segment.asSlice(0, MemoryHeader.HEADER_BYTES);
+        }
+        return null;
     }
 
     @Override

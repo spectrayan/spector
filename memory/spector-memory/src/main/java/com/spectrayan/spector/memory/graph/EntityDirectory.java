@@ -125,7 +125,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     private final ConcurrentHashMap<String, Integer> nameIndex = new ConcurrentHashMap<>();
 
     private final boolean fileBacked;
-    private final FileChannel mappedChannel;
+    private final MemorySegment headerSegment;
     private final Path mmapFilePath;
 
     /** Optional encryptor for name index persistence (set by enterprise layer). */
@@ -156,7 +156,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
      */
     private EntityDirectory(Init init) {
         super(MEMORY_ID, LAYOUT, init.entityCapacity, init.arena, init.entitySegment, init.entityCount,
-                init.persistent, init.filePath, init.fileChannel);
+                init.persistent, init.filePath, null);
         this.entitySegment = init.entitySegment;
         this.adjacencySegment = init.adjacencySegment;
         this.entityCapacity = init.entityCapacity;
@@ -164,7 +164,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         this.adjSegmentCapacity = init.adjSegmentCapacity;
         this.adjHighWaterMark = init.adjHighWaterMark;
         this.fileBacked = init.persistent;
-        this.mappedChannel = init.fileChannel;
+        this.headerSegment = init.headerSegment;
         this.mmapFilePath = init.filePath;
         this.memoryId = MEMORY_ID;
         this.entityTypeRegistryMemory = init.entityTypeRegistry;
@@ -180,7 +180,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     private record Init(int entityCapacity, int entityCount, Arena arena,
                         MemorySegment entitySegment, MemorySegment adjacencySegment,
                         int adjSegmentCapacity, int adjHighWaterMark,
-                        boolean persistent, Path filePath, FileChannel fileChannel,
+                        boolean persistent, Path filePath, MemorySegment headerSegment,
                         TypeRegistryMemory entityTypeRegistry,
                         ConcurrentHashMap<String, Integer> nameIndex) {
 
@@ -254,9 +254,11 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                 MemorySegment entitySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, entityBytes, arena);
                 offset += entityBytes;
                 MemorySegment adjacencySegment = ch.map(FileChannel.MapMode.READ_WRITE, offset, adjBytes, arena);
+                MemorySegment headerSegment = ch.map(FileChannel.MapMode.READ_WRITE, 0, DATA_START, arena);
+                ch.close();
 
                 return new Init(entityCap, entityCount, arena, entitySegment, adjacencySegment, adjCap, adjHwm,
-                        true, filePath, ch, entityTypeRegistry, null);
+                        true, filePath, headerSegment, entityTypeRegistry, null);
             } catch (IOException e) {
                 throw new SpectorGraphPersistenceException("EntityDirectory", filePath, e);
             }
@@ -859,13 +861,11 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         if (fileBacked && filePath.equals(mmapFilePath)) {
             long stamp = lock.readLock();
             try {
-                writeSmkmHeaderToChannel(mappedChannel, entityCapacity, entityCount,
+                writeSmkmHeaderToSegment(headerSegment, entityCapacity, entityCount,
                         adjSegmentCapacity, adjHighWaterMark);
+                headerSegment.force();
                 entitySegment.force();
                 adjacencySegment.force();
-                mappedChannel.force(true);
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("EntityDirectory", filePath, e);
             } finally {
                 lock.unlockRead(stamp);
             }
@@ -987,6 +987,16 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         }
     }
 
+    /** Writes the SMKM header directly to a memory-mapped header segment (no FileChannel needed). */
+    private static void writeSmkmHeaderToSegment(MemorySegment header, int entityCap, int entityCount,
+                                                 int adjCap, int adjHwm) {
+        long now = System.currentTimeMillis();
+        MemoryHeader.write(header, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x01,
+                entityCap, entityCount, ENTITY_NODE_BYTES, LAYOUT.layoutId(), now, now);
+        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_CAPACITY, adjCap);
+        header.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ADJ_HWM, adjHwm);
+    }
+
     private static void writeSegmentFully(FileChannel ch, MemorySegment seg, long bytes)
             throws IOException {
         long written = 0;
@@ -1049,18 +1059,18 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     }
 
     @Override
+    public MemorySegment headerSegment() {
+        return headerSegment;
+    }
+
+    @Override
     public void close() {
         log.info("EntityDirectory closing (entities={}, adjEntries={}, fileBacked={})",
                 entityCount, adjHighWaterMark, fileBacked);
-        if (fileBacked && mappedChannel != null) {
-            try {
-                entitySegment.force();
-                adjacencySegment.force();
-                mappedChannel.force(true);
-                mappedChannel.close();
-            } catch (IOException e) {
-                log.warn("Error closing EntityDirectory mmap channel: {}", e.getMessage());
-            }
+        if (fileBacked && headerSegment != null) {
+            entitySegment.force();
+            adjacencySegment.force();
+            headerSegment.force();
         }
         arena.close();
     }

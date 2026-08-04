@@ -79,3 +79,6 @@ datasets/
 .spector-bench-bge/
 .jqwik
 .jqwik-database
+
+# ──────────── Backups ────────────
+backups/

@@ -372,8 +372,8 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
         } else {
             try {
                 flush();
-                FileChannel ch = this.fileChannel;
-                if (ch != null && ch.isOpen()) {
+                Path path = filePath != null ? filePath : filePath();
+                try (FileChannel ch = FileChannel.open(path, StandardOpenOption.WRITE)) {
                     ch.position(MemoryHeader.HEADER_BYTES + 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity());
 
                     ByteBuffer countsBuf = ByteBuffer.allocate(8);
