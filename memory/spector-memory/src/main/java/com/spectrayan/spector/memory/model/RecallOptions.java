@@ -814,4 +814,48 @@ public record RecallOptions(
     public static boolean isAutoProfile(String profileName) {
         return profileName != null && "AUTO".equalsIgnoreCase(profileName.strip());
     }
+
+    /** Creates a Builder pre-populated with all fields of this RecallOptions. */
+    public Builder toBuilder() {
+        Builder b = new Builder();
+        b.topK = this.topK;
+        b.synapticTagMask = this.synapticTagMask;
+        b.minImportance = this.minImportance;
+        b.memoryTypes = this.memoryTypes;
+        b.minValence = this.minValence;
+        b.maxValence = this.maxValence;
+        b.alpha = this.alpha;
+        b.beta = this.beta;
+        b.tagRelevanceBoost = this.tagRelevanceBoost;
+        b.semanticCandidateMultiplier = this.semanticCandidateMultiplier;
+        b.hyperfocusMask = this.hyperfocusMask;
+        b.hyperfocusBoost = this.hyperfocusBoost;
+        b.lateralMode = this.lateralMode;
+        b.lateralDistanceThreshold = this.lateralDistanceThreshold;
+        b.lateralMaxResults = this.lateralMaxResults;
+        b.lateralMinTagOverlap = this.lateralMinTagOverlap;
+        b.strictnessCoefficient = this.strictnessCoefficient;
+        b.queryValence = this.queryValence;
+        b.enableValenceAlignment = this.enableValenceAlignment;
+        b.twoFactorConfig = this.twoFactorConfig;
+        b.recallMode = this.recallMode;
+        b.gamma = this.gamma;
+        b.enableTextSearch = this.enableTextSearch;
+        b.textSearchMode = this.textSearchMode;
+        b.scoringMode = this.scoringMode;
+        b.entityHints = this.entityHints;
+        b.enableTrace = this.enableTrace;
+        b.minTimestamp = this.minTimestamp;
+        b.maxTimestamp = this.maxTimestamp;
+        b.graphExpansionThreshold = this.graphExpansionThreshold;
+        b.replayTimestamp = this.replayTimestamp;
+        b.maxReplayEvents = this.maxReplayEvents;
+        b.enableReranker = this.enableReranker;
+        b.rerankerDepth = this.rerankerDepth;
+        b.autoProfile = this.autoProfile;
+        b.includeContradictions = this.includeContradictions;
+        b.resolvedProfile = this.resolvedProfile;
+        return b;
+    }
 }
+

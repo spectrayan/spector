@@ -534,14 +534,14 @@ public final class RecallPipeline {
             return allResults;
         }
 
-        // Filter suppressed memories
-        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
-
         // Cognitive post-scoring: habituation + STDP (shared flow)
         applyCognitiveScoring(allResults, options, nowMs);
 
         // Graph expansion
         graphExpansionStage.expand(allResults, queryVector, options);
+
+        // Filter suppressed memories (inhibition)  --  always active
+        allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
 
         // Sort and limit
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
@@ -617,20 +617,34 @@ public final class RecallPipeline {
             return allResults;
         }
 
-        // Step 3b: BM25 text search  --  parallel to tier scans
+        //  Steps 5-5b: Cognitive post-processing (shared flow) 
+        // In SIMILARITY mode, applyCognitiveScoring skips ALL cognitive scoring
+        // modifications (habituation, causal boost) so benchmarks measure pure
+        // retrieval quality.
+        applyCognitiveScoring(allResults, options, nowMs);
+
+        // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
+        graphExpansionStage.expand(allResults, queryVector, options);
+
+        // Sort vector candidates by cognitive score descending before RRF rank assignment
+        allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+
+        // Step 5f: BM25 text search & fusion (if enabled)
+        boolean rrfFused = false;
         if (bm25Index != null && options.enableTextSearch()
                 && options.textSearchMode() != TextSearchMode.VECTOR_ONLY) {
             try {
                 List<BM25Candidate> bm25Hits = bm25Index.search(queryText, options.topK() * 2);
                 if (!bm25Hits.isEmpty()) {
                     fuseBM25Candidates(allResults, bm25Hits, options, nowMs);
+                    rrfFused = true;
                 }
             } catch (RuntimeException e) {
                 log.warn("BM25 search failed, continuing with vector-only results", e);
             }
         }
 
-        // Step 3c: SPLADE learned sparse search
+        // Step 5g: SPLADE learned sparse search & fusion (if enabled)
         if (options.enableTextSearch() && options.textSearchMode().usesSPLADE()) {
             if (spladeIndex != null && spladeProvider != null) {
                 try {
@@ -644,6 +658,7 @@ public final class RecallPipeline {
                                         sc.id(), sc.spladeScore(), sc.partitionIndex()))
                                 .toList();
                         fuseBM25Candidates(allResults, asBm25, options, nowMs);
+                        rrfFused = true;
                     }
                 } catch (RuntimeException e) {
                     log.warn("SPLADE search failed, continuing without", e);
@@ -655,17 +670,16 @@ public final class RecallPipeline {
             }
         }
 
-        // Step 4: Filter suppressed memories (inhibition)  --  always active
+        // Apply cognitive scoring to RRF fused results if fusion occurred
+        if (rrfFused) {
+            RecallOptions peekOptions = options.recallMode() == RecallMode.LEARN
+                    ? options.toBuilder().recallMode(RecallMode.OBSERVE).build()
+                    : options;
+            applyCognitiveScoring(allResults, peekOptions, nowMs);
+        }
+
+        // Step 5h: Filter suppressed memories (inhibition)  --  always active
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
-
-        //  Steps 5-5b: Cognitive post-processing (shared flow) 
-        // In SIMILARITY mode, applyCognitiveScoring skips ALL cognitive scoring
-        // modifications (habituation, causal boost) so benchmarks measure pure
-        // retrieval quality.
-        applyCognitiveScoring(allResults, options, nowMs);
-
-        // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
-        graphExpansionStage.expand(allResults, queryVector, options);
 
         // Step 6: Sort by score descending, limit to topK
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
