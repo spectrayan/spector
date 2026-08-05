@@ -82,10 +82,15 @@ public class SpectorMcpMain {
 
         // CLI args as overrides (highest priority after system props / env vars)
         String cliDims = getStringArg(args, "--dims", null);
-        if (cliDims != null) propsBuilder.override("spector.engine.dimensions", cliDims);
+        if (cliDims != null) {
+            propsBuilder.override("spector.memory.dimensions", cliDims);
+            propsBuilder.override("spector.provider.embedding.dimensions", cliDims);
+        }
 
         String cliCapacity = getStringArg(args, "--capacity", null);
-        if (cliCapacity != null) propsBuilder.override("spector.engine.capacity", cliCapacity);
+        if (cliCapacity != null) {
+            propsBuilder.override("spector.memory.capacity", cliCapacity);
+        }
 
         String cliOllamaUrl = getStringArg(args, "--ollama-url", null);
         if (cliOllamaUrl != null) {
@@ -101,8 +106,8 @@ public class SpectorMcpMain {
 
         String cliDataDir = getStringArg(args, "--data-dir", null);
         if (cliDataDir != null) {
-            propsBuilder.override("spector.engine.data-directory", cliDataDir);
-            propsBuilder.override("spector.engine.persistence-mode", "DISK");
+            propsBuilder.override("spector.memory.persistence-path", cliDataDir);
+            propsBuilder.override("spector.memory.persistence-mode", "DISK");
         }
 
         // Namespace isolation (multi-tenant memory spaces)
@@ -117,14 +122,11 @@ public class SpectorMcpMain {
         if ("openclaw".equalsIgnoreCase(mode)) {
             propsBuilder.override("spector.mode", "memory");
             propsBuilder.override("spector.memory.enabled", "true");
-            propsBuilder.override("spector.engine.persistence-mode", "DISK");
             propsBuilder.override("spector.memory.persistence-mode", "DISK");
             // Default data directory if not explicitly set
             if (cliDataDir == null && getStringArg(args, "--config", null) == null) {
                 String openclawDataDir = System.getProperty("user.home")
                         + "/.openclaw/spector/data";
-                propsBuilder.override("spector.engine.data-directory",
-                        openclawDataDir + "/index");
                 propsBuilder.override("spector.memory.persistence-path",
                         openclawDataDir + "/memory");
             }

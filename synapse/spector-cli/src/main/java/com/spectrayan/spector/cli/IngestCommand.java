@@ -156,8 +156,8 @@ class IngestCommand extends BaseCommand {
         int dims = embedder.embed("probe").dimensions();
         out().printf("[Embedding] Dimensions: %d%n%n", dims);
 
-        propsBuilder.override("spector.engine.dimensions", String.valueOf(dims));
         propsBuilder.override("spector.memory.dimensions", String.valueOf(dims));
+        propsBuilder.override("spector.provider.embedding.dimensions", String.valueOf(dims));
         props = propsBuilder.build();
 
         // ── Create text generation provider for LLM tag extraction (if configured) ──
