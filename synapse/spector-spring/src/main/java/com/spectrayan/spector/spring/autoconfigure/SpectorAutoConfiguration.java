@@ -386,7 +386,7 @@ public class SpectorAutoConfiguration {
     @ConditionalOnMissingBean(SpectorClient.class)
     @ConditionalOnProperty(prefix = "spector.client",name = "host")
     SpectorClient spectorClient(SpectorConfigProperties props){
-        SpectorConfigProperties.Client clientProps = props.getClient();
+        com.spectrayan.spector.config.ClientConfig clientProps = props.getClient();
         SpectorClient.Builder builder = SpectorClient.builder();
 
         if (clientProps.getHost() != null) {
