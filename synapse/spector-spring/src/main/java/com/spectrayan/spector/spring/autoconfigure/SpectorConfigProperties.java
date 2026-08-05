@@ -18,6 +18,8 @@ package com.spectrayan.spector.spring.autoconfigure;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Map;
 
 /**
  * Spring Boot configuration properties for Spector.
@@ -48,6 +50,15 @@ public class SpectorConfigProperties {
     private Memory memory = new Memory();
     private Metrics metrics = new Metrics();
     private Embedding embedding = new Embedding();
+    private Client client = new Client();
+
+    public Client getClient() {
+        return client;
+    }
+
+    public void setClient(Client client) {
+        this.client = client;
+    }
 
     public Engine getEngine() { return engine; }
     public void setEngine(Engine engine) { this.engine = engine; }
@@ -129,6 +140,60 @@ public class SpectorConfigProperties {
         private String baseUrl = "http://localhost:11434";
         private int batchSize = 32;
         private int maxConcurrent = 0;
+        private Duration timeout;
+        private String apiKey;
+        private String providerName;
+        private int dimensions;
+        private Map<String,String> properties;
+        private String type;
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout;
+        }
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+
+        public String getProviderName() {
+            return providerName;
+        }
+
+        public void setProviderName(String providerName) {
+            this.providerName = providerName;
+        }
+
+        public int getDimensions() {
+            return dimensions;
+        }
+
+        public void setDimensions(int dimensions) {
+            this.dimensions = dimensions;
+        }
+
+        public Map<String, String> getProperties() {
+            return properties;
+        }
+
+        public void setProperties(Map<String, String> properties) {
+            this.properties = properties;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
 
         public String getModel() { return model; }
         public void setModel(String model) { this.model = model; }
@@ -158,4 +223,61 @@ public class SpectorConfigProperties {
 
         return config;
     }
+    public static class Client{
+        private String host;
+        private int port;
+        private String apiKey;
+        private int maxConnections;
+        private Duration requestTimeout;
+        private Duration connectTimeout;
+
+        public int getMaxConnections() {
+            return maxConnections;
+        }
+
+        public void setMaxConnections(int maxConnections) {
+            this.maxConnections = maxConnections;
+        }
+
+        public Duration getRequestTimeout() {
+            return requestTimeout;
+        }
+
+        public void setRequestTimeout(Duration requestTimeout) {
+            this.requestTimeout = requestTimeout;
+        }
+
+        public Duration getConnectTimeout() {
+            return connectTimeout;
+        }
+
+        public void setConnectTimeout(Duration connectTimeout) {
+            this.connectTimeout = connectTimeout;
+        }
+
+        public String getHost() {
+            return host;
+        }
+
+        public void setHost(String host) {
+            this.host = host;
+        }
+
+        public int getPort() {
+            return port;
+        }
+
+        public void setPort(int port) {
+            this.port = port;
+        }
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+    }
+
 }
