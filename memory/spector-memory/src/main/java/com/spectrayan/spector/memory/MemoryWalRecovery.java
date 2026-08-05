@@ -167,15 +167,16 @@ final class MemoryWalRecovery {
                         if (target instanceof com.spectrayan.spector.memory.kernel.shape.RecordMemory<?> rm) {
                             lastRecordOffset = rm.recordOffset(recordId);
                             String pathName = targetId.memoryName();
-                            if ("working".equals(pathName)) lastRecordType = MemoryType.WORKING;
-                            else if ("semantic".equals(pathName)) lastRecordType = MemoryType.SEMANTIC;
-                            else if ("procedural".equals(pathName)) lastRecordType = MemoryType.PROCEDURAL;
-                            else if ("episodic".equals(pathName)) lastRecordType = MemoryType.EPISODIC;
+                            try {
+                                lastRecordType = MemoryType.valueOf(pathName.toUpperCase(java.util.Locale.ROOT));
+                            } catch (IllegalArgumentException e) {
+                                // Unknown or legacy record memory name
+                            }
                         }
                     }
                     case APPEND -> {
                         MemoryId targetId = MemoryId.parse(event.memoryId());
-                        if ("cortex".equals(targetId.namespace()) && "text".equals(targetId.memoryName())) {
+                        if (SystemMemoryId.CORTEX_TEXT.id().equals(targetId)) {
                             lastTextOffset = currentTextCursor;
                             lastTextLength = event.payload().length;
                             currentTextCursor += 4 + lastTextLength;

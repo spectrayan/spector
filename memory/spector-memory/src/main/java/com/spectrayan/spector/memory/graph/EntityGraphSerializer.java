@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
 import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -291,10 +292,10 @@ final class EntityGraphSerializer {
             Path graphParent = filePath.getParent();
             TypeRegistryMemory entityTypes = TypeRegistryMemory.load(
                     StorageLayout.entityTypes(graphParent),
-                    "entity-type", EntityType.SEED);
+                    SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
             TypeRegistryMemory relationTypes = TypeRegistryMemory.load(
                     StorageLayout.relationTypes(graphParent),
-                    "relation-type", RelationType.SEED);
+                    SystemMemoryId.RELATION_TYPE, RelationType.SEED);
 
             EntityGraphMemory graph = EntityGraphMemory.fromLoaded(entityCap, edgeCap, entCount, edgCount,
                     arena, entSeg, edgSeg, adjSeg, adjCap, adjHwm, names,

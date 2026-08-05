@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -33,7 +34,7 @@ class TypeRegistryMemoryPersistenceTest {
     @Test
     @DisplayName("should save and load TypeRegistryMemory in standard SMKM registry format")
     void shouldSaveAndLoadRegistry() throws Exception {
-        TypeRegistryMemory original = TypeRegistryMemory.seeded("entity-type", "PERSON", "ORGANIZATION");
+        TypeRegistryMemory original = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, "PERSON", "ORGANIZATION");
         
         // Intern dynamic ones
         int codeId = original.intern("CODE");
@@ -46,7 +47,7 @@ class TypeRegistryMemoryPersistenceTest {
         assertThat(Files.exists(filePath)).isTrue();
 
         // Load
-        TypeRegistryMemory loaded = TypeRegistryMemory.load(filePath, "entity-type", "PERSON", "ORGANIZATION");
+        TypeRegistryMemory loaded = TypeRegistryMemory.load(filePath, SystemMemoryId.ENTITY_TYPE, "PERSON", "ORGANIZATION");
         
         assertThat(loaded.size()).isEqualTo(4);
         assertThat(loaded.nameOf(codeId)).isEqualTo("CODE");
@@ -93,7 +94,7 @@ class TypeRegistryMemoryPersistenceTest {
         }
 
         // 2. Load the legacy registry file
-        TypeRegistryMemory registry = TypeRegistryMemory.load(legacyFile, "entity-type", "PERSON");
+        TypeRegistryMemory registry = TypeRegistryMemory.load(legacyFile, SystemMemoryId.ENTITY_TYPE, "PERSON");
         
         // size should be 3 (PERSON seed + 2 migrated entries)
         assertThat(registry.size()).isEqualTo(3);
@@ -105,7 +106,7 @@ class TypeRegistryMemoryPersistenceTest {
         registry.save(legacyFile);
 
         // Load again and verify standard SMKM loading
-        TypeRegistryMemory reloaded = TypeRegistryMemory.load(legacyFile, "entity-type", "PERSON");
+        TypeRegistryMemory reloaded = TypeRegistryMemory.load(legacyFile, SystemMemoryId.ENTITY_TYPE, "PERSON");
         assertThat(reloaded.size()).isEqualTo(3);
         assertThat(reloaded.idOf("SOFTWARE")).isEqualTo(10);
         assertThat(reloaded.idOf("HARDWARE")).isEqualTo(11);

@@ -193,7 +193,7 @@ final class CognitiveGraphBuilder {
         EntityDirectory entityDirectory;
         if (entityEnabled) {
             int dirCap = builder.entityGraphCapacity;
-            TypeRegistryMemory entityTypeRegistry = TypeRegistryMemory.seeded("entity-type", com.spectrayan.spector.memory.graph.EntityType.SEED);
+            TypeRegistryMemory entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, com.spectrayan.spector.memory.graph.EntityType.SEED);
             if (isDisk && basePath != null) {
                 Path edir = StorageLayout.entityDirectoryRuntime(basePath);
                 if (java.nio.file.Files.exists(edir)) {
@@ -212,7 +212,7 @@ final class CognitiveGraphBuilder {
 
 
         TemporalKnowledgeGraph temporalKnowledgeGraph;
-        TypeRegistryMemory predRegistry = new TypeRegistryMemory("relation-type");
+        TypeRegistryMemory predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
         if (isDisk && basePath != null) {
             Path runtimeTkg = StorageLayout.temporalFactsRuntime(basePath);
             long initialSize = 16L * 1024 * 1024; // 16MB
