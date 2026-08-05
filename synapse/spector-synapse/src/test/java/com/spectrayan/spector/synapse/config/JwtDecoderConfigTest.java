@@ -49,9 +49,9 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.JwtProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.OidcProperties;
+import com.spectrayan.spector.config.AuthProperties;
+import com.spectrayan.spector.config.AuthProperties.JwtProperties;
+import com.spectrayan.spector.config.AuthProperties.OidcProperties;
 import com.sun.net.httpserver.HttpServer;
 
 import jakarta.servlet.http.HttpServletRequest;

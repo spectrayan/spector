@@ -56,9 +56,8 @@ import com.spectrayan.spector.synapse.agent.service.IdentityPrimerService;
 import com.spectrayan.spector.synapse.agent.tools.CurrentTimeTool;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.CorsProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.MemoryProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.OllamaProperties;
+import com.spectrayan.spector.config.CorsProperties;
+import com.spectrayan.spector.config.MemoryProperties;
 
 /**
  * Deep conversation integration test with LLM-as-Judge validation.
@@ -131,7 +130,7 @@ class DeepConversationLiveIT {
                 // Build the dependency chain manually
                 props = new SynapseProperties(
                         0, "test-key", System.getProperty("java.io.tmpdir") + "/spector-test",
-                        new OllamaProperties(OLLAMA_URL, MODEL, "nomic-embed-text"),
+                        null,
                         new MemoryProperties(0, 0),
                         new CorsProperties("http://localhost:4200"),
                         null

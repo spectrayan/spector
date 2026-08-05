@@ -16,31 +16,26 @@
 package com.spectrayan.spector.config;
 
 /**
- * Configuration POJO for CORS origin settings.
+ * Memory consolidation configuration properties.
  */
-public class CorsConfig {
+public class ConsolidationProperties {
+    private long interval = 21600000L; // 6 hours in milliseconds
 
-    private String allowedOrigins = "http://localhost:4200";
+    public ConsolidationProperties() {}
 
-    public CorsConfig() {}
-
-    public CorsConfig(String allowedOrigins) {
-        if (allowedOrigins != null && !allowedOrigins.isBlank()) {
-            this.allowedOrigins = allowedOrigins;
+    public ConsolidationProperties(long interval) {
+        if (interval > 0) {
+            this.interval = interval;
         }
     }
 
-    public String getAllowedOrigins() {
-        return allowedOrigins;
+    public long getInterval() {
+        return interval;
     }
 
-    public void setAllowedOrigins(String allowedOrigins) {
-        if (allowedOrigins != null && !allowedOrigins.isBlank()) {
-            this.allowedOrigins = allowedOrigins;
+    public void setInterval(long interval) {
+        if (interval > 0) {
+            this.interval = interval;
         }
-    }
-
-    public String allowedOrigins() {
-        return getAllowedOrigins();
     }
 }

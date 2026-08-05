@@ -32,8 +32,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
 import com.spectrayan.spector.synapse.config.JwtDecoderConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.JwtProperties;
+import com.spectrayan.spector.config.AuthProperties;
+import com.spectrayan.spector.config.AuthProperties.JwtProperties;
 
 /**
  * Unit tests for {@link ServerAccessTokenMinter}.

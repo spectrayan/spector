@@ -16,8 +16,8 @@
 package com.spectrayan.spector.spring.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import com.spectrayan.spector.config.MemoryConfig;
-import com.spectrayan.spector.config.ClientConfig;
+import com.spectrayan.spector.config.MemoryProperties;
+import com.spectrayan.spector.config.ClientProperties;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -36,21 +36,21 @@ public class SpectorConfigProperties {
     @Deprecated(since = "0.1.0-alpha", forRemoval = true)
     private Engine engine = new Engine();
 
-    private MemoryConfig memory = new MemoryConfig();
+    private MemoryProperties memory = new MemoryProperties();
     private Metrics metrics = new Metrics();
     private Embedding embedding = new Embedding();
-    private ClientConfig client = new ClientConfig();
+    private ClientProperties client = new ClientProperties();
 
-    public ClientConfig getClient() { return client; }
-    public void setClient(ClientConfig client) { this.client = client; }
+    public ClientProperties getClient() { return client; }
+    public void setClient(ClientProperties client) { this.client = client; }
 
     @Deprecated(since = "0.1.0-alpha", forRemoval = true)
     public Engine getEngine() { return engine; }
     @Deprecated(since = "0.1.0-alpha", forRemoval = true)
     public void setEngine(Engine engine) { this.engine = engine; }
 
-    public MemoryConfig getMemory() { return memory; }
-    public void setMemory(MemoryConfig memory) { this.memory = memory; }
+    public MemoryProperties getMemory() { return memory; }
+    public void setMemory(MemoryProperties memory) { this.memory = memory; }
 
     public Metrics getMetrics() { return metrics; }
     public void setMetrics(Metrics metrics) { this.metrics = metrics; }

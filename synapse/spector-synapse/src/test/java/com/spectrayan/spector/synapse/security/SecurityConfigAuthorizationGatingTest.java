@@ -36,7 +36,7 @@ import org.springframework.web.context.support.AnnotationConfigWebApplicationCon
 
 import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
+import com.spectrayan.spector.config.AuthProperties;
 import org.spectrayan.testfixtures.synapse.auth.SecurityGatingChainConfig;
 
 import ch.qos.logback.classic.Level;

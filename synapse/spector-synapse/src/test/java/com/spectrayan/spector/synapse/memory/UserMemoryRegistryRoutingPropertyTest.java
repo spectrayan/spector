@@ -318,7 +318,7 @@ class UserMemoryRegistryRoutingPropertyTest {
         ObjectProvider<SalienceProfileProvider> salienceProvider = mockProvider();
         when(salienceProvider.getIfAvailable()).thenReturn(null);
 
-        var auth = new SynapseProperties.AuthProperties(
+        var auth = new com.spectrayan.spector.config.AuthProperties(
                 true, null, null, null, null, null, null, null);
         var synapse = new SynapseProperties(0, null, base.toString(), null, null, null, auth);
 

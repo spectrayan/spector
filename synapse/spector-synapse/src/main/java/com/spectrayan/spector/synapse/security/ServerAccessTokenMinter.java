@@ -38,7 +38,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.spectrayan.spector.synapse.config.JwtDecoderConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
+import com.spectrayan.spector.config.AuthProperties;
 
 /**
  * Mints server-issued <strong>HS256</strong> access tokens (Requirements 2.1, 2.2, 12.3).

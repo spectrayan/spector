@@ -23,7 +23,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
+import com.spectrayan.spector.config.AuthProperties;
 
 /**
  * Unit tests for {@link AuthProperties} default coercion and Spring configuration binding
@@ -85,12 +85,12 @@ class AuthPropertiesTest {
         void coercesOutOfRangeNumericValues() {
             AuthProperties auth = new AuthProperties(
                     true,
-                    new SynapseProperties.JwtProperties("s", Duration.ZERO),
-                    new SynapseProperties.RefreshProperties(Duration.ofSeconds(-1)),
+                    new AuthProperties.JwtProperties("s", Duration.ZERO),
+                    new AuthProperties.RefreshProperties(Duration.ofSeconds(-1)),
                     null,
                     null,
-                    new SynapseProperties.Pbkdf2Properties(0),
-                    new SynapseProperties.LockoutProperties(0, 0),
+                    new AuthProperties.Pbkdf2Properties(0),
+                    new AuthProperties.LockoutProperties(0, 0),
                     List.of());
 
             assertThat(auth.jwt().ttl()).isEqualTo(Duration.ofHours(1));
@@ -107,12 +107,12 @@ class AuthPropertiesTest {
         void preservesSuppliedValues() {
             AuthProperties auth = new AuthProperties(
                     true,
-                    new SynapseProperties.JwtProperties("jwt-secret", Duration.ofMinutes(30)),
-                    new SynapseProperties.RefreshProperties(Duration.ofDays(7)),
-                    new SynapseProperties.OidcProperties("https://idp/jwks", "https://idp"),
-                    new SynapseProperties.DefaultAdminProperties("admin-pw"),
-                    new SynapseProperties.Pbkdf2Properties(600_000),
-                    new SynapseProperties.LockoutProperties(3, 30),
+                    new AuthProperties.JwtProperties("jwt-secret", Duration.ofMinutes(30)),
+                    new AuthProperties.RefreshProperties(Duration.ofDays(7)),
+                    new AuthProperties.OidcProperties("https://idp/jwks", "https://idp"),
+                    new AuthProperties.DefaultAdminProperties("admin-pw"),
+                    new AuthProperties.Pbkdf2Properties(600_000),
+                    new AuthProperties.LockoutProperties(3, 30),
                     List.of("/custom"));
 
             assertThat(auth.enabled()).isTrue();

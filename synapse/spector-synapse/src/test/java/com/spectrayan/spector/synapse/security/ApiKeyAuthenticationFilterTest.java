@@ -35,7 +35,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
+import com.spectrayan.spector.config.AuthProperties;
 import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyRow;
 
 /**

@@ -18,9 +18,9 @@ package com.spectrayan.spector.config;
 import java.time.Duration;
 
 /**
- * Configuration POJO for Spector REST/RPC Client connections.
+ * Configuration properties POJO for Spector REST/RPC Client connections.
  */
-public class ClientConfig {
+public class ClientProperties {
     private String host;
     private int port;
     private String apiKey;
@@ -28,7 +28,7 @@ public class ClientConfig {
     private Duration requestTimeout = Duration.ofSeconds(30);
     private Duration connectTimeout = Duration.ofSeconds(5);
 
-    public ClientConfig() {}
+    public ClientProperties() {}
 
     public String getHost() { return host; }
     public void setHost(String host) { this.host = host; }

@@ -16,9 +16,9 @@
 package com.spectrayan.spector.config;
 
 /**
- * Canonical configuration POJO for Spector Cognitive Memory.
+ * Canonical configuration properties POJO for Spector Cognitive Memory.
  */
-public class MemoryConfig {
+public class MemoryProperties {
 
     private boolean enabled = true;
     private int maxMemories = 0;
@@ -31,10 +31,20 @@ public class MemoryConfig {
     private boolean colbertEnabled = false;
     private boolean bundleMode = false;
 
-    private DecayConfig decay = new DecayConfig();
-    private ConsolidationConfig consolidation = new ConsolidationConfig();
+    private DecayProperties decay = new DecayProperties();
+    private ConsolidationProperties consolidation = new ConsolidationProperties();
 
-    public MemoryConfig() {}
+    public MemoryProperties() {}
+
+    public MemoryProperties(int maxMemories, int dimensions) {
+        if (maxMemories > 0) this.maxMemories = maxMemories;
+        if (dimensions > 0) this.dimensions = dimensions;
+    }
+
+    public MemoryProperties(int maxMemories, int dimensions, ConsolidationProperties consolidation) {
+        this(maxMemories, dimensions);
+        if (consolidation != null) this.consolidation = consolidation;
+    }
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -63,13 +73,13 @@ public class MemoryConfig {
     public boolean isBundleMode() { return bundleMode; }
     public void setBundleMode(boolean bundleMode) { this.bundleMode = bundleMode; }
 
-    public DecayConfig getDecay() { return decay; }
-    public void setDecay(DecayConfig decay) { this.decay = decay; }
+    public DecayProperties getDecay() { return decay; }
+    public void setDecay(DecayProperties decay) { this.decay = decay; }
 
-    public ConsolidationConfig getConsolidation() { return consolidation; }
-    public void setConsolidation(ConsolidationConfig consolidation) { this.consolidation = consolidation; }
+    public ConsolidationProperties getConsolidation() { return consolidation; }
+    public void setConsolidation(ConsolidationProperties consolidation) { this.consolidation = consolidation; }
 
-    // Record-style accessors for backward compatibility
+    // Record-style accessors for backward compatibility across existing call sites
     public boolean enabled() { return isEnabled(); }
     public int maxMemories() { return getMaxMemories(); }
     public String persistenceMode() { return getPersistenceMode(); }
@@ -79,6 +89,6 @@ public class MemoryConfig {
     public boolean spladeEnabled() { return isSpladeEnabled(); }
     public boolean colbertEnabled() { return isColbertEnabled(); }
     public boolean bundleMode() { return isBundleMode(); }
-    public DecayConfig decay() { return getDecay(); }
-    public ConsolidationConfig consolidation() { return getConsolidation(); }
+    public DecayProperties decay() { return getDecay(); }
+    public ConsolidationProperties consolidation() { return getConsolidation(); }
 }

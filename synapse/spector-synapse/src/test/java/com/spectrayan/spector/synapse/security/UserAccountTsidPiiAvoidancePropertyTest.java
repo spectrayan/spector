@@ -28,10 +28,10 @@ import com.nimbusds.jwt.SignedJWT;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.JwtProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.LockoutProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.Pbkdf2Properties;
+import com.spectrayan.spector.config.AuthProperties;
+import com.spectrayan.spector.config.AuthProperties.JwtProperties;
+import com.spectrayan.spector.config.AuthProperties.LockoutProperties;
+import com.spectrayan.spector.config.AuthProperties.Pbkdf2Properties;
 import com.spectrayan.spector.synapse.security.ServerAccessTokenMinter.MintedAccessToken;
 
 import net.jqwik.api.Arbitraries;
