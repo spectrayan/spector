@@ -208,107 +208,59 @@ public class SpectorAutoConfiguration {
      */
     @Bean(name = "openAiEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
-    @ConditionalOnProperty(prefix = "spector.embedding", name = "provider-name", havingValue = "OpenAi", matchIfMissing = false)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "OpenAi", matchIfMissing = false)
     EmbeddingProvider spectorOpenAIEmbeddingProvider(SpectorConfigProperties props) {
         OpenAiProviderFactory openAiProviderFactory = new OpenAiProviderFactory();
         return openAiProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
-    /**
-     * Autoconfigures a dedicated {@link OllamaEmbeddingProvider} when explicit
-     * Spector embedding properties are provided.
-     * <p>
-     * This bean takes precedence if 'spector.embedding.provider-name is set to 'Ollama'.
-     *
-     * @param props bound {@link SpectorConfigProperties} containing Spector configuration
-     * @return an instance of {@link OllamaEmbeddingProvider} initialized with Spector properties
-     */
+
     @Bean(name = "ollamaEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
-    @ConditionalOnProperty(prefix = "spector.embedding", name = "provider-name", havingValue = "Ollama", matchIfMissing = false)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Ollama", matchIfMissing = false)
     EmbeddingProvider spectorOllamaEmbeddingProvider(SpectorConfigProperties props) {
         return new OllamaEmbeddingProvider(generateEmbeddingConfig(props));
     }
-    /**
-     * Autoconfigures a dedicated {@link AnthropicProviderFactory} when explicit
-     * Spector embedding properties are provided.
-     * <p>
-     * This bean takes precedence if 'spector.embedding.provider-name' is set to 'Ollama'.
-     *
-     * @param props bound {@link SpectorConfigProperties} containing Spector configuration
-     * @return an instance of {@link EmbeddingProvider} initialized with Spector properties
-     */
+
     @Bean(name = "anthropicEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
-    @ConditionalOnProperty(prefix = "spector.embedding", name = "provider-name", havingValue = "Anthropic", matchIfMissing = false)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Anthropic", matchIfMissing = false)
     EmbeddingProvider antrhopicEmbeddingProvider(SpectorConfigProperties props) {
         AnthropicProviderFactory anthropicProviderFactory = new AnthropicProviderFactory();
         return anthropicProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
-    /**
-     * Autoconfigures a dedicated {@link AzureOpenAiProviderFactory} when explicit
-     * Spector embedding properties are provided.
-     * <p>
-     * This bean takes precedence if 'spector.embedding.provider-name is set to 'Ollama'.
-     *
-     * @param props bound {@link SpectorConfigProperties} containing Spector configuration
-     * @return an instance of {@link EmbeddingProvider} initialized with Spector properties
-     */
+
     @Bean(name = "azureOpenAiEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
-    @ConditionalOnProperty(prefix = "spector.embedding", name = "provider-name", havingValue = "AzureOpenAi", matchIfMissing = false)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "AzureOpenAi", matchIfMissing = false)
     EmbeddingProvider spectorAzureOpenAiEmbeddingProvider(SpectorConfigProperties props) {
         AzureOpenAiProviderFactory azureOpenAiProviderFactory = new AzureOpenAiProviderFactory();
         return azureOpenAiProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
-    /**
-     * Autoconfigures a dedicated {@link BedrockProviderFactory} when explicit
-     * Spector embedding properties are provided.
-     * <p>
-     * This bean takes precedence if 'spector.embedding.provider-name is set to 'Ollama'.
-     *
-     * @param props bound {@link SpectorConfigProperties} containing Spector configuration
-     * @return an instance of {@link EmbeddingProvider} initialized with Spector properties
-     */
+
     @Bean(name = "bedrockEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
-    @ConditionalOnProperty(prefix = "spector.embedding", name = "provider-name", havingValue = "Bedrock", matchIfMissing = false)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Bedrock", matchIfMissing = false)
     EmbeddingProvider spectorBedrockEmbeddingProvider(SpectorConfigProperties props) {
         BedrockProviderFactory bedrockProviderFactory = new BedrockProviderFactory();
         return bedrockProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
-    /**
-     * Autoconfigures a dedicated {@link GoogleProviderFactory} when explicit
-     * Spector embedding properties are provided.
-     * <p>
-     * This bean takes precedence if 'spector.embedding.provider-name is set to 'Ollama'.
-     *
-     * @param props bound {@link SpectorConfigProperties} containing Spector configuration
-     * @return an instance of {@link EmbeddingProvider} initialized with Spector properties
-     */
+
     @Bean(name = "googleEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
-    @ConditionalOnProperty(prefix = "spector.embedding", name = "provider-name", havingValue = "Google", matchIfMissing = false)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Google", matchIfMissing = false)
     EmbeddingProvider spectorGoogleEmbeddingProvider(SpectorConfigProperties props) {
         GoogleProviderFactory googleProviderFactory = new GoogleProviderFactory();
         return googleProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
-    /**
-     * Autoconfigures a dedicated {@link MistralProviderFactory} when explicit
-     * Spector embedding properties are provided.
-     * <p>
-     * This bean takes precedence if 'spector.embedding.provider-name is set to 'Ollama'.
-     *
-     * @param props bound {@link SpectorConfigProperties} containing Spector configuration
-     * @return an instance of {@link EmbeddingProvider} initialized with Spector properties
-     */
+
     @Bean(name = "mistralEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
-    @ConditionalOnProperty(prefix = "spector.embedding", name = "provider-name", havingValue = "Mistral", matchIfMissing = false)
+    @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Mistral", matchIfMissing = false)
     EmbeddingProvider spectorMistralEmbeddingProvider(SpectorConfigProperties props) {
         MistralProviderFactory mistralProviderFactory = new MistralProviderFactory();
         return mistralProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
@@ -432,9 +384,9 @@ public class SpectorAutoConfiguration {
      * @return an initialized {@link ProviderConfig} instance
      */
     ProviderConfig generateProviderConfig(SpectorConfigProperties props){
-        SpectorConfigProperties.Embedding embedding = props.getEmbedding();
+        var embedding = props.getEmbedding();
         return new ProviderConfig(
-                embedding.getProviderName(),
+                embedding.getType(),
                 embedding.getType(),
                 embedding.getModel(),
                 embedding.getApiKey(),

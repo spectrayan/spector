@@ -18,6 +18,8 @@ package com.spectrayan.spector.spring.autoconfigure;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import com.spectrayan.spector.config.MemoryProperties;
 import com.spectrayan.spector.config.ClientProperties;
+import com.spectrayan.spector.config.EmbeddingProperties;
+import com.spectrayan.spector.config.ProviderProperties;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -38,7 +40,7 @@ public class SpectorConfigProperties {
 
     private MemoryProperties memory = new MemoryProperties();
     private Metrics metrics = new Metrics();
-    private Embedding embedding = new Embedding();
+    private ProviderProperties provider = new ProviderProperties();
     private ClientProperties client = new ClientProperties();
 
     public ClientProperties getClient() { return client; }
@@ -55,8 +57,15 @@ public class SpectorConfigProperties {
     public Metrics getMetrics() { return metrics; }
     public void setMetrics(Metrics metrics) { this.metrics = metrics; }
 
-    public Embedding getEmbedding() { return embedding; }
-    public void setEmbedding(Embedding embedding) { this.embedding = embedding; }
+    public ProviderProperties getProvider() { return provider; }
+    public void setProvider(ProviderProperties provider) {
+        if (provider != null) this.provider = provider;
+    }
+
+    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
+    public EmbeddingProperties getEmbedding() { return provider.getEmbedding(); }
+    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
+    public void setEmbedding(EmbeddingProperties embedding) { provider.setEmbedding(embedding); }
 
     // ─────────────── Obsolete Engine ───────────────
 
@@ -94,6 +103,7 @@ public class SpectorConfigProperties {
 
     // ─────────────── Embedding ───────────────
 
+    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
     public static class Embedding {
         private String model = "nomic-embed-text";
         private String baseUrl = "http://localhost:11434";

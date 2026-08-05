@@ -88,10 +88,16 @@ public class SpectorMcpMain {
         if (cliCapacity != null) propsBuilder.override("spector.engine.capacity", cliCapacity);
 
         String cliOllamaUrl = getStringArg(args, "--ollama-url", null);
-        if (cliOllamaUrl != null) propsBuilder.override("spector.embedding.base-url", cliOllamaUrl);
+        if (cliOllamaUrl != null) {
+            propsBuilder.override("spector.provider.embedding.base-url", cliOllamaUrl);
+            propsBuilder.override("spector.embedding.base-url", cliOllamaUrl);
+        }
 
         String cliOllamaModel = getStringArg(args, "--ollama-model", null);
-        if (cliOllamaModel != null) propsBuilder.override("spector.embedding.model", cliOllamaModel);
+        if (cliOllamaModel != null) {
+            propsBuilder.override("spector.provider.embedding.model", cliOllamaModel);
+            propsBuilder.override("spector.embedding.model", cliOllamaModel);
+        }
 
         String cliDataDir = getStringArg(args, "--data-dir", null);
         if (cliDataDir != null) {

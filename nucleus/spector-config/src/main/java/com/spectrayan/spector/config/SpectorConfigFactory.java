@@ -179,17 +179,30 @@ public final class SpectorConfigFactory {
      * Loads embedding defaults from properties.
      */
     public static EmbeddingDefaults embeddingDefaults(SpectorProperties props) {
+        String model = props.getString("spector.provider.embedding.model",
+                props.getString("spector.embedding.model", "nomic-embed-text"));
+        String baseUrl = props.getString("spector.provider.embedding.base-url",
+                props.getString("spector.embedding.base-url", "http://localhost:11434"));
+        Duration timeout = props.getDuration("spector.provider.embedding.timeout",
+                props.getDuration("spector.embedding.timeout", Duration.ofSeconds(30)));
+        int batchSize = props.getInt("spector.provider.embedding.batch-size",
+                props.getInt("spector.embedding.batch-size", 32));
+        int maxRetries = props.getInt("spector.provider.embedding.max-retries",
+                props.getInt("spector.embedding.max-retries", 3));
+        int maxConcurrent = props.getInt("spector.provider.embedding.max-concurrent",
+                props.getInt("spector.embedding.max-concurrent", 0));
+        boolean cacheEnabled = props.getBoolean("spector.provider.embedding.cache.enabled",
+                props.getBoolean("spector.embedding.cache.enabled", true));
+        int cacheMaxSize = props.getInt("spector.provider.embedding.cache.max-size",
+                props.getInt("spector.embedding.cache.max-size", 1000));
+        Duration cacheTtl = props.getDuration("spector.provider.embedding.cache.ttl",
+                props.getDuration("spector.embedding.cache.ttl", Duration.ofMinutes(60)));
+        Duration cacheStatsLogInterval = props.getDuration("spector.provider.embedding.cache.stats-log-interval",
+                props.getDuration("spector.embedding.cache.stats-log-interval", Duration.ofMinutes(5)));
+
         return new EmbeddingDefaults(
-                props.getString("spector.embedding.model", "nomic-embed-text"),
-                props.getString("spector.embedding.base-url", "http://localhost:11434"),
-                props.getDuration("spector.embedding.timeout", Duration.ofSeconds(30)),
-                props.getInt("spector.embedding.batch-size", 32),
-                props.getInt("spector.embedding.max-retries", 3),
-                props.getInt("spector.embedding.max-concurrent", 0),
-                props.getBoolean("spector.embedding.cache.enabled", true),
-                props.getInt("spector.embedding.cache.max-size", 1000),
-                props.getDuration("spector.embedding.cache.ttl", Duration.ofMinutes(60)),
-                props.getDuration("spector.embedding.cache.stats-log-interval", Duration.ofMinutes(5))
+                model, baseUrl, timeout, batchSize, maxRetries, maxConcurrent,
+                cacheEnabled, cacheMaxSize, cacheTtl, cacheStatsLogInterval
         );
     }
 
