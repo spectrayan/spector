@@ -127,20 +127,20 @@ class IngestCommand extends BaseCommand {
 
         SpectorProperties props = propsBuilder.build();
 
-        //  Read configs 
+        // ── Read configs ──
         var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
         var embedConfig = SpectorConfigFactory.embeddingDefaults(props);
-        var engineConfig = SpectorConfigFactory.engineDefaults(props);
+        var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         var mode = SpectorConfigFactory.mode(props);
         Path root = ingestionConfig.rootDirectory().toAbsolutePath().normalize();
 
-        //  Banner 
+        // ── Banner ──
         out().printf("========================================%n");
         out().printf("  Spector Ingestion (local batch)%n");
         out().printf("  Mode:    %s%n", mode);
         out().printf("  Root:    %s%n", root);
         out().printf("  Pattern: %s%n", ingestionConfig.filePattern());
-        out().printf("  Data:    %s%n", engineConfig.dataDirectory());
+        out().printf("  Data:    %s%n", memoryConfig.persistencePath());
         out().printf("  Model:   %s @ %s%n", embedConfig.model(), embedConfig.baseUrl());
         out().printf("  Chunk:   %d chars%n", ingestionConfig.chunkSize());
         out().printf("  Threads: %d parallel, %d retries (delay: %dms)%n",
@@ -148,8 +148,9 @@ class IngestCommand extends BaseCommand {
                 ingestionConfig.retryDelayMs());
         out().printf("========================================%n%n");
 
-        //  Create embedder + probe dims 
-        var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", embedConfig.model(), embedConfig.baseUrl());
+        // ── Create embedder + probe dims ──
+        var config = new com.spectrayan.spector.provider.ProviderConfig(
+                "ollama", embedConfig.type(), embedConfig.model(), embedConfig.apiKey(), embedConfig.baseUrl(), embedConfig.dimensions(), embedConfig.properties());
         var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
         EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
         int dims = embedder.embed("probe").dimensions();
@@ -159,9 +160,9 @@ class IngestCommand extends BaseCommand {
         propsBuilder.override("spector.memory.dimensions", String.valueOf(dims));
         props = propsBuilder.build();
 
-        //  Create text generation provider for LLM tag extraction (if configured) 
+        // ── Create text generation provider for LLM tag extraction (if configured) ──
         LlmProvider textGenProvider = null;
-        var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
+        memoryConfig = SpectorConfigFactory.memoryDefaults(props);
         if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
             String tagModel = memoryConfig.tagExtractorModel();
             if (tagModel == null || tagModel.isBlank()) {

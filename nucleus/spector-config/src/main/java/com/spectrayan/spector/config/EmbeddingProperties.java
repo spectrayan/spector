@@ -31,8 +31,13 @@ public class EmbeddingProperties {
     private String baseUrl = "http://localhost:11434";
     private int dimensions = 768;
     private int batchSize = 32;
+    private int maxRetries = 3;
     private int maxConcurrent = 0;
     private Duration timeout = Duration.ofSeconds(30);
+    private boolean cacheEnabled = true;
+    private int cacheMaxSize = 1000;
+    private Duration cacheTtl = Duration.ofMinutes(60);
+    private Duration cacheStatsLogInterval = Duration.ofMinutes(5);
     private Map<String, String> properties = Map.of();
 
     public EmbeddingProperties() {}
@@ -65,6 +70,11 @@ public class EmbeddingProperties {
         if (batchSize > 0) this.batchSize = batchSize;
     }
 
+    public int getMaxRetries() { return maxRetries; }
+    public void setMaxRetries(int maxRetries) {
+        if (maxRetries >= 0) this.maxRetries = maxRetries;
+    }
+
     public int getMaxConcurrent() { return maxConcurrent; }
     public void setMaxConcurrent(int maxConcurrent) {
         if (maxConcurrent >= 0) this.maxConcurrent = maxConcurrent;
@@ -73,6 +83,24 @@ public class EmbeddingProperties {
     public Duration getTimeout() { return timeout; }
     public void setTimeout(Duration timeout) {
         if (timeout != null && !timeout.isZero() && !timeout.isNegative()) this.timeout = timeout;
+    }
+
+    public boolean isCacheEnabled() { return cacheEnabled; }
+    public void setCacheEnabled(boolean cacheEnabled) { this.cacheEnabled = cacheEnabled; }
+
+    public int getCacheMaxSize() { return cacheMaxSize; }
+    public void setCacheMaxSize(int cacheMaxSize) {
+        if (cacheMaxSize > 0) this.cacheMaxSize = cacheMaxSize;
+    }
+
+    public Duration getCacheTtl() { return cacheTtl; }
+    public void setCacheTtl(Duration cacheTtl) {
+        if (cacheTtl != null) this.cacheTtl = cacheTtl;
+    }
+
+    public Duration getCacheStatsLogInterval() { return cacheStatsLogInterval; }
+    public void setCacheStatsLogInterval(Duration cacheStatsLogInterval) {
+        if (cacheStatsLogInterval != null) this.cacheStatsLogInterval = cacheStatsLogInterval;
     }
 
     public Map<String, String> getProperties() { return properties; }
@@ -87,7 +115,12 @@ public class EmbeddingProperties {
     public String baseUrl() { return getBaseUrl(); }
     public int dimensions() { return getDimensions(); }
     public int batchSize() { return getBatchSize(); }
+    public int maxRetries() { return getMaxRetries(); }
     public int maxConcurrent() { return getMaxConcurrent(); }
     public Duration timeout() { return getTimeout(); }
+    public boolean cacheEnabled() { return isCacheEnabled(); }
+    public int cacheMaxSize() { return getCacheMaxSize(); }
+    public Duration cacheTtl() { return getCacheTtl(); }
+    public Duration cacheStatsLogInterval() { return getCacheStatsLogInterval(); }
     public Map<String, String> properties() { return getProperties(); }
 }

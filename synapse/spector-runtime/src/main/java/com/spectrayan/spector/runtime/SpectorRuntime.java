@@ -123,45 +123,34 @@ public final class SpectorRuntime implements AutoCloseable {
      * @throws IllegalStateException if no embedding provider matches the configured type
      */
     public static SpectorRuntime from(SpectorProperties props) {
-        var providerDefaults = SpectorConfigFactory.providerDefaults(props);
+        var providerProps = SpectorConfigFactory.providerDefaults(props);
 
-        // Build embedding provider config and discover via ServiceLoader
+        var emb = providerProps.getEmbedding();
         var embConfig = new ProviderConfig(
-                providerDefaults.embeddingType(),
-                providerDefaults.embeddingType(),
-                providerDefaults.embeddingModel(),
-                providerDefaults.embeddingApiKey(),
-                providerDefaults.embeddingBaseUrl(),
-                providerDefaults.embeddingDimensions(),
-                java.util.Map.of());
+                emb.type(), emb.type(), emb.model(), emb.apiKey(), emb.baseUrl(), emb.dimensions(), emb.properties());
 
         var registry = ProviderDiscovery.discover(java.util.List.of(embConfig));
 
         var embedder = registry.activeEmbedding()
                 .orElseThrow(() -> new IllegalStateException(
-                        "No embedding provider found for type: " + providerDefaults.embeddingType()
+                        "No embedding provider found for type: " + emb.type()
                         + ". Available factories: " + ProviderDiscovery.discoverFactories().keySet()));
 
         log.info("[Runtime] Auto-discovered embedding provider: {} (model={})",
-                providerDefaults.embeddingType(), providerDefaults.embeddingModel());
+                emb.type(), emb.model());
 
-        // Build generation provider config (optional  --  only if model is specified)
+        // Build generation provider config (optional -- only if model is specified)
         LlmProvider textGen = null;
-        if (!providerDefaults.generationModel().isBlank()) {
+        if (providerProps.getGeneration().getModel() != null && !providerProps.getGeneration().getModel().isBlank()) {
+            var gen = providerProps.getGeneration();
             var genConfig = new ProviderConfig(
-                    providerDefaults.generationType() + "-gen",
-                    providerDefaults.generationType(),
-                    providerDefaults.generationModel(),
-                    providerDefaults.generationApiKey(),
-                    providerDefaults.generationBaseUrl(),
-                    0,
-                    java.util.Map.of());
+                    gen.type() + "-gen", gen.type(), gen.model(), gen.apiKey(), gen.baseUrl(), 0, gen.properties());
 
             var genRegistry = ProviderDiscovery.discover(java.util.List.of(genConfig));
             textGen = genRegistry.activeGeneration().orElse(null);
             if (textGen != null) {
                 log.info("[Runtime] Auto-discovered generation provider: {} (model={})",
-                        providerDefaults.generationType(), providerDefaults.generationModel());
+                        gen.type(), gen.model());
             }
         }
 

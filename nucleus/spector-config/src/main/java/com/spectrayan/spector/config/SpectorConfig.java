@@ -88,30 +88,39 @@ public record SpectorConfig(
      * @return a fully configured SpectorConfig
      */
     public static SpectorConfig from(SpectorProperties props) {
-        var engine = SpectorConfigFactory.engineDefaults(props);
+        int dims = props.getInt("spector.engine.dimensions", 384);
+        int cap = props.getInt("spector.engine.capacity", 100_000);
+        String sim = props.getString("spector.engine.similarity", "COSINE");
+        String idxType = props.getString("spector.engine.index-type", "HNSW");
+        String quant = props.getString("spector.engine.quantization", "NONE");
+        String mode = props.getString("spector.engine.persistence-mode", "IN_MEMORY");
+        Path dataDir = props.getPath("spector.engine.data-directory", Path.of(".spector", "index"));
+        boolean gpu = props.getBoolean("spector.engine.gpu-enabled", false);
+        int oversampling = props.getInt("spector.engine.oversampling-factor", 0);
+
         var hnsw = SpectorConfigFactory.hnswDefaults(props);
         var ivf = SpectorConfigFactory.ivfDefaults(props);
         var spectrum = SpectorConfigFactory.spectrumDefaults(props);
         var reranker = SpectorConfigFactory.rerankerDefaults(props);
 
         return new SpectorConfig(
-                engine.dimensions(),
-                engine.capacity(),
-                SimilarityFunction.valueOf(engine.similarity()),
+                dims,
+                cap,
+                SimilarityFunction.valueOf(sim),
                 new HnswParams(hnsw.m(), hnsw.efConstruction(), hnsw.efSearch()),
-                QuantizationType.valueOf(engine.quantization()),
-                PersistenceMode.valueOf(engine.persistenceMode()),
-                "IN_MEMORY".equals(engine.persistenceMode()) ? null : engine.dataDirectory(),
-                IndexType.valueOf(engine.indexType()),
+                QuantizationType.valueOf(quant),
+                PersistenceMode.valueOf(mode),
+                "IN_MEMORY".equals(mode) ? null : dataDir,
+                IndexType.valueOf(idxType),
                 ivf.nlist(),
                 ivf.nprobe(),
                 ivf.pqSubspaces(),
-                engine.gpuEnabled(),
+                gpu,
                 reranker.enabled(),
                 reranker.ollamaUrl(),
                 reranker.model(),
                 reranker.maxCandidates(),
-                engine.oversamplingFactor(),
+                oversampling,
                 spectrum.nCentroids(),
                 spectrum.nProbe(),
                 spectrum.shardThreshold(),

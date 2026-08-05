@@ -28,38 +28,6 @@ import java.time.Duration;
 class SpectorConfigFactoryTest {
 
     @Test
-    void engineDefaults_fromClasspathDefaults() {
-        SpectorProperties props = SpectorProperties.load();
-        var engine = SpectorConfigFactory.engineDefaults(props);
-
-        assertThat(engine.dimensions()).isEqualTo(384);
-        assertThat(engine.capacity()).isEqualTo(100_000);
-        assertThat(engine.similarity()).isEqualTo("COSINE");
-        assertThat(engine.indexType()).isEqualTo("HNSW");
-        assertThat(engine.quantization()).isEqualTo("NONE");
-        assertThat(engine.persistenceMode()).isEqualTo("IN_MEMORY");
-        assertThat(engine.dataDirectory()).isEqualTo(Path.of(".spector", "index"));
-        assertThat(engine.gpuEnabled()).isFalse();
-        assertThat(engine.oversamplingFactor()).isEqualTo(0);
-    }
-
-    @Test
-    void engineDefaults_withOverrides() {
-        SpectorProperties props = SpectorProperties.builder()
-                .override("spector.engine.dimensions", "1024")
-                .override("spector.engine.capacity", "500000")
-                .override("spector.engine.similarity", "EUCLIDEAN")
-                .override("spector.engine.persistence-mode", "DISK")
-                .build();
-
-        var engine = SpectorConfigFactory.engineDefaults(props);
-        assertThat(engine.dimensions()).isEqualTo(1024);
-        assertThat(engine.capacity()).isEqualTo(500_000);
-        assertThat(engine.similarity()).isEqualTo("EUCLIDEAN");
-        assertThat(engine.persistenceMode()).isEqualTo("DISK");
-    }
-
-    @Test
     void hnswDefaults_fromClasspath() {
         var hnsw = SpectorConfigFactory.hnswDefaults(SpectorProperties.load());
 
@@ -96,19 +64,6 @@ class SpectorConfigFactoryTest {
         assertThat(embed.baseUrl()).isEqualTo("http://localhost:11434");
         assertThat(embed.timeout()).isEqualTo(Duration.ofSeconds(30));
         assertThat(embed.batchSize()).isEqualTo(32);
-        assertThat(embed.maxRetries()).isEqualTo(3);
-        assertThat(embed.cacheEnabled()).isTrue();
-        assertThat(embed.cacheMaxSize()).isEqualTo(1000);
-        assertThat(embed.cacheTtl()).isEqualTo(Duration.ofMinutes(60));
-        assertThat(embed.cacheStatsLogInterval()).isEqualTo(Duration.ofMinutes(5));
-    }
-
-    @Test
-    void chunkingDefaults_fromClasspath() {
-        var chunking = SpectorConfigFactory.chunkingDefaults(SpectorProperties.load());
-
-        assertThat(chunking.maxTokens()).isEqualTo(512);
-        assertThat(chunking.overlapTokens()).isEqualTo(50);
     }
 
     @Test
@@ -119,15 +74,6 @@ class SpectorConfigFactoryTest {
         assertThat(reranker.ollamaUrl()).isEqualTo("http://localhost:11434");
         assertThat(reranker.model()).isEqualTo("llama3.2");
         assertThat(reranker.maxCandidates()).isEqualTo(20);
-    }
-
-    @Test
-    void ragDefaults_fromClasspath() {
-        var rag = SpectorConfigFactory.ragDefaults(SpectorProperties.load());
-
-        assertThat(rag.topK()).isEqualTo(5);
-        assertThat(rag.similarityThreshold()).isEqualTo(0.7f);
-        assertThat(rag.tokenLimit()).isEqualTo(4096);
     }
 
     @Test

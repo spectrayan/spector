@@ -46,50 +46,6 @@ public final class SpectorConfigFactory {
 
     private SpectorConfigFactory() {}
 
-    // ─────────────── Engine Defaults ───────────────
-
-    /**
-     * Default values for the Spector engine, loaded from properties.
-     *
-     * @param dimensions      vector dimensionality
-     * @param capacity        maximum document count
-     * @param similarity      similarity function name (COSINE, EUCLIDEAN, DOT_PRODUCT)
-     * @param indexType        vector index type name (HNSW, IVF_PQ, SPECTRUM)
-     * @param quantization    quantization type name (NONE, BINARY, INT8, SVASQ4, SVASQ8)
-     * @param persistenceMode persistence mode name (IN_MEMORY, DISK)
-     * @param dataDirectory   data directory path
-     * @param gpuEnabled      whether GPU acceleration is enabled
-     * @param oversamplingFactor  rescore oversampling factor
-     */
-    public record EngineDefaults(
-            int dimensions,
-            int capacity,
-            String similarity,
-            String indexType,
-            String quantization,
-            String persistenceMode,
-            Path dataDirectory,
-            boolean gpuEnabled,
-            int oversamplingFactor
-    ) {}
-
-    /**
-     * Loads engine defaults from properties.
-     */
-    public static EngineDefaults engineDefaults(SpectorProperties props) {
-        return new EngineDefaults(
-                props.getInt("spector.engine.dimensions", 384),
-                props.getInt("spector.engine.capacity", 100_000),
-                props.getString("spector.engine.similarity", "COSINE"),
-                props.getString("spector.engine.index-type", "HNSW"),
-                props.getString("spector.engine.quantization", "NONE"),
-                props.getString("spector.engine.persistence-mode", "IN_MEMORY"),
-                props.getPath("spector.engine.data-directory", Path.of(".spector", "index")),
-                props.getBoolean("spector.engine.gpu-enabled", false),
-                props.getInt("spector.engine.oversampling-factor", 0)
-        );
-    }
-
     // ─────────────── HNSW Defaults ───────────────
 
     /**
@@ -153,44 +109,30 @@ public final class SpectorConfigFactory {
         );
     }
 
-    // ─────────────── Embedding Defaults ───────────────
+    // ─────────────── Embedding Properties ───────────────
 
     /**
-     * Default values for the embedding provider.
-     *
-     * @param model                 embedding model name
-     * @param baseUrl               API base URL
-     * @param timeout               HTTP request timeout
-     * @param batchSize             maximum texts per batch request
-     * @param maxRetries            maximum retry attempts
-     * @param maxConcurrent         maximum concurrent embedding HTTP calls (0 = unlimited)
-     * @param cacheEnabled          whether the LRU embedding cache is enabled
-     * @param cacheMaxSize          maximum number of cached embeddings
-     * @param cacheTtl              time-to-live for cached embeddings (0 = no expiry)
-     * @param cacheStatsLogInterval how often cache statistics are logged (0 = never)
+     * Loads embedding provider properties from properties.
      */
-    public record EmbeddingDefaults(
-            String model, String baseUrl, Duration timeout,
-            int batchSize, int maxRetries, int maxConcurrent,
-            boolean cacheEnabled, int cacheMaxSize, Duration cacheTtl, Duration cacheStatsLogInterval
-    ) {}
+    public static EmbeddingProperties embeddingDefaults(SpectorProperties props) {
+        EmbeddingProperties properties = new EmbeddingProperties();
 
-    /**
-     * Loads embedding defaults from properties.
-     */
-    public static EmbeddingDefaults embeddingDefaults(SpectorProperties props) {
+        String type = props.getString("spector.provider.embedding.type",
+                props.getString("spector.embedding.base-url", "").contains("localhost") ? "ollama" : "ollama");
         String model = props.getString("spector.provider.embedding.model",
                 props.getString("spector.embedding.model", "nomic-embed-text"));
+        String apiKey = props.getString("spector.provider.embedding.api-key", "");
         String baseUrl = props.getString("spector.provider.embedding.base-url",
                 props.getString("spector.embedding.base-url", "http://localhost:11434"));
-        Duration timeout = props.getDuration("spector.provider.embedding.timeout",
-                props.getDuration("spector.embedding.timeout", Duration.ofSeconds(30)));
+        int dimensions = props.getInt("spector.provider.embedding.dimensions", 768);
         int batchSize = props.getInt("spector.provider.embedding.batch-size",
                 props.getInt("spector.embedding.batch-size", 32));
         int maxRetries = props.getInt("spector.provider.embedding.max-retries",
                 props.getInt("spector.embedding.max-retries", 3));
         int maxConcurrent = props.getInt("spector.provider.embedding.max-concurrent",
                 props.getInt("spector.embedding.max-concurrent", 0));
+        Duration timeout = props.getDuration("spector.provider.embedding.timeout",
+                props.getDuration("spector.embedding.timeout", Duration.ofSeconds(30)));
         boolean cacheEnabled = props.getBoolean("spector.provider.embedding.cache.enabled",
                 props.getBoolean("spector.embedding.cache.enabled", true));
         int cacheMaxSize = props.getInt("spector.provider.embedding.cache.max-size",
@@ -200,30 +142,21 @@ public final class SpectorConfigFactory {
         Duration cacheStatsLogInterval = props.getDuration("spector.provider.embedding.cache.stats-log-interval",
                 props.getDuration("spector.embedding.cache.stats-log-interval", Duration.ofMinutes(5)));
 
-        return new EmbeddingDefaults(
-                model, baseUrl, timeout, batchSize, maxRetries, maxConcurrent,
-                cacheEnabled, cacheMaxSize, cacheTtl, cacheStatsLogInterval
-        );
-    }
+        properties.setType(type);
+        properties.setModel(model);
+        properties.setApiKey(apiKey);
+        properties.setBaseUrl(baseUrl);
+        properties.setDimensions(dimensions);
+        properties.setBatchSize(batchSize);
+        properties.setMaxRetries(maxRetries);
+        properties.setMaxConcurrent(maxConcurrent);
+        properties.setTimeout(timeout);
+        properties.setCacheEnabled(cacheEnabled);
+        properties.setCacheMaxSize(cacheMaxSize);
+        properties.setCacheTtl(cacheTtl);
+        properties.setCacheStatsLogInterval(cacheStatsLogInterval);
 
-    // ─────────────── Chunking Defaults ───────────────
-
-    /**
-     * Default values for text chunking.
-     *
-     * @param maxTokens      maximum token count per chunk
-     * @param overlapTokens  overlapping tokens between consecutive chunks
-     */
-    public record ChunkingDefaults(int maxTokens, int overlapTokens) {}
-
-    /**
-     * Loads chunking defaults from properties.
-     */
-    public static ChunkingDefaults chunkingDefaults(SpectorProperties props) {
-        return new ChunkingDefaults(
-                props.getInt("spector.chunking.max-tokens", 512),
-                props.getInt("spector.chunking.overlap-tokens", 50)
-        );
+        return properties;
     }
 
     // ─────────────── Reranker Defaults ───────────────
@@ -244,24 +177,6 @@ public final class SpectorConfigFactory {
                 props.getString("spector.reranker.ollama-url", "http://localhost:11434"),
                 props.getString("spector.reranker.model", "llama3.2"),
                 props.getInt("spector.reranker.max-candidates", 20)
-        );
-    }
-
-    // ─────────────── RAG Defaults ───────────────
-
-    /**
-     * Default values for RAG retrieval.
-     */
-    public record RagDefaults(int topK, float similarityThreshold, int tokenLimit) {}
-
-    /**
-     * Loads RAG defaults from properties.
-     */
-    public static RagDefaults ragDefaults(SpectorProperties props) {
-        return new RagDefaults(
-                props.getInt("spector.rag.top-k", 5),
-                props.getFloat("spector.rag.similarity-threshold", 0.7f),
-                props.getInt("spector.rag.token-limit", 4096)
         );
     }
 
@@ -373,99 +288,66 @@ public final class SpectorConfigFactory {
         return SpectorMode.valueOf(raw.toUpperCase());
     }
 
-    // ─────────────── Ingestion Defaults ───────────────
+    // ─────────────── Ingestion Properties ───────────────
 
     /**
-     * Default values for file ingestion.
-     *
-     * @param rootDirectory root directory for file discovery (default: .)
-     * @param filePattern   glob pattern for file discovery (e.g., "**\/*.md")
-     * @param skipDirs      comma-separated directories to skip
-     * @param chunkSize     target chunk size in characters
-     * @param chunkOverlap  overlap between consecutive chunks
+     * Loads ingestion properties from properties.
      */
-    public record IngestionDefaults(
-            Path rootDirectory, String filePattern, String skipDirs,
-            int chunkSize, int chunkOverlap,
-            int parallelism, int maxRetries, int retryDelayMs
-    ) {}
-
-    /**
-     * Loads ingestion defaults from properties.
-     */
-    public static IngestionDefaults ingestionDefaults(SpectorProperties props) {
-        return new IngestionDefaults(
-                props.getPath("spector.ingestion.root-directory", Path.of(".")),
-                props.getString("spector.ingestion.file-pattern", "**/*.md"),
-                props.getString("spector.ingestion.skip-dirs", ".git,.idea,.mvn,target,node_modules,.github"),
-                props.getInt("spector.ingestion.chunk-size", 2500),
-                props.getInt("spector.ingestion.chunk-overlap", 200),
-                props.getInt("spector.ingestion.parallelism", 4),
-                props.getInt("spector.ingestion.max-retries", 3),
-                props.getInt("spector.ingestion.retry-delay-ms", 2000)
-        );
+    public static IngestionProperties ingestionDefaults(SpectorProperties props) {
+        IngestionProperties properties = new IngestionProperties();
+        properties.setRootDirectory(props.getPath("spector.ingestion.root-directory", Path.of(".")));
+        properties.setFilePattern(props.getString("spector.ingestion.file-pattern", "**/*.md"));
+        properties.setSkipDirs(props.getString("spector.ingestion.skip-dirs", ".git,.idea,.mvn,target,node_modules,.github"));
+        properties.setChunkSize(props.getInt("spector.ingestion.chunk-size", 2500));
+        properties.setChunkOverlap(props.getInt("spector.ingestion.chunk-overlap", 200));
+        properties.setParallelism(props.getInt("spector.ingestion.parallelism", 4));
+        properties.setMaxRetries(props.getInt("spector.ingestion.max-retries", 3));
+        properties.setRetryDelayMs(props.getInt("spector.ingestion.retry-delay-ms", 2000));
+        return properties;
     }
 
-    // ─────────────── Provider Defaults ───────────────
+    // ─────────────── Provider Properties ───────────────
 
     /**
-     * Default values for LLM/embedding provider configuration.
-     *
-     * <p>Parsed from {@code spector.provider.embedding.*} and
-     * {@code spector.provider.generation.*} config sections. Falls back
-     * to the legacy {@code spector.embedding.*} section for backward
-     * compatibility.</p>
-     *
-     * <p><strong>Note:</strong> This record uses simple types only — no
-     * dependency on {@code spector-provider-api}. The runtime layer
-     * converts these values into {@code ProviderConfig} instances.</p>
-     *
-     * @param embeddingType       provider type (e.g., "ollama", "openai")
-     * @param embeddingModel      model identifier
-     * @param embeddingApiKey     API key (empty for local providers)
-     * @param embeddingBaseUrl    API base URL
-     * @param embeddingDimensions vector dimensions (0 = model default)
-     * @param generationType      generation provider type
-     * @param generationModel     generation model identifier
-     * @param generationApiKey    generation API key
-     * @param generationBaseUrl   generation API base URL
-     */
-    public record ProviderDefaults(
-            String embeddingType, String embeddingModel, String embeddingApiKey,
-            String embeddingBaseUrl, int embeddingDimensions,
-            String generationType, String generationModel, String generationApiKey,
-            String generationBaseUrl
-    ) {}
-
-    /**
-     * Loads provider defaults from properties.
+     * Loads provider properties from properties.
      *
      * <p>Checks new-style config keys first, then falls back to legacy
      * embedding section keys for backward compatibility.</p>
      *
      * @param props hierarchical configuration
-     * @return resolved provider defaults
+     * @return resolved provider properties
      */
-    public static ProviderDefaults providerDefaults(SpectorProperties props) {
-        // Check new-style config first, fall back to legacy embedding section
+    public static ProviderProperties providerDefaults(SpectorProperties props) {
+        ProviderProperties providerProperties = new ProviderProperties();
+
+        EmbeddingProperties emb = providerProperties.getEmbedding();
         String embType = props.getString("spector.provider.embedding.type",
-                props.getString("spector.embedding.base-url", "").contains("localhost")
-                        ? "ollama" : "ollama");
+                props.getString("spector.embedding.base-url", "").contains("localhost") ? "ollama" : "ollama");
         String embModel = props.getString("spector.provider.embedding.model",
                 props.getString("spector.embedding.model", "nomic-embed-text"));
         String embApiKey = props.getString("spector.provider.embedding.api-key", "");
         String embBaseUrl = props.getString("spector.provider.embedding.base-url",
                 props.getString("spector.embedding.base-url", "http://localhost:11434"));
-        int embDims = props.getInt("spector.provider.embedding.dimensions", 0);
+        int embDims = props.getInt("spector.provider.embedding.dimensions", 768);
 
+        emb.setType(embType);
+        emb.setModel(embModel);
+        emb.setApiKey(embApiKey);
+        emb.setBaseUrl(embBaseUrl);
+        if (embDims > 0) emb.setDimensions(embDims);
+
+        GenerationProperties gen = providerProperties.getGeneration();
         String genType = props.getString("spector.provider.generation.type", embType);
         String genModel = props.getString("spector.provider.generation.model", "");
         String genApiKey = props.getString("spector.provider.generation.api-key", embApiKey);
         String genBaseUrl = props.getString("spector.provider.generation.base-url", embBaseUrl);
 
-        return new ProviderDefaults(
-                embType, embModel, embApiKey, embBaseUrl, embDims,
-                genType, genModel, genApiKey, genBaseUrl);
+        gen.setType(genType);
+        gen.setModel(genModel);
+        gen.setApiKey(genApiKey);
+        gen.setBaseUrl(genBaseUrl);
+
+        return providerProperties;
     }
 }
 
