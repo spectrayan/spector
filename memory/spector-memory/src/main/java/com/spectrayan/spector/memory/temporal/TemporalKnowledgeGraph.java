@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
 import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -68,7 +69,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(TemporalKnowledgeGraph.class);
 
     /** Memory ID for WAL registration and recovery. */
-    private static final MemoryId MEMORY_ID = MemoryId.of("temporal", "facts");
+    private static final MemoryId MEMORY_ID = SystemMemoryId.TEMPORAL_FACTS.id();
 
     /** Default initial file size: 64 KB (room for ~1000 facts). */
     private static final long DEFAULT_INITIAL_SIZE = 64L * 1024;
@@ -453,7 +454,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
             long validFrom, long validTo, long txTime, float confidence,
             int retractsFactId) {
 
-        MemorySegment seg = Arena.ofAuto().allocate(64, 8);
+        MemorySegment seg = MemorySegment.ofArray(new byte[64]);
 
         seg.set(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_FACT_ID, factId);
         seg.set(ValueLayout.JAVA_INT_UNALIGNED, TemporalFactLayout.OFF_SUBJECT_ENTITY_ID, subjectEntityId);

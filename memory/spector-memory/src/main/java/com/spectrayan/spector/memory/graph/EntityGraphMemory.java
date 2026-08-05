@@ -35,6 +35,7 @@ import java.nio.file.StandardOpenOption;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 import java.nio.charset.StandardCharsets;
@@ -126,7 +127,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     private static final Logger log = LoggerFactory.getLogger(EntityGraphMemory.class);
 
     /** Kernel identity for the entity-relationship graph. */
-    private static final MemoryId MEMORY_ID = MemoryId.of("graph", "entity");
+    private static final MemoryId MEMORY_ID = SystemMemoryId.ENTITY.id();
     /** Shared record layout — identifies entity records inside an SMKM container. */
     private static final EntityLayout LAYOUT = new EntityLayout();
 
@@ -341,8 +342,8 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
             return new Init(entityCapacity, edgeCapacity, 0, 0, arena,
                     entitySegment, edgeSegment, adjacencySegment, adjCap, 0,
                     false, null, null,
-                    TypeRegistryMemory.seeded("entity-type", EntityType.SEED),
-                    TypeRegistryMemory.seeded("relation-type", RelationType.SEED),
+                    TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, EntityType.SEED),
+                    TypeRegistryMemory.seeded(SystemMemoryId.RELATION_TYPE, RelationType.SEED),
                     null);
         }
 
@@ -436,12 +437,12 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
                 TypeRegistryMemory relationTypes;
                 if (parent != null) {
                     entityTypes = TypeRegistryMemory.load(
-                            StorageLayout.entityTypes(parent), "entity-type", EntityType.SEED);
+                            StorageLayout.entityTypes(parent), SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
                     relationTypes = TypeRegistryMemory.load(
-                            StorageLayout.relationTypes(parent), "relation-type", RelationType.SEED);
+                            StorageLayout.relationTypes(parent), SystemMemoryId.RELATION_TYPE, RelationType.SEED);
                 } else {
-                    entityTypes = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
-                    relationTypes = TypeRegistryMemory.seeded("relation-type", RelationType.SEED);
+                    entityTypes = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+                    relationTypes = TypeRegistryMemory.seeded(SystemMemoryId.RELATION_TYPE, RelationType.SEED);
                 }
 
                 return new Init(entityCap, edgeCap, entityCount, edgeCount, arena,

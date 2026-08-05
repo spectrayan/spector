@@ -33,7 +33,9 @@ public record MemoryId(String namespace, String memoryName, int partitionSeq) im
      * @param namespace  The namespace.
      * @param memoryName The memory name.
      * @return A new MemoryId with partitionSeq set to 0.
+     * @deprecated Use {@link SystemMemoryId} constants instead of creating on-the-fly hardcoded instances.
      */
+    @Deprecated
     public static MemoryId of(String namespace, String memoryName) {
         return new MemoryId(namespace, memoryName, 0);
     }

@@ -17,8 +17,10 @@ import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +73,7 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
     private final ConcurrentHashMap<Long, String> hashToTag = new ConcurrentHashMap<>();
     private volatile Map<Long, EnumMap<CognitiveProfile, RunningStats>> banditStats =
             new ConcurrentHashMap<>();
+    private final ReentrantLock saveLock = new ReentrantLock();
 
     public record DirectedEdge(String sourceTag, String targetTag) {
         @Override
@@ -99,7 +102,7 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
     }
 
     public CoActivationRecordMemory(int maxPairs, int maxEdges) {
-        this(MemoryId.of("hebbian", "coactivation"), calculateTotalBytes(maxPairs, maxEdges), maxPairs, maxEdges);
+        this(SystemMemoryId.COACTIVATION.id(), calculateTotalBytes(maxPairs, maxEdges), maxPairs, maxEdges);
     }
 
     private CoActivationRecordMemory(MemoryId id, long totalBytes, int maxPairs, int maxEdges) {
@@ -122,7 +125,7 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
     }
 
     private CoActivationRecordMemory(Path filePath, int pairCap, int edgeCap) {
-        super(MemoryId.of("hebbian", "coactivation"), new CoActivationLayout(),
+        super(SystemMemoryId.COACTIVATION.id(), new CoActivationLayout(),
                 (int) (8 + 32L * pairCap + 40L * edgeCap), 8 + 32L * pairCap + 40L * edgeCap, filePath);
 
         long totalBytes = 8 + 32L * pairCap + 40L * edgeCap;
@@ -133,7 +136,7 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
             segment.set(ValueLayout.JAVA_INT, dataOffset, pairCap);
             segment.set(ValueLayout.JAVA_INT, dataOffset + 4, edgeCap);
 
-            MemorySegment singleByte = Arena.ofAuto().allocate(1);
+            MemorySegment singleByte = MemorySegment.ofArray(new byte[1]);
             singleByte.set(ValueLayout.JAVA_BYTE, 0, (byte) 0);
             write(totalBytes - 1, singleByte);
         }
@@ -334,60 +337,65 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
     // PERSISTENCE: save / load
     // ══════════════════════════════════════════════════════════════
 
-    public synchronized void save(Path filePath) {
-        if (!isPersistent()) {
-            try {
-                Path parent = filePath.getParent();
-                if (parent != null) {
-                    Files.createDirectories(parent);
+    public void save(Path filePath) {
+        saveLock.lock();
+        try {
+            if (!isPersistent()) {
+                try {
+                    Path parent = filePath.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    try (FileChannel ch = FileChannel.open(filePath,
+                            StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+
+                        long totalBytes = 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity();
+                        ByteBuffer header = ByteBuffer.allocate(64);
+                        MemorySegment headerSeg = MemorySegment.ofBuffer(header);
+                        MemoryHeader.write(headerSeg, 0, layout().schemaVersion(), shape(),
+                                0x01, totalBytes, totalBytes, layout().recordStride(), layout().layoutId(),
+                                System.currentTimeMillis(), System.currentTimeMillis());
+                        header.limit(64).position(0);
+                        ch.write(header);
+
+                        ByteBuffer dataBuf = segment().asSlice(0, totalBytes).asByteBuffer().asReadOnlyBuffer();
+                        ch.write(dataBuf);
+
+                        ByteBuffer countsBuf = ByteBuffer.allocate(8);
+                        countsBuf.putInt(pairTable.count());
+                        countsBuf.putInt(edgeTable.count());
+                        countsBuf.flip();
+                        ch.write(countsBuf);
+
+                        writeTagIndex(ch);
+                        writeBanditStats(ch);
+                    }
+
+                } catch (IOException e) {
+                    throw new SpectorGraphPersistenceException("CoActivationRecordMemory", filePath, e);
                 }
-                try (FileChannel ch = FileChannel.open(filePath,
-                        StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            } else {
+                try {
+                    flush();
+                    Path path = filePath != null ? filePath : filePath();
+                    try (FileChannel ch = FileChannel.open(path, StandardOpenOption.WRITE)) {
+                        ch.position(MemoryHeader.HEADER_BYTES + 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity());
 
-                    long totalBytes = 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity();
-                    ByteBuffer header = ByteBuffer.allocate(64);
-                    MemorySegment headerSeg = MemorySegment.ofBuffer(header);
-                    MemoryHeader.write(headerSeg, 0, layout().schemaVersion(), shape(),
-                            0x01, totalBytes, totalBytes, layout().recordStride(), layout().layoutId(),
-                            System.currentTimeMillis(), System.currentTimeMillis());
-                    header.limit(64).position(0);
-                    ch.write(header);
+                        ByteBuffer countsBuf = ByteBuffer.allocate(8);
+                        countsBuf.putInt(pairTable.count());
+                        countsBuf.putInt(edgeTable.count());
+                        countsBuf.flip();
+                        ch.write(countsBuf);
 
-                    ByteBuffer dataBuf = segment().asSlice(0, totalBytes).asByteBuffer().asReadOnlyBuffer();
-                    ch.write(dataBuf);
-
-                    ByteBuffer countsBuf = ByteBuffer.allocate(8);
-                    countsBuf.putInt(pairTable.count());
-                    countsBuf.putInt(edgeTable.count());
-                    countsBuf.flip();
-                    ch.write(countsBuf);
-
-                    writeTagIndex(ch);
-                    writeBanditStats(ch);
+                        writeTagIndex(ch);
+                        writeBanditStats(ch);
+                    }
+                } catch (IOException e) {
+                    throw new SpectorGraphPersistenceException("CoActivationRecordMemory", filePath, e);
                 }
-
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("CoActivationRecordMemory", filePath, e);
             }
-        } else {
-            try {
-                flush();
-                Path path = filePath != null ? filePath : filePath();
-                try (FileChannel ch = FileChannel.open(path, StandardOpenOption.WRITE)) {
-                    ch.position(MemoryHeader.HEADER_BYTES + 8 + 32L * pairTable.capacity() + 40L * edgeTable.capacity());
-
-                    ByteBuffer countsBuf = ByteBuffer.allocate(8);
-                    countsBuf.putInt(pairTable.count());
-                    countsBuf.putInt(edgeTable.count());
-                    countsBuf.flip();
-                    ch.write(countsBuf);
-
-                    writeTagIndex(ch);
-                    writeBanditStats(ch);
-                }
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("CoActivationRecordMemory", filePath, e);
-            }
+        } finally {
+            saveLock.unlock();
         }
     }
 

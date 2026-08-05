@@ -24,6 +24,8 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
@@ -98,7 +100,7 @@ final class CognitiveGraphBuilder {
                 try {
                     com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
                             com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
-                            com.spectrayan.spector.memory.kernel.MemoryId.of("graph", "hebbian-csr"),
+                            SystemMemoryId.HEBBIAN_CSR.id(),
                             new com.spectrayan.spector.memory.kernel.layout.HebbianLayout(),
                             loadFrom, null, null);
                 } catch (Exception e) {
@@ -126,7 +128,7 @@ final class CognitiveGraphBuilder {
             try {
                 com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
                         com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
-                        com.spectrayan.spector.memory.kernel.MemoryId.of("temporal", "chain"),
+                        SystemMemoryId.TEMPORAL_CHAIN.id(),
                         new com.spectrayan.spector.memory.kernel.layout.TemporalLayout(),
                         loadFrom, null, null);
             } catch (Exception e) {
@@ -191,7 +193,7 @@ final class CognitiveGraphBuilder {
         EntityDirectory entityDirectory;
         if (entityEnabled) {
             int dirCap = builder.entityGraphCapacity;
-            TypeRegistryMemory entityTypeRegistry = TypeRegistryMemory.seeded("entity-type", com.spectrayan.spector.memory.graph.EntityType.SEED);
+            TypeRegistryMemory entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, com.spectrayan.spector.memory.graph.EntityType.SEED);
             if (isDisk && basePath != null) {
                 Path edir = StorageLayout.entityDirectoryRuntime(basePath);
                 if (java.nio.file.Files.exists(edir)) {
@@ -210,7 +212,7 @@ final class CognitiveGraphBuilder {
 
 
         TemporalKnowledgeGraph temporalKnowledgeGraph;
-        TypeRegistryMemory predRegistry = new TypeRegistryMemory("relation-type");
+        TypeRegistryMemory predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
         if (isDisk && basePath != null) {
             Path runtimeTkg = StorageLayout.temporalFactsRuntime(basePath);
             long initialSize = 16L * 1024 * 1024; // 16MB

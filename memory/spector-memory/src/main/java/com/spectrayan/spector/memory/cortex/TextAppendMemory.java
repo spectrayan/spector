@@ -18,6 +18,7 @@ import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.codec.XxHash64;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
@@ -40,6 +41,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Binary reader/writer for {@code text.dat} files within partition directories,
@@ -61,6 +63,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
     private final Map<String, TextPosition> textPositionMap = new LinkedHashMap<>();
     private final Map<Long, TextPosition> hashToPosition = new java.util.HashMap<>();
     private final AtomicInteger decryptFailCount = new AtomicInteger();
+    private final ReentrantLock writeLock = new ReentrantLock();
 
     /**
      * Creates a TextAppendMemory for the given file path (no encryption).
@@ -82,7 +85,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
     }
 
     private TextAppendMemory(Path file, DataEncryptor encryptor, Map<String, TextEntry> legacyEntries) {
-        super(MemoryId.of("cortex", "text"), new TextBlobLayout(), 0, calculateInitialSize(file, legacyEntries), file);
+        super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0, calculateInitialSize(file, legacyEntries), file);
         this.file = file;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.entryCount = 0;
@@ -116,7 +119,7 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
 
     private TextAppendMemory(Arena arena, MemorySegment regionSlice, Path bundlePath,
                               boolean isNew, DataEncryptor encryptor) {
-        super(MemoryId.of("cortex", "text"), new TextBlobLayout(), 0,
+        super(SystemMemoryId.CORTEX_TEXT.id(), new TextBlobLayout(), 0,
               arena, regionSlice,
               isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
               true, bundlePath, null, true);  // bundleManaged=true
@@ -255,36 +258,41 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
      * @param text the raw text content
      * @return the byte position of the text within text.dat for direct off-heap reads
      */
-    public synchronized TextPosition write(String id, MemoryType tier, String text) {
-        byte[] idBytes = id.getBytes(StandardCharsets.UTF_8);
-        byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
+    public TextPosition write(String id, MemoryType tier, String text) {
+        writeLock.lock();
+        try {
+            byte[] idBytes = id.getBytes(StandardCharsets.UTF_8);
+            byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
 
-        long hash = XxHash64.hash(textBytes);
-        TextPosition existing = hashToPosition.get(hash);
-        if (existing != null && existing.textLength() == textBytes.length) {
-            textPositionMap.put(id, existing);
+            long hash = XxHash64.hash(textBytes);
+            TextPosition existing = hashToPosition.get(hash);
+            if (existing != null && existing.textLength() == textBytes.length) {
+                textPositionMap.put(id, existing);
+                entryCount++;
+                return existing;
+            }
+
+            int entrySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
+
+            MemorySegment entrySeg = MemorySegment.ofArray(new byte[entrySize]);
+            entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) tier.ordinal());
+            entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 1, idBytes.length);
+            MemorySegment.copy(MemorySegment.ofArray(idBytes), 0, entrySeg, 5, idBytes.length);
+            entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 5 + idBytes.length, textBytes.length);
+            MemorySegment.copy(MemorySegment.ofArray(textBytes), 0, entrySeg, 5 + idBytes.length + 4, textBytes.length);
+
+            long payloadOffset = append(entrySeg);
+            long textOffset = dataOffset() + payloadOffset + 9 + idBytes.length;
+
+            TextPosition pos = new TextPosition(textOffset, textBytes.length);
+            textPositionMap.put(id, pos);
+            hashToPosition.put(hash, pos);
             entryCount++;
-            return existing;
+
+            return pos;
+        } finally {
+            writeLock.unlock();
         }
-
-        int entrySize = 1 + 4 + idBytes.length + 4 + textBytes.length;
-
-        MemorySegment entrySeg = Arena.ofAuto().allocate(entrySize);
-        entrySeg.set(ValueLayout.JAVA_BYTE, 0, (byte) tier.ordinal());
-        entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 1, idBytes.length);
-        MemorySegment.copy(MemorySegment.ofArray(idBytes), 0, entrySeg, 5, idBytes.length);
-        entrySeg.set(ValueLayout.JAVA_INT_UNALIGNED, 5 + idBytes.length, textBytes.length);
-        MemorySegment.copy(MemorySegment.ofArray(textBytes), 0, entrySeg, 5 + idBytes.length + 4, textBytes.length);
-
-        long payloadOffset = append(entrySeg);
-        long textOffset = dataOffset() + payloadOffset + 9 + idBytes.length;
-
-        TextPosition pos = new TextPosition(textOffset, textBytes.length);
-        textPositionMap.put(id, pos);
-        hashToPosition.put(hash, pos);
-        entryCount++;
-
-        return pos;
     }
 
     /**
@@ -307,71 +315,76 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
      *
      * @return map of memory ID → TextEntry, empty map if file doesn't exist
      */
-    public synchronized Map<String, TextEntry> readAll() {
-        Map<String, TextEntry> entries = new LinkedHashMap<>();
-        textPositionMap.clear();
-        hashToPosition.clear();
+    public Map<String, TextEntry> readAll() {
+        writeLock.lock();
+        try {
+            Map<String, TextEntry> entries = new LinkedHashMap<>();
+            textPositionMap.clear();
+            hashToPosition.clear();
 
-        if (!Files.exists(file)) {
+            if (!Files.exists(file)) {
+                return entries;
+            }
+
+            java.util.Iterator<MemorySegment> it = replay(0);
+            long currentOffset = 0;
+            while (it.hasNext()) {
+                MemorySegment entrySeg = it.next();
+                int entryLen = (int) entrySeg.byteSize();
+                if (entryLen < 9) {
+                    currentOffset += 4 + entryLen;
+                    continue;
+                }
+
+                byte tierOrd = entrySeg.get(ValueLayout.JAVA_BYTE, 0);
+                if (tierOrd < 0 || tierOrd >= MemoryType.values().length) {
+                    currentOffset += 4 + entryLen;
+                    continue;
+                }
+
+                int idLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 1);
+                if (idLen < 0 || idLen > 10_000 || 5 + idLen + 4 > entryLen) {
+                    currentOffset += 4 + entryLen;
+                    continue;
+                }
+
+                String id = decodeUtf8FromSegment(entrySeg, 5, idLen);
+                int textLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 5 + idLen);
+                if (textLen < 0 || textLen > 10_000_000 || 5 + idLen + 4 + textLen > entryLen) {
+                    currentOffset += 4 + entryLen;
+                    continue;
+                }
+
+                String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
+                String text = decryptIfNeeded(rawText);
+
+                MemoryType tier = MemoryType.values()[tierOrd];
+                entries.put(id, new TextEntry(id, tier, text));
+
+                long textOffset = dataOffset() + currentOffset + 4 + 9 + idLen;
+                TextPosition pos = new TextPosition(textOffset, textLen);
+                textPositionMap.put(id, pos);
+
+                byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
+                long hash = XxHash64.hash(textBytes);
+                hashToPosition.put(hash, pos);
+
+                currentOffset += 4 + entryLen;
+            }
+
+            this.entryCount = entries.size();
+            log.debug("Loaded {} text entries from {} (mmap'd off-heap)", entries.size(), file);
+
+            int failures = decryptFailCount.getAndSet(0);
+            if (failures > 0) {
+                log.warn("text.dat: {} of {} entries failed decryption (wrong key or legacy data): {}",
+                        failures, entries.size(), file);
+            }
+
             return entries;
+        } finally {
+            writeLock.unlock();
         }
-
-        java.util.Iterator<MemorySegment> it = replay(0);
-        long currentOffset = 0;
-        while (it.hasNext()) {
-            MemorySegment entrySeg = it.next();
-            int entryLen = (int) entrySeg.byteSize();
-            if (entryLen < 9) {
-                currentOffset += 4 + entryLen;
-                continue;
-            }
-
-            byte tierOrd = entrySeg.get(ValueLayout.JAVA_BYTE, 0);
-            if (tierOrd < 0 || tierOrd >= MemoryType.values().length) {
-                currentOffset += 4 + entryLen;
-                continue;
-            }
-
-            int idLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 1);
-            if (idLen < 0 || idLen > 10_000 || 5 + idLen + 4 > entryLen) {
-                currentOffset += 4 + entryLen;
-                continue;
-            }
-
-            String id = decodeUtf8FromSegment(entrySeg, 5, idLen);
-            int textLen = entrySeg.get(ValueLayout.JAVA_INT_UNALIGNED, 5 + idLen);
-            if (textLen < 0 || textLen > 10_000_000 || 5 + idLen + 4 + textLen > entryLen) {
-                currentOffset += 4 + entryLen;
-                continue;
-            }
-
-            String rawText = decodeUtf8FromSegment(entrySeg, 5 + idLen + 4, textLen);
-            String text = decryptIfNeeded(rawText);
-
-            MemoryType tier = MemoryType.values()[tierOrd];
-            entries.put(id, new TextEntry(id, tier, text));
-
-            long textOffset = dataOffset() + currentOffset + 4 + 9 + idLen;
-            TextPosition pos = new TextPosition(textOffset, textLen);
-            textPositionMap.put(id, pos);
-
-            byte[] textBytes = text.getBytes(StandardCharsets.UTF_8);
-            long hash = XxHash64.hash(textBytes);
-            hashToPosition.put(hash, pos);
-
-            currentOffset += 4 + entryLen;
-        }
-
-        this.entryCount = entries.size();
-        log.debug("Loaded {} text entries from {} (mmap'd off-heap)", entries.size(), file);
-
-        int failures = decryptFailCount.getAndSet(0);
-        if (failures > 0) {
-            log.warn("text.dat: {} of {} entries failed decryption (wrong key or legacy data): {}",
-                    failures, entries.size(), file);
-        }
-
-        return entries;
     }
 
     /**
@@ -388,20 +401,25 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
      *
      * @param entries the surviving entries to write
      */
-    public synchronized void rebuild(Map<String, TextEntry> entries) {
-        textPositionMap.clear();
-        hashToPosition.clear();
+    public void rebuild(Map<String, TextEntry> entries) {
+        writeLock.lock();
+        try {
+            textPositionMap.clear();
+            hashToPosition.clear();
 
-        // Reset append cursor and count in-place
-        this.count = 0;
-        persistCount();
+            // Reset append cursor and count in-place
+            this.count = 0;
+            persistCount();
 
-        for (TextEntry entry : entries.values()) {
-            write(entry.id(), entry.tier(), entry.text());
+            for (TextEntry entry : entries.values()) {
+                write(entry.id(), entry.tier(), entry.text());
+            }
+            flush();
+            this.entryCount = entries.size();
+            log.debug("Rebuilt text.dat with {} entries (deduplicated): {}", entries.size(), file);
+        } finally {
+            writeLock.unlock();
         }
-        flush();
-        this.entryCount = entries.size();
-        log.debug("Rebuilt text.dat with {} entries (deduplicated): {}", entries.size(), file);
     }
 
     /** Returns the number of entries in this store. */
@@ -449,24 +467,30 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
-    public synchronized boolean eraseEntry(String targetId) {
-        if (!Files.exists(file)) {
-            return false;
+    public boolean eraseEntry(String targetId) {
+        writeLock.lock();
+        try {
+            if (!Files.exists(file)) {
+                return false;
+            }
+
+            TextPosition pos = textPositionMap.get(targetId);
+            if (pos == null) return false;
+
+            MemorySegment seg = segment();
+            if (seg != null) {
+                seg.asSlice(pos.textOffset(), pos.textLength()).fill((byte) 0);
+                flush();
+            }
+
+            hashToPosition.entrySet().removeIf(entry -> entry.getValue().equals(pos));
+            textPositionMap.remove(targetId);
+            entryCount--;
+
+            log.debug("Securely erased {} bytes of text for memory '{}'", pos.textLength(), targetId);
+            return true;
+        } finally {
+            writeLock.unlock();
         }
-
-        TextPosition pos = textPositionMap.get(targetId);
-        if (pos == null) return false;
-
-        MemorySegment seg = segment();
-        if (seg != null) {
-            seg.asSlice(pos.textOffset(), pos.textLength()).fill((byte) 0);
-            flush();
-        }
-
-        hashToPosition.entrySet().removeIf(entry -> entry.getValue().equals(pos));
-        textPositionMap.remove(targetId);
-
-        log.debug("Securely erased {} bytes of text for memory '{}'", pos.textLength(), targetId);
-        return true;
     }
 }

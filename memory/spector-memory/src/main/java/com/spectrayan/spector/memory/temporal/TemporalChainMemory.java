@@ -32,7 +32,9 @@ import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
+import java.util.concurrent.locks.ReentrantLock;
 import com.spectrayan.spector.memory.kernel.shape.ChainMemory;
 import com.spectrayan.spector.memory.kernel.layout.TemporalLayout;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -58,6 +60,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
     private static final long OFF_EPOCH_SEC = 12;
 
     private final TemporalChainBacking backing;
+    private final ReentrantLock lock = new ReentrantLock();
 
     /**
      * Creates a heap-allocated temporal chain (in-memory mode).
@@ -66,7 +69,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
      */
     public TemporalChainMemory(int capacity) {
         TemporalLayout layout = new TemporalLayout();
-        MemoryId id = MemoryId.of("temporal", "chain");
+        MemoryId id = SystemMemoryId.TEMPORAL_CHAIN.id();
         long dataBytes = (long) NODE_BYTES * capacity;
         this.backing = new TemporalChainBacking(id, layout, capacity, dataBytes);
 
@@ -105,7 +108,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
 
             // 2. Open using standard SMKM format
             TemporalLayout layout = new TemporalLayout();
-            MemoryId id = MemoryId.of("temporal", "chain");
+            MemoryId id = SystemMemoryId.TEMPORAL_CHAIN.id();
             long dataBytes = (long) NODE_BYTES * capacity;
             boolean isNew = !Files.exists(filePath) || Files.size(filePath) < MemoryHeader.HEADER_BYTES;
 
@@ -291,28 +294,33 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         return getPrevIndex(nodeIdx) != NO_LINK || getNextIndex(nodeIdx) != NO_LINK;
     }
 
-    public synchronized void linkNodes(int prevIdx, int nextIdx, int sessionId, int epochSec) {
-        boundsCheck(prevIdx);
-        boundsCheck(nextIdx);
+    public void linkNodes(int prevIdx, int nextIdx, int sessionId, int epochSec) {
+        lock.lock();
+        try {
+            boundsCheck(prevIdx);
+            boundsCheck(nextIdx);
 
-        long prevOff = backing.dataOffset() + (long) prevIdx * NODE_BYTES;
-        long nextOff = backing.dataOffset() + (long) nextIdx * NODE_BYTES;
+            long prevOff = backing.dataOffset() + (long) prevIdx * NODE_BYTES;
+            long nextOff = backing.dataOffset() + (long) nextIdx * NODE_BYTES;
 
-        MemorySegment seg = backing.segment();
-        seg.set(ValueLayout.JAVA_INT, prevOff + OFF_NEXT, nextIdx);
-        if (sessionId > 0) {
-            seg.set(ValueLayout.JAVA_INT, prevOff + OFF_SESSION, sessionId);
-        }
-        if (epochSec > 0) {
-            seg.set(ValueLayout.JAVA_INT, prevOff + OFF_EPOCH_SEC, epochSec);
-        }
+            MemorySegment seg = backing.segment();
+            seg.set(ValueLayout.JAVA_INT, prevOff + OFF_NEXT, nextIdx);
+            if (sessionId > 0) {
+                seg.set(ValueLayout.JAVA_INT, prevOff + OFF_SESSION, sessionId);
+            }
+            if (epochSec > 0) {
+                seg.set(ValueLayout.JAVA_INT, prevOff + OFF_EPOCH_SEC, epochSec);
+            }
 
-        seg.set(ValueLayout.JAVA_INT, nextOff + OFF_PREV, prevIdx);
-        if (sessionId > 0) {
-            seg.set(ValueLayout.JAVA_INT, nextOff + OFF_SESSION, sessionId);
-        }
-        if (epochSec > 0) {
-            seg.set(ValueLayout.JAVA_INT, nextOff + OFF_EPOCH_SEC, epochSec);
+            seg.set(ValueLayout.JAVA_INT, nextOff + OFF_PREV, prevIdx);
+            if (sessionId > 0) {
+                seg.set(ValueLayout.JAVA_INT, nextOff + OFF_SESSION, sessionId);
+            }
+            if (epochSec > 0) {
+                seg.set(ValueLayout.JAVA_INT, nextOff + OFF_EPOCH_SEC, epochSec);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -368,72 +376,92 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         return list.stream().mapToInt(Integer::intValue).toArray();
     }
 
-    public synchronized int pruneOlderThan(long epochSecCutoff) {
-        long cutoffSec = epochSecCutoff > 10_000_000_000L ? epochSecCutoff / 1000 : epochSecCutoff;
-        int count = 0;
-        for (int i = 0; i < backing.capacity(); i++) {
-            if (isLinked(i)) {
-                int epochSec = getEpochSec(i);
-                if (epochSec > 0 && epochSec < cutoffSec) {
-                    unlink(i);
-                    count++;
-                }
-            }
-        }
-        return count;
-    }
-
-    public synchronized int pruneByImportance(long epochSecCutoff, float importanceThreshold, Function<Integer, Float> importanceLookup) {
-        if (importanceLookup == null) {
-            return 0;
-        }
-        long cutoffSec = epochSecCutoff > 10_000_000_000L ? epochSecCutoff / 1000 : epochSecCutoff;
-        int count = 0;
-        for (int i = 0; i < backing.capacity(); i++) {
-            if (isLinked(i)) {
-                int epochSec = getEpochSec(i);
-                if (epochSec > 0 && epochSec < cutoffSec) {
-                    float imp = importanceLookup.apply(i);
-                    if (imp < importanceThreshold) {
+    public int pruneOlderThan(long epochSecCutoff) {
+        lock.lock();
+        try {
+            long cutoffSec = epochSecCutoff > 10_000_000_000L ? epochSecCutoff / 1000 : epochSecCutoff;
+            int count = 0;
+            for (int i = 0; i < backing.capacity(); i++) {
+                if (isLinked(i)) {
+                    int epochSec = getEpochSec(i);
+                    if (epochSec > 0 && epochSec < cutoffSec) {
                         unlink(i);
                         count++;
                     }
                 }
             }
+            return count;
+        } finally {
+            lock.unlock();
         }
-        return count;
     }
 
-    public synchronized void unlink(int nodeIdx) {
-        boundsCheck(nodeIdx);
-        int p = getPrevIndex(nodeIdx);
-        int n = getNextIndex(nodeIdx);
-
-        if (p != NO_LINK) {
-            long pOff = backing.dataOffset() + (long) p * NODE_BYTES;
-            backing.segment().set(ValueLayout.JAVA_INT, pOff + OFF_NEXT, n);
-        }
-        if (n != NO_LINK) {
-            long nOff = backing.dataOffset() + (long) n * NODE_BYTES;
-            backing.segment().set(ValueLayout.JAVA_INT, nOff + OFF_PREV, p);
-        }
-
-        long selfOff = backing.dataOffset() + (long) nodeIdx * NODE_BYTES;
-        backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_PREV, NO_LINK);
-        backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_NEXT, NO_LINK);
-        backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_SESSION, 0);
-        backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_EPOCH_SEC, 0);
-    }
-
-    public synchronized void save(Path targetPath) {
-        flush();
-        if (backing.isPersistent() && backing.filePath() != null && !backing.filePath().equals(targetPath)) {
-            try {
-                Files.createDirectories(targetPath.getParent());
-                Files.copy(backing.filePath(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                throw new SpectorGraphPersistenceException("TemporalChainMemory", targetPath, e);
+    public int pruneByImportance(long epochSecCutoff, float importanceThreshold, Function<Integer, Float> importanceLookup) {
+        lock.lock();
+        try {
+            if (importanceLookup == null) {
+                return 0;
             }
+            long cutoffSec = epochSecCutoff > 10_000_000_000L ? epochSecCutoff / 1000 : epochSecCutoff;
+            int count = 0;
+            for (int i = 0; i < backing.capacity(); i++) {
+                if (isLinked(i)) {
+                    int epochSec = getEpochSec(i);
+                    if (epochSec > 0 && epochSec < cutoffSec) {
+                        float imp = importanceLookup.apply(i);
+                        if (imp < importanceThreshold) {
+                            unlink(i);
+                            count++;
+                        }
+                    }
+                }
+            }
+            return count;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void unlink(int nodeIdx) {
+        lock.lock();
+        try {
+            boundsCheck(nodeIdx);
+            int p = getPrevIndex(nodeIdx);
+            int n = getNextIndex(nodeIdx);
+
+            if (p != NO_LINK) {
+                long pOff = backing.dataOffset() + (long) p * NODE_BYTES;
+                backing.segment().set(ValueLayout.JAVA_INT, pOff + OFF_NEXT, n);
+            }
+            if (n != NO_LINK) {
+                long nOff = backing.dataOffset() + (long) n * NODE_BYTES;
+                backing.segment().set(ValueLayout.JAVA_INT, nOff + OFF_PREV, p);
+            }
+
+            long selfOff = backing.dataOffset() + (long) nodeIdx * NODE_BYTES;
+            backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_PREV, NO_LINK);
+            backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_NEXT, NO_LINK);
+            backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_SESSION, 0);
+            backing.segment().set(ValueLayout.JAVA_INT, selfOff + OFF_EPOCH_SEC, 0);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void save(Path targetPath) {
+        lock.lock();
+        try {
+            flush();
+            if (backing.isPersistent() && backing.filePath() != null && !backing.filePath().equals(targetPath)) {
+                try {
+                    Files.createDirectories(targetPath.getParent());
+                    Files.copy(backing.filePath(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    throw new SpectorGraphPersistenceException("TemporalChainMemory", targetPath, e);
+                }
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
