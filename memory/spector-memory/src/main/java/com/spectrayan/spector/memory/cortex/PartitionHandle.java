@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.cortex;
 
+import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,15 +40,59 @@ import java.nio.file.Path;
  * @param text     the partition-scoped text store (null in IN_MEMORY mode)
  * @param writable {@code true} for the single active partition, {@code false} for frozen
  */
-public record PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
-                              TextAppendMemory text, boolean writable)
-        implements AutoCloseable {
+public final class PartitionHandle implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionHandle.class);
 
+    private final int seq;
+    private final Path dir;
+    private final CognitiveMemoryRouter router;
+    private final TextAppendMemory text;
+    private final boolean writable;
+    private final PartitionBundle partitionBundle;
+
+    public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
+                           TextAppendMemory text, boolean writable) {
+        this(seq, dir, router, text, writable, null);
+    }
+
+    public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
+                           TextAppendMemory text, boolean writable, PartitionBundle partitionBundle) {
+        this.seq = seq;
+        this.dir = dir;
+        this.router = router;
+        this.text = text;
+        this.writable = writable;
+        this.partitionBundle = partitionBundle;
+    }
+
+    public int seq() {
+        return seq;
+    }
+
+    public Path dir() {
+        return dir;
+    }
+
+    public CognitiveMemoryRouter router() {
+        return router;
+    }
+
+    public TextAppendMemory text() {
+        return text;
+    }
+
+    public boolean writable() {
+        return writable;
+    }
+
+    public PartitionBundle partitionBundle() {
+        return partitionBundle;
+    }
+
     /** Returns a frozen (read-only) copy of this handle wrapping the same open stores. */
     public PartitionHandle asFrozen() {
-        return writable ? new PartitionHandle(seq, dir, router, text, false) : this;
+        return writable ? new PartitionHandle(seq, dir, router, text, false, partitionBundle) : this;
     }
 
     /**
@@ -56,12 +101,16 @@ public record PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
      */
     @Override
     public void close() {
-        if (router != null) {
-            closeQuietly(router.episodic());
-            closeQuietly(router.semantic());
-            closeQuietly(router.procedural());
+        if (partitionBundle != null) {
+            closeQuietly(partitionBundle);
+        } else {
+            if (router != null) {
+                closeQuietly(router.episodic());
+                closeQuietly(router.semantic());
+                closeQuietly(router.procedural());
+            }
+            closeQuietly(text);
         }
-        closeQuietly(text);
     }
 
     private static void closeQuietly(AutoCloseable c) {

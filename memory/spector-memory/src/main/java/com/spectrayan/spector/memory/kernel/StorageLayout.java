@@ -213,6 +213,16 @@ public final class StorageLayout {
      */
     public static final String FILE_RUNTIME_BUNDLE = "runtime.bundle";
 
+    /** Returns the partition bundle file path within a partition directory. */
+    public static Path partitionBundleFile(Path partitionDir) {
+        return partitionDir.resolve(FILE_PARTITION_BUNDLE);
+    }
+
+    /** Returns the runtime bundle file path within the runtime directory. */
+    public static Path runtimeBundleFile(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_RUNTIME_BUNDLE);
+    }
+
     /** Namespace metadata, permissions, and quotas. */
     public static final String FILE_NAMESPACE = "namespace.json";
 

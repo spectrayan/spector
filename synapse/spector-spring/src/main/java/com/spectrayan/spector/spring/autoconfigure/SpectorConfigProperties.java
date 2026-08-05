@@ -93,6 +93,7 @@ public class SpectorConfigProperties {
 
         private boolean spladeEnabled = true;
         private boolean colbertEnabled = true;
+        private boolean bundleMode = false;
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -108,6 +109,8 @@ public class SpectorConfigProperties {
         public void setSpladeEnabled(boolean spladeEnabled) { this.spladeEnabled = spladeEnabled; }
         public boolean isColbertEnabled() { return colbertEnabled; }
         public void setColbertEnabled(boolean colbertEnabled) { this.colbertEnabled = colbertEnabled; }
+        public boolean isBundleMode() { return bundleMode; }
+        public void setBundleMode(boolean bundleMode) { this.bundleMode = bundleMode; }
     }
 
     // ─────────────── Metrics ───────────────

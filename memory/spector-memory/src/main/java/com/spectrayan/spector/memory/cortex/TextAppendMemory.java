@@ -105,20 +105,23 @@ public final class TextAppendMemory extends AbstractAppendMemory<TextBlobLayout>
      * @param regionSlice  the memory segment sliced from the bundle's master segment
      * @param bundlePath   the path to the bundle file (for diagnostics)
      * @param isNew        true if the region was just created
+     * @param encryptor    the data encryptor (null treated as NOOP)
      * @return a new bundle-backed TextAppendMemory
      */
     public static TextAppendMemory fromBundle(Arena arena, MemorySegment regionSlice,
-                                               Path bundlePath, boolean isNew) {
-        return new TextAppendMemory(arena, regionSlice, bundlePath, isNew);
+                                               Path bundlePath, boolean isNew,
+                                               DataEncryptor encryptor) {
+        return new TextAppendMemory(arena, regionSlice, bundlePath, isNew, encryptor);
     }
 
-    private TextAppendMemory(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
+    private TextAppendMemory(Arena arena, MemorySegment regionSlice, Path bundlePath,
+                              boolean isNew, DataEncryptor encryptor) {
         super(MemoryId.of("cortex", "text"), new TextBlobLayout(), 0,
               arena, regionSlice,
               isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
               true, bundlePath, null, true);  // bundleManaged=true
         this.file = bundlePath;
-        this.encryptor = DataEncryptor.NOOP;
+        this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.entryCount = 0;
         if (isNew) {
             long now = System.currentTimeMillis();

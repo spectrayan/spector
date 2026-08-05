@@ -17,6 +17,8 @@ package com.spectrayan.spector.inspect;
 
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,5 +85,35 @@ class SpectorInspectCliTest {
                 .contains("Record Stride:    32 bytes")
                 .contains("Layout ID:        0x54585444")
                 .contains("DTXT");
+    }
+
+    @Test
+    void testBundleSubcommandPrintsCorrectMetadata() throws Exception {
+        Path bundleFile = tempDir.resolve("partition.bundle");
+
+        // Create a real partition bundle using kernel API
+        try (PartitionBundle bundle = PartitionBundle.Init.mmap(
+                bundleFile,
+                100, 200, 300, 4096L,
+                16, // vector dimensions
+                0x434F474E, 1, // cognitive layout ID/version
+                0x54585444, 2  // text layout ID/version
+        )) {
+            // Bundle close will write subheader + entries
+        }
+
+        SpectorInspectCli.main(new String[]{"bundle", bundleFile.toAbsolutePath().toString()});
+
+        String output = outContent.toString();
+        assertThat(output)
+                .contains("Spector Memory Bundle Diagnostics:")
+                .contains("Layout ID:          0x42554E44 (\"DNUB\")")
+                .contains("Bundle Type:        0x53505442 (\"BTPS\")")
+                .contains("SEMANTIC")
+                .contains("EPISODIC")
+                .contains("PROCEDURAL")
+                .contains("TEXT")
+                .contains("Fragmentation & Compaction Metrics")
+                .contains("[Optimal] No fragmented or DEAD regions detected. Bundle is compact.");
     }
 }

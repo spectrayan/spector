@@ -19,11 +19,18 @@ import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
 import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 
+import java.lang.foreign.MemorySegment;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -55,6 +62,7 @@ final class CognitiveCortexBuilder {
      */
     record CortexFoundation(
             boolean isDisk,
+            boolean useBundleMode,
             Path basePath,
             ScalarQuantizer quantizer,
             SpectorNamespaceManager namespaceManager,
@@ -63,7 +71,9 @@ final class CognitiveCortexBuilder {
             List<Path> frozenPartitionDirs,
             int initialPartitionSeq,
             CognitiveMemoryRouter cognitiveRouter,
-            WorkingRecordMemory workingStore
+            WorkingRecordMemory workingStore,
+            PartitionBundle partitionBundle,
+            TextAppendMemory textStore
     ) {}
 
     static CortexFoundation build(SpectorMemoryBuilder builder) {
@@ -138,14 +148,63 @@ final class CognitiveCortexBuilder {
         //  Cognitive Memory stores 
         CognitiveMemoryRouter cognitiveRouter;
         WorkingRecordMemory workingStore;
+        PartitionBundle partitionBundle = null;
+        TextAppendMemory textStore = null;
         if (isDisk && builder.persistWorkingMemory && basePath != null) {
             workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity,
-                    StorageLayout.workingMem(basePath));
+                     StorageLayout.workingMem(basePath));
         } else {
             workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity);
         }
 
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
+        boolean activeHasBundle = resolvedPartitionDir != null && Files.exists(StorageLayout.partitionBundleFile(resolvedPartitionDir));
+        boolean useBundleMode = builder.useBundleMode || activeHasBundle;
+
+        if (isDisk && basePath != null && resolvedPartitionDir != null && useBundleMode) {
+            // ── V4 Bundle Mode ──
+            Path bundleFile = StorageLayout.partitionBundleFile(resolvedPartitionDir);
+            boolean isNew = !Files.exists(bundleFile);
+
+            CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(quantizedVecBytes);
+            TextBlobLayout textLayout = new TextBlobLayout();
+            long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
+
+            if (isNew) {
+                partitionBundle = PartitionBundle.Init.mmap(
+                        bundleFile,
+                        builder.semanticCapacity, builder.episodicPartitionCapacity,
+                        builder.proceduralCapacity, textSize,
+                        quantizedVecBytes,
+                        cogLayout.layoutId(), cogLayout.schemaVersion(),
+                        textLayout.layoutId(), textLayout.schemaVersion());
+            } else {
+                partitionBundle = PartitionBundle.Init.open(bundleFile);
+            }
+
+            MemorySegment semSlice = partitionBundle.regionSegment(RegionId.SEMANTIC);
+            MemorySegment epiSlice = partitionBundle.regionSegment(RegionId.EPISODIC);
+            MemorySegment procSlice = partitionBundle.regionSegment(RegionId.PROCEDURAL);
+            MemorySegment textSlice = partitionBundle.regionSegment(RegionId.TEXT);
+
+            SemanticRecordMemory semanticStore = SemanticRecordMemory.fromBundle(
+                    partitionBundle.arena(), semSlice,
+                    builder.semanticCapacity, quantizedVecBytes, bundleFile, isNew);
+            EpisodicRecordMemory episodicStore = EpisodicRecordMemory.fromBundle(
+                    partitionBundle.arena(), epiSlice,
+                    builder.episodicPartitionCapacity, quantizedVecBytes, bundleFile, isNew);
+            ProceduralRecordMemory proceduralStore = ProceduralRecordMemory.fromBundle(
+                    partitionBundle.arena(), procSlice,
+                    builder.proceduralCapacity, quantizedVecBytes, bundleFile, isNew);
+            textStore = TextAppendMemory.fromBundle(
+                    partitionBundle.arena(), textSlice, bundleFile, isNew,
+                    builder.dataEncryptor);
+
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
+            log.info("V4 bundle mode: {} ({}, {} stores)",
+                    bundleFile.getFileName(), isNew ? "created" : "opened", 4);
+
+        } else if (isDisk && basePath != null && resolvedPartitionDir != null) {
+            // ── V3 Legacy Mode ──
             EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
                     StorageLayout.episodicMem(resolvedPartitionDir),
                     quantizedVecBytes, builder.episodicPartitionCapacity);
@@ -155,6 +214,8 @@ final class CognitiveCortexBuilder {
             SemanticRecordMemory semanticStore = new SemanticRecordMemory(
                     quantizedVecBytes, builder.semanticCapacity,
                     StorageLayout.semanticMem(resolvedPartitionDir));
+            textStore = new TextAppendMemory(
+                    StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         } else {
             EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
@@ -167,9 +228,9 @@ final class CognitiveCortexBuilder {
         }
 
         return new CortexFoundation(
-                isDisk, basePath, quantizer, namespaceManager, quantizedVecBytes,
+                isDisk, useBundleMode, basePath, quantizer, namespaceManager, quantizedVecBytes,
                 resolvedPartitionDir, frozenPartitionDirs, initialPartitionSeq,
-                cognitiveRouter, workingStore);
+                cognitiveRouter, workingStore, partitionBundle, textStore);
     }
 
     private static void createDirectoriesSecure(Path path) throws java.io.IOException {

@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 
 import java.nio.file.Path;
@@ -59,6 +60,8 @@ final class PartitionManagerBuilder {
         var cognitiveRouter = cortex.cognitiveRouter();
         var workingStore = cortex.workingStore();
         var textDataStore = retrieval.textDataStore();
+        boolean useBundleMode = cortex.useBundleMode();
+        PartitionBundle activeBundle = cortex.partitionBundle();
 
         //  Frozen partition handles (#443 Phase 2 open-all-on-load) 
         // Open every older partition dir read-only; each gets its own tier stores + text.dat
@@ -87,7 +90,8 @@ final class PartitionManagerBuilder {
                     builder.episodicPartitionCapacity, builder.proceduralCapacity,
                     cognitiveRouter, resolvedPartitionDir, textDataStore, initialPartitionSeq,
                     frozenHandles,
-                    index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget, builder.dataEncryptor);
+                    index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget,
+                    builder.dataEncryptor, useBundleMode, activeBundle);
             cognitiveTarget.setPartitionRollCallback(partitionManager::rollPartition);
         } else {
             partitionManager = new PartitionManager(
@@ -95,7 +99,8 @@ final class PartitionManagerBuilder {
                     builder.episodicPartitionCapacity, builder.proceduralCapacity,
                     cognitiveRouter, null, textDataStore, initialPartitionSeq,
                     List.of(),
-                    index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget, builder.dataEncryptor);
+                    index, graphs.hebbianGraph(), graphs.temporalChain(), cognitiveTarget,
+                    builder.dataEncryptor, false, null);
         }
 
         // #443 (D3b): resolve MemoryIndex.text(id) via the memory's colocated partition,

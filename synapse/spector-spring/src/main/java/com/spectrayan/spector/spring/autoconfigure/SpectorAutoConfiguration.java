@@ -83,7 +83,8 @@ public class SpectorAutoConfiguration {
                 .hebbianGraphCapacity(memoryProps.getCapacity())
                 .temporalChainCapacity(memoryProps.getCapacity())
                 .entityGraphCapacity(memoryProps.getCapacity())
-                .embedBatchSize(props.getEmbedding().getBatchSize());
+                .embedBatchSize(props.getEmbedding().getBatchSize())
+                .bundleMode(memoryProps.isBundleMode());
 
         if (memoryProps.getPersistencePath() != null) {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));

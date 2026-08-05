@@ -70,6 +70,7 @@ spector:
     capacity: ${SPECTOR_MAX_MEMORIES:10000}
     splade-enabled: false   # off until Ollama SPLADE model is available
     colbert-enabled: false  # off until Ollama ColBERT model is available
+    bundle-mode: ${SPECTOR_MEMORY_BUNDLE_MODE:false}
     decay:
       min-threshold: ${SPECTOR_DECAY_MIN_THRESHOLD:1000}
       baseline-half-life-days: ${SPECTOR_DECAY_HALF_LIFE_DAYS:180}
