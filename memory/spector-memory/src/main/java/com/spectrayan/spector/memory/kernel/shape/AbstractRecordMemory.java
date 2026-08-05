@@ -51,6 +51,13 @@ public abstract class AbstractRecordMemory<L extends MemoryLayout> extends Abstr
         super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
     }
 
+    protected AbstractRecordMemory(MemoryId id, L layout, int capacity,
+                                   Arena arena, MemorySegment segment, int count,
+                                   boolean persistent, Path filePath,
+                                   FileChannel fileChannel, boolean bundleManaged) {
+        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
+    }
+
     @Override
     public MemoryShape shape() {
         return MemoryShape.RECORD;

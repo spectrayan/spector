@@ -18,6 +18,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 import java.util.concurrent.locks.ReentrantLock;
@@ -86,6 +87,30 @@ public final class ProceduralRecordMemory extends AbstractCognitiveRecordMemory 
      */
     public ProceduralRecordMemory(int quantizedVecBytes) {
         this(quantizedVecBytes, 1000);
+    }
+
+    /**
+     * Creates a bundle-backed Procedural Memory store from a pre-sliced region segment.
+     *
+     * @param arena        the shared arena from the owning bundle
+     * @param regionSlice  the memory segment sliced from the bundle's master segment
+     * @param capacity     the maximum number of procedural memories in this region
+     * @param quantizedVecBytes bytes per quantized vector
+     * @param bundlePath   the path to the bundle file (for diagnostics)
+     * @param isNew        true if the region was just created
+     * @return a new bundle-backed ProceduralRecordMemory
+     */
+    public static ProceduralRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                                     int capacity, int quantizedVecBytes,
+                                                     Path bundlePath, boolean isNew) {
+        return new ProceduralRecordMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    private ProceduralRecordMemory(Arena arena, MemorySegment regionSlice, int capacity,
+                                    int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.PROCEDURAL,
+              new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes),
+              capacity, arena, regionSlice, bundlePath, isNew);
     }
 
     @Override

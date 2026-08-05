@@ -278,7 +278,8 @@ public final class UserMemoryRegistry implements AutoCloseable {
                 .temporalChainCapacity(memory.getCapacity())
                 .entityGraphCapacity(memory.getCapacity())
                 .embedBatchSize(spectorProps.getEmbedding().getBatchSize())
-                .persistence(dir);
+                .persistence(dir)
+                .bundleMode(memory.isBundleMode());
 
         // Entity extraction (LLM if a LlmProvider is present) — mirrors SpectorAutoConfiguration.
         LlmProvider textGen = textGenProvider.getIfAvailable();

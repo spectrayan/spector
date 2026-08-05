@@ -59,5 +59,18 @@ public enum MemoryShape {
      * Backs a key-value registry or dictionary structure.
      * Often used for metadata, schema definitions, or index roots.
      */
-    REGISTRY
+    REGISTRY,
+
+    /**
+     * Backs a multi-region container that hosts multiple heterogeneous memories in a single
+     * mmap file. Each region within the bundle carries its own {@link MemoryHeader} and
+     * independently-typed {@link MemoryLayout}. The bundle header and region directory are
+     * managed by the {@code kernel.bundle} infrastructure.
+     *
+     * <p>Introduced as part of ADR-0004 (V4 mmap FD scaling) to consolidate
+     * per-user file descriptors from ~23 mmap files down to 2 bundle files.</p>
+     *
+     * @see com.spectrayan.spector.memory.kernel.bundle.BundleLayout
+     */
+    BUNDLE
 }

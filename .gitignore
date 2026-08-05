@@ -82,3 +82,4 @@ datasets/
 
 # ──────────── Backups ────────────
 backups/
+spector-data-backup.tar.gz

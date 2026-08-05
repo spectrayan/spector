@@ -1,0 +1,222 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Business Source License 1.1 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
+ *
+ * Change Date: May 27, 2030
+ * Change License: Apache License, Version 2.0
+ */
+package com.spectrayan.spector.memory.kernel.bundle;
+
+import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
+import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
+import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
+import com.spectrayan.spector.memory.cortex.TextAppendMemory;
+import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.model.MemoryType;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Tests for {@link BundleMigrationCli} — V3 → V4 partition migration.
+ */
+class BundleMigrationCliTest {
+
+    private static final int VEC_BYTES = 16;
+    private static final int CAPACITY = 64;
+
+    @TempDir
+    Path tempDir;
+
+    // ──────────────────────────────────────────────────────────────
+    // (a) Skip when no partitions exist
+    // ──────────────────────────────────────────────────────────────
+
+    @Test
+    void migrateAll_noPartitionsDir_skips() {
+        BundleMigrationCli.MigrationResult result =
+                BundleMigrationCli.migrateAll(tempDir, VEC_BYTES);
+        assertEquals(BundleMigrationCli.MigrationResult.Status.SKIPPED, result.status());
+        assertEquals(0, result.totalPartitions());
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // (b) Skip when partition has no V3 files
+    // ──────────────────────────────────────────────────────────────
+
+    @Test
+    void migratePartition_emptyPartition_skips() throws IOException {
+        Path partDir = createPartitionDir(0);
+
+        BundleMigrationCli.MigrationResult result =
+                BundleMigrationCli.migratePartition(partDir, VEC_BYTES);
+        assertEquals(BundleMigrationCli.MigrationResult.Status.SKIPPED, result.status());
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // (c) Skip when already migrated
+    // ──────────────────────────────────────────────────────────────
+
+    @Test
+    void migratePartition_alreadyMigrated_skips() throws IOException {
+        Path partDir = createPartitionDir(0);
+        createV3StoreFiles(partDir, 5);
+
+        // Pre-create bundle file
+        Files.createFile(StorageLayout.partitionBundleFile(partDir));
+
+        BundleMigrationCli.MigrationResult result =
+                BundleMigrationCli.migratePartition(partDir, VEC_BYTES);
+        assertEquals(BundleMigrationCli.MigrationResult.Status.ALREADY_MIGRATED, result.status());
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // (d) Successful single partition migration
+    // ──────────────────────────────────────────────────────────────
+
+    @Test
+    void migratePartition_withV3Files_createsBundleAndBackups() throws IOException {
+        Path partDir = createPartitionDir(0);
+        int recordCount = 3;
+        createV3StoreFiles(partDir, recordCount);
+
+        BundleMigrationCli.MigrationResult result =
+                BundleMigrationCli.migratePartition(partDir, VEC_BYTES);
+
+        // Assert migration succeeded
+        assertEquals(BundleMigrationCli.MigrationResult.Status.MIGRATED, result.status());
+        assertEquals(1, result.migratedPartitions());
+
+        // Assert bundle file was created
+        Path bundleFile = StorageLayout.partitionBundleFile(partDir);
+        assertTrue(Files.exists(bundleFile), "partition.bundle should exist");
+        assertTrue(Files.size(bundleFile) > 0, "partition.bundle should have content");
+
+        // Assert V3 files were backed up
+        assertTrue(Files.exists(Path.of(StorageLayout.semanticMem(partDir) + ".v3bak")),
+                "semantic.mem.v3bak should exist");
+        assertTrue(Files.exists(Path.of(StorageLayout.episodicMem(partDir) + ".v3bak")),
+                "episodic.mem.v3bak should exist");
+        assertTrue(Files.exists(Path.of(StorageLayout.proceduralMem(partDir) + ".v3bak")),
+                "procedural.mem.v3bak should exist");
+        assertTrue(Files.exists(Path.of(StorageLayout.textDat(partDir) + ".v3bak")),
+                "text.dat.v3bak should exist");
+
+        // Assert original V3 files are gone (moved to backup)
+        assertFalse(Files.exists(StorageLayout.semanticMem(partDir)),
+                "semantic.mem should have been moved");
+        assertFalse(Files.exists(StorageLayout.episodicMem(partDir)),
+                "episodic.mem should have been moved");
+
+        // Verify bundle can be reopened and record counts match
+        PartitionBundle bundle = PartitionBundle.Init.open(bundleFile);
+        MemorySegment semSlice = bundle.regionSegment(RegionId.SEMANTIC);
+        int semCount = (int) MemoryHeader.readCount(semSlice, 0);
+        assertEquals(recordCount, semCount, "Semantic record count should match");
+
+        MemorySegment epiSlice = bundle.regionSegment(RegionId.EPISODIC);
+        int epiCount = (int) MemoryHeader.readCount(epiSlice, 0);
+        assertEquals(recordCount, epiCount, "Episodic record count should match");
+
+        bundle.close();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // (e) Batch migration — migrateAll
+    // ──────────────────────────────────────────────────────────────
+
+    @Test
+    void migrateAll_multiplePartitions_migratesAll() throws IOException {
+        // Create partitions/ dir
+        Path partitionsDir = StorageLayout.partitionsDir(tempDir);
+        Files.createDirectories(partitionsDir);
+
+        // Two partitions with V3 files
+        Path part0 = createPartitionDir(0);
+        createV3StoreFiles(part0, 2);
+
+        Path part1 = createPartitionDir(1);
+        createV3StoreFiles(part1, 4);
+
+        BundleMigrationCli.MigrationResult result =
+                BundleMigrationCli.migrateAll(tempDir, VEC_BYTES);
+
+        assertEquals(BundleMigrationCli.MigrationResult.Status.MIGRATED, result.status());
+        assertEquals(2, result.totalPartitions());
+        assertEquals(2, result.migratedPartitions());
+        assertEquals(0, result.skippedPartitions());
+
+        // Both bundles should exist
+        assertTrue(Files.exists(StorageLayout.partitionBundleFile(part0)));
+        assertTrue(Files.exists(StorageLayout.partitionBundleFile(part1)));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // HELPERS
+    // ══════════════════════════════════════════════════════════════
+
+    private Path createPartitionDir(int seq) throws IOException {
+        Path partitionsDir = StorageLayout.partitionsDir(tempDir);
+        Files.createDirectories(partitionsDir);
+        Path partDir = StorageLayout.partitionDir(tempDir, seq, 1700000000L + seq);
+        Files.createDirectories(partDir);
+        return partDir;
+    }
+
+    /**
+     * Creates V3 store files with real SMKM headers and record data.
+     */
+    private void createV3StoreFiles(Path partDir, int recordCount) throws IOException {
+        // Create cognitive stores using the real store constructors
+        SemanticRecordMemory semantic = new SemanticRecordMemory(
+                VEC_BYTES, CAPACITY, StorageLayout.semanticMem(partDir));
+        EpisodicRecordMemory episodic = new EpisodicRecordMemory(
+                StorageLayout.episodicMem(partDir), VEC_BYTES, CAPACITY);
+        ProceduralRecordMemory procedural = new ProceduralRecordMemory(
+                VEC_BYTES, CAPACITY, StorageLayout.proceduralMem(partDir));
+
+        // Write some records using the store API
+        byte[] vec = new byte[VEC_BYTES];
+        for (int i = 0; i < recordCount; i++) {
+            long ts = System.currentTimeMillis();
+            var header = CognitiveHeader.create(
+                    ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.SEMANTIC);
+            semantic.write(header, vec);
+
+            header = CognitiveHeader.create(
+                    ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.EPISODIC);
+            episodic.write(header, vec);
+
+            header = CognitiveHeader.create(
+                    ts, 0L, 1.0f, 0.5f, (short) 0, MemoryType.PROCEDURAL);
+            procedural.write(header, vec);
+        }
+
+        semantic.close();
+        episodic.close();
+        procedural.close();
+
+        // Create text.dat with a minimal SMKM header
+        TextAppendMemory text = new TextAppendMemory(
+                StorageLayout.textDat(partDir), DataEncryptor.NOOP);
+        text.close();
+    }
+}

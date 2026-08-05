@@ -197,8 +197,31 @@ public final class StorageLayout {
     public static final String FILE_ENTITY_CROSS = "entity-cross.graph";
 
     // ═══════════════════════════════════════════════════════════════
-    // Namespace Files (inside each namespace directory)
+    // V4 Bundle Files (ADR-0004 — mmap FD scaling)
     // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * V4 partition bundle — consolidates semantic/episodic/procedural/text stores
+     * into a single mmap file per partition. Stored inside each partition directory.
+     */
+    public static final String FILE_PARTITION_BUNDLE = "partition.bundle";
+
+    /**
+     * V4 runtime bundle — consolidates all runtime stores (hebbian, temporal, entity,
+     * hypergraph, coactivation, index, BM25, checkpoint, etc.) into a single mmap file.
+     * Stored inside runtime/.
+     */
+    public static final String FILE_RUNTIME_BUNDLE = "runtime.bundle";
+
+    /** Returns the partition bundle file path within a partition directory. */
+    public static Path partitionBundleFile(Path partitionDir) {
+        return partitionDir.resolve(FILE_PARTITION_BUNDLE);
+    }
+
+    /** Returns the runtime bundle file path within the runtime directory. */
+    public static Path runtimeBundleFile(Path basePath) {
+        return runtimeDir(basePath).resolve(FILE_RUNTIME_BUNDLE);
+    }
 
     /** Namespace metadata, permissions, and quotas. */
     public static final String FILE_NAMESPACE = "namespace.json";

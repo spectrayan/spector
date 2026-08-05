@@ -19,6 +19,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 import java.util.List;
@@ -85,7 +86,28 @@ public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
         this(quantizedVecBytes, capacity, filePath);
     }
 
+    /**
+     * Creates a bundle-backed Episodic Memory store from a pre-sliced region segment.
+     *
+     * @param arena        the shared arena from the owning bundle
+     * @param regionSlice  the memory segment sliced from the bundle's master segment
+     * @param capacity     the maximum number of episodic memories in this region
+     * @param quantizedVecBytes bytes per quantized vector
+     * @param bundlePath   the path to the bundle file (for diagnostics)
+     * @param isNew        true if the region was just created
+     * @return a new bundle-backed EpisodicRecordMemory
+     */
+    public static EpisodicRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                                   int capacity, int quantizedVecBytes,
+                                                   Path bundlePath, boolean isNew) {
+        return new EpisodicRecordMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
 
+    private EpisodicRecordMemory(Arena arena, MemorySegment regionSlice, int capacity,
+                                  int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.EPISODIC, new CognitiveRecordLayout(quantizedVecBytes),
+              capacity, arena, regionSlice, bundlePath, isNew);
+    }
 
     @Override
     public MemoryType type() {

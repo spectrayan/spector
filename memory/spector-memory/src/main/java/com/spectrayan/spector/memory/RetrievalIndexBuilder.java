@@ -62,9 +62,8 @@ final class RetrievalIndexBuilder {
 
         //  BM25 Text Search 
         MemoryBM25Index bm25Index;
-        TextAppendMemory textDataStore;
-        if (isDisk && basePath != null && resolvedPartitionDir != null) {
-            textDataStore = new TextAppendMemory(StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
+        TextAppendMemory textDataStore = cortex.textStore();
+        if (isDisk && basePath != null && resolvedPartitionDir != null && textDataStore != null) {
             textDataStore.readAll();
             index.setTextDataStore(textDataStore);
 

@@ -60,6 +60,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     protected final MemorySegment segment;
     protected final int capacity;
     protected final boolean persistent;
+    protected final boolean bundleManaged;
     protected int count = 0;
     protected FileChannel fileChannel;
     protected final Path filePath;
@@ -115,6 +116,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
         this.layout = layout;
         this.capacity = capacity;
         this.persistent = false;
+        this.bundleManaged = false;
         this.filePath = null;
         this.arena = Arena.ofShared();
         this.segment = arena.allocate(segmentBytes, 64);
@@ -143,6 +145,23 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
     protected AbstractMemory(MemoryId id, L layout, int capacity,
                              Arena arena, MemorySegment segment, int count,
                              boolean persistent, Path filePath, FileChannel fileChannel) {
+        this(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, false);
+    }
+
+    /**
+     * Wrapping constructor with bundle-managed flag.
+     *
+     * <p>When {@code bundleManaged} is {@code true}, this store's {@link #close()} will
+     * flush the segment but will <b>not</b> close the shared Arena — the owning bundle
+     * manages arena lifecycle. This is used by {@code fromBundle()} factory methods.</p>
+     *
+     * @param bundleManaged {@code true} if this store is hosted inside a bundle and
+     *                      does not own the Arena; {@code false} for standalone stores
+     */
+    protected AbstractMemory(MemoryId id, L layout, int capacity,
+                             Arena arena, MemorySegment segment, int count,
+                             boolean persistent, Path filePath, FileChannel fileChannel,
+                             boolean bundleManaged) {
         this.id = id;
         this.layout = layout;
         this.capacity = capacity;
@@ -150,6 +169,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
         this.segment = segment;
         this.count = count;
         this.persistent = persistent;
+        this.bundleManaged = bundleManaged;
         this.filePath = filePath;
         this.fileChannel = fileChannel;
         if (count > 0) {
@@ -167,6 +187,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
      * @param filePath     the path to the backing file
      */
     protected AbstractMemory(MemoryId id, L layout, int capacity, long segmentBytes, Path filePath) {
+        this.bundleManaged = false;
         this.id = id;
         this.layout = layout;
         this.capacity = capacity;
@@ -318,7 +339,7 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
 
     @Override
     public void close() {
-        log.info("Closing memory {} ({} records, persistent={})", id, count, persistent);
+        log.info("Closing memory {} ({} records, persistent={}, bundleManaged={})", id, count, persistent, bundleManaged);
         if (persistent) {
             try {
                 if (segment != null) {
@@ -328,7 +349,9 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
                 log.debug("Error forcing segment: {}", e.getMessage());
             }
         }
-        arena.close();
+        if (!bundleManaged) {
+            arena.close();
+        }
         if (fileChannel != null) {
             try {
                 fileChannel.close();

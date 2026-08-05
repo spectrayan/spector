@@ -22,6 +22,10 @@ import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
+import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 
@@ -32,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.foreign.MemorySegment;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -82,6 +87,7 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
     private final TemporalChainMemory temporalChain;
     private final CognitiveIngestionTarget cognitiveTarget;
     private final DataEncryptor encryptor;
+    private final boolean useBundleMode;
 
     /** Copy-on-write registry: immutable list, last element = active. Never null. */
     private volatile List<PartitionHandle> registry;
@@ -104,7 +110,9 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                      HebbianGraphBase hebbianGraph,
                      TemporalChainMemory temporalChain,
                      CognitiveIngestionTarget cognitiveTarget,
-                     DataEncryptor encryptor) {
+                     DataEncryptor encryptor,
+                     boolean useBundleMode,
+                     PartitionBundle activePartitionBundle) {
         this.basePath = basePath;
         this.quantizedVecBytes = quantizedVecBytes;
         this.semanticCapacity = semanticCapacity;
@@ -115,11 +123,13 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
         this.temporalChain = temporalChain;
         this.cognitiveTarget = cognitiveTarget;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
+        this.useBundleMode = useBundleMode;
 
         // #443 Phase 2 (open-all-on-load): the registry is seeded with every discovered
         // partition — all older ones frozen/read-only, the newest active/writable.
         PartitionHandle active = new PartitionHandle(
-                initialSeq, initialPartitionDir, initialRouter, initialText, true);
+                initialSeq, initialPartitionDir, initialRouter, initialText, true,
+                activePartitionBundle);
         List<PartitionHandle> initial = new ArrayList<>();
         if (initialFrozen != null) {
             for (PartitionHandle f : initialFrozen) {
@@ -246,6 +256,13 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                                                int episodicPartitionCapacity,
                                                int proceduralCapacity,
                                                DataEncryptor encryptor) {
+        // V4 auto-detect: if partition.bundle exists, open via bundle
+        Path bundleFile = StorageLayout.partitionBundleFile(dir);
+        if (Files.exists(bundleFile)) {
+            return openFrozenBundlePartition(dir, seq, workingStore, bundleFile, encryptor);
+        }
+
+        // V3 legacy: open individual .mem files
         EpisodicRecordMemory episodic = new EpisodicRecordMemory(
                 StorageLayout.episodicMem(dir), quantizedVecBytes, episodicPartitionCapacity);
         ProceduralRecordMemory procedural = new ProceduralRecordMemory(
@@ -259,8 +276,44 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
 
         CognitiveMemoryRouter router = new CognitiveMemoryRouter(
                 workingStore, episodic, semantic, procedural);
-        log.info("Opened frozen partition seq={} ({})", seq, dir.getFileName());
+        log.info("Opened frozen partition seq={} ({}) [V3]", seq, dir.getFileName());
         return new PartitionHandle(seq, dir, router, text, false);
+    }
+
+    /**
+     * Opens a frozen partition from a V4 bundle file.
+     */
+    private static PartitionHandle openFrozenBundlePartition(Path dir, int seq,
+                                                              WorkingRecordMemory workingStore,
+                                                              Path bundleFile,
+                                                              DataEncryptor encryptor) {
+        PartitionBundle bundle = PartitionBundle.Init.open(bundleFile);
+
+        MemorySegment semSlice = bundle.regionSegment(RegionId.SEMANTIC);
+        MemorySegment epiSlice = bundle.regionSegment(RegionId.EPISODIC);
+        MemorySegment procSlice = bundle.regionSegment(RegionId.PROCEDURAL);
+        MemorySegment textSlice = bundle.regionSegment(RegionId.TEXT);
+
+        // Read capacities from region entries
+        var semEntry = bundle.directory().findRegion(RegionId.SEMANTIC);
+        var epiEntry = bundle.directory().findRegion(RegionId.EPISODIC);
+        var procEntry = bundle.directory().findRegion(RegionId.PROCEDURAL);
+        int quantizedVecBytes = semEntry.stride() - 64; // stride = HEADER_BYTES(64) + vecBytes
+
+        SemanticRecordMemory semantic = SemanticRecordMemory.fromBundle(
+                bundle.arena(), semSlice, semEntry.capacity(), quantizedVecBytes, bundleFile, false);
+        EpisodicRecordMemory episodic = EpisodicRecordMemory.fromBundle(
+                bundle.arena(), epiSlice, epiEntry.capacity(), quantizedVecBytes, bundleFile, false);
+        ProceduralRecordMemory procedural = ProceduralRecordMemory.fromBundle(
+                bundle.arena(), procSlice, procEntry.capacity(), quantizedVecBytes, bundleFile, false);
+        TextAppendMemory text = TextAppendMemory.fromBundle(
+                bundle.arena(), textSlice, bundleFile, false, encryptor);
+        text.readAll();
+
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(
+                workingStore, episodic, semantic, procedural);
+        log.info("Opened frozen partition seq={} ({}) [V4 bundle]", seq, dir.getFileName());
+        return new PartitionHandle(seq, dir, router, text, false, bundle);
     }
 
     /**
@@ -300,32 +353,62 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                 Path newPartition = StorageLayout.partitionDir(basePath, nextSeq, epochSecs);
                 Files.createDirectories(newPartition);
 
-                // Create fresh tier stores in new partition
-                EpisodicRecordMemory newEpisodic = new EpisodicRecordMemory(
-                        StorageLayout.episodicMem(newPartition),
-                        quantizedVecBytes, episodicPartitionCapacity);
-
-                ProceduralRecordMemory newProcedural = new ProceduralRecordMemory(
-                        quantizedVecBytes, proceduralCapacity,
-                        StorageLayout.proceduralMem(newPartition));
-
-                SemanticRecordMemory newSemantic = new SemanticRecordMemory(
-                        quantizedVecBytes, semanticCapacity,
-                        StorageLayout.semanticMem(newPartition));
-
-                // Fresh partition-scoped text.dat (D3b: text rolls with the partition)
-                TextAppendMemory newText = new TextAppendMemory(
-                        StorageLayout.textDat(newPartition), encryptor);
-
                 // Preserve working memory (global, not partitioned)
                 WorkingRecordMemory workingStore = activeRouter().working();
 
+                CognitiveMemoryRouter newRouter;
+                TextAppendMemory newText;
+                PartitionBundle newBundle = null;
+
+                if (useBundleMode) {
+                    // ── V4 Bundle Mode ──
+                    Path bundleFile = StorageLayout.partitionBundleFile(newPartition);
+                    CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(quantizedVecBytes);
+                    TextBlobLayout textLayout = new TextBlobLayout();
+                    long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
+
+                    newBundle = PartitionBundle.Init.mmap(
+                            bundleFile,
+                            semanticCapacity, episodicPartitionCapacity,
+                            proceduralCapacity, textSize,
+                            quantizedVecBytes,
+                            cogLayout.layoutId(), cogLayout.schemaVersion(),
+                            textLayout.layoutId(), textLayout.schemaVersion());
+
+                    SemanticRecordMemory newSemantic = SemanticRecordMemory.fromBundle(
+                            newBundle.arena(), newBundle.regionSegment(RegionId.SEMANTIC),
+                            semanticCapacity, quantizedVecBytes, bundleFile, true);
+                    EpisodicRecordMemory newEpisodic = EpisodicRecordMemory.fromBundle(
+                            newBundle.arena(), newBundle.regionSegment(RegionId.EPISODIC),
+                            episodicPartitionCapacity, quantizedVecBytes, bundleFile, true);
+                    ProceduralRecordMemory newProcedural = ProceduralRecordMemory.fromBundle(
+                            newBundle.arena(), newBundle.regionSegment(RegionId.PROCEDURAL),
+                            proceduralCapacity, quantizedVecBytes, bundleFile, true);
+                    newText = TextAppendMemory.fromBundle(
+                            newBundle.arena(), newBundle.regionSegment(RegionId.TEXT),
+                            bundleFile, true, encryptor);
+
+                    newRouter = new CognitiveMemoryRouter(
+                            workingStore, newEpisodic, newSemantic, newProcedural);
+                } else {
+                    // ── V3 Legacy Mode ──
+                    EpisodicRecordMemory newEpisodic = new EpisodicRecordMemory(
+                            StorageLayout.episodicMem(newPartition),
+                            quantizedVecBytes, episodicPartitionCapacity);
+                    ProceduralRecordMemory newProcedural = new ProceduralRecordMemory(
+                            quantizedVecBytes, proceduralCapacity,
+                            StorageLayout.proceduralMem(newPartition));
+                    SemanticRecordMemory newSemantic = new SemanticRecordMemory(
+                            quantizedVecBytes, semanticCapacity,
+                            StorageLayout.semanticMem(newPartition));
+                    newText = new TextAppendMemory(
+                            StorageLayout.textDat(newPartition), encryptor);
+                    newRouter = new CognitiveMemoryRouter(
+                            workingStore, newEpisodic, newSemantic, newProcedural);
+                }
+
                 // Flush index + graphs to runtime/ before rolling
                 flushGlobalState();
-
-                // Build the new active router (fully constructed before publication)
-                CognitiveMemoryRouter newRouter = new CognitiveMemoryRouter(
-                        workingStore, newEpisodic, newSemantic, newProcedural);
 
                 // Freeze the current active handle (kept OPEN — leak fix) and publish
                 // a new immutable snapshot = frozen… + newlyFrozen + newActive.
@@ -336,7 +419,7 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                 }
                 next.add(current.get(current.size() - 1).asFrozen()); // freeze prev active
                 PartitionHandle newActive = new PartitionHandle(
-                        nextSeq, newPartition, newRouter, newText, true);
+                        nextSeq, newPartition, newRouter, newText, true, newBundle);
                 next.add(newActive);
                 this.registry = List.copyOf(next); // single volatile publish
 
@@ -347,8 +430,9 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                 // Keep the index's active-partition seq in sync for reverse-key resolution.
                 index.setActivePartitionSeq(nextSeq);
 
-                log.info("Rolled to new partition: {} (seq={}, semantic capacity={}, live partitions={})",
-                        newPartition.getFileName(), nextSeq, semanticCapacity, this.registry.size());
+                log.info("Rolled to new partition: {} (seq={}, capacity={}, live={}, mode={})",
+                        newPartition.getFileName(), nextSeq, semanticCapacity,
+                        this.registry.size(), useBundleMode ? "V4" : "V3");
 
             } catch (IOException e) {
                 throw new SpectorServerException(ErrorCode.INTERNAL_ERROR,
@@ -375,11 +459,16 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
             PartitionHandle h = snap.get(i);
             boolean isActive = (i == snap.size() - 1);
             if (isActive) {
-                // Active tier stores + working are closed by PersistenceManager; close
-                // only the active text.dat here (PersistenceManager does not own it).
-                closeQuietly(h.text());
+                if (h.partitionBundle() != null) {
+                    // V4: bundle.close() flushes directory + unmaps everything
+                    closeQuietly(h.partitionBundle());
+                } else {
+                    // V3: active tier stores + working are closed by PersistenceManager;
+                    // close only the active text.dat here.
+                    closeQuietly(h.text());
+                }
             } else {
-                h.close(); // frozen: episodic/semantic/procedural + text (never working)
+                h.close(); // frozen: delegates to bundle.close() or individual stores
             }
         }
     }

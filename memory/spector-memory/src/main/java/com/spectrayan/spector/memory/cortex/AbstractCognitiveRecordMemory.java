@@ -151,6 +151,41 @@ public abstract class AbstractCognitiveRecordMemory
         setCount(count);
     }
 
+    /**
+     * Bundle-backed constructor — adopts a pre-sliced region segment from a bundle.
+     *
+     * <p>The region slice already contains a 64-byte {@link MemoryHeader} at offset 0
+     * followed by record data. The count is read from the region's own SMKM header.
+     * The arena is shared across all bundle regions and is <b>not</b> owned by this store.</p>
+     *
+     * @param type         the cognitive tier (SEMANTIC, EPISODIC, PROCEDURAL)
+     * @param cogLayout    the cognitive record layout (determines stride, vector dims)
+     * @param capacity     the maximum number of records in this region
+     * @param arena        the shared arena from the owning bundle (NOT owned by this store)
+     * @param regionSlice  the memory segment sliced from the bundle's master segment
+     * @param bundlePath   the path to the bundle file (for diagnostics)
+     * @param isNew        true if the region was just created and needs header initialization
+     */
+    protected AbstractCognitiveRecordMemory(MemoryType type, CognitiveRecordLayout cogLayout,
+                                            int capacity, Arena arena, MemorySegment regionSlice,
+                                            Path bundlePath, boolean isNew) {
+        super(tierId(type), cogLayout, capacity,
+              arena, regionSlice,
+              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
+              true, bundlePath, null, true);  // bundleManaged=true
+        if (isNew) {
+            setCount(0);
+            writeMetadata();
+            log.info("{} initialized new bundle region in: {} ({}KB)",
+                    getClass().getSimpleName(), bundlePath, regionSlice.byteSize() / 1024);
+        } else {
+            readMetadata();
+            publishVisible();
+            log.info("{} loaded from bundle region in: {} ({} records)",
+                    getClass().getSimpleName(), bundlePath, count);
+        }
+    }
+
     /** Derives the stable, tier-scoped identity for this store (e.g. {@code tier/semantic}). */
     private static MemoryId tierId(MemoryType type) {
         return MemoryId.of("tier", type.name().toLowerCase());
