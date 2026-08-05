@@ -191,7 +191,7 @@ class UserAccountTsidPiiAvoidancePropertyTest {
                 new Pbkdf2Properties(1),
                 new LockoutProperties(5, 15),
                 null);
-        SynapseProperties props = new SynapseProperties(0, null, null, null, null, null, auth);
+        SynapseProperties props = new SynapseProperties(0, null, null, null, null, auth);
 
         Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder(
                 "", 16, 1, Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256);

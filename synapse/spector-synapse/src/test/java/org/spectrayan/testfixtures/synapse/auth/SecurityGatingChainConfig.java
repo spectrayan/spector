@@ -46,7 +46,7 @@ public abstract class SecurityGatingChainConfig {
     @Bean
     SynapseProperties synapseProperties() {
         AuthProperties auth = new AuthProperties(authEnabled(), null, null, null, null, null, null, null);
-        return new SynapseProperties(7070, "shared-key", "./spector-data", null, null, null, auth);
+        return new SynapseProperties(7070, "shared-key", "./spector-data", null, null, auth);
     }
 
     @Bean

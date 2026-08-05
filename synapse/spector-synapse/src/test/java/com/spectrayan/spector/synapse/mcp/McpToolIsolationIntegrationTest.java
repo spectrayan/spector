@@ -290,7 +290,7 @@ class McpToolIsolationIntegrationTest {
     private SynapseProperties synapseProps(boolean authEnabled) {
         var auth = new com.spectrayan.spector.config.AuthProperties(
                 authEnabled, null, null, null, null, null, null, null);
-        return new SynapseProperties(0, null, tempDir.toString(), null, null, null, auth);
+        return new SynapseProperties(0, null, tempDir.toString(), null, null, auth);
     }
 
     private static Authentication authenticated(String principal, String... authorities) {

@@ -88,7 +88,7 @@ class AuthControllerTest {
 
         AuthProperties auth = new AuthProperties(
                 true, null, new RefreshProperties(Duration.ofDays(30)), null, null, null, null, null);
-        SynapseProperties props = new SynapseProperties(0, null, null, null, null, null, auth);
+        SynapseProperties props = new SynapseProperties(0, null, null, null, null, auth);
 
         controller = new AuthController(authenticationManager, tokenMinter, refreshTokenStore,
                 jtiBlocklist, userAccountStore, apiKeyStore, props);

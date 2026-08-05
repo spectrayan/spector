@@ -39,9 +39,6 @@ public class SynapseProperties extends SpectorConfigProperties {
     private CorsProperties cors = new CorsProperties();
     private AuthProperties auth = new AuthProperties();
 
-    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
-    private OllamaProperties ollama = new OllamaProperties();
-
     public SynapseProperties() {}
 
     public SynapseProperties(
@@ -60,20 +57,6 @@ public class SynapseProperties extends SpectorConfigProperties {
         if (auth != null) this.auth = auth;
     }
 
-    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
-    public SynapseProperties(
-            int port,
-            String apiKey,
-            String dataDir,
-            OllamaProperties ollama,
-            MemoryProperties memory,
-            CorsProperties cors,
-            AuthProperties auth
-    ) {
-        this(port, apiKey, dataDir, memory, cors, auth);
-        if (ollama != null) this.ollama = ollama;
-    }
-
     public int getPort() { return port; }
     public void setPort(int port) { if (port > 0) this.port = port; }
 
@@ -89,13 +72,6 @@ public class SynapseProperties extends SpectorConfigProperties {
     public AuthProperties getAuth() { return auth; }
     public void setAuth(AuthProperties auth) { if (auth != null) this.auth = auth; }
 
-    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
-    public OllamaProperties getOllama() { return ollama; }
-    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
-    public void setOllama(OllamaProperties ollama) { if (ollama != null) this.ollama = ollama; }
-    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
-    public OllamaProperties ollama() { return getOllama(); }
-
     // Record-style accessors for backward compatibility across existing call sites
     public int port() { return getPort(); }
     public String apiKey() { return getApiKey(); }
@@ -103,29 +79,4 @@ public class SynapseProperties extends SpectorConfigProperties {
     public MemoryProperties memory() { return getMemory(); }
     public CorsProperties cors() { return getCors(); }
     public AuthProperties auth() { return getAuth(); }
-
-    @Deprecated(since = "0.1.0-alpha", forRemoval = true)
-    public static class OllamaProperties {
-        private String baseUrl = "http://localhost:11434";
-        private String model = "llama3.2";
-        private String embedModel = "nomic-embed-text";
-
-        public OllamaProperties() {}
-        public OllamaProperties(String baseUrl, String model, String embedModel) {
-            if (baseUrl != null) this.baseUrl = baseUrl;
-            if (model != null) this.model = model;
-            if (embedModel != null) this.embedModel = embedModel;
-        }
-
-        public String getBaseUrl() { return baseUrl; }
-        public void setBaseUrl(String baseUrl) { if (baseUrl != null) this.baseUrl = baseUrl; }
-        public String getModel() { return model; }
-        public void setModel(String model) { if (model != null) this.model = model; }
-        public String getEmbedModel() { return embedModel; }
-        public void setEmbedModel(String embedModel) { if (embedModel != null) this.embedModel = embedModel; }
-
-        public String baseUrl() { return getBaseUrl(); }
-        public String model() { return getModel(); }
-        public String embedModel() { return getEmbedModel(); }
-    }
 }

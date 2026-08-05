@@ -104,13 +104,14 @@ public class ChatService {
         this.toolRegistry = Objects.requireNonNull(toolRegistry);
         this.agenticChatGraph = Objects.requireNonNull(agenticChatGraph);
         this.tsid = Objects.requireNonNull(tsid);
-        this.ollamaBaseUrl = props.ollama().baseUrl();
+        var genProps = props.getProvider().getGeneration();
+        this.ollamaBaseUrl = genProps.baseUrl();
 
         // Initialize cognitive engines
         this.summarizer = new ConversationSummarizer(
-                props.ollama().baseUrl(), props.ollama().model());
+                genProps.baseUrl(), genProps.model());
         this.reflector = new ConversationReflector(
-                props.ollama().baseUrl(), props.ollama().model(), toolRegistry);
+                genProps.baseUrl(), genProps.model(), toolRegistry);
         log.info("[ChatService] Cognitive engines initialized: Summarizer + Reflector");
     }
 

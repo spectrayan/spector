@@ -68,7 +68,7 @@ class ApiKeyAuthenticationFilterTest {
 
     private static SynapseProperties props(boolean authEnabled) {
         AuthProperties auth = new AuthProperties(authEnabled, null, null, null, null, null, null, null);
-        return new SynapseProperties(0, SHARED_KEY, null, null, null, null, auth);
+        return new SynapseProperties(0, SHARED_KEY, null, null, null, auth);
     }
 
     private ApiKeyAuthenticationFilter filter(boolean authEnabled) {

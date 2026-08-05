@@ -41,7 +41,7 @@ import org.springframework.stereotype.Component;
  *   <li>Never fails startup — logs a warning and sets availability to {@code false}.</li>
  * </ul>
  *
- * @see SynapseProperties.OllamaProperties
+ * @see com.spectrayan.spector.config.ProviderProperties
  */
 @Component
 public class OllamaDetector {
@@ -70,7 +70,7 @@ public class OllamaDetector {
      */
     @EventListener(ApplicationReadyEvent.class)
     public void detectOllama() {
-        String baseUrl = properties.ollama().baseUrl();
+        String baseUrl = properties.getProvider().getGeneration().baseUrl();
         String healthUrl = baseUrl + "/api/tags";
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {

@@ -320,7 +320,7 @@ class UserMemoryRegistryRoutingPropertyTest {
 
         var auth = new com.spectrayan.spector.config.AuthProperties(
                 true, null, null, null, null, null, null, null);
-        var synapse = new SynapseProperties(0, null, base.toString(), null, null, null, auth);
+        var synapse = new SynapseProperties(0, null, base.toString(), null, null, auth);
 
         UserMemoryRegistry registry = new UserMemoryRegistry(
                 sharedProvider, synapse, embedderProvider, textGenProvider, salienceProvider, 512);

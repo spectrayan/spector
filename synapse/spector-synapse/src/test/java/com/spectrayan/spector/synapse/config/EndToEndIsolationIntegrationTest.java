@@ -212,7 +212,7 @@ class EndToEndIsolationIntegrationTest {
 
         private SynapseProperties synapseProps(boolean authEnabled) {
             var auth = new AuthProperties(authEnabled, null, null, null, null, null, null, null);
-            return new SynapseProperties(0, null, dataRoot.toString(), null, null, null, auth);
+            return new SynapseProperties(0, null, dataRoot.toString(), null, null, auth);
         }
     }
 
@@ -434,7 +434,7 @@ class EndToEndIsolationIntegrationTest {
                     authEnabled, null, null, null,
                     new DefaultAdminProperties("admin-secret"),
                     null, null, null);
-            var synapseProps = new SynapseProperties(0, null, dataRoot.toString(), null, null, null, auth);
+            var synapseProps = new SynapseProperties(0, null, dataRoot.toString(), null, null, auth);
             SpectorConfigProperties cfg = new SpectorConfigProperties();
             cfg.getMemory().setPersistencePath(dataRoot.toString());
             return new AuthStartupInitializer(synapseProps, cfg, accountStore);

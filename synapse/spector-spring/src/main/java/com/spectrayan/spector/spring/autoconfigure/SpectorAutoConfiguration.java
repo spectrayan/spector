@@ -101,7 +101,7 @@ public class SpectorAutoConfiguration {
                 .hebbianGraphCapacity(memoryProps.getCapacity())
                 .temporalChainCapacity(memoryProps.getCapacity())
                 .entityGraphCapacity(memoryProps.getCapacity())
-                .embedBatchSize(props.getEmbedding().getBatchSize())
+                .embedBatchSize(props.getProvider().getEmbedding().getBatchSize())
                 .bundleMode(memoryProps.isBundleMode());
 
         if (memoryProps.getPersistencePath() != null) {
@@ -369,12 +369,13 @@ public class SpectorAutoConfiguration {
      * @return an initialized {@link EmbeddingConfig} instance
      */
     EmbeddingConfig generateEmbeddingConfig(SpectorConfigProperties props) {
+        var embedding = props.getProvider().getEmbedding();
         return new EmbeddingConfig(
-                props.getEmbedding().getModel(),
-                props.getEmbedding().getBaseUrl(),
-                props.getEmbedding().getTimeout(),
-                props.getEmbedding().getBatchSize(),
-                props.getEmbedding().getMaxConcurrent()
+                embedding.getModel(),
+                embedding.getBaseUrl(),
+                embedding.getTimeout(),
+                embedding.getBatchSize(),
+                embedding.getMaxConcurrent()
         );
     }
     /**
@@ -384,7 +385,7 @@ public class SpectorAutoConfiguration {
      * @return an initialized {@link ProviderConfig} instance
      */
     ProviderConfig generateProviderConfig(SpectorConfigProperties props){
-        var embedding = props.getEmbedding();
+        var embedding = props.getProvider().getEmbedding();
         return new ProviderConfig(
                 embedding.getType(),
                 embedding.getType(),

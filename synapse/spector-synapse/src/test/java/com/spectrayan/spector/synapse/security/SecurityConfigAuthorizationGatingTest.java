@@ -253,6 +253,6 @@ class SecurityConfigAuthorizationGatingTest {
 
     private static SynapseProperties propsWithAuth(boolean enabled) {
         AuthProperties auth = new AuthProperties(enabled, null, null, null, null, null, null, null);
-        return new SynapseProperties(7070, "shared-key", "./spector-data", null, null, null, auth);
+        return new SynapseProperties(7070, "shared-key", "./spector-data", null, null, auth);
     }
 }

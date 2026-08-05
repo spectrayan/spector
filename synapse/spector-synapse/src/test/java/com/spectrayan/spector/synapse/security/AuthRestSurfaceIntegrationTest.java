@@ -637,7 +637,7 @@ class AuthRestSurfaceIntegrationTest {
                     null,
                     java.util.List.of("/actuator/health", "/api/docs",
                             "/api/v1/auth/login", "/api/v1/auth/refresh"));
-            return new SynapseProperties(0, null, "./target/spector-authrest-test", null, null, null, auth);
+            return new SynapseProperties(0, null, "./target/spector-authrest-test", null, null, auth);
         }
 
         @Bean

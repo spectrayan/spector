@@ -76,7 +76,7 @@ class UserAccountStoreTest {
     private static SynapseProperties defaultProperties() {
         // Compact constructors coerce every null to a documented default (auth disabled,
         // lockout 5 attempts / 15 minutes, PBKDF2 310000 iterations).
-        return new SynapseProperties(0, null, null, null, null, null, null);
+        return new SynapseProperties(0, null, null, null, null, null);
     }
 
     // ── createUser ──

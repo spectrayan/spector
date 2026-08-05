@@ -42,14 +42,16 @@ public class SystemController {
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status() {
         Duration uptime = Duration.between(startTime, Instant.now());
+        var genProps = props.getProvider().getGeneration();
+        var embedProps = props.getProvider().getEmbedding();
         return ResponseEntity.ok(Map.of(
                 "status", "UP",
                 "version", "1.0.0-SNAPSHOT",
                 "uptime", formatDuration(uptime),
                 "uptimeSeconds", uptime.toSeconds(),
                 "port", props.port(),
-                "ollamaUrl", props.ollama().baseUrl(),
-                "ollamaModel", props.ollama().model()
+                "providerUrl", genProps.baseUrl(),
+                "providerModel", genProps.model()
         ));
     }
 
@@ -58,13 +60,22 @@ public class SystemController {
      */
     @GetMapping("/config")
     public ResponseEntity<Map<String, Object>> config() {
+        var genProps = props.getProvider().getGeneration();
+        var embedProps = props.getProvider().getEmbedding();
         return ResponseEntity.ok(Map.of(
                 "port", props.port(),
                 "dataDir", props.dataDir(),
-                "ollama", Map.of(
-                        "baseUrl", props.ollama().baseUrl(),
-                        "model", props.ollama().model(),
-                        "embedModel", props.ollama().embedModel()
+                "provider", Map.of(
+                        "generation", Map.of(
+                                "type", genProps.type(),
+                                "baseUrl", genProps.baseUrl(),
+                                "model", genProps.model()
+                        ),
+                        "embedding", Map.of(
+                                "type", embedProps.type(),
+                                "baseUrl", embedProps.baseUrl(),
+                                "model", embedProps.model()
+                        )
                 ),
                 "cors", Map.of(
                         "allowedOrigins", props.cors().allowedOrigins()

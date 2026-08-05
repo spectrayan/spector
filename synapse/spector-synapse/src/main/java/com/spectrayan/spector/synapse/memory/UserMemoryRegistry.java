@@ -275,7 +275,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
                 .hebbianGraphCapacity(memory.getCapacity())
                 .temporalChainCapacity(memory.getCapacity())
                 .entityGraphCapacity(memory.getCapacity())
-                .embedBatchSize(synapseProps.getEmbedding().getBatchSize())
+                .embedBatchSize(synapseProps.getProvider().getEmbedding().getBatchSize())
                 .persistence(dir)
                 .bundleMode(memory.isBundleMode());
 

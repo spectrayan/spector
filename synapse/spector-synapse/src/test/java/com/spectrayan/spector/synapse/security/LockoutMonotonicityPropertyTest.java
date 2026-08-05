@@ -181,10 +181,10 @@ class LockoutMonotonicityPropertyTest {
         Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder(
                 "", 16, 1, Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256);
 
+        AuthProperties auth = new AuthProperties(true, null, null, null, null, null,
+                        new LockoutProperties(maxAttempts, minutes), null);
         SynapseProperties props = new SynapseProperties(
-                0, null, null, null, null, null,
-                new AuthProperties(true, null, null, null, null, null,
-                        new LockoutProperties(maxAttempts, minutes), null));
+                0, null, null, null, null, auth);
 
         return new UserAccountStore(jdbc, encoder, props);
     }

@@ -130,7 +130,6 @@ class DeepConversationLiveIT {
                 // Build the dependency chain manually
                 props = new SynapseProperties(
                         0, "test-key", System.getProperty("java.io.tmpdir") + "/spector-test",
-                        null,
                         new MemoryProperties(0, 0),
                         new CorsProperties("http://localhost:4200"),
                         null

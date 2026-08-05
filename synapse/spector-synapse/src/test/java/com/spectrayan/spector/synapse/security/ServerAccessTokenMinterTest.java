@@ -53,7 +53,7 @@ class ServerAccessTokenMinterTest {
                 true,
                 new JwtProperties(SECRET, Duration.ofHours(1)),
                 null, null, null, null, null, null);
-        SynapseProperties props = new SynapseProperties(0, null, null, null, null, null, auth);
+        SynapseProperties props = new SynapseProperties(0, null, null, null, null, auth);
         return new ServerAccessTokenMinter(props);
     }
 
