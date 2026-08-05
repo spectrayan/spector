@@ -37,6 +37,7 @@ import java.util.PrimitiveIterator;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 
@@ -105,7 +106,7 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     private static final Logger log = LoggerFactory.getLogger(HyperEntityGraphMemory.class);
 
     /** Kernel identity for the hyper-entity graph. */
-    private static final MemoryId MEMORY_ID = MemoryId.of("spector", "hyper-entity-graph");
+    private static final MemoryId MEMORY_ID = SystemMemoryId.HYPERGRAPH.id();
     /** Shared record layout — identifies hyperedge records inside an SMKM container. */
     private static final HyperEntityLayout LAYOUT = new HyperEntityLayout();
 

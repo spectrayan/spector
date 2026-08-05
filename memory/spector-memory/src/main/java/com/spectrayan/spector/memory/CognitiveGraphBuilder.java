@@ -24,6 +24,8 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
@@ -98,7 +100,7 @@ final class CognitiveGraphBuilder {
                 try {
                     com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
                             com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
-                            com.spectrayan.spector.memory.kernel.MemoryId.of("graph", "hebbian-csr"),
+                            SystemMemoryId.HEBBIAN_CSR.id(),
                             new com.spectrayan.spector.memory.kernel.layout.HebbianLayout(),
                             loadFrom, null, null);
                 } catch (Exception e) {
@@ -126,7 +128,7 @@ final class CognitiveGraphBuilder {
             try {
                 com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
                         com.spectrayan.spector.memory.kernel.codec.Codecs.defaultRegistry(),
-                        com.spectrayan.spector.memory.kernel.MemoryId.of("temporal", "chain"),
+                        SystemMemoryId.TEMPORAL_CHAIN.id(),
                         new com.spectrayan.spector.memory.kernel.layout.TemporalLayout(),
                         loadFrom, null, null);
             } catch (Exception e) {

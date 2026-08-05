@@ -22,6 +22,8 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.MemoryType;
 
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -188,7 +190,12 @@ public abstract class AbstractCognitiveRecordMemory
 
     /** Derives the stable, tier-scoped identity for this store (e.g. {@code tier/semantic}). */
     private static MemoryId tierId(MemoryType type) {
-        return MemoryId.of("tier", type.name().toLowerCase());
+        return switch (type) {
+            case WORKING -> SystemMemoryId.WORKING.id();
+            case SEMANTIC -> SystemMemoryId.SEMANTIC.id();
+            case PROCEDURAL -> SystemMemoryId.PROCEDURAL.id();
+            case EPISODIC -> SystemMemoryId.EPISODIC.id();
+        };
     }
 
     /**

@@ -20,6 +20,7 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraph.HebbianEdge;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.codec.Codecs;
 import com.spectrayan.spector.memory.kernel.layout.HebbianLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
@@ -66,7 +67,7 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
     private static final HebbianLayout LAYOUT = new HebbianLayout();
 
     /** Kernel identity for the Hebbian association graph. */
-    private static final MemoryId MEMORY_ID = MemoryId.of("graph", "hebbian-csr");
+    private static final MemoryId MEMORY_ID = SystemMemoryId.HEBBIAN_CSR.id();
 
     // ── On-disk container magics (logical values, as read big-endian) ──
     /** Legacy fixed-width container magic ('HGPH'), migrated via the codec. */

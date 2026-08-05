@@ -20,6 +20,7 @@ import com.spectrayan.spector.commons.error.SpectorStorageException;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.shape.DefaultRecordMemory;
 import com.spectrayan.spector.memory.kernel.shape.DefaultAppendMemory;
 import com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout;
@@ -130,7 +131,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     }
 
     public IndexRecordMemory() {
-        super(MemoryId.of("kernel", "index"), new IndexEntryLayout(), 100_000,
+        super(SystemMemoryId.INDEX.id(), new IndexEntryLayout(), 100_000,
               Arena.ofShared(), Arena.ofShared().allocate(100_000 * (long) INDEX_SLOT_STRIDE, 64),
               0, false, null, null);
     }
@@ -495,12 +496,12 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 totalPoolBytes += 4 + b.length; // 4B length prefix + payload
             }
 
-            MemoryId poolId = MemoryId.of("index", "idpool");
+            MemoryId poolId = SystemMemoryId.INDEX_IDPOOL.id();
             IdBlobLayout poolLayout = new IdBlobLayout();
             try (DefaultAppendMemory<IdBlobLayout> poolMemory = new DefaultAppendMemory<>(
                     poolId, poolLayout, entryCount, MemoryHeader.HEADER_BYTES + totalPoolBytes, idPoolPath)) {
                 
-                MemoryId slotId = MemoryId.of("index", "slot");
+                MemoryId slotId = SystemMemoryId.INDEX_SLOT.id();
                 IndexEntryLayout slotLayout = new IndexEntryLayout();
                 // #443 Phase 2: stride flows from the layout (v6 = 48). The 64-byte header
                 // records recordStride + schemaVersion, so the loader can version-gate.
@@ -591,7 +592,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 String poolName = fileName.endsWith(".midx") ? fileName.replace(".midx", ".idpl") : fileName + ".idpl";
                 Path idPoolPath = filePath.resolveSibling(poolName);
 
-                MemoryId slotId = MemoryId.of("index", "slot");
+                MemoryId slotId = SystemMemoryId.INDEX_SLOT.id();
                 IndexEntryLayout slotLayout = new IndexEntryLayout();
                 try (DefaultRecordMemory<IndexEntryLayout> slotMemory = new DefaultRecordMemory<>(
                         slotId, slotLayout, 0, 0, filePath)) {
@@ -618,7 +619,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     }
 
                     int entryCount = slotMemory.size();
-                    MemoryId poolId = MemoryId.of("index", "idpool");
+                    MemoryId poolId = SystemMemoryId.INDEX_IDPOOL.id();
                     IdBlobLayout poolLayout = new IdBlobLayout();
                     try (DefaultAppendMemory<IdBlobLayout> poolMemory = new DefaultAppendMemory<>(
                             poolId, poolLayout, 0, 0, idPoolPath)) {

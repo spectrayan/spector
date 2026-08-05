@@ -19,6 +19,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
@@ -30,6 +31,8 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
  */
 public abstract class AbstractAppendMemory<L extends MemoryLayout>
         extends AbstractMemory<L> implements AppendMemory<L> {
+
+    private final ReentrantLock appendLock = new ReentrantLock();
 
     protected AbstractAppendMemory(MemoryId id, L layout, int capacity, long segmentBytes) {
         super(id, layout, capacity, segmentBytes);
@@ -58,29 +61,34 @@ public abstract class AbstractAppendMemory<L extends MemoryLayout>
     }
 
     @Override
-    public synchronized long append(MemorySegment bytes) {
-        long len = bytes.byteSize();
-        // Check capacity bounds (here count stores the append cursor position in bytes)
-        if (dataOffset() + count + 4 + len > segment().byteSize()) {
-            throw new IndexOutOfBoundsException("Append memory full: cursor=" + count + ", request=" + (4 + len));
+    public long append(MemorySegment bytes) {
+        appendLock.lock();
+        try {
+            long len = bytes.byteSize();
+            // Check capacity bounds (here count stores the append cursor position in bytes)
+            if (dataOffset() + count + 4 + len > segment().byteSize()) {
+                throw new IndexOutOfBoundsException("Append memory full: cursor=" + count + ", request=" + (4 + len));
+            }
+
+            if (wal != null && !bypassWal) {
+                byte[] rawBytes = new byte[(int) len];
+                MemorySegment.copy(bytes, 0, MemorySegment.ofArray(rawBytes), 0, len);
+                wal.appendAppend(id.toString(), rawBytes);
+            }
+
+            long writeOffset = dataOffset() + count;
+            // Write 4B length prefix
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset, (int) len);
+            // Copy payload
+            MemorySegment.copy(bytes, 0, segment(), writeOffset + 4, len);
+
+            long payloadOffset = count + 4;
+            count += (int) (4 + len);
+            persistCount();
+            return payloadOffset;
+        } finally {
+            appendLock.unlock();
         }
-
-        if (wal != null && !bypassWal) {
-            byte[] rawBytes = new byte[(int) len];
-            MemorySegment.copy(bytes, 0, MemorySegment.ofArray(rawBytes), 0, len);
-            wal.appendAppend(id.toString(), rawBytes);
-        }
-
-        long writeOffset = dataOffset() + count;
-        // Write 4B length prefix
-        segment().set(ValueLayout.JAVA_INT_UNALIGNED, writeOffset, (int) len);
-        // Copy payload
-        MemorySegment.copy(bytes, 0, segment(), writeOffset + 4, len);
-
-        long payloadOffset = count + 4;
-        count += (int) (4 + len);
-        persistCount();
-        return payloadOffset;
     }
 
     @Override

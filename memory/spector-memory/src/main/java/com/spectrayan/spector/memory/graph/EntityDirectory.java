@@ -22,6 +22,7 @@ import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 
@@ -96,7 +97,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     private static final Logger log = LoggerFactory.getLogger(EntityDirectory.class);
 
     /** Kernel identity for the entity directory. */
-    private static final MemoryId MEMORY_ID = MemoryId.of("graph", "entity-directory");
+    private static final MemoryId MEMORY_ID = SystemMemoryId.ENTITY_DIRECTORY.id();
     /** Shared record layout — identifies directory records inside an SMKM container. */
     private static final EntityDirectoryLayout LAYOUT = new EntityDirectoryLayout();
 

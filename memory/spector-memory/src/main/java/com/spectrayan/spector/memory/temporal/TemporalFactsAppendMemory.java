@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.temporal;
 
 import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 
@@ -24,7 +25,7 @@ import java.nio.file.Path;
  */
 public final class TemporalFactsAppendMemory extends AbstractAppendMemory<TemporalFactLayout> {
 
-    private static final MemoryId MEMORY_ID = MemoryId.of("temporal", "facts");
+    private static final MemoryId MEMORY_ID = SystemMemoryId.TEMPORAL_FACTS.id();
 
     /**
      * Creates an in-memory (heap) TemporalFactsAppendMemory store with default capacity (64 KB).

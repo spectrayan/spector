@@ -35,6 +35,7 @@ import java.nio.file.StandardOpenOption;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.EntityLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
 import java.nio.charset.StandardCharsets;
@@ -126,7 +127,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     private static final Logger log = LoggerFactory.getLogger(EntityGraphMemory.class);
 
     /** Kernel identity for the entity-relationship graph. */
-    private static final MemoryId MEMORY_ID = MemoryId.of("graph", "entity");
+    private static final MemoryId MEMORY_ID = SystemMemoryId.ENTITY.id();
     /** Shared record layout — identifies entity records inside an SMKM container. */
     private static final EntityLayout LAYOUT = new EntityLayout();
 

@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
+import com.spectrayan.spector.memory.error.SpectorWalCorruptionException;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.shape.RecordMemory;
@@ -170,8 +171,8 @@ public final class WalRecoveryDispatcher {
                     }
                     replayCount++;
                 } catch (Exception e) {
-                    log.error("WAL recovery: failed to replay event seq={}, type={} on memory '{}': {}", 
-                            event.sequence(), event.type(), event.memoryId(), e.getMessage(), e);
+                    throw new SpectorWalCorruptionException("WAL recovery: failed to replay event seq=" 
+                            + event.sequence() + ", type=" + event.type() + " on memory '" + event.memoryId() + "'", e);
                 }
             }
         } finally {

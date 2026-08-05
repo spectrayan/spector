@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.shape.RegistryMemory;
 import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
 import com.spectrayan.spector.memory.kernel.shape.DefaultRegistryMemory;
@@ -57,7 +58,11 @@ public final class TypeRegistryMemory implements RegistryMemory {
      */
     public TypeRegistryMemory(String label) {
         this.label = label;
-        MemoryId registryId = MemoryId.of("graph", label);
+        MemoryId registryId = "entity-type".equals(label)
+                ? SystemMemoryId.ENTITY_TYPE.id()
+                : "relation-type".equals(label)
+                        ? SystemMemoryId.RELATION_TYPE.id()
+                        : MemoryId.of("graph", label);
         RegistryLayout layout = new RegistryLayout();
         // Create volatile DefaultRegistryMemory
         this.backing = new DefaultRegistryMemory(registryId, layout, 1024, 256 * 1024);
@@ -168,7 +173,11 @@ public final class TypeRegistryMemory implements RegistryMemory {
         Files.deleteIfExists(filePath);
         Files.createDirectories(filePath.getParent());
 
-        MemoryId registryId = MemoryId.of("graph", label);
+        MemoryId registryId = "entity-type".equals(label)
+                ? SystemMemoryId.ENTITY_TYPE.id()
+                : "relation-type".equals(label)
+                        ? SystemMemoryId.RELATION_TYPE.id()
+                        : MemoryId.of("graph", label);
         RegistryLayout layout = new RegistryLayout();
 
         // Calculate total size required for the new persistent registry memory segment
@@ -214,7 +223,11 @@ public final class TypeRegistryMemory implements RegistryMemory {
             TypeRegistryMemory registry = new TypeRegistryMemory(label);
 
             if (isStandard) {
-                MemoryId registryId = MemoryId.of("graph", label);
+                MemoryId registryId = "entity-type".equals(label)
+                        ? SystemMemoryId.ENTITY_TYPE.id()
+                        : "relation-type".equals(label)
+                                ? SystemMemoryId.RELATION_TYPE.id()
+                                : MemoryId.of("graph", label);
                 RegistryLayout layout = new RegistryLayout();
                 registry.backing.close();
                 registry.backing = new DefaultRegistryMemory(registryId, layout, 0, 0, filePath);

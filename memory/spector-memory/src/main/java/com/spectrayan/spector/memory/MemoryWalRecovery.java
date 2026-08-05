@@ -20,9 +20,11 @@ import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
+import com.spectrayan.spector.memory.error.SpectorWalCorruptionException;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.Memory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
@@ -122,14 +124,14 @@ final class MemoryWalRecovery {
             memories.put(hg.id(), hg);
         }
         if (temporalChain != null) {
-            memories.put(MemoryId.of("temporal", "chain"), temporalChain);
+            memories.put(SystemMemoryId.TEMPORAL_CHAIN.id(), temporalChain);
         }
         if (temporalKnowledgeGraph != null) {
             memories.put(temporalKnowledgeGraph.id(), temporalKnowledgeGraph.backing());
         }
 
         // Add textDataStore memory if available
-        MemoryId textId = MemoryId.of("cortex", "text");
+        MemoryId textId = SystemMemoryId.CORTEX_TEXT.id();
         if (index.textDataStore() != null) {
             memories.put(textId, index.textDataStore());
         }
@@ -183,7 +185,12 @@ final class MemoryWalRecovery {
                         if (lastRecordOffset != -1 && lastRecordType != null) {
                             // CognitiveRecordLayout has dynamic stride
                             int stride = 164; // default
-                            MemoryId targetId = MemoryId.of("tier", lastRecordType.name().toLowerCase());
+                            MemoryId targetId = switch (lastRecordType) {
+                                case WORKING -> SystemMemoryId.WORKING.id();
+                                case SEMANTIC -> SystemMemoryId.SEMANTIC.id();
+                                case PROCEDURAL -> SystemMemoryId.PROCEDURAL.id();
+                                case EPISODIC -> SystemMemoryId.EPISODIC.id();
+                            };
                             Memory<?> target = memories.get(targetId);
                             if (target != null) {
                                 stride = target.layout().recordStride();
@@ -199,7 +206,7 @@ final class MemoryWalRecovery {
                                 try {
                                     text = index.textDataStore().readTextDirect(lastTextOffset, lastTextLength);
                                 } catch (Exception e) {
-                                    log.warn("Operation failed: Failed to read text from DataStore", e);
+                                    throw new SpectorWalCorruptionException("Failed to read text from DataStore during WAL index recovery", e);
                                 }
                             }
 
@@ -212,8 +219,8 @@ final class MemoryWalRecovery {
                     default -> {}
                 }
             } catch (Exception e) {
-                log.warn("WAL recovery index sync failed for event seq={}, type={}: {}",
-                        event.sequence(), event.type(), e.getMessage());
+                throw new SpectorWalCorruptionException("WAL recovery index sync failed for event seq=" 
+                        + event.sequence() + ", type=" + event.type(), e);
             }
         }
     }
