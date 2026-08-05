@@ -201,12 +201,9 @@ class EndToEndIsolationIntegrationTest {
 
         private UserMemoryRegistry buildRegistry(boolean authEnabled, int maxInstances) {
             when(embedderProvider.getIfAvailable()).thenReturn(null);
-            SpectorConfigProperties cfg = new SpectorConfigProperties();
-            cfg.getMemory().setPersistencePath(dataRoot.toString());
             return new UserMemoryRegistry(
                     sharedProvider,
                     synapseProps(authEnabled),
-                    cfg,
                     embedderProvider,
                     textGenProvider,
                     salienceProvider,

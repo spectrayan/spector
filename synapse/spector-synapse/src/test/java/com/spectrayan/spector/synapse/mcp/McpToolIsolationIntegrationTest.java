@@ -278,12 +278,9 @@ class McpToolIsolationIntegrationTest {
         ObjectProvider<LlmProvider> textGenProvider = mockProvider();
         ObjectProvider<SalienceProfileProvider> salienceProvider = mockProvider();
 
-        SpectorConfigProperties cfg = new SpectorConfigProperties();
-        cfg.getMemory().setPersistencePath(tempDir.toString());
         return new UserMemoryRegistry(
                 sharedProvider,
                 synapseProps(authEnabled),
-                cfg,
                 embedderProvider,
                 textGenProvider,
                 salienceProvider,

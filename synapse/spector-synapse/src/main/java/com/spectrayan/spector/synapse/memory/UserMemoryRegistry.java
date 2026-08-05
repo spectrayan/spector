@@ -34,6 +34,7 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedSparseProvider;
 import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
+import com.spectrayan.spector.config.MemoryConfig;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.security.SecurityUtils;
@@ -85,7 +86,6 @@ public final class UserMemoryRegistry implements AutoCloseable {
 
     private final ObjectProvider<SpectorMemory> sharedProvider;
     private final SynapseProperties synapseProps;
-    private final SpectorConfigProperties spectorProps;
     private final ObjectProvider<EmbeddingProvider> embedderProvider;
     private final ObjectProvider<LlmProvider> textGenProvider;
     private final ObjectProvider<SalienceProfileProvider> salienceProvider;
@@ -104,14 +104,12 @@ public final class UserMemoryRegistry implements AutoCloseable {
     public UserMemoryRegistry(
             ObjectProvider<SpectorMemory> sharedProvider,
             SynapseProperties synapseProps,
-            SpectorConfigProperties spectorProps,
             ObjectProvider<EmbeddingProvider> embedderProvider,
             ObjectProvider<LlmProvider> textGenProvider,
             ObjectProvider<SalienceProfileProvider> salienceProvider,
             @Value("${spector.auth.memory.max-instances:512}") int maxInstances) {
         this.sharedProvider = sharedProvider;
         this.synapseProps = synapseProps;
-        this.spectorProps = spectorProps;
         this.embedderProvider = embedderProvider;
         this.textGenProvider = textGenProvider;
         this.salienceProvider = salienceProvider;
@@ -267,7 +265,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
                     "Cannot build per-user memory: no EmbeddingProvider bean available");
         }
 
-        SpectorConfigProperties.Memory memory = spectorProps.getMemory();
+        MemoryConfig memory = synapseProps.getMemory();
 
         var builder = DefaultSpectorMemory.builder()
                 .dimensions(memory.getDimensions())
@@ -277,7 +275,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
                 .hebbianGraphCapacity(memory.getCapacity())
                 .temporalChainCapacity(memory.getCapacity())
                 .entityGraphCapacity(memory.getCapacity())
-                .embedBatchSize(spectorProps.getEmbedding().getBatchSize())
+                .embedBatchSize(synapseProps.getEmbedding().getBatchSize())
                 .persistence(dir)
                 .bundleMode(memory.isBundleMode());
 
@@ -315,7 +313,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
      * otherwise the Synapse {@code dataDir}.
      */
     private Path basePath() {
-        String path = spectorProps.getMemory().getPersistencePath();
+        String path = synapseProps.getMemory().getPersistencePath();
         if (path == null || path.isBlank()) {
             path = synapseProps.dataDir();
         }

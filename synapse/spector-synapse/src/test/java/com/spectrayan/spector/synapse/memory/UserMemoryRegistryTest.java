@@ -338,12 +338,9 @@ class UserMemoryRegistryTest {
 
     private UserMemoryRegistry buildRegistry(boolean authEnabled, int maxInstances, EmbeddingProvider embedder) {
         when(embedderProvider.getIfAvailable()).thenReturn(embedder);
-        SpectorConfigProperties cfg = new SpectorConfigProperties();
-        cfg.getMemory().setPersistencePath(tempDir.toString());
         return new UserMemoryRegistry(
                 sharedProvider,
                 synapseProps(authEnabled),
-                cfg,
                 embedderProvider,
                 textGenProvider,
                 salienceProvider,
