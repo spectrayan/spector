@@ -88,15 +88,15 @@ public record SpectorConfig(
      * @return a fully configured SpectorConfig
      */
     public static SpectorConfig from(SpectorProperties props) {
-        int dims = props.getInt("spector.engine.dimensions", 384);
-        int cap = props.getInt("spector.engine.capacity", 100_000);
-        String sim = props.getString("spector.engine.similarity", "COSINE");
-        String idxType = props.getString("spector.engine.index-type", "HNSW");
-        String quant = props.getString("spector.engine.quantization", "NONE");
-        String mode = props.getString("spector.engine.persistence-mode", "IN_MEMORY");
-        Path dataDir = props.getPath("spector.engine.data-directory", Path.of(".spector", "index"));
-        boolean gpu = props.getBoolean("spector.engine.gpu-enabled", false);
-        int oversampling = props.getInt("spector.engine.oversampling-factor", 0);
+        int dims = props.getInt(SpectorPropertyKeys.ENGINE_DIMENSIONS, 384);
+        int cap = props.getInt(SpectorPropertyKeys.ENGINE_CAPACITY, 100_000);
+        String sim = props.getString(SpectorPropertyKeys.ENGINE_SIMILARITY, "COSINE");
+        String idxType = props.getString(SpectorPropertyKeys.ENGINE_INDEX_TYPE, "HNSW");
+        String quant = props.getString(SpectorPropertyKeys.ENGINE_QUANTIZATION, "NONE");
+        String mode = props.getString(SpectorPropertyKeys.ENGINE_PERSISTENCE_MODE, "IN_MEMORY");
+        Path dataDir = props.getPath(SpectorPropertyKeys.ENGINE_DATA_DIRECTORY, Path.of(".spector", "index"));
+        boolean gpu = props.getBoolean(SpectorPropertyKeys.ENGINE_GPU_ENABLED, false);
+        int oversampling = props.getInt(SpectorPropertyKeys.ENGINE_OVERSAMPLING_FACTOR, 0);
 
         var hnsw = SpectorConfigFactory.hnswDefaults(props);
         var ivf = SpectorConfigFactory.ivfDefaults(props);
