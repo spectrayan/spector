@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,7 +47,7 @@ class QuantizedHnswIndexTest {
         // Pre-calibrate so quantized path is used
         var sq = com.spectrayan.spector.core.quantization.ScalarQuantizer.calibrate(vectors, dims);
         var index = new QuantizedHnswIndex(dims, 100,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT, sq);
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT, sq);
 
         for (int i = 0; i < 50; i++) {
             index.add("doc-" + i, i, vectors[i]);
@@ -73,7 +73,7 @@ class QuantizedHnswIndexTest {
     void autoCalibration_triggersAtThreshold() {
         int dims = 16;
         var index = new QuantizedHnswIndex(dims, 200,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT);
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT);
 
         assertFalse(index.isCalibrated(), "Should not be calibrated initially");
 
@@ -99,7 +99,7 @@ class QuantizedHnswIndexTest {
 
         ScalarQuantizer sq = ScalarQuantizer.calibrate(samples, dims);
         var index = new QuantizedHnswIndex(dims, 100,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT, sq);
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT, sq);
 
         assertTrue(index.isCalibrated(), "Should be calibrated from start");
 
@@ -119,7 +119,7 @@ class QuantizedHnswIndexTest {
 
         // Build quantized index
         var quantizedIndex = new QuantizedHnswIndex(dims, numDocs + 10,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT);
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT);
 
         // Build exact index for comparison
         var exactIndex = new HnswIndex(dims, numDocs + 10, SimilarityFunction.COSINE);
@@ -157,7 +157,7 @@ class QuantizedHnswIndexTest {
     @Test
     void emptyIndex_returnsEmptyResults() {
         var index = new QuantizedHnswIndex(32, 100,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT);
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT);
         ScoredResult[] results = index.search(new float[32], 5);
         assertEquals(0, results.length);
     }
@@ -192,7 +192,7 @@ class QuantizedHnswIndexTest {
         NonUniformQuantizer nuq = NonUniformQuantizer.calibrate(vectors, dims, 16);
 
         var index = new QuantizedHnswIndex(dims, 100,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT,
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT,
                 null, QuantizationType.SCALAR_INT4, nuq, 3);
 
         assertTrue(index.isCalibrated());
@@ -232,7 +232,7 @@ class QuantizedHnswIndexTest {
         NonUniformQuantizer nuq = NonUniformQuantizer.calibrate(vectors, dims, 4);
 
         var index = new QuantizedHnswIndex(dims, 100,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT,
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT,
                 null, QuantizationType.SCALAR_INT2, nuq, 5);
 
         assertTrue(index.isCalibrated());
@@ -266,7 +266,7 @@ class QuantizedHnswIndexTest {
 
         // Oversampling factor 1 = no rescore
         var index = new QuantizedHnswIndex(dims, 100,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT,
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT,
                 null, QuantizationType.SCALAR_INT4, nuq, 1);
 
         assertEquals(1, index.oversamplingFactor());
@@ -297,12 +297,12 @@ class QuantizedHnswIndexTest {
 
         // Index with rescore (oversampling=3)
         var rescoreIndex = new QuantizedHnswIndex(dims, numDocs + 10,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT,
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT,
                 null, QuantizationType.SCALAR_INT4, nuq, 3);
 
         // Index without rescore (oversampling=1)
         var noRescoreIndex = new QuantizedHnswIndex(dims, numDocs + 10,
-                SimilarityFunction.COSINE, HnswParams.DEFAULT,
+                SimilarityFunction.COSINE, HnswProperties.DEFAULT,
                 null, QuantizationType.SCALAR_INT4, nuq, 1);
 
         // Exact index for ground truth

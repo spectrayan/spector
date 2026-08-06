@@ -3,19 +3,15 @@
 # ═══════════════════════════════════════════════════════════════════════
 # Copy this file to spector.yml and customize for your environment.
 # Values here override the bundled spector-defaults.yml.
-# CLI args (--dims, --ollama-model, etc.) override values in this file.
+# CLI args (--dims, --model, etc.) override values in this file.
 # ═══════════════════════════════════════════════════════════════════════
 
 spector:
-  engine:
-    dimensions: 768
-    capacity: 100000
-    similarity: COSINE
-    index-type: HNSW
-    persistence-mode: DISK
-    data-directory: .spector-data
 
-  # ─── Multi-LLM Provider Configuration (NEW) ───
+  # ─── Global Mode (SEARCH or MEMORY) ───
+  mode: MEMORY
+
+  # ─── Multi-LLM Provider Configuration ───
   # Configure embedding and generation (LLM) providers.
   # Supported types: ollama | openai | google | anthropic | mistral | azure | bedrock
   provider:
@@ -23,48 +19,54 @@ spector:
       type: ollama
       model: nomic-embed-text
       base-url: http://localhost:11434
-      # api-key: ${OPENAI_API_KEY:} # Required for cloud providers
-      # dimensions: 768            # Optional: override auto-detected dimensions
-    
+      api-key: ""
+      dimensions: 768
+      timeout: 30s
+      batch-size: 32
+      max-retries: 3
+      max-concurrent: 0
+      cache:
+        enabled: true
+        max-size: 1000      # entries; LRU eviction beyond this
+        ttl: 60m            # time-to-live per entry
+        stats-log-interval: 5m
+
     generation:
       type: ollama
       model: llama3.2
       base-url: http://localhost:11434
-      # api-key: ${ANTHROPIC_API_KEY:} # Required for cloud providers
-      # properties:
-      #   temperature: 0.7
-      #   max-tokens: 2048
+      api-key: ""
 
-  # ─── Legacy Embedding Configuration (Deprecated) ───
-  # Still supported for backward compatibility — implicitly maps to type: ollama.
-  embedding:
-    model: nomic-embed-text
-    base-url: http://localhost:11434
-    timeout: 30s
-    batch-size: 32
-    # LRU cache for embedding results (applies to all provider types)
-    cache:
-      enabled: true
-      max-size: 1000      # entries; LRU eviction beyond this
-      ttl: 60m            # time-to-live per entry (0 = no expiry)
-      stats-log-interval: 5m  # INFO-level hit/miss stats (0 = never)
+  # ─── Cognitive Memory Module ───
+  memory:
+    enabled: true
+    persistence-mode: DISK
+    persistence-path: .spector/memory
+    dimensions: 768
+    capacity: 100000
+    nodes-per-partition: 10000
+    decay-enabled: true
+    consolidation-interval: 60s
+    default-ingestion-tier: SEMANTIC
+    hnsw-prefilter: auto
+    tag-extractor: content
+    tag-extractor-model: ""
+    text-search-mode: HYBRID   # Choices: HYBRID, KEYWORD_ONLY, VECTOR_ONLY, SPLADE, SPLADE_HYBRID, LI_LSR, COLBERT_RERANK, FULL_STACK
+    splade-enabled: true
+    colbert-enabled: true
+    bm25-enabled: true
 
+  # ─── HNSW Index Parameters ───
   hnsw:
     m: 16
     ef-construction: 200
     ef-search: 50
 
-  memory:
-    enabled: true
-    persistence-path: .spector-memory
-    text-search-mode: HYBRID  # Choices: HYBRID, KEYWORD_ONLY, VECTOR_ONLY, SPLADE, SPLADE_HYBRID, LI_LSR, COLBERT_RERANK, FULL_STACK
-    bm25-enabled: true
-    splade-enabled: true
-    colbert-enabled: true
-
+  # ─── File Ingestion Pipeline ───
   ingestion:
     root-directory: .
     file-pattern: "**/*.md"
     skip-dirs: ".git,.idea,.mvn,target,node_modules,.github"
-    chunk-size: 800
-    chunk-overlap: 100
+    chunk-size: 2500
+    chunk-overlap: 200
+    parallelism: 4

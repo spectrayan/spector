@@ -36,7 +36,7 @@ import org.springframework.web.context.support.AnnotationConfigWebApplicationCon
 
 import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
 import org.spectrayan.testfixtures.synapse.auth.SecurityGatingChainConfig;
 
 import ch.qos.logback.classic.Level;
@@ -253,6 +253,6 @@ class SecurityConfigAuthorizationGatingTest {
 
     private static SynapseProperties propsWithAuth(boolean enabled) {
         AuthProperties auth = new AuthProperties(enabled, null, null, null, null, null, null, null);
-        return new SynapseProperties(7070, "shared-key", "./spector-data", null, null, null, auth);
+        return new SynapseProperties(7070, "shared-key", "./spector-data", null, null, auth);
     }
 }

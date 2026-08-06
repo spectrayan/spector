@@ -95,7 +95,7 @@ class IngestCommand extends BaseCommand {
         } else if (configFile != null) {
             // Config provided  --  check if it has a root-directory for local batch
             var props = SpectorProperties.builder().configFile(configFile).build();
-            var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
+            var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
             if (ingestionConfig.rootDirectory() != null) {
                 rootDir = ingestionConfig.rootDirectory();
                 runLocalBatch();
@@ -127,20 +127,20 @@ class IngestCommand extends BaseCommand {
 
         SpectorProperties props = propsBuilder.build();
 
-        //  Read configs 
-        var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
-        var embedConfig = SpectorConfigFactory.embeddingDefaults(props);
-        var engineConfig = SpectorConfigFactory.engineDefaults(props);
+        // ── Read configs ──
+        var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
+        var embedConfig = SpectorConfigFactory.embeddingProperties(props);
+        var memoryConfig = SpectorConfigFactory.memoryProperties(props);
         var mode = SpectorConfigFactory.mode(props);
         Path root = ingestionConfig.rootDirectory().toAbsolutePath().normalize();
 
-        //  Banner 
+        // ── Banner ──
         out().printf("========================================%n");
         out().printf("  Spector Ingestion (local batch)%n");
         out().printf("  Mode:    %s%n", mode);
         out().printf("  Root:    %s%n", root);
         out().printf("  Pattern: %s%n", ingestionConfig.filePattern());
-        out().printf("  Data:    %s%n", engineConfig.dataDirectory());
+        out().printf("  Data:    %s%n", memoryConfig.persistencePath());
         out().printf("  Model:   %s @ %s%n", embedConfig.model(), embedConfig.baseUrl());
         out().printf("  Chunk:   %d chars%n", ingestionConfig.chunkSize());
         out().printf("  Threads: %d parallel, %d retries (delay: %dms)%n",
@@ -148,21 +148,22 @@ class IngestCommand extends BaseCommand {
                 ingestionConfig.retryDelayMs());
         out().printf("========================================%n%n");
 
-        //  Create embedder + probe dims 
-        var config = com.spectrayan.spector.provider.ProviderConfig.local("ollama", "ollama", embedConfig.model(), embedConfig.baseUrl());
+        // ── Create embedder + probe dims ──
+        var config = new com.spectrayan.spector.provider.ProviderConfig(
+                "ollama", embedConfig.type(), embedConfig.model(), embedConfig.apiKey(), embedConfig.baseUrl(), embedConfig.dimensions(), embedConfig.properties());
         var registry = com.spectrayan.spector.provider.ProviderDiscovery.discover(java.util.List.of(config));
         EmbeddingProvider embedder = registry.activeEmbedding().orElseThrow();
         int dims = embedder.embed("probe").dimensions();
         out().printf("[Embedding] Dimensions: %d%n%n", dims);
 
-        propsBuilder.override("spector.engine.dimensions", String.valueOf(dims));
         propsBuilder.override("spector.memory.dimensions", String.valueOf(dims));
+        propsBuilder.override("spector.provider.embedding.dimensions", String.valueOf(dims));
         props = propsBuilder.build();
 
-        //  Create text generation provider for LLM tag extraction (if configured) 
+        // ── Create text generation provider for LLM tag extraction (if configured) ──
         LlmProvider textGenProvider = null;
-        var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
-        if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
+        memoryConfig = SpectorConfigFactory.memoryProperties(props);
+        if (memoryConfig.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
             String tagModel = memoryConfig.tagExtractorModel();
             if (tagModel == null || tagModel.isBlank()) {
                 tagModel = "qwen3:1.7b";

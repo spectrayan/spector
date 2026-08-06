@@ -17,7 +17,7 @@ package com.spectrayan.spector.index.spectrum;
 
 import com.spectrayan.spector.core.cluster.KMeans;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
 
@@ -150,7 +150,7 @@ public final class SpectorIndex implements VectorIndex {
         private int oversamplingFactor = 3;
         private int kMeansIterations = 25;
         private SimilarityFunction similarityFunction = SimilarityFunction.COSINE;
-        private HnswParams hnswParams = HnswParams.DEFAULT;
+        private HnswProperties hnswProperties = HnswProperties.DEFAULT;
 
         private Builder() {}
 
@@ -161,7 +161,8 @@ public final class SpectorIndex implements VectorIndex {
         public Builder oversamplingFactor(int f)                  { this.oversamplingFactor = f; return this; }
         public Builder kMeansIterations(int i)                    { this.kMeansIterations = i; return this; }
         public Builder similarityFunction(SimilarityFunction fn)  { this.similarityFunction = fn; return this; }
-        public Builder hnswParams(HnswParams p)                   { this.hnswParams = p; return this; }
+        public Builder hnswProperties(HnswProperties p)          { this.hnswProperties = p; return this; }
+        public Builder hnswParams(HnswProperties p)              { this.hnswProperties = p; return this; }
         public Builder config(SpectorIndexConfig c) {
             this.nCentroids = c.nCentroids();
             this.nProbe = c.nProbe();
@@ -169,7 +170,7 @@ public final class SpectorIndex implements VectorIndex {
             this.oversamplingFactor = c.oversamplingFactor();
             this.kMeansIterations = c.kMeansIterations();
             this.similarityFunction = c.similarityFunction();
-            this.hnswParams = c.hnswParams();
+            this.hnswProperties = c.hnswProperties();
             return this;
         }
 
@@ -177,7 +178,7 @@ public final class SpectorIndex implements VectorIndex {
             if (dimensions <= 0) throw new SpectorValidationException(ErrorCode.DIMENSIONS_INVALID, 0);
             SpectorIndexConfig cfg = new SpectorIndexConfig(
                     nCentroids, nProbe, shardThreshold, oversamplingFactor,
-                    kMeansIterations, similarityFunction, hnswParams);
+                    kMeansIterations, similarityFunction, hnswProperties);
             return new SpectorIndex(dimensions, cfg);
         }
     }

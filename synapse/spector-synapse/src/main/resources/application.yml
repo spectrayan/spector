@@ -74,10 +74,12 @@ spector:
     decay:
       min-threshold: ${SPECTOR_DECAY_MIN_THRESHOLD:1000}
       baseline-half-life-days: ${SPECTOR_DECAY_HALF_LIFE_DAYS:180}
-  embedding:
-    model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
-    base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
-    batch-size: 32
+  provider:
+    embedding:
+      type: ollama
+      model: ${SPECTOR_OLLAMA_EMBED_MODEL:nomic-embed-text}
+      base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
+      batch-size: 32
   ollama:
     base-url: ${SPECTOR_OLLAMA_BASE_URL:http://localhost:11434}
     model: ${SPECTOR_OLLAMA_MODEL:llama3.2}

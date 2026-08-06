@@ -19,7 +19,6 @@ package com.spectrayan.spector.config;
  * Global operating mode for a Spector instance.
  *
  * <ul>
- *   <li>{@link #SEARCH} — traditional vector search engine (default)</li>
  *   <li>{@link #MEMORY} — cognitive memory mode with biological mechanisms
  *       (auto-enables memory, routes ingestion/search through memory pipeline)</li>
  * </ul>
@@ -30,11 +29,6 @@ public enum SpectorMode {
 
     /** Cognitive memory mode with decay, consolidation, and importance scoring. */
     MEMORY;
-
-    /** Returns true if the engine subsystem should be initialized. */
-    public boolean engineEnabled() {
-        return false;
-    }
 
     /** Returns true if the memory subsystem should be initialized. */
     public boolean memoryEnabled() {

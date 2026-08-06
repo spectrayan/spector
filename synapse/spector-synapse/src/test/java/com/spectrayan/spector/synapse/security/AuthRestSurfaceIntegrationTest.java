@@ -64,10 +64,10 @@ import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.JwtDecoderConfig;
 import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.DefaultAdminProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.JwtProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.Pbkdf2Properties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.DefaultAdminProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.Pbkdf2Properties;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyRequest;
 import com.spectrayan.spector.synapse.security.AuthDto.CreateApiKeyResponse;
@@ -637,7 +637,7 @@ class AuthRestSurfaceIntegrationTest {
                     null,
                     java.util.List.of("/actuator/health", "/api/docs",
                             "/api/v1/auth/login", "/api/v1/auth/refresh"));
-            return new SynapseProperties(0, null, "./target/spector-authrest-test", null, null, null, auth);
+            return new SynapseProperties(0, null, "./target/spector-authrest-test", null, null, auth);
         }
 
         @Bean

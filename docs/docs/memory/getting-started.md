@@ -186,14 +186,16 @@ Add cognitive memory to your AI agent via the built-in MCP server. Enable memory
 
 ```yaml
 spector:
-  engine:
-    dimensions: 4096
-  embedding:
-    model: qwen3-embedding
-    base-url: http://localhost:11434
+  mode: memory
   memory:
     enabled: true
+    persistence-mode: DISK
     persistence-path: .spector/memory
+    dimensions: 768
+  provider:
+    embedding:
+      model: qwen3-embedding
+      base-url: http://localhost:11434
 ```
 
 Then configure your agent:

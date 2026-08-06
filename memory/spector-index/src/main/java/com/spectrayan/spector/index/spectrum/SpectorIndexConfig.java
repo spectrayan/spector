@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index.spectrum;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
@@ -44,7 +44,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * @param oversamplingFactor HNSW oversampling for SVASQ re-ranking (default: 3)
  * @param kMeansIterations   K-Means++ iterations for centroid training (default: 25)
  * @param similarityFunction distance metric to use throughout
- * @param hnswParams         HNSW construction/search params for promoted shards
+ * @param HnswProperties         HNSW construction/search params for promoted shards
  */
 public record SpectorIndexConfig(
         int nCentroids,
@@ -53,7 +53,7 @@ public record SpectorIndexConfig(
         int oversamplingFactor,
         int kMeansIterations,
         SimilarityFunction similarityFunction,
-        HnswParams hnswParams
+        HnswProperties hnswProperties
 ) {
 
     /**
@@ -63,7 +63,7 @@ public record SpectorIndexConfig(
     public static final SpectorIndexConfig DEFAULT = new SpectorIndexConfig(
             256, 16, 20_000, 3, 25,
             SimilarityFunction.COSINE,
-            HnswParams.DEFAULT
+            HnswProperties.DEFAULT
     );
 
     public SpectorIndexConfig {
@@ -79,25 +79,25 @@ public record SpectorIndexConfig(
             throw new SpectorValidationException(ErrorCode.ARGUMENT_OUT_OF_RANGE, "kMeansIterations", 1, Integer.MAX_VALUE, kMeansIterations);
         if (similarityFunction == null)
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "similarityFunction");
-        if (hnswParams == null)
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "hnswParams");
+        if (hnswProperties == null)
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "hnswProperties");
     }
 
     /** Returns a copy with a different {@code nProbe}. */
     public SpectorIndexConfig withNProbe(int newNProbe) {
         return new SpectorIndexConfig(nCentroids, newNProbe, shardThreshold, oversamplingFactor,
-                kMeansIterations, similarityFunction, hnswParams);
+                kMeansIterations, similarityFunction, hnswProperties);
     }
 
     /** Returns a copy with a different {@code shardThreshold}. */
     public SpectorIndexConfig withShardThreshold(int newThreshold) {
         return new SpectorIndexConfig(nCentroids, nProbe, newThreshold, oversamplingFactor,
-                kMeansIterations, similarityFunction, hnswParams);
+                kMeansIterations, similarityFunction, hnswProperties);
     }
 
     /** Returns a copy with a different {@code oversamplingFactor}. */
     public SpectorIndexConfig withOversamplingFactor(int newFactor) {
         return new SpectorIndexConfig(nCentroids, nProbe, shardThreshold, newFactor,
-                kMeansIterations, similarityFunction, hnswParams);
+                kMeansIterations, similarityFunction, hnswProperties);
     }
 }

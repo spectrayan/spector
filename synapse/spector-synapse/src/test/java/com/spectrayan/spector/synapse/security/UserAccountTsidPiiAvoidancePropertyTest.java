@@ -28,10 +28,10 @@ import com.nimbusds.jwt.SignedJWT;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.JwtProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.LockoutProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.Pbkdf2Properties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.LockoutProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.Pbkdf2Properties;
 import com.spectrayan.spector.synapse.security.ServerAccessTokenMinter.MintedAccessToken;
 
 import net.jqwik.api.Arbitraries;
@@ -191,7 +191,7 @@ class UserAccountTsidPiiAvoidancePropertyTest {
                 new Pbkdf2Properties(1),
                 new LockoutProperties(5, 15),
                 null);
-        SynapseProperties props = new SynapseProperties(0, null, null, null, null, null, auth);
+        SynapseProperties props = new SynapseProperties(0, null, null, null, null, auth);
 
         Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder(
                 "", 16, 1, Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256);

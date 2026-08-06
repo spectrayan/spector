@@ -429,11 +429,11 @@ public final class DatasetLoader {
         }
 
         // Parse optional textSearchMode (null = harness default HYBRID)
-        com.spectrayan.spector.memory.model.TextSearchMode textSearchMode = null;
+        com.spectrayan.spector.config.model.TextSearchMode textSearchMode = null;
         JsonNode textSearchModeNode = node.get("textSearchMode");
         if (textSearchModeNode != null && !textSearchModeNode.isNull()) {
             try {
-                textSearchMode = com.spectrayan.spector.memory.model.TextSearchMode.valueOf(
+                textSearchMode = com.spectrayan.spector.config.model.TextSearchMode.valueOf(
                         textSearchModeNode.asText());
             } catch (IllegalArgumentException e) {
                 log.warn("Query line {} in {}: unknown textSearchMode '{}', using default HYBRID",

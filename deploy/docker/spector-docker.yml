@@ -11,32 +11,20 @@
 # ═══════════════════════════════════════════════════════════════════
 
 spector:
-  mode: memory
+  mode: MEMORY
 
   provider:
     embedding:
       type: ollama
       model: ${SPECTOR_OLLAMA_EMBED_MODEL:qwen3-embedding:0.6b}
       base-url: ${SPECTOR_OLLAMA_BASE_URL:http://host.docker.internal:11434}
+      dimensions: 1024
+      timeout: 120s
+      batch-size: 32
     generation:
       type: ollama
       model: ${SPECTOR_OLLAMA_MODEL:qwen3.5:latest}
       base-url: ${SPECTOR_OLLAMA_BASE_URL:http://host.docker.internal:11434}
-
-  engine:
-    dimensions: 1024
-    capacity: 100
-    similarity: COSINE
-    index-type: HNSW
-    persistence-mode: DISK
-    data-directory: /data/index
-
-  # Legacy fallback configuration
-  embedding:
-    model: qwen3-embedding:0.6b
-    base-url: http://host.docker.internal:11434
-    timeout: 120s
-    batch-size: 32
 
   memory:
     enabled: true
@@ -44,6 +32,7 @@ spector:
     persistence-path: /data/memory
     dimensions: 1024
     capacity: 10000
+    nodes-per-partition: 10000
     decay-enabled: true
     consolidation-interval: 120s
     default-ingestion-tier: SEMANTIC

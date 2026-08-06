@@ -104,14 +104,14 @@ class SpectorAutoConfigurationTest {
     }
     @Test
     public void shouldCreateOllamaEmbeddingModelProvider(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=Ollama")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=Ollama")
                 .run(context -> {
                     assertThat(context).hasBean("ollamaEmbeddingProvider");
                 });
     }
     @Test
     void shouldNotCreateOllamaEmbeddingProviderWithFalsePropertiesValues(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=Gpt")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=Gpt")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean("ollamaEmbeddingProvider");
                 });
@@ -124,14 +124,14 @@ class SpectorAutoConfigurationTest {
     }
     @Test
     public void shouldCreateOpenAIEmbeddingModelProvider(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=OpenAi","spector.embedding.model=Gpt4.5","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=OpenAi","spector.provider.embedding.model=Gpt4.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).hasBean("openAiEmbeddingProvider");
                 });
     }
     @Test
     void shouldNotCreateOpenAIEmbeddingProviderWithFalsePropertiesValues(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=Mistral","spector.embedding.model=Gpt4.5","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=Mistral","spector.provider.embedding.model=Gpt4.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean("openAIEmbeddingProvider");
                 });
@@ -144,14 +144,14 @@ class SpectorAutoConfigurationTest {
     }
     @Test
     public void shouldCreateMistralEmbeddingModelProvider(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=Mistral","spector.embedding.model=Mistral Small 4","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=Mistral","spector.provider.embedding.model=Mistral Small 4","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).hasBean("mistralEmbeddingProvider");
                 });
     }
     @Test
     void shouldNotCreateAnthropicEmbeddingProviderWithFalsePropertiesValues(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=As","spector.embedding.model=Claude","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=As","spector.provider.embedding.model=Claude","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean("mistralEmbeddingProvider");
                 });
@@ -165,7 +165,7 @@ class SpectorAutoConfigurationTest {
 
     @Test
     void shouldNotCreateMistralEmbeddingProviderWithFalsePropertiesValues(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=Mis","spector.embedding.model=Gpt4.5","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=Mis","spector.provider.embedding.model=Gpt4.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean("mistralEmbeddingProvider");
                 });
@@ -178,14 +178,14 @@ class SpectorAutoConfigurationTest {
     }
     @Test
     public void shouldCreateAzureOpenAiEmbeddingModelProvider(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=AzureOpenAi","spector.embedding.model=gpt-4o","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=AzureOpenAi","spector.provider.embedding.model=gpt-4o","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).hasBean("azureOpenAiEmbeddingProvider");
                 });
     }
     @Test
     void shouldNotCreateAzureOpenAiEmbeddingProviderWithFalsePropertiesValues(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=As","spector.embedding.model=Claude","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=As","spector.provider.embedding.model=Claude","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean("azureOpenAiEmbeddingProvider");
                 });
@@ -228,7 +228,7 @@ class SpectorAutoConfigurationTest {
 
     @Test
     void shouldNotCreateBedrockEmbeddingProviderWithFalsePropertiesValues(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=bdrok","spector.embedding.model=Gpt4.5","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=bdrok","spector.provider.embedding.model=Gpt4.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean("bedrockEmbeddingProvider");
                 });
@@ -241,14 +241,14 @@ class SpectorAutoConfigurationTest {
     }
     @Test
     public void shouldCreateGoogleEmbeddingModelProvider(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=Google","spector.embedding.model=Gemini 3.5","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=Google","spector.provider.embedding.model=Gemini 3.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).hasBean("googleEmbeddingProvider");
                 });
     }
     @Test
     void shouldNotCreateGoogleEmbeddingProviderWithFalsePropertiesValues(){
-        contextRunner.withPropertyValues("spector.embedding.provider-name=bdrok","spector.embedding.model=Gpt4.5","spector.embedding.type=LLM","spector.embedding.api_key=qdsf")
+        contextRunner.withPropertyValues("spector.provider.embedding.type=bdrok","spector.provider.embedding.model=Gpt4.5","spector.provider.embedding.api-key=qdsf")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean("googleEmbeddingProvider");
                 });

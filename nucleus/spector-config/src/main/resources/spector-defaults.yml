@@ -5,8 +5,8 @@
 # This file is bundled inside the JAR and provides sensible defaults.
 # Override any value by placing a 'spector.yml' in the working directory,
 # using a profile file (spector-{profile}.yml), system properties
-# (-Dspector.engine.dimensions=768), or environment variables
-# (SPECTOR_ENGINE_DIMENSIONS=768).
+# (-Dspector.memory.dimensions=768), or environment variables
+# (SPECTOR_MEMORY_DIMENSIONS=768).
 #
 # Resolution order (highest priority wins):
 #   1. Programmatic overrides
@@ -19,20 +19,8 @@
 
 spector:
 
-  # ─── Global Mode (SEARCH, MEMORY, or HYBRID) ───
+  # ─── Global Mode (MEMORY) ───
   mode: MEMORY
-
-  # ─── Engine (core search engine) ───
-  engine:
-    dimensions: 384
-    capacity: 100000
-    similarity: COSINE
-    index-type: HNSW
-    quantization: NONE
-    persistence-mode: IN_MEMORY
-    data-directory: .spector/index
-    oversampling-factor: 0
-    gpu-enabled: false
 
   # ─── HNSW Index Parameters ───
   hnsw:
@@ -61,45 +49,21 @@ spector:
       model: nomic-embed-text
       base-url: http://localhost:11434
       api-key: ""
-      dimensions: 0
+      dimensions: 768
+      timeout: 30s
+      batch-size: 32
+      max-retries: 3
+      max-concurrent: 0
+      cache:
+        enabled: true
+        max-size: 1000
+        ttl: 60m
+        stats-log-interval: 5m
     generation:
       type: ollama
       model: ""
       base-url: http://localhost:11434
       api-key: ""
-
-  # ─── Embedding Provider (Legacy) ───
-  embedding:
-    model: nomic-embed-text
-    base-url: http://localhost:11434
-    timeout: 30s
-    batch-size: 32
-    max-retries: 3
-    # Maximum concurrent embedding HTTP calls (0 = unlimited).
-    # Set to a low value (e.g. 2) for local Ollama to prevent timeouts.
-    max-concurrent: 0
-    # LRU cache for embedding results — avoids redundant provider calls
-    # when the same text is embedded repeatedly.
-    cache:
-      enabled: true
-      # Maximum number of cached embeddings (LRU eviction beyond this)
-      max-size: 1000
-      # Time-to-live for cached entries (0 = no expiry)
-      ttl: 60m
-      # How often cache statistics are logged at INFO level (0 = never)
-      stats-log-interval: 5m
-
-  # ─── Text Chunking ───
-  chunking:
-    max-tokens: 512
-    overlap-tokens: 50
-
-  # ─── Reranker ───
-  reranker:
-    enabled: false
-    ollama-url: http://localhost:11434
-    model: llama3.2
-    max-candidates: 20
 
   # ─── Persistence File Names ───
   persistence:
@@ -109,12 +73,6 @@ spector:
       documents: documents.dat
       id-mappings: id-mappings.dat
 
-  # ─── RAG (Retrieval-Augmented Generation) ───
-  rag:
-    top-k: 5
-    similarity-threshold: 0.7
-    token-limit: 4096
-
   # ─── Cognitive Memory Module ───
   memory:
     enabled: true
@@ -122,25 +80,16 @@ spector:
     persistence-path: .spector/memory
     dimensions: 384
     capacity: 100000
+    nodes-per-partition: 10000
     decay-enabled: true
     consolidation-interval: 60s
-    # Cognitive profile configuration (operational feature flags).
-    # Controls which profiles are available at runtime.
-    # Valid values: ALL, CORE_ONLY, WITH_NEURODIVERGENT, or a comma-separated
-    # list of profile names (e.g., "BALANCED,DEBUGGING,HYPERFOCUS").
-    # Default: ALL — BSL license governs commercial use, not this config.
-    cognitive-profiles: ALL
-    # Tag extraction mode: content (keyword-based, default), llm (Ollama semantic), none (disabled)
+    default-ingestion-tier: SEMANTIC
+    hnsw-prefilter: auto
     tag-extractor: content
-    # Ollama model for LLM tag extraction (only used when tag-extractor=llm)
     tag-extractor-model: ""
-    # Text search mode (FULL_STACK, HYBRID, VECTOR_ONLY, BM25_ONLY, SPLADE_ONLY, SPLADE_VECTOR, COLBERT)
     text-search-mode: HYBRID
-    # Enable SPLADE learned sparse retrieval
     splade-enabled: true
-    # Enable ColBERT token-level reranking
     colbert-enabled: true
-    # Enable BM25 keyword search
     bm25-enabled: true
 
   # ─── File Ingestion ───
@@ -148,11 +97,5 @@ spector:
     root-directory: .
     file-pattern: "**/*.md"
     skip-dirs: ".git,.idea,.mvn,target,node_modules,.github"
-    chunk-size: 800
-    chunk-overlap: 100
-
-  # ─── Cluster ───
-  cluster:
-    shard-count: 1
-    replica-count: 0
-    shard-strategy: HASH
+    chunk-size: 2500
+    chunk-overlap: 200

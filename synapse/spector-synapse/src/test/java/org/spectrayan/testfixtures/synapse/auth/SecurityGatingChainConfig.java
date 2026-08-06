@@ -25,7 +25,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.synapse.security.ApiKeyAuthenticationFilter;
 import com.spectrayan.spector.synapse.security.ApiKeyStore;
 
@@ -46,7 +46,7 @@ public abstract class SecurityGatingChainConfig {
     @Bean
     SynapseProperties synapseProperties() {
         AuthProperties auth = new AuthProperties(authEnabled(), null, null, null, null, null, null, null);
-        return new SynapseProperties(7070, "shared-key", "./spector-data", null, null, null, auth);
+        return new SynapseProperties(7070, "shared-key", "./spector-data", null, null, auth);
     }
 
     @Bean

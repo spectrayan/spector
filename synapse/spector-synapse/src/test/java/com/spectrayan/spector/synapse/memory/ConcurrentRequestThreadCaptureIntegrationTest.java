@@ -220,12 +220,9 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         ObjectProvider<LlmProvider> textGenProvider = mockProvider();
         ObjectProvider<SalienceProfileProvider> salienceProvider = mockProvider();
 
-        SpectorConfigProperties cfg = new SpectorConfigProperties();
-        cfg.getMemory().setPersistencePath(tempDir.toString());
         return new UserMemoryRegistry(
                 sharedProvider,
                 synapseProps(authEnabled),
-                cfg,
                 embedderProvider,
                 textGenProvider,
                 salienceProvider,
@@ -233,9 +230,9 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
     }
 
     private SynapseProperties synapseProps(boolean authEnabled) {
-        var auth = new SynapseProperties.AuthProperties(
+        var auth = new com.spectrayan.spector.config.properties.AuthProperties(
                 authEnabled, null, null, null, null, null, null, null);
-        return new SynapseProperties(0, null, tempDir.toString(), null, null, null, auth);
+        return new SynapseProperties(0, null, tempDir.toString(), null, null, auth);
     }
 
     private static Authentication authenticated(String principal, String... authorities) {

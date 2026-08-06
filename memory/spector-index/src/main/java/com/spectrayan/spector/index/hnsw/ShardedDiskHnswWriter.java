@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.index;
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.core.quantization.QuantizationType;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.storage.IndexFileFormat;
@@ -98,7 +98,7 @@ public final class ShardedDiskHnswWriter {
 
         int dimensions = index.dimensions();
         SimilarityFunction simFunc = index.similarityFunction();
-        HnswParams params = index.params();
+        HnswProperties params = index.params();
 
         int shardCount = (totalNodes + nodesPerShard - 1) / nodesPerShard;
         int graphBlockSize = IndexFileFormat.computeGraphBlockSize(
@@ -158,7 +158,7 @@ public final class ShardedDiskHnswWriter {
      */
     private static long writeShard(AbstractHnswIndex index, Path shardPath,
             int startNode, int endNode,
-            int dimensions, HnswParams params,
+            int dimensions, HnswProperties params,
             int graphBlockSize, SimilarityFunction simFunc)
             throws IOException {
 

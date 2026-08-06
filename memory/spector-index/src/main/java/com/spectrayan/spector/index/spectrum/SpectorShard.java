@@ -15,7 +15,7 @@
  */
 package com.spectrayan.spector.index.spectrum;
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.QuantizedHnswIndex;
 import com.spectrayan.spector.core.quantization.strategy.SvasqStrategy;
 import com.spectrayan.spector.core.quantization.svasq.SvasqCalibrator;
@@ -32,7 +32,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import com.spectrayan.spector.config.SpectorConfig;
 import com.spectrayan.spector.index.ShardedDiskHnswIndex;
 import com.spectrayan.spector.index.ShardedDiskHnswWriter;
 
@@ -456,7 +455,7 @@ final class SpectorShard {
                 dimensions,
                 capacity,
                 SimilarityFunction.EUCLIDEAN,
-                config.hnswParams(),
+                config.hnswProperties(),
                 svasqStrategy,
                 config.oversamplingFactor());
 
@@ -516,7 +515,7 @@ final class SpectorShard {
             }
             if (promoted) {
                 Path shardHnswDir = shardsDir.resolve("shard_" + shardIndex + "_hnsw");
-                int nodesPerShard = SpectorConfig.DEFAULT_NODES_PER_SHARD;
+                int nodesPerShard = 50_000;
                 ShardedDiskHnswWriter.write(hnswIndex, shardHnswDir, nodesPerShard);
             }
         } finally {
@@ -611,7 +610,7 @@ final class SpectorShard {
                         dimensions,
                         capacity,
                         SimilarityFunction.EUCLIDEAN,
-                        config.hnswParams(),
+                        config.hnswProperties(),
                         svasqStrategy,
                         config.oversamplingFactor());
 

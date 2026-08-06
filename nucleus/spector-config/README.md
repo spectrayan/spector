@@ -50,16 +50,16 @@ Full YAML-mapped properties for all Spector subsystems:
 
 ```yaml
 spector:
-  mode: search
-  engine:
-    dimensions: 768
-    similarity: COSINE
-    capacity: 100000
+  mode: memory
+  memory:
+    enabled: true
     persistence-mode: DISK
-    data-directory: .spector/index
-  embedding:
-    model: nomic-embed-text
-    base-url: http://localhost:11434
+    persistence-path: .spector/memory
+    dimensions: 768
+  provider:
+    embedding:
+      model: nomic-embed-text
+      base-url: http://localhost:11434
   memory:
     enabled: true
     persistence-mode: DISK

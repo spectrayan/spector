@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.core.quantization.QuantizationType;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import org.junit.jupiter.api.Test;
@@ -46,7 +46,7 @@ class SvasqHnswIndexTest {
     @Test
     void svasq_factory_creates_correct_type() {
         var index = QuantizedHnswIndex.svasq(64, 100, SimilarityFunction.COSINE,
-                HnswParams.DEFAULT, 1);
+                HnswProperties.DEFAULT, 1);
         assertEquals(QuantizationType.SVASQ, index.quantizationType());
         assertFalse(index.isCalibrated(), "Should not be calibrated before any insertions");
     }
@@ -54,7 +54,7 @@ class SvasqHnswIndexTest {
     @Test
     void svasq_emptyIndex_returnsEmpty() {
         var index = QuantizedHnswIndex.svasq(32, 100, SimilarityFunction.EUCLIDEAN,
-                HnswParams.DEFAULT, 1);
+                HnswProperties.DEFAULT, 1);
         ScoredResult[] results = index.search(new float[32], 5);
         assertEquals(0, results.length);
     }
@@ -63,7 +63,7 @@ class SvasqHnswIndexTest {
     void svasq_autoCalibrates_after_threshold() {
         int dims = 32;
         var index = QuantizedHnswIndex.svasq(dims, 1000, SimilarityFunction.COSINE,
-                HnswParams.DEFAULT, 1);
+                HnswProperties.DEFAULT, 1);
 
         assertFalse(index.isCalibrated());
 
@@ -81,7 +81,7 @@ class SvasqHnswIndexTest {
         // Set capacity == numDocs so calibrationBuffer fills exactly when all docs are inserted
         int numDocs = 150;
         var index = QuantizedHnswIndex.svasq(dims, numDocs, SimilarityFunction.COSINE,
-                HnswParams.DEFAULT, 1);
+                HnswProperties.DEFAULT, 1);
 
         Random rng = new Random(1L);
         for (int i = 0; i < numDocs; i++) {
@@ -145,7 +145,7 @@ class SvasqHnswIndexTest {
     void svasq_noDuplicates_inResults() {
         int dims = 64;
         var index = QuantizedHnswIndex.svasq(dims, 200, SimilarityFunction.COSINE,
-                HnswParams.DEFAULT, 3);
+                HnswProperties.DEFAULT, 3);
 
         Random rng = new Random(2L);
         for (int i = 0; i < 100; i++) {
@@ -165,7 +165,7 @@ class SvasqHnswIndexTest {
 
     private double measureRecall(SimilarityFunction fn, int oversample) {
         Random rng = new Random(42L);
-        HnswParams params = new HnswParams(16, 128, 64);
+        HnswProperties params = new HnswProperties(16, 128, 64);
 
         // SVASQ index
         var svasqIndex = QuantizedHnswIndex.svasq(DIMS, NUM_DOCS + 10, fn, params, oversample);

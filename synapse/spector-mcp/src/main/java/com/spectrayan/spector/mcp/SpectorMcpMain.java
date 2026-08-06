@@ -34,8 +34,8 @@ import com.spectrayan.spector.runtime.SpectorRuntime;
  * <h3>Configuration Hierarchy (highest priority wins)</h3>
  * <ol>
  *   <li>CLI arguments ({@code --dims 768})</li>
- *   <li>System properties ({@code -Dspector.engine.dimensions=768})</li>
- *   <li>Environment variables ({@code SPECTOR_ENGINE_DIMENSIONS=768})</li>
+ *   <li>System properties ({@code -Dspector.memory.dimensions=768})</li>
+ *   <li>Environment variables ({@code SPECTOR_MEMORY_DIMENSIONS=768})</li>
  *   <li>Profile config file ({@code spector-{profile}.yml})</li>
  *   <li>User config file ({@code spector.yml} in working directory)</li>
  *   <li>{@code --config /path/to/config.yml} (explicit file)</li>
@@ -82,21 +82,32 @@ public class SpectorMcpMain {
 
         // CLI args as overrides (highest priority after system props / env vars)
         String cliDims = getStringArg(args, "--dims", null);
-        if (cliDims != null) propsBuilder.override("spector.engine.dimensions", cliDims);
+        if (cliDims != null) {
+            propsBuilder.override("spector.memory.dimensions", cliDims);
+            propsBuilder.override("spector.provider.embedding.dimensions", cliDims);
+        }
 
         String cliCapacity = getStringArg(args, "--capacity", null);
-        if (cliCapacity != null) propsBuilder.override("spector.engine.capacity", cliCapacity);
+        if (cliCapacity != null) {
+            propsBuilder.override("spector.memory.capacity", cliCapacity);
+        }
 
         String cliOllamaUrl = getStringArg(args, "--ollama-url", null);
-        if (cliOllamaUrl != null) propsBuilder.override("spector.embedding.base-url", cliOllamaUrl);
+        if (cliOllamaUrl != null) {
+            propsBuilder.override("spector.provider.embedding.base-url", cliOllamaUrl);
+            propsBuilder.override("spector.embedding.base-url", cliOllamaUrl);
+        }
 
         String cliOllamaModel = getStringArg(args, "--ollama-model", null);
-        if (cliOllamaModel != null) propsBuilder.override("spector.embedding.model", cliOllamaModel);
+        if (cliOllamaModel != null) {
+            propsBuilder.override("spector.provider.embedding.model", cliOllamaModel);
+            propsBuilder.override("spector.embedding.model", cliOllamaModel);
+        }
 
         String cliDataDir = getStringArg(args, "--data-dir", null);
         if (cliDataDir != null) {
-            propsBuilder.override("spector.engine.data-directory", cliDataDir);
-            propsBuilder.override("spector.engine.persistence-mode", "DISK");
+            propsBuilder.override("spector.memory.persistence-path", cliDataDir);
+            propsBuilder.override("spector.memory.persistence-mode", "DISK");
         }
 
         // Namespace isolation (multi-tenant memory spaces)
@@ -111,14 +122,11 @@ public class SpectorMcpMain {
         if ("openclaw".equalsIgnoreCase(mode)) {
             propsBuilder.override("spector.mode", "memory");
             propsBuilder.override("spector.memory.enabled", "true");
-            propsBuilder.override("spector.engine.persistence-mode", "DISK");
             propsBuilder.override("spector.memory.persistence-mode", "DISK");
             // Default data directory if not explicitly set
             if (cliDataDir == null && getStringArg(args, "--config", null) == null) {
                 String openclawDataDir = System.getProperty("user.home")
                         + "/.openclaw/spector/data";
-                propsBuilder.override("spector.engine.data-directory",
-                        openclawDataDir + "/index");
                 propsBuilder.override("spector.memory.persistence-path",
                         openclawDataDir + "/memory");
             }
@@ -129,14 +137,11 @@ public class SpectorMcpMain {
         if ("odysseus".equalsIgnoreCase(mode)) {
             propsBuilder.override("spector.mode", "memory");
             propsBuilder.override("spector.memory.enabled", "true");
-            propsBuilder.override("spector.engine.persistence-mode", "DISK");
             propsBuilder.override("spector.memory.persistence-mode", "DISK");
             // Default data directory if not explicitly set
             if (cliDataDir == null && getStringArg(args, "--config", null) == null) {
                 String odysseusDataDir = System.getProperty("user.home")
                         + "/.odysseus/spector/data";
-                propsBuilder.override("spector.engine.data-directory",
-                        odysseusDataDir + "/index");
                 propsBuilder.override("spector.memory.persistence-path",
                         odysseusDataDir + "/memory");
             }
@@ -158,7 +163,7 @@ public class SpectorMcpMain {
         //  Create text generation provider for LLM tag extraction (if configured) 
         LlmProvider textGenProvider = null;
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
-        if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
+        if (memoryConfig.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
             String tagModel = memoryConfig.tagExtractorModel();
             if (tagModel == null || tagModel.isBlank()) {
                 tagModel = "qwen3:1.7b";
@@ -239,8 +244,8 @@ public class SpectorMcpMain {
                 
                 Config Hierarchy (highest priority wins):
                   1. CLI arguments (--dims, --capacity, etc.)
-                  2. System properties (-Dspector.engine.dimensions=768)
-                  3. Environment variables (SPECTOR_ENGINE_DIMENSIONS=768)
+                  2. System properties (-Dspector.memory.dimensions=768)
+                  3. Environment variables (SPECTOR_MEMORY_DIMENSIONS=768)
                   4. spector-{profile}.yml (profile-specific)
                   5. spector.yml (working directory)
                   6. spector-defaults.yml (bundled in JAR)

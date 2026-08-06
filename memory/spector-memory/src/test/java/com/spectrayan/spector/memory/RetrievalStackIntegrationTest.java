@@ -23,7 +23,7 @@ import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index.BM25Candidate;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex.SpladeCandidate;
-import com.spectrayan.spector.memory.model.TextSearchMode;
+import com.spectrayan.spector.config.model.TextSearchMode;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

@@ -17,7 +17,7 @@ package com.spectrayan.spector.index.spectrum;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ScoredResult;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -142,7 +142,7 @@ class SemanticMarkdownSearchTest {
                 .shardThreshold(500)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .hnswParams(HnswParams.DEFAULT)
+                .hnswProperties(HnswProperties.DEFAULT)
                 .build();
 
         index.train(trainVecs);

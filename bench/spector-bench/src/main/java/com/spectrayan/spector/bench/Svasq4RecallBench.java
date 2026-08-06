@@ -17,7 +17,7 @@ package com.spectrayan.spector.bench;
 
 import com.spectrayan.spector.core.quantization.QuantizationType;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.QuantizedHnswIndex;
 import com.spectrayan.spector.index.ScoredResult;
 
@@ -190,14 +190,14 @@ public class Svasq4RecallBench {
                                          int dims, float[][] embeddings,
                                          float[][] queries, int[][] groundTruth) {
         int n = embeddings.length;
-        HnswParams hnswParams = new HnswParams(16, 128, 64);
+        HnswProperties HnswProperties = new HnswProperties(16, 128, 64);
 
         // Build index
         QuantizedHnswIndex index;
         if (qt == QuantizationType.SVASQ) {
-            index = QuantizedHnswIndex.svasq(dims, n, SimilarityFunction.COSINE, hnswParams, oversampling);
+            index = QuantizedHnswIndex.svasq(dims, n, SimilarityFunction.COSINE, HnswProperties, oversampling);
         } else {
-            index = QuantizedHnswIndex.svasq4(dims, n, SimilarityFunction.COSINE, hnswParams, oversampling);
+            index = QuantizedHnswIndex.svasq4(dims, n, SimilarityFunction.COSINE, HnswProperties, oversampling);
         }
 
         // Ingest

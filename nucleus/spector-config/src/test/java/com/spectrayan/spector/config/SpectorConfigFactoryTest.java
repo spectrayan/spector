@@ -17,6 +17,9 @@ package com.spectrayan.spector.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.spectrayan.spector.config.model.*;
+import com.spectrayan.spector.config.properties.*;
+
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -28,40 +31,8 @@ import java.time.Duration;
 class SpectorConfigFactoryTest {
 
     @Test
-    void engineDefaults_fromClasspathDefaults() {
-        SpectorProperties props = SpectorProperties.load();
-        var engine = SpectorConfigFactory.engineDefaults(props);
-
-        assertThat(engine.dimensions()).isEqualTo(384);
-        assertThat(engine.capacity()).isEqualTo(100_000);
-        assertThat(engine.similarity()).isEqualTo("COSINE");
-        assertThat(engine.indexType()).isEqualTo("HNSW");
-        assertThat(engine.quantization()).isEqualTo("NONE");
-        assertThat(engine.persistenceMode()).isEqualTo("IN_MEMORY");
-        assertThat(engine.dataDirectory()).isEqualTo(Path.of(".spector", "index"));
-        assertThat(engine.gpuEnabled()).isFalse();
-        assertThat(engine.oversamplingFactor()).isEqualTo(0);
-    }
-
-    @Test
-    void engineDefaults_withOverrides() {
-        SpectorProperties props = SpectorProperties.builder()
-                .override("spector.engine.dimensions", "1024")
-                .override("spector.engine.capacity", "500000")
-                .override("spector.engine.similarity", "EUCLIDEAN")
-                .override("spector.engine.persistence-mode", "DISK")
-                .build();
-
-        var engine = SpectorConfigFactory.engineDefaults(props);
-        assertThat(engine.dimensions()).isEqualTo(1024);
-        assertThat(engine.capacity()).isEqualTo(500_000);
-        assertThat(engine.similarity()).isEqualTo("EUCLIDEAN");
-        assertThat(engine.persistenceMode()).isEqualTo("DISK");
-    }
-
-    @Test
-    void hnswDefaults_fromClasspath() {
-        var hnsw = SpectorConfigFactory.hnswDefaults(SpectorProperties.load());
+    void hnswProperties_fromClasspath() {
+        var hnsw = SpectorConfigFactory.hnswProperties(SpectorProperties.load());
 
         assertThat(hnsw.m()).isEqualTo(16);
         assertThat(hnsw.efConstruction()).isEqualTo(200);
@@ -69,8 +40,8 @@ class SpectorConfigFactoryTest {
     }
 
     @Test
-    void ivfDefaults_fromClasspath() {
-        var ivf = SpectorConfigFactory.ivfDefaults(SpectorProperties.load());
+    void ivfProperties_fromClasspath() {
+        var ivf = SpectorConfigFactory.ivfProperties(SpectorProperties.load());
 
         assertThat(ivf.nlist()).isEqualTo(0);
         assertThat(ivf.nprobe()).isEqualTo(0);
@@ -78,8 +49,8 @@ class SpectorConfigFactoryTest {
     }
 
     @Test
-    void spectrumDefaults_fromClasspath() {
-        var spectrum = SpectorConfigFactory.spectrumDefaults(SpectorProperties.load());
+    void spectrumProperties_fromClasspath() {
+        var spectrum = SpectorConfigFactory.spectrumProperties(SpectorProperties.load());
 
         assertThat(spectrum.nCentroids()).isEqualTo(256);
         assertThat(spectrum.nProbe()).isEqualTo(16);
@@ -89,77 +60,57 @@ class SpectorConfigFactoryTest {
     }
 
     @Test
-    void embeddingDefaults_fromClasspath() {
-        var embed = SpectorConfigFactory.embeddingDefaults(SpectorProperties.load());
+    void embeddingProperties_fromClasspath() {
+        var embed = SpectorConfigFactory.embeddingProperties(SpectorProperties.load());
 
         assertThat(embed.model()).isEqualTo("nomic-embed-text");
         assertThat(embed.baseUrl()).isEqualTo("http://localhost:11434");
         assertThat(embed.timeout()).isEqualTo(Duration.ofSeconds(30));
         assertThat(embed.batchSize()).isEqualTo(32);
-        assertThat(embed.maxRetries()).isEqualTo(3);
-        assertThat(embed.cacheEnabled()).isTrue();
-        assertThat(embed.cacheMaxSize()).isEqualTo(1000);
-        assertThat(embed.cacheTtl()).isEqualTo(Duration.ofMinutes(60));
-        assertThat(embed.cacheStatsLogInterval()).isEqualTo(Duration.ofMinutes(5));
     }
 
-    @Test
-    void chunkingDefaults_fromClasspath() {
-        var chunking = SpectorConfigFactory.chunkingDefaults(SpectorProperties.load());
-
-        assertThat(chunking.maxTokens()).isEqualTo(512);
-        assertThat(chunking.overlapTokens()).isEqualTo(50);
-    }
 
     @Test
-    void rerankerDefaults_fromClasspath() {
-        var reranker = SpectorConfigFactory.rerankerDefaults(SpectorProperties.load());
-
-        assertThat(reranker.enabled()).isFalse();
-        assertThat(reranker.ollamaUrl()).isEqualTo("http://localhost:11434");
-        assertThat(reranker.model()).isEqualTo("llama3.2");
-        assertThat(reranker.maxCandidates()).isEqualTo(20);
-    }
-
-    @Test
-    void ragDefaults_fromClasspath() {
-        var rag = SpectorConfigFactory.ragDefaults(SpectorProperties.load());
-
-        assertThat(rag.topK()).isEqualTo(5);
-        assertThat(rag.similarityThreshold()).isEqualTo(0.7f);
-        assertThat(rag.tokenLimit()).isEqualTo(4096);
-    }
-
-    @Test
-    void clusterDefaults_fromClasspath() {
-        var cluster = SpectorConfigFactory.clusterDefaults(SpectorProperties.load());
-
-        assertThat(cluster.shardCount()).isEqualTo(1);
-        assertThat(cluster.replicaCount()).isEqualTo(0);
-        assertThat(cluster.shardStrategy()).isEqualTo("HASH");
-    }
-
-    @Test
-    void memoryDefaults_fromClasspath() {
-        var memory = SpectorConfigFactory.memoryDefaults(SpectorProperties.load());
+    void memoryProperties_fromClasspath() {
+        var memory = SpectorConfigFactory.memoryProperties(SpectorProperties.load());
 
         assertThat(memory.enabled()).isFalse();
-        assertThat(memory.persistenceMode()).isEqualTo("DISK");
-        assertThat(memory.persistencePath()).isEqualTo(Path.of(".spector", "memory"));
+        assertThat(memory.persistenceMode()).isEqualTo(PersistenceMode.DISK);
+        assertThat(memory.persistencePath()).isEqualTo(Path.of(".spector", "memory").toString());
         assertThat(memory.dimensions()).isEqualTo(384);
         assertThat(memory.capacity()).isEqualTo(100_000);
-        assertThat(memory.decayEnabled()).isTrue();
-        assertThat(memory.consolidationInterval()).isEqualTo(Duration.ofSeconds(60));
+        assertThat(memory.nodesPerPartition()).isEqualTo(10_000);
+        assertThat(memory.decay().getMinThreshold()).isGreaterThan(0.0);
+        assertThat(memory.consolidation().getInterval()).isEqualTo(Duration.ofSeconds(60).toMillis());
     }
 
     @Test
-    void ingestionDefaults_fromClasspath() {
-        var ingestion = SpectorConfigFactory.ingestionDefaults(SpectorProperties.load());
+    void ingestionProperties_fromClasspath() {
+        var ingestion = SpectorConfigFactory.ingestionProperties(SpectorProperties.load());
 
         assertThat(ingestion.rootDirectory()).isEqualTo(Path.of("."));
         assertThat(ingestion.filePattern()).isEqualTo("**/*.md");
         assertThat(ingestion.skipDirs()).contains(".git");
         assertThat(ingestion.chunkSize()).isEqualTo(800);
         assertThat(ingestion.chunkOverlap()).isEqualTo(100);
+    }
+
+    @Test
+    void memoryProperties_flexibleCaseInsensitiveEnums() {
+        SpectorProperties props = SpectorProperties.builder()
+                .override("spector.memory.persistence-mode", "in-memory")
+                .override("spector.memory.default-ingestion-tier", "semantic")
+                .override("spector.memory.hnsw-prefilter", "Enabled")
+                .override("spector.memory.tag-extractor", "llm")
+                .override("spector.memory.text-search-mode", "full-stack")
+                .build();
+
+        var memory = SpectorConfigFactory.memoryProperties(props);
+
+        assertThat(memory.getPersistenceMode()).isEqualTo(PersistenceMode.IN_MEMORY);
+        assertThat(memory.getDefaultIngestionTier()).isEqualTo(IngestionTierMode.SEMANTIC);
+        assertThat(memory.getHnswPrefilter()).isEqualTo(HnswPrefilterMode.ENABLED);
+        assertThat(memory.getTagExtractor()).isEqualTo(TagExtractorMode.LLM);
+        assertThat(memory.getTextSearchMode()).isEqualTo(TextSearchMode.FULL_STACK);
     }
 }

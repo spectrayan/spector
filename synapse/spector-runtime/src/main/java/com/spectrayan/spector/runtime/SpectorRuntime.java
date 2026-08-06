@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 import com.spectrayan.spector.config.SpectorConfigFactory;
 import com.spectrayan.spector.config.SpectorMode;
 import com.spectrayan.spector.config.SpectorProperties;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;
@@ -123,45 +123,34 @@ public final class SpectorRuntime implements AutoCloseable {
      * @throws IllegalStateException if no embedding provider matches the configured type
      */
     public static SpectorRuntime from(SpectorProperties props) {
-        var providerDefaults = SpectorConfigFactory.providerDefaults(props);
+        var providerProps = SpectorConfigFactory.providerProperties(props);
 
-        // Build embedding provider config and discover via ServiceLoader
+        var emb = providerProps.getEmbedding();
         var embConfig = new ProviderConfig(
-                providerDefaults.embeddingType(),
-                providerDefaults.embeddingType(),
-                providerDefaults.embeddingModel(),
-                providerDefaults.embeddingApiKey(),
-                providerDefaults.embeddingBaseUrl(),
-                providerDefaults.embeddingDimensions(),
-                java.util.Map.of());
+                emb.type(), emb.type(), emb.model(), emb.apiKey(), emb.baseUrl(), emb.dimensions(), emb.properties());
 
         var registry = ProviderDiscovery.discover(java.util.List.of(embConfig));
 
         var embedder = registry.activeEmbedding()
                 .orElseThrow(() -> new IllegalStateException(
-                        "No embedding provider found for type: " + providerDefaults.embeddingType()
+                        "No embedding provider found for type: " + emb.type()
                         + ". Available factories: " + ProviderDiscovery.discoverFactories().keySet()));
 
         log.info("[Runtime] Auto-discovered embedding provider: {} (model={})",
-                providerDefaults.embeddingType(), providerDefaults.embeddingModel());
+                emb.type(), emb.model());
 
-        // Build generation provider config (optional  --  only if model is specified)
+        // Build generation provider config (optional -- only if model is specified)
         LlmProvider textGen = null;
-        if (!providerDefaults.generationModel().isBlank()) {
+        if (providerProps.getGeneration().getModel() != null && !providerProps.getGeneration().getModel().isBlank()) {
+            var gen = providerProps.getGeneration();
             var genConfig = new ProviderConfig(
-                    providerDefaults.generationType() + "-gen",
-                    providerDefaults.generationType(),
-                    providerDefaults.generationModel(),
-                    providerDefaults.generationApiKey(),
-                    providerDefaults.generationBaseUrl(),
-                    0,
-                    java.util.Map.of());
+                    gen.type() + "-gen", gen.type(), gen.model(), gen.apiKey(), gen.baseUrl(), 0, gen.properties());
 
             var genRegistry = ProviderDiscovery.discover(java.util.List.of(genConfig));
             textGen = genRegistry.activeGeneration().orElse(null);
             if (textGen != null) {
                 log.info("[Runtime] Auto-discovered generation provider: {} (model={})",
-                        providerDefaults.generationType(), providerDefaults.generationModel());
+                        gen.type(), gen.model());
             }
         }
 
@@ -199,7 +188,7 @@ public final class SpectorRuntime implements AutoCloseable {
         SpectorMode mode = SpectorConfigFactory.mode(props);
 
         // Wrap the embedder with the LRU cache (no-op when disabled or already wrapped)
-        var embedDefaultsForCache = SpectorConfigFactory.embeddingDefaults(props);
+        var embedDefaultsForCache = SpectorConfigFactory.embeddingProperties(props);
         var embeddingCacheConfig = embedDefaultsForCache.cacheEnabled()
                 ? new EmbeddingCacheConfig(true,
                         embedDefaultsForCache.cacheMaxSize(),
@@ -214,15 +203,15 @@ public final class SpectorRuntime implements AutoCloseable {
             log.info("[Runtime] Embedding cache: disabled");
         }
 
-        //  Read memory config early 
-        var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
+        // ── Read memory config early ──
+        var memoryConfig = SpectorConfigFactory.memoryProperties(props);
         boolean memoryEnabled = memoryConfig.enabled() || mode.memoryEnabled();
 
-        //  Memory (opt-in or auto-enabled) 
+        // ── Memory (opt-in or auto-enabled) ──
         SpectorMemory memory = null;
 
-        //  Shared TextChunker  --  used by both memory.remember() and IngestionPipeline 
-        var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
+        // ── Shared TextChunker  --  used by both memory.remember() and IngestionPipeline ──
+        var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
         var textChunker = new com.spectrayan.spector.commons.chunker.MarkdownChunker();
         var chunkConfig = new com.spectrayan.spector.commons.chunker.ChunkConfig(
                 ingestionConfig.chunkSize(),
@@ -236,23 +225,24 @@ public final class SpectorRuntime implements AutoCloseable {
         log.info("[Runtime] TextChunker: SPI Chunker={}, chunkSize={}, overlap={}",
                 textChunker.name(), ingestionConfig.chunkSize(), ingestionConfig.chunkOverlap());
 
-        //  Shared SPLADE + ColBERT provider singletons (set if memory is enabled) 
+        // ── Shared SPLADE + ColBERT provider singletons (set if memory is enabled) ──
         SparseEmbeddingProvider sharedSpladeProvider = null;
         TokenEmbeddingProvider sharedColbertProvider = null;
 
         if (memoryEnabled) {
+            java.nio.file.Path persistencePath = memoryConfig.persistencePath() != null ? java.nio.file.Path.of(memoryConfig.persistencePath()) : null;
             var memoryBuilder = DefaultSpectorMemory.builder()
                     .dimensions(memoryConfig.dimensions())
                     .embeddingProvider(embedder)
-                    .persistenceMode(MemoryPersistenceMode.valueOf(memoryConfig.persistenceMode()))
-                    .persistence(memoryConfig.persistencePath())
+                    .persistenceMode(MemoryPersistenceMode.valueOf(memoryConfig.persistenceMode().name()))
+                    .persistence(persistencePath)
                     .semanticCapacity(memoryConfig.capacity())  // from spector.memory.capacity config
                     .nodesPerPartition(memoryConfig.nodesPerPartition())
                     .hebbianGraphCapacity(memoryConfig.capacity())
                     .temporalChainCapacity(memoryConfig.capacity())
                     .chunker(textChunker, chunkConfig);
 
-            //  Entity extraction (LLM when available, otherwise disabled) 
+            // ── Entity extraction (LLM when available, otherwise disabled) ──
             if (textGenProvider != null) {
                 memoryBuilder.entityExtractionMode(com.spectrayan.spector.memory.graph.EntityExtractionMode.LLM)
                         .LlmProvider(textGenProvider);
@@ -274,7 +264,7 @@ public final class SpectorRuntime implements AutoCloseable {
                 log.info("[Runtime] Entity extraction: NONE (no LlmProvider)");
             }
 
-            //  SPLADE + ColBERT providers (shared singletons) 
+            // ── SPLADE + ColBERT providers (shared singletons) ──
 
             if (memoryConfig.spladeEnabled()) {
                 sharedSpladeProvider = new DenseDerivedSparseProvider(embedder);
@@ -291,21 +281,20 @@ public final class SpectorRuntime implements AutoCloseable {
                 log.info("[Runtime] ColBERT reranking is disabled via configuration");
             }
 
-            //  Create HNSW index for memory's semantic recall 
-            var hnswConfig = SpectorConfigFactory.hnswDefaults(props);
-            var hnswParams = new HnswParams(hnswConfig.m(), hnswConfig.efConstruction(), hnswConfig.efSearch());
+            // ── Create HNSW index for memory's semantic recall ──
+            var hnswConfig = SpectorConfigFactory.hnswProperties(props);
+            var HnswProperties = new HnswProperties(hnswConfig.m(), hnswConfig.efConstruction(), hnswConfig.efSearch());
             var memoryHnsw = new HnswIndex(
                     memoryConfig.dimensions(), memoryConfig.capacity(),
-                    SimilarityFunction.COSINE, hnswParams);
+                    SimilarityFunction.COSINE, HnswProperties);
             memoryBuilder.semanticIndex(memoryHnsw);
             log.info("[Runtime] Memory HNSW: dims={}, capacity={}, M={}, efC={}, efS={}",
                     memoryConfig.dimensions(), memoryConfig.capacity(),
                     hnswConfig.m(), hnswConfig.efConstruction(), hnswConfig.efSearch());
 
-            //  Tag extractor (content, llm, or none) 
-            String tagMode = memoryConfig.tagExtractor().toLowerCase();
-            switch (tagMode) {
-                case "llm" -> {
+            // ── Tag extractor (content, llm, or none) ──
+            switch (memoryConfig.tagExtractor()) {
+                case LLM -> {
                     if (textGenProvider != null) {
                         memoryBuilder.tagExtractor(new LlmTagExtractor(textGenProvider));
                         log.info("[Runtime] Tag extractor: LLM (model={})", textGenProvider.modelName());
@@ -313,15 +302,15 @@ public final class SpectorRuntime implements AutoCloseable {
                         log.warn("[Runtime] tag-extractor=llm but no LlmProvider supplied, falling back to content");
                     }
                 }
-                case "none" -> {
+                case NONE -> {
                     memoryBuilder.tagExtractor(TagExtractor.NONE);
                     log.info("[Runtime] Tag extractor: NONE (Bloom filter disabled)");
                 }
                 default -> log.info("[Runtime] Tag extractor: content (keyword-based)");
             }
 
-            //  Embedding batch size from config 
-            var embedConfigDefaults = SpectorConfigFactory.embeddingDefaults(props);
+            // ── Embedding batch size from config ──
+            var embedConfigDefaults = SpectorConfigFactory.embeddingProperties(props);
             memoryBuilder.embedBatchSize(embedConfigDefaults.batchSize());
             log.info("[Runtime] Embedding batch size: {}", embedConfigDefaults.batchSize());
 
@@ -334,7 +323,7 @@ public final class SpectorRuntime implements AutoCloseable {
                 sharedSpladeProvider, sharedColbertProvider);
     }
 
-    //  Service Accessors 
+    // ── Service Accessors ──
 
     /** Returns the mode-aware search service. */
     public SearchHandler search() {
@@ -362,7 +351,7 @@ public final class SpectorRuntime implements AutoCloseable {
             try {
                 svc = ingestionService;
                 if (svc == null) {
-                    var ingestionConfig = SpectorConfigFactory.ingestionDefaults(properties);
+                    var ingestionConfig = SpectorConfigFactory.ingestionProperties(properties);
 
                     // Select target
                     com.spectrayan.spector.ingestion.IngestionTarget target =
@@ -385,7 +374,7 @@ public final class SpectorRuntime implements AutoCloseable {
                             );
 
                     // Build unified pipeline from config
-                    var embedDefaults = SpectorConfigFactory.embeddingDefaults(properties);
+                    var embedDefaults = SpectorConfigFactory.embeddingProperties(properties);
                     var embedConfig = new com.spectrayan.spector.provider.embedding.EmbedConfig(
                             embedDefaults.batchSize(), embedDefaults.maxRetries());
 

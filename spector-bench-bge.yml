@@ -5,21 +5,16 @@
 # ═══════════════════════════════════════════════════════════════════════
 
 spector:
-  mode: memory
+  mode: MEMORY
 
-  engine:
-    dimensions: 1024
-    capacity: 1000
-    similarity: COSINE
-    index-type: HNSW
-    persistence-mode: DISK
-    data-directory: .spector-bench-bge/index
-
-  embedding:
-    model: bge-large
-    base-url: http://localhost:11434
-    timeout: 120s
-    batch-size: 32
+  provider:
+    embedding:
+      type: ollama
+      model: bge-large
+      base-url: http://localhost:11434
+      dimensions: 1024
+      timeout: 120s
+      batch-size: 32
 
   memory:
     enabled: true
@@ -39,8 +34,5 @@ spector:
     ef-search: 200
 
   ingestion:
-    root: datasets/scifact/corpus-txt
-    pattern: "**/*.txt"
     chunk-size: 1200
-    chunk-overlap: 400
-    threads: 4
+    chunk-overlap: 100

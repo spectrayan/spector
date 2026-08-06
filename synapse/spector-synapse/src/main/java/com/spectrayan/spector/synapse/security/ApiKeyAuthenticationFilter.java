@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

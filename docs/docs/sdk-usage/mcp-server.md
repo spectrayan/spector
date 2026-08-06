@@ -73,19 +73,17 @@ All settings can be specified in a `spector.yml` file:
 
 ```yaml
 spector:
-  mode: HYBRID                   # SEARCH | MEMORY | HYBRID (default)
-  engine:
-    dimensions: 768
-    capacity: 100000
-    persistence-mode: DISK
-    data-directory: .spector/index
-  embedding:
-    model: nomic-embed-text
-    base-url: http://localhost:11434
+  mode: MEMORY                   # Global mode (MEMORY)
   memory:
     enabled: true                  # Enable cognitive memory tools
+    persistence-mode: DISK
     persistence-path: .spector/memory
+    dimensions: 768
     nodes-per-partition: 10000     # Records per semantic partition file
+  provider:
+    embedding:
+      model: nomic-embed-text
+      base-url: http://localhost:11434
 ```
 
 See the [Configuration Guide](../configuration/parameters.md) for the complete list of settings.

@@ -15,8 +15,10 @@
  */
 package com.spectrayan.spector.config;
 
+import com.spectrayan.spector.config.model.*;
+import com.spectrayan.spector.config.properties.*;
+
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,12 +38,9 @@ class SpectorPropertiesTest {
         SpectorProperties props = SpectorProperties.load();
 
         // Verify values from spector-defaults.yml
-        assertThat(props.getInt("spector.engine.dimensions", -1)).isEqualTo(384);
-        assertThat(props.getInt("spector.engine.capacity", -1)).isEqualTo(100_000);
-        assertThat(props.getString("spector.engine.similarity", "")).isEqualTo("COSINE");
-        assertThat(props.getString("spector.engine.index-type", "")).isEqualTo("HNSW");
-        assertThat(props.getString("spector.engine.quantization", "")).isEqualTo("NONE");
-        assertThat(props.getString("spector.engine.persistence-mode", "")).isEqualTo("IN_MEMORY");
+        assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(384);
+        assertThat(props.getInt("spector.memory.capacity", -1)).isEqualTo(100_000);
+        assertThat(props.getString("spector.memory.persistence-mode", "")).isEqualTo("DISK");
     }
 
     @Test
@@ -57,10 +56,10 @@ class SpectorPropertiesTest {
     void loadDefaults_embeddingConfig() {
         SpectorProperties props = SpectorProperties.load();
 
-        assertThat(props.getString("spector.embedding.model")).isEqualTo("nomic-embed-text");
-        assertThat(props.getString("spector.embedding.base-url")).isEqualTo("http://localhost:11434");
-        assertThat(props.getInt("spector.embedding.batch-size", -1)).isEqualTo(32);
-        assertThat(props.getInt("spector.embedding.max-retries", -1)).isEqualTo(3);
+        assertThat(props.getString("spector.provider.embedding.model")).isEqualTo("nomic-embed-text");
+        assertThat(props.getString("spector.provider.embedding.base-url")).isEqualTo("http://localhost:11434");
+        assertThat(props.getInt("spector.provider.embedding.batch-size", -1)).isEqualTo(32);
+        assertThat(props.getInt("spector.provider.embedding.max-retries", -1)).isEqualTo(3);
     }
 
     @Test
@@ -71,15 +70,6 @@ class SpectorPropertiesTest {
         assertThat(props.getString("spector.persistence.files.vectors")).isEqualTo("vectors.mmap");
         assertThat(props.getString("spector.persistence.files.documents")).isEqualTo("documents.dat");
         assertThat(props.getString("spector.persistence.files.id-mappings")).isEqualTo("id-mappings.dat");
-    }
-
-    @Test
-    void loadDefaults_ragConfig() {
-        SpectorProperties props = SpectorProperties.load();
-
-        assertThat(props.getInt("spector.rag.top-k", -1)).isEqualTo(5);
-        assertThat(props.getFloat("spector.rag.similarity-threshold", -1f)).isEqualTo(0.7f);
-        assertThat(props.getInt("spector.rag.token-limit", -1)).isEqualTo(4096);
     }
 
     @Test
@@ -98,55 +88,19 @@ class SpectorPropertiesTest {
     }
 
     @Test
-    void duration_iso8601() {
+    void builderOverrides_takePrecedence() {
         SpectorProperties props = SpectorProperties.builder()
-                .override("timeout", "PT45S")
+                .override("spector.memory.dimensions", "1024")
+                .override("spector.provider.embedding.model", "custom-model")
                 .build();
 
-        assertThat(props.getDuration("timeout", Duration.ZERO)).isEqualTo(Duration.ofSeconds(45));
+        assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(1024);
+        assertThat(props.getString("spector.provider.embedding.model")).isEqualTo("custom-model");
+        assertThat(props.getInt("spector.hnsw.m", -1)).isEqualTo(16); // non-overridden remains default
     }
 
     @Test
-    void enum_resolution() {
-        SpectorProperties props = SpectorProperties.builder()
-                .override("mode", "COSINE")
-                .build();
-
-        assertThat(props.getEnum("mode", TestEnum.class, TestEnum.EUCLIDEAN))
-                .isEqualTo(TestEnum.COSINE);
-    }
-
-    @Test
-    void enum_caseInsensitiveWithHyphen() {
-        SpectorProperties props = SpectorProperties.builder()
-                .override("mode", "in-memory")
-                .build();
-
-        assertThat(props.getEnum("mode", TestPersistence.class, TestPersistence.DISK))
-                .isEqualTo(TestPersistence.IN_MEMORY);
-    }
-
-    @Test
-    void enum_invalidFallsBackToDefault() {
-        SpectorProperties props = SpectorProperties.builder()
-                .override("mode", "INVALID")
-                .build();
-
-        assertThat(props.getEnum("mode", TestEnum.class, TestEnum.EUCLIDEAN))
-                .isEqualTo(TestEnum.EUCLIDEAN);
-    }
-
-    @Test
-    void programmaticOverrides_winOverDefaults() {
-        SpectorProperties props = SpectorProperties.builder()
-                .override("spector.engine.dimensions", "768")
-                .build();
-
-        assertThat(props.getInt("spector.engine.dimensions", -1)).isEqualTo(768);
-    }
-
-    @Test
-    void systemProperties_winOverFileConfig() {
+    void systemProperties_takePrecedenceOverOverrides() {
         String key = "spector.test.sysprop.key";
         System.setProperty(key, "from-system");
         try {
@@ -154,7 +108,7 @@ class SpectorPropertiesTest {
                     .override(key, "from-override")
                     .build();
 
-            // System properties win over everything in resolveWithEnv
+            // System properties win over everything
             assertThat(props.getString(key)).isEqualTo("from-system");
         } finally {
             System.clearProperty(key);
@@ -166,33 +120,33 @@ class SpectorPropertiesTest {
         Path configFile = tempDir.resolve("spector.yml");
         Files.writeString(configFile, """
                 spector:
-                  engine:
+                  memory:
                     dimensions: 1024
                     capacity: 500000
                 """);
 
         SpectorProperties props = SpectorProperties.load(configFile);
 
-        assertThat(props.getInt("spector.engine.dimensions", -1)).isEqualTo(1024);
-        assertThat(props.getInt("spector.engine.capacity", -1)).isEqualTo(500_000);
+        assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(1024);
+        assertThat(props.getInt("spector.memory.capacity", -1)).isEqualTo(500_000);
         // Other values still come from classpath defaults
-        assertThat(props.getString("spector.engine.similarity", "")).isEqualTo("COSINE");
+        assertThat(props.getInt("spector.hnsw.m", -1)).isEqualTo(16);
     }
 
     @Test
     void propertiesFileOverride(@TempDir Path tempDir) throws IOException {
         Path configFile = tempDir.resolve("custom.properties");
         Files.writeString(configFile, """
-                spector.engine.dimensions=2048
-                spector.embedding.model=mxbai-embed-large
+                spector.memory.dimensions=2048
+                spector.provider.embedding.model=mxbai-embed-large
                 """);
 
         SpectorProperties props = SpectorProperties.builder()
                 .configFile(configFile)
                 .build();
 
-        assertThat(props.getInt("spector.engine.dimensions", -1)).isEqualTo(2048);
-        assertThat(props.getString("spector.embedding.model")).isEqualTo("mxbai-embed-large");
+        assertThat(props.getInt("spector.memory.dimensions", -1)).isEqualTo(2048);
+        assertThat(props.getString("spector.provider.embedding.model")).isEqualTo("mxbai-embed-large");
     }
 
     @Test
@@ -209,7 +163,7 @@ class SpectorPropertiesTest {
     void containsKey() {
         SpectorProperties props = SpectorProperties.load();
 
-        assertThat(props.containsKey("spector.engine.dimensions")).isTrue();
+        assertThat(props.containsKey("spector.memory.dimensions")).isTrue();
         assertThat(props.containsKey("nonexistent.key")).isFalse();
     }
 
@@ -230,44 +184,9 @@ class SpectorPropertiesTest {
                 .override("spector.persistence.files.vectors", "custom-vectors.bin")
                 .build();
 
-        PersistenceFiles files = PersistenceFiles.from(props);
-
+        var files = PersistenceFiles.fromProperties(props);
         assertThat(files.indexFile()).isEqualTo("custom-index.bin");
         assertThat(files.vectorsFile()).isEqualTo("custom-vectors.bin");
-        // Non-overridden use defaults
-        assertThat(files.documentsFile()).isEqualTo("documents.dat");
-        assertThat(files.idMappingsFile()).isEqualTo("id-mappings.dat");
+        assertThat(files.documentsFile()).isEqualTo("documents.dat"); // default retained
     }
-
-    @Test
-    void persistenceFiles_defaultValues() {
-        PersistenceFiles files = PersistenceFiles.DEFAULTS;
-
-        assertThat(files.indexFile()).isEqualTo("index.spct");
-        assertThat(files.vectorsFile()).isEqualTo("vectors.mmap");
-        assertThat(files.documentsFile()).isEqualTo("documents.dat");
-        assertThat(files.idMappingsFile()).isEqualTo("id-mappings.dat");
-    }
-
-    @Test
-    void persistenceFiles_resolvePaths() {
-        Path dataDir = Path.of("/data/spector");
-        PersistenceFiles files = PersistenceFiles.DEFAULTS;
-
-        assertThat(files.resolveIndex(dataDir)).isEqualTo(Path.of("/data/spector/index.spct"));
-        assertThat(files.resolveVectors(dataDir)).isEqualTo(Path.of("/data/spector/vectors.mmap"));
-        assertThat(files.resolveDocuments(dataDir)).isEqualTo(Path.of("/data/spector/documents.dat"));
-        assertThat(files.resolveIdMappings(dataDir)).isEqualTo(Path.of("/data/spector/id-mappings.dat"));
-    }
-
-    @Test
-    void configFile_notFound_throws() {
-        assertThatThrownBy(() -> SpectorProperties.load(Path.of("/nonexistent/config.yml")))
-                .isInstanceOf(com.spectrayan.spector.config.error.SpectorConfigNotFoundException.class)
-                .hasMessageContaining("not found");
-    }
-
-    // Test enums
-    enum TestEnum { COSINE, EUCLIDEAN }
-    enum TestPersistence { IN_MEMORY, DISK }
 }

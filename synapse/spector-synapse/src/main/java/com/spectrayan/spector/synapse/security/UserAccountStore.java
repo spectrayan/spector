@@ -14,7 +14,7 @@ package com.spectrayan.spector.synapse.security;
 
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

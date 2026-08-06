@@ -50,12 +50,13 @@ public class EmbeddingProviderConfig {
     @Bean
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     EmbeddingProvider embeddingProvider(SynapseProperties props) {
+        var embedProps = props.getProvider().getEmbedding();
         EmbeddingConfig config = EmbeddingConfig
-                .ollama(props.ollama().embedModel())
-                .withBaseUrl(props.ollama().baseUrl())
+                .ollama(embedProps.model())
+                .withBaseUrl(embedProps.baseUrl())
                 .withTimeout(java.time.Duration.ofSeconds(300));
         log.info("[EmbeddingProvider] Configured Ollama embedding: model={}, baseUrl={}, timeout=300s",
-                props.ollama().embedModel(), props.ollama().baseUrl());
+                embedProps.model(), embedProps.baseUrl());
         return new OllamaEmbeddingProvider(config);
     }
 
@@ -69,11 +70,12 @@ public class EmbeddingProviderConfig {
     @ConditionalOnMissingBean(LlmProvider.class)
     LlmProvider LlmProvider(ProviderRegistry providerRegistry, SynapseProperties props) {
         try {
+            var genProps = props.getProvider().getGeneration();
             var llm = new com.spectrayan.spector.provider.ollama.OllamaLlmProvider(
-                    props.ollama().model(), props.ollama().baseUrl(), java.time.Duration.ofSeconds(300));
+                    genProps.model(), genProps.baseUrl(), java.time.Duration.ofSeconds(300));
             providerRegistry.registerGeneration("ollama", llm);
             log.info("[EmbeddingProvider] Registered default Ollama text generation provider: model={}, baseUrl={}, timeout=300s",
-                    props.ollama().model(), props.ollama().baseUrl());
+                    genProps.model(), genProps.baseUrl());
         } catch (Exception e) {
             log.warn("Failed to register default Ollama generation provider: {}", e.getMessage());
         }

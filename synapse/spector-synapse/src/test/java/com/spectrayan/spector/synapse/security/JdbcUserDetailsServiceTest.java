@@ -74,7 +74,7 @@ class JdbcUserDetailsServiceTest {
 
         encoder = new Pbkdf2PasswordEncoder(
                 "", 16, 1, Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256);
-        store = new UserAccountStore(jdbc, encoder, new SynapseProperties(0, null, null, null, null, null, null));
+        store = new UserAccountStore(jdbc, encoder, new SynapseProperties(0, null, null, null, null, null));
         service = new JdbcUserDetailsService(store);
     }
 

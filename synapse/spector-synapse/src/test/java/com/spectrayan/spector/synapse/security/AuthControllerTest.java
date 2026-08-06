@@ -44,8 +44,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.RefreshProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.RefreshProperties;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyCreation;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;
@@ -88,7 +88,7 @@ class AuthControllerTest {
 
         AuthProperties auth = new AuthProperties(
                 true, null, new RefreshProperties(Duration.ofDays(30)), null, null, null, null, null);
-        SynapseProperties props = new SynapseProperties(0, null, null, null, null, null, auth);
+        SynapseProperties props = new SynapseProperties(0, null, null, null, null, auth);
 
         controller = new AuthController(authenticationManager, tokenMinter, refreshTokenStore,
                 jtiBlocklist, userAccountStore, apiKeyStore, props);

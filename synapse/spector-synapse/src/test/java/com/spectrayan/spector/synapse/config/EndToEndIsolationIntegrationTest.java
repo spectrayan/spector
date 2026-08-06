@@ -66,10 +66,10 @@ import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.DefaultAdminProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.JwtProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.OidcProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.DefaultAdminProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.OidcProperties;
 import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
 import com.spectrayan.spector.synapse.security.UserAccountStore;
 import com.sun.net.httpserver.HttpServer;
@@ -201,12 +201,9 @@ class EndToEndIsolationIntegrationTest {
 
         private UserMemoryRegistry buildRegistry(boolean authEnabled, int maxInstances) {
             when(embedderProvider.getIfAvailable()).thenReturn(null);
-            SpectorConfigProperties cfg = new SpectorConfigProperties();
-            cfg.getMemory().setPersistencePath(dataRoot.toString());
             return new UserMemoryRegistry(
                     sharedProvider,
                     synapseProps(authEnabled),
-                    cfg,
                     embedderProvider,
                     textGenProvider,
                     salienceProvider,
@@ -215,7 +212,7 @@ class EndToEndIsolationIntegrationTest {
 
         private SynapseProperties synapseProps(boolean authEnabled) {
             var auth = new AuthProperties(authEnabled, null, null, null, null, null, null, null);
-            return new SynapseProperties(0, null, dataRoot.toString(), null, null, null, auth);
+            return new SynapseProperties(0, null, dataRoot.toString(), null, null, auth);
         }
     }
 
@@ -437,7 +434,7 @@ class EndToEndIsolationIntegrationTest {
                     authEnabled, null, null, null,
                     new DefaultAdminProperties("admin-secret"),
                     null, null, null);
-            var synapseProps = new SynapseProperties(0, null, dataRoot.toString(), null, null, null, auth);
+            var synapseProps = new SynapseProperties(0, null, dataRoot.toString(), null, null, auth);
             SpectorConfigProperties cfg = new SpectorConfigProperties();
             cfg.getMemory().setPersistencePath(dataRoot.toString());
             return new AuthStartupInitializer(synapseProps, cfg, accountStore);

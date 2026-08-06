@@ -17,7 +17,7 @@ package com.spectrayan.spector.bench;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.HnswIndex;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.spectrum.SpectorIndex;
 
@@ -104,7 +104,7 @@ public class Sift1MAnnBenchmark {
                 .shardThreshold(20_000)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.EUCLIDEAN)  // SIFT uses L2
-                .hnswParams(new HnswParams(16, 128, 64))
+                .hnswProperties(new HnswProperties(16, 128, 64))
                 .build();
 
         long t0 = System.nanoTime();
@@ -142,7 +142,7 @@ public class Sift1MAnnBenchmark {
                     .shardThreshold(20_000)
                     .oversamplingFactor(3)
                     .similarityFunction(SimilarityFunction.EUCLIDEAN)
-                    .hnswParams(new HnswParams(16, 128, 64))
+                    .hnswProperties(new HnswProperties(16, 128, 64))
                     .build();
             probeIndex.train(trainSample);
             for (int i = 0; i < base.length; i++) {

@@ -23,8 +23,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.LockoutProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.LockoutProperties;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
@@ -181,10 +181,10 @@ class LockoutMonotonicityPropertyTest {
         Pbkdf2PasswordEncoder encoder = new Pbkdf2PasswordEncoder(
                 "", 16, 1, Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256);
 
+        AuthProperties auth = new AuthProperties(true, null, null, null, null, null,
+                        new LockoutProperties(maxAttempts, minutes), null);
         SynapseProperties props = new SynapseProperties(
-                0, null, null, null, null, null,
-                new AuthProperties(true, null, null, null, null, null,
-                        new LockoutProperties(maxAttempts, minutes), null));
+                0, null, null, null, null, auth);
 
         return new UserAccountStore(jdbc, encoder, props);
     }

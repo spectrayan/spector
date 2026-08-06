@@ -36,8 +36,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.Pbkdf2Properties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.Pbkdf2Properties;
 import com.spectrayan.spector.synapse.security.ApiKeyAuthenticationFilter;
 import com.spectrayan.spector.synapse.security.FailClosedAccessDeniedHandler;
 import com.spectrayan.spector.synapse.security.FailClosedAuthenticationEntryPoint;

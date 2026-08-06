@@ -13,16 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.model;
 
 /**
- * Supported persistence modes for the search engine.
+ * Persistence strategy for vector storage.
  */
 public enum PersistenceMode {
 
-    /** All data in memory — lost on shutdown. */
     IN_MEMORY,
+    DISK,
+    MMAP;
 
-    /** Data persisted to disk via memory-mapped files. Survives restarts. */
-    DISK
+    public boolean isPersistent() {
+        return this != IN_MEMORY;
+    }
+
+    public boolean isMemoryMapped() {
+        return this == MMAP;
+    }
 }

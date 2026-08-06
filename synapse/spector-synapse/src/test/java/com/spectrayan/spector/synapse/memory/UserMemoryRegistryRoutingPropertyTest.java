@@ -318,15 +318,12 @@ class UserMemoryRegistryRoutingPropertyTest {
         ObjectProvider<SalienceProfileProvider> salienceProvider = mockProvider();
         when(salienceProvider.getIfAvailable()).thenReturn(null);
 
-        SpectorConfigProperties cfg = new SpectorConfigProperties();
-        cfg.getMemory().setPersistencePath(base.toString());
-
-        var auth = new SynapseProperties.AuthProperties(
+        var auth = new com.spectrayan.spector.config.properties.AuthProperties(
                 true, null, null, null, null, null, null, null);
-        var synapse = new SynapseProperties(0, null, base.toString(), null, null, null, auth);
+        var synapse = new SynapseProperties(0, null, base.toString(), null, null, auth);
 
         UserMemoryRegistry registry = new UserMemoryRegistry(
-                sharedProvider, synapse, cfg, embedderProvider, textGenProvider, salienceProvider, 512);
+                sharedProvider, synapse, embedderProvider, textGenProvider, salienceProvider, 512);
         return new Fixture(registry, shared);
     }
 

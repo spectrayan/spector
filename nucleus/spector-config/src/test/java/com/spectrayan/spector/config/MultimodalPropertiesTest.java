@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.config;
 
+import com.spectrayan.spector.config.properties.MultimodalProperties;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,10 +26,10 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for {@link MultimodalConfig}.
+ * Tests for {@link MultimodalProperties}.
  */
-@DisplayName("MultimodalConfig")
-class MultimodalConfigTest {
+@DisplayName("MultimodalProperties")
+class MultimodalPropertiesTest {
 
     @Nested
     @DisplayName("Default Configuration")
@@ -36,7 +38,7 @@ class MultimodalConfigTest {
         @Test
         @DisplayName("Default config has correct values")
         void defaultValues() {
-            var config = MultimodalConfig.DEFAULT;
+            var config = MultimodalProperties.DEFAULT;
             assertFalse(config.enabled());
             assertEquals("moondream", config.visionModel());
             assertEquals("http://localhost:11434", config.visionBaseUrl());
@@ -50,9 +52,9 @@ class MultimodalConfigTest {
         @Test
         @DisplayName("Default is not enabled")
         void defaultNotEnabled() {
-            assertFalse(MultimodalConfig.DEFAULT.enabled());
-            assertFalse(MultimodalConfig.DEFAULT.isVisionConfigured());
-            assertFalse(MultimodalConfig.DEFAULT.isAudioConfigured());
+            assertFalse(MultimodalProperties.DEFAULT.enabled());
+            assertFalse(MultimodalProperties.DEFAULT.isVisionConfigured());
+            assertFalse(MultimodalProperties.DEFAULT.isAudioConfigured());
         }
     }
 
@@ -63,7 +65,7 @@ class MultimodalConfigTest {
         @Test
         @DisplayName("isVisionConfigured when enabled with model")
         void visionConfigured() {
-            var config = new MultimodalConfig(true, "llava", "http://localhost:11434",
+            var config = new MultimodalProperties(true, "llava", "http://localhost:11434",
                     120, "gemma4", 180, "local", Path.of("/tmp"));
             assertTrue(config.isVisionConfigured());
         }
@@ -71,7 +73,7 @@ class MultimodalConfigTest {
         @Test
         @DisplayName("isVisionConfigured false when disabled")
         void visionNotConfiguredDisabled() {
-            var config = new MultimodalConfig(false, "llava", "http://localhost:11434",
+            var config = new MultimodalProperties(false, "llava", "http://localhost:11434",
                     120, "gemma4", 180, "local", Path.of("/tmp"));
             assertFalse(config.isVisionConfigured());
         }
@@ -79,7 +81,7 @@ class MultimodalConfigTest {
         @Test
         @DisplayName("isVisionConfigured false with blank model")
         void visionNotConfiguredBlankModel() {
-            var config = new MultimodalConfig(true, "", "http://localhost:11434",
+            var config = new MultimodalProperties(true, "", "http://localhost:11434",
                     120, "gemma4", 180, "local", Path.of("/tmp"));
             assertFalse(config.isVisionConfigured());
         }
@@ -87,7 +89,7 @@ class MultimodalConfigTest {
         @Test
         @DisplayName("isAudioConfigured when enabled with model")
         void audioConfigured() {
-            var config = new MultimodalConfig(true, "llava", "http://localhost:11434",
+            var config = new MultimodalProperties(true, "llava", "http://localhost:11434",
                     120, "gemma4", 180, "local", Path.of("/tmp"));
             assertTrue(config.isAudioConfigured());
         }
@@ -95,7 +97,7 @@ class MultimodalConfigTest {
         @Test
         @DisplayName("isAudioConfigured false with null model")
         void audioNotConfiguredNull() {
-            var config = new MultimodalConfig(true, "llava", "http://localhost:11434",
+            var config = new MultimodalProperties(true, "llava", "http://localhost:11434",
                     120, null, 180, "local", Path.of("/tmp"));
             assertFalse(config.isAudioConfigured());
         }
@@ -103,13 +105,13 @@ class MultimodalConfigTest {
         @Test
         @DisplayName("isLocalAssetStore for local type")
         void localAssetStore() {
-            assertTrue(MultimodalConfig.DEFAULT.isLocalAssetStore());
+            assertTrue(MultimodalProperties.DEFAULT.isLocalAssetStore());
         }
 
         @Test
         @DisplayName("isLocalAssetStore false for s3")
         void s3AssetStore() {
-            var config = new MultimodalConfig(true, "llava", "http://localhost:11434",
+            var config = new MultimodalProperties(true, "llava", "http://localhost:11434",
                     120, "gemma4", 180, "s3", Path.of("/tmp"));
             assertFalse(config.isLocalAssetStore());
         }
@@ -123,7 +125,7 @@ class MultimodalConfigTest {
         @DisplayName("Loads from classpath defaults")
         void loadsFromDefaults() {
             SpectorProperties props = SpectorProperties.loadClasspathOnly();
-            MultimodalConfig config = MultimodalConfig.from(props);
+            MultimodalProperties config = MultimodalProperties.from(props);
 
             // Should use defaults when not specified in spector-defaults.yml
             assertNotNull(config);
@@ -140,7 +142,7 @@ class MultimodalConfigTest {
                     .override("spector.multimodal.asset-store.type", "s3")
                     .build();
 
-            MultimodalConfig config = MultimodalConfig.from(props);
+            MultimodalProperties config = MultimodalProperties.from(props);
             assertTrue(config.enabled());
             assertEquals("llava", config.visionModel());
             assertEquals("qwen2-audio", config.audioModel());

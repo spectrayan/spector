@@ -232,7 +232,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                     try {
                         var props = SpectorProperties.load(configFile);
                         var defaults = SpectorConfigFactory.memoryDefaults(props);
-                        persistencePath = defaults.persistencePath();
+                        persistencePath = defaults.persistencePath() != null ? Path.of(defaults.persistencePath()) : null;
                     } catch (Exception e) {
                         // ignore config loading errors
                     }

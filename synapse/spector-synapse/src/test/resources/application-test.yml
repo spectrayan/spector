@@ -36,10 +36,12 @@ spector:
     decay:
       min-threshold: 1000
       baseline-half-life-days: 180
-  embedding:
-    model: nomic-embed-text
-    base-url: http://localhost:11434
-    batch-size: 32
+  provider:
+    embedding:
+      type: ollama
+      model: nomic-embed-text
+      base-url: http://localhost:11434
+      batch-size: 32
   metrics:
     enabled: false
 

@@ -21,9 +21,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
-import com.spectrayan.spector.synapse.config.SynapseProperties.AuthProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.DefaultAdminProperties;
-import com.spectrayan.spector.synapse.config.SynapseProperties.JwtProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.DefaultAdminProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
 
 /**
  * Unit tests for {@link AuthPropertiesValidator} fail-fast startup validation.
@@ -44,7 +44,7 @@ class AuthPropertiesValidatorTest {
 
     /** Builds a {@link SynapseProperties} carrying the supplied auth block. */
     private static SynapseProperties propsWith(AuthProperties auth) {
-        return new SynapseProperties(0, null, null, null, null, null, auth);
+        return new SynapseProperties(0, null, null, null, null, auth);
     }
 
     /** Auth block with valid secrets so numeric-range checks are reachable. */
@@ -201,7 +201,7 @@ class AuthPropertiesValidatorTest {
     @DisplayName("null auth block is treated as disabled and skips validation")
     void nullAuthSkipsValidation() {
         // SynapseProperties coerces a null auth block into a disabled default.
-        SynapseProperties props = new SynapseProperties(0, null, null, null, null, null, null);
+        SynapseProperties props = new SynapseProperties(0, null, null, null, null, null);
         AuthPropertiesValidator v = new AuthPropertiesValidator(props, new MockEnvironment());
 
         assertThat(props.auth().enabled()).isFalse();

@@ -52,11 +52,20 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * <h3>Resolution Order (highest priority wins)</h3>
  * <ol>
  *   <li>Programmatic overrides (via {@link Builder#override(String, Object)})</li>
- *   <li>System properties ({@code -Dspector.engine.dimensions=768})</li>
- *   <li>Environment variables ({@code SPECTOR_ENGINE_DIMENSIONS=768})</li>
- *   <li>Profile-specific file ({@code spector-{profile}.yml})</li>
- *   <li>User config file ({@code spector.yml} in working directory)</li>
- *   <li>Classpath defaults ({@code spector-defaults.yml} in JAR)</li>
+ *   <li>System properties ({@code -Dspector.memory.dimensions=768})</li>
+ *   <li>System environment variables ({@code SPECTOR_MEMORY_DIMENSIONS=768})</li>
+ * </ul>
+ *
+ * <p>Examples:</p>
+ * <pre>{@code
+ * SpectorProperties props = SpectorProperties.load();
+ * int dims = props.getInt("spector.memory.dimensions", 768);
+ * Path path = props.getPath("spector.memory.persistence-path", Path.of(".spector/memory"));
+ * }</pre>
+ *
+ * <h3>Environment Variable Mapping</h3>
+ * <ul>
+ *   <li>{@code spector.memory.dimensions} → {@code SPECTOR_MEMORY_DIMENSIONS}</li>
  * </ol>
  *
  * <h3>Usage</h3>
@@ -71,16 +80,16 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *   SpectorProperties props = SpectorProperties.load(Path.of("/etc/spector/spector.yml"));
  *
  *   // Typed access
- *   int dims = props.getInt("spector.engine.dimensions", 384);
- *   String model = props.getString("spector.embedding.model", "nomic-embed-text");
- *   Duration timeout = props.getDuration("spector.embedding.timeout", Duration.ofSeconds(30));
+ *   int dims = props.getInt("spector.memory.dimensions", 768);
+ *   String model = props.getString("spector.provider.embedding.model", "nomic-embed-text");
+ *   Duration timeout = props.getDuration("spector.provider.embedding.timeout", Duration.ofSeconds(30));
  * }</pre>
  *
  * <h3>Environment Variable Mapping</h3>
  * <p>Dot-notation keys are mapped to environment variables by uppercasing and
  * replacing dots/hyphens with underscores:</p>
  * <ul>
- *   <li>{@code spector.engine.dimensions} → {@code SPECTOR_ENGINE_DIMENSIONS}</li>
+ *   <li>{@code spector.memory.dimensions} → {@code SPECTOR_MEMORY_DIMENSIONS}</li>
  *   <li>{@code spector.hnsw.ef-construction} → {@code SPECTOR_HNSW_EF_CONSTRUCTION}</li>
  * </ul>
  */
@@ -246,7 +255,16 @@ public final class SpectorProperties {
     public Duration getDuration(String key, Duration defaultValue) {
         String value = getString(key);
         if (value == null || value.isBlank()) return defaultValue;
-        return parseDuration(value, key, defaultValue);
+        try {
+            return parseDuration(value, key, defaultValue);
+        } catch (Exception customErr) {
+            try {
+                return config.getDuration(key, defaultValue);
+            } catch (Exception apacheErr) {
+                log.warn("Invalid duration for key '{}': '{}', using default {}", key, value, defaultValue);
+                return defaultValue;
+            }
+        }
     }
 
     /**
@@ -309,7 +327,7 @@ public final class SpectorProperties {
         String sysProp = System.getProperty(key);
         if (sysProp != null) return sysProp;
 
-        // 2. Environment variable (spector.engine.dimensions → SPECTOR_ENGINE_DIMENSIONS)
+        // 2. Environment variable (spector.memory.dimensions → SPECTOR_MEMORY_DIMENSIONS)
         String envKey = key.toUpperCase().replace('.', '_').replace('-', '_');
         String envValue = System.getenv(envKey);
         if (envValue != null) return envValue;
@@ -322,30 +340,25 @@ public final class SpectorProperties {
     // ─────────────── Duration Parsing ───────────────
 
     private static Duration parseDuration(String value, String key, Duration defaultValue) {
-        try {
-            // Try ISO-8601 first (PT30S, PT5M, etc.)
-            if (value.startsWith("PT") || value.startsWith("pt")) {
-                return Duration.parse(value);
-            }
-
-            // Human-readable: 30s, 5m, 1h, 500ms
-            String trimmed = value.trim().toLowerCase();
-            if (trimmed.endsWith("ms")) {
-                return Duration.ofMillis(Long.parseLong(trimmed.substring(0, trimmed.length() - 2).trim()));
-            } else if (trimmed.endsWith("s")) {
-                return Duration.ofSeconds(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
-            } else if (trimmed.endsWith("m")) {
-                return Duration.ofMinutes(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
-            } else if (trimmed.endsWith("h")) {
-                return Duration.ofHours(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
-            }
-
-            // Try as seconds if just a number
-            return Duration.ofSeconds(Long.parseLong(trimmed));
-        } catch (Exception e) {
-            log.warn("Invalid duration for key '{}': '{}', using default {}", key, value, defaultValue);
-            return defaultValue;
+        // Try ISO-8601 first (PT30S, PT5M, etc.)
+        if (value.startsWith("PT") || value.startsWith("pt")) {
+            return Duration.parse(value);
         }
+
+        // Human-readable: 30s, 5m, 1h, 500ms
+        String trimmed = value.trim().toLowerCase();
+        if (trimmed.endsWith("ms")) {
+            return Duration.ofMillis(Long.parseLong(trimmed.substring(0, trimmed.length() - 2).trim()));
+        } else if (trimmed.endsWith("s")) {
+            return Duration.ofSeconds(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
+        } else if (trimmed.endsWith("m")) {
+            return Duration.ofMinutes(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
+        } else if (trimmed.endsWith("h")) {
+            return Duration.ofHours(Long.parseLong(trimmed.substring(0, trimmed.length() - 1).trim()));
+        }
+
+        // Try as seconds if just a number
+        return Duration.ofSeconds(Long.parseLong(trimmed));
     }
 
     // ─────────────── Builder ───────────────

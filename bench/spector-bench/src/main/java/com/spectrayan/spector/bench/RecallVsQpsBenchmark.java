@@ -16,7 +16,7 @@
 package com.spectrayan.spector.bench;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.HnswIndex;
 import com.spectrayan.spector.index.QuantizedHnswIndex;
 import com.spectrayan.spector.index.ScoredResult;
@@ -87,7 +87,7 @@ public class RecallVsQpsBenchmark {
     @Setup(Level.Trial)
     public void setup() {
         Random rng = new Random(42L);
-        HnswParams hnswParams = new HnswParams(16, 128, 64);
+        HnswProperties HnswProperties = new HnswProperties(16, 128, 64);
 
         // ── Build SpectorIndex ────────────────────────────────────────────────
         spectorIndex = SpectorIndex.builder()
@@ -97,12 +97,12 @@ public class RecallVsQpsBenchmark {
                 .shardThreshold(20_000)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .hnswParams(hnswParams)
+                .hnswProperties(HnswProperties)
                 .build();
 
         // ── Build exact HNSW (ground truth) ──────────────────────────────────
         exactHnswIndex = new HnswIndex(dims, totalVectors + 10,
-                SimilarityFunction.COSINE, hnswParams);
+                SimilarityFunction.COSINE, HnswProperties);
 
         // Train SpectorIndex
         int trainSize = Math.min(10_000, totalVectors);
