@@ -87,7 +87,7 @@ public class SpectorIngestBenchmark {
                 .shardThreshold(20_000)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .HnswProperties(new HnswProperties(16, 128, 64))
+                .hnswProperties(new HnswProperties(16, 128, 64))
                 .build();
         trainedIndex.train(trainVectors);
     }
@@ -110,7 +110,7 @@ public class SpectorIngestBenchmark {
                 .shardThreshold(20_000)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .HnswProperties(HnswProperties.DEFAULT)
+                .hnswProperties(HnswProperties.DEFAULT)
                 .build();
         idx.train(trainVectors);
         for (int i = 0; i < totalVectors; i++) {
@@ -132,7 +132,7 @@ public class SpectorIngestBenchmark {
                 .nProbe(16)
                 .shardThreshold(Integer.MAX_VALUE)  // never promote
                 .similarityFunction(SimilarityFunction.COSINE)
-                .HnswProperties(HnswProperties.DEFAULT)
+                .hnswProperties(HnswProperties.DEFAULT)
                 .build();
         idx.train(trainVectors);
         bh.consume(idx);
@@ -154,7 +154,7 @@ public class SpectorIngestBenchmark {
                 .nProbe(16)
                 .shardThreshold(Integer.MAX_VALUE)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .HnswProperties(HnswProperties.DEFAULT)
+                .hnswProperties(HnswProperties.DEFAULT)
                 .build();
         idx.train(trainVectors);
         for (int i = 0; i < totalVectors; i++) {

@@ -46,7 +46,7 @@ public class SpectorRecallDiag {
                 .shardThreshold(20_000)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .HnswProperties(new HnswProperties(16, 128, 64))
+                .hnswProperties(new HnswProperties(16, 128, 64))
                 .build();
 
         float[][] train = Arrays.copyOf(vectors, Math.min(N, 500));

@@ -90,7 +90,7 @@ public class SpectorIndexPromotionBench {
                 .shardThreshold(shardThreshold)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .HnswProperties(new HnswProperties(16, 128, 64))
+                .hnswProperties(new HnswProperties(16, 128, 64))
                 .build();
 
         // 2. Train (using 10K sample)
@@ -128,7 +128,7 @@ public class SpectorIndexPromotionBench {
                     .shardThreshold(shardThreshold)
                     .oversamplingFactor(3)
                     .similarityFunction(SimilarityFunction.COSINE)
-                    .HnswProperties(new HnswProperties(16, 128, 64))
+                    .hnswProperties(new HnswProperties(16, 128, 64))
                     .build();
 
             probeIndex.train(trainVecs);

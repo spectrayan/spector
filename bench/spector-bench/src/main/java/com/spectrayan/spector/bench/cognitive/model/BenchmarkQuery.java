@@ -18,7 +18,7 @@ package com.spectrayan.spector.bench.cognitive.model;
 import java.util.List;
 
 import com.spectrayan.spector.memory.model.CognitiveProfile;
-import com.spectrayan.spector.memory.model.TextSearchMode;
+import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 
 /**

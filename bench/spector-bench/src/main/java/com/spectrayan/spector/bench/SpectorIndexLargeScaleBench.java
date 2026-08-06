@@ -102,7 +102,7 @@ public class SpectorIndexLargeScaleBench {
                     .shardThreshold(20_000)
                     .oversamplingFactor(4)
                     .similarityFunction(SimilarityFunction.COSINE)
-                    .HnswProperties(new HnswProperties(16, 128, 64))
+                    .hnswProperties(new HnswProperties(16, 128, 64))
                     .build();
 
             // Train

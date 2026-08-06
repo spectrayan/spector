@@ -90,7 +90,7 @@ public class SpectorResidualDiag {
                 .shardThreshold(20_000)
                 .oversamplingFactor(10) // high oversampling
                 .similarityFunction(SimilarityFunction.COSINE)
-                .HnswProperties(new HnswProperties(16, 128, 64))
+                .hnswProperties(new HnswProperties(16, 128, 64))
                 .build();
 
         index.train(vectors);

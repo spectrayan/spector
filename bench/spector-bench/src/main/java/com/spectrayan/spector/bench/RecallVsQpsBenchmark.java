@@ -97,7 +97,7 @@ public class RecallVsQpsBenchmark {
                 .shardThreshold(20_000)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .HnswProperties(HnswProperties)
+                .hnswProperties(HnswProperties)
                 .build();
 
         // ── Build exact HNSW (ground truth) ──────────────────────────────────

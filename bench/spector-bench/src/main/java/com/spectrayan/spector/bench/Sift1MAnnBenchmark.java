@@ -104,7 +104,7 @@ public class Sift1MAnnBenchmark {
                 .shardThreshold(20_000)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.EUCLIDEAN)  // SIFT uses L2
-                .HnswProperties(new HnswProperties(16, 128, 64))
+                .hnswProperties(new HnswProperties(16, 128, 64))
                 .build();
 
         long t0 = System.nanoTime();
@@ -142,7 +142,7 @@ public class Sift1MAnnBenchmark {
                     .shardThreshold(20_000)
                     .oversamplingFactor(3)
                     .similarityFunction(SimilarityFunction.EUCLIDEAN)
-                    .HnswProperties(new HnswProperties(16, 128, 64))
+                    .hnswProperties(new HnswProperties(16, 128, 64))
                     .build();
             probeIndex.train(trainSample);
             for (int i = 0; i < base.length; i++) {

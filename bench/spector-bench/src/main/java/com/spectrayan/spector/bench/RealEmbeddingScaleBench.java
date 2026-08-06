@@ -161,7 +161,7 @@ public class RealEmbeddingScaleBench {
                         .shardThreshold(100_000) // Keep flat mode for direct comparisons
                         .oversamplingFactor(4)
                         .similarityFunction(SimilarityFunction.COSINE)
-                        .HnswProperties(new HnswProperties(16, 128, 64))
+                        .hnswProperties(new HnswProperties(16, 128, 64))
                         .build();
 
                 // Train on first 10,000 vectors
