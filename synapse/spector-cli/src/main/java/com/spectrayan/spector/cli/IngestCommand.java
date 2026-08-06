@@ -95,7 +95,7 @@ class IngestCommand extends BaseCommand {
         } else if (configFile != null) {
             // Config provided  --  check if it has a root-directory for local batch
             var props = SpectorProperties.builder().configFile(configFile).build();
-            var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
+            var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
             if (ingestionConfig.rootDirectory() != null) {
                 rootDir = ingestionConfig.rootDirectory();
                 runLocalBatch();
@@ -128,9 +128,9 @@ class IngestCommand extends BaseCommand {
         SpectorProperties props = propsBuilder.build();
 
         // ── Read configs ──
-        var ingestionConfig = SpectorConfigFactory.ingestionDefaults(props);
-        var embedConfig = SpectorConfigFactory.embeddingDefaults(props);
-        var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
+        var ingestionConfig = SpectorConfigFactory.ingestionProperties(props);
+        var embedConfig = SpectorConfigFactory.embeddingProperties(props);
+        var memoryConfig = SpectorConfigFactory.memoryProperties(props);
         var mode = SpectorConfigFactory.mode(props);
         Path root = ingestionConfig.rootDirectory().toAbsolutePath().normalize();
 
@@ -162,8 +162,8 @@ class IngestCommand extends BaseCommand {
 
         // ── Create text generation provider for LLM tag extraction (if configured) ──
         LlmProvider textGenProvider = null;
-        memoryConfig = SpectorConfigFactory.memoryDefaults(props);
-        if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
+        memoryConfig = SpectorConfigFactory.memoryProperties(props);
+        if (memoryConfig.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
             String tagModel = memoryConfig.tagExtractorModel();
             if (tagModel == null || tagModel.isBlank()) {
                 tagModel = "qwen3:1.7b";

@@ -96,7 +96,7 @@ public class SpectorAutoConfiguration {
         var builder = DefaultSpectorMemory.builder()
                 .dimensions(memoryProps.getDimensions())
                 .embeddingProvider(embedder)
-                .persistenceMode(MemoryPersistenceMode.valueOf(memoryProps.getPersistenceMode()))
+                .persistenceMode(MemoryPersistenceMode.valueOf(memoryProps.getPersistenceMode().name()))
                 .semanticCapacity(memoryProps.getCapacity())
                 .hebbianGraphCapacity(memoryProps.getCapacity())
                 .temporalChainCapacity(memoryProps.getCapacity())
@@ -338,7 +338,7 @@ public class SpectorAutoConfiguration {
     @ConditionalOnMissingBean(SpectorClient.class)
     @ConditionalOnProperty(prefix = "spector.client",name = "host")
     SpectorClient spectorClient(SpectorConfigProperties props){
-        com.spectrayan.spector.config.ClientProperties clientProps = props.getClient();
+        com.spectrayan.spector.config.properties.ClientProperties clientProps = props.getClient();
         SpectorClient.Builder builder = SpectorClient.builder();
 
         if (clientProps.getHost() != null) {

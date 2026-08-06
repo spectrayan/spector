@@ -41,7 +41,7 @@ import org.springframework.stereotype.Component;
  *   <li>Never fails startup — logs a warning and sets availability to {@code false}.</li>
  * </ul>
  *
- * @see com.spectrayan.spector.config.ProviderProperties
+ * @see com.spectrayan.spector.config.properties.ProviderProperties
  */
 @Component
 public class OllamaDetector {

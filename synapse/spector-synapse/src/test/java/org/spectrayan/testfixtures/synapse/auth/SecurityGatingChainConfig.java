@@ -25,7 +25,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import com.spectrayan.spector.synapse.config.SecurityConfig;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.config.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.synapse.security.ApiKeyAuthenticationFilter;
 import com.spectrayan.spector.synapse.security.ApiKeyStore;
 

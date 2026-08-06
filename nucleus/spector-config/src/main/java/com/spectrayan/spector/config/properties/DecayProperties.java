@@ -13,14 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
+
+import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
+
+import java.io.Serializable;
 
 /**
  * Memory decay configuration properties.
  */
-public class DecayProperties {
-    private double minThreshold = 0.1;
-    private double baselineHalfLifeDays = 30.0;
+public class DecayProperties implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private double minThreshold = DEFAULT_DECAY_MIN_IMPORTANCE;
+    private double baselineHalfLifeDays = DEFAULT_DECAY_HALF_LIFE_DAYS;
 
     public DecayProperties() {}
 
@@ -52,4 +59,7 @@ public class DecayProperties {
             this.baselineHalfLifeDays = baselineHalfLifeDays;
         }
     }
+
+    public double minThreshold() { return getMinThreshold(); }
+    public double baselineHalfLifeDays() { return getBaselineHalfLifeDays(); }
 }

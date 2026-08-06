@@ -18,7 +18,7 @@ package com.spectrayan.spector.index;
 import com.spectrayan.spector.index.error.SpectorHnswBuildException;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.concurrent.StructuredTaskScope;
@@ -72,7 +72,7 @@ public class ParallelHnswBuilder {
      * @throws SpectorHnswBuildException if parallel construction fails
      * @throws SpectorValidationException if vectors is null or empty, or dimensions are inconsistent
      */
-    public HnswIndex build(float[][] vectors, HnswParams params, SimilarityFunction similarityFunction) {
+    public HnswIndex build(float[][] vectors, HnswProperties params, SimilarityFunction similarityFunction) {
         if (vectors == null || vectors.length == 0) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "Vectors array");
         }
@@ -93,7 +93,7 @@ public class ParallelHnswBuilder {
     /**
      * Sequential build — simple insertion one vector at a time.
      */
-    private HnswIndex buildSequential(float[][] vectors, HnswParams params, SimilarityFunction similarityFunction) {
+    private HnswIndex buildSequential(float[][] vectors, HnswProperties params, SimilarityFunction similarityFunction) {
         int dimensions = vectors[0].length;
         HnswIndex index = new HnswIndex(dimensions, vectors.length, similarityFunction, params);
 
@@ -116,7 +116,7 @@ public class ParallelHnswBuilder {
      * </ol>
      * </p>
      */
-    private HnswIndex buildParallel(float[][] vectors, HnswParams params, SimilarityFunction similarityFunction) {
+    private HnswIndex buildParallel(float[][] vectors, HnswProperties params, SimilarityFunction similarityFunction) {
         int n = vectors.length;
         int dimensions = vectors[0].length;
 
@@ -174,7 +174,7 @@ public class ParallelHnswBuilder {
      * Pre-computes level assignments for all nodes.
      * Uses the same probability distribution as the standard HNSW algorithm.
      */
-    private int[] preComputeLevels(int n, HnswParams params) {
+    private int[] preComputeLevels(int n, HnswProperties params) {
         int[] levels = new int[n];
         double levelMultiplier = params.levelMultiplier();
 
@@ -199,7 +199,7 @@ public class ParallelHnswBuilder {
         private final int dimensions;
         private final int capacity;
         private final SimilarityFunction similarityFunction;
-        private final HnswParams params;
+        private final HnswProperties params;
         private final float[][] vectors;
         private final int[] levels;
 
@@ -216,7 +216,7 @@ public class ParallelHnswBuilder {
         private final ReentrantLock entryPointLock = new ReentrantLock();
 
         ParallelHnswGraph(int dimensions, int capacity, SimilarityFunction similarityFunction,
-                          HnswParams params, float[][] vectors, int[] levels) {
+                          HnswProperties params, float[][] vectors, int[] levels) {
             this.dimensions = dimensions;
             this.capacity = capacity;
             this.similarityFunction = similarityFunction;

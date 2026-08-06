@@ -13,20 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
 
+import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
+
+import java.io.Serializable;
 import java.time.Duration;
 
 /**
  * Configuration properties POJO for Spector REST/RPC Client connections.
  */
-public class ClientProperties {
+public class ClientProperties implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private String host;
-    private int port;
-    private String apiKey;
-    private int maxConnections = 10;
-    private Duration requestTimeout = Duration.ofSeconds(30);
-    private Duration connectTimeout = Duration.ofSeconds(5);
+    private int port = DEFAULT_SERVER_PORT;
+    private String apiKey = DEFAULT_AUTH_API_KEY;
+    private int maxConnections = DEFAULT_CLIENT_MAX_CONNECTIONS;
+    private Duration requestTimeout = DEFAULT_CLIENT_REQUEST_TIMEOUT;
+    private Duration connectTimeout = DEFAULT_CLIENT_CONNECT_TIMEOUT;
 
     public ClientProperties() {}
 

@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.concurrent.ThreadLocalRandom;
@@ -62,7 +62,7 @@ public abstract class AbstractHnswIndex implements VectorIndex {
     /** Shared empty neighbor array — Flyweight to avoid per-call {@code new int[0]} allocations. */
     private static final int[] EMPTY_NEIGHBORS = new int[0];
 
-    protected final HnswParams params;
+    protected final HnswProperties params;
     protected final SimilarityFunction similarityFunction;
     protected final int dimensions;
 
@@ -122,7 +122,7 @@ public abstract class AbstractHnswIndex implements VectorIndex {
      * @param params             HNSW tuning parameters
      */
     protected AbstractHnswIndex(int dimensions, int capacity,
-                                 SimilarityFunction similarityFunction, HnswParams params) {
+                                 SimilarityFunction similarityFunction, HnswProperties params) {
         this.dimensions = dimensions;
         this.capacity = capacity;
         this.similarityFunction = similarityFunction;
@@ -600,7 +600,7 @@ public abstract class AbstractHnswIndex implements VectorIndex {
     // ─────────────── Serialization accessors ───────────────
 
     /** Returns the HNSW parameters. */
-    public HnswParams params() { return params; }
+    public HnswProperties params() { return params; }
 
     /** Returns the dimensionality. */
     public int dimensions() { return dimensions; }

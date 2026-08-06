@@ -16,10 +16,10 @@
 package com.spectrayan.spector.spring.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import com.spectrayan.spector.config.MemoryProperties;
-import com.spectrayan.spector.config.ClientProperties;
-import com.spectrayan.spector.config.EmbeddingProperties;
-import com.spectrayan.spector.config.ProviderProperties;
+import com.spectrayan.spector.config.properties.MemoryProperties;
+import com.spectrayan.spector.config.properties.ClientProperties;
+import com.spectrayan.spector.config.properties.EmbeddingProperties;
+import com.spectrayan.spector.config.properties.ProviderProperties;
 
 import java.nio.file.Path;
 import java.time.Duration;

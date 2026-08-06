@@ -4,24 +4,20 @@
 # ═══════════════════════════════════════════════════════════════
 
 spector:
-  mode: memory
+  mode: MEMORY
 
-  engine:
-    dimensions: 768
-    capacity: 100000
-    similarity: COSINE
-    index-type: HNSW
-    persistence-mode: DISK
-    data-directory: /opt/spector/data/index
-
-  embedding:
-    model: nomic-embed-text
-    # Point to the Ollama instance Odysseus uses.
-    # If Odysseus runs in Docker, use the Docker network hostname.
-    # If native, use http://localhost:11434.
-    base-url: http://host.docker.internal:11434
-    timeout: 120s
-    batch-size: 32
+  provider:
+    embedding:
+      type: ollama
+      model: nomic-embed-text
+      base-url: http://host.docker.internal:11434
+      dimensions: 768
+      timeout: 120s
+      batch-size: 32
+    generation:
+      type: ollama
+      model: llama3.2
+      base-url: http://host.docker.internal:11434
 
   memory:
     enabled: true

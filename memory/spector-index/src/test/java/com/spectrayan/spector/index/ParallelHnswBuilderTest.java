@@ -18,7 +18,7 @@ package com.spectrayan.spector.index;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,7 +40,7 @@ class ParallelHnswBuilderTest {
         int dims = 32;
         float[][] vectors = randomVectors(n, dims, 42L);
 
-        HnswIndex index = builder.build(vectors, HnswParams.DEFAULT, SimilarityFunction.COSINE);
+        HnswIndex index = builder.build(vectors, HnswProperties.DEFAULT, SimilarityFunction.COSINE);
 
         assertThat(index.size()).isEqualTo(n);
         assertThat(index.dimensions()).isEqualTo(dims);
@@ -59,7 +59,7 @@ class ParallelHnswBuilderTest {
         int dims = 16;
         float[][] vectors = randomVectors(n, dims, 123L);
 
-        HnswIndex index = builder.build(vectors, HnswParams.DEFAULT, SimilarityFunction.COSINE);
+        HnswIndex index = builder.build(vectors, HnswProperties.DEFAULT, SimilarityFunction.COSINE);
 
         assertThat(index.size()).isEqualTo(n);
     }
@@ -70,7 +70,7 @@ class ParallelHnswBuilderTest {
         int dims = 16;
         float[][] vectors = randomVectors(n, dims, 99L);
 
-        HnswIndex index = builder.build(vectors, HnswParams.DEFAULT, SimilarityFunction.COSINE);
+        HnswIndex index = builder.build(vectors, HnswProperties.DEFAULT, SimilarityFunction.COSINE);
 
         assertThat(index.size()).isEqualTo(n);
         assertThat(index.dimensions()).isEqualTo(dims);
@@ -84,7 +84,7 @@ class ParallelHnswBuilderTest {
         }
 
         // Verify max connections constraint
-        HnswParams params = index.params();
+        HnswProperties params = index.params();
         for (int i = 0; i < n; i++) {
             int[] layer0Neighbors = index.getNeighborsAtLayer(i, 0);
             assertThat(layer0Neighbors.length)
@@ -107,7 +107,7 @@ class ParallelHnswBuilderTest {
         int dims = 32;
         float[][] vectors = randomVectors(n, dims, 77L);
 
-        HnswIndex index = builder.build(vectors, HnswParams.DEFAULT, SimilarityFunction.COSINE);
+        HnswIndex index = builder.build(vectors, HnswProperties.DEFAULT, SimilarityFunction.COSINE);
 
         // Searching with an indexed vector should find it
         ScoredResult[] results = index.search(vectors[0], 10);
@@ -121,7 +121,7 @@ class ParallelHnswBuilderTest {
         int dims = 16;
         float[][] vectors = randomVectors(n, dims, 55L);
 
-        HnswIndex index = builder.build(vectors, HnswParams.DEFAULT, SimilarityFunction.EUCLIDEAN);
+        HnswIndex index = builder.build(vectors, HnswProperties.DEFAULT, SimilarityFunction.EUCLIDEAN);
 
         assertThat(index.size()).isEqualTo(n);
 
@@ -134,13 +134,13 @@ class ParallelHnswBuilderTest {
 
     @Test
     void build_nullVectors_throwsException() {
-        assertThatThrownBy(() -> builder.build(null, HnswParams.DEFAULT, SimilarityFunction.COSINE))
+        assertThatThrownBy(() -> builder.build(null, HnswProperties.DEFAULT, SimilarityFunction.COSINE))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
     void build_emptyVectors_throwsException() {
-        assertThatThrownBy(() -> builder.build(new float[0][], HnswParams.DEFAULT, SimilarityFunction.COSINE))
+        assertThatThrownBy(() -> builder.build(new float[0][], HnswProperties.DEFAULT, SimilarityFunction.COSINE))
                 .isInstanceOf(SpectorValidationException.class);
     }
 
@@ -150,7 +150,7 @@ class ParallelHnswBuilderTest {
                 new float[]{1.0f, 2.0f, 3.0f},
                 new float[]{1.0f, 2.0f} // different dimensions
         };
-        assertThatThrownBy(() -> builder.build(vectors, HnswParams.DEFAULT, SimilarityFunction.COSINE))
+        assertThatThrownBy(() -> builder.build(vectors, HnswProperties.DEFAULT, SimilarityFunction.COSINE))
                 .isInstanceOf(SpectorValidationException.class)
                 .hasMessageContaining("dimensions");
     }

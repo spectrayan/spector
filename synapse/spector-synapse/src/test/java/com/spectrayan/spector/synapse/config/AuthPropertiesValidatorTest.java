@@ -21,9 +21,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
-import com.spectrayan.spector.config.AuthProperties;
-import com.spectrayan.spector.config.AuthProperties.DefaultAdminProperties;
-import com.spectrayan.spector.config.AuthProperties.JwtProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.DefaultAdminProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.JwtProperties;
 
 /**
  * Unit tests for {@link AuthPropertiesValidator} fail-fast startup validation.

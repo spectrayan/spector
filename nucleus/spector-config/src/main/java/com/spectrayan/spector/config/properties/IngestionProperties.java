@@ -13,9 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
+
+import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
 
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
+import java.io.Serializable;
 import java.nio.file.Path;
 
 /**
@@ -23,16 +26,18 @@ import java.nio.file.Path;
  *
  * <p>Maps to {@code spector.ingestion.*} namespace.</p>
  */
-public class IngestionProperties {
+public class IngestionProperties implements Serializable {
 
-    private Path rootDirectory = Path.of(".");
-    private String filePattern = "**/*.md";
-    private String skipDirs = ".git,.idea,.mvn,target,node_modules,.github";
-    private int chunkSize = 2500;
-    private int chunkOverlap = 200;
-    private int parallelism = 4;
-    private int maxRetries = 3;
-    private int retryDelayMs = 2000;
+    private static final long serialVersionUID = 1L;
+
+    private Path rootDirectory = DEFAULT_INGESTION_ROOT_DIRECTORY;
+    private String filePattern = DEFAULT_INGESTION_FILE_PATTERN;
+    private String skipDirs = DEFAULT_INGESTION_SKIP_DIRS;
+    private int chunkSize = DEFAULT_INGESTION_CHUNK_SIZE;
+    private int chunkOverlap = DEFAULT_INGESTION_CHUNK_OVERLAP;
+    private int parallelism = DEFAULT_INGESTION_PARALLELISM;
+    private int maxRetries = DEFAULT_INGESTION_MAX_RETRIES;
+    private int retryDelayMs = DEFAULT_INGESTION_RETRY_DELAY_MS;
 
     public IngestionProperties() {}
 
@@ -83,7 +88,6 @@ public class IngestionProperties {
         return ChunkConfig.markdown(chunkSize, chunkOverlap);
     }
 
-    // Record-style accessors
     public Path rootDirectory() { return getRootDirectory(); }
     public String filePattern() { return getFilePattern(); }
     public String skipDirs() { return getSkipDirs(); }

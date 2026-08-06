@@ -6,28 +6,23 @@
 # ═══════════════════════════════════════════════════════════════════════
 
 spector:
-  mode: memory
+  mode: MEMORY
 
-  engine:
-    dimensions: 4096
-    capacity: 1000
-    similarity: COSINE
-    index-type: HNSW
-    persistence-mode: DISK
-    data-directory: .spector-bench/index
-
-  embedding:
-    model: qwen3-embedding:latest
-    base-url: http://localhost:11434
-    timeout: 120s
-    batch-size: 32
+  provider:
+    embedding:
+      type: ollama
+      model: qwen3-embedding:latest
+      base-url: http://localhost:11434
+      dimensions: 4096
+      timeout: 120s
+      batch-size: 32
 
   memory:
     enabled: true
     persistence-mode: DISK
     persistence-path: .spector-bench/memory
     dimensions: 4096
-    capacity: 15000   # Must fit full corpus (13255 chunks); multi-partition recall is a known TODO
+    capacity: 15000   # Must fit full corpus (13255 chunks)
     decay-enabled: false          # Disable decay for deterministic benchmarks
     consolidation-interval: 600s  # Long interval — no background consolidation during bench
     default-ingestion-tier: SEMANTIC
@@ -40,8 +35,5 @@ spector:
     ef-search: 200
 
   ingestion:
-    root: datasets/scifact/corpus-txt
-    pattern: "**/*.txt"
     chunk-size: 1200
-    chunk-overlap: 400
-    threads: 4
+    chunk-overlap: 100

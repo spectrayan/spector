@@ -40,7 +40,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.config.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyCreation;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;

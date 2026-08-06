@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.Arrays;
@@ -142,7 +142,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      */
     public QuantizedHnswIndex(int dimensions, int capacity,
                                SimilarityFunction similarityFunction,
-                               HnswParams params,
+                               HnswProperties params,
                                ScalarQuantizer quantizer) {
         this(dimensions, capacity, similarityFunction, params, quantizer,
                 QuantizationType.SCALAR_INT8, null, 1);
@@ -151,7 +151,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
     /** Creates with auto-calibration (INT8, no oversampling). */
     public QuantizedHnswIndex(int dimensions, int capacity,
                                SimilarityFunction similarityFunction,
-                               HnswParams params) {
+                               HnswProperties params) {
         this(dimensions, capacity, similarityFunction, params, null,
                 QuantizationType.SCALAR_INT8, null, 1);
     }
@@ -171,7 +171,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      */
     public static QuantizedHnswIndex svasq(int dimensions, int capacity,
                                            SimilarityFunction similarityFunction,
-                                           HnswParams params, int oversamplingFactor) {
+                                           HnswProperties params, int oversamplingFactor) {
         return new QuantizedHnswIndex(dimensions, capacity, similarityFunction, params,
                 null, QuantizationType.SVASQ, null, oversamplingFactor);
     }
@@ -199,7 +199,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      */
     public static QuantizedHnswIndex svasqPreCalibrated(int dimensions, int capacity,
                                                         SimilarityFunction similarityFunction,
-                                                        HnswParams params,
+                                                        HnswProperties params,
                                                         SvasqStrategy preCalibrated,
                                                         int oversamplingFactor) {
         if (preCalibrated == null) throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "preCalibrated SvasqStrategy");
@@ -222,7 +222,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      */
     public static QuantizedHnswIndex svasq4(int dimensions, int capacity,
                                             SimilarityFunction similarityFunction,
-                                            HnswParams params, int oversamplingFactor) {
+                                            HnswProperties params, int oversamplingFactor) {
         return new QuantizedHnswIndex(dimensions, capacity, similarityFunction, params,
                 null, QuantizationType.SVASQ_4, null, oversamplingFactor);
     }
@@ -239,7 +239,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      */
     public static QuantizedHnswIndex svasq4PreCalibrated(int dimensions, int capacity,
                                                          SimilarityFunction similarityFunction,
-                                                         HnswParams params,
+                                                         HnswProperties params,
                                                          Svasq4Strategy preCalibrated,
                                                          int oversamplingFactor) {
         if (preCalibrated == null) throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "preCalibrated Svasq4Strategy");
@@ -262,7 +262,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      */
     public QuantizedHnswIndex(int dimensions, int capacity,
                                SimilarityFunction similarityFunction,
-                               HnswParams params,
+                               HnswProperties params,
                                ScalarQuantizer quantizer,
                                QuantizationType quantizationType,
                                NonUniformQuantizer nonUniformQuantizer,
@@ -323,7 +323,7 @@ public class QuantizedHnswIndex extends AbstractHnswIndex {
      */
     private QuantizedHnswIndex(int dimensions, int capacity,
                                 SimilarityFunction similarityFunction,
-                                HnswParams params,
+                                HnswProperties params,
                                 QuantizationStrategy preCalibrated,
                                 QuantizationType quantType,
                                 int oversamplingFactor) {

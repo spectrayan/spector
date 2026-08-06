@@ -13,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
 
+import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
+
+import java.io.Serializable;
 import java.time.Duration;
 import java.util.Map;
 
@@ -23,21 +26,23 @@ import java.util.Map;
  *
  * <p>Maps to {@code spector.provider.embedding.*} namespace.</p>
  */
-public class EmbeddingProperties {
+public class EmbeddingProperties implements Serializable {
 
-    private String type = "ollama";
-    private String model = "nomic-embed-text";
-    private String apiKey;
-    private String baseUrl = "http://localhost:11434";
-    private int dimensions = 768;
-    private int batchSize = 32;
-    private int maxRetries = 3;
-    private int maxConcurrent = 0;
-    private Duration timeout = Duration.ofSeconds(30);
-    private boolean cacheEnabled = true;
-    private int cacheMaxSize = 1000;
-    private Duration cacheTtl = Duration.ofMinutes(60);
-    private Duration cacheStatsLogInterval = Duration.ofMinutes(5);
+    private static final long serialVersionUID = 1L;
+
+    private String type = DEFAULT_PROVIDER_EMBEDDING_TYPE;
+    private String model = DEFAULT_PROVIDER_EMBEDDING_MODEL;
+    private String apiKey = DEFAULT_PROVIDER_EMBEDDING_API_KEY;
+    private String baseUrl = DEFAULT_PROVIDER_EMBEDDING_BASE_URL;
+    private int dimensions = DEFAULT_PROVIDER_EMBEDDING_DIMENSIONS;
+    private int batchSize = DEFAULT_PROVIDER_EMBEDDING_BATCH_SIZE;
+    private int maxRetries = DEFAULT_PROVIDER_EMBEDDING_MAX_RETRIES;
+    private int maxConcurrent = DEFAULT_PROVIDER_EMBEDDING_MAX_CONCURRENT;
+    private Duration timeout = DEFAULT_PROVIDER_EMBEDDING_TIMEOUT;
+    private boolean cacheEnabled = DEFAULT_PROVIDER_EMBEDDING_CACHE_ENABLED;
+    private int cacheMaxSize = DEFAULT_PROVIDER_EMBEDDING_CACHE_MAX_SIZE;
+    private Duration cacheTtl = DEFAULT_PROVIDER_EMBEDDING_CACHE_TTL;
+    private Duration cacheStatsLogInterval = DEFAULT_PROVIDER_EMBEDDING_CACHE_STATS_LOG_INTERVAL;
     private Map<String, String> properties = Map.of();
 
     public EmbeddingProperties() {}
@@ -108,7 +113,6 @@ public class EmbeddingProperties {
         if (properties != null) this.properties = properties;
     }
 
-    // Record-style accessors
     public String type() { return getType(); }
     public String model() { return getModel(); }
     public String apiKey() { return getApiKey(); }

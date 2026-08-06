@@ -13,14 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
+
+import static com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_CORS_ALLOWED_ORIGINS;
+
+import java.io.Serializable;
 
 /**
  * Configuration properties POJO for CORS origin settings.
  */
-public class CorsProperties {
+public class CorsProperties implements Serializable {
 
-    private String allowedOrigins = "http://localhost:4200";
+    private static final long serialVersionUID = 1L;
+
+    private String allowedOrigins = DEFAULT_CORS_ALLOWED_ORIGINS;
 
     public CorsProperties() {}
 

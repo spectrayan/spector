@@ -20,7 +20,7 @@ import com.spectrayan.spector.commons.error.SpectorException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ScoredResult;
 
 import org.junit.jupiter.api.Test;
@@ -133,7 +133,7 @@ class SpectorIndexTest {
                 .shardThreshold(5_000)  // keep shards in flat mode for this test
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.EUCLIDEAN)
-                .hnswParams(HnswParams.DEFAULT)
+                .hnswProperties(HnswProperties.DEFAULT)
                 .build();
 
         index.train(corpus);

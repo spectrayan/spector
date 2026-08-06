@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.lang.foreign.Arena;
@@ -101,7 +101,7 @@ public final class HnswPersistenceImpl implements HnswPersistence {
     public void persist(Path file, HnswIndex index) throws IOException {
         int nodeCount = index.size();
         int dimensions = index.dimensions();
-        HnswParams params = index.params();
+        HnswProperties params = index.params();
 
         // Compute layout
         long vectorRegionOffset = alignToPage(HEADER_SIZE);
@@ -220,8 +220,8 @@ public final class HnswPersistenceImpl implements HnswPersistence {
                         + ", idTable=" + idTableOffset + ", fileSize=" + actualFileSize);
             }
 
-            // Reconstruct HnswParams
-            HnswParams params = new HnswParams(m, 200, 50, maxLevel0Connections,
+            // Reconstruct HnswProperties
+            HnswProperties params = new HnswProperties(m, 200, 50, maxLevel0Connections,
                     1.0 / Math.log(m));
 
             // Create index with capacity = nodeCount (exact fit for loaded data)
@@ -269,7 +269,7 @@ public final class HnswPersistenceImpl implements HnswPersistence {
 
         // 1. Load existing index into memory to compute graph connections
         HnswIndex index;
-        HnswParams params;
+        HnswProperties params;
         int oldNodeCount;
         int dimensions;
         long vectorRegionOffset;
@@ -313,7 +313,7 @@ public final class HnswPersistenceImpl implements HnswPersistence {
                         + ", got " + vector.length);
             }
 
-            params = new HnswParams(m, 200, 50, maxLevel0Connections,
+            params = new HnswProperties(m, 200, 50, maxLevel0Connections,
                     1.0 / Math.log(m));
 
             // Load into index with capacity for the new node
@@ -443,7 +443,7 @@ public final class HnswPersistenceImpl implements HnswPersistence {
      * </pre>
      */
     private void writeGraphBlock(MemorySegment segment, long blockOffset,
-                                  HnswIndex index, int nodeIdx, HnswParams params) {
+                                  HnswIndex index, int nodeIdx, HnswProperties params) {
         long pos = blockOffset;
 
         int level = index.getLevel(nodeIdx);
@@ -489,7 +489,7 @@ public final class HnswPersistenceImpl implements HnswPersistence {
      */
     private void restoreNode(HnswIndex index, int nodeIdx, String id,
                               float[] vector, int level,
-                              MemorySegment segment, long blockOffset, HnswParams params) {
+                              MemorySegment segment, long blockOffset, HnswProperties params) {
         // Access internal fields via the abstract base class
         index.ids[nodeIdx] = id;
         index.storeIndices[nodeIdx] = nodeIdx;

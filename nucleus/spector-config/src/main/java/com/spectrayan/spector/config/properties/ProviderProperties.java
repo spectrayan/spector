@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
+
+import java.io.Serializable;
 
 /**
  * Top-level configuration container for provider settings.
  *
  * <p>Maps to {@code spector.provider.*} namespace.</p>
  */
-public class ProviderProperties {
+public class ProviderProperties implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private EmbeddingProperties embedding = new EmbeddingProperties();
     private GenerationProperties generation = new GenerationProperties();

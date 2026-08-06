@@ -13,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
 
+import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
+
+import java.io.Serializable;
 import java.util.Map;
 
 /**
@@ -22,12 +25,14 @@ import java.util.Map;
  *
  * <p>Maps to {@code spector.provider.generation.*} namespace.</p>
  */
-public class GenerationProperties {
+public class GenerationProperties implements Serializable {
 
-    private String type = "ollama";
-    private String model = "llama3.2";
-    private String apiKey;
-    private String baseUrl = "http://localhost:11434";
+    private static final long serialVersionUID = 1L;
+
+    private String type = DEFAULT_PROVIDER_GENERATION_TYPE;
+    private String model = DEFAULT_PROVIDER_GENERATION_MODEL;
+    private String apiKey = DEFAULT_PROVIDER_GENERATION_API_KEY;
+    private String baseUrl = DEFAULT_PROVIDER_GENERATION_BASE_URL;
     private Map<String, String> properties = Map.of();
 
     public GenerationProperties() {}
@@ -55,7 +60,6 @@ public class GenerationProperties {
         if (properties != null) this.properties = properties;
     }
 
-    // Record-style accessors
     public String type() { return getType(); }
     public String model() { return getModel(); }
     public String apiKey() { return getApiKey(); }

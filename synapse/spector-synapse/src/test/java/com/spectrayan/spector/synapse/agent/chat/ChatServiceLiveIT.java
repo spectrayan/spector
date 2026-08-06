@@ -51,8 +51,8 @@ import com.spectrayan.spector.synapse.agent.service.IdentityPrimerService;
 import com.spectrayan.spector.synapse.agent.tools.CurrentTimeTool;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.config.CorsProperties;
-import com.spectrayan.spector.config.MemoryProperties;
+import com.spectrayan.spector.config.properties.CorsProperties;
+import com.spectrayan.spector.config.properties.MemoryProperties;
 
 /**
  * Integration test for the ChatService with real Ollama model.

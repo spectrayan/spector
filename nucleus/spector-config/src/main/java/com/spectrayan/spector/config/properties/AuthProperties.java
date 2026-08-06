@@ -13,24 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
 
+import static com.spectrayan.spector.config.SpectorPropertyConstants.*;
+
+import java.io.Serializable;
 import java.time.Duration;
 import java.util.List;
 
 /**
  * Configuration properties POJO for multi-user authentication settings.
  */
-public class AuthProperties {
+public class AuthProperties implements Serializable {
 
-    private boolean enabled = false;
+    private static final long serialVersionUID = 1L;
+
+    private boolean enabled = DEFAULT_AUTH_ENABLED;
     private JwtProperties jwt = new JwtProperties();
     private RefreshProperties refresh = new RefreshProperties();
     private OidcProperties oidc = new OidcProperties();
     private DefaultAdminProperties defaultAdmin = new DefaultAdminProperties();
     private Pbkdf2Properties pbkdf2 = new Pbkdf2Properties();
     private LockoutProperties lockout = new LockoutProperties();
-    private List<String> publicPaths = List.of("/actuator/health", "/api/docs");
+    private List<String> publicPaths = DEFAULT_AUTH_PUBLIC_PATHS;
 
     public AuthProperties() {}
 
@@ -76,7 +81,6 @@ public class AuthProperties {
         }
     }
 
-    // Record-style accessors for backward compatibility
     public boolean enabled() { return isEnabled(); }
     public JwtProperties jwt() { return getJwt(); }
     public RefreshProperties refresh() { return getRefresh(); }
@@ -86,9 +90,10 @@ public class AuthProperties {
     public LockoutProperties lockout() { return getLockout(); }
     public List<String> publicPaths() { return getPublicPaths(); }
 
-    public static class JwtProperties {
+    public static class JwtProperties implements Serializable {
+        private static final long serialVersionUID = 1L;
         private String secret;
-        private Duration ttl = Duration.ofHours(1);
+        private Duration ttl = DEFAULT_AUTH_JWT_TTL;
 
         public JwtProperties() {}
         public JwtProperties(String secret, Duration ttl) {
@@ -107,8 +112,9 @@ public class AuthProperties {
         public Duration ttl() { return getTtl(); }
     }
 
-    public static class RefreshProperties {
-        private Duration ttl = Duration.ofDays(30);
+    public static class RefreshProperties implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private Duration ttl = DEFAULT_AUTH_REFRESH_TTL;
 
         public RefreshProperties() {}
         public RefreshProperties(Duration ttl) {
@@ -123,9 +129,10 @@ public class AuthProperties {
         public Duration ttl() { return getTtl(); }
     }
 
-    public static class OidcProperties {
-        private String jwksUrl = "";
-        private String issuer = "";
+    public static class OidcProperties implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private String jwksUrl = DEFAULT_AUTH_OIDC_JWKS_URL;
+        private String issuer = DEFAULT_AUTH_OIDC_ISSUER;
 
         public OidcProperties() {}
         public OidcProperties(String jwksUrl, String issuer) {
@@ -142,7 +149,8 @@ public class AuthProperties {
         public String issuer() { return getIssuer(); }
     }
 
-    public static class DefaultAdminProperties {
+    public static class DefaultAdminProperties implements Serializable {
+        private static final long serialVersionUID = 1L;
         private String password;
 
         public DefaultAdminProperties() {}
@@ -154,8 +162,9 @@ public class AuthProperties {
         public String password() { return getPassword(); }
     }
 
-    public static class Pbkdf2Properties {
-        private int iterations = 310_000;
+    public static class Pbkdf2Properties implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private int iterations = DEFAULT_AUTH_PBKDF2_ITERATIONS;
 
         public Pbkdf2Properties() {}
         public Pbkdf2Properties(int iterations) {
@@ -170,9 +179,10 @@ public class AuthProperties {
         public int iterations() { return getIterations(); }
     }
 
-    public static class LockoutProperties {
-        private int maxAttempts = 5;
-        private int minutes = 15;
+    public static class LockoutProperties implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private int maxAttempts = DEFAULT_AUTH_LOCKOUT_MAX_ATTEMPTS;
+        private int minutes = DEFAULT_AUTH_LOCKOUT_MINUTES;
 
         public LockoutProperties() {}
         public LockoutProperties(int maxAttempts, int minutes) {

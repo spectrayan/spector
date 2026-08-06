@@ -23,7 +23,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 
-import com.spectrayan.spector.config.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
 
 /**
  * Unit tests for {@link AuthProperties} default coercion and Spring configuration binding

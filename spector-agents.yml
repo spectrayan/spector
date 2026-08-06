@@ -1,17 +1,16 @@
 # Spector config for the AI team's shared cognitive memory (MCP server).
-# Used by the `spector` MCP server wired into .kiro/settings/mcp.json.
 # Memory-first: cognitive memory tools enabled with disk persistence.
 spector:
-  mode: HYBRID                     # SEARCH | MEMORY | HYBRID
-  engine:
-    dimensions: 768                # matches nomic-embed-text
-    capacity: 100000
-    persistence-mode: DISK
-    data-directory: .spector/index
-  embedding:
-    model: nomic-embed-text
-    base-url: http://localhost:11434   # requires a local Ollama server
+  mode: MEMORY
+  provider:
+    embedding:
+      model: nomic-embed-text
+      base-url: http://localhost:11434
+      dimensions: 768
   memory:
     enabled: true                  # registers the memory_* tools
+    dimensions: 768
+    capacity: 100000
+    persistence-mode: DISK
     persistence-path: .spector/memory
     nodes-per-partition: 10000

@@ -12,9 +12,9 @@
  */
 package com.spectrayan.spector.synapse.config;
 
-import com.spectrayan.spector.config.AuthProperties;
-import com.spectrayan.spector.config.CorsProperties;
-import com.spectrayan.spector.config.MemoryProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.CorsProperties;
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;

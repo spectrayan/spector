@@ -23,8 +23,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.config.AuthProperties;
-import com.spectrayan.spector.config.AuthProperties.LockoutProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.LockoutProperties;
 
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;

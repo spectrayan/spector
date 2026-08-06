@@ -79,18 +79,16 @@ Runtime behavior is driven by `spector.yml`:
 
 ```yaml
 spector:
-  mode: search              # search or memory
-  engine:
-    dimensions: 768
-    persistence-mode: DISK
-    data-directory: .spector/index
-  embedding:
-    model: nomic-embed-text
-    base-url: http://localhost:11434
+  mode: memory
   memory:
     enabled: true
     persistence-mode: DISK
-    persistence-path: .spector-memory
+    persistence-path: .spector/memory
+    dimensions: 768
+  provider:
+    embedding:
+      model: nomic-embed-text
+      base-url: http://localhost:11434
   ingestion:
     root-directory: /path/to/docs
     file-pattern: "**/*.md"

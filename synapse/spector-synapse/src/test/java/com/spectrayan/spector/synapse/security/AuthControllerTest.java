@@ -44,8 +44,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import com.spectrayan.spector.synapse.config.SynapseProperties;
-import com.spectrayan.spector.config.AuthProperties;
-import com.spectrayan.spector.config.AuthProperties.RefreshProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties.RefreshProperties;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 import com.spectrayan.spector.synapse.security.ApiKeyStore.ApiKeyCreation;
 import com.spectrayan.spector.synapse.security.AuthDto.ChangePasswordRequest;

@@ -16,7 +16,7 @@
 package com.spectrayan.spector.bench;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.spectrum.SpectorIndex;
 
@@ -46,7 +46,7 @@ public class SpectorRecallDiag {
                 .shardThreshold(20_000)
                 .oversamplingFactor(3)
                 .similarityFunction(SimilarityFunction.COSINE)
-                .hnswParams(new HnswParams(16, 128, 64))
+                .HnswProperties(new HnswProperties(16, 128, 64))
                 .build();
 
         float[][] train = Arrays.copyOf(vectors, Math.min(N, 500));

@@ -63,7 +63,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
-import com.spectrayan.spector.config.AuthProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
 
 import jakarta.servlet.http.HttpServletRequest;
 

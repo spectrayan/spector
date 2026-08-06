@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.memory.model.*;
 
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;

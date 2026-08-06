@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.spectrayan.spector.commons.ContentExtractor;
@@ -42,7 +42,7 @@ class HnswIndexExtendedTest {
     @EnumSource(SimilarityFunction.class)
     void recallAcrossAllSimilarityFunctions(SimilarityFunction sim) {
         int n = 300, k = 10, dim = 64;
-        var params = new HnswParams(16, 200, 100);
+        var params = new HnswProperties(16, 200, 100);
 
         try (var idx = new HnswIndex(dim, n, sim, params)) {
             float[][] allVectors = new float[n][];

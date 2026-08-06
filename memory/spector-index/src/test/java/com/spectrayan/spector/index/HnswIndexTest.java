@@ -20,7 +20,7 @@ import com.spectrayan.spector.commons.error.SpectorException;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -65,7 +65,7 @@ class HnswIndexTest {
     @ParameterizedTest
     @EnumSource(SimilarityFunction.class)
     void findsSelfAsTopResult(SimilarityFunction sim) {
-        try (var idx = new HnswIndex(DIM, 1000, sim, new HnswParams(16, 100, 100))) {
+        try (var idx = new HnswIndex(DIM, 1000, sim, new HnswProperties(16, 100, 100))) {
             Random rng = new Random(42);
             for (int i = 0; i < 100; i++) {
                 idx.add("doc-" + i, i, randomVector(DIM, rng));
@@ -93,7 +93,7 @@ class HnswIndexTest {
         int n = 500;
         int k = 10;
         int dim = 64;
-        var params = new HnswParams(16, 200, 100);
+        var params = new HnswProperties(16, 200, 100);
 
         try (var idx = new HnswIndex(dim, n, SimilarityFunction.COSINE, params)) {
             float[][] allVectors = new float[n][];
@@ -130,7 +130,7 @@ class HnswIndexTest {
         int n = 500;
         int k = 10;
         int dim = 64;
-        var params = new HnswParams(16, 200, 100);
+        var params = new HnswProperties(16, 200, 100);
 
         try (var idx = new HnswIndex(dim, n, SimilarityFunction.EUCLIDEAN, params)) {
             float[][] allVectors = new float[n][];

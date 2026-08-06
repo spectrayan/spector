@@ -72,14 +72,14 @@ Decorator (Proxy pattern) wrapping a `SpectorEngine` to record metrics for all c
 
 | Metric Name | Type | Description |
 |------------|------|-------------|
-| `spector.engine.search.duration` | Timer | Search query latency |
-| `spector.engine.search.total` | Counter | Total search queries |
-| `spector.engine.ingest.duration` | Timer | Single-doc ingest latency |
-| `spector.engine.ingest.batch.duration` | Timer | Batch ingest latency |
-| `spector.engine.ingest.total` | Counter | Total ingested documents |
-| `spector.engine.delete.total` | Counter | Total deletions |
-| `spector.engine.errors.total` | Counter | Total engine errors |
-| `spector.engine.documents` | Gauge | Current document count |
+| `spector.memory.search.duration` | Timer | Search query latency |
+| `spector.memory.search.total` | Counter | Total search queries |
+| `spector.memory.ingest.duration` | Timer | Single-doc ingest latency |
+| `spector.memory.ingest.batch.duration` | Timer | Batch ingest latency |
+| `spector.memory.ingest.total` | Counter | Total ingested documents |
+| `spector.memory.delete.total` | Counter | Total deletions |
+| `spector.memory.errors.total` | Counter | Total engine errors |
+| `spector.memory.documents` | Gauge | Current document count |
 
 ```java
 SpectorEngine engine = new DefaultSpectorEngine(config);

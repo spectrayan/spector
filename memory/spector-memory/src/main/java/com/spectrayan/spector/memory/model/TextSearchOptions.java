@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.config.model.TextSearchMode;
+
 /**
  * Text search parameters for BM25/SPLADE hybrid recall.
  *

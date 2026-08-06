@@ -17,7 +17,7 @@ package com.spectrayan.spector.bench;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.HnswIndex;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ScoredResult;
 
 import org.openjdk.jmh.annotations.*;
@@ -48,7 +48,7 @@ public class HnswBenchmark {
 
     @Setup
     public void setup() {
-        var params = new HnswParams(16, 200, 50);
+        var params = new HnswProperties(16, 200, 50);
         index = new HnswIndex(dimensions, datasetSize, SimilarityFunction.COSINE, params);
         Random rng = new Random(42);
 

@@ -34,8 +34,8 @@ import com.spectrayan.spector.runtime.SpectorRuntime;
  * <h3>Configuration Hierarchy (highest priority wins)</h3>
  * <ol>
  *   <li>CLI arguments ({@code --dims 768})</li>
- *   <li>System properties ({@code -Dspector.engine.dimensions=768})</li>
- *   <li>Environment variables ({@code SPECTOR_ENGINE_DIMENSIONS=768})</li>
+ *   <li>System properties ({@code -Dspector.memory.dimensions=768})</li>
+ *   <li>Environment variables ({@code SPECTOR_MEMORY_DIMENSIONS=768})</li>
  *   <li>Profile config file ({@code spector-{profile}.yml})</li>
  *   <li>User config file ({@code spector.yml} in working directory)</li>
  *   <li>{@code --config /path/to/config.yml} (explicit file)</li>
@@ -137,14 +137,11 @@ public class SpectorMcpMain {
         if ("odysseus".equalsIgnoreCase(mode)) {
             propsBuilder.override("spector.mode", "memory");
             propsBuilder.override("spector.memory.enabled", "true");
-            propsBuilder.override("spector.engine.persistence-mode", "DISK");
             propsBuilder.override("spector.memory.persistence-mode", "DISK");
             // Default data directory if not explicitly set
             if (cliDataDir == null && getStringArg(args, "--config", null) == null) {
                 String odysseusDataDir = System.getProperty("user.home")
                         + "/.odysseus/spector/data";
-                propsBuilder.override("spector.engine.data-directory",
-                        odysseusDataDir + "/index");
                 propsBuilder.override("spector.memory.persistence-path",
                         odysseusDataDir + "/memory");
             }
@@ -247,8 +244,8 @@ public class SpectorMcpMain {
                 
                 Config Hierarchy (highest priority wins):
                   1. CLI arguments (--dims, --capacity, etc.)
-                  2. System properties (-Dspector.engine.dimensions=768)
-                  3. Environment variables (SPECTOR_ENGINE_DIMENSIONS=768)
+                  2. System properties (-Dspector.memory.dimensions=768)
+                  3. Environment variables (SPECTOR_MEMORY_DIMENSIONS=768)
                   4. spector-{profile}.yml (profile-specific)
                   5. spector.yml (working directory)
                   6. spector-defaults.yml (bundled in JAR)

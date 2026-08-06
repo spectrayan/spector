@@ -23,27 +23,29 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.spectrayan.spector.config.model.*;
+import com.spectrayan.spector.config.properties.*;
 import com.spectrayan.spector.config.error.SpectorConfigValueException;
 
 /**
  * Additional config module tests to increase coverage:
- * CortexTelemetryConfig, PersistenceFiles, SpectorConfigException, config errors.
+ * TelemetryProperties, PersistenceFiles, SpectorConfigException, config errors.
  */
 @DisplayName("Config Module — Extended Coverage")
 class ConfigExtendedTest {
 
     // ══════════════════════════════════════════════════════════════
-    // CortexTelemetryConfig
+    // TelemetryProperties
     // ══════════════════════════════════════════════════════════════
 
     @Nested
-    @DisplayName("CortexTelemetryConfig")
+    @DisplayName("TelemetryProperties")
     class CortexTelemetryTests {
 
         @Test
         @DisplayName("DEFAULT has all features enabled")
         void defaultConfig() {
-            var cfg = CortexTelemetryConfig.DEFAULT;
+            var cfg = TelemetryProperties.DEFAULT;
             assertThat(cfg.enabled()).isTrue();
             assertThat(cfg.intervalMs()).isEqualTo(2000);
             assertThat(cfg.perQueryEnabled()).isTrue();
@@ -55,7 +57,7 @@ class ConfigExtendedTest {
         @Test
         @DisplayName("fromSystemProperties returns defaults when no props set")
         void fromSystemPropsDefaults() {
-            var cfg = CortexTelemetryConfig.fromSystemProperties();
+            var cfg = TelemetryProperties.fromSystemProperties();
             assertThat(cfg.enabled()).isTrue();
             assertThat(cfg.intervalMs()).isEqualTo(2000);
         }
@@ -63,28 +65,28 @@ class ConfigExtendedTest {
         @Test
         @DisplayName("shouldSampleQuery returns true when rate is 1.0")
         void sampleQueryFullRate() {
-            var cfg = new CortexTelemetryConfig(true, 2000, true, 1.0, true, true);
+            var cfg = new TelemetryProperties(true, 2000, true, 1.0, true, true);
             assertThat(cfg.shouldSampleQuery()).isTrue();
         }
 
         @Test
         @DisplayName("shouldSampleQuery returns false when perQuery disabled")
         void sampleQueryDisabled() {
-            var cfg = new CortexTelemetryConfig(true, 2000, false, 1.0, true, true);
+            var cfg = new TelemetryProperties(true, 2000, false, 1.0, true, true);
             assertThat(cfg.shouldSampleQuery()).isFalse();
         }
 
         @Test
         @DisplayName("shouldSampleQuery returns false when rate is 0.0")
         void sampleQueryZeroRate() {
-            var cfg = new CortexTelemetryConfig(true, 2000, true, 0.0, true, true);
+            var cfg = new TelemetryProperties(true, 2000, true, 0.0, true, true);
             assertThat(cfg.shouldSampleQuery()).isFalse();
         }
 
         @Test
         @DisplayName("custom config construction")
         void customConfig() {
-            var cfg = new CortexTelemetryConfig(false, 5000, true, 0.5, false, false);
+            var cfg = new TelemetryProperties(false, 5000, true, 0.5, false, false);
             assertThat(cfg.enabled()).isFalse();
             assertThat(cfg.intervalMs()).isEqualTo(5000);
             assertThat(cfg.simdEnabled()).isFalse();
@@ -167,48 +169,4 @@ class ConfigExtendedTest {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // SpectorConfigException (deprecated but needs coverage)
-    // ══════════════════════════════════════════════════════════════
-
-    @Nested
-    @DisplayName("SpectorConfigException")
-    @SuppressWarnings("deprecation")
-    class ConfigExceptionTests {
-
-        @Test
-        @DisplayName("message-only constructor")
-        void messageOnly() {
-            var ex = new SpectorConfigException("bad config");
-            assertThat(ex.getMessage()).isEqualTo("bad config");
-            assertThat(ex.errorCode()).isNull();
-        }
-
-        @Test
-        @DisplayName("message + cause constructor")
-        void messageWithCause() {
-            var cause = new RuntimeException("root");
-            var ex = new SpectorConfigException("bad config", cause);
-            assertThat(ex.getCause()).isEqualTo(cause);
-            assertThat(ex.errorCode()).isNull();
-        }
-
-        @Test
-        @DisplayName("ErrorCode constructor")
-        void errorCodeConstructor() {
-            var ex = new SpectorConfigException(
-                    com.spectrayan.spector.commons.error.ErrorCode.CONFIG_FILE_NOT_FOUND, "test.prop");
-            assertThat(ex.errorCode()).isNotNull();
-            assertThat(ex.getMessage()).contains("test.prop");
-        }
-
-        @Test
-        @DisplayName("ErrorCode + cause constructor")
-        void errorCodeWithCause() {
-            var cause = new RuntimeException("io");
-            var ex = new SpectorConfigException(
-                    com.spectrayan.spector.commons.error.ErrorCode.CONFIG_FILE_NOT_FOUND, cause, "test.prop");
-            assertThat(ex.getCause()).isEqualTo(cause);
-            assertThat(ex.errorCode()).isNotNull();
-        }
-    }
 }

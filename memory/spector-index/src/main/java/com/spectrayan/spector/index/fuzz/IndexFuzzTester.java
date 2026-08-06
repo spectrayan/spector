@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.index.HnswIndex;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ivf.IvfFlatIndex;
 
 /**
@@ -166,7 +166,7 @@ public class IndexFuzzTester {
         int dims = config.dimensions();
 
         if (config.targetIndexes().contains(IndexType.HNSW)) {
-            HnswParams params = new HnswParams(16, 200, 50);
+            HnswProperties params = new HnswProperties(16, 200, 50);
             hnswIndex = new HnswIndex(dims, HNSW_CAPACITY, SimilarityFunction.COSINE, params);
             hnswInsertCount = 0;
             hnswInsertedIds.clear();

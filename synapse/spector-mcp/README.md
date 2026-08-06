@@ -102,16 +102,16 @@ Create a `spector.yml` with your settings:
 
 ```yaml
 spector:
-  engine:
-    dimensions: 768
-    persistence-mode: DISK
-    data-directory: .spector/index
-  embedding:
-    model: nomic-embed-text
-    base-url: http://localhost:11434
+  mode: memory
   memory:
     enabled: true                # Enable cognitive memory tools
-    persistence-path: .spector-memory
+    persistence-mode: DISK
+    persistence-path: .spector/memory
+    dimensions: 768
+  provider:
+    embedding:
+      model: nomic-embed-text
+      base-url: http://localhost:11434
 ```
 
 ### 3. Claude Desktop Configuration

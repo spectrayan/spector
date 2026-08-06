@@ -16,7 +16,7 @@
 package com.spectrayan.spector.index;
 
 
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.storage.VectorStore;
 
@@ -66,7 +66,7 @@ public class HnswIndex extends AbstractHnswIndex {
      * @param similarityFunction distance/similarity metric
      * @param params             HNSW tuning parameters
      */
-    public HnswIndex(int dimensions, int capacity, SimilarityFunction similarityFunction, HnswParams params) {
+    public HnswIndex(int dimensions, int capacity, SimilarityFunction similarityFunction, HnswProperties params) {
         super(dimensions, capacity, similarityFunction, params);
         this.vectors = new float[capacity][];
         this.vectorStore = null;
@@ -92,7 +92,7 @@ public class HnswIndex extends AbstractHnswIndex {
      * @param vectorStore        the off-heap vector store to read from
      */
     public HnswIndex(int dimensions, int capacity, SimilarityFunction similarityFunction,
-                     HnswParams params, VectorStore vectorStore) {
+                     HnswProperties params, VectorStore vectorStore) {
         super(dimensions, capacity, similarityFunction, params);
         this.vectors = null;
         this.vectorStore = vectorStore;
@@ -105,7 +105,7 @@ public class HnswIndex extends AbstractHnswIndex {
 
     /** Creates with default params (inline mode). */
     public HnswIndex(int dimensions, int capacity, SimilarityFunction similarityFunction) {
-        this(dimensions, capacity, similarityFunction, HnswParams.DEFAULT);
+        this(dimensions, capacity, similarityFunction, HnswProperties.DEFAULT);
     }
 
     // ─────────────── Template method implementations ───────────────

@@ -15,9 +15,9 @@ package com.spectrayan.spector.synapse;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
-import com.spectrayan.spector.config.AuthProperties;
-import com.spectrayan.spector.config.CorsProperties;
-import com.spectrayan.spector.config.MemoryProperties;
+import com.spectrayan.spector.config.properties.AuthProperties;
+import com.spectrayan.spector.config.properties.CorsProperties;
+import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 
 /**

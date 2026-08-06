@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
-import com.spectrayan.spector.memory.model.TextSearchMode;
+import com.spectrayan.spector.config.model.TextSearchMode;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

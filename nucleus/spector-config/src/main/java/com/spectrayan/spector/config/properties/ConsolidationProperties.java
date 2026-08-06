@@ -13,13 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.config;
+package com.spectrayan.spector.config.properties;
+
+import static com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_CONSOLIDATION_INTERVAL;
+
+import java.io.Serializable;
 
 /**
  * Memory consolidation configuration properties.
  */
-public class ConsolidationProperties {
-    private long interval = 21600000L; // 6 hours in milliseconds
+public class ConsolidationProperties implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private long interval = DEFAULT_CONSOLIDATION_INTERVAL.toMillis();
 
     public ConsolidationProperties() {}
 
@@ -38,4 +45,6 @@ public class ConsolidationProperties {
             this.interval = interval;
         }
     }
+
+    public long interval() { return getInterval(); }
 }

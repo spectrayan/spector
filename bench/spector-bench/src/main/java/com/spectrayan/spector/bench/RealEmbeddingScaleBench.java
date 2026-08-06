@@ -16,7 +16,7 @@
 package com.spectrayan.spector.bench;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
-import com.spectrayan.spector.config.HnswParams;
+import com.spectrayan.spector.config.properties.HnswProperties;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.spectrum.SpectorIndex;
 
@@ -161,7 +161,7 @@ public class RealEmbeddingScaleBench {
                         .shardThreshold(100_000) // Keep flat mode for direct comparisons
                         .oversamplingFactor(4)
                         .similarityFunction(SimilarityFunction.COSINE)
-                        .hnswParams(new HnswParams(16, 128, 64))
+                        .HnswProperties(new HnswProperties(16, 128, 64))
                         .build();
 
                 // Train on first 10,000 vectors
