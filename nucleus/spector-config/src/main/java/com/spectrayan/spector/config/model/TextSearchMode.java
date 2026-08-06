@@ -34,11 +34,11 @@ public enum TextSearchMode {
     FULL_STACK;
 
     public boolean isHybrid() {
-        return this == HYBRID || this == SPLADE_VECTOR || this == SPLADE_HYBRID || this == FULL_STACK;
+        return this == HYBRID || this == SPLADE_VECTOR || this == SPLADE_HYBRID || this == COLBERT || this == COLBERT_RERANK || this == FULL_STACK;
     }
 
     public boolean usesVector() {
-        return this == VECTOR_ONLY || this == HYBRID || this == SPLADE_VECTOR || this == SPLADE_HYBRID || this == FULL_STACK;
+        return this == VECTOR_ONLY || this == HYBRID || this == SPLADE_VECTOR || this == SPLADE_HYBRID || this == COLBERT || this == COLBERT_RERANK || this == FULL_STACK;
     }
 
     public boolean usesSplade() {
@@ -58,7 +58,7 @@ public enum TextSearchMode {
     }
 
     public boolean usesBm25() {
-        return this == HYBRID || this == BM25_ONLY || this == KEYWORD_ONLY || this == FULL_STACK;
+        return this == HYBRID || this == BM25_ONLY || this == KEYWORD_ONLY || this == COLBERT || this == COLBERT_RERANK || this == FULL_STACK;
     }
 
     public boolean usesBM25() {

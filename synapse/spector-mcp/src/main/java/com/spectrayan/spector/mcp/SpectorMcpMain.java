@@ -163,7 +163,7 @@ public class SpectorMcpMain {
         //  Create text generation provider for LLM tag extraction (if configured) 
         LlmProvider textGenProvider = null;
         var memoryConfig = SpectorConfigFactory.memoryDefaults(props);
-        if ("llm".equalsIgnoreCase(memoryConfig.tagExtractor())) {
+        if (memoryConfig.tagExtractor() == com.spectrayan.spector.config.model.TagExtractorMode.LLM) {
             String tagModel = memoryConfig.tagExtractorModel();
             if (tagModel == null || tagModel.isBlank()) {
                 tagModel = "qwen3:1.7b";
