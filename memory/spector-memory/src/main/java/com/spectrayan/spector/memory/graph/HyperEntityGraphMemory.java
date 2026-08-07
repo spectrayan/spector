@@ -178,6 +178,88 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
         this(Init.heap(entityCapacity, hyperedgeCapacity));
     }
 
+    private transient boolean bundleManaged = false;
+
+    public static HyperEntityGraphMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                                    int entityCapacity, int hyperedgeCapacity,
+                                                    Path bundlePath, boolean isNew) {
+        return new HyperEntityGraphMemory(arena, regionSlice, entityCapacity, hyperedgeCapacity, bundlePath, isNew);
+    }
+
+    private HyperEntityGraphMemory(Arena arena, MemorySegment regionSlice,
+                                   int entityCapacity, int hyperedgeCapacity,
+                                   Path bundlePath, boolean isNew) {
+        super(MEMORY_ID, LAYOUT, hyperedgeCapacity, arena, regionSlice,
+              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
+              true, bundlePath, null, true); // bundleManaged=true
+        this.bundleManaged = true;
+        this.entityCapacity = entityCapacity;
+        this.hyperedgeCapacity = hyperedgeCapacity;
+        this.vertexCapacity = hyperedgeCapacity * HyperEntityLayout.MAX_VERTICES_PER_EDGE;
+        this.incidenceCapacity = entityCapacity * HyperEntityLayout.MAX_HYPEREDGES_PER_ENTITY;
+
+        long hedgeBytes = (long) HyperEntityLayout.HEDGE_BYTES * hyperedgeCapacity;
+        long vertexBytes = (long) HyperEntityLayout.VERTEX_BYTES * vertexCapacity;
+
+        this.hedges = regionSlice.asSlice(DATA_START, hedgeBytes);
+        this.vertices = regionSlice.asSlice(DATA_START + hedgeBytes, vertexBytes);
+
+        this.incidenceIndex = arena.allocate((long) (entityCapacity + 1) * Integer.BYTES);
+        this.incidenceIndex.fill((byte) 0);
+        this.incidenceList = arena.allocate((long) HyperEntityLayout.INCIDENCE_ENTRY_BYTES * incidenceCapacity);
+        this.incidenceList.fill((byte) 0);
+
+        if (isNew) {
+            writeSmkmHeaderToSegment(regionSlice, entityCapacity, hyperedgeCapacity, 0, 0, 0);
+            hedges.fill((byte) 0);
+            vertices.fill((byte) 0);
+            this.nextHyperedgeId = 0;
+            this.nextVertexOffset = 0;
+            this.totalHyperedges = 0;
+        } else {
+            this.nextHyperedgeId = regionSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID);
+            this.nextVertexOffset = regionSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET);
+            this.totalHyperedges = regionSlice.get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_TOTAL_HYPEREDGES);
+        }
+
+        this.incidenceHeap = new ArrayList<>(entityCapacity);
+        for (int i = 0; i < entityCapacity; i++) {
+            incidenceHeap.add(new ArrayList<>(4));
+        }
+        if (nextHyperedgeId > 0) {
+            rebuildIncidenceLists();
+        }
+
+        // Migrate legacy standalone HyperEntityGraphMemory if it exists
+        if (isNew && bundlePath != null) {
+            Path legacyPath = bundlePath.resolveSibling("hypergraph.dat");
+            if (Files.exists(legacyPath)) {
+                log.info("Migrating legacy standalone hypergraph.dat to bundle region...");
+                try {
+                    HyperEntityGraphMemory legacy = HyperEntityGraphMemory.load(legacyPath, entityCapacity, hyperedgeCapacity);
+                    MemorySegment.copy(legacy.hedges, 0, this.hedges, 0, (long) legacy.nextHyperedgeId * HyperEntityLayout.HEDGE_BYTES);
+                    MemorySegment.copy(legacy.vertices, 0, this.vertices, 0, (long) legacy.nextVertexOffset * HyperEntityLayout.VERTEX_BYTES);
+
+                    this.nextHyperedgeId = legacy.nextHyperedgeId;
+                    this.nextVertexOffset = legacy.nextVertexOffset;
+                    this.totalHyperedges = legacy.totalHyperedges;
+
+                    writeSmkmHeaderToSegment(regionSlice, entityCapacity, hyperedgeCapacity, nextHyperedgeId, nextVertexOffset, totalHyperedges);
+                    regionSlice.force();
+
+                    rebuildIncidenceLists();
+                    legacy.close();
+                    Files.deleteIfExists(legacyPath);
+                } catch (Exception e) {
+                    log.warn("Failed to migrate legacy hypergraph.dat: {}", e.getMessage());
+                }
+            }
+        }
+
+        log.info("HyperEntityGraphMemory initialized (bundle): entities={}, hyperedges={}/{}",
+                entityCapacity, totalHyperedges, hyperedgeCapacity);
+    }
+
     /**
      * Single delegating constructor. Wraps the pre-built arena + hyperedge slab as the kernel
      * substrate {@link #segment()} and adopts the HyperEntity-owned vertex/incidence segments.
@@ -705,6 +787,19 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
      * are not persisted — they are rebuilt on load.
      */
     public void save(Path filePath) {
+        if (bundleManaged) {
+            long stamp = lock.readLock();
+            try {
+                writeSmkmHeaderToSegment(segment(), entityCapacity, hyperedgeCapacity,
+                        nextHyperedgeId, nextVertexOffset, totalHyperedges);
+                segment().force();
+                log.info("HyperEntityGraphMemory saved to bundle: {} hyperedges, {} vertices",
+                        totalHyperedges, nextVertexOffset);
+            } finally {
+                lock.unlockRead(stamp);
+            }
+            return;
+        }
         Path parent = filePath.getParent();
         long stamp = lock.readLock();
         try {
@@ -884,19 +979,24 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
         }
     }
 
+    private static void writeSmkmHeaderToSegment(MemorySegment head, int entityCap, int hedgeCap,
+                                                 int nextId, int nextVertexOff, int totalHedges) {
+        long now = System.currentTimeMillis();
+        MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x00,
+                hedgeCap, totalHedges, HyperEntityLayout.HEDGE_BYTES, LAYOUT.layoutId(), now, now);
+        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ENTITY_CAP, entityCap);
+        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID, nextId);
+        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET, nextVertexOff);
+        head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_TOTAL_HYPEREDGES, totalHedges);
+    }
+
     /** Writes the 64-byte kernel header + 16-byte HyperEntity sub-header to the start of {@code ch}. */
     private static void writeSmkmHeaderToChannel(FileChannel ch, int entityCap, int hedgeCap,
                                                  int nextId, int nextVertexOff, int totalHedges)
             throws IOException {
         try (Arena confined = Arena.ofConfined()) {
             MemorySegment head = confined.allocate(DATA_START);
-            long now = System.currentTimeMillis();
-            MemoryHeader.write(head, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0x00,
-                    hedgeCap, totalHedges, HyperEntityLayout.HEDGE_BYTES, LAYOUT.layoutId(), now, now);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_ENTITY_CAP, entityCap);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_HYPEREDGE_ID, nextId);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_NEXT_VERTEX_OFFSET, nextVertexOff);
-            head.set(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_TOTAL_HYPEREDGES, totalHedges);
+            writeSmkmHeaderToSegment(head, entityCap, hedgeCap, nextId, nextVertexOff, totalHedges);
             ByteBuffer buf = head.asByteBuffer();
             ch.position(0);
             while (buf.hasRemaining()) {

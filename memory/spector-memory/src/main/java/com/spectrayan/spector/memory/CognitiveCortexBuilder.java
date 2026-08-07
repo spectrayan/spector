@@ -169,7 +169,43 @@ final class CognitiveCortexBuilder {
         boolean useBundleMode = builder.useBundleMode || activeHasBundle;
 
         if (isDisk && basePath != null && resolvedPartitionDir != null && useBundleMode) {
-            // ── V4 Bundle Mode ──
+            // ── V4 Runtime Bundle & Insular Cortex ──
+            Path runtimeBundleFile = StorageLayout.runtimeBundleFile(basePath);
+            boolean isNewRuntime = !Files.exists(runtimeBundleFile);
+            List<BundleLayoutCalculator.RegionSizeSpec> specs = getRuntimeBundleSpecs(builder, quantizedVecBytes);
+            if (!isNewRuntime) {
+                try {
+                    runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile);
+                    if (runtimeBundle.directory().findRegion(RegionId.WORKING) == null) {
+                        log.info("Outdated runtime bundle detected (missing WORKING region), recreating...");
+                        runtimeBundle.close();
+                        Files.deleteIfExists(runtimeBundleFile);
+                        isNewRuntime = true;
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to open existing runtime bundle: {}, recreating...", e.getMessage());
+                    try {
+                        Files.deleteIfExists(runtimeBundleFile);
+                    } catch (java.io.IOException ioEx) {
+                        log.warn("Failed to delete outdated runtime bundle file: {}", ioEx.getMessage());
+                    }
+                    isNewRuntime = true;
+                }
+            }
+            if (isNewRuntime) {
+                runtimeBundle = RuntimeBundle.Init.mmap(runtimeBundleFile, specs);
+            }
+
+            MemorySegment workingSlice = runtimeBundle.regionSegment(RegionId.WORKING);
+            boolean isWorkingNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(workingSlice, 0L);
+            workingStore = WorkingRecordMemory.fromBundle(runtimeBundle.arena(), workingSlice,
+                    quantizedVecBytes, builder.workingCapacity,
+                    StorageLayout.workingMem(basePath), isWorkingNew);
+
+            MemorySegment insulaSlice = runtimeBundle.regionSegment(RegionId.INSULA);
+            insularCortex = InsularCortex.fromBundle(runtimeBundle.arena(), insulaSlice, isNewRuntime);
+
+            // ── V4 Partition Bundle ──
             Path bundleFile = StorageLayout.partitionBundleFile(resolvedPartitionDir);
             boolean isNew = !Files.exists(bundleFile);
 
@@ -177,16 +213,21 @@ final class CognitiveCortexBuilder {
             TextBlobLayout textLayout = new TextBlobLayout();
             long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
 
-            if (isNew) {
-                partitionBundle = PartitionBundle.Init.mmap(
-                        bundleFile,
-                        builder.semanticCapacity, builder.episodicPartitionCapacity,
-                        builder.proceduralCapacity, textSize,
-                        quantizedVecBytes,
-                        cogLayout.layoutId(), cogLayout.schemaVersion(),
-                        textLayout.layoutId(), textLayout.schemaVersion());
-            } else {
-                partitionBundle = PartitionBundle.Init.open(bundleFile);
+            try {
+                if (isNew) {
+                    partitionBundle = PartitionBundle.Init.mmap(
+                            bundleFile,
+                            builder.semanticCapacity, builder.episodicPartitionCapacity,
+                            builder.proceduralCapacity, textSize,
+                            quantizedVecBytes,
+                            cogLayout.layoutId(), cogLayout.schemaVersion(),
+                            textLayout.layoutId(), textLayout.schemaVersion());
+                } else {
+                    partitionBundle = PartitionBundle.Init.open(bundleFile);
+                }
+            } catch (Exception e) {
+                throw new SpectorValidationException(ErrorCode.INTERNAL_ERROR,
+                        "Failed to initialize partition bundle: " + bundleFile, e);
             }
 
             MemorySegment semSlice = partitionBundle.regionSegment(RegionId.SEMANTIC);
@@ -210,28 +251,6 @@ final class CognitiveCortexBuilder {
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
             log.info("V4 bundle mode: {} ({}, {} stores)",
                     bundleFile.getFileName(), isNew ? "created" : "opened", 4);
-
-            // ── V4 Runtime Bundle & Insular Cortex ──
-            Path runtimeBundleFile = StorageLayout.runtimeBundleFile(basePath);
-            boolean isNewRuntime = !Files.exists(runtimeBundleFile);
-            if (isNewRuntime) {
-                List<BundleLayoutCalculator.RegionSizeSpec> specs = List.of(
-                        new BundleLayoutCalculator.RegionSizeSpec(
-                                RegionId.INSULA,
-                                64 * 1024L,
-                                1,
-                                0,
-                                InsularLayout.LAYOUT_ID,
-                                InsularLayout.SCHEMA_VERSION,
-                                false
-                        )
-                );
-                runtimeBundle = RuntimeBundle.Init.mmap(runtimeBundleFile, specs);
-            } else {
-                runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile);
-            }
-            MemorySegment insulaSlice = runtimeBundle.regionSegment(RegionId.INSULA);
-            insularCortex = InsularCortex.fromBundle(runtimeBundle.arena(), insulaSlice, isNewRuntime);
 
         } else if (isDisk && basePath != null && resolvedPartitionDir != null) {
             // ── V3 Legacy Mode ──
@@ -266,6 +285,143 @@ final class CognitiveCortexBuilder {
                 resolvedPartitionDir, frozenPartitionDirs, initialPartitionSeq,
                 cognitiveRouter, workingStore, partitionBundle, textStore,
                 runtimeBundle, insularCortex);
+    }
+
+    private static List<BundleLayoutCalculator.RegionSizeSpec> getRuntimeBundleSpecs(SpectorMemoryBuilder builder, int quantizedVecBytes) {
+        int workingCap = builder.workingCapacity;
+        int pairCap = 10_000;
+        int edgeCap = 20_000;
+
+        int graphCapacity = builder.hebbianGraphCapacity > 0
+                ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
+
+        int temporalCapacity = builder.temporalChainCapacity > 0
+                ? builder.temporalChainCapacity : graphCapacity;
+
+        int hyperCap = builder.entityGraphCapacity;
+        int hyperEdgeCap = hyperCap * 2;
+
+        long tkgInitialSize = 16L * 1024 * 1024; // 16MB
+
+        return List.of(
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.WORKING,
+                        com.spectrayan.spector.memory.kernel.MemoryHeader.HEADER_BYTES + (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).recordStride() * workingCap,
+                        workingCap,
+                        new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).recordStride(),
+                        new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.COACTIVATION,
+                        64 + 8 + 32L * pairCap + 40L * edgeCap,
+                        pairCap,
+                        0,
+                        new com.spectrayan.spector.memory.kernel.layout.CoActivationLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.CoActivationLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.INDEX_MIDX,
+                        64 + 100_000L * new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().recordStride(),
+                        100_000,
+                        new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().recordStride(),
+                        new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.INDEX_IDPL,
+                        16L * 1024 * 1024,
+                        1,
+                        1,
+                        0,
+                        1,
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.HEBBIAN,
+                        64 + 8 + 24L * graphCapacity + 12L * graphCapacity * builder.hebbianMaxDegree,
+                        graphCapacity,
+                        0,
+                        new com.spectrayan.spector.memory.kernel.layout.HebbianLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.HebbianLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.TEMPORAL_CHAIN,
+                        64 + 24L * temporalCapacity,
+                        temporalCapacity,
+                        24,
+                        new com.spectrayan.spector.memory.kernel.layout.TemporalLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.TemporalLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.TEMPORAL_FACTS,
+                        64 + tkgInitialSize,
+                        1,
+                        0,
+                        new com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.ENTITY_DIRECTORY,
+                        64 + 16 + 64L * hyperCap,
+                        hyperCap,
+                        64,
+                        new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.ENTITY_NAMES,
+                        64 + 16 + 8L * hyperCap * 16,
+                        1,
+                        8,
+                        new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.HYPERGRAPH,
+                        64 + 16 + 48L * hyperCap + 24L * hyperEdgeCap,
+                        hyperCap,
+                        48,
+                        new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.ENTITY_TYPES,
+                        1L * 1024 * 1024,
+                        1024,
+                        0,
+                        new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.RELATION_TYPES,
+                        1L * 1024 * 1024,
+                        1024,
+                        0,
+                        new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().layoutId(),
+                        new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().schemaVersion(),
+                        false
+                ),
+                new BundleLayoutCalculator.RegionSizeSpec(
+                        RegionId.INSULA,
+                        64 * 1024L,
+                        1,
+                        0,
+                        InsularLayout.LAYOUT_ID,
+                        InsularLayout.SCHEMA_VERSION,
+                        false
+                )
+        );
     }
 
     private static void createDirectoriesSecure(Path path) throws java.io.IOException {

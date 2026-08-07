@@ -456,7 +456,177 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     // ── Persistence: save / load using DefaultRecordMemory & DefaultAppendMemory ──
 
+    private transient MemorySegment bundleMidxSlice;
+    private transient MemorySegment bundleIdplSlice;
+    private transient boolean bundleManaged = false;
+
+    public static MemoryIndex fromBundle(Arena arena, MemorySegment midxSlice, MemorySegment idplSlice, Path bundlePath, boolean isNew) {
+        IndexRecordMemory idx = new MemoryIndex();
+        idx.bundleMidxSlice = midxSlice;
+        idx.bundleIdplSlice = idplSlice;
+        idx.bundleManaged = true;
+
+        if (!isNew) {
+            idx.loadFromBundleSegments();
+        } else {
+            // Check for legacy files and migrate if they exist
+            if (bundlePath != null) {
+                Path legacyMidx = bundlePath.resolveSibling("index.midx");
+                if (Files.exists(legacyMidx)) {
+                    log.info("Migrating legacy standalone index.midx and index.idpl to bundle regions...");
+                    IndexRecordMemory legacy = IndexRecordMemory.load(legacyMidx);
+                    idx.locations.putAll(legacy.locations);
+                    idx.texts.putAll(legacy.texts);
+                    idx.sources.putAll(legacy.sources);
+                    idx.tags.putAll(legacy.tags);
+                    idx.metadataMap.putAll(legacy.metadataMap);
+                    idx.reverseIndex.putAll(legacy.reverseIndex);
+                    synchronized (idx.orderedIds) {
+                        idx.orderedIds.addAll(legacy.orderedIds);
+                    }
+                    idx.save(legacyMidx); // will write directly into bundle segments
+                    try {
+                        Files.deleteIfExists(legacyMidx);
+                        Files.deleteIfExists(bundlePath.resolveSibling("index.idpl"));
+                    } catch (IOException e) {
+                        log.warn("Failed to delete legacy index files after migration: {}", e.getMessage());
+                    }
+                }
+            }
+        }
+        return (MemoryIndex) idx;
+    }
+
+    private void loadFromBundleSegments() {
+        if (!MemoryHeader.isValid(bundleMidxSlice, 0L)) {
+            log.info("MemoryIndex in bundle is empty/invalid, starting fresh");
+            return;
+        }
+        int schemaVersion = MemoryHeader.readSchemaVersion(bundleMidxSlice, 0L);
+        final int slotStride;
+        final boolean readColocated;
+        switch (schemaVersion) {
+            case INDEX_VERSION_V6 -> {
+                slotStride = 48;
+                readColocated = true;
+            }
+            case INDEX_VERSION_V5 -> {
+                slotStride = 40;
+                readColocated = false;
+            }
+            default -> throw new SpectorStorageException(ErrorCode.FILE_FORMAT_INVALID,
+                    "MemoryIndex unsupported schema version v" + schemaVersion + " in bundle");
+        }
+
+        int entryCount = (int) MemoryHeader.readCount(bundleMidxSlice, 0L);
+        long slotBase = MemoryHeader.HEADER_BYTES;
+        long poolBase = MemoryHeader.HEADER_BYTES;
+
+        for (int i = 0; i < entryCount; i++) {
+            long slotOffset = slotBase + (long) i * slotStride;
+            long poolOffset = bundleMidxSlice.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset);
+            int poolLen = bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 8);
+            int typeOrd = bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 12);
+            long offset = bundleMidxSlice.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset + 16);
+            int graphSlot = bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 24);
+            long textOffset = bundleMidxSlice.get(ValueLayout.JAVA_LONG_UNALIGNED, slotOffset + 28);
+            int textLength = bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 36);
+            int colocatedPartition = readColocated
+                    ? bundleMidxSlice.get(ValueLayout.JAVA_INT_UNALIGNED, slotOffset + 40) : 0;
+
+            MemoryType type = MemoryType.values()[typeOrd];
+            MemoryLocation loc = new MemoryLocation(type, offset, graphSlot,
+                    colocatedPartition, textOffset, textLength);
+
+            MemorySegment blobSeg = bundleIdplSlice.asSlice(poolBase + poolOffset, poolLen);
+            DeserializedEntry target = new DeserializedEntry();
+            deserializeIdBlob(blobSeg, target);
+
+            register(target.id, loc, target.textFallback, target.source, target.tags, target.metadata);
+        }
+
+        if (readColocated) {
+            markColocatedPartitionPersisted();
+        }
+        log.info("MemoryIndex loaded from bundle (v{}): {} entries", schemaVersion, size());
+    }
+
     public void save(Path filePath) {
+        if (bundleManaged) {
+            try {
+                int entryCount = locations.size();
+                java.util.List<String> orderedKeys = orderedIds();
+                java.util.List<byte[]> serializedBlobs = new java.util.ArrayList<>(entryCount);
+
+                for (String id : orderedKeys) {
+                    MemoryLocation loc = locations.get(id);
+                    if (loc == null) continue;
+                    String textVal = text(id);
+                    MemorySource src = sources.getOrDefault(id, MemorySource.OBSERVED);
+                    String[] tagArray = tags.getOrDefault(id, EMPTY_TAGS);
+                    Map<String, String> meta = metadataMap.getOrDefault(id, Map.of());
+
+                    String textFallback = loc.hasTextPosition() ? null : textVal;
+                    byte[] blob = serializeIdBlob(id, src, tagArray, meta, textFallback);
+                    serializedBlobs.add(blob);
+                }
+
+                long totalPoolBytes = 0;
+                for (byte[] b : serializedBlobs) {
+                    totalPoolBytes += 4 + b.length;
+                }
+
+                final int stride = new IndexEntryLayout().recordStride();
+                long totalSlotBytes = (long) entryCount * stride;
+
+                long now = System.currentTimeMillis();
+                MemoryHeader.write(bundleMidxSlice, 0L, INDEX_VERSION_V6, MemoryShape.RECORD, entryCount,
+                        (int) (MemoryHeader.HEADER_BYTES + totalSlotBytes), 0, 0, new IndexEntryLayout().layoutId(), now, now);
+                MemoryHeader.write(bundleIdplSlice, 0L, 1, MemoryShape.APPEND, entryCount,
+                        (int) (MemoryHeader.HEADER_BYTES + totalPoolBytes), 0, 0, new IdBlobLayout().layoutId(), now, now);
+
+                long poolOffset = 0;
+                int index = 0;
+                for (int i = 0; i < orderedKeys.size(); i++) {
+                    String id = orderedKeys.get(i);
+                    MemoryLocation loc = locations.get(id);
+                    if (loc == null) continue;
+                    byte[] blobBytes = serializedBlobs.get(index);
+
+                    long poolPos = MemoryHeader.HEADER_BYTES + poolOffset;
+                    bundleIdplSlice.set(ValueLayout.JAVA_INT_UNALIGNED, poolPos, blobBytes.length);
+                    MemorySegment.copy(MemorySegment.ofArray(blobBytes), 0L, bundleIdplSlice, poolPos + 4, blobBytes.length);
+
+                    byte[] slotBytes = new byte[stride];
+                    ByteBuffer slotBuf = ByteBuffer.wrap(slotBytes);
+                    slotBuf.order(java.nio.ByteOrder.nativeOrder());
+
+                    slotBuf.putLong(poolOffset);
+                    slotBuf.putInt(blobBytes.length);
+                    slotBuf.putInt(loc.type().ordinal());
+                    slotBuf.putLong(loc.offset());
+                    slotBuf.putInt(loc.graphSlot());
+                    slotBuf.putLong(loc.textOffset());
+                    slotBuf.putInt(loc.textLength());
+                    slotBuf.putInt(loc.colocatedPartition());
+                    slotBuf.putInt(0);
+
+                    long slotPos = MemoryHeader.HEADER_BYTES + (long) index * stride;
+                    MemorySegment.copy(MemorySegment.ofArray(slotBytes), 0L, bundleMidxSlice, slotPos, stride);
+
+                    poolOffset += 4 + blobBytes.length;
+                    index++;
+                }
+
+                bundleMidxSlice.force();
+                bundleIdplSlice.force();
+                log.info("MemoryIndex saved to bundle: {} entries", entryCount);
+            } catch (Exception e) {
+                throw new SpectorStorageException(ErrorCode.DISK_IO_FAILED, e, "save MemoryIndex to bundle");
+            }
+            return;
+        }
+
         Path parent = filePath.getParent();
         if (parent != null) {
             try {

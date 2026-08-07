@@ -148,6 +148,71 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
                 capacity, edgeCapacity, maxDegree, totalKB);
     }
 
+    private transient boolean bundleManaged = false;
+
+    public static HebbianGraphMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                                 int capacity, int edgeCapacity, int maxDegree,
+                                                 EdgeImportance edgeImportance, Path bundlePath, boolean isNew) {
+        return new HebbianGraphMemory(arena, regionSlice, capacity, edgeCapacity, maxDegree, edgeImportance, bundlePath, isNew);
+    }
+
+    private HebbianGraphMemory(Arena arena, MemorySegment regionSlice,
+                               int capacity, int edgeCapacity, int maxDegree,
+                               EdgeImportance edgeImportance, Path bundlePath, boolean isNew) {
+        super(MEMORY_ID, LAYOUT, capacity, arena, regionSlice,
+              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
+              true, bundlePath, null, true); // bundleManaged=true
+        this.bundleManaged = true;
+        this.edgeCapacity = edgeCapacity;
+        this.maxDegree = maxDegree;
+        this.edgeImportance = edgeImportance;
+
+        long offsetBytes = (long) (capacity + 1) * Integer.BYTES;
+        long edgeBytes = (long) edgeCapacity * EDGE_BYTES;
+
+        this.offsets = segment().asSlice(DATA_START, offsetBytes);
+        this.edges = segment().asSlice(DATA_START + offsetBytes, edgeBytes);
+
+        this.overflow = new List[capacity];
+
+        if (isNew) {
+            writeSmkmHeader(segment(), capacity, edgeCapacity, 0, 0);
+            segment().asSlice(DATA_START, offsetBytes + edgeBytes).fill((byte) 0);
+            this.currentCycle = 0;
+            this.totalEdgeCount = 0;
+        } else {
+            this.currentCycle = segment().get(ValueLayout.JAVA_INT, MemoryHeader.HEADER_BYTES + SUB_OFF_CURRENT_CYCLE);
+            this.totalEdgeCount = (int) MemoryHeader.readCount(segment(), 0L);
+        }
+
+        // Migrate legacy standalone hebbian graph if it exists
+        if (isNew && bundlePath != null) {
+            Path legacyPath = bundlePath.resolveSibling("hebbian.dat");
+            if (Files.exists(legacyPath)) {
+                log.info("Migrating legacy standalone hebbian.dat to bundle region...");
+                HebbianGraphMemory legacy = HebbianGraphMemory.load(legacyPath, capacity, maxDegree, edgeImportance);
+                legacy.compactIfNeeded();
+
+                MemorySegment.copy(legacy.offsets, 0, this.offsets, 0, (long) (capacity + 1) * Integer.BYTES);
+                MemorySegment.copy(legacy.edges, 0, this.edges, 0, (long) legacy.totalEdgeCount * EDGE_BYTES);
+
+                this.currentCycle = legacy.currentCycle;
+                this.totalEdgeCount = legacy.totalEdgeCount;
+
+                writeSmkmHeader(segment(), capacity, edgeCapacity, totalEdgeCount, currentCycle);
+                segment().force();
+                try {
+                    Files.deleteIfExists(legacyPath);
+                } catch (IOException e) {
+                    log.warn("Failed to delete legacy hebbian.dat after migration: {}", e.getMessage());
+                }
+            }
+        }
+
+        log.info("HebbianGraphMemory initialized (bundle): capacity={}, edgeCap={}, maxDegree={}, edges={}, cycle={}",
+                capacity, edgeCapacity, maxDegree, totalEdgeCount, currentCycle);
+    }
+
     public HebbianGraphMemory(int capacity) {
         this(capacity, capacity * 2, HebbianGraph.DEFAULT_MAX_DEGREE, EdgeImportance.DEFAULT);
     }
@@ -432,6 +497,20 @@ public final class HebbianGraphMemory extends AbstractGraphMemory<HebbianLayout>
 
     @Override
     public void save(Path filePath) {
+        if (bundleManaged) {
+            graphLock.lock();
+            try {
+                compactIfNeeded();
+                writeSmkmHeader(segment(), capacity, edgeCapacity, totalEdgeCount, currentCycle);
+                segment().force();
+                log.info("HebbianGraphMemory saved to bundle: capacity={}, edges={}, cycle={}",
+                        capacity, totalEdgeCount, currentCycle);
+            } finally {
+                graphLock.unlock();
+            }
+            return;
+        }
+
         Path parent = filePath.getParent();
         if (parent != null) {
             try {

@@ -17,6 +17,10 @@ import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractAppendMemory;
 
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
 import java.nio.file.Path;
 
 /**
@@ -51,5 +55,20 @@ public final class TemporalFactsAppendMemory extends AbstractAppendMemory<Tempor
      */
     public TemporalFactsAppendMemory(Path filePath, long initialSize) {
         super(MEMORY_ID, new TemporalFactLayout(), 0, initialSize, filePath);
+    }
+
+    public static TemporalFactsAppendMemory fromBundle(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
+        return new TemporalFactsAppendMemory(arena, regionSlice, bundlePath, isNew);
+    }
+
+    private TemporalFactsAppendMemory(Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew) {
+        super(MEMORY_ID, new TemporalFactLayout(), 0, arena, regionSlice,
+              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
+              true, bundlePath, null, true); // bundleManaged=true
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(segment(), 0L, new TemporalFactLayout().schemaVersion(), MemoryShape.APPEND, 0,
+                    (int) segment().byteSize(), 0, 0, new TemporalFactLayout().layoutId(), now, now);
+        }
     }
 }

@@ -37,4 +37,11 @@ public final class DefaultRegistryMemory extends AbstractRegistryMemory {
                                  boolean persistent, Path filePath, FileChannel fileChannel) {
         super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
     }
+
+    public DefaultRegistryMemory(MemoryId id, RegistryLayout layout, int capacity,
+                                 Arena arena, MemorySegment segment, int count,
+                                 boolean persistent, Path filePath, FileChannel fileChannel,
+                                 boolean bundleManaged) {
+        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
+    }
 }

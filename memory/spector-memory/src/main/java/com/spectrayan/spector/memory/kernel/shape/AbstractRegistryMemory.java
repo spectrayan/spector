@@ -54,6 +54,14 @@ public abstract class AbstractRegistryMemory extends AbstractMemory<RegistryLayo
         initializeFromSegment();
     }
 
+    protected AbstractRegistryMemory(MemoryId id, RegistryLayout layout, int capacity,
+                                      Arena arena, MemorySegment segment, int count,
+                                      boolean persistent, Path filePath, FileChannel fileChannel,
+                                      boolean bundleManaged) {
+        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
+        initializeFromSegment();
+    }
+
     @Override
     public MemoryShape shape() {
         return MemoryShape.REGISTRY;

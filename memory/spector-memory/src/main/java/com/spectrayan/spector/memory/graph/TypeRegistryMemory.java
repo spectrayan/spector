@@ -181,7 +181,66 @@ public final class TypeRegistryMemory implements RegistryMemory {
 
     // ── Persistence: save / load with transparent legacy support ──
 
+    private transient MemorySegment bundleSlice;
+    private transient boolean bundleManaged = false;
+
+    public static TypeRegistryMemory fromBundle(SystemMemoryId systemMemoryId, Arena arena, MemorySegment regionSlice, Path bundlePath, boolean isNew, String... seedTypes) {
+        TypeRegistryMemory reg = new TypeRegistryMemory(systemMemoryId);
+        reg.bundleSlice = regionSlice;
+        reg.bundleManaged = true;
+
+        reg.backing.close();
+        RegistryLayout layout = new RegistryLayout();
+        reg.backing = new DefaultRegistryMemory(systemMemoryId.id(), layout, 1024, arena, regionSlice,
+                isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0L),
+                true, bundlePath, null, true); // bundleManaged=true
+
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(regionSlice, 0L, layout.schemaVersion(), MemoryShape.REGISTRY, 0,
+                    (int) regionSlice.byteSize(), 0, 0, layout.layoutId(), now, now);
+        }
+
+        for (String seed : seedTypes) {
+            reg.intern(seed);
+        }
+
+        // Migrate legacy standalone TypeRegistry if it exists
+        if (isNew && bundlePath != null) {
+            Path legacyPath = "entity-type".equals(reg.label)
+                    ? bundlePath.resolveSibling("entity-types.dat")
+                    : bundlePath.resolveSibling("relation-types.dat");
+            if (Files.exists(legacyPath)) {
+                log.info("Migrating legacy standalone {} registry to bundle region...", reg.label);
+                try {
+                    TypeRegistryMemory legacy = TypeRegistryMemory.load(legacyPath, systemMemoryId, seedTypes);
+                    Map<String, Integer> currentEntries = legacy.entries();
+                    currentEntries.entrySet().stream()
+                            .sorted(Map.Entry.comparingByValue())
+                            .forEach(entry -> reg.backing.putDirect(entry.getKey(), entry.getValue()));
+                    reg.backing.flush();
+                    legacy.backing.close();
+                    Files.deleteIfExists(legacyPath);
+                } catch (Exception e) {
+                    log.warn("Failed to migrate legacy {} registry: {}", reg.label, e.getMessage());
+                }
+            }
+        }
+
+        log.info("{} registry initialized (bundle): {} types", reg.label, reg.size());
+        return reg;
+    }
+
     public void save(Path filePath) throws IOException {
+        if (bundleManaged) {
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(bundleSlice, 0L, backing.layout().schemaVersion(), MemoryShape.REGISTRY, backing.size(),
+                    (int) bundleSlice.byteSize(), 0, 0, backing.layout().layoutId(), now, now);
+            backing.flush();
+            log.info("{} registry saved to bundle: {} types", label, backing.size());
+            return;
+        }
+
         Files.deleteIfExists(filePath);
         Files.createDirectories(filePath.getParent());
 

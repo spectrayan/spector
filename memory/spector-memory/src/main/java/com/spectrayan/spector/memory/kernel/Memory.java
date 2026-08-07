@@ -99,6 +99,14 @@ public interface Memory<L extends MemoryLayout> extends AutoCloseable {
     void close();
 
     /**
+     * Returns true if this memory is managed inside a bundle container.
+     * When true, closing this memory will not close its shared arena.
+     */
+    default boolean isBundleManaged() {
+        return false;
+    }
+
+    /**
      * Binds a Write-Ahead Log (WAL) to this memory.
      */
     default void bindWal(com.spectrayan.spector.memory.sync.MemoryWal wal) {}

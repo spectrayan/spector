@@ -88,6 +88,13 @@ public abstract class AbstractGraphMemory<L extends MemoryLayout>
         super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel);
     }
 
+    protected AbstractGraphMemory(MemoryId id, L layout, int capacity,
+                                  Arena arena, MemorySegment segment, int count,
+                                  boolean persistent, Path filePath, FileChannel fileChannel,
+                                  boolean bundleManaged) {
+        super(id, layout, capacity, arena, segment, count, persistent, filePath, fileChannel, bundleManaged);
+    }
+
     // ══════════════════════════════════════════════════════════════
     // SHAPE / IDENTITY
     // ══════════════════════════════════════════════════════════════
