@@ -16,7 +16,7 @@ import com.spectrayan.spector.runtime.SpectorRuntime;
 import io.modelcontextprotocol.spec.McpSchema;
 
 
-import com.spectrayan.spector.synapse.agent.AgentSoul;
+import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 
 import org.slf4j.Logger;

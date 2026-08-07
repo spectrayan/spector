@@ -27,6 +27,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -139,6 +140,7 @@ class EndToEndIsolationIntegrationTest {
         private ObjectProvider<EmbeddingProvider> embedderProvider;
         private ObjectProvider<LlmProvider> textGenProvider;
         private ObjectProvider<SalienceProfileProvider> salienceProvider;
+        private ObjectProvider<ObjectMapper> objectMapperProvider;
 
         @BeforeEach
         void setUp() {
@@ -150,6 +152,8 @@ class EndToEndIsolationIntegrationTest {
             when(textGenProvider.getIfAvailable()).thenReturn(null);
             salienceProvider = mockProvider();
             when(salienceProvider.getIfAvailable()).thenReturn(null);
+            objectMapperProvider = mockProvider();
+            when(objectMapperProvider.getIfAvailable()).thenReturn(new ObjectMapper());
         }
 
         @Test
@@ -207,6 +211,7 @@ class EndToEndIsolationIntegrationTest {
                     embedderProvider,
                     textGenProvider,
                     salienceProvider,
+                    objectMapperProvider,
                     maxInstances);
         }
 

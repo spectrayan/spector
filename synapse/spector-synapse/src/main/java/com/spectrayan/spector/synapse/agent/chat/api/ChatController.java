@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.agent.chat.api;
 
-import com.spectrayan.spector.synapse.agent.AgentSoul;
+import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.AgentChatRequest;
 import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.AgentChatResponse;

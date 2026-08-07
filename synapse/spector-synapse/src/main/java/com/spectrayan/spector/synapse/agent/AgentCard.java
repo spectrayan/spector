@@ -13,6 +13,7 @@
 package com.spectrayan.spector.synapse.agent;
 
 import java.util.List;
+import com.spectrayan.spector.memory.model.AgentSoul;
 
 /**
  * Agent capability discovery card manifest (A2A compatible).

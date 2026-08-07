@@ -170,7 +170,7 @@ public final class SpectorPropertyConstants {
     public static final long DEFAULT_MEMORY_TYPE_REGISTRY_SIZE = 1L * 1024 * 1024;
 
     public static final String MEMORY_INSULA_SIZE = "spector.memory.insula-size";
-    public static final long DEFAULT_MEMORY_INSULA_SIZE = 64L * 1024;
+    public static final long DEFAULT_MEMORY_INSULA_SIZE = 1024L * 1024;
 
     // Ingestion
     public static final String INGESTION_ROOT_DIRECTORY = "spector.ingestion.root-directory";

@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -318,12 +319,15 @@ class UserMemoryRegistryRoutingPropertyTest {
         ObjectProvider<SalienceProfileProvider> salienceProvider = mockProvider();
         when(salienceProvider.getIfAvailable()).thenReturn(null);
 
+        ObjectProvider<ObjectMapper> objectMapperProvider = mockProvider();
+        when(objectMapperProvider.getIfAvailable()).thenReturn(new ObjectMapper());
+
         var auth = new com.spectrayan.spector.config.properties.AuthProperties(
                 true, null, null, null, null, null, null, null);
         var synapse = new SynapseProperties(0, null, base.toString(), null, null, auth);
 
         UserMemoryRegistry registry = new UserMemoryRegistry(
-                sharedProvider, synapse, embedderProvider, textGenProvider, salienceProvider, 512);
+                sharedProvider, synapse, embedderProvider, textGenProvider, salienceProvider, objectMapperProvider, 512);
         return new Fixture(registry, shared);
     }
 

@@ -5,64 +5,21 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     https://github.com/spectrayan/spector/blob/main/spector-synapse/LICENSE
+ *     https://github.com/spectrayan/spector/blob/main/spector-memory/LICENSE
  *
- * Change Date: July 6, 2030
+ * Change Date: May 27, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.synapse.agent;
+package com.spectrayan.spector.memory.model;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * The agent's persistent identity — its "soul."
- *
- * <h3>Biological Analog: Default Mode Network (DMN) Self-Model</h3>
- * <p>Just as the human brain's DMN maintains a persistent self-model that shapes
- * perception, memory encoding, and social cognition, the AgentSoul defines WHO
- * the agent is. This identity persists across sessions and influences how the agent
- * processes, recalls, and responds to information.</p>
- *
- * <h3>Symmetry with PersonaContext</h3>
- * <p>The user has {@code PersonaContext} (their soul). The agent has {@code AgentSoul}
- * (its soul). Both are injected into the LLM system prompt and both influence
- * cognitive scoring — PersonaContext via self-relevance boost, AgentSoul via
- * expertise-relevance boost.</p>
- *
- * <h3>Persistence</h3>
- * <p>Stored in H2 via {@link AgentSoulRepository}. The agent can self-modify its
- * soul (except ethical guardrails) with user approval via conversational
- * interaction.</p>
- *
- * <h3>Mutability Rules</h3>
- * <ul>
- *   <li><b>Mutable (with user approval)</b>: name, purpose, personality, expertise,
- *       values, emotionalBaseline, communicationStyle</li>
- *   <li><b>Immutable (agent cannot modify)</b>: ethicalGuardrails</li>
- * </ul>
- *
- * @param id                   unique identifier (UUID)
- * @param name                 the agent's name (e.g., "Aria", "Atlas")
- * @param description          brief description of the agent's role
- * @param systemPrompt         system-level instructions for the LLM
- * @param purpose              the agent's core purpose (e.g., "ABA therapy companion")
- * @param personality          free-text personality description
- * @param expertiseDomains     domains the agent specializes in
- * @param coreValues           the agent's guiding values
- * @param ethicalGuardrails    immutable ethical constraints (agent CANNOT modify these)
- * @param emotionalBaseline    the agent's default emotional state
- * @param communicationStyle   how the agent communicates (e.g., "warm and encouraging")
- * @param model                preferred LLM model (e.g., "qwen3.5:latest")
- * @param tools                list of enabled tool names
- * @param expertiseEmbedding   pre-computed embedding of expertise domains (for scoring)
- * @param purposeEmbedding     pre-computed embedding of purpose text (for scoring)
- * @param createdAt            creation timestamp
- * @param updatedAt            last update timestamp
  */
 public record AgentSoul(
         // Identity
@@ -97,7 +54,7 @@ public record AgentSoul(
         // Timestamps
         Instant createdAt,
         Instant updatedAt
-) {
+) implements SoulContext {
 
     /**
      * Compact constructor — enforces immutability and safe defaults.
@@ -121,6 +78,11 @@ public record AgentSoul(
         if (purposeEmbedding != null) {
             purposeEmbedding = Arrays.copyOf(purposeEmbedding, purposeEmbedding.length);
         }
+    }
+
+    @Override
+    public float[] identityEmbedding() {
+        return purposeEmbedding;
     }
 
     /**
@@ -165,23 +127,10 @@ public record AgentSoul(
 
     /**
      * The agent's default emotional state — influences recall bias.
-     *
-     * <p>A "warm" agent with positive valence baseline will prefer recalling
-     * memories that led to positive outcomes for the user. A "clinical" agent
-     * with neutral baseline will recall objectively.</p>
-     *
-     * @param defaultValence  emotional baseline (-128 to +127, 0 = neutral)
-     * @param defaultArousal  activation baseline (0-255, 128 = moderate)
      */
     public record EmotionalBaseline(byte defaultValence, byte defaultArousal) {
-
-        /** Neutral baseline — no emotional bias in recall. */
         public static final EmotionalBaseline NEUTRAL = new EmotionalBaseline((byte) 0, (byte) 128);
-
-        /** Warm baseline — slight positive bias in recall (therapy/companion agents). */
         public static final EmotionalBaseline WARM = new EmotionalBaseline((byte) 30, (byte) 100);
-
-        /** Energetic baseline — high arousal, positive (coaching/motivational agents). */
         public static final EmotionalBaseline ENERGETIC = new EmotionalBaseline((byte) 40, (byte) 200);
     }
 

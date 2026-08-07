@@ -17,6 +17,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -90,6 +91,7 @@ class UserMemoryRegistryTest {
     private ObjectProvider<EmbeddingProvider> embedderProvider;
     private ObjectProvider<LlmProvider> textGenProvider;
     private ObjectProvider<SalienceProfileProvider> salienceProvider;
+    private ObjectProvider<ObjectMapper> objectMapperProvider;
 
     @BeforeEach
     void setUp() {
@@ -101,6 +103,8 @@ class UserMemoryRegistryTest {
         when(textGenProvider.getIfAvailable()).thenReturn(null);
         salienceProvider = mockProvider();
         when(salienceProvider.getIfAvailable()).thenReturn(null);
+        objectMapperProvider = mockProvider();
+        when(objectMapperProvider.getIfAvailable()).thenReturn(new ObjectMapper());
     }
 
     @AfterEach
@@ -344,6 +348,7 @@ class UserMemoryRegistryTest {
                 embedderProvider,
                 textGenProvider,
                 salienceProvider,
+                objectMapperProvider,
                 maxInstances);
     }
 

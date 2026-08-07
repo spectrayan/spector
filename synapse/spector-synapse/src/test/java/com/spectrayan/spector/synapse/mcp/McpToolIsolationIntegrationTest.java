@@ -17,6 +17,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -277,6 +278,8 @@ class McpToolIsolationIntegrationTest {
         // No EmbeddingProvider available → per-user buildInstance fails closed (drives Req 11.4).
         ObjectProvider<LlmProvider> textGenProvider = mockProvider();
         ObjectProvider<SalienceProfileProvider> salienceProvider = mockProvider();
+        ObjectProvider<ObjectMapper> objectMapperProvider = mockProvider();
+        when(objectMapperProvider.getIfAvailable()).thenReturn(new ObjectMapper());
 
         return new UserMemoryRegistry(
                 sharedProvider,
@@ -284,6 +287,7 @@ class McpToolIsolationIntegrationTest {
                 embedderProvider,
                 textGenProvider,
                 salienceProvider,
+                objectMapperProvider,
                 512);
     }
 

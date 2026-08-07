@@ -38,6 +38,8 @@ import com.spectrayan.spector.config.properties.MemoryProperties;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.security.SecurityUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.memory.model.InsulaSelfModel;
 
 /**
  * Resolves the {@link SpectorMemory} instance for the current request, isolating each authenticated
@@ -89,6 +91,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
     private final ObjectProvider<EmbeddingProvider> embedderProvider;
     private final ObjectProvider<LlmProvider> textGenProvider;
     private final ObjectProvider<SalienceProfileProvider> salienceProvider;
+    private final ObjectProvider<ObjectMapper> objectMapperProvider;
 
     /** Maximum number of concurrently-cached per-user instances (LRU cap). */
     private final int maxInstances;
@@ -107,12 +110,14 @@ public final class UserMemoryRegistry implements AutoCloseable {
             ObjectProvider<EmbeddingProvider> embedderProvider,
             ObjectProvider<LlmProvider> textGenProvider,
             ObjectProvider<SalienceProfileProvider> salienceProvider,
+            ObjectProvider<ObjectMapper> objectMapperProvider,
             @Value("${spector.auth.memory.max-instances:512}") int maxInstances) {
         this.sharedProvider = sharedProvider;
         this.synapseProps = synapseProps;
         this.embedderProvider = embedderProvider;
         this.textGenProvider = textGenProvider;
         this.salienceProvider = salienceProvider;
+        this.objectMapperProvider = objectMapperProvider;
         this.maxInstances = Math.max(1, maxInstances);
         log.info("[UserMemoryRegistry] initialized: authEnabled={}, maxInstances={}",
                 synapseProps.auth().enabled(), this.maxInstances);
@@ -305,6 +310,24 @@ public final class UserMemoryRegistry implements AutoCloseable {
         SpectorMemory built = builder.build();
         log.info("[UserMemoryRegistry] built per-user memory instance (dims={}, persistenceMode={})",
                 memory.getDimensions(), memory.getPersistenceMode());
+
+        // Load saved salience profile from the INSULA region on startup
+        try {
+            java.util.Optional<byte[]> bytes = built.admin().insularCortex().get();
+            if (bytes.isPresent() && objectMapperProvider != null) {
+                ObjectMapper mapper = objectMapperProvider.getIfAvailable();
+                if (mapper != null) {
+                    InsulaSelfModel model = mapper.readValue(bytes.get(), InsulaSelfModel.class);
+                    if (model != null && model.salience() != null) {
+                        built.setSalienceProfile(model.salience());
+                        log.info("[UserMemoryRegistry] Restored salience profile from INSULA for user/agent {}", userId);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[UserMemoryRegistry] Failed to restore salience profile from INSULA: {}", e.getMessage());
+        }
+
         return built;
     }
 
