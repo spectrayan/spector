@@ -134,6 +134,15 @@ public final class SpectorConfigFactory {
         properties.setColbertEnabled(props.getBoolean(MEMORY_COLBERT_ENABLED, DEFAULT_MEMORY_COLBERT_ENABLED));
         properties.setBm25Enabled(props.getBoolean(MEMORY_BM25_ENABLED, DEFAULT_MEMORY_BM25_ENABLED));
 
+        properties.setCoactivationPairCapacity(props.getInt(MEMORY_COACTIVATION_PAIR_CAPACITY, DEFAULT_MEMORY_COACTIVATION_PAIR_CAPACITY));
+        properties.setCoactivationEdgeCapacity(props.getInt(MEMORY_COACTIVATION_EDGE_CAPACITY, DEFAULT_MEMORY_COACTIVATION_EDGE_CAPACITY));
+        properties.setTemporalFactsInitialSize(props.getLong(MEMORY_TEMPORAL_FACTS_INITIAL_SIZE, DEFAULT_MEMORY_TEMPORAL_FACTS_INITIAL_SIZE));
+        properties.setIndexMidxCapacity(props.getInt(MEMORY_INDEX_MIDX_CAPACITY, DEFAULT_MEMORY_INDEX_MIDX_CAPACITY));
+        properties.setIndexIdplSize(props.getLong(MEMORY_INDEX_IDPL_SIZE, DEFAULT_MEMORY_INDEX_IDPL_SIZE));
+        properties.setTypeRegistryCapacity(props.getInt(MEMORY_TYPE_REGISTRY_CAPACITY, DEFAULT_MEMORY_TYPE_REGISTRY_CAPACITY));
+        properties.setTypeRegistrySize(props.getLong(MEMORY_TYPE_REGISTRY_SIZE, DEFAULT_MEMORY_TYPE_REGISTRY_SIZE));
+        properties.setInsulaSize(props.getLong(MEMORY_INSULA_SIZE, DEFAULT_MEMORY_INSULA_SIZE));
+
         var llm = new LlmProperties(
                 props.getFloat(MEMORY_LLM_TEMPERATURE, DEFAULT_MEMORY_LLM_TEMPERATURE),
                 props.getInt(MEMORY_LLM_MAX_TOKENS, DEFAULT_MEMORY_LLM_MAX_TOKENS),

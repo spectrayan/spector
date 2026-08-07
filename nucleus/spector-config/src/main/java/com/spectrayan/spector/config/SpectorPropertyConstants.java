@@ -148,6 +148,30 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_LLM_ENTITY_MODEL = "spector.memory.llm.entity-model";
     public static final String DEFAULT_MEMORY_LLM_ENTITY_MODEL = "";
 
+    public static final String MEMORY_COACTIVATION_PAIR_CAPACITY = "spector.memory.coactivation-pair-capacity";
+    public static final int DEFAULT_MEMORY_COACTIVATION_PAIR_CAPACITY = 10_000;
+
+    public static final String MEMORY_COACTIVATION_EDGE_CAPACITY = "spector.memory.coactivation-edge-capacity";
+    public static final int DEFAULT_MEMORY_COACTIVATION_EDGE_CAPACITY = 20_000;
+
+    public static final String MEMORY_TEMPORAL_FACTS_INITIAL_SIZE = "spector.memory.temporal-facts-initial-size";
+    public static final long DEFAULT_MEMORY_TEMPORAL_FACTS_INITIAL_SIZE = 16L * 1024 * 1024;
+
+    public static final String MEMORY_INDEX_MIDX_CAPACITY = "spector.memory.index-midx-capacity";
+    public static final int DEFAULT_MEMORY_INDEX_MIDX_CAPACITY = 100_000;
+
+    public static final String MEMORY_INDEX_IDPL_SIZE = "spector.memory.index-idpl-size";
+    public static final long DEFAULT_MEMORY_INDEX_IDPL_SIZE = 16L * 1024 * 1024;
+
+    public static final String MEMORY_TYPE_REGISTRY_CAPACITY = "spector.memory.type-registry-capacity";
+    public static final int DEFAULT_MEMORY_TYPE_REGISTRY_CAPACITY = 1024;
+
+    public static final String MEMORY_TYPE_REGISTRY_SIZE = "spector.memory.type-registry-size";
+    public static final long DEFAULT_MEMORY_TYPE_REGISTRY_SIZE = 1L * 1024 * 1024;
+
+    public static final String MEMORY_INSULA_SIZE = "spector.memory.insula-size";
+    public static final long DEFAULT_MEMORY_INSULA_SIZE = 64L * 1024;
+
     // Ingestion
     public static final String INGESTION_ROOT_DIRECTORY = "spector.ingestion.root-directory";
     public static final Path DEFAULT_INGESTION_ROOT_DIRECTORY = Path.of(".");

@@ -102,7 +102,15 @@ public class SpectorAutoConfiguration {
                 .temporalChainCapacity(memoryProps.getCapacity())
                 .entityGraphCapacity(memoryProps.getCapacity())
                 .embedBatchSize(props.getProvider().getEmbedding().getBatchSize())
-                .bundleMode(memoryProps.isBundleMode());
+                .bundleMode(memoryProps.isBundleMode())
+                .coactivationPairCapacity(memoryProps.coactivationPairCapacity())
+                .coactivationEdgeCapacity(memoryProps.coactivationEdgeCapacity())
+                .temporalFactsInitialSize(memoryProps.temporalFactsInitialSize())
+                .indexMidxCapacity(memoryProps.indexMidxCapacity())
+                .indexIdplSize(memoryProps.indexIdplSize())
+                .typeRegistryCapacity(memoryProps.typeRegistryCapacity())
+                .typeRegistrySize(memoryProps.typeRegistrySize())
+                .insulaSize(memoryProps.insulaSize());
 
         if (memoryProps.getPersistencePath() != null) {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));

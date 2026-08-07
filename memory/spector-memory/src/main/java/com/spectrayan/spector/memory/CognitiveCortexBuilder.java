@@ -290,8 +290,8 @@ final class CognitiveCortexBuilder {
 
     private static List<RegionSizeSpec> getRuntimeBundleSpecs(SpectorMemoryBuilder builder, int quantizedVecBytes) {
         int workingCap = builder.workingCapacity;
-        int pairCap = Integer.getInteger("spector.memory.coactivation-pair-capacity", 10_000);
-        int edgeCap = Integer.getInteger("spector.memory.coactivation-edge-capacity", 20_000);
+        int pairCap = builder.coactivationPairCapacity;
+        int edgeCap = builder.coactivationEdgeCapacity;
 
         int graphCapacity = builder.hebbianGraphCapacity > 0
                 ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
@@ -302,12 +302,12 @@ final class CognitiveCortexBuilder {
         int hyperCap = builder.entityGraphCapacity;
         int hyperEdgeCap = hyperCap * 2;
 
-        long tkgInitialSize = Long.getLong("spector.memory.temporal-facts-initial-size", 16L * 1024 * 1024);
-        int indexMidxCapacity = Integer.getInteger("spector.memory.index-midx-capacity", 100_000);
-        long indexIdplSize = Long.getLong("spector.memory.index-idpl-size", 16L * 1024 * 1024);
-        int typeRegistryCapacity = Integer.getInteger("spector.memory.type-registry-capacity", 1024);
-        long typeRegistrySize = Long.getLong("spector.memory.type-registry-size", 1L * 1024 * 1024);
-        long insulaSize = Long.getLong("spector.memory.insula-size", 64L * 1024);
+        long tkgInitialSize = builder.temporalFactsInitialSize;
+        int indexMidxCapacity = builder.indexMidxCapacity;
+        long indexIdplSize = builder.indexIdplSize;
+        int typeRegistryCapacity = builder.typeRegistryCapacity;
+        long typeRegistrySize = builder.typeRegistrySize;
+        long insulaSize = builder.insulaSize;
 
         return List.of(
                 new RegionSizeSpec(
