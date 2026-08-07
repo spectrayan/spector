@@ -16,6 +16,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -219,6 +220,8 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         ObjectProvider<EmbeddingProvider> embedderProvider = mockProvider();
         ObjectProvider<LlmProvider> textGenProvider = mockProvider();
         ObjectProvider<SalienceProfileProvider> salienceProvider = mockProvider();
+        ObjectProvider<ObjectMapper> objectMapperProvider = mockProvider();
+        when(objectMapperProvider.getIfAvailable()).thenReturn(new ObjectMapper());
 
         return new UserMemoryRegistry(
                 sharedProvider,
@@ -226,6 +229,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
                 embedderProvider,
                 textGenProvider,
                 salienceProvider,
+                objectMapperProvider,
                 512);
     }
 

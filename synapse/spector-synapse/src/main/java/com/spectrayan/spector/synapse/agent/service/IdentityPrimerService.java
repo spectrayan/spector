@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.agent.service;
 
-import com.spectrayan.spector.synapse.agent.AgentSoul;
+import com.spectrayan.spector.memory.model.AgentSoul;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

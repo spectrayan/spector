@@ -38,9 +38,6 @@ import com.spectrayan.spector.memory.model.PersonaContext;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider.InterestEntry;
-import com.spectrayan.spector.synapse.config.model.ConfigCategory;
-import com.spectrayan.spector.synapse.config.model.ScopedConfig;
-import com.spectrayan.spector.synapse.config.repository.ConfigRepository;
 import com.spectrayan.spector.synapse.memory.MemoryAccessObject;
 
 /**
@@ -55,7 +52,6 @@ public class UserSalienceController {
     private final SynapseSalienceProvider salienceProvider;
     private final CognitiveSoulService soulService;
     private final MemoryAccessObject mao;
-    private final ConfigRepository configRepository;
     private final ObjectMapper mapper;
 
     /**
@@ -69,13 +65,11 @@ public class UserSalienceController {
     public UserSalienceController(SynapseSalienceProvider salienceProvider,
                                   CognitiveSoulService soulService,
                                   MemoryAccessObject mao,
-                                  ConfigRepository configRepository,
                                   ObjectMapper mapper,
                                   ObjectProvider<SpectorMemory> memoryProvider) {
         this.salienceProvider = salienceProvider;
         this.soulService = soulService;
         this.mao = mao;
-        this.configRepository = configRepository;
         this.mapper = mapper;
         this.memoryProvider = memoryProvider;
     }
@@ -170,39 +164,12 @@ public class UserSalienceController {
 
         salienceProvider.updateScoringWeights(icnu, request.alpha(), request.beta());
 
-        // 3. Process persona if present
-        if (request.persona() != null) {
-            soulService.saveUserSoul(request.persona());
+        // 3. Process and save the unified self-model (persona + salience profile) to INSULA
+        PersonaContext persona = request.persona();
+        if (persona == null) {
+            persona = soulService.loadUserSoul().orElse(null);
         }
-
-        // 4. Save SALIENCE settings to H2 Database
-        try {
-            Map<String, Object> values = new HashMap<>();
-            values.put("interestsList", interestEntries.stream().map(e -> Map.of("topic", e.topic(), "level", e.level().name())).toList());
-            values.put("disinterestsList", disinterestEntries.stream().map(e -> Map.of("topic", e.topic(), "level", e.level().name())).toList());
-            if (icnu != null) {
-                values.put("icnuWeights", Map.of(
-                        "interest", icnu.interest(),
-                        "challenge", icnu.challenge(),
-                        "novelty", icnu.novelty(),
-                        "urgency", icnu.urgency()
-                ));
-            }
-            if (request.alpha() != null) values.put("alpha", request.alpha());
-            if (request.beta() != null) values.put("beta", request.beta());
-
-            ScopedConfig sc = new ScopedConfig(
-                    "user:default:default",
-                    ConfigCategory.SALIENCE,
-                    values,
-                    java.time.Instant.now(),
-                    "default"
-            );
-            configRepository.save(sc);
-            log.info("Persisted user salience profile to database under category SALIENCE");
-        } catch (Exception e) {
-            log.warn("Failed to persist user salience profile to database: {}", e.getMessage());
-        }
+        soulService.saveUserSoul(persona);
 
         return ResponseEntity.ok(Map.of(
                 "status", "success",
@@ -216,7 +183,6 @@ public class UserSalienceController {
         salienceProvider.updateInterests(List.of(), List.of());
         salienceProvider.updateScoringWeights(null, null, null);
         soulService.saveUserSoul(null);
-        configRepository.delete("user:default:default", ConfigCategory.SALIENCE);
 
         return ResponseEntity.ok(Map.of(
                 "status", "success",

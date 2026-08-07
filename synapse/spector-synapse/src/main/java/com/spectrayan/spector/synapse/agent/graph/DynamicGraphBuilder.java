@@ -27,7 +27,7 @@ import com.spectrayan.spector.synapse.agent.graph.spec.FlowSpec;
 import com.spectrayan.spector.synapse.agent.graph.spec.NodeSpec;
 import com.spectrayan.spector.synapse.agent.graph.coordinator.AgentSelector;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
-import com.spectrayan.spector.synapse.agent.AgentSoul;
+import com.spectrayan.spector.memory.model.AgentSoul;
 
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 

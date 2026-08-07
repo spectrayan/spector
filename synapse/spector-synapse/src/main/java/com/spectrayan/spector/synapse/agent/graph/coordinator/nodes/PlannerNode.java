@@ -62,7 +62,7 @@ public final class PlannerNode implements NodeAction<CoordinatorState> {
 
         String executionResult = state.executionResult().orElse("(no previous execution)");
 
-        List<com.spectrayan.spector.synapse.agent.AgentSoul> agents = soulService.listAllAgents();
+        List<com.spectrayan.spector.memory.model.AgentSoul> agents = soulService.listAllAgents();
         StringBuilder agentsList = new StringBuilder();
         if (agents.isEmpty()) {
             agentsList.append("- No specialized child agents available (use default system assistant)\n");

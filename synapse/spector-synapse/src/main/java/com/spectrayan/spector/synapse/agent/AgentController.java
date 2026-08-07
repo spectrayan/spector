@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.agent;
 
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import com.spectrayan.spector.synapse.agent.graph.AgenticChatGraph;
+import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.synapse.config.FeatureGate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

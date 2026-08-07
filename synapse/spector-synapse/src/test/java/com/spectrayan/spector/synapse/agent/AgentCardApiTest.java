@@ -15,6 +15,7 @@ package com.spectrayan.spector.synapse.agent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.synapse.agent.graph.AgenticChatGraph;
 import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
+import com.spectrayan.spector.memory.model.AgentSoul;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

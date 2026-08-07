@@ -63,17 +63,33 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
     private static final Logger log = LoggerFactory.getLogger(SynapseSalienceProvider.class);
 
     private final EmbeddingProvider embeddingProvider;
+    private final org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.memory.UserMemoryRegistry> registryProvider;
     private final ReentrantLock lock = new ReentrantLock();
 
     private volatile SalienceProfile currentProfile = SalienceProfile.NEUTRAL;
 
-    public SynapseSalienceProvider(EmbeddingProvider embeddingProvider) {
+    public SynapseSalienceProvider(EmbeddingProvider embeddingProvider,
+                                   org.springframework.beans.factory.ObjectProvider<com.spectrayan.spector.synapse.memory.UserMemoryRegistry> registryProvider) {
         this.embeddingProvider = embeddingProvider;
+        this.registryProvider = registryProvider;
         log.info("[SynapseSalience] Provider initialized (profile=NEUTRAL, awaiting user persona)");
     }
 
     @Override
     public SalienceProfile effectiveProfile() {
+        if (registryProvider != null) {
+            com.spectrayan.spector.synapse.memory.UserMemoryRegistry registry = registryProvider.getIfAvailable();
+            if (registry != null) {
+                try {
+                    com.spectrayan.spector.memory.SpectorMemory memory = registry.resolveForCurrentRequest();
+                    if (memory != null) {
+                        return memory.salienceProfile();
+                    }
+                } catch (Exception e) {
+                    log.warn("[SynapseSalience] Failed to resolve memory for current request: {}", e.getMessage());
+                }
+            }
+        }
         return currentProfile;
     }
 
@@ -274,6 +290,20 @@ public class SynapseSalienceProvider implements SalienceProfileProvider {
         if (betaOverride != null) builder.beta(betaOverride);
 
         currentProfile = builder.build();
+
+        if (registryProvider != null) {
+            com.spectrayan.spector.synapse.memory.UserMemoryRegistry registry = registryProvider.getIfAvailable();
+            if (registry != null) {
+                try {
+                    com.spectrayan.spector.memory.SpectorMemory memory = registry.resolveForCurrentRequest();
+                    if (memory != null) {
+                        memory.setSalienceProfile(currentProfile);
+                    }
+                } catch (Exception e) {
+                    log.warn("[SynapseSalience] Failed to apply salience profile to memory instance: {}", e.getMessage());
+                }
+            }
+        }
     }
 
     /**

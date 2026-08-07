@@ -13,40 +13,34 @@
 package com.spectrayan.spector.synapse.agent.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.AgentSoul;
+import com.spectrayan.spector.memory.model.InsulaSelfModel;
 import com.spectrayan.spector.memory.model.PersonaContext;
-import com.spectrayan.spector.synapse.agent.AgentSoul;
-import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
-import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
-import com.spectrayan.spector.synapse.memory.MemoryService;
+import com.spectrayan.spector.memory.model.UserSoul;
+import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.synapse.config.SynapseProperties;
 import com.spectrayan.spector.synapse.config.SynapseSalienceProvider;
-import com.spectrayan.spector.synapse.config.model.ConfigCategory;
-import com.spectrayan.spector.synapse.config.model.ScopedConfig;
-import com.spectrayan.spector.synapse.config.repository.ConfigRepository;
+import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
- * Service for managing agent and user souls using Spector's cognitive memory.
- *
- * <p>Replaces H2-based storage with cognitive persistence. Souls are serialized
- * to JSON and stored as memories with specific identity tags.</p>
- *
- * <p>When the user persona is loaded or saved, this service automatically
- * updates the {@link SynapseSalienceProvider} so that the memory engine
- * applies user-salience-driven importance, valence, and arousal modulation
- * on all subsequent ingestion and recall operations.</p>
+ * Service for managing agent and user souls using Spector's INSULA cortex memory region.
  */
 @Service
 public class CognitiveSoulService {
 
     private static final Logger log = LoggerFactory.getLogger(CognitiveSoulService.class);
-    private static final String TAG_AGENT_SOUL = "identity:agent";
-    private static final String TAG_USER_SOUL = "identity:user";
 
     public static final AgentSoul DEFAULT_FALLBACK_SOUL = AgentSoul.builder()
             .id("default")
@@ -64,83 +58,87 @@ public class CognitiveSoulService {
             .tools(List.of())
             .build();
 
-    private final MemoryService memoryService;
+    private final UserMemoryRegistry userMemoryRegistry;
     private final ObjectMapper mapper;
     private final SynapseSalienceProvider salienceProvider;
-    private final ConfigRepository configRepository;
+    private final SynapseProperties synapseProps;
 
-    public CognitiveSoulService(MemoryService memoryService, ObjectMapper mapper,
+    public CognitiveSoulService(UserMemoryRegistry userMemoryRegistry,
+                                ObjectMapper mapper,
                                 SynapseSalienceProvider salienceProvider,
-                                ConfigRepository configRepository) {
-        this.memoryService = memoryService;
+                                SynapseProperties synapseProps) {
+        this.userMemoryRegistry = userMemoryRegistry;
         this.mapper = mapper;
         this.salienceProvider = salienceProvider;
-        this.configRepository = configRepository;
+        this.synapseProps = synapseProps;
     }
 
     /** Loads an agent soul by ID (or the default if ID is null). */
-    @SuppressWarnings("unchecked")
     public Optional<AgentSoul> loadAgentSoul(String id) {
-        String scope = id != null ? "agent:" + id : "agent:default";
-        return configRepository.get(scope, ConfigCategory.SOUL)
-                .map(sc -> {
-                    try {
-                        return mapper.convertValue(sc.values(), AgentSoul.class);
-                    } catch (Exception e) {
-                        log.warn("Failed to convert agent soul configuration: {}", e.getMessage());
-                        return null;
+        String namespaceId = "agent-" + (id != null ? id : "default");
+        SpectorMemory memory = userMemoryRegistry.resolveFor(namespaceId);
+        if (memory == null) {
+            return Optional.empty();
+        }
+
+        return memory.admin().insularCortex().get()
+                .flatMap(bytes -> fromJsonBytes(bytes, InsulaSelfModel.class))
+                .map(model -> {
+                    if (model.soul() instanceof AgentSoul agentSoul) {
+                        return agentSoul;
                     }
+                    return null;
                 });
     }
 
-    /** Lists all agent souls stored in H2 database. */
+    /** Lists all agent souls stored in sharded directories. */
     public List<AgentSoul> listAllAgents() {
-        return configRepository.findByCategory(ConfigCategory.SOUL).stream()
-                .filter(sc -> sc.scope().startsWith("agent:"))
-                .map(sc -> {
-                    try {
-                        return mapper.convertValue(sc.values(), AgentSoul.class);
-                    } catch (Exception e) {
-                        log.warn("Failed to convert agent soul configuration: {}", e.getMessage());
-                        return null;
-                    }
-                })
-                .filter(java.util.Objects::nonNull)
+        List<String> agentIds = discoverAgentIds();
+        if (agentIds.isEmpty()) {
+            return loadAgentSoul(null).map(List::of).orElse(List.of());
+        }
+        return agentIds.stream()
+                .map(this::loadAgentSoul)
+                .flatMap(Optional::stream)
                 .toList();
     }
 
-    /** Saves an agent soul to the database. */
-    @SuppressWarnings("unchecked")
+    /** Saves an agent soul to the INSULA cortex. */
     public void saveAgentSoul(AgentSoul soul) {
-        String scope = "agent:" + soul.id();
-        Map<String, Object> values = mapper.convertValue(soul, Map.class);
-        ScopedConfig sc = new ScopedConfig(
-                scope,
-                ConfigCategory.SOUL,
-                values,
-                java.time.Instant.now(),
-                "default"
-        );
-        configRepository.save(sc);
-        log.info("[CognitiveSoul] Saved agent soul '{}' in database", soul.name());
+        String namespaceId = "agent-" + soul.id();
+        SpectorMemory memory = userMemoryRegistry.resolveFor(namespaceId);
+        if (memory == null) {
+            log.warn("[CognitiveSoul] Memory not resolved for agent namespace: {}", namespaceId);
+            return;
+        }
+
+        InsulaSelfModel selfModel = new InsulaSelfModel("AGENT", soul, null, Map.of());
+        byte[] bytes = toJsonBytes(selfModel);
+        var insula = memory.admin().insularCortex();
+        if (bytes != null && insula != null) {
+            insula.put(bytes);
+        }
+        log.info("[CognitiveSoul] Saved agent soul '{}' in INSULA", soul.name());
     }
 
     /**
      * Loads the user soul (PersonaContext).
-     *
-     * <p>When a user persona is found, it is automatically applied to the
-     * {@link SynapseSalienceProvider} so memory scoring reflects the user's
-     * personality and identity.</p>
      */
     public Optional<PersonaContext> loadUserSoul() {
-        Optional<PersonaContext> persona = configRepository.get("user:default:default", ConfigCategory.SOUL)
-                .map(sc -> {
-                    try {
-                        return mapper.convertValue(sc.values(), PersonaContext.class);
-                    } catch (Exception e) {
-                        log.warn("Failed to convert user soul configuration: {}", e.getMessage());
-                        return null;
+        String nsId = currentNamespaceId();
+        SpectorMemory memory = userMemoryRegistry.resolveFor(nsId);
+        if (memory == null) {
+            return Optional.empty();
+        }
+
+        var insula = memory.admin().insularCortex();
+        Optional<PersonaContext> persona = (insula == null) ? Optional.empty() : insula.get()
+                .flatMap(bytes -> fromJsonBytes(bytes, InsulaSelfModel.class))
+                .map(model -> {
+                    if (model.soul() instanceof UserSoul userSoul) {
+                        return userSoul.persona();
                     }
+                    return null;
                 });
 
         // Propagate to salience provider
@@ -154,33 +152,37 @@ public class CognitiveSoulService {
 
     /**
      * Saves the user soul (PersonaContext).
-     *
-     * <p>After persistence, the persona is immediately applied to the
-     * {@link SynapseSalienceProvider} so all subsequent memory operations
-     * use the updated user salience profile.</p>
      */
-    @SuppressWarnings("unchecked")
     public void saveUserSoul(PersonaContext persona) {
-        if (persona == null) {
-            configRepository.delete("user:default:default", ConfigCategory.SOUL);
-            salienceProvider.updateUserPersona(null);
-            log.info("[CognitiveSoul] Cleared user persona context");
+        String nsId = currentNamespaceId();
+        SpectorMemory memory = userMemoryRegistry.resolveFor(nsId);
+        if (memory == null) {
+            log.warn("[CognitiveSoul] Memory not resolved for namespace: {}", nsId);
             return;
         }
 
-        Map<String, Object> values = mapper.convertValue(persona, Map.class);
-        ScopedConfig sc = new ScopedConfig(
-                "user:default:default",
-                ConfigCategory.SOUL,
-                values,
-                java.time.Instant.now(),
-                "default"
-        );
-        configRepository.save(sc);
+        if (persona == null) {
+            var insula = memory.admin().insularCortex();
+            if (insula != null) {
+                insula.clear();
+            }
+            salienceProvider.updateUserPersona(null);
+            log.info("[CognitiveSoul] Cleared user persona context in INSULA for namespace: {}", nsId);
+            return;
+        }
+
+        UserSoul userSoul = new UserSoul(nsId, "User", "User Persona", persona, persona.aboutEmbedding());
+        InsulaSelfModel selfModel = new InsulaSelfModel("USER", userSoul, salienceProvider.effectiveProfile(), Map.of());
+        
+        byte[] bytes = toJsonBytes(selfModel);
+        var insula = memory.admin().insularCortex();
+        if (bytes != null && insula != null) {
+            insula.put(bytes);
+        }
 
         // Propagate to salience provider
         salienceProvider.updateUserPersona(persona);
-        log.info("[CognitiveSoul] Saved user persona context — salience profile updated");
+        log.info("[CognitiveSoul] Saved user persona context to INSULA — salience profile updated");
     }
 
     /** Get the current active agent soul, or a default fallback. */
@@ -267,25 +269,58 @@ public class CognitiveSoulService {
         return AgentSoul.EmotionalBaseline.NEUTRAL;
     }
 
-    private void forgetOldSouls(String tag) {
-        var results = memoryService.recall(new RecallRequest("identity", 10, null));
-        results.stream()
-                .filter(r -> r.tags() != null && r.tags().contains(tag))
-                .forEach(r -> memoryService.forget(r.id()));
+    private String currentNamespaceId() {
+        if (synapseProps.auth() != null && synapseProps.auth().enabled()) {
+            String userId = com.spectrayan.spector.synapse.security.SecurityUtils.getUserId();
+            if (userId != null && !userId.isBlank() && !"default".equals(userId)) {
+                return userId;
+            }
+        }
+        return "default";
     }
 
-    private String toJson(Object obj) {
-        try {
-            return mapper.writeValueAsString(obj);
-        } catch (Exception e) {
-            log.error("[CognitiveSoul] Failed to serialize soul: {}", e.getMessage());
-            return "{}";
+    private Path basePath() {
+        String path = synapseProps.getMemory().getPersistencePath();
+        if (path == null || path.isBlank()) {
+            path = synapseProps.dataDir();
+        }
+        return Path.of(path);
+    }
+
+    private List<String> discoverAgentIds() {
+        Path namespacesDir = basePath().resolve("namespaces");
+        if (!Files.exists(namespacesDir)) {
+            return List.of();
+        }
+        try (Stream<Path> stream = Files.walk(namespacesDir, 3)) {
+            return stream
+                    .filter(Files::isDirectory)
+                    .map(Path::getFileName)
+                    .map(Path::toString)
+                    .filter(name -> name.startsWith("agent-"))
+                    .map(name -> name.substring("agent-".length()))
+                    .toList();
+        } catch (IOException e) {
+            log.warn("Failed to walk namespaces directory: {}", e.getMessage());
+            return List.of();
         }
     }
 
-    private <T> Optional<T> fromJson(String json, Class<T> clazz) {
+    private byte[] toJsonBytes(Object obj) {
         try {
-            return Optional.of(mapper.readValue(json, clazz));
+            return mapper.writeValueAsBytes(obj);
+        } catch (Exception e) {
+            log.error("[CognitiveSoul] Failed to serialize soul: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private <T> Optional<T> fromJsonBytes(byte[] bytes, Class<T> clazz) {
+        if (bytes == null || bytes.length == 0) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(mapper.readValue(bytes, clazz));
         } catch (Exception e) {
             log.warn("[CognitiveSoul] Failed to deserialize {}: {}", clazz.getSimpleName(), e.getMessage());
             return Optional.empty();

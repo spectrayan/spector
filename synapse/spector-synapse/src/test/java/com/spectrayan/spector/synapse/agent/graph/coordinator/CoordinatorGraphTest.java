@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.synapse.agent.graph.coordinator;
 
-import com.spectrayan.spector.synapse.agent.AgentSoul;
+import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 import com.spectrayan.spector.synapse.agent.graph.AgenticChatGraph;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
