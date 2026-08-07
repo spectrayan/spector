@@ -178,8 +178,8 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
                 try {
                     TemporalKnowledgeGraph legacy = new TemporalKnowledgeGraph(legacyPath, java.nio.file.Files.size(legacyPath) - com.spectrayan.spector.memory.kernel.MemoryHeader.HEADER_BYTES, predicateRegistry);
                     long factCount = legacy.factLog.size();
-                    for (int i = 0; i < factCount; i++) {
-                        MemorySegment factSeg = legacy.factLog.read((long) i * 64, 64);
+                    for (long i = 0; i < factCount; i++) {
+                        MemorySegment factSeg = legacy.factLog.read(i * 64, 64);
                         this.factLog.append(factSeg);
                     }
                     this.factLog.flush();
