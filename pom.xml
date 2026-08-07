@@ -801,6 +801,7 @@
                     <configuration>
                         <additionalOptions>--add-modules ${vector.api.module} --enable-preview</additionalOptions>
                         <source>${java.version}</source>
+                        <doclint>none</doclint>
                     </configuration>
                     <executions>
                         <execution>
