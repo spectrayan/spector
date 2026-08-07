@@ -290,8 +290,8 @@ final class CognitiveCortexBuilder {
 
     private static List<RegionSizeSpec> getRuntimeBundleSpecs(SpectorMemoryBuilder builder, int quantizedVecBytes) {
         int workingCap = builder.workingCapacity;
-        int pairCap = 10_000;
-        int edgeCap = 20_000;
+        int pairCap = Integer.getInteger("spector.memory.coactivation-pair-capacity", 10_000);
+        int edgeCap = Integer.getInteger("spector.memory.coactivation-edge-capacity", 20_000);
 
         int graphCapacity = builder.hebbianGraphCapacity > 0
                 ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
@@ -302,7 +302,12 @@ final class CognitiveCortexBuilder {
         int hyperCap = builder.entityGraphCapacity;
         int hyperEdgeCap = hyperCap * 2;
 
-        long tkgInitialSize = 16L * 1024 * 1024; // 16MB
+        long tkgInitialSize = Long.getLong("spector.memory.temporal-facts-initial-size", 16L * 1024 * 1024);
+        int indexMidxCapacity = Integer.getInteger("spector.memory.index-midx-capacity", 100_000);
+        long indexIdplSize = Long.getLong("spector.memory.index-idpl-size", 16L * 1024 * 1024);
+        int typeRegistryCapacity = Integer.getInteger("spector.memory.type-registry-capacity", 1024);
+        long typeRegistrySize = Long.getLong("spector.memory.type-registry-size", 1L * 1024 * 1024);
+        long insulaSize = Long.getLong("spector.memory.insula-size", 64L * 1024);
 
         return List.of(
                 new RegionSizeSpec(
@@ -325,8 +330,8 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.INDEX_MIDX,
-                        64 + 100_000L * new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().recordStride(),
-                        100_000,
+                        64 + (long) indexMidxCapacity * new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().recordStride(),
+                        indexMidxCapacity,
                         new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().recordStride(),
                         new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().layoutId(),
                         new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().schemaVersion(),
@@ -334,7 +339,7 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.INDEX_IDPL,
-                        16L * 1024 * 1024,
+                        indexIdplSize,
                         1,
                         1,
                         0,
@@ -397,8 +402,8 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.ENTITY_TYPES,
-                        1L * 1024 * 1024,
-                        1024,
+                        typeRegistrySize,
+                        typeRegistryCapacity,
                         0,
                         new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().layoutId(),
                         new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().schemaVersion(),
@@ -406,8 +411,8 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.RELATION_TYPES,
-                        1L * 1024 * 1024,
-                        1024,
+                        typeRegistrySize,
+                        typeRegistryCapacity,
                         0,
                         new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().layoutId(),
                         new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().schemaVersion(),
@@ -415,7 +420,7 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.INSULA,
-                        64 * 1024L,
+                        insulaSize,
                         1,
                         0,
                         InsularLayout.LAYOUT_ID,
