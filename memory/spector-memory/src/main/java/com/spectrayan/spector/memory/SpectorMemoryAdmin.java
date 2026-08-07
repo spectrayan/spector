@@ -123,7 +123,16 @@ public interface SpectorMemoryAdmin {
      * graduated replacement for {@link #entityGraph()} identity access (ADR-0003, #455/#456).
      * May be {@code null} when entity extraction is disabled.
      */
+    /**
+     * Returns the entity directory.
+     * May be {@code null} when entity extraction is disabled.
+     */
     EntityDirectory entityDirectory();
+
+    /**
+     * Returns the Insular Cortex self-model store.
+     */
+    com.spectrayan.spector.memory.insula.InsularCortex insularCortex();
 
     /** @deprecated Use {@link #graph()} and its query methods instead. */
     @Deprecated(since = "1.1.0", forRemoval = true)

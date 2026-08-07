@@ -24,6 +24,10 @@ import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
+import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.memory.kernel.bundle.BundleLayoutCalculator;
+import com.spectrayan.spector.memory.insula.InsularCortex;
+import com.spectrayan.spector.memory.insula.InsularLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
@@ -73,7 +77,9 @@ final class CognitiveCortexBuilder {
             CognitiveMemoryRouter cognitiveRouter,
             WorkingRecordMemory workingStore,
             PartitionBundle partitionBundle,
-            TextAppendMemory textStore
+            TextAppendMemory textStore,
+            RuntimeBundle runtimeBundle,
+            InsularCortex insularCortex
     ) {}
 
     static CortexFoundation build(SpectorMemoryBuilder builder) {
@@ -150,6 +156,8 @@ final class CognitiveCortexBuilder {
         WorkingRecordMemory workingStore;
         PartitionBundle partitionBundle = null;
         TextAppendMemory textStore = null;
+        RuntimeBundle runtimeBundle = null;
+        InsularCortex insularCortex = null;
         if (isDisk && builder.persistWorkingMemory && basePath != null) {
             workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity,
                      StorageLayout.workingMem(basePath));
@@ -203,6 +211,28 @@ final class CognitiveCortexBuilder {
             log.info("V4 bundle mode: {} ({}, {} stores)",
                     bundleFile.getFileName(), isNew ? "created" : "opened", 4);
 
+            // ── V4 Runtime Bundle & Insular Cortex ──
+            Path runtimeBundleFile = StorageLayout.runtimeBundleFile(basePath);
+            boolean isNewRuntime = !Files.exists(runtimeBundleFile);
+            if (isNewRuntime) {
+                List<BundleLayoutCalculator.RegionSizeSpec> specs = List.of(
+                        new BundleLayoutCalculator.RegionSizeSpec(
+                                RegionId.INSULA,
+                                64 * 1024L,
+                                1,
+                                0,
+                                InsularLayout.LAYOUT_ID,
+                                InsularLayout.SCHEMA_VERSION,
+                                false
+                        )
+                );
+                runtimeBundle = RuntimeBundle.Init.mmap(runtimeBundleFile, specs);
+            } else {
+                runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile);
+            }
+            MemorySegment insulaSlice = runtimeBundle.regionSegment(RegionId.INSULA);
+            insularCortex = InsularCortex.fromBundle(runtimeBundle.arena(), insulaSlice, isNewRuntime);
+
         } else if (isDisk && basePath != null && resolvedPartitionDir != null) {
             // ── V3 Legacy Mode ──
             EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
@@ -227,10 +257,15 @@ final class CognitiveCortexBuilder {
             cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
         }
 
+        if (insularCortex == null) {
+            insularCortex = InsularCortex.heap();
+        }
+
         return new CortexFoundation(
                 isDisk, useBundleMode, basePath, quantizer, namespaceManager, quantizedVecBytes,
                 resolvedPartitionDir, frozenPartitionDirs, initialPartitionSeq,
-                cognitiveRouter, workingStore, partitionBundle, textStore);
+                cognitiveRouter, workingStore, partitionBundle, textStore,
+                runtimeBundle, insularCortex);
     }
 
     private static void createDirectoriesSecure(Path path) throws java.io.IOException {

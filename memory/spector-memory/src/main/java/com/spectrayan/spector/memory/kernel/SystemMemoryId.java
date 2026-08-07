@@ -33,7 +33,8 @@ public enum SystemMemoryId {
     RELATION_TYPE("graph", "relation-type"),
     INDEX("kernel", "index"),
     INDEX_IDPOOL("index", "idpool"),
-    INDEX_SLOT("index", "slot");
+    INDEX_SLOT("index", "slot"),
+    INSULA("insula", "self-model");
 
     private final String namespace;
     private final String memoryName;
