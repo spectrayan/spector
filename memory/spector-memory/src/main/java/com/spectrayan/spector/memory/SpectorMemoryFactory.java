@@ -46,6 +46,8 @@ import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
+import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.memory.insula.InsularCortex;
 
 import java.nio.file.Path;
 
@@ -108,7 +110,9 @@ public final class SpectorMemoryFactory {
             Path resolvedPartitionDir,
             Path basePath,
             SpectorNamespaceManager namespaceManager,
-            ProfileAdaptor profileAdaptor
+            ProfileAdaptor profileAdaptor,
+            RuntimeBundle runtimeBundle,
+            InsularCortex insularCortex
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -234,7 +238,7 @@ public final class SpectorMemoryFactory {
                 graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
                 daemons.checkpointDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
-                cortex.namespaceManager(), profileAdaptor
+                cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex()
         );
     }
 }

@@ -112,20 +112,20 @@ public final class PartitionBundle implements AutoCloseable {
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
                                             int textLayoutId, int textSchemaVer) {
             int cogStride = computeCognitiveStride(quantizedVecBytes);
-            List<BundleLayoutCalculator.RegionSizeSpec> specs = List.of(
-                    new BundleLayoutCalculator.RegionSizeSpec(
+            List<RegionSizeSpec> specs = List.of(
+                    new RegionSizeSpec(
                             RegionId.SEMANTIC,
                             MemoryHeader.HEADER_BYTES + (long) semanticCapacity * cogStride,
                             semanticCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
-                    new BundleLayoutCalculator.RegionSizeSpec(
+                    new RegionSizeSpec(
                             RegionId.EPISODIC,
                             MemoryHeader.HEADER_BYTES + (long) episodicCapacity * cogStride,
                             episodicCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
-                    new BundleLayoutCalculator.RegionSizeSpec(
+                    new RegionSizeSpec(
                             RegionId.PROCEDURAL,
                             MemoryHeader.HEADER_BYTES + (long) proceduralCapacity * cogStride,
                             proceduralCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
-                    new BundleLayoutCalculator.RegionSizeSpec(
+                    new RegionSizeSpec(
                             RegionId.TEXT,
                             MemoryHeader.HEADER_BYTES + textBytes,
                             0, 0, textLayoutId, textSchemaVer, false)
@@ -203,20 +203,20 @@ public final class PartitionBundle implements AutoCloseable {
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
                                             int textLayoutId, int textSchemaVer) {
             int cogStride = computeCognitiveStride(quantizedVecBytes);
-            List<BundleLayoutCalculator.RegionSizeSpec> specs = List.of(
-                    new BundleLayoutCalculator.RegionSizeSpec(
+            List<RegionSizeSpec> specs = List.of(
+                    new RegionSizeSpec(
                             RegionId.SEMANTIC,
                             MemoryHeader.HEADER_BYTES + (long) semanticCapacity * cogStride,
                             semanticCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
-                    new BundleLayoutCalculator.RegionSizeSpec(
+                    new RegionSizeSpec(
                             RegionId.EPISODIC,
                             MemoryHeader.HEADER_BYTES + (long) episodicCapacity * cogStride,
                             episodicCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
-                    new BundleLayoutCalculator.RegionSizeSpec(
+                    new RegionSizeSpec(
                             RegionId.PROCEDURAL,
                             MemoryHeader.HEADER_BYTES + (long) proceduralCapacity * cogStride,
                             proceduralCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
-                    new BundleLayoutCalculator.RegionSizeSpec(
+                    new RegionSizeSpec(
                             RegionId.TEXT,
                             MemoryHeader.HEADER_BYTES + textBytes,
                             0, 0, textLayoutId, textSchemaVer, false)

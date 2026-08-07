@@ -20,6 +20,7 @@ import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.file.Path;
@@ -95,6 +96,28 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
 
         log.info("WorkingRecordMemory initialized: capacity={}, stride={}B, persistent=true",
                 capacity(), layout.stride());
+    }
+
+    /**
+     * Creates a bundle-backed Working Memory store from a pre-sliced region segment.
+     */
+    public static WorkingRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                                 int capacity, int quantizedVecBytes,
+                                                 Path bundlePath, boolean isNew) {
+        return new WorkingRecordMemory(arena, regionSlice, capacity, quantizedVecBytes, bundlePath, isNew);
+    }
+
+    private WorkingRecordMemory(Arena arena, MemorySegment regionSlice, int capacity,
+                                 int quantizedVecBytes, Path bundlePath, boolean isNew) {
+        super(MemoryType.WORKING, new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes),
+              capacity, arena, regionSlice, bundlePath, isNew);
+        
+        // Restore writeIndex from metadata header extra1 field
+        if (getCount() > 0) {
+            this.writeIndex = segment().get(ValueLayout.JAVA_INT, META_EXTRA1);
+        }
+        log.info("WorkingRecordMemory initialized (bundle): capacity={}, stride={}B, persistent=true, count={}, writeIndex={}",
+                capacity(), layout.stride(), getCount(), writeIndex);
     }
 
     /**

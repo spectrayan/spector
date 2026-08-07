@@ -98,6 +98,7 @@ public final class CheckpointDaemon {
     private final EntityDirectory entityDirectory;           // nullable (ADR-0003 #455)
     private final HyperEntityGraphMemory hyperEntityGraph; // nullable
     private final CoActivationRecordMemory coActivationTracker; // nullable
+    private final com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph; // nullable
     private final Path partitionDir;                   // nullable — active partition dir for graph saves
     private final Path basePath;                       // nullable — persistence root for coactivation
 
@@ -121,8 +122,10 @@ public final class CheckpointDaemon {
      * @param indexPath             path to save the index file (nullable)
      * @param hebbianGraph          the Hebbian co-activation graph (nullable)
      * @param temporalChain         the temporal sequence chain (nullable)
-     * @param entityGraph           the entity knowledge graph (nullable)
+     * @param entityDirectory       the entity directory (nullable)
+     * @param hyperEntityGraph      the hyper-entity graph (nullable)
      * @param coActivationTracker   the co-activation frequency tracker (nullable)
+     * @param temporalKnowledgeGraph the temporal knowledge graph (nullable)
      * @param partitionDir          active partition directory for graph saves (nullable)
      * @param basePath              persistence root for global files like coactivation (nullable)
      */
@@ -134,6 +137,7 @@ public final class CheckpointDaemon {
                             EntityDirectory entityDirectory,
                             HyperEntityGraphMemory hyperEntityGraph,
                             CoActivationRecordMemory coActivationTracker,
+                            com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                             Path partitionDir, Path basePath) {
         this.cognitiveRouter = cognitiveRouter;
         this.wal = wal;
@@ -145,6 +149,7 @@ public final class CheckpointDaemon {
         this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.coActivationTracker = coActivationTracker;
+        this.temporalKnowledgeGraph = temporalKnowledgeGraph;
         this.partitionDir = partitionDir;
         this.basePath = basePath;
     }
@@ -159,7 +164,7 @@ public final class CheckpointDaemon {
                             Path checkpointMetaPath,
                             MemoryIndex index, Path indexPath) {
         this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -199,6 +204,22 @@ public final class CheckpointDaemon {
             if (entityDirectory != null) {
                 saveGraph("EntityDirectory", () ->
                         entityDirectory.save(StorageLayout.entityDirectoryRuntime(basePath)));
+                saveGraph("EntityTypeRegistry", () -> {
+                    try {
+                        entityDirectory.entityTypeRegistry().save(StorageLayout.entityTypesRuntime(basePath));
+                    } catch (java.io.IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                });
+            }
+            if (temporalKnowledgeGraph != null) {
+                saveGraph("RelationTypeRegistry", () -> {
+                    try {
+                        temporalKnowledgeGraph.predicateRegistry().save(StorageLayout.relationTypesRuntime(basePath));
+                    } catch (java.io.IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                });
             }
         }
 

@@ -95,6 +95,11 @@ public abstract class AbstractMemory<L extends MemoryLayout> implements Memory<L
         return this.bypassWal;
     }
 
+    @Override
+    public boolean isBundleManaged() {
+        return this.bundleManaged;
+    }
+
     /**
      * Returns the bound Write-Ahead Log, if any.
      */

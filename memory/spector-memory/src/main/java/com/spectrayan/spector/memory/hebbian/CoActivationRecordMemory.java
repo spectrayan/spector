@@ -17,6 +17,7 @@ import com.spectrayan.spector.memory.error.SpectorGraphPersistenceException;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryId;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
@@ -146,6 +147,94 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
 
         log.info("CoActivationRecordMemory initialized (persistent): pairCap={}, edgeCap={}, file={}",
                 pairCap, edgeCap, filePath);
+    }
+
+    /**
+     * Creates a bundle-backed CoActivationRecordMemory from a pre-sliced region segment.
+     */
+    public static CoActivationRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                                       int pairCap, int edgeCap,
+                                                       Path bundlePath, boolean isNew) {
+        return new CoActivationRecordMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew);
+    }
+
+    private CoActivationRecordMemory(Arena arena, MemorySegment regionSlice,
+                                     int pairCap, int edgeCap,
+                                     Path bundlePath, boolean isNew) {
+        super(SystemMemoryId.COACTIVATION.id(), new CoActivationLayout(),
+              pairCap, arena, regionSlice,
+              isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
+              true, bundlePath, null, true); // bundleManaged=true
+
+        long totalBytes = 8 + 32L * pairCap + 40L * edgeCap;
+        MemorySegment segment = segment();
+        long dataOffset = dataOffset();
+
+        if (isNew) {
+            segment.set(ValueLayout.JAVA_INT, dataOffset, pairCap);
+            segment.set(ValueLayout.JAVA_INT, dataOffset + 4, edgeCap);
+            segment.asSlice(dataOffset + 8, totalBytes - 8).fill((byte) 0);
+
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(segment, 0L, layout().schemaVersion(), MemoryShape.RECORD, 1,
+                    (int) totalBytes, 0, 0, layout().layoutId(), now, now);
+        } else {
+            if (!MemoryHeader.isValid(segment, 0L)) {
+                throw new com.spectrayan.spector.commons.error.SpectorMemoryException(
+                        com.spectrayan.spector.commons.error.ErrorCode.MEMORY_RECALL_FAILED,
+                        "Invalid SMKM header for CoActivationRecordMemory in bundle");
+            }
+        }
+
+        this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + 8, 32L * pairCap), 0);
+        this.edgeTable = new OffHeapEdgeTable(edgeCap, segment.asSlice(dataOffset + 8 + 32L * pairCap, 40L * edgeCap), 0);
+
+        // One-time migration of standalone legacy file into bundle region
+        if (isNew && bundlePath != null) {
+            Path legacyPath = bundlePath.resolveSibling("coactivation.dat");
+            if (Files.exists(legacyPath)) {
+                log.info("Migrating legacy standalone coactivation.dat to bundle region...");
+                CoActivationRecordMemory legacy = CoActivationRecordMemory.load(legacyPath, pairCap, edgeCap);
+                MemorySegment.copy(legacy.pairTable.segment(), 0, pairTable.segment(), 0, legacy.pairTable.segment().byteSize());
+                pairTable.setCount(legacy.pairTable.count());
+                MemorySegment.copy(legacy.edgeTable.segment(), 0, edgeTable.segment(), 0, legacy.edgeTable.segment().byteSize());
+                edgeTable.setCount(legacy.edgeTable.count());
+                this.hashToTag.putAll(legacy.hashToTag);
+                this.banditStats = new ConcurrentHashMap<>(legacy.banditStats);
+
+                save(legacyPath); // writes coactivation.dat.meta
+                try {
+                    Files.deleteIfExists(legacyPath);
+                } catch (IOException e) {
+                    log.warn("Failed to delete legacy coactivation.dat after migration: {}", e.getMessage());
+                }
+            }
+        } else if (!isNew && bundlePath != null) {
+            Path metaPath = bundlePath.resolveSibling("coactivation.dat.meta");
+            if (Files.exists(metaPath)) {
+                try (FileChannel ch = FileChannel.open(metaPath, StandardOpenOption.READ)) {
+                    ByteBuffer countsBuf = ByteBuffer.allocate(8);
+                    ch.read(countsBuf);
+                    countsBuf.flip();
+                    int pairs = countsBuf.getInt();
+                    int edges = countsBuf.getInt();
+                    this.pairTable.setCount(pairs);
+                    this.edgeTable.setCount(edges);
+
+                    ConcurrentHashMap<Long, String> names = readTagIndex(ch);
+                    this.hashToTag.putAll(names);
+
+                    if (ch.position() < ch.size()) {
+                        this.banditStats = new ConcurrentHashMap<>(readBanditStats(ch));
+                    }
+                } catch (IOException e) {
+                    log.warn("Failed to load CoActivationRecordMemory metadata from {}, starting empty", metaPath, e);
+                }
+            }
+        }
+
+        log.info("CoActivationRecordMemory initialized (bundle): pairCap={}, edgeCap={}, count={}",
+                pairCap, edgeCap, size());
     }
 
     private static long calculateTotalBytes(int maxPairs, int maxEdges) {
@@ -340,7 +429,31 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
     public void save(Path filePath) {
         saveLock.lock();
         try {
-            if (!isPersistent()) {
+            if (isBundleManaged()) {
+                Path path = filePath != null ? filePath : filePath();
+                if (path == null) return;
+                Path metaPath = path.resolveSibling(path.getFileName().toString() + ".meta");
+                try {
+                    Path parent = metaPath.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    flush();
+                    try (FileChannel ch = FileChannel.open(metaPath,
+                            StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                        ByteBuffer countsBuf = ByteBuffer.allocate(8);
+                        countsBuf.putInt(pairTable.count());
+                        countsBuf.putInt(edgeTable.count());
+                        countsBuf.flip();
+                        ch.write(countsBuf);
+
+                        writeTagIndex(ch);
+                        writeBanditStats(ch);
+                    }
+                } catch (IOException e) {
+                    throw new SpectorGraphPersistenceException("CoActivationRecordMemory", metaPath, e);
+                }
+            } else if (!isPersistent()) {
                 try {
                     Path parent = filePath.getParent();
                     if (parent != null) {

@@ -123,7 +123,7 @@ public final class RuntimeBundle implements AutoCloseable {
          * @param specs region specifications (computed by the caller from config)
          * @return an open RuntimeBundle ready for use
          */
-        public static RuntimeBundle mmap(Path path, List<BundleLayoutCalculator.RegionSizeSpec> specs) {
+        public static RuntimeBundle mmap(Path path, List<RegionSizeSpec> specs) {
             BundleLayoutCalculator.BundleComputedLayout computed =
                     BundleLayoutCalculator.compute(BundleSubHeader.MAGIC_RUNTIME, specs);
 
@@ -184,7 +184,7 @@ public final class RuntimeBundle implements AutoCloseable {
          * @param specs region specifications
          * @return an in-memory RuntimeBundle
          */
-        public static RuntimeBundle heap(List<BundleLayoutCalculator.RegionSizeSpec> specs) {
+        public static RuntimeBundle heap(List<RegionSizeSpec> specs) {
             BundleLayoutCalculator.BundleComputedLayout computed =
                     BundleLayoutCalculator.compute(BundleSubHeader.MAGIC_RUNTIME, specs);
 

@@ -103,6 +103,23 @@ final class PersistenceManager {
             if (entityDirectory != null) {
                 saveSubsystem("EntityDirectory", () ->
                         entityDirectory.save(StorageLayout.entityDirectoryRuntime(persistencePath)));
+                saveSubsystem("EntityTypeRegistry", () -> {
+                    try {
+                        entityDirectory.entityTypeRegistry().save(StorageLayout.entityTypesRuntime(persistencePath));
+                    } catch (java.io.IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                });
+            }
+
+            if (temporalKnowledgeGraph != null) {
+                saveSubsystem("RelationTypeRegistry", () -> {
+                    try {
+                        temporalKnowledgeGraph.predicateRegistry().save(StorageLayout.relationTypesRuntime(persistencePath));
+                    } catch (java.io.IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                });
             }
 
             // 6. CoActivationTracker: runtime/

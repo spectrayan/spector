@@ -43,7 +43,12 @@ final class MemoryIndexBuilder {
 
         //  Memory Index 
         MemoryIndex index;
-        if (isDisk && basePath != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+            java.lang.foreign.MemorySegment midxSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.INDEX_MIDX);
+            java.lang.foreign.MemorySegment idplSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.INDEX_IDPL);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(midxSlice, 0L);
+            index = com.spectrayan.spector.memory.index.IndexRecordMemory.fromBundle(cortex.runtimeBundle().arena(), midxSlice, idplSlice, StorageLayout.indexMidxRuntime(basePath), isNew);
+        } else if (isDisk && basePath != null) {
             Path runtimeIndex = StorageLayout.indexMidxRuntime(basePath);
             Path partitionIndex = resolvedPartitionDir != null ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX) : null;
 

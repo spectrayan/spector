@@ -67,6 +67,7 @@ final class DaemonSupervisorBuilder {
                     index, indexSavePath,
                     graphs.hebbianGraph(), graphs.temporalChain(),
                     graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
+                    graphs.temporalKnowledgeGraph(),
                     resolvedPartitionDir, basePath);
             daemonSupervisor = new DaemonSupervisor("memory");
             daemonSupervisor.schedule(

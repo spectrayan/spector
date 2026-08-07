@@ -51,6 +51,14 @@ public class MemoryProperties implements Serializable {
     private boolean colbertEnabled = DEFAULT_MEMORY_COLBERT_ENABLED;
     private boolean bm25Enabled = DEFAULT_MEMORY_BM25_ENABLED;
     private boolean bundleMode = false;
+    private int coactivationPairCapacity = DEFAULT_MEMORY_COACTIVATION_PAIR_CAPACITY;
+    private int coactivationEdgeCapacity = DEFAULT_MEMORY_COACTIVATION_EDGE_CAPACITY;
+    private long temporalFactsInitialSize = DEFAULT_MEMORY_TEMPORAL_FACTS_INITIAL_SIZE;
+    private int indexMidxCapacity = DEFAULT_MEMORY_INDEX_MIDX_CAPACITY;
+    private long indexIdplSize = DEFAULT_MEMORY_INDEX_IDPL_SIZE;
+    private int typeRegistryCapacity = DEFAULT_MEMORY_TYPE_REGISTRY_CAPACITY;
+    private long typeRegistrySize = DEFAULT_MEMORY_TYPE_REGISTRY_SIZE;
+    private long insulaSize = DEFAULT_MEMORY_INSULA_SIZE;
 
     private DecayProperties decay = new DecayProperties();
     private ConsolidationProperties consolidation = new ConsolidationProperties();
@@ -195,4 +203,36 @@ public class MemoryProperties implements Serializable {
     public DecayProperties decay() { return getDecay(); }
     public ConsolidationProperties consolidation() { return getConsolidation(); }
     public LlmProperties llm() { return getLlm(); }
+
+    public int getCoactivationPairCapacity() { return coactivationPairCapacity; }
+    public void setCoactivationPairCapacity(int coactivationPairCapacity) { this.coactivationPairCapacity = coactivationPairCapacity; }
+    public int coactivationPairCapacity() { return coactivationPairCapacity; }
+
+    public int getCoactivationEdgeCapacity() { return coactivationEdgeCapacity; }
+    public void setCoactivationEdgeCapacity(int coactivationEdgeCapacity) { this.coactivationEdgeCapacity = coactivationEdgeCapacity; }
+    public int coactivationEdgeCapacity() { return coactivationEdgeCapacity; }
+
+    public long getTemporalFactsInitialSize() { return temporalFactsInitialSize; }
+    public void setTemporalFactsInitialSize(long temporalFactsInitialSize) { this.temporalFactsInitialSize = temporalFactsInitialSize; }
+    public long temporalFactsInitialSize() { return temporalFactsInitialSize; }
+
+    public int getIndexMidxCapacity() { return indexMidxCapacity; }
+    public void setIndexMidxCapacity(int indexMidxCapacity) { this.indexMidxCapacity = indexMidxCapacity; }
+    public int indexMidxCapacity() { return indexMidxCapacity; }
+
+    public long getIndexIdplSize() { return indexIdplSize; }
+    public void setIndexIdplSize(long indexIdplSize) { this.indexIdplSize = indexIdplSize; }
+    public long indexIdplSize() { return indexIdplSize; }
+
+    public int getTypeRegistryCapacity() { return typeRegistryCapacity; }
+    public void setTypeRegistryCapacity(int typeRegistryCapacity) { this.typeRegistryCapacity = typeRegistryCapacity; }
+    public int typeRegistryCapacity() { return typeRegistryCapacity; }
+
+    public long getTypeRegistrySize() { return typeRegistrySize; }
+    public void setTypeRegistrySize(long typeRegistrySize) { this.typeRegistrySize = typeRegistrySize; }
+    public long typeRegistrySize() { return typeRegistrySize; }
+
+    public long getInsulaSize() { return insulaSize; }
+    public void setInsulaSize(long insulaSize) { this.insulaSize = insulaSize; }
+    public long insulaSize() { return insulaSize; }
 }

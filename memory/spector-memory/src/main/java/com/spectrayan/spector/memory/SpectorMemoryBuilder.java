@@ -38,6 +38,7 @@ import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
 
 import java.nio.file.Path;
 import java.util.List;
+import com.spectrayan.spector.config.SpectorPropertyConstants;
 
 /**
  * Fluent builder for creating {@link SpectorMemory} instances.
@@ -138,6 +139,16 @@ public final class SpectorMemoryBuilder {
     List<SensoryExtractor> sensoryExtractors = List.of();
     AssetStore assetStore;
 
+    // Configurable capacities/sizes for runtime bundle regions
+    int coactivationPairCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_PAIR_CAPACITY;
+    int coactivationEdgeCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_EDGE_CAPACITY;
+    long temporalFactsInitialSize = SpectorPropertyConstants.DEFAULT_MEMORY_TEMPORAL_FACTS_INITIAL_SIZE;
+    int indexMidxCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_INDEX_MIDX_CAPACITY;
+    long indexIdplSize = SpectorPropertyConstants.DEFAULT_MEMORY_INDEX_IDPL_SIZE;
+    int typeRegistryCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_TYPE_REGISTRY_CAPACITY;
+    long typeRegistrySize = SpectorPropertyConstants.DEFAULT_MEMORY_TYPE_REGISTRY_SIZE;
+    long insulaSize = SpectorPropertyConstants.DEFAULT_MEMORY_INSULA_SIZE;
+
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // FACTORY
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
@@ -162,6 +173,15 @@ public final class SpectorMemoryBuilder {
     /** If true, Working memory is also persisted to disk in DISK mode (default: false). */
     public SpectorMemoryBuilder persistWorkingMemory(boolean persist) { this.persistWorkingMemory = persist; return this; }
     public SpectorMemoryBuilder reflectPolicy(CircadianPolicy p) { this.circadianPolicy = p; return this; }
+
+    public SpectorMemoryBuilder coactivationPairCapacity(int c) { this.coactivationPairCapacity = c; return this; }
+    public SpectorMemoryBuilder coactivationEdgeCapacity(int c) { this.coactivationEdgeCapacity = c; return this; }
+    public SpectorMemoryBuilder temporalFactsInitialSize(long s) { this.temporalFactsInitialSize = s; return this; }
+    public SpectorMemoryBuilder indexMidxCapacity(int c) { this.indexMidxCapacity = c; return this; }
+    public SpectorMemoryBuilder indexIdplSize(long s) { this.indexIdplSize = s; return this; }
+    public SpectorMemoryBuilder typeRegistryCapacity(int c) { this.typeRegistryCapacity = c; return this; }
+    public SpectorMemoryBuilder typeRegistrySize(long s) { this.typeRegistrySize = s; return this; }
+    public SpectorMemoryBuilder insulaSize(long s) { this.insulaSize = s; return this; }
 
     /**
      * Sets the text chunker for remember() auto-chunking.

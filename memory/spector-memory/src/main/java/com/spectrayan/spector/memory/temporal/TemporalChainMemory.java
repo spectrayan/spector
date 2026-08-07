@@ -135,6 +135,53 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         }
     }
 
+    /**
+     * Creates a bundle-backed TemporalChainMemory from a pre-sliced region segment.
+     */
+    public static TemporalChainMemory fromBundle(Arena arena, MemorySegment regionSlice, int capacity, Path bundlePath, boolean isNew) {
+        return new TemporalChainMemory(arena, regionSlice, capacity, bundlePath, isNew);
+    }
+
+    private TemporalChainMemory(Arena arena, MemorySegment regionSlice, int capacity, Path bundlePath, boolean isNew) {
+        TemporalLayout layout = new TemporalLayout();
+        MemoryId id = SystemMemoryId.TEMPORAL_CHAIN.id();
+        long dataBytes = (long) NODE_BYTES * capacity;
+        this.backing = new TemporalChainBacking(id, layout, capacity, arena, regionSlice, isNew);
+
+        if (isNew) {
+            MemorySegment seg = backing.segment();
+            long base = backing.dataOffset();
+            for (int i = 0; i < capacity; i++) {
+                long offset = base + (long) i * NODE_BYTES;
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_PREV, NO_LINK);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_NEXT, NO_LINK);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_SESSION, 0);
+                seg.set(ValueLayout.JAVA_INT, offset + OFF_EPOCH_SEC, 0);
+            }
+            backing.flush();
+        }
+
+        // Migrate legacy standalone temporal chain if it exists
+        if (isNew && bundlePath != null) {
+            Path legacyPath = bundlePath.resolveSibling("temporal_chain.dat");
+            if (Files.exists(legacyPath)) {
+                log.info("Migrating legacy standalone temporal_chain.dat to bundle region...");
+                TemporalChainMemory legacy = new TemporalChainMemory(legacyPath, capacity);
+                MemorySegment.copy(legacy.backing.segment(), legacy.backing.dataOffset(),
+                                   this.backing.segment(), this.backing.dataOffset(),
+                                   dataBytes);
+                MemorySegment.copy(legacy.backing.segment(), 0L, this.backing.segment(), 0L, MemoryHeader.HEADER_BYTES);
+                this.backing.flush();
+                try {
+                    legacy.close();
+                    Files.deleteIfExists(legacyPath);
+                } catch (IOException e) {
+                    log.warn("Failed to delete legacy temporal_chain.dat after migration: {}", e.getMessage());
+                }
+            }
+        }
+    }
+
     private static void checkAndMigrateHeader(Path filePath, int capacity) throws IOException {
         if (filePath == null || !Files.exists(filePath) || Files.size(filePath) < 16) {
             return;
@@ -452,7 +499,7 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
         lock.lock();
         try {
             flush();
-            if (backing.isPersistent() && backing.filePath() != null && !backing.filePath().equals(targetPath)) {
+            if (!backing.isBundleManaged() && backing.isPersistent() && backing.filePath() != null && !backing.filePath().equals(targetPath)) {
                 try {
                     Files.createDirectories(targetPath.getParent());
                     Files.copy(backing.filePath(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -488,6 +535,10 @@ public final class TemporalChainMemory implements ChainMemory<TemporalLayout>, A
 
         TemporalChainBacking(MemoryId id, TemporalLayout layout, int capacity, long dataBytes, Path filePath) {
             super(id, layout, capacity, dataBytes, filePath);
+        }
+
+        TemporalChainBacking(MemoryId id, TemporalLayout layout, int capacity, Arena arena, MemorySegment regionSlice, boolean isNew) {
+            super(id, layout, capacity, arena, regionSlice, 0, true, null, null, true); // bundleManaged = true
         }
 
         @Override

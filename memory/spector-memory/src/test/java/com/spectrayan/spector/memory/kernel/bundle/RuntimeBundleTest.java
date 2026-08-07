@@ -31,18 +31,20 @@ class RuntimeBundleTest {
     private static final int SCHEMA_VER = 1;
 
     /** Creates a minimal set of runtime region specs for testing. */
-    private static List<BundleLayoutCalculator.RegionSizeSpec> testSpecs() {
+    private static List<RegionSizeSpec> testSpecs() {
         return List.of(
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.WORKING, 4096, 100, 128, LAYOUT_ID, SCHEMA_VER, false),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.COACTIVATION, 4096, 50, 64, LAYOUT_ID, SCHEMA_VER, false),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.HEBBIAN, 8192, 200, 32, LAYOUT_ID, SCHEMA_VER, true),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.ENTITY_DIRECTORY, 8192, 100, 64, LAYOUT_ID, SCHEMA_VER, true),
-                new BundleLayoutCalculator.RegionSizeSpec(
-                        RegionId.ENTITY_NAMES, 16384, 0, 0, LAYOUT_ID, SCHEMA_VER, true)
+                new RegionSizeSpec(
+                        RegionId.ENTITY_NAMES, 16384, 0, 0, LAYOUT_ID, SCHEMA_VER, true),
+                new RegionSizeSpec(
+                        RegionId.INSULA, 4096, 1, 0, LAYOUT_ID, SCHEMA_VER, false)
         );
     }
 
@@ -56,7 +58,7 @@ class RuntimeBundleTest {
             assertThat(bundle.arena()).isNotNull();
 
             BundleDirectory dir = bundle.directory();
-            assertThat(dir.liveRegionCount()).isEqualTo(5);
+            assertThat(dir.liveRegionCount()).isEqualTo(6);
             assertThat(dir.bundleMagic()).isEqualTo(BundleSubHeader.MAGIC_RUNTIME);
 
             // Verify all regions are accessible
@@ -65,6 +67,7 @@ class RuntimeBundleTest {
             assertThat(bundle.regionSegment(RegionId.HEBBIAN)).isNotNull();
             assertThat(bundle.regionSegment(RegionId.ENTITY_DIRECTORY)).isNotNull();
             assertThat(bundle.regionSegment(RegionId.ENTITY_NAMES)).isNotNull();
+            assertThat(bundle.regionSegment(RegionId.INSULA)).isNotNull();
         }
     }
 
@@ -115,7 +118,7 @@ class RuntimeBundleTest {
         try (RuntimeBundle bundle = RuntimeBundle.Init.mmap(bundlePath, testSpecs())) {
             assertThat(bundle.isNew()).isTrue();
             assertThat(bundle.bundlePath()).isEqualTo(bundlePath);
-            assertThat(bundle.directory().liveRegionCount()).isEqualTo(5);
+            assertThat(bundle.directory().liveRegionCount()).isEqualTo(6);
             assertThat(bundle.directory().bundleMagic()).isEqualTo(BundleSubHeader.MAGIC_RUNTIME);
 
             // Write data to entity directory region
@@ -128,7 +131,7 @@ class RuntimeBundleTest {
         // Reopen and verify
         try (RuntimeBundle reopened = RuntimeBundle.Init.open(bundlePath)) {
             assertThat(reopened.isNew()).isFalse();
-            assertThat(reopened.directory().liveRegionCount()).isEqualTo(5);
+            assertThat(reopened.directory().liveRegionCount()).isEqualTo(6);
             assertThat(reopened.directory().bundleMagic()).isEqualTo(BundleSubHeader.MAGIC_RUNTIME);
 
             MemorySegment edirSlice = reopened.regionSegment(RegionId.ENTITY_DIRECTORY);

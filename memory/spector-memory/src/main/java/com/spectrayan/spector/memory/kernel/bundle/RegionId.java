@@ -36,11 +36,12 @@ public enum RegionId {
     ENTITY_TYPES(20), 
     RELATION_TYPES(21), 
     BM25(22), 
-    CHECKPOINT(23);
+    CHECKPOINT(23),
+    INSULA(24);
 
     private final int id;
     
-    private static final RegionId[] LOOKUP = new RegionId[24];
+    private static final RegionId[] LOOKUP = new RegionId[25];
     static {
         for (RegionId region : values()) {
             LOOKUP[region.id()] = region;

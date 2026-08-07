@@ -146,9 +146,94 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         this(Init.heap(entityCapacity, entityTypeRegistry));
     }
 
-    /** Creates or opens a file-backed (mmap) directory with the given entity type registry. */
     public EntityDirectory(Path filePath, int entityCapacity, TypeRegistryMemory entityTypeRegistry) {
         this(Init.mmap(filePath, entityCapacity, entityTypeRegistry));
+    }
+
+    private transient boolean bundleManaged = false;
+
+    public static EntityDirectory fromBundle(Arena arena, MemorySegment entityRegionSlice, MemorySegment adjacencyRegionSlice,
+                                             int entityCapacity, TypeRegistryMemory entityTypeRegistry,
+                                             Path bundlePath, boolean isNew) {
+        return new EntityDirectory(arena, entityRegionSlice, adjacencyRegionSlice, entityCapacity, entityTypeRegistry, bundlePath, isNew);
+    }
+
+    private EntityDirectory(Arena arena, MemorySegment entityRegionSlice, MemorySegment adjacencyRegionSlice,
+                            int entityCapacity, TypeRegistryMemory entityTypeRegistry,
+                            Path bundlePath, boolean isNew) {
+        super(MEMORY_ID, LAYOUT, entityCapacity, arena, entityRegionSlice,
+              isNew ? 0 : (int) MemoryHeader.readCount(entityRegionSlice, 0L),
+              true, bundlePath, null, true); // bundleManaged=true
+        this.bundleManaged = true;
+        this.entitySegment = entityRegionSlice;
+        this.adjacencySegment = adjacencyRegionSlice;
+        this.entityCapacity = entityCapacity;
+        this.entityCount = isNew ? 0 : (int) MemoryHeader.readCount(entityRegionSlice, 0L);
+
+        long headerStart = MemoryHeader.HEADER_BYTES;
+        int initialAdjCap = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY);
+        int adjHwm = adjacencyRegionSlice.get(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM);
+
+        this.adjSegmentCapacity = initialAdjCap;
+        this.adjHighWaterMark = adjHwm;
+        this.fileBacked = true;
+        this.headerSegment = entityRegionSlice.asSlice(0, MemoryHeader.HEADER_BYTES);
+        this.mmapFilePath = bundlePath;
+        this.memoryId = MEMORY_ID;
+        this.entityTypeRegistryMemory = entityTypeRegistry;
+
+        if (isNew) {
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(entityRegionSlice, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0,
+                    (int) entityRegionSlice.byteSize(), 0, 0, LAYOUT.layoutId(), now, now);
+            MemoryHeader.write(adjacencyRegionSlice, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0,
+                    (int) adjacencyRegionSlice.byteSize(), 0, 0, LAYOUT.layoutId(), now, now);
+
+            int adjCap = (int) ((adjacencyRegionSlice.byteSize() - MemoryHeader.HEADER_BYTES - 16) / ADJ_ENTRY_BYTES);
+            adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjCap);
+            adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM, 0);
+            this.adjSegmentCapacity = adjCap;
+            this.adjHighWaterMark = 0;
+        }
+
+        // Load names from sidecar
+        if (!isNew && bundlePath != null) {
+            try {
+                ConcurrentHashMap<String, Integer> names = EntityDirectorySerializer.loadNameIndexSidecar(bundlePath, null);
+                if (names != null) {
+                    this.nameIndex.putAll(names);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to load EntityDirectory name index sidecar: {}", e.getMessage());
+            }
+        }
+
+        // Migrate legacy standalone EntityDirectory if it exists
+        if (isNew && bundlePath != null) {
+            Path legacyPath = bundlePath.resolveSibling("entity_directory.dat");
+            if (Files.exists(legacyPath)) {
+                log.info("Migrating legacy standalone entity_directory.dat to bundle region...");
+                try {
+                    EntityDirectory legacy = EntityDirectory.load(legacyPath, entityCapacity, entityTypeRegistry, null);
+                    MemorySegment.copy(legacy.entitySegment, 0, this.entitySegment, 0, legacy.entitySegment.byteSize());
+                    MemorySegment.copy(legacy.adjacencySegment, 0, this.adjacencySegment, 0, legacy.adjacencySegment.byteSize());
+
+                    this.entityCount = legacy.entityCount;
+                    this.adjSegmentCapacity = legacy.adjSegmentCapacity;
+                    this.adjHighWaterMark = legacy.adjHighWaterMark;
+                    this.nameIndex.putAll(legacy.nameIndex);
+
+                    save(legacyPath);
+                    legacy.close();
+                    Files.deleteIfExists(legacyPath);
+                } catch (Exception e) {
+                    log.warn("Failed to migrate legacy entity_directory.dat: {}", e.getMessage());
+                }
+            }
+        }
+
+        log.info("EntityDirectory initialized (bundle): entities={}/{}, adjCap={}",
+                entityCount, entityCapacity, adjSegmentCapacity);
     }
 
     /**
@@ -859,6 +944,32 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
 
     /** Saves the directory with optional name-index encryption. */
     public void save(Path filePath, DataEncryptor encryptor) {
+        if (bundleManaged) {
+            long stamp = lock.readLock();
+            try {
+                // For bundleManaged, we don't have standard 64B headers mapped in the same segments,
+                // but wait, headerSegment was mapped as entitySegment.asSlice(0, 64)!
+                // So yes, writeSmkmHeaderToSegment on headerSegment works perfectly!
+                writeSmkmHeaderToSegment(headerSegment, entityCapacity, entityCount,
+                        adjSegmentCapacity, adjHighWaterMark);
+                headerSegment.force();
+                entitySegment.force();
+                
+                // Write sub-header to adjacencySegment too
+                long headerStart = MemoryHeader.HEADER_BYTES;
+                adjacencySegment.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjSegmentCapacity);
+                adjacencySegment.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM, adjHighWaterMark);
+                adjacencySegment.force();
+
+                Path path = filePath != null ? filePath : mmapFilePath;
+                if (path != null) {
+                    EntityDirectorySerializer.saveNameIndexSidecar(this, path, encryptor);
+                }
+            } finally {
+                lock.unlockRead(stamp);
+            }
+            return;
+        }
         if (fileBacked && filePath.equals(mmapFilePath)) {
             long stamp = lock.readLock();
             try {

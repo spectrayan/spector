@@ -20,16 +20,16 @@ import static org.assertj.core.api.Assertions.*;
 class BundleLayoutCalculatorTest {
     @Test
     void testCompute() {
-        BundleLayoutCalculator.RegionSizeSpec spec1 = new BundleLayoutCalculator.RegionSizeSpec(
+        RegionSizeSpec spec1 = new RegionSizeSpec(
             RegionId.SEMANTIC, 1000, 100, 32, 1, 1, false
         );
-        BundleLayoutCalculator.RegionSizeSpec spec2 = new BundleLayoutCalculator.RegionSizeSpec(
+        RegionSizeSpec spec2 = new RegionSizeSpec(
             RegionId.EPISODIC, 2000, 200, 64, 2, 1, true
         );
-        BundleLayoutCalculator.RegionSizeSpec spec3 = new BundleLayoutCalculator.RegionSizeSpec(
+        RegionSizeSpec spec3 = new RegionSizeSpec(
             RegionId.PROCEDURAL, 3000, 300, 128, 3, 1, false
         );
-        BundleLayoutCalculator.RegionSizeSpec spec4 = new BundleLayoutCalculator.RegionSizeSpec(
+        RegionSizeSpec spec4 = new RegionSizeSpec(
             RegionId.TEXT, 4000, 400, 256, 4, 1, true
         );
         

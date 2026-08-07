@@ -82,7 +82,15 @@ final class CognitiveGraphBuilder {
                 ? builder.hebbianGraphCapacity : builder.episodicPartitionCapacity;
 
         HebbianGraphBase hebbianGraph;
-        if (isDisk && basePath != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+            java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HEBBIAN);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+            int edgeCapacity = graphCapacity * 2;
+            hebbianGraph = HebbianGraphMemory.fromBundle(
+                    cortex.runtimeBundle().arena(), regionSlice, graphCapacity, edgeCapacity,
+                    builder.hebbianMaxDegree, builder.edgeImportance,
+                    StorageLayout.hebbianGraphRuntime(basePath), isNew);
+        } else if (isDisk && basePath != null) {
             Path runtimeGraph = StorageLayout.hebbianGraphRuntime(basePath);
             Path legacyGraph = basePath.resolve(StorageLayout.FILE_HEBBIAN);
             Path v2Graph = resolvedPartitionDir != null
@@ -91,11 +99,6 @@ final class CognitiveGraphBuilder {
             if (loadFrom == null) {
                 loadFrom = legacyGraph;
             }
-            // #435: run the codec migration up front (matching the Temporal/HyperEntity
-            // pattern). HebbianGraphCodec migrates legacy HGPH and interim HCSR containers
-            // to the kernel SMKM CSR format, which HebbianGraphMemory.load() reads natively.
-            // This is safe now that load() understands the codec's SMKM output (the exact
-            // bug #432 guarded against). load() also self-heals if this is skipped.
             if (loadFrom != null) {
                 try {
                     com.spectrayan.spector.memory.kernel.codec.Codecs.ensureCurrent(
@@ -116,7 +119,13 @@ final class CognitiveGraphBuilder {
         int temporalCapacity = builder.temporalChainCapacity > 0
                 ? builder.temporalChainCapacity : graphCapacity;
         TemporalChainMemory temporalChain;
-        if (isDisk && basePath != null) {
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+            java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.TEMPORAL_CHAIN);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+            temporalChain = TemporalChainMemory.fromBundle(
+                    cortex.runtimeBundle().arena(), regionSlice, temporalCapacity,
+                    StorageLayout.temporalChainRuntime(basePath), isNew);
+        } else if (isDisk && basePath != null) {
             Path runtimeChain = StorageLayout.temporalChainRuntime(basePath);
             Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
             Path v2Chain = resolvedPartitionDir != null
@@ -154,13 +163,18 @@ final class CognitiveGraphBuilder {
         }
 
         boolean entityEnabled = builder.entityExtractionMode != EntityExtractionMode.NONE;
-        
 
         HyperEntityGraphMemory hyperEntityGraph;
         if (entityEnabled) {
             int hyperCap = builder.entityGraphCapacity;
             int hyperEdgeCap = hyperCap * 2;
-            if (isDisk && basePath != null) {
+            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+                java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.HYPERGRAPH);
+                boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+                hyperEntityGraph = HyperEntityGraphMemory.fromBundle(
+                        cortex.runtimeBundle().arena(), regionSlice, hyperCap, hyperEdgeCap,
+                        StorageLayout.hyperEntityGraphRuntime(basePath), isNew);
+            } else if (isDisk && basePath != null) {
                 Path runtimeHyper = StorageLayout.hyperEntityGraphRuntime(basePath);
                 Path v2Hyper = resolvedPartitionDir != null
                         ? StorageLayout.hyperEntityGraph(resolvedPartitionDir) : null;
@@ -168,9 +182,6 @@ final class CognitiveGraphBuilder {
                 if (loadFrom == null) {
                     loadFrom = runtimeHyper;
                 }
-                // #435: no Codecs.ensureCurrent for HyperEntity — HyperEntityGraphMemory.load()
-                // is the single in-class migration authority (SMKM v2 open / legacy HYEG + hybrid
-                // migrate / present-but-unreadable throw), mirroring EntityGraphMemory.
 
                 if (java.nio.file.Files.exists(loadFrom)) {
                     hyperEntityGraph = HyperEntityGraphMemory.load(loadFrom, hyperCap, hyperEdgeCap);
@@ -184,17 +195,32 @@ final class CognitiveGraphBuilder {
             hyperEntityGraph = null;
         }
 
-        // ── EntityDirectory (ADR-0003 #455): identity companion. P1 = behavior-preserving mirror. ──
-        // Shares EntityGraph's entity-type registry instance so entityType(id) resolves identically
-        // and no divergent registry is written (the standalone-registry split lands in P2, along with
-        // the directory becoming the .treg persistence authority). Load entity-directory.edir if it
-        // exists; otherwise derive the directory in-memory from the loaded EntityGraphMemory so no
-        // user action is needed while the binary graph is still present.
         EntityDirectory entityDirectory;
         if (entityEnabled) {
             int dirCap = builder.entityGraphCapacity;
-            TypeRegistryMemory entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, com.spectrayan.spector.memory.graph.EntityType.SEED);
-            if (isDisk && basePath != null) {
+            TypeRegistryMemory entityTypeRegistry;
+            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+                java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_TYPES);
+                boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+                entityTypeRegistry = TypeRegistryMemory.fromBundle(
+                        SystemMemoryId.ENTITY_TYPE, cortex.runtimeBundle().arena(), regionSlice,
+                        StorageLayout.entityTypesRuntime(basePath), isNew,
+                        com.spectrayan.spector.memory.graph.EntityType.SEED);
+            } else if (isDisk && basePath != null) {
+                entityTypeRegistry = TypeRegistryMemory.load(StorageLayout.entityTypesRuntime(basePath), SystemMemoryId.ENTITY_TYPE, com.spectrayan.spector.memory.graph.EntityType.SEED);
+            } else {
+                entityTypeRegistry = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, com.spectrayan.spector.memory.graph.EntityType.SEED);
+            }
+
+            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+                java.lang.foreign.MemorySegment entitySlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_DIRECTORY);
+                java.lang.foreign.MemorySegment adjSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.ENTITY_NAMES);
+                boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(entitySlice, 0L);
+                entityDirectory = EntityDirectory.fromBundle(
+                        cortex.runtimeBundle().arena(), entitySlice, adjSlice,
+                        dirCap, entityTypeRegistry,
+                        StorageLayout.entityDirectoryRuntime(basePath), isNew);
+            } else if (isDisk && basePath != null) {
                 Path edir = StorageLayout.entityDirectoryRuntime(basePath);
                 if (java.nio.file.Files.exists(edir)) {
                     entityDirectory = EntityDirectory.load(edir, dirCap, entityTypeRegistry,
@@ -210,10 +236,27 @@ final class CognitiveGraphBuilder {
             entityDirectory = null;
         }
 
-
         TemporalKnowledgeGraph temporalKnowledgeGraph;
-        TypeRegistryMemory predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
-        if (isDisk && basePath != null) {
+        TypeRegistryMemory predRegistry;
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+            java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.RELATION_TYPES);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+            predRegistry = TypeRegistryMemory.fromBundle(
+                    SystemMemoryId.RELATION_TYPE, cortex.runtimeBundle().arena(), regionSlice,
+                    StorageLayout.relationTypesRuntime(basePath), isNew);
+        } else if (isDisk && basePath != null) {
+            predRegistry = TypeRegistryMemory.load(StorageLayout.relationTypesRuntime(basePath), SystemMemoryId.RELATION_TYPE);
+        } else {
+            predRegistry = new TypeRegistryMemory(SystemMemoryId.RELATION_TYPE);
+        }
+
+        if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+            java.lang.foreign.MemorySegment regionSlice = cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.TEMPORAL_FACTS);
+            boolean isNew = !com.spectrayan.spector.memory.kernel.MemoryHeader.isValid(regionSlice, 0L);
+            temporalKnowledgeGraph = TemporalKnowledgeGraph.fromBundle(
+                    predRegistry, cortex.runtimeBundle().arena(), regionSlice,
+                    StorageLayout.temporalFactsRuntime(basePath), isNew);
+        } else if (isDisk && basePath != null) {
             Path runtimeTkg = StorageLayout.temporalFactsRuntime(basePath);
             long initialSize = 16L * 1024 * 1024; // 16MB
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(runtimeTkg, initialSize, predRegistry);

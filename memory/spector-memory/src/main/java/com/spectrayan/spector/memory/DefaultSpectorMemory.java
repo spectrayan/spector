@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
@@ -235,6 +236,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     //  Semantic Index Reference 
     private final com.spectrayan.spector.index.VectorIndex semanticIndex;
 
+    // Runtime Bundle & Insular Cortex
+    private final RuntimeBundle runtimeBundle;
+    private final com.spectrayan.spector.memory.insula.InsularCortex insularCortex;
+
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
         this.cognitiveTarget = bundle.cognitiveTarget();
@@ -280,6 +285,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.attachmentProcessor = bundle.attachmentProcessor();
         this.profileAdaptor = bundle.profileAdaptor();
         this.semanticIndex = builder.semanticIndex;
+        this.runtimeBundle = bundle.runtimeBundle();
+        this.insularCortex = bundle.insularCortex();
 
         //  JVM Shutdown Hook  (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
@@ -1170,6 +1177,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public TemporalChainMemory temporalChain() { return graphFacade.temporalChain(); }
 
     @Override public EntityDirectory entityDirectory() { return entityDirectory; }
+    @Override public com.spectrayan.spector.memory.insula.InsularCortex insularCortex() { return insularCortex; }
     @SuppressWarnings("deprecation")
     @Override public HyperEntityGraphMemory hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
@@ -1327,6 +1335,21 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // #443: release frozen partition handles (active router + working already closed
         // by PersistenceManager). Closes the pre-#443 arena/mmap leak.
         partitionManager.close();
+
+        if (insularCortex != null) {
+            try {
+                insularCortex.close();
+            } catch (Exception e) {
+                log.warn("Failed to close InsularCortex on close: {}", e.getMessage());
+            }
+        }
+        if (runtimeBundle != null) {
+            try {
+                runtimeBundle.close();
+            } catch (Exception e) {
+                log.warn("Failed to close RuntimeBundle on close: {}", e.getMessage());
+            }
+        }
     }
 
     // ==============================================================
