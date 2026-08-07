@@ -16,9 +16,9 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorMemoryException;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
-import com.spectrayan.spector.memory.kernel.bundle.BundleLayoutCalculator;
-import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
+import com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec;
+import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -126,8 +126,8 @@ class InsularCortexTest {
     @Test
     void fromBundleIntegrationWorks(@TempDir Path tempDir) {
         Path bundlePath = tempDir.resolve("runtime.bundle");
-        List<BundleLayoutCalculator.RegionSizeSpec> specs = List.of(
-                new BundleLayoutCalculator.RegionSizeSpec(
+        List<RegionSizeSpec> specs = List.of(
+                new RegionSizeSpec(
                         RegionId.INSULA,
                         16 * 1024L, // 16KB data bytes
                         1,

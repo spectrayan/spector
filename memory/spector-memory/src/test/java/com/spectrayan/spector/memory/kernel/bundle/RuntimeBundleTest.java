@@ -31,19 +31,19 @@ class RuntimeBundleTest {
     private static final int SCHEMA_VER = 1;
 
     /** Creates a minimal set of runtime region specs for testing. */
-    private static List<BundleLayoutCalculator.RegionSizeSpec> testSpecs() {
+    private static List<RegionSizeSpec> testSpecs() {
         return List.of(
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.WORKING, 4096, 100, 128, LAYOUT_ID, SCHEMA_VER, false),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.COACTIVATION, 4096, 50, 64, LAYOUT_ID, SCHEMA_VER, false),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.HEBBIAN, 8192, 200, 32, LAYOUT_ID, SCHEMA_VER, true),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.ENTITY_DIRECTORY, 8192, 100, 64, LAYOUT_ID, SCHEMA_VER, true),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.ENTITY_NAMES, 16384, 0, 0, LAYOUT_ID, SCHEMA_VER, true),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.INSULA, 4096, 1, 0, LAYOUT_ID, SCHEMA_VER, false)
         );
     }

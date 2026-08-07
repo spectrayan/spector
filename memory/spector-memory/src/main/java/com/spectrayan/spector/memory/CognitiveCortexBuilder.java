@@ -26,6 +26,7 @@ import com.spectrayan.spector.memory.kernel.bundle.PartitionBundle;
 import com.spectrayan.spector.memory.kernel.bundle.RegionId;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 import com.spectrayan.spector.memory.kernel.bundle.BundleLayoutCalculator;
+import com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec;
 import com.spectrayan.spector.memory.insula.InsularCortex;
 import com.spectrayan.spector.memory.insula.InsularLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
@@ -172,7 +173,7 @@ final class CognitiveCortexBuilder {
             // ── V4 Runtime Bundle & Insular Cortex ──
             Path runtimeBundleFile = StorageLayout.runtimeBundleFile(basePath);
             boolean isNewRuntime = !Files.exists(runtimeBundleFile);
-            List<BundleLayoutCalculator.RegionSizeSpec> specs = getRuntimeBundleSpecs(builder, quantizedVecBytes);
+            List<RegionSizeSpec> specs = getRuntimeBundleSpecs(builder, quantizedVecBytes);
             if (!isNewRuntime) {
                 try {
                     runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile);
@@ -287,7 +288,7 @@ final class CognitiveCortexBuilder {
                 runtimeBundle, insularCortex);
     }
 
-    private static List<BundleLayoutCalculator.RegionSizeSpec> getRuntimeBundleSpecs(SpectorMemoryBuilder builder, int quantizedVecBytes) {
+    private static List<RegionSizeSpec> getRuntimeBundleSpecs(SpectorMemoryBuilder builder, int quantizedVecBytes) {
         int workingCap = builder.workingCapacity;
         int pairCap = 10_000;
         int edgeCap = 20_000;
@@ -304,7 +305,7 @@ final class CognitiveCortexBuilder {
         long tkgInitialSize = 16L * 1024 * 1024; // 16MB
 
         return List.of(
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.WORKING,
                         com.spectrayan.spector.memory.kernel.MemoryHeader.HEADER_BYTES + (long) new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).recordStride() * workingCap,
                         workingCap,
@@ -313,7 +314,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout(quantizedVecBytes).schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.COACTIVATION,
                         64 + 8 + 32L * pairCap + 40L * edgeCap,
                         pairCap,
@@ -322,7 +323,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.CoActivationLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.INDEX_MIDX,
                         64 + 100_000L * new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().recordStride(),
                         100_000,
@@ -331,7 +332,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.INDEX_IDPL,
                         16L * 1024 * 1024,
                         1,
@@ -340,7 +341,7 @@ final class CognitiveCortexBuilder {
                         1,
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.HEBBIAN,
                         64 + 8 + 24L * graphCapacity + 12L * graphCapacity * builder.hebbianMaxDegree,
                         graphCapacity,
@@ -349,7 +350,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.HebbianLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.TEMPORAL_CHAIN,
                         64 + 24L * temporalCapacity,
                         temporalCapacity,
@@ -358,7 +359,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.TemporalLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.TEMPORAL_FACTS,
                         64 + tkgInitialSize,
                         1,
@@ -367,7 +368,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.ENTITY_DIRECTORY,
                         64 + 16 + 64L * hyperCap,
                         hyperCap,
@@ -376,7 +377,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.ENTITY_NAMES,
                         64 + 16 + 8L * hyperCap * 16,
                         1,
@@ -385,7 +386,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.HYPERGRAPH,
                         64 + 16 + 48L * hyperCap + 24L * hyperEdgeCap,
                         hyperCap,
@@ -394,7 +395,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.ENTITY_TYPES,
                         1L * 1024 * 1024,
                         1024,
@@ -403,7 +404,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.RELATION_TYPES,
                         1L * 1024 * 1024,
                         1024,
@@ -412,7 +413,7 @@ final class CognitiveCortexBuilder {
                         new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().schemaVersion(),
                         false
                 ),
-                new BundleLayoutCalculator.RegionSizeSpec(
+                new RegionSizeSpec(
                         RegionId.INSULA,
                         64 * 1024L,
                         1,
