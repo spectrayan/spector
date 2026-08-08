@@ -137,7 +137,7 @@
         <flyway.version>12.4.0</flyway.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <langgraph4j.version>1.8.20</langgraph4j.version>
-        <jsqlparser.version>4.9</jsqlparser.version>
+        <jsqlparser.version>5.3</jsqlparser.version>
         <tika.version>3.2.2</tika.version>
         <jqwik.version>1.9.2</jqwik.version>
         <sse-server.version>2.0.0</sse-server.version>
