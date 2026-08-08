@@ -11,6 +11,7 @@
 1. **JMH Microbenchmarks (`SpectorMicrobench`):** Microsecond-level isolation checks for the Panama Vector similarity kernels (AVX2 vs. AVX-512 vs. ARM NEON).
 2. **Real-Embedding Sweeps (`RealEmbeddingScaleBench`):** Implements multi-centroid sweeps ($C \in \{32, 64, 128, 256\}$) using real Qwen3 text embeddings from local Ollama providers.
 3. **Promotion Benchmarks (`SpectorIndexPromotionBench`):** Head-to-head comparisons of Flat Shard SIMD scans vs. Promoted HNSW Shards at 100K scale.
+4. **Longitudinal Agent Evaluation (`com.spectrayan.spector.bench.longitudinal`):** Multi-session evaluation harness testing downstream agent outcome metrics (task completion rate, preference stability, bug non-repetition) over multi-day horizons using MemoryArena datasets. Includes Python MCP adapter (`spector_memoryarena_adapter.py`).
 
 ---
 
