@@ -117,41 +117,51 @@ class MemoryModelTest {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // ImportanceEstimate
+    // ImportanceResult
     // ══════════════════════════════════════════════════════════════
 
     @Nested
-    @DisplayName("ImportanceEstimate")
-    class ImportanceEstimateTests {
+    @DisplayName("ImportanceResult")
+    class ImportanceResultTests {
 
         @Test
         @DisplayName("toSummary includes key fields")
         void toSummaryIncludesFields() {
-            var est = new ImportanceEstimate(0.82f, 1.5, 7.8f, 6.2f,
-                    "mem-42", 0.15f, false, "I=0.3, C=0.2, N=0.4, U=0.1");
-            var summary = est.toSummary();
-            assertThat(summary).contains("Novelty:");
-            assertThat(summary).contains("Fused:");
+            var breakdown = new ImportanceBreakdown(0.82f, 1.5, 6.2f, 7.8f,
+                    1.0f, 1.0f, 1.0f, "I=30% C=20% N=40% U=10%", "mem-42", 0.15f);
+            var result = new ImportanceResult(7.8f, false, breakdown);
+            var summary = result.toSummary();
+            assertThat(summary).contains("Importance");
             assertThat(summary).contains("mem-42");
-            assertThat(summary).contains("0.82");
         }
 
         @Test
         @DisplayName("toSummary handles null nearestMemoryId")
         void toSummaryNullNearest() {
-            var est = new ImportanceEstimate(0.5f, 0.0, 5.0f, 5.0f,
-                    null, 0.0f, false, "default");
-            var summary = est.toSummary();
-            assertThat(summary).contains("no existing memories");
+            var breakdown = new ImportanceBreakdown(0.5f, 0.0, 5.0f, 5.0f,
+                    1.0f, 1.0f, 1.0f, "default", null, 0.0f);
+            var result = new ImportanceResult(5.0f, false, breakdown);
+            var summary = result.toSummary();
+            assertThat(summary).doesNotContain("Nearest:");
         }
 
         @Test
         @DisplayName("toSummary shows FLASHBULB when true")
         void toSummaryFlashbulb() {
-            var est = new ImportanceEstimate(0.99f, 3.0, 10.0f, 9.5f,
-                    "mem-1", 0.01f, true, "weights");
-            var summary = est.toSummary();
+            var breakdown = new ImportanceBreakdown(0.99f, 3.0, 9.5f, 10.0f,
+                    1.0f, 1.0f, 1.0f, "weights", "mem-1", 0.01f);
+            var result = new ImportanceResult(10.0f, true, breakdown);
+            var summary = result.toSummary();
             assertThat(summary).contains("FLASHBULB");
+        }
+
+        @Test
+        @DisplayName("baseline returns neutral importance")
+        void baselineResult() {
+            var result = ImportanceResult.baseline();
+            assertThat(result.importance()).isEqualTo(1.0f);
+            assertThat(result.isFlashbulb()).isFalse();
+            assertThat(result.breakdown()).isNotNull();
         }
     }
 
