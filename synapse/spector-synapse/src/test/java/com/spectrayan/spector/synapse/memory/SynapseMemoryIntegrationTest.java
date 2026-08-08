@@ -166,7 +166,7 @@ class SynapseMemoryIntegrationTest {
     @Order(10)
     @DisplayName("recall: returns semantically relevant results for Panama FFM query")
     void recall_panama_ffm_query() {
-        var request = new RecallRequest("Panama foreign memory off-heap", 10, null);
+        var request = new RecallRequest("Panama foreign memory off-heap", 10, null, null, null, null);
         var results = memoryService.recall(request);
 
         assertThat(results).isNotEmpty();
@@ -189,7 +189,7 @@ class SynapseMemoryIntegrationTest {
     @Order(11)
     @DisplayName("recall: Cortex UI query retrieves pagination-related memory")
     void recall_cortex_ui_query() {
-        var request = new RecallRequest("Cortex UI memory table pagination", 5, null);
+        var request = new RecallRequest("Cortex UI memory table pagination", 5, null, null, null, null);
         var results = memoryService.recall(request);
 
         assertThat(results).isNotEmpty();
@@ -214,7 +214,7 @@ class SynapseMemoryIntegrationTest {
 
         try { TimeUnit.SECONDS.sleep(2); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 
-        var request = new RecallRequest("Java concurrency virtual threads", 2, null);
+        var request = new RecallRequest("Java concurrency virtual threads", 2, null, null, null, null);
         var results = memoryService.recall(request);
 
         assertThat(results).hasSizeLessThanOrEqualTo(2);
@@ -381,7 +381,7 @@ class SynapseMemoryIntegrationTest {
 
         // Verify it can be recalled
         var beforeForget = memoryService.recall(
-                new RecallRequest("Zyxwvutsrqponmlkjihgfedcba unique marker", 10, null));
+                new RecallRequest("Zyxwvutsrqponmlkjihgfedcba unique marker", 10, null, null, null, null));
         assertThat(beforeForget.stream().anyMatch(r -> r.id().equals(targetId))).isTrue();
 
         // Forget it
