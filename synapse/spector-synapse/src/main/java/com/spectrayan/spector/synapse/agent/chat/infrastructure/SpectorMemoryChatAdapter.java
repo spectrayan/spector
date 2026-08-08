@@ -14,6 +14,7 @@ package com.spectrayan.spector.synapse.agent.chat.infrastructure;
 
 import com.spectrayan.spector.synapse.agent.chat.model.Conversation;
 import com.spectrayan.spector.synapse.agent.chat.service.ChatMemoryPort;
+import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.StoreRequest;
 import com.spectrayan.spector.synapse.memory.MemoryService;
@@ -31,6 +32,17 @@ import java.util.Map;
  *
  * <p>All chat sessions and messages are stored as cognitive memories,
  * eliminating the need for a relational database.</p>
+ *
+ * <h3>Retrieval Strategy</h3>
+ * <ul>
+ *   <li><strong>Session replay</strong> ({@link #loadSessionHistory}, {@link #listSessions}):
+ *       Uses {@link com.spectrayan.spector.memory.SpectorMemory#browse(String...)} via
+ *       {@link MemoryService#browse} — an inverted tag index lookup (O(1) exact matching),
+ *       not vector search. Guarantees completeness for session replay.</li>
+ *   <li><strong>Cross-session recall</strong> ({@link #recallRelevantMemories}):
+ *       Uses cognitive recall with {@code RecallMode.OBSERVE} to find semantically
+ *       related memories without triggering LTP/habituation side effects.</li>
+ * </ul>
  */
 @Component
 public class SpectorMemoryChatAdapter implements ChatMemoryPort {
@@ -47,13 +59,12 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
     public List<Map<String, Object>> loadSessionHistory(String sessionId) {
         if (sessionId == null || !memoryService.isEngineAvailable()) return List.of();
 
-        // Recall memories for this session, sorted by temporal chain (ideally)
-        // For now, we query specifically for session tags
-        var results = memoryService.recall(new RecallRequest("session:" + sessionId, 100, null));
+        // browse() uses inverted tag index — O(1) exact tag match, no vector search.
+        // Guarantees complete session replay regardless of memory store size.
+        var results = memoryService.browse(
+                new BrowseRequest(List.of("session:" + sessionId, "type:turn"), 500));
 
         return results.stream()
-                .filter(r -> r.tags() != null && r.tags().contains("session:" + sessionId))
-                .sorted((a, b) -> a.id().compareTo(b.id())) // Rough temporal order by ID if they are sequential
                 .map(r -> {
                     String role = r.tags().stream()
                             .filter(t -> t.startsWith("role:"))
@@ -63,7 +74,7 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
                     return Map.<String, Object>of(
                             "role", role,
                             "content", r.text(),
-                            "timestamp", System.currentTimeMillis() // Metadata not fully preserved in recall currently
+                            "timestamp", r.timestampMs()
                     );
                 })
                 .toList();
@@ -87,13 +98,13 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
                     List.of("chat", "session:" + sessionId, "role:assistant", "model:" + model, "type:turn"),
                     null, Map.of()));
 
-            // Delete any existing session summaries for this session to avoid duplicates
+            // Delete any existing session summaries for this session to avoid duplicates.
+            // browse() uses inverted tag index — exact match, no false positives.
             try {
-                var existing = memoryService.recall(new RecallRequest("id:" + sessionId, 10, null));
+                var existing = memoryService.browse(
+                        new BrowseRequest(List.of("session_summary", "id:" + sessionId), 10));
                 for (var r : existing) {
-                    if (r.tags() != null && r.tags().contains("session_summary") && r.tags().contains("id:" + sessionId)) {
-                        memoryService.forget(r.id());
-                    }
+                    memoryService.forget(r.id());
                 }
             } catch (Exception e) {
                 log.debug("[ChatAdapter] Failed to delete old session summary: {}", e.getMessage());
@@ -117,11 +128,11 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
     public List<Conversation> listSessions(int limit) {
         if (!memoryService.isEngineAvailable()) return List.of();
 
-        // Query for session summaries
-        var results = memoryService.recall(new RecallRequest("session_summary", limit, null));
+        // browse() uses inverted tag index — returns all session summaries.
+        var results = memoryService.browse(
+                new BrowseRequest(List.of("session_summary"), limit));
 
         return results.stream()
-                .filter(r -> r.tags() != null && r.tags().contains("session_summary"))
                 .map(r -> {
                     String sid = r.tags().stream()
                             .filter(t -> t.startsWith("id:"))
@@ -132,8 +143,8 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
                             sid,
                             0, // Message count not easily available without another query
                             r.text().replace("Session Preview: ", ""),
-                            Instant.now(), // Real timestamps not available in recall DTO
-                            Instant.now()
+                            Instant.ofEpochMilli(r.timestampMs()),
+                            Instant.ofEpochMilli(r.timestampMs())
                     );
                 })
                 .toList();
@@ -148,7 +159,10 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
         }
 
         try {
-            var results = memoryService.recall(new RecallRequest(query, limit, null));
+            // Use OBSERVE mode — reading for context priming should NOT strengthen memories
+            // (no LTP reconsolidation, no habituation, no ACT-R timestamp updates)
+            var results = memoryService.recall(new RecallRequest(
+                    query, limit, null, null, null, "OBSERVE"));
 
             return results.stream()
                     // Exclude memories from the current session and raw turn noise
