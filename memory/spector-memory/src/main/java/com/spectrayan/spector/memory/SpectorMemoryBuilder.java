@@ -132,6 +132,9 @@ public final class SpectorMemoryBuilder {
     //  Salience profile provider (enterprise SPI) 
     SalienceProfileProvider salienceProfileProvider;
 
+    //  Importance provider SPI (#481) 
+    ImportanceProvider importanceProvider;
+
     //  Data encryption SPI 
     DataEncryptor dataEncryptor = DataEncryptor.NOOP;
 
@@ -400,6 +403,22 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder salienceProfileProvider(SalienceProfileProvider provider) {
         this.salienceProfileProvider = provider;
+        return this;
+    }
+
+    /**
+     * Sets a custom importance provider to replace the default importance scoring pipeline.
+     *
+     * <p>If not set, the engine uses {@link com.spectrayan.spector.memory.dopamine.DefaultImportanceProvider}
+     * which preserves the existing Welford + ICNU + Flashbulb + salience-boost pipeline.</p>
+     *
+     * @param provider the custom importance provider (null = use default)
+     * @return this builder
+     * @since 1.2.0
+     * @see ImportanceProvider
+     */
+    public SpectorMemoryBuilder importanceProvider(ImportanceProvider provider) {
+        this.importanceProvider = provider;
         return this;
     }
 
