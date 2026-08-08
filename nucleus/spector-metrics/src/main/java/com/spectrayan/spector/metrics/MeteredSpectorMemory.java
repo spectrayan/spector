@@ -377,7 +377,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
-    public com.spectrayan.spector.memory.model.ImportanceEstimate estimateImportance(
+    public com.spectrayan.spector.memory.model.ImportanceResult estimateImportance(
             String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
         return delegate.estimateImportance(text, hints);
     }
