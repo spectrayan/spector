@@ -25,7 +25,7 @@ import com.spectrayan.spector.memory.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.ImportanceEstimate;
+import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -274,13 +274,13 @@ public interface SpectorMemory extends AutoCloseable {
      * @param hints optional ICNU hints (null = novelty-only estimate)
      * @return importance estimate with novelty, fusion, nearest memory, and profile weights
      */
-    ImportanceEstimate estimateImportance(String text,
+    ImportanceResult estimateImportance(String text,
                                           com.spectrayan.spector.memory.neurodivergent.IngestionHints hints);
 
     /**
      * Convenience overload — estimates importance with novelty-only (no ICNU hints).
      */
-    default ImportanceEstimate estimateImportance(String text) {
+    default ImportanceResult estimateImportance(String text) {
         return estimateImportance(text, null);
     }
 

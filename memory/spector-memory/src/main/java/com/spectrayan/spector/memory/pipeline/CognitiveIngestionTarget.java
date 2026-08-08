@@ -50,6 +50,9 @@ import com.spectrayan.spector.memory.error.SpectorHebbianException;
 import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
 import com.spectrayan.spector.memory.model.SalienceProfile;
+import com.spectrayan.spector.memory.ImportanceProvider;
+import com.spectrayan.spector.memory.model.ImportanceContext;
+import com.spectrayan.spector.memory.model.ImportanceResult;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,6 +106,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final MemoryWal wal;
     private final WorkingRecordMemory workingStore;  // nullable
     private final IcnuWeights icnuWeights;
+    private final ImportanceProvider importanceProvider;
     private final VectorIndex semanticIndex;  // nullable  --  HNSW for semantic recall
     private final TagExtractor tagExtractor;
     private final boolean normalizeAtIngest;
@@ -157,14 +161,15 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      TextAppendMemory textDataStore,
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
-                                     SparseEmbeddingProvider spladeProvider) {
+                                     SparseEmbeddingProvider spladeProvider,
+                                     ImportanceProvider importanceProvider) {
         this(quantizer, surpriseDetector, flashbulbPolicy, cognitiveRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, normalizeAtIngest,
                 hebbianGraph, temporalChain, entityExtractor,
                 entityDirectory, hyperEntityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
-                spladeIndex, spladeProvider, DataEncryptor.NOOP);
+                spladeIndex, spladeProvider, DataEncryptor.NOOP, importanceProvider);
     }
 
     /**
@@ -191,7 +196,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
-                                     DataEncryptor encryptor) {
+                                     DataEncryptor encryptor,
+                                     ImportanceProvider importanceProvider) {
         this.quantizer = quantizer;
         this.surpriseDetector = surpriseDetector;
         this.flashbulbPolicy = flashbulbPolicy;
@@ -200,6 +206,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.wal = wal;
         this.workingStore = workingStore;
         this.icnuWeights = icnuWeights != null ? icnuWeights : IcnuWeights.DEFAULT;
+        this.importanceProvider = importanceProvider != null ? importanceProvider : ImportanceProvider.baseline();
         this.semanticIndex = semanticIndex;
         this.tagExtractor = tagExtractor != null ? tagExtractor : new ContentTagExtractor();
         this.normalizeAtIngest = normalizeAtIngest;
@@ -301,7 +308,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 tagExtractor, true,
                 null, null, null, null, null,
                 null, null, -1,
-                null, null);
+                null, null, null);
     }
 
     // ===============================================================
@@ -394,67 +401,15 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             nearestDist = computeL2Norm(vector);
         }
 
-        float importance;
-        // Step 3b: ICNU fusion  --  blend LLM hints with native novelty
-        // Use salience profile's ICNU weights if configured, otherwise system default
-        IcnuWeights effectiveIcnuWeights = salienceProfile.hasIcnuOverride()
-                ? salienceProfile.icnuWeights() : icnuWeights;
+        ImportanceContext importanceCtx = new ImportanceContext(
+                text, vector, hints, salienceProfile, type,
+                nearestDist, surpriseDetector.stats().zScore(nearestDist), false);
+        ImportanceResult importanceResult = importanceProvider.score(importanceCtx);
+        float importance = importanceResult.importance();
 
-        if (hints != null && !hints.isEmpty()) {
-            float rawNoveltyImportance = surpriseDetector.computeImportance(nearestDist);
-            float noveltyNorm = Math.clamp(rawNoveltyImportance / 10.0f, 0f, 1f);
-            importance = effectiveIcnuWeights.fuse(hints, noveltyNorm);
-
-            // Gaming detection logging
-            if (hints.interest() == 1.0f && hints.challenge() == 1.0f
-                    && hints.urgency() == 1.0f) {
-                log.warn("ICNU anomaly: all-max hints for '{}' (I=1.0, C=1.0, U=1.0)  --  possible gaming", sanitize(id));
-            }
-
-            log.debug("ICNU: id={}, I={}, C={}, N={}, U={}, fused={}",
-                    sanitize(id), hints.interest(), hints.challenge(), noveltyNorm,
-                    hints.urgency(), importance);
-        } else {
-            importance = surpriseDetector.computeImportance(nearestDist);
-        }
-
-        // Step 3c: Salience-based topic boost (semantic embedding matching)
-        if (salienceProfile.hasInterests()) {
-            float topicBoost = salienceProfile.computeTopicBoost(vector);
-            if (topicBoost != 1.0f) {
-                float preBoost = importance;
-                importance = Math.clamp(importance * topicBoost, 0.05f, 10.0f);
-                log.debug("Salience boost: id={}, pre={}, post={}, boost={}",
-                        id, preBoost, importance, topicBoost);
-            }
-        }
-
-        // Step 3d: Persona self-relevance boost (mPFC self-reference analog)
-        if (salienceProfile.hasPersona()) {
-            float selfBoost = salienceProfile.computeSelfRelevanceBoost(vector);
-            if (selfBoost != 1.0f) {
-                float preBoost = importance;
-                importance = Math.clamp(importance * selfBoost, 0.05f, 10.0f);
-                log.debug("Persona self-relevance boost: id={}, pre={}, post={}, boost={}",
-                        id, preBoost, importance, selfBoost);
-            }
-        }
-
-        // Step 3e: Agent expertise relevance boost (pre-computed from AgentSoul)
-        if (salienceProfile.hasAgentRelevanceBoost()) {
-            float agentBoost = salienceProfile.agentRelevanceBoost();
-            float preBoost = importance;
-            importance = Math.clamp(importance * agentBoost, 0.05f, 10.0f);
-            log.debug("Agent relevance boost: id={}, pre={}, post={}, boost={}",
-                    id, preBoost, importance, agentBoost);
-        }
-
-        // Step 4: Flashbulb check  --  extreme surprise gets full fidelity
-        double zScore = surpriseDetector.stats().zScore(nearestDist);
-        var flashbulb = flashbulbPolicy.evaluate(zScore);
+        // Step 4: Flashbulb check
         byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
-        if (flashbulb.isFlashbulb()) {
-            importance = flashbulb.importance();
+        if (importanceResult.isFlashbulb()) {
             flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
         }
 
@@ -660,46 +615,15 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             nearestDist = computeL2Norm(vector);
         }
 
-        float importance;
-        // Use salience profile's ICNU weights if configured
-        IcnuWeights effectiveIcnuWeights = salienceProfile.hasIcnuOverride()
-                ? salienceProfile.icnuWeights() : icnuWeights;
-
-        if (hints != null && !hints.isEmpty()) {
-            float rawNoveltyImportance = surpriseDetector.computeImportance(nearestDist);
-            float noveltyNorm = Math.clamp(rawNoveltyImportance / 10.0f, 0f, 1f);
-            importance = effectiveIcnuWeights.fuse(hints, noveltyNorm);
-        } else {
-            importance = surpriseDetector.computeImportance(nearestDist);
-        }
-
-        // Salience-based topic boost (semantic embedding matching)
-        if (salienceProfile.hasInterests()) {
-            float topicBoost = salienceProfile.computeTopicBoost(vector);
-            if (topicBoost != 1.0f) {
-                importance = Math.clamp(importance * topicBoost, 0.05f, 10.0f);
-            }
-        }
-
-        // Persona self-relevance boost (mPFC self-reference analog)
-        if (salienceProfile.hasPersona()) {
-            float selfBoost = salienceProfile.computeSelfRelevanceBoost(vector);
-            if (selfBoost != 1.0f) {
-                importance = Math.clamp(importance * selfBoost, 0.05f, 10.0f);
-            }
-        }
-
-        // Agent expertise relevance boost (pre-computed from AgentSoul)
-        if (salienceProfile.hasAgentRelevanceBoost()) {
-            importance = Math.clamp(importance * salienceProfile.agentRelevanceBoost(), 0.05f, 10.0f);
-        }
+        ImportanceContext importanceCtx = new ImportanceContext(
+                text, vector, hints, salienceProfile, type,
+                nearestDist, surpriseDetector.stats().zScore(nearestDist), false);
+        ImportanceResult importanceResult = importanceProvider.score(importanceCtx);
+        float importance = importanceResult.importance();
 
         // Step 4: Flashbulb check
-        double zScore = surpriseDetector.stats().zScore(nearestDist);
-        var flashbulb = flashbulbPolicy.evaluate(zScore);
         byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, type.ordinal());
-        if (flashbulb.isFlashbulb()) {
-            importance = flashbulb.importance();
+        if (importanceResult.isFlashbulb()) {
             flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
         }
 
