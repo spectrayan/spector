@@ -326,8 +326,8 @@ class CoreMemoryLifecycleTest {
     @Order(100)
     @DisplayName("Estimate importance returns non-negative value")
     void estimateImportance_nonNegative() {
-        ImportanceEstimate estimate = memory.estimateImportance("A completely new topic");
+        ImportanceResult estimate = memory.estimateImportance("A completely new topic");
         assertThat(estimate).isNotNull();
-        assertThat(estimate.fusedImportance()).isGreaterThanOrEqualTo(0f);
+        assertThat(estimate.importance()).isGreaterThanOrEqualTo(0f);
     }
 }

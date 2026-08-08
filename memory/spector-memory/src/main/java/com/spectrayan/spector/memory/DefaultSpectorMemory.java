@@ -66,7 +66,8 @@ import com.spectrayan.spector.memory.metamemory.MemoryInsight;
 import com.spectrayan.spector.memory.metamemory.MemoryIntrospector;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
-import com.spectrayan.spector.memory.model.ImportanceEstimate;
+import com.spectrayan.spector.memory.model.ImportanceContext;
+import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -168,7 +169,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     //  Extracted Strategy/Handler Components 
     private final PartitionManager partitionManager;     // owns volatile cognitiveRouter
-    private final ImportanceEstimator importanceEstimator;
+    private final ImportanceProvider importanceProvider;
     private final ReflectionOrchestrator reflectionOrchestrator;
     private final ReinforcementHandler reinforcementHandler;
     private final ConsolidationService consolidationService;
@@ -248,7 +249,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.index = bundle.index();
         this.quantizer = bundle.quantizer();
         this.partitionManager = bundle.partitionManager();
-        this.importanceEstimator = bundle.importanceEstimator();
+        this.importanceProvider = bundle.importanceProvider();
         this.reflectionOrchestrator = bundle.reflectionOrchestrator();
         this.reinforcementHandler = bundle.reinforcementHandler();
         this.consolidationService = new ConsolidationService(builder.LlmProvider, this.embeddingProvider);
@@ -641,10 +642,44 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
-    public ImportanceEstimate estimateImportance(String text,
-                                                  com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
-        return importanceEstimator.estimate(text, hints, embeddingProvider,
-                partitionManager.cognitiveRouter(), index);
+    public ImportanceResult estimateImportance(String text,
+                                                com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) {
+        try {
+            // Step 1: Embed text
+            float[] vector = embeddingProvider.embed(text).vector();
+
+            // Step 1b: L2-normalize
+            float norm = com.spectrayan.spector.core.similarity.VectorOps.magnitude(vector);
+            if (norm > 0f && Math.abs(norm - 1.0f) > 1e-6f) {
+                vector = com.spectrayan.spector.core.similarity.VectorOps.normalize(vector);
+            }
+
+            // Step 2: Compute nearest distance (read-only)
+            float nearestDist;
+            var workingStore = partitionManager.cognitiveRouter().working();
+            if (workingStore != null && workingStore.visibleCount() > 0) {
+                nearestDist = workingStore.nearestDistance(
+                        vector, quantizer.mins(), quantizer.scales());
+            } else {
+                nearestDist = com.spectrayan.spector.core.similarity.VectorOps.magnitude(vector);
+            }
+
+            // Step 3: Resolve effective salience profile
+            com.spectrayan.spector.memory.model.SalienceProfile profile = cognitiveTarget.salienceProfile();
+
+            // Step 4: Build context and delegate to provider
+            // Note: zScore=0.0 placeholder — DefaultImportanceProvider computes it
+            // internally from nearestDistance via its SurpriseDetector reference.
+            ImportanceContext ctx = new ImportanceContext(
+                    text, vector, hints, profile, null,
+                    nearestDist, 0.0, true);
+            return importanceProvider.score(ctx);
+        } catch (Exception e) {
+            log.error("Failed to estimate importance: {}", e.getMessage(), e);
+            throw new com.spectrayan.spector.commons.error.SpectorServerException(
+                    com.spectrayan.spector.commons.error.ErrorCode.INTERNAL_ERROR, e,
+                    "Importance estimation failed");
+        }
     }
 
     @Override

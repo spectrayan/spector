@@ -22,6 +22,7 @@ import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.ParallelEmbeddingPipeline;
 import com.spectrayan.spector.memory.amygdala.ValenceTracker;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
+import com.spectrayan.spector.memory.dopamine.DefaultImportanceProvider;
 import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
@@ -83,7 +84,7 @@ public final class SpectorMemoryFactory {
             MemoryIndex index,
             ScalarQuantizer quantizer,
             PartitionManager partitionManager,
-            ImportanceEstimator importanceEstimator,
+            ImportanceProvider importanceProvider,
             ReflectionOrchestrator reflectionOrchestrator,
             ReinforcementHandler reinforcementHandler,
             ValenceTracker valenceTracker,
@@ -152,10 +153,17 @@ public final class SpectorMemoryFactory {
         RetrievalIndexBuilder.RetrievalIndices retrieval =
                 RetrievalIndexBuilder.build(builder, cortex, index);
 
+        //  Importance Provider (#481 SPI) 
+        ImportanceProvider importanceProvider = builder.importanceProvider != null
+                ? builder.importanceProvider
+                : new DefaultImportanceProvider(
+                        bio.surpriseDetector(), bio.flashbulbPolicy(), bio.icnuWeights());
+
         //  Ingestion target 
         int activePartitionIndex = 0;
         CognitiveIngestionTarget cognitiveTarget = CognitiveIngestionTargetBuilder.build(
-                builder, cortex, bio, graphs, retrieval, index, wal, activePartitionIndex);
+                builder, cortex, bio, graphs, retrieval, index, wal, activePartitionIndex,
+                importanceProvider);
 
         //  Partition manager (+ #443 frozen-partition registry, roll callback, text resolver) 
         PartitionManager partitionManager = PartitionManagerBuilder.build(
@@ -199,9 +207,6 @@ public final class SpectorMemoryFactory {
                 builder, embeddingProvider, cortex, bio, graphs, retrieval, index, partitionManager, wal);
 
         //  Extracted Components 
-        ImportanceEstimator importanceEstimator = new ImportanceEstimator(
-                bio.surpriseDetector(), bio.flashbulbPolicy(), bio.icnuWeights(), cortex.quantizer());
-
         ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
                 bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
                 graphs.hyperEntityGraph(), wal, builder.temporalRetentionDays);
@@ -230,7 +235,7 @@ public final class SpectorMemoryFactory {
 
         return new SubsystemBundle(
                 cognitiveTarget, embeddingProvider, recallPipeline, index, cortex.quantizer(),
-                partitionManager, importanceEstimator, reflectionOrchestrator,
+                partitionManager, importanceProvider, reflectionOrchestrator,
                 reinforcementHandler, bio.valenceTracker(), bio.coActivationTracker(),
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),
                 bio.introspector(), bio.lateralEvaluator(), wal, graphs.hebbianGraph(), graphs.temporalChain(),

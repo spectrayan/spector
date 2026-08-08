@@ -47,7 +47,8 @@ final class CognitiveIngestionTargetBuilder {
             RetrievalIndexBuilder.RetrievalIndices retrieval,
             MemoryIndex index,
             MemoryWal wal,
-            int activePartitionIndex) {
+            int activePartitionIndex,
+            ImportanceProvider importanceProvider) {
 
         //  Ingestion Target 
         CognitiveIngestionTarget cognitiveTarget = new CognitiveIngestionTarget(
@@ -58,7 +59,7 @@ final class CognitiveIngestionTargetBuilder {
                 graphs.entityDirectory(), graphs.hyperEntityGraph(),
                 retrieval.bm25Index(), retrieval.textDataStore(), activePartitionIndex,
                 retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider,
-                builder.dataEncryptor);
+                builder.dataEncryptor, importanceProvider);
 
         //  Wire Salience Profile Provider 
         if (builder.salienceProfileProvider != null) {

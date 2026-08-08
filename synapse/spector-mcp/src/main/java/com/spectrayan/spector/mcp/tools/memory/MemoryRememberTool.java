@@ -181,7 +181,7 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         IngestionContext context = ctxBuilder.build();
 
         // Compute importance estimate (read-only) to show what was assigned
-        com.spectrayan.spector.memory.model.ImportanceEstimate estimate = null;
+        com.spectrayan.spector.memory.model.ImportanceResult estimate = null;
         try {
             estimate = memory.estimateImportance(text, hints);
         } catch (Exception e) {
@@ -219,14 +219,14 @@ public final class MemoryRememberTool extends MemoryToolHandler {
 
         // Show computed importance feedback
         if (estimate != null) {
-            sb.append(String.format("\n📈 Importance: %.2f / 10.0", estimate.fusedImportance()));
-            sb.append(String.format(" (novelty=%.2f, z=%.2f)", estimate.noveltyScore(), estimate.noveltyZScore()));
-            if (estimate.wouldBeFlashbulb()) {
+            sb.append(String.format("\n📈 Importance: %.2f / 10.0", estimate.importance()));
+            sb.append(String.format(" (novelty=%.2f, z=%.2f)", estimate.breakdown().noveltyScore(), estimate.breakdown().noveltyZScore()));
+            if (estimate.isFlashbulb()) {
                 sb.append(" ⚡ FLASHBULB");
             }
-            if (estimate.nearestMemoryId() != null) {
+            if (estimate.breakdown().nearestMemoryId() != null) {
                 sb.append(String.format("\n🔗 Nearest: '%s' (dist=%.4f)",
-                        estimate.nearestMemoryId(), estimate.nearestDistance()));
+                        estimate.breakdown().nearestMemoryId(), estimate.breakdown().nearestDistance()));
             }
         }
 

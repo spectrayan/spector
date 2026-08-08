@@ -23,7 +23,7 @@ import com.spectrayan.spector.commons.security.SpectorScopes;
 import io.modelcontextprotocol.spec.McpSchema;
 
 import com.spectrayan.spector.mcp.schema.ToolSchemaBuilder;
-import com.spectrayan.spector.memory.model.ImportanceEstimate;
+import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
@@ -119,7 +119,7 @@ public final class MemoryComputeImportanceTool extends MemoryToolHandler {
         }
 
         // Compute the primary estimate
-        ImportanceEstimate estimate = memory.estimateImportance(text, hints);
+        ImportanceResult estimate = memory.estimateImportance(text, hints);
 
         // Build response
         StringBuilder sb = new StringBuilder();
@@ -139,7 +139,7 @@ public final class MemoryComputeImportanceTool extends MemoryToolHandler {
         sb.append("\n\n🔬 ICNU Weight Variations:");
 
         // Show what importance would be with different weight presets
-        float noveltyNorm = estimate.noveltyScore();
+        float noveltyNorm = estimate.breakdown().noveltyScore();
 
         // Default weights (I=30% C=10% N=40% U=20%)
         if (hasHints) {
@@ -149,7 +149,7 @@ public final class MemoryComputeImportanceTool extends MemoryToolHandler {
 
             // Novelty-only (no LLM hints)
             sb.append(String.format("\n  NOVELTY   (pure novelty, no hints):     %.2f",
-                    estimate.noveltyOnlyImportance()));
+                    estimate.breakdown().noveltyOnlyImportance()));
 
             // Linear mode (no sigmoid gating)
             float linearFused = IcnuWeights.LINEAR.fuse(
@@ -169,19 +169,19 @@ public final class MemoryComputeImportanceTool extends MemoryToolHandler {
             sb.append(String.format("\n  URGENCY   (I=20%% C=10%% N=20%% U=50%%): %.2f", urgencyFused));
         } else {
             sb.append("\n  (Provide interest/challenge/urgency hints to see weight variations)");
-            sb.append(String.format("\n  NOVELTY-ONLY: %.2f", estimate.noveltyOnlyImportance()));
+            sb.append(String.format("\n  NOVELTY-ONLY: %.2f", estimate.breakdown().noveltyOnlyImportance()));
         }
 
         // Actionable advice
         sb.append("\n\n");
-        if (estimate.nearestMemoryId() != null && estimate.nearestDistance() < 0.15f) {
+        if (estimate.breakdown().nearestMemoryId() != null && estimate.breakdown().nearestDistance() < 0.15f) {
             sb.append("⚠️ Very close to existing memory '")
-                    .append(estimate.nearestMemoryId())
+                    .append(estimate.breakdown().nearestMemoryId())
                     .append("' — consider skipping or using memory_reinforce instead.");
-        } else if (estimate.fusedImportance() < 1.0f) {
+        } else if (estimate.importance() < 1.0f) {
             sb.append("💡 Low importance — this memory may fade quickly. "
                     + "Consider increasing interest or urgency if this is significant.");
-        } else if (estimate.fusedImportance() > 7.0f) {
+        } else if (estimate.importance() > 7.0f) {
             sb.append("🔥 High importance — this memory will be strongly retained.");
         } else {
             sb.append("✅ Moderate importance — this memory will be retained normally.");

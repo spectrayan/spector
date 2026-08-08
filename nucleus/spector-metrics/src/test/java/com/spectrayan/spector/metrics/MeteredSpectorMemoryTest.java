@@ -172,7 +172,7 @@ class MeteredSpectorMemoryTest {
         @Override public com.spectrayan.spector.memory.model.WhyNotExplanation whyNot(String memoryId, String queryText, RecallOptions options) { return null; }
         private final com.spectrayan.spector.memory.SpectorMemoryAdmin adminMock = org.mockito.Mockito.mock(com.spectrayan.spector.memory.SpectorMemoryAdmin.class);
         @Override public com.spectrayan.spector.memory.SpectorMemoryAdmin admin() { return adminMock; }
-        @Override public com.spectrayan.spector.memory.model.ImportanceEstimate estimateImportance(String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) { return null; }
+        @Override public com.spectrayan.spector.memory.model.ImportanceResult estimateImportance(String text, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints) { return null; }
         @Override public com.spectrayan.spector.memory.model.CognitiveRecord inspect(String id) { return null; }
         @Override public java.util.List<com.spectrayan.spector.memory.model.CognitiveRecord> browse(String... tags) { return java.util.List.of(); }
         @Override public String exportJson() { return "[]"; }
