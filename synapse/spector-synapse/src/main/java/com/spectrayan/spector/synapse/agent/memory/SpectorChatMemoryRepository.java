@@ -64,7 +64,7 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
         if (!memoryService.isEngineAvailable()) return List.of();
         
         // Recall session summaries and extract IDs from tags
-        var results = memoryService.recall(new RecallRequest("session_summary", 100, null));
+        var results = memoryService.recall(new RecallRequest("session_summary", 100, null, null, null, null));
         return results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains("session_summary"))
                 .map(r -> r.tags().stream()
@@ -81,7 +81,7 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
     public List<Message> findByConversationId(String conversationId) {
         if (conversationId == null || !memoryService.isEngineAvailable()) return List.of();
 
-        var results = memoryService.recall(new RecallRequest("session:" + conversationId, 100, null));
+        var results = memoryService.recall(new RecallRequest("session:" + conversationId, 100, null, null, null, null));
 
         return results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains("session:" + conversationId))
@@ -128,7 +128,7 @@ public class SpectorChatMemoryRepository implements ChatMemoryRepository {
         // Implement "forget" logic for all memories with session tag
         if (!memoryService.isEngineAvailable()) return;
         
-        var results = memoryService.recall(new RecallRequest("session:" + conversationId, 100, null));
+        var results = memoryService.recall(new RecallRequest("session:" + conversationId, 100, null, null, null, null));
         results.stream()
                 .filter(r -> r.tags() != null && r.tags().contains("session:" + conversationId))
                 .forEach(r -> memoryService.forget(r.id()));
