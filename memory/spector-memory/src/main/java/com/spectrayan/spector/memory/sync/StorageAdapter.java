@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
  *   <li>Future: {@code LocalStorageAdapter} — local filesystem (testing)</li>
  * </ul>
  *
- * @see CloudSync
+ * @see MemoryWal
  */
 public interface StorageAdapter extends AutoCloseable {
 

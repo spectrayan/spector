@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Builder for recall query configuration.
  *
- * <p>Controls how {@link SpectorMemory#recall} filters, scores, and returns
+ * <p>Controls how {@link com.spectrayan.spector.memory.SpectorMemory#recall} filters, scores, and returns
  * cognitive memories. Supports synaptic tag filtering, importance thresholds,
  * memory type selection, valence range filtering, and neurodivergent
  * cognitive profile mechanics (hyperfocus, lateral retrieval).</p>

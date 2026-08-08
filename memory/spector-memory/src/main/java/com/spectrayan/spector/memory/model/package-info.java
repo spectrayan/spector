@@ -37,7 +37,7 @@
  *   <li>{@link com.spectrayan.spector.memory.model.MemoryType} — memory tier (WORKING, EPISODIC, SEMANTIC, PROCEDURAL)</li>
  *   <li>{@link com.spectrayan.spector.memory.model.RecallMode} — recall strategy selection</li>
  *   <li>{@link com.spectrayan.spector.memory.model.ScoringMode} — scoring algorithm variants</li>
- *   <li>{@link com.spectrayan.spector.memory.model.TextSearchMode} — text search strategy (BM25, SEMANTIC, HYBRID)</li>
+ *   <li>{@link com.spectrayan.spector.config.model.TextSearchMode} — text search strategy (BM25, SEMANTIC, HYBRID)</li>
  * </ul>
  */
 package com.spectrayan.spector.memory.model;

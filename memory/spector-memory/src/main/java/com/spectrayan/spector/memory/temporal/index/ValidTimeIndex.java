@@ -51,7 +51,7 @@ public class ValidTimeIndex {
     }
 
     /**
-     * Returns all fact offsets where validFrom <= instantMs.
+     * Returns all fact offsets where validFrom &lt;= instantMs.
      * NOTE: This doesn't check validTo — the caller filters by validTo.
      * 
      * @param instantMs The instant in time to query
@@ -66,7 +66,7 @@ public class ValidTimeIndex {
     }
 
     /**
-     * Returns all fact offsets where validFrom < toMs.
+     * Returns all fact offsets where validFrom &lt; toMs.
      * NOTE: Caller still filters by validTo for the overlap test.
      * 
      * @param fromMs The start of the timeframe

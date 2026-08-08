@@ -55,6 +55,7 @@ spector-local.yml
 docs/site/
 docs/docs/labs/*
 !docs/docs/labs/roadmap.md
+docs/docs/apidocs/
 RnD
 
 .scratch/

@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.model;
 /**
  * Result of a pre-ingestion importance estimate — computed without side effects.
  *
- * <p>Returned by {@link SpectorMemory#estimateImportance} to give the LLM
+ * <p>Returned by {@link com.spectrayan.spector.memory.SpectorMemory#estimateImportance} to give the LLM
  * informed feedback about how a memory would be scored <em>before</em> it
  * commits to ingestion. This enables a "compute, then decide" workflow
  * instead of blind ICNU guessing.</p>

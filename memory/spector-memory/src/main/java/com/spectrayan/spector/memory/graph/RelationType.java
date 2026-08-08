@@ -19,11 +19,11 @@ package com.spectrayan.spector.memory.graph;
  * directed traversal and semantic filtering during recall.</p>
  *
  * @deprecated Since 1.1.0. Relation types are now open-schema strings managed by
- * {@link TypeRegistry}. The extraction layer ({@link EntityRelation}) accepts
+ * {@link TypeRegistryMemory}. The extraction layer ({@link EntityRelation}) accepts
  * any type string, allowing domain-specific relation types (e.g., DIAGNOSED_WITH,
  * INGREDIENT_OF, ENROLLED_IN) without code changes. This enum is retained only for:
  * <ul>
- *   <li>{@link #SEED} — pre-seeding well-known types in {@link TypeRegistry}</li>
+ *   <li>{@link #SEED} — pre-seeding well-known types in {@link TypeRegistryMemory}</li>
  *   <li>{@link #fromOrdinal(int)} — migrating V1 persisted EntityGraph files</li>
  * </ul>
  * New code should use plain {@code String} type names instead of this enum.

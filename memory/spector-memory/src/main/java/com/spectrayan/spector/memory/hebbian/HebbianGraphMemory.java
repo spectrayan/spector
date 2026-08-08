@@ -54,7 +54,7 @@ import static com.spectrayan.spector.memory.kernel.layout.HebbianLayout.SUB_OFF_
 
 /**
  * Compressed Sparse Row (CSR) layout for the Hebbian association graph, implementing
- * the Spector Memory Kernel {@link GraphMemory} specification.
+ * the Spector Memory Kernel {@link com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory} specification.
  *
  * @see HebbianGraph
  */

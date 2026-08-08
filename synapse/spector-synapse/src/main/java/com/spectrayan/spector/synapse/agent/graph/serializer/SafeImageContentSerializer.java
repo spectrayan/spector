@@ -21,6 +21,13 @@ import java.io.ObjectOutput;
 import java.net.URI;
 import java.util.Optional;
 
+/**
+ * Safe serializer for {@link ImageContent} that prevents unsafe URL and binary payload leaks.
+ *
+ * <p>Encapsulates standard serialization and deserialization of {@link ImageContent} objects
+ * using standard serialization output streams, ensuring that mime type, URL, and raw base64 data
+ * are written safely without leaking internal memory references.</p>
+ */
 public class SafeImageContentSerializer implements Serializer<ImageContent> {
 
     @Override

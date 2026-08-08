@@ -29,7 +29,7 @@ import java.util.List;
  * <ul>
  *   <li>{@link LtpReconsolidationListener} — increments agent_recall_count for returned memories</li>
  *   <li>{@link HebbianCoActivationListener} — records tag co-occurrence in the
- *       {@link com.spectrayan.spector.memory.hebbian.CoActivationTracker}</li>
+ *       {@link com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory}</li>
  * </ul>
  */
 @FunctionalInterface

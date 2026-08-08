@@ -94,14 +94,15 @@ Every memory mutation produces a WAL event with the following fields:
 | `TAG_MERGE` | Synaptic tag update | Updated tag bitfield |
 | `RECALL_HIT` | `memory.recall(query)` | Recall count increment |
 | `RECORD_WRITE` | Memory block update in `RecordMemory` | Target slot bytes (updated header + vector data) |
-| `ADJ_ADD_EDGE` | Relation edge addition in `GraphMemory` (EntityGraph/HebbianGraph) | Endpoint node IDs, weight deltas, and relation label string |
-| `ADJ_DEL_EDGE` | Relation edge deletion in `GraphMemory` | Endpoint node IDs |
+| `ADJ_ADD_EDGE` | Relation edge addition in `GraphMemory` (HebbianGraph only) | Endpoint node IDs, weight deltas, and relation label string |
+| `ADJ_DEL_EDGE` | Relation edge deletion in `GraphMemory` (HebbianGraph only) | Endpoint node IDs |
 | `REGISTRY_INTERN` | String-to-int interning in `RegistryMemory` | Interned ID and UTF-8 string name |
 | `APPEND` | Byte block append to `AppendMemory` | Raw appended segment bytes |
 | `SNAPSHOT_MARK` | Checkpoint snapshot boundary trigger | High-water mark sequence and state metadata |
-| `GRAPH_ADD_NODE` | Entity node insertion in `EntityGraph` | Entity name and type label |
-| `GRAPH_LINK_MEMORY` | Association between entity and record in `EntityGraph` | Entity ID and target memory record index |
+| `GRAPH_ADD_NODE` | Entity node insertion in `EntityDirectory` | Entity name and type label |
+| `GRAPH_LINK_MEMORY` | Association between entity and record in `EntityDirectory` | Entity ID and target memory record index |
 | `CHAIN_LINK` | Sequence link creation in `TemporalChain` | Source index, target index, and session ID |
+| `HYPEREDGE_ADD` | Hyperedge addition in `HyperEntityGraphMemory` | Type, weight, memory index, timestamp, and array of participating entities and roles |
 
 ---
 

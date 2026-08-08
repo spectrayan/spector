@@ -30,8 +30,32 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
     @JsonSubTypes.Type(value = UserSoul.class, name = "USER")
 })
 public sealed interface SoulContext permits TenantSoul, OrgUnitSoul, AgentSoul, UserSoul {
+    /**
+     * Unique identifier for this soul context.
+     *
+     * @return the unique soul ID
+     */
     String id();
+
+    /**
+     * Display name of the identity.
+     *
+     * @return the identity name
+     */
     String name();
+
+    /**
+     * Brief description of the identity's role, expertise, or purpose.
+     *
+     * @return the description, or null if not provided
+     */
     String description();
+
+    /**
+     * Pre-computed embedding vector representing the core purpose or definition of this identity.
+     * Used for relevance checking against input topics.
+     *
+     * @return the purpose embedding vector, or null if not computed
+     */
     float[] identityEmbedding();
 }

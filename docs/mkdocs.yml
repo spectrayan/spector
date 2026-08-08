@@ -69,6 +69,8 @@ markdown_extensions:
   - pymdownx.snippets:
       base_path:
         - docs/docs
+        - docs
+        - .
         - ..                       # Repo root — enables --8<-- "spector-core/README.md"
       check_paths: true
   - pymdownx.superfences:
@@ -120,6 +122,7 @@ nav:
       - Developer Guide: getting-started/developer-guide.md
       - MCP Server: sdk-usage/mcp-server.md
       - Java SDK: sdk-usage/java-client.md
+      - Java API Reference: apidocs/index.html
       - Python SDK: sdk-usage/python-sdk.md
       - Spring AI Integration: sdk-usage/spring-ai.md
       - CLI Reference:

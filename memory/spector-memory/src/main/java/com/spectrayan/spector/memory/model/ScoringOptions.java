@@ -28,7 +28,7 @@ import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
  * @param strictnessCoefficient     similarity cliff steepness (default: 1.0)
  * @param queryValence              emotional valence for state-dependent recall
  * @param enableValenceAlignment    enable valence proximity scoring
- * @param twoFactorConfig           Bjork & Bjork retrieval/storage strength config
+ * @param twoFactorConfig           Bjork &amp; Bjork retrieval/storage strength config
  * @param scoringMode               COGNITIVE or SIMILARITY scoring
  */
 public record ScoringOptions(

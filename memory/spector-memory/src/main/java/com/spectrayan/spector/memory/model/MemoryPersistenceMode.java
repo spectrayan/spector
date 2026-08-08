@@ -30,7 +30,7 @@ package com.spectrayan.spector.memory.model;
  *       JVM restarts. This is the <b>default</b> mode.</li>
  * </ul>
  *
- * @see com.spectrayan.spector.memory.SpectorMemory.Builder#persistenceMode(MemoryPersistenceMode)
+ * @see com.spectrayan.spector.memory.SpectorMemoryBuilder#persistenceMode(MemoryPersistenceMode)
  */
 public enum MemoryPersistenceMode {
 

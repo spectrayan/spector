@@ -349,11 +349,11 @@ For each seed result, the temporal chain follows forward (3 hops) and backward (
 
 **Example:** Seed memory "deploy failed" → follow forward → "rollback initiated" → "post-mortem notes" — both added to results.
 
-### Step 5e: Entity Graph Traversal
+### Step 5e: Entity Directory & Hypergraph Traversal
 
-Entities are extracted from the query text, then looked up in the `EntityGraph`. For each matched entity, a 2-hop BFS with typed edge filtering discovers related entities. Their linked memories are added with **0.25× attenuation per hop**, further scaled by the entity's **fan factor** (1/√refCount) — modeling ACT-R spreading activation dilution. High-fan entities (linked to many memories) produce weaker per-link boosts.
+Entities are extracted from the query text, then looked up in the `EntityDirectory` to retrieve their IDs. The `HyperEntityGraph` is then queried to traverse the graph and collect reachable memory indices (up to 2-hop BFS). Their linked memories are added with **0.25× attenuation per hop**, further scaled by the entity's **fan factor** (1/√refCount) from the `EntityDirectory` — modeling ACT-R spreading activation dilution. High-fan entities (linked to many memories) produce weaker per-link boosts.
 
-**Example:** Query mentions "Alice" → Entity "Alice" → MANAGES → "Project Alpha" → memories mentioning "Project Alpha" are added. If "Alice" is linked to 100 memories, her fan factor is 0.1 — preventing ubiquitous entities from flooding the result set.
+**Example:** Query mentions "Alice" → Entity "Alice" resolved in EntityDirectory → HyperEntityGraph query collects memories connected via hyperedges to "Alice". If "Alice" is linked to 100 memories, her fan factor is 0.1 — preventing ubiquitous entities from flooding the result set.
 
 !!! tip "Graceful Degradation"
     Each graph step is **additive and independently optional**. If a graph component is null (not configured), empty, or throws a `RuntimeException`, the step is a no-op. The system degrades gracefully to vector-only recall. Zero risk of regression.

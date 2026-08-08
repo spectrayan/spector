@@ -34,11 +34,6 @@ import java.nio.file.Path;
  * <b>not</b> close working memory — working memory is global (shared by every
  * router) and is closed exactly once by the owning component.</p>
  *
- * @param seq      the partition sequence number (matches the {@code NNN_epoch} dir)
- * @param dir      the partition directory (null in IN_MEMORY mode)
- * @param router   the tier-store router for this partition
- * @param text     the partition-scoped text store (null in IN_MEMORY mode)
- * @param writable {@code true} for the single active partition, {@code false} for frozen
  */
 public final class PartitionHandle implements AutoCloseable {
 
@@ -51,11 +46,30 @@ public final class PartitionHandle implements AutoCloseable {
     private final boolean writable;
     private final PartitionBundle partitionBundle;
 
+    /**
+     * Creates a new partition handle.
+     *
+     * @param seq      the partition sequence number (matches the {@code NNN_epoch} dir)
+     * @param dir      the partition directory (null in IN_MEMORY mode)
+     * @param router   the tier-store router for this partition
+     * @param text     the partition-scoped text store (null in IN_MEMORY mode)
+     * @param writable {@code true} for the single active partition, {@code false} for frozen
+     */
     public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
                            TextAppendMemory text, boolean writable) {
         this(seq, dir, router, text, writable, null);
     }
 
+    /**
+     * Creates a new partition handle with an associated bundle.
+     *
+     * @param seq             the partition sequence number (matches the {@code NNN_epoch} dir)
+     * @param dir             the partition directory (null in IN_MEMORY mode)
+     * @param router          the tier-store router for this partition
+     * @param text            the partition-scoped text store (null in IN_MEMORY mode)
+     * @param writable        {@code true} for the single active partition, {@code false} for frozen
+     * @param partitionBundle the partition bundle specification
+     */
     public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
                            TextAppendMemory text, boolean writable, PartitionBundle partitionBundle) {
         this.seq = seq;

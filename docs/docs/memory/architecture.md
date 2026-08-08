@@ -42,7 +42,8 @@ sequenceDiagram
     participant WAL as MemoryWal
     participant HG as HebbianGraph
     participant TC as TemporalChain
-    participant EG as EntityGraph
+    participant ED as EntityDirectory
+    participant HEG as HyperEntityGraph
 
     App->>SM: remember(id, text, type, tags)
     SM->>CT: ingestCognitive(id, text, vector, type, tags, ...)
@@ -85,8 +86,9 @@ sequenceDiagram
     Note over CT: Step 9c: Temporal chain linking
     CT->>TC: link(currentIdx, lastIdx, sessionId)
     
-    Note over CT: Step 9d: Entity extraction & graph population
-    CT->>EG: addEntity() + linkToMemory() + addRelation()
+    Note over CT: Step 9d: Entity directory & hypergraph population
+    CT->>ED: intern(name, type) + linkEntityToMemory()
+    CT->>HEG: addHyperedge(vertexEntities, vertexRoles, type, ...)
     
     Note over CT: Step 10: Circadian check
     CT->>CT: triggerReflectIfDue()
@@ -116,7 +118,8 @@ sequenceDiagram
     participant HP as HabituationPenalty
     participant HG as HebbianGraph
     participant TC as TemporalChain
-    participant EG as EntityGraph
+    participant ED as EntityDirectory
+    participant HEG as HyperEntityGraph
 
     App->>RP: recall("query", options)
     
@@ -154,7 +157,7 @@ sequenceDiagram
     RP->>HP: recordAndComputePenalty(id)
     
     Note over RP: Step 5b: STDP causal boost
-    RP->>RP: CoActivationTracker.getPredictiveStrength()
+    RP->>RP: CoActivationRecordMemory.getPredictiveStrength()
     
     Note over RP: Step 5c: Hebbian spreading activation
     RP->>HG: activateNeighbors(seedIdx, depth=2)
@@ -164,9 +167,11 @@ sequenceDiagram
     RP->>TC: followForward/Backward(idx, maxHops=3)
     TC-->>RP: temporally-linked memory indices
     
-    Note over RP: Step 5e: Entity graph traversal
-    RP->>EG: extract query entities → BFS 2-hop
-    EG-->>RP: entity-linked memory indices
+    Note over RP: Step 5e: Entity directory & hypergraph traversal
+    RP->>ED: findEntity(name)
+    ED-->>RP: entityId
+    RP->>HEG: collectMemories(entityId, depth=2)
+    HEG-->>RP: entity-linked memory indices
     
     Note over RP: Step 6: Merge, dedup, sort → final top-K
     RP-->>App: List<CognitiveResult>

@@ -77,7 +77,7 @@ import java.util.regex.Pattern;
  *             ├── partitions/
  * </pre>
  *
- * @see DefaultSpectorMemory.Builder#persistence(Path)
+ * @see com.spectrayan.spector.memory.SpectorMemoryBuilder#persistence(Path)
  */
 public final class StorageLayout {
 

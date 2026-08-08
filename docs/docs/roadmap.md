@@ -528,16 +528,16 @@ HTTP-based MCP transport for remote/cloud deployments. Same 6 tools exposed over
 !!! success "Completed"
     All four phases implemented and merged. 357 tests pass, 0 failures.
 
-Full graph augmentation layer for `spector-memory` — four biologically-inspired graph structures that augment vector recall with associative, temporal, relational, and hyperedge signals.
+Full graph augmentation layer for `spector-memory` — three biologically-inspired graph structures that augment vector recall with associative, temporal, and hyperedge signals.
 
 **Architecture:**
 ```
 RecallPipeline
   Step 5a: Habituation + Inhibition of Return
-  Step 5b: STDP causal boost (CoActivationTracker)
+  Step 5b: STDP causal boost (CoActivationRecordMemory)
   Step 5c: Hebbian spreading activation (HebbianGraph, depth=2)
   Step 5d: Temporal chain extension (TemporalChain, maxHops=3)
-  Step 5e: Entity graph traversal (EntityGraph, 2-hop BFS)
+  Step 5e: Entity directory & hypergraph traversal (EntityDirectory & HyperEntityGraph, depth=2)
 ```
 
 **Layer 1 — Hebbian Association Graph:**
