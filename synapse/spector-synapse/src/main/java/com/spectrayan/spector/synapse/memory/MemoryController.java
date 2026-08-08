@@ -19,6 +19,8 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStatusResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ReflectResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ReinforceByIdRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RememberRequest;
@@ -174,6 +176,19 @@ public class MemoryController {
     @PostMapping("/recall")
     public ResponseEntity<List<RecallResult>> recall(@RequestBody RecallRequest request) {
         return ResponseEntity.ok(memoryService.recall(request));
+    }
+
+    /**
+     * Tag-based memory browsing (no vector search).
+     *
+     * <p>Uses the engine's inverted tag index for O(1) exact tag matching.
+     * Useful for session history replay, auditing, and bulk operations.</p>
+     *
+     * <p>{@code POST /api/v1/memory/browse}</p>
+     */
+    @PostMapping("/browse")
+    public ResponseEntity<List<BrowseResult>> browse(@RequestBody BrowseRequest request) {
+        return ResponseEntity.ok(memoryService.browse(request));
     }
 
     // ══════════════════════════════════════════════════════════════

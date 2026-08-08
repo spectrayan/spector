@@ -45,7 +45,10 @@ import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.model.RecallMode;
+import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
+import com.spectrayan.spector.memory.model.ScoringMode;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.synapse.memory.MemoryDto.AcceptedResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.CompactionResult;
@@ -59,6 +62,8 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryTableRow;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryVectorResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RecallResult;
+import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseRequest;
+import com.spectrayan.spector.synapse.memory.MemoryDto.BrowseResult;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ReflectResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.RememberRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ResolveRequest;
@@ -350,9 +355,39 @@ public class MemoryService {
         if (request.query() == null || request.query().isBlank()) {
             throw new IllegalArgumentException("Recall query cannot be blank");
         }
-        log.debug("[MemoryService] recall: query='{}', topK={}", request.query(), request.topK());
+        log.debug("[MemoryService] recall: query='{}', topK={}, tags={}",
+                request.query(), request.topK(), request.tags());
         long start = System.nanoTime();
-        List<CognitiveResult> results = mao.recall(resolveMemory(), request.query());
+
+        // Build RecallOptions from DTO when tag/mode fields are present
+        List<CognitiveResult> results;
+        boolean hasOptions = (request.tags() != null && !request.tags().isEmpty())
+                || request.scoringMode() != null
+                || request.recallMode() != null;
+
+        if (hasOptions) {
+            var optionsBuilder = RecallOptions.builder().topK(request.topK());
+            if (request.tags() != null && !request.tags().isEmpty()) {
+                optionsBuilder.synapticFilter(request.tags().toArray(String[]::new));
+            }
+            if (request.scoringMode() != null) {
+                try {
+                    optionsBuilder.scoringMode(ScoringMode.valueOf(request.scoringMode()));
+                } catch (IllegalArgumentException e) {
+                    log.warn("[MemoryService] Unknown scoringMode '{}', using COGNITIVE", request.scoringMode());
+                }
+            }
+            if (request.recallMode() != null) {
+                try {
+                    optionsBuilder.recallMode(RecallMode.valueOf(request.recallMode()));
+                } catch (IllegalArgumentException e) {
+                    log.warn("[MemoryService] Unknown recallMode '{}', using LEARN", request.recallMode());
+                }
+            }
+            results = mao.recall(resolveMemory(), request.query(), optionsBuilder.build());
+        } else {
+            results = mao.recall(resolveMemory(), request.query());
+        }
         long elapsedMicros = (System.nanoTime() - start) / 1000;
         recallCount.incrementAndGet();
         totalLatencyMs.addAndGet(elapsedMicros / 1000);
@@ -406,11 +441,36 @@ public class MemoryService {
             throw new IllegalArgumentException("Search query cannot be blank");
         }
         log.debug("[MemoryService] search: query='{}', topK={}", request.query(), request.topK());
-        List<RecallResult> results = recall(new RecallRequest(request.query(), request.topK(), 1));
+        List<RecallResult> results = recall(new RecallRequest(request.query(), request.topK(), 1, null, null, null));
         return results.stream()
                 .map(r -> new SearchResult(
                         r.id(), r.text(), r.tier(), r.cognitiveScore(), r.cognitiveScore(),
                         r.tags(), Instant.now()))
+                .toList();
+    }
+
+    /**
+     * Tag-based memory browsing — no vector search.
+     *
+     * <p>Delegates to {@link com.spectrayan.spector.memory.SpectorMemory#browse(String...)}
+     * which uses the inverted tag index ({@code IndexRecordMemory.tagToIds}) for
+     * O(1) exact tag matching with AND semantics. Results are sorted by timestamp
+     * (oldest first) for chronological session replay.</p>
+     */
+    public List<BrowseResult> browse(BrowseRequest request) {
+        if (request.tags() == null || request.tags().isEmpty()) {
+            throw new IllegalArgumentException("Browse requires at least one tag");
+        }
+        log.debug("[MemoryService] browse: tags={}, limit={}", request.tags(), request.limit());
+        List<CognitiveRecord> records = mao.browse(
+                resolveMemory(),
+                request.tags().toArray(String[]::new));
+
+        return records.stream()
+                .sorted(java.util.Comparator.comparingLong(CognitiveRecord::timestampMs))
+                .limit(request.limit())
+                .map(r -> new BrowseResult(r.id(), r.text(), r.memoryType().name(),
+                        r.timestampMs(), Arrays.asList(r.tags())))
                 .toList();
     }
 

@@ -106,7 +106,7 @@ class MemoryServiceTest {
     @Test
     @DisplayName("recall — returns mapped results from DAO")
     void recall_returnsMappedResults() {
-        var request = new RecallRequest("Java concurrency", 5, null);
+        var request = new RecallRequest("Java concurrency", 5, null, null, null, null);
         var results = List.of(
                 new CognitiveResult("id1", "Virtual threads in Java 25", 0.9f, 2.0f, 0.0f, 0, (byte)0, MemoryType.SEMANTIC, MemorySource.OBSERVED, new String[]{"java"}, 1.0f, 1.0f),
                 new CognitiveResult("id2", "Platform thread limitations", 0.7f, 5.0f, 0.0f, 0, (byte)0, MemoryType.EPISODIC, MemorySource.OBSERVED, new String[0], 1.0f, 1.0f)
@@ -125,7 +125,7 @@ class MemoryServiceTest {
     @Test
     @DisplayName("recall — blank query throws IllegalArgumentException")
     void recall_blankQuery_throws() {
-        var request = new RecallRequest("", 5, null);
+        var request = new RecallRequest("", 5, null, null, null, null);
 
         assertThatThrownBy(() -> service.recall(request))
                 .isInstanceOf(IllegalArgumentException.class)

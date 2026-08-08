@@ -123,14 +123,25 @@ public final class MemoryDto {
     /**
      * Request for cognitive recall.
      *
-     * @param query  recall query
-     * @param topK   max results
-     * @param depth  recall depth (how many association hops)
+     * <p>Supports tag-based filtering via the engine's
+     * {@link com.spectrayan.spector.memory.model.RecallOptions#synapticTagMask()}
+     * Bloom filter. When {@code tags} are provided, only memories whose
+     * synaptic tags overlap the query mask are returned.</p>
+     *
+     * @param query       recall query text (will be embedded)
+     * @param topK        max results
+     * @param depth       recall depth (how many association hops)
+     * @param tags        synaptic tag filter — AND semantics (nullable)
+     * @param scoringMode "COGNITIVE", "SIMILARITY", or "ASSOCIATIVE" (nullable = COGNITIVE)
+     * @param recallMode  "LEARN", "OBSERVE", or "REPLAY" (nullable = LEARN)
      */
     public record RecallRequest(
             String query,
             Integer topK,
-            Integer depth
+            Integer depth,
+            List<String> tags,
+            String scoringMode,
+            String recallMode
     ) {
         public RecallRequest {
             if (topK == null || topK <= 0) topK = 10;
@@ -370,6 +381,42 @@ public final class MemoryDto {
             double cognitiveScore,
             String memoryType,
             String ageDescription,
+            List<String> tags
+    ) {}
+
+    /**
+     * Request for tag-based memory browsing (no vector search).
+     *
+     * <p>Delegates to {@link com.spectrayan.spector.memory.SpectorMemory#browse(String...)}
+     * which uses an inverted tag index ({@code IndexRecordMemory.tagToIds}) for
+     * O(1) exact tag matching with AND semantics.</p>
+     *
+     * @param tags  tag strings to filter by — all must match (AND semantics)
+     * @param limit maximum number of results to return
+     */
+    public record BrowseRequest(
+            List<String> tags,
+            Integer limit
+    ) {
+        public BrowseRequest {
+            if (limit == null || limit <= 0) limit = 100;
+        }
+    }
+
+    /**
+     * Result from tag-based memory browsing.
+     *
+     * @param id          memory ID
+     * @param text        memory text content
+     * @param memoryType  tier name (SEMANTIC, EPISODIC, etc.)
+     * @param timestampMs creation timestamp in epoch milliseconds
+     * @param tags        decoded synaptic tag labels
+     */
+    public record BrowseResult(
+            String id,
+            String text,
+            String memoryType,
+            long timestampMs,
             List<String> tags
     ) {}
 

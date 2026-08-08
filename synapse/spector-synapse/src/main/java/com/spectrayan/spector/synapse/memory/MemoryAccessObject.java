@@ -28,6 +28,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.GraphNeighborhood;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
@@ -203,6 +204,41 @@ public class MemoryAccessObject {
             return memory.recall(query);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Recall failed: {}", e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    /**
+     * Call cognitive recall with explicit {@link RecallOptions}.
+     *
+     * <p>Enables tag-filtered recall via
+     * {@link RecallOptions.Builder#synapticFilter(String...)}, scoring mode
+     * selection, and side-effect-free observation via
+     * {@link com.spectrayan.spector.memory.model.RecallMode#OBSERVE}.</p>
+     */
+    public List<CognitiveResult> recall(SpectorMemory memory, String query, RecallOptions options) {
+        if (!isAvailable(memory)) return List.of();
+        try {
+            return memory.recall(query, options);
+        } catch (Exception e) {
+            log.error("[MemoryAccessObject] Recall with options failed: {}", e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    /**
+     * Tag-based metadata browsing — no vector search.
+     *
+     * <p>Delegates to {@link SpectorMemory#browse(String...)} which uses
+     * the inverted tag index ({@code IndexRecordMemory.tagToIds}) for
+     * O(1) exact tag matching with AND semantics.</p>
+     */
+    public List<CognitiveRecord> browse(SpectorMemory memory, String... tags) {
+        if (!isAvailable(memory)) return List.of();
+        try {
+            return memory.browse(tags);
+        } catch (Exception e) {
+            log.error("[MemoryAccessObject] Browse failed: {}", e.getMessage(), e);
             return List.of();
         }
     }
