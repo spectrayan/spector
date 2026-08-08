@@ -1,0 +1,67 @@
+{
+  "trajectoryId": "coding-agent-mini-01",
+  "domain": "coding-agent",
+  "description": "Mini 5-session coding agent trajectory testing architecture recall and bug non-repetition",
+  "totalDays": 5,
+  "sessions": [
+    {
+      "sessionId": "session-01",
+      "dayOffset": 0,
+      "prompt": "Initialize project configuration with PostgreSQL database and Spring Boot 3.2",
+      "expectedIntent": "project-init",
+      "groundTruthContext": {
+        "database": "PostgreSQL",
+        "framework": "Spring Boot 3.2"
+      },
+      "negativeConstraints": []
+    },
+    {
+      "sessionId": "session-02",
+      "dayOffset": 1,
+      "prompt": "Add user authentication service. Which database are we using?",
+      "expectedIntent": "feature-dev",
+      "groundTruthContext": {
+        "database": "PostgreSQL"
+      },
+      "negativeConstraints": [
+        "MySQL",
+        "MongoDB"
+      ]
+    },
+    {
+      "sessionId": "session-03",
+      "dayOffset": 2,
+      "prompt": "Fix deadlock in order processing service by enforcing locks ordering",
+      "expectedIntent": "bug-fix",
+      "groundTruthContext": {
+        "lockPolicy": "enforce locks ordering"
+      },
+      "negativeConstraints": []
+    },
+    {
+      "sessionId": "session-04",
+      "dayOffset": 3,
+      "prompt": "Refactor payment processing module",
+      "expectedIntent": "refactor",
+      "groundTruthContext": {
+        "database": "PostgreSQL"
+      },
+      "negativeConstraints": [
+        "unordered lock acquisition"
+      ]
+    },
+    {
+      "sessionId": "session-05",
+      "dayOffset": 4,
+      "prompt": "Summarize project stack and concurrency safeguards",
+      "expectedIntent": "project-summary",
+      "groundTruthContext": {
+        "database": "PostgreSQL",
+        "framework": "Spring Boot 3.2"
+      },
+      "negativeConstraints": [
+        "MySQL"
+      ]
+    }
+  ]
+}
