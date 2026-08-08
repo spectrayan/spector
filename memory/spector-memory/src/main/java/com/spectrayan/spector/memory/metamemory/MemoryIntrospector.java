@@ -40,7 +40,7 @@ import java.util.Set;
  * </ul>
  *
  * <h3>Gap Detection</h3>
- * <p>Uses {@link CoActivationTracker} to find topics that frequently co-occur with
+ * <p>Uses {@link com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory} to find topics that frequently co-occur with
  * the queried tags but have zero memories in the current result set. These are
  * "knowledge holes" — related domains where the agent lacks information.</p>
  *

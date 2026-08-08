@@ -44,7 +44,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *   <li><b>SPLADE</b>: learned term expansion capturing synonyms and related concepts</li>
  * </ul>
  * Both produce scored results that are fused via RRF in the recall pipeline.
- * In {@link com.spectrayan.spector.memory.model.TextSearchMode#FULL_STACK},
+ * In {@link com.spectrayan.spector.config.model.TextSearchMode#FULL_STACK},
  * both indexes are searched in parallel.</p>
  *
  * <h3>Graceful Degradation</h3>

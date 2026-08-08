@@ -290,7 +290,7 @@ public final class SpectorMemoryBuilder {
     /** Checkpoint interval in seconds (default: 30). Set to 0 to disable automatic checkpointing. */
     public SpectorMemoryBuilder checkpointIntervalSeconds(int seconds) { this.checkpointIntervalSeconds = seconds; return this; }
 
-    /** Two-Factor Memory (Bjork & Bjork) configuration (default: TwoFactorConfig.DEFAULT). */
+    /** Two-Factor Memory (Bjork &amp; Bjork) configuration (default: TwoFactorConfig.DEFAULT). */
     public SpectorMemoryBuilder twoFactorConfig(TwoFactorConfig config) { this.twoFactorConfig = config; return this; }
 
     /** Edge importance scorer with configurable signal weights (default: EdgeImportance.DEFAULT). */
@@ -390,7 +390,7 @@ public final class SpectorMemoryBuilder {
     /**
      * Sets the salience profile provider for user-configurable importance scoring.
      *
-     * <p>Enterprise callers supply a {@link TenantSalienceResolver} that merges
+     * <p>Enterprise callers supply a {@code TenantSalienceResolver} that merges
      * tenant  ->  agent  ->  user profiles. The effective profile is applied during
      * ingestion (ICNU weights + topic boost) and optionally at recall time
      * (alpha/beta override).</p>
@@ -422,7 +422,7 @@ public final class SpectorMemoryBuilder {
      * Builds and returns a fully-initialized {@link SpectorMemory} instance.
      *
      * @return the constructed SpectorMemory
-     * @throws com.spectrayan.spector.memory.SpectorValidationException if required fields are missing
+     * @throws com.spectrayan.spector.commons.error.SpectorValidationException if required fields are missing
      */
     public SpectorMemory build() {
         if (dimensions <= 0 && embeddingProvider != null) {

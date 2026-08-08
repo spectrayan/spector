@@ -34,6 +34,6 @@
  * novelty-seeking, and hyperfocus — the exact cognitive profile required for
  * groundbreaking discovery and out-of-the-box engineering.</p>
  *
- * @see com.spectrayan.spector.memory.CognitiveProfile
+ * @see com.spectrayan.spector.memory.model.CognitiveProfile
  */
 package com.spectrayan.spector.memory.neurodivergent;

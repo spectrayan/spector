@@ -17,7 +17,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import java.util.Map;
 
 /**
- * Immutable result record returned by {@link SpectorMemory#recall}.
+ * Immutable result record returned by {@link com.spectrayan.spector.memory.SpectorMemory#recall}.
  *
  * <p>Contains the memory text, cognitive scoring metadata, provenance information,
  * and biological state (recall count, valence, decay factor). Designed to give
@@ -189,7 +189,7 @@ public record CognitiveResult(
     }
 
     /**
-     * Returns true if this memory is associated with a negative outcome (valence < -10).
+     * Returns true if this memory is associated with a negative outcome (valence &lt; -10).
      */
     public boolean isNegativeOutcome() {
         return valence < -10;

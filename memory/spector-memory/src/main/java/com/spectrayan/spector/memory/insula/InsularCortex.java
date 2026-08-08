@@ -221,14 +221,29 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
         }
     }
 
+    /**
+     * Gets the current version of the self-model payload.
+     *
+     * @return the version integer
+     */
     public int version() {
         return segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_VERSION);
     }
 
+    /**
+     * Gets the epoch millisecond timestamp of the last self-model update.
+     *
+     * @return the update timestamp in milliseconds
+     */
     public long updatedAt() {
         return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, HEADER_START + InsularLayout.OFF_UPDATED_AT);
     }
 
+    /**
+     * Checks if a valid self-model payload is currently present in the region.
+     *
+     * @return true if a self-model exists, false otherwise
+     */
     public boolean isPresent() {
         return segment.get(ValueLayout.JAVA_INT_UNALIGNED, HEADER_START + InsularLayout.OFF_FLAGS) == InsularLayout.FLAG_PRESENT;
     }

@@ -54,7 +54,7 @@ public final class TypeRegistryMemory implements RegistryMemory {
     /**
      * Creates a new empty registry (volatile).
      *
-     * @param label descriptive label for logging (e.g., "entity-type", "relation-type")
+     * @param systemMemoryId system memory identifier containing the label for logging
      */
     public TypeRegistryMemory(SystemMemoryId systemMemoryId) {
         this.label = systemMemoryId.id().memoryName();

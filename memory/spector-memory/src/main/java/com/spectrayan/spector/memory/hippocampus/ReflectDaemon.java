@@ -186,7 +186,7 @@ public final class ReflectDaemon {
      * text lookup (falls back to basic behavior).</p>
      *
      * @param episodicStore the episodic memory store to scan
-     * @param semanticStore the semantic store to promote into (may be null for basic mode)
+     * @param ingestionTarget the cognitive ingestion target to promote into
      * @return report summarizing what was done
      */
     public ReflectReport runCycle(EpisodicRecordMemory episodicStore,

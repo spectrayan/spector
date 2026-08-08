@@ -42,7 +42,7 @@ import com.spectrayan.spector.memory.temporal.index.ValidTimeIndex;
  * <h3>Biological Analog: Declarative Memory with Temporal Context</h3>
  * <p>The brain's semantic memory stores facts like "Alice works at Acme" as
  * declarative knowledge. Unlike raw episodic memories (captured by
- * {@link TemporalChain}), these facts have explicit validity windows — you
+ * {@link TemporalChainMemory}), these facts have explicit validity windows — you
  * know Alice worked at Acme from 2023 to 2025, not just that you learned
  * it at some point. The TKG captures this temporal dimension of knowledge.</p>
  *
@@ -61,7 +61,7 @@ import com.spectrayan.spector.memory.temporal.index.ValidTimeIndex;
  * operate on snapshot-consistent in-memory indexes.</p>
  *
  * @see TemporalFact
- * @see TemporalChain
+ * @see TemporalChainMemory
  * @see ContradictionResolver
  */
 public final class TemporalKnowledgeGraph implements AutoCloseable {

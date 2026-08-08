@@ -65,7 +65,7 @@ public enum InterestLevel {
         return multiplier > 1.0f;
     }
 
-    /** Returns true if this level dampens importance (multiplier < 1.0). */
+    /** Returns true if this level dampens importance (multiplier &lt; 1.0). */
     public boolean isDampen() {
         return multiplier < 1.0f;
     }

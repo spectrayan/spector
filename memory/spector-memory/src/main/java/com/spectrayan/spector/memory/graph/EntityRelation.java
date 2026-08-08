@@ -17,7 +17,7 @@ package com.spectrayan.spector.memory.graph;
  *
  * <p><b>Open-schema types:</b> The relation type is a free-form string,
  * not constrained to the well-known {@link RelationType} enum values. Any
- * type string is accepted and auto-registered in the {@link TypeRegistry}
+ * type string is accepted and auto-registered in the {@link TypeRegistryMemory}
  * at graph population time.</p>
  *
  * @param targetEntityName name of the target entity (will be resolved to ID during graph population)

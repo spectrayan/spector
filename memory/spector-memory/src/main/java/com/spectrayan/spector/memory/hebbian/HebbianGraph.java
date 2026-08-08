@@ -50,9 +50,9 @@ import java.util.concurrent.locks.ReentrantLock;
  *   <li>Persistence: save/load via raw segment serialization to file</li>
  * </ul>
  *
- * @deprecated Use {@link HebbianGraphCsr} instead. The CSR layout reduces memory
+ * @deprecated Use {@link HebbianGraphMemory} instead. The CSR layout reduces memory
  *     by ~90% for sparse graphs (observed avg degree ~2.0). V2 files are automatically
- *     migrated to CSR V3 by {@link HebbianGraphCsr#load}. This class is retained
+ *     migrated to CSR V3 by {@link HebbianGraphMemory#load}. This class is retained
  *     for backward compatibility during migration.
  */
 @Deprecated(since = "1.0.0", forRemoval = false)
@@ -127,7 +127,7 @@ public final class HebbianGraph implements HebbianGraphBase {
      * synaptic importance/arousal signals without HebbianGraph knowing the header layout.
      *
      * <p>Returns a multiplier in [0.5, 2.0] applied to the decay factor per node.
-     * Values > 1.0 = slower decay (high importance), < 1.0 = faster decay (low importance).
+     * Values > 1.0 = slower decay (high importance), &lt; 1.0 = faster decay (low importance).
      * Null means uniform decay (no modulation).</p>
      */
     @FunctionalInterface

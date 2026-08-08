@@ -34,7 +34,7 @@
  * </ul>
  *
  * <h3>Entry Point</h3>
- * <p>Use {@link com.spectrayan.spector.memory.SpectorMemory#builder()} to construct
+ * <p>Use {@link com.spectrayan.spector.memory.SpectorMemoryBuilder#create()} to construct
  * a memory instance with your {@link com.spectrayan.spector.provider.embedding.EmbeddingProvider}.</p>
  *
  * @see com.spectrayan.spector.memory.SpectorMemory

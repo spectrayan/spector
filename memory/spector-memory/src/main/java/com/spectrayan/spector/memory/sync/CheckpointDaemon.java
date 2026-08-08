@@ -262,7 +262,7 @@ public final class CheckpointDaemon {
     /**
      * Sets the lifecycle event bus for publishing checkpoint events.
      *
-     * <p>The event bus replaces the deprecated {@link CheckpointListener}.
+     * <p>The event bus replaces the deprecated {@code CheckpointListener}.
      * After each successful checkpoint, a {@link CheckpointCompletedEvent}
      * is published to the bus, enabling event-driven replication, backups,
      * and analytics in enterprise mode.</p>

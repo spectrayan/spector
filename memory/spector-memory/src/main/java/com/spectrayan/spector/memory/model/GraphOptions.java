@@ -26,7 +26,7 @@ public record GraphOptions(
         List<ExtractedEntity> entityHints,
         float graphExpansionThreshold
 ) {
-    /** Default: no entity hints, expand when similarity < 0.40. */
+    /** Default: no entity hints, expand when similarity &lt; 0.40. */
     public static final GraphOptions DEFAULT = new GraphOptions(List.of(), 0.40f);
 
     /** Returns true if pre-extracted entities are provided. */

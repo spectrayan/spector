@@ -29,7 +29,7 @@ import java.util.List;
  * </ul>
  *
  * @see ExtractedEntity
- * @see EntityGraph
+ * @see HyperEntityGraphMemory
  */
 public interface EntityExtractor {
 

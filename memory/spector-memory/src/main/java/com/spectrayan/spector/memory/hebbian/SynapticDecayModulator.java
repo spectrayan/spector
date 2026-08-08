@@ -49,7 +49,7 @@ public final class SynapticDecayModulator implements HebbianGraph.DecayModulator
      * Creates a modulator by pre-reading synaptic headers from the episodic partition.
      *
      * <p>Pre-reads all values into a float array for O(1) lookup during the decay loop.
-     * Cost: O(partitionCount) — typically < 100K entries, < 1ms.</p>
+     * Cost: O(partitionCount) — typically &lt; 100K entries, &lt; 1ms.</p>
      *
      * @param cognitiveRouter the current cognitive memory router (provides access to episodic store)
      * @param capacity        HebbianGraph capacity (number of slots)

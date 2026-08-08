@@ -16,7 +16,7 @@ package com.spectrayan.spector.memory.model;
 /**
  * Controls how recall results are scored after retrieval.
  *
- * <p>This is orthogonal to {@link TextSearchMode}, which controls <em>which</em>
+ * <p>This is orthogonal to {@link com.spectrayan.spector.config.model.TextSearchMode}, which controls <em>which</em>
  * retrieval signals to use (vector, keyword, both). {@code ScoringMode} controls
  * <em>how</em> the retrieved candidates are ranked.</p>
  *
@@ -33,7 +33,7 @@ package com.spectrayan.spector.memory.model;
  * </ul>
  *
  * @see RecallOptions
- * @see TextSearchMode
+ * @see com.spectrayan.spector.config.model.TextSearchMode
  */
 public enum ScoringMode {
 
