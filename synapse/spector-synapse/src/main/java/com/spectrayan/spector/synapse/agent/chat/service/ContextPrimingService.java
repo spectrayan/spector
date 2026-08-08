@@ -82,7 +82,11 @@ public class ContextPrimingService {
 
         var sb = new StringBuilder("\n--- RELEVANT MEMORIES ---\n");
         for (var m : memories) {
-            sb.append(String.format("[%s | %s] %s%n", m.memoryType(), m.ageDescription(), m.text()));
+            String typeStr = m.memoryType() != null ? m.memoryType() : "MEMORY";
+            String ageStr = m.ageDescription() != null ? m.ageDescription() : "recent";
+            float salience = m.salienceScore() > 0 ? m.salienceScore() : m.score();
+            sb.append(String.format("[%s | Salience: %.2f | %s] %s%n",
+                    typeStr, salience, ageStr, m.text()));
         }
         sb.append("--- END MEMORIES ---\n");
         return sb.toString();
