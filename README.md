@@ -17,7 +17,31 @@
 
 ---
 
-Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. **Spector** is a cognitive memory backbone for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and entity links — then retrieves with fused semantic and hybrid scoring at sub-millisecond latency. Connect any AI agent through the built-in **MCP server**, call it over **REST/gRPC**, drive it from the **Python SDK**, or embed it directly in the JVM. Every user, agent, or tenant is physically isolated in its own on-disk namespace — true data separation, not a shared-store filter. Under the hood, Java Project Panama and the Vector API deliver C++-class SIMD speed with zero garbage-collection pressure.
+Legacy AI stacks bolt memory onto stateless vector databases — storage without cognition. **Spector** is a cognitive memory backbone for modern AI agents: it remembers, forgets, consolidates, and **forms associations** across a biologically-inspired memory graph — Hebbian co-activation, temporal chains, and event-episode hyperedges — then retrieves with fused semantic and hybrid scoring at sub-millisecond latency. Connect any AI agent through the built-in **MCP server**, call it over **REST/gRPC**, drive it from the **Python SDK**, or embed it directly in the JVM. Every user, agent, or tenant is physically isolated in its own on-disk namespace — true data separation, not a shared-store filter. Under the hood, Java Project Panama and the Vector API deliver C++-class SIMD speed with zero garbage-collection pressure.
+
+---
+
+## 📐 Mathematical Foundation
+
+Spector Cognitive Memory is built on a mathematically rigorous foundation modeling biological memory encoding and retrieval dynamics.
+
+### Ingestion: **Remember**
+
+When a new memory $m$ is ingested, Spector initializes its state vector with fused importance scoring:
+
+$$\mathbf{S}_m(t_0) = \langle \vec{v}_m, \text{Bloom}(T_m), V_m, I_m(t_0), R_m(t_0) \rangle$$
+
+$$\text{where } I_m(t_0) = \omega_s \cdot \left(1 - e^{-\lambda \cdot \|\vec{v}_m - \vec{\mu}_t\|^2}\right) + \omega_p \cdot \text{Salience}(m)$$
+
+📖 **[Read the Ingestion Mathematics deep-dive &rarr;](https://spectrayan.com/blog/mathematics-of-ai-memory-ingestion-remember-pipeline)**
+
+### Retrieval: **Recall**
+
+Recall dynamically decays importance over time using Bjork & Bjork retrieval strength dynamics and applies emotional valence state-dependent constraints in a single SIMD pass:
+
+$$\text{FusedScore}(m, \vec{q}) = \left[ \alpha \cdot \text{Cos}(\vec{q}, \vec{v}_m) + \beta \cdot I_m(t) \cdot e^{-\delta \cdot \frac{t - t_m}{R_m(t)}} + \gamma \cdot \frac{|\text{Bloom}(T_q) \cap \text{Bloom}(T_m)|}{\text{BitCount}(\text{Bloom}(T_q))} \right] \cdot \left( 1.0 - \eta \cdot \frac{|V_q - V_m|}{255} \right)$$
+
+📖 **[Read the Retrieval Mathematics deep-dive &rarr;](https://spectrayan.com/blog/mathematics-of-ai-memory-retrieval-recall-pipeline)**
 
 ---
 
@@ -25,7 +49,7 @@ Legacy AI stacks bolt memory onto stateless vector databases — storage without
 
 Spector is structured around a modular, biologically-inspired architecture designed to bridge low-level bare-metal SIMD operations with high-level agent orchestration:
 *   **Nucleus (Foundation)**: Core configurations, off-heap storage layouts (Panama MemorySegment), and standard utilities.
-*   **Memory (Cognitive Engine)**: The flagship hybrid retrieval and cognitive memory system combining dense vector, sparse (SPLADE/Li-LSR), keyword (BM25), 4-layer cognitive graph, and sleep consolidation pipelines.
+*   **Memory (Cognitive Engine)**: The flagship hybrid retrieval and cognitive memory system combining dense vector, sparse (SPLADE/Li-LSR), keyword (BM25), 3-layer cognitive graph, and sleep consolidation pipelines.
 *   **Synapse (Gateway & APIs)**: Spring Boot entry points, Armeria-based REST/gRPC gateways, and stdio/HTTP Model Context Protocol (MCP) servers.
 *   **Cortex (UI)**: Three.js and Angular-powered neural dashboard for real-time visualization of memory graphs, decay, and search metrics.
 
@@ -71,7 +95,7 @@ Spector Memory is a **biologically-inspired cognitive memory system** that gives
 | Capability | What makes it different |
 |:---|:---|
 | 🧠 **Cognitive memory tiers** | Working → Episodic → Semantic → Procedural, with decay, consolidation, and emotional valence — memory that behaves like memory, not a key-value store |
-| 🔗 **Associative memory graphs** | Hebbian co-activation, temporal chains, and entity links with spreading activation — recall surfaces what's *related*, not just what matches |
+| 🔗 **Associative memory graphs** | Hebbian co-activation, temporal chains, and event-episode hyperedges — recall surfaces what's *related*, not just what matches |
 | 🤖 **In-process MCP server** | Cognitive tools over stdio + Streamable HTTP — agents call memory directly, zero network hops |
 | ⚡ **Fused SIMD scoring** | Similarity × importance × decay in one pass — 0.13ms p50 recall at 1M memories |
 | 🔍 **Hybrid retrieval** | Dense + sparse + late-interaction reranking, fused with RRF, with graceful degradation |
