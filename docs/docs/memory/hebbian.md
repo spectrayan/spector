@@ -1,11 +1,11 @@
 ---
-title: "4-Layer Cognitive Graph"
-description: "HebbianGraphCsr, TemporalChain, EntityGraph, and HyperEntityGraph — four biologically-inspired graph structures that augment vector recall with associative, temporal, relational, and hyperedge signals."
+title: "3-Layer Cognitive Graph"
+description: "HebbianGraphMemory, TemporalChainMemory, and HyperEntityGraphMemory — three biologically-inspired graph structures that augment vector recall with associative, temporal, and hyperedge signals."
 ---
 
-# 🧠 4-Layer Cognitive Graph
+# 🧠 3-Layer Cognitive Graph
 
-> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), **semantic knowledge** (who manages what project?), and **n-body event groupings** (multi-entity episodes). Spector Memory implements all four as graph structures that augment vector recall.
+> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), and **n-body event groupings** (multi-entity episodes). Spector Memory implements all three as graph structures that augment vector recall, supported by a central EntityDirectory.
 
 ---
 
@@ -20,41 +20,34 @@ graph TB
     RP --> S5c["Step 5c: Hebbian<br/>Spreading Activation"]
     RP --> S5d["Step 5d: Temporal<br/>Chain Extension"]
     RP --> S5e["Step 5e: Entity<br/>Graph Traversal"]
-    RP --> S5f["Step 5f: Hyperedge<br/>Set Intersection"]
 
     S5c --> M["Merge & Dedup → Re-sort → Final Top-K"]
     S5d --> M
     S5e --> M
-    S5f --> M
 
     subgraph "Layer 1 — Hebbian Association"
-        HG["HebbianGraphCsr<br/>CSR co-activation edges"]
-        CAT["CoActivationTracker<br/>Tag-level STDP learning"]
+        HG["HebbianGraphMemory<br/>CSR co-activation edges"]
+        CAT["CoActivationRecordMemory<br/>Tag-level STDP learning"]
     end
 
-    subgraph "Layer 2 — Entity-Relationship"
-        EG["EntityGraph<br/>LLM-identified entities & relations"]
-        EX["EntityExtractor SPI<br/>LLM / NoOp / Custom"]
+    subgraph "Layer 2 — Temporal Causal"
+        TC["TemporalChainMemory<br/>Session-linked sequences"]
     end
 
-    subgraph "Layer 3 — Temporal Causal"
-        TC["TemporalChain<br/>Session-linked sequences"]
-    end
-
-    subgraph "Layer 4 — Hyperedge"
-        HEG["HyperEntityGraph<br/>n-body entity groupings"]
+    subgraph "Layer 3 — Hyperedge Event-Episode"
+        HEG["HyperEntityGraphMemory<br/>n-body entity groupings"]
+        ED["EntityDirectory<br/>Identity companion registry"]
     end
 
     S5c --> HG
     S5c --> CAT
     S5d --> TC
-    S5e --> EG
-    S5f --> HEG
+    S5e --> ED
+    S5e --> HEG
 
     style RP fill:#4a90d9,color:white
     style M fill:#00b894,color:white
     style HG fill:#e74c3c,color:white
-    style EG fill:#9b59b6,color:white
     style TC fill:#f39c12,color:white
     style HEG fill:#e91e63,color:white
 ```
@@ -248,12 +241,12 @@ All graph components persist alongside memory data in DISK mode:
 
 | Component | File | Format |
 |---|---|---|
-| HebbianGraphCsr | `hebbian.graph` | CSR V3 ("HCSR" magic) — offset segment + edge segment. Auto-migrates legacy V2 files. |
-| CoActivationTracker | `coactivation.dat` | Pair table + edge table + hash→tag map |
-| EntityGraph | `entity.graph` | Entity segment + edge segment + adjacency segment + name index ("EGMM" magic, V2) |
-| HyperEntityGraph | `hyper-entity.graph` | Hyperedge segment + vertex segment + incidence index + incidence list ("HYEG" magic) |
-| TemporalChain | `temporal.chain` | Raw linked-list segment ("TPCH" magic, V2) |
-| TypeRegistry | `entity-types.reg` / `relation-types.reg` | Type name ↔ ID mappings |
+| HebbianGraphMemory | `hebbian.graph` | CSR V3 ("HCSR" magic) — offset segment + edge segment. Auto-migrates legacy V2 files. |
+| CoActivationRecordMemory | `coactivation.dat` | Pair table + edge table + hash→tag map |
+| EntityDirectory | `entity-directory.graph` | Entity node segment + memory link adjacency segment + name index ("EDIR" magic) |
+| HyperEntityGraphMemory | `hyper-entity.graph` | Hyperedge segment + vertex segment + incidence index + incidence list ("HYEG" magic) |
+| TemporalChainMemory | `temporal.chain` | Raw linked-list segment ("TPCH" magic, V2) |
+| TypeRegistryMemory | `entity-types.reg` / `relation-types.reg` | Type name ↔ ID mappings |
 
 ---
 
@@ -263,10 +256,10 @@ All graph components persist alongside memory data in DISK mode:
 |---|---|---|---|
 | Hebbian CSR (L1) | 4B offset + 12B × avg degree (~2) | ~2.8 MB | ~28 MB |
 | CoActivation | ~1MB total | ~1 MB | ~1 MB |
-| Entity (L2) | 64B node + 16B × edges + 8B × adj | ~10 MB | ~100 MB |
-| HyperEntity | 32B hyperedge + 8B × vertices + 4B incidence | ~5 MB | ~50 MB |
-| Temporal (L3) | 16B | 1.6 MB | 16 MB |
-| **Total** | | **~20 MB** | **~195 MB** |
+| Entity Directory | 64B node + 8B × adj | ~7.2 MB | ~72 MB |
+| HyperEntity (L3) | 32B hyperedge + 8B × vertices + 4B incidence | ~5 MB | ~50 MB |
+| Temporal (L2) | 16B | 1.6 MB | 16 MB |
+| **Total** | | **~17.6 MB** | **~167 MB** |
 
 !!! tip "CSR Memory Savings"
     The CSR (Compressed Sparse Row) Hebbian layout stores only actual edges rather than pre-allocating MAX_DEGREE slots per node. At observed average degree ~2.0, this reduces Hebbian memory by ~90% compared to the legacy fixed-width layout (292B/node → ~28B/node).
@@ -283,9 +276,8 @@ Traditional vector search treats each query independently. The 4-layer graph cre
     1. Agent queries "why is the app slow?"
     2. **Vector search** → finds memory about "application latency"
     3. **Hebbian (Layer 1)** → that memory was co-ingested with "connection pool settings" → adds it to results
-    5. **Entity (Layer 2)** → "connection pool" mentions entity "DatabaseService" → traverses DEPENDS_ON edge → finds "Redis cache config" → adds it
-    4. **Temporal (Layer 3)** → follows the chain: connection pool → timeout config → retry backoff → adds all three
-    6. **Event-Episode (Layer 4)** → set-intersects {Alice, Project Alpha, DatabaseService} → recalls Alice's recent DB migration event → adds it
+    4. **Temporal (Layer 2)** → follows the chain: connection pool → timeout config → retry backoff → adds all three
+    5. **Hyperedge Event-Episode (Layer 3)** → looks up entity "DatabaseService" in the `EntityDirectory` and set-intersects its incidence list in the `HyperEntityGraph` → recalls a hyperedge connecting {Alice, Project Alpha, DatabaseService} representing Alice's recent DB migration event → adds it
 
     The final result set contains memories that no single retrieval signal could have found alone.
 
@@ -295,7 +287,7 @@ Traditional vector search treats each query independently. The 4-layer graph cre
 
 > *Collapsing pairwise relationships into n-body groupings.*
 
-The `HyperEntityGraph` extends the binary Entity Graph by grouping related entities into **hyperedges** — single graph atoms that connect 3-8 entities with typed roles.
+The `HyperEntityGraph` replaces the traditional binary Entity Graph model by grouping related entities into **hyperedges** — single graph atoms that connect 3-8 entities with typed roles.
 
 ```mermaid
 graph TD
@@ -347,9 +339,9 @@ Incidence List Entry (4B):
   [hyperedgeId]
 ```
 
-### How It Complements the Binary Entity Graph
+### Graduation as the Primary Graph Structure
 
-The `HyperEntityGraph` works alongside the traditional `EntityGraph`, not as a replacement. Binary edges remain useful for simple pairwise relations, while hyperedges capture **irreducible multi-entity events** — preserving the semantic unity that binary decomposition loses.
+The `HyperEntityGraph` has graduated to be the sole primary graph structure for entity and event representation, completely replacing the legacy binary `EntityGraph` (excised in P4 graduation #456). Rather than decomposing events into multiple binary relationships, all entities and their roles in a memory are grouped directly into hyperedges. This provides a 40-60% reduction in graph atoms and eliminates semantic loss from binary decomposition. Identity mapping (name-to-ID conversion) and fan-factor attenuation are handled by a dedicated `EntityDirectory` companion.
 
 ---
 
