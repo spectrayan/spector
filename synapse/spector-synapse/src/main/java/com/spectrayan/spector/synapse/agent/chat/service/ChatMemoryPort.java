@@ -70,6 +70,12 @@ public interface ChatMemoryPort {
             String text,
             String memoryType,
             String ageDescription,
-            float score
-    ) {}
+            float score,
+            float salienceScore,
+            List<String> tags
+    ) {
+        public PrimedMemory(String text, String memoryType, String ageDescription, float score) {
+            this(text, memoryType, ageDescription, score, score, List.of());
+        }
+    }
 }

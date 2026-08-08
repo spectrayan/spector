@@ -151,15 +151,18 @@ public class SpectorMemoryChatAdapter implements ChatMemoryPort {
             var results = memoryService.recall(new RecallRequest(query, limit, null));
 
             return results.stream()
-                    // Exclude memories from the current session
+                    // Exclude memories from the current session and raw turn noise
                     .filter(r -> excludeSessionId == null
                             || r.tags() == null
                             || !r.tags().contains("session:" + excludeSessionId))
+                    .filter(r -> r.tags() == null || !r.tags().contains("type:turn"))
                     .map(r -> new PrimedMemory(
                             r.text(),
                             r.memoryType(),
                             r.ageDescription(),
-                            (float) r.cognitiveScore()
+                            (float) r.cognitiveScore(),
+                            (float) r.cognitiveScore(),
+                            r.tags() != null ? r.tags() : List.of()
                     ))
                     .toList();
         } catch (Exception e) {

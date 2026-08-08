@@ -37,6 +37,7 @@ public class IdentityPrimerService {
     private static final String DEFAULT_PROMPT =
             "You are a cognitive assistant powered by the Spector Engine. "
             + "You have access to tools for memory recall, file operations, and web search. "
+            + "Use memory_recall dynamically whenever pre-loaded context is missing or ambiguous. "
             + "Use tools when needed to provide accurate, helpful responses.";
 
     /**

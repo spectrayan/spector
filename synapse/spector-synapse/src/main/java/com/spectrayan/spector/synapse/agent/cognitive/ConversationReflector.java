@@ -200,18 +200,77 @@ public final class ConversationReflector {
 
     // ── Extraction ───────────────────────────────────────────────────
 
+    @SuppressWarnings("unchecked")
     private static List<Map<String, String>> extractFacts(String text) {
+        if (text != null && text.contains("{") && text.contains("}")) {
+            try {
+                String jsonStr = extractJsonSubstring(text);
+                Map<String, Object> root = MAPPER.readValue(jsonStr, Map.class);
+                if (root.containsKey("facts") && root.get("facts") instanceof List<?> list) {
+                    List<Map<String, String>> facts = new ArrayList<>();
+                    for (Object item : list) {
+                        if (item instanceof Map<?, ?> rawMap) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> map = (Map<String, Object>) rawMap;
+                            Object fieldObj = map.get("field");
+                            Object valObj = map.get("value");
+                            Object actObj = map.get("action");
+                            String field = fieldObj != null ? String.valueOf(fieldObj) : "";
+                            String value = valObj != null ? String.valueOf(valObj) : "";
+                            String action = actObj != null ? String.valueOf(actObj) : "add";
+                            if (!field.isBlank() && !value.isBlank()) {
+                                facts.add(Map.of("field", field, "value", value, "action", action));
+                            }
+                        }
+                    }
+                    if (!facts.isEmpty()) return facts;
+                }
+            } catch (Exception e) {
+                log.debug("[Reflector] JSON facts parsing fallback to regex: {}", e.getMessage());
+            }
+        }
+
         List<Map<String, String>> facts = new ArrayList<>();
-        Matcher m = FACT_PATTERN.matcher(text);
+        Matcher m = FACT_PATTERN.matcher(text != null ? text : "");
         while (m.find()) {
             facts.add(Map.of("field", m.group(1), "value", m.group(2).trim(), "action", m.group(3)));
         }
         return facts;
     }
 
+    @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> extractKnowledge(String text) {
+        if (text != null && text.contains("{") && text.contains("}")) {
+            try {
+                String jsonStr = extractJsonSubstring(text);
+                Map<String, Object> root = MAPPER.readValue(jsonStr, Map.class);
+                if (root.containsKey("knowledge") && root.get("knowledge") instanceof List<?> list) {
+                    List<Map<String, Object>> knowledge = new ArrayList<>();
+                    for (Object item : list) {
+                        if (item instanceof Map<?, ?> rawMap) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> map = (Map<String, Object>) rawMap;
+                            Object textObj = map.get("text");
+                            Object impObj = map.get("importance");
+                            String itemText = textObj != null ? String.valueOf(textObj) : "";
+                            String impStr = impObj != null ? String.valueOf(impObj) : "5";
+                            if (!itemText.isBlank()) {
+                                var kMap = new HashMap<String, Object>();
+                                kMap.put("text", itemText);
+                                kMap.put("importance", impStr);
+                                knowledge.add(kMap);
+                            }
+                        }
+                    }
+                    if (!knowledge.isEmpty()) return knowledge;
+                }
+            } catch (Exception e) {
+                log.debug("[Reflector] JSON knowledge parsing fallback to regex: {}", e.getMessage());
+            }
+        }
+
         List<Map<String, Object>> knowledge = new ArrayList<>();
-        Matcher m = KNOWLEDGE_PATTERN.matcher(text);
+        Matcher m = KNOWLEDGE_PATTERN.matcher(text != null ? text : "");
         while (m.find()) {
             var item = new HashMap<String, Object>();
             item.put("text", m.group(1).trim());
@@ -219,6 +278,15 @@ public final class ConversationReflector {
             knowledge.add(item);
         }
         return knowledge;
+    }
+
+    private static String extractJsonSubstring(String text) {
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return text.substring(start, end + 1);
+        }
+        return text;
     }
 
     // ── Formatting ───────────────────────────────────────────────────
