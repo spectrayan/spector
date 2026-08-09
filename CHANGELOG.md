@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Refactored — Virtual Thread Locking & Exception Governance (#485)
+- **spector-memory:** Refactored `IndexRecordMemory` and `AbstractRegistryMemory` from `synchronized` monitor blocks to `ReentrantLock` (enforcing ADR-005 virtual thread concurrency safety)
+- **spector-gpu:** Refactored `GpuCapability` detection lock from `synchronized (GpuCapability.class)` to `ReentrantLock`
+- **spector-synapse:** Refactored `SqlQueryTool` schema caching from `synchronized (this)` to `ReentrantLock`
+- **spector-mcp:** Hardened `MemoryRememberTool` with diagnostic warning logs on metadata parsing / importance estimation fallbacks; wrapped raw `RuntimeException` rethrows in `McpToolHandler` with domain `SpectorInternalException`
+
 ### Changed — Enterprise Extraction
 - **spector-cortex:** Migrated to [spector-enterprise](https://github.com/spectrayan/spector-enterprise) — the `spector-cortex/` directory has been removed from this repository
 - **spector-node:** Core engine remains headless/embeddable — enterprise edition wraps it with management APIs, connectors, LLM providers, and the Cortex UI on a single Armeria port
