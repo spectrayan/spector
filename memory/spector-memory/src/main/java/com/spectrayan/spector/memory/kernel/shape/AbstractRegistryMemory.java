@@ -22,6 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Locale;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 import com.spectrayan.spector.memory.kernel.AbstractMemory;
 import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.layout.RegistryLayout;
@@ -32,6 +34,7 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
  */
 public abstract class AbstractRegistryMemory extends AbstractMemory<RegistryLayout> implements RegistryMemory {
 
+    private final ReentrantLock lock = new ReentrantLock();
     private final ConcurrentHashMap<String, Integer> nameToId = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, String> idToName = new ConcurrentHashMap<>();
     private final AtomicInteger nextId = new AtomicInteger(0);
@@ -67,109 +70,124 @@ public abstract class AbstractRegistryMemory extends AbstractMemory<RegistryLayo
         return MemoryShape.REGISTRY;
     }
 
-    private synchronized void initializeFromSegment() {
-        nameToId.clear();
-        idToName.clear();
-        writeOffset = 0;
-        int entryCount = count; // count field in header tracks the number of entries
-        
-        long base = dataOffset();
-        int maxId = -1;
-        
-        for (int i = 0; i < entryCount; i++) {
-            if (base + writeOffset + 6 > segment().byteSize()) {
-                break; // Corrupted file bounds check
+    private void initializeFromSegment() {
+        lock.lock();
+        try {
+            nameToId.clear();
+            idToName.clear();
+            writeOffset = 0;
+            int entryCount = count; // count field in header tracks the number of entries
+            
+            long base = dataOffset();
+            int maxId = -1;
+            
+            for (int i = 0; i < entryCount; i++) {
+                if (base + writeOffset + 6 > segment().byteSize()) {
+                    break; // Corrupted file bounds check
+                }
+                int nameLen = Short.toUnsignedInt(segment().get(ValueLayout.JAVA_SHORT_UNALIGNED, base + writeOffset));
+                if (base + writeOffset + 2 + nameLen + 4 > segment().byteSize()) {
+                    break; // Corrupted file bounds check
+                }
+                
+                // Read name
+                byte[] nameBytes = new byte[nameLen];
+                MemorySegment.copy(segment(), ValueLayout.JAVA_BYTE, base + writeOffset + 2, nameBytes, 0, nameLen);
+                String name = new String(nameBytes, StandardCharsets.UTF_8);
+                
+                // Read ID
+                int id = segment().get(ValueLayout.JAVA_INT_UNALIGNED, base + writeOffset + 2 + nameLen);
+                
+                nameToId.put(name, id);
+                idToName.put(id, name);
+                maxId = Math.max(maxId, id);
+                
+                writeOffset += 2 + nameLen + 4;
             }
-            int nameLen = Short.toUnsignedInt(segment().get(ValueLayout.JAVA_SHORT_UNALIGNED, base + writeOffset));
-            if (base + writeOffset + 2 + nameLen + 4 > segment().byteSize()) {
-                break; // Corrupted file bounds check
-            }
             
-            // Read name
-            byte[] nameBytes = new byte[nameLen];
-            MemorySegment.copy(segment(), ValueLayout.JAVA_BYTE, base + writeOffset + 2, nameBytes, 0, nameLen);
-            String name = new String(nameBytes, StandardCharsets.UTF_8);
-            
-            // Read ID
-            int id = segment().get(ValueLayout.JAVA_INT_UNALIGNED, base + writeOffset + 2 + nameLen);
-            
-            nameToId.put(name, id);
-            idToName.put(id, name);
-            maxId = Math.max(maxId, id);
-            
-            writeOffset += 2 + nameLen + 4;
+            nextId.set(maxId + 1);
+        } finally {
+            lock.unlock();
         }
-        
-        nextId.set(maxId + 1);
     }
 
     @Override
-    public synchronized int intern(String name) {
-        if (name == null || name.isBlank()) {
-            return intern("OTHER");
+    public int intern(String name) {
+        lock.lock();
+        try {
+            if (name == null || name.isBlank()) {
+                return intern("OTHER");
+            }
+            String normalized = name.trim().toUpperCase(Locale.ROOT);
+            Integer existing = nameToId.get(normalized);
+            if (existing != null) {
+                return existing;
+            }
+
+            int newId = nextId.getAndIncrement();
+            byte[] nameBytes = normalized.getBytes(StandardCharsets.UTF_8);
+            int nameLen = nameBytes.length;
+
+            // Verify segment bounds
+            long base = dataOffset();
+            if (base + writeOffset + 2 + nameLen + 4 > segment().byteSize()) {
+                throw new IndexOutOfBoundsException("Registry memory segment is full: " + id());
+            }
+
+            if (wal != null && !bypassWal) {
+                wal.appendRegistryIntern(id.toString(), newId, normalized);
+            }
+
+            // Write name length
+            segment().set(ValueLayout.JAVA_SHORT_UNALIGNED, base + writeOffset, (short) nameLen);
+            // Write name bytes
+            MemorySegment.copy(MemorySegment.ofArray(nameBytes), 0, segment(), base + writeOffset + 2, nameLen);
+            // Write ID
+            segment().set(ValueLayout.JAVA_INT_UNALIGNED, base + writeOffset + 2 + nameLen, newId);
+
+            // Update counts
+            writeOffset += 2 + nameLen + 4;
+            count++;
+            persistCount();
+
+            nameToId.put(normalized, newId);
+            idToName.put(newId, normalized);
+
+            return newId;
+        } finally {
+            lock.unlock();
         }
-        String normalized = name.trim().toUpperCase(Locale.ROOT);
-        Integer existing = nameToId.get(normalized);
-        if (existing != null) {
-            return existing;
-        }
-
-        int newId = nextId.getAndIncrement();
-        byte[] nameBytes = normalized.getBytes(StandardCharsets.UTF_8);
-        int nameLen = nameBytes.length;
-
-        // Verify segment bounds
-        long base = dataOffset();
-        if (base + writeOffset + 2 + nameLen + 4 > segment().byteSize()) {
-            throw new IndexOutOfBoundsException("Registry memory segment is full: " + id());
-        }
-
-        if (wal != null && !bypassWal) {
-            wal.appendRegistryIntern(id.toString(), newId, normalized);
-        }
-
-        // Write name length
-        segment().set(ValueLayout.JAVA_SHORT_UNALIGNED, base + writeOffset, (short) nameLen);
-        // Write name bytes
-        MemorySegment.copy(MemorySegment.ofArray(nameBytes), 0, segment(), base + writeOffset + 2, nameLen);
-        // Write ID
-        segment().set(ValueLayout.JAVA_INT_UNALIGNED, base + writeOffset + 2 + nameLen, newId);
-
-        // Update counts
-        writeOffset += 2 + nameLen + 4;
-        count++;
-        persistCount();
-
-        nameToId.put(normalized, newId);
-        idToName.put(newId, normalized);
-
-        return newId;
     }
 
     /**
      * Directly inserts a name-to-ID mapping without allocating a new ID.
      * Used for loading/migration.
      */
-    public synchronized void putDirect(String name, int id) {
-        String normalized = name.trim().toUpperCase(Locale.ROOT);
-        nameToId.put(normalized, id);
-        idToName.put(id, normalized);
-        
-        int maxId = nextId.get();
-        if (id >= maxId) {
-            nextId.set(id + 1);
-        }
-        
-        byte[] nameBytes = normalized.getBytes(StandardCharsets.UTF_8);
-        int nameLen = nameBytes.length;
-        long base = dataOffset();
-        if (base + writeOffset + 2 + nameLen + 4 <= segment().byteSize()) {
-            segment().set(ValueLayout.JAVA_SHORT_UNALIGNED, base + writeOffset, (short) nameLen);
-            MemorySegment.copy(MemorySegment.ofArray(nameBytes), 0, segment(), base + writeOffset + 2, nameLen);
-            segment().set(ValueLayout.JAVA_INT_UNALIGNED, base + writeOffset + 2 + nameLen, id);
-            writeOffset += 2 + nameLen + 4;
-            count++;
-            persistCount();
+    public void putDirect(String name, int id) {
+        lock.lock();
+        try {
+            String normalized = name.trim().toUpperCase(Locale.ROOT);
+            nameToId.put(normalized, id);
+            idToName.put(id, normalized);
+            
+            int maxId = nextId.get();
+            if (id >= maxId) {
+                nextId.set(id + 1);
+            }
+            
+            byte[] nameBytes = normalized.getBytes(StandardCharsets.UTF_8);
+            int nameLen = nameBytes.length;
+            long base = dataOffset();
+            if (base + writeOffset + 2 + nameLen + 4 <= segment().byteSize()) {
+                segment().set(ValueLayout.JAVA_SHORT_UNALIGNED, base + writeOffset, (short) nameLen);
+                MemorySegment.copy(MemorySegment.ofArray(nameBytes), 0, segment(), base + writeOffset + 2, nameLen);
+                segment().set(ValueLayout.JAVA_INT_UNALIGNED, base + writeOffset + 2 + nameLen, id);
+                writeOffset += 2 + nameLen + 4;
+                count++;
+                persistCount();
+            }
+        } finally {
+            lock.unlock();
         }
     }
 

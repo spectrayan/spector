@@ -96,6 +96,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     private final ConcurrentHashMap<String, java.util.Set<String>> tagToIds = new ConcurrentHashMap<>();
 
     // ── Insertion-order tracking ──
+    private final java.util.concurrent.locks.ReentrantLock orderedIdsLock = new java.util.concurrent.locks.ReentrantLock();
     private final java.util.LinkedHashSet<String> orderedIds = new java.util.LinkedHashSet<>();
 
     /**
@@ -196,8 +197,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
         reverseIndex.put(reverseKey(location.colocatedPartition(), location.type(), location.offset()), id);
 
-        synchronized (orderedIds) {
+        orderedIdsLock.lock();
+        try {
             orderedIds.add(id);
+        } finally {
+            orderedIdsLock.unlock();
         }
 
         if (tagArray != null) {
@@ -212,8 +216,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     public void remove(String id) {
         MemoryLocation loc = locations.remove(id);
         texts.remove(id);
-        synchronized (orderedIds) {
+        orderedIdsLock.lock();
+        try {
             orderedIds.remove(id);
+        } finally {
+            orderedIdsLock.unlock();
         }
         sources.remove(id);
         String[] removedTags = tags.remove(id);
@@ -394,8 +401,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     }
 
     public java.util.List<String> orderedIds() {
-        synchronized (orderedIds) {
+        orderedIdsLock.lock();
+        try {
             return new java.util.ArrayList<>(orderedIds);
+        } finally {
+            orderedIdsLock.unlock();
         }
     }
 
@@ -405,13 +415,16 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
     public void buildGraphSlotMappings(java.util.Map<Integer, String> slotToId,
                                         java.util.Map<String, Integer> idToSlot) {
-        synchronized (orderedIds) {
+        orderedIdsLock.lock();
+        try {
             int i = 0;
             for (String id : orderedIds) {
                 slotToId.put(i, id);
                 idToSlot.put(id, i);
                 i++;
             }
+        } finally {
+            orderedIdsLock.unlock();
         }
     }
 
@@ -481,8 +494,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     idx.tags.putAll(legacy.tags);
                     idx.metadataMap.putAll(legacy.metadataMap);
                     idx.reverseIndex.putAll(legacy.reverseIndex);
-                    synchronized (idx.orderedIds) {
+                    idx.orderedIdsLock.lock();
+                    try {
                         idx.orderedIds.addAll(legacy.orderedIds);
+                    } finally {
+                        idx.orderedIdsLock.unlock();
                     }
                     idx.save(legacyMidx); // will write directly into bundle segments
                     try {
