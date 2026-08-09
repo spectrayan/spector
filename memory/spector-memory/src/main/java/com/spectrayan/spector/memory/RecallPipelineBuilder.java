@@ -39,11 +39,11 @@ import org.slf4j.LoggerFactory;
  *
  * @since 1.1.0
  */
-final class RecallPipelineBuilder {
+public final class RecallPipelineBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(RecallPipelineBuilder.class);
 
-    private RecallPipelineBuilder() {}
+    public RecallPipelineBuilder() {}
 
     static RecallPipeline build(
             SpectorMemoryBuilder builder,

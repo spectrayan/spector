@@ -188,6 +188,13 @@ public final class RecallPipeline {
     private final ConcurrentHashMap<String, Long> satiationCache = new ConcurrentHashMap<>(16);
 
     /**
+     * Creates a new fluent builder for assembling a {@link RecallPipeline}.
+     */
+    public static com.spectrayan.spector.memory.RecallPipelineBuilder builder() {
+        return new com.spectrayan.spector.memory.RecallPipelineBuilder();
+    }
+
+    /**
      * Creates a recall pipeline with all required subsystems.
      */
     public RecallPipeline(EmbeddingProvider embeddingProvider,
