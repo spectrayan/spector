@@ -21,6 +21,8 @@ import com.spectrayan.spector.memory.model.RecallTrace;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
+import com.spectrayan.spector.memory.pipeline.scan.ParallelScanEmitter;
+import com.spectrayan.spector.memory.pipeline.scan.SequentialScanEmitter;
 import com.spectrayan.spector.memory.pipeline.scan.ScanContext;
 import com.spectrayan.spector.memory.pipeline.scan.ScanEmitter;
 import com.spectrayan.spector.memory.pipeline.scan.TierScanStrategy;
@@ -392,20 +394,18 @@ public final class RecallPipeline {
 
     /** Seeds due prospective reminders as top-priority working results. */
     private void seedProspectiveReminders(List<CognitiveResult> allResults) {
-        List<Reminder> dueReminders = prospectiveScheduler.collectDue();
-        for (Reminder r : dueReminders) {
-            allResults.add(new CognitiveResult(
-                    r.id(), r.text(), 10.0f, 10.0f, 0f,
-                    (short) 0, (byte) 0, MemoryType.WORKING, MemorySource.PROCEDURAL,
-                    new String[]{"prospective"}, 1.0f, 1.0f));
-        }
+        salienceScorer.seedProspectiveReminders(allResults, prospectiveScheduler);
     }
 
     /**
-     * Runs the parallel tier scan (with sequential fallback), appending tier results
-     * to {@code allResults}. Returns {@code false} if the scan was interrupted and the
-     * caller should return the partial results immediately.
+     * Applies cognitive post-scoring in place: habituation + inhibition-of-return +
+     * semantic satiation penalties, then STDP causal boost.
      */
+    private void applyCognitiveScoring(List<CognitiveResult> allResults,
+                                       RecallOptions options, long nowMs) {
+        salienceScorer.applyCognitiveScoring(allResults, options, nowMs, coActivationTracker, graphScoringPolicy);
+    }
+
     private boolean runTierScan(List<CognitiveResult> allResults, float[] queryVector,
                                 RecallOptions options, long nowMs, MemoryType[] targetTypes) {
         List<Callable<List<CognitiveResult>>> scanTasks = buildScanTasks(
@@ -418,7 +418,6 @@ public final class RecallPipeline {
                 }
             } catch (ConcurrentExecutionException e) {
                 log.error("Parallel tier scan failed: {}", e.getMessage(), e);
-                // Fallback: sequential scan
                 allResults.addAll(sequentialScan(queryVector, options, nowMs, targetTypes));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -427,86 +426,6 @@ public final class RecallPipeline {
             }
         }
         return true;
-    }
-
-    /**
-     * Applies cognitive post-scoring in place: habituation + inhibition-of-return +
-     * semantic satiation penalties, then STDP causal boost. No-op in SIMILARITY mode
-     * (benchmarks measure pure retrieval quality — no cognitive modifications).
-     */
-    private void applyCognitiveScoring(List<CognitiveResult> allResults,
-                                       RecallOptions options, long nowMs) {
-        if (options.scoringMode() == ScoringMode.SIMILARITY) return;
-
-        // Habituation penalty + inhibition of return + semantic satiation
-        for (int i = 0; i < allResults.size(); i++) {
-            CognitiveResult r = allResults.get(i);
-            float habPenalty = (options.recallMode() == RecallMode.LEARN)
-                    ? habituationPenalty.recordAndComputePenalty(r.id())
-                    : habituationPenalty.currentPenalty(r.id());
-            float iorPenalty = habituationPenalty.computeInhibitionOfReturn(r.id(), nowMs);
-            float combinedPenalty = Math.min(habPenalty, iorPenalty); // stronger suppression wins
-
-            // Semantic Satiation: 0.5x penalty for results in the hot LRU cache
-            if (satiationCache.containsKey(r.id())) {
-                combinedPenalty *= SATIATION_PENALTY;
-            }
-
-            if (combinedPenalty < 1.0f) {
-                float newScore = r.score() * combinedPenalty;
-                // Carry breakdown with actual habituation penalty recorded
-                ScoreBreakdown bd = r.breakdown() != null
-                        ? new ScoreBreakdown(
-                                r.breakdown().similarity(),
-                                r.breakdown().importanceDecay(),
-                                r.breakdown().tagBoostFactor(),
-                                combinedPenalty,
-                                r.breakdown().graphBoost(),
-                                r.breakdown().valenceAlignment(),
-                                newScore)
-                        : null;
-                allResults.set(i, new CognitiveResult(
-                        r.id(), r.text(), newScore, r.importance(), r.ageDays(),
-                        r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                        r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                        r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
-            }
-        }
-
-        // STDP causal boost — cross-boost results whose tags are causally linked.
-        // For each result, check if earlier results' tags predict its tags (via STDP
-        // edges). This promotes memories that form causal chains.
-        if (coActivationTracker != null && allResults.size() >= 2) {
-            // Use tags from the first few results as "context tags" to boost subsequent
-            // results (imperative loop — avoids Stream API allocation overhead in hot path)
-            Set<String> contextTagSet = new HashSet<>();
-            int contextLimit = Math.min(3, allResults.size());
-            for (int cl = 0; cl < contextLimit; cl++) {
-                String[] ctxTags = allResults.get(cl).synapticTags();
-                if (ctxTags != null) {
-                    for (String t : ctxTags) contextTagSet.add(t);
-                }
-            }
-
-            if (!contextTagSet.isEmpty()) {
-                List<String> contextTags = new ArrayList<>(contextTagSet);
-                for (int i = 0; i < allResults.size(); i++) {
-                    CognitiveResult r = allResults.get(i);
-                    if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
-
-                    float predictive = coActivationTracker.getPredictiveStrength(
-                            contextTags, r.synapticTags());
-                    if (predictive > 0) {
-                        float boostedScore = r.score() * (1.0f + predictive * graphScoringPolicy.causalBoostWeight());
-                        allResults.set(i, new CognitiveResult(
-                                r.id(), r.text(), boostedScore, r.importance(), r.ageDays(),
-                                r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                                r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                                r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
-                    }
-                }
-            }
-        }
     }
 
     /**
@@ -896,127 +815,12 @@ public final class RecallPipeline {
     // ==============================================================
 
     /**
-     * Fuses BM25 text search candidates with existing vector recall results.
-     *
-     * <p>Three cases:</p>
-     * <ol>
-     *   <li><b>Both paths</b>: vector result gets a Î³ ·bm25Score additive boost</li>
-     *   <li><b>BM25-only</b>: creates a new CognitiveResult with score = Î³ ·bm25Score</li>
-     *   <li><b>Vector-only</b>: unmodified (no BM25 boost)</li>
-     * </ol>
-     *
-     * @param vectorResults mutable list of existing vector recall results (modified in-place)
-     * @param bm25Hits      BM25 search candidates from all partitions
-     * @param options       recall options (for gamma weight)
-     * @param nowMs         current time for age calculation
+     * Fuses BM25 text search candidates with existing vector recall results using Reciprocal Rank Fusion.
      */
     private void fuseBM25Candidates(List<CognitiveResult> vectorResults,
                                      List<BM25Candidate> bm25Hits,
                                      RecallOptions options, long nowMs) {
-        //  Reciprocal Rank Fusion (RRF) 
-        // Industry-standard fusion: RRF_score(d) = sum 1/(k + rank(d))
-        // where k=60 prevents top-1 from dominating. Used by Elasticsearch,
-        // Weaviate, Qdrant. Much better than additive score fusion because
-        // it normalizes heterogeneous score distributions.
-        final int RRF_K = 60;
-
-        // Build rank maps: id  ->  rank (1-based)
-        Map<String, Integer> vectorRanks = new java.util.LinkedHashMap<>();
-        for (int i = 0; i < vectorResults.size(); i++) {
-            String id = vectorResults.get(i).id();
-            if (id != null && !vectorRanks.containsKey(id)) {
-                vectorRanks.put(id, i + 1); // 1-based rank
-            }
-        }
-
-        Map<String, Integer> bm25Ranks = new java.util.LinkedHashMap<>();
-        for (int i = 0; i < bm25Hits.size(); i++) {
-            String id = bm25Hits.get(i).id();
-            if (id != null && !bm25Ranks.containsKey(id)) {
-                bm25Ranks.put(id, i + 1);
-            }
-        }
-
-        // Collect all unique IDs
-        java.util.Set<String> allIds = new java.util.LinkedHashSet<>();
-        allIds.addAll(vectorRanks.keySet());
-        allIds.addAll(bm25Ranks.keySet());
-
-        // Compute RRF score for each ID
-        Map<String, Float> rrfScores = new java.util.HashMap<>();
-        for (String id : allIds) {
-            float score = 0f;
-            Integer vr = vectorRanks.get(id);
-            Integer br = bm25Ranks.get(id);
-            if (vr != null) score += 1.0f / (RRF_K + vr);
-            if (br != null) score += 1.0f / (RRF_K + br);
-            rrfScores.put(id, score);
-        }
-
-        // Index existing vector results by ID for metadata lookup
-        Map<String, CognitiveResult> existingById = new java.util.LinkedHashMap<>();
-        for (CognitiveResult r : vectorResults) {
-            if (r.id() != null && !existingById.containsKey(r.id())) {
-                existingById.put(r.id(), r);
-            }
-        }
-
-        // Rebuild result list with RRF scores
-        vectorResults.clear();
-        for (String id : allIds) {
-            float rrfScore = rrfScores.get(id);
-            CognitiveResult existing = existingById.get(id);
-
-            if (existing != null) {
-                // Re-score existing result with RRF
-                vectorResults.add(new CognitiveResult(
-                        existing.id(), existing.text(), rrfScore, existing.importance(),
-                        existing.ageDays(), existing.agentRecallCount(), existing.valence(),
-                        existing.memoryType(), existing.source(), existing.synapticTags(),
-                        existing.decayFactor(), existing.ltpAdjustedDecay(),
-                        existing.retrievalMode(), existing.breakdown(), existing.trace(),
-                        existing.sourceModality(), existing.metadata()));
-            } else {
-                // BM25-only result  --  create from index metadata
-                if (!options.includeContradictions()) {
-                    MemoryIndex.MemoryLocation loc = index.locate(id);
-                    if (loc != null) {
-                        CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
-                        MemorySegment segment = router.segmentFor(loc.type());
-                        if (segment != null) {
-                            CognitiveRecordLayout layout = router.layoutFor(loc.type());
-                            byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
-                            if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
-                        }
-                    }
-                }
-
-                String text = index.text(id);
-                if (text == null || text.isEmpty()) continue;
-
-
-                MemorySource source = index.source(id);
-                String[] tags = index.tags(id);
-                MemoryIndex.MemoryLocation loc = index.locate(id);
-                MemoryType type = loc != null ? loc.type() : MemoryType.SEMANTIC;
-
-                java.util.Map<String, String> bm25Meta = index.metadata(id);
-                SourceModality bm25Modality = bm25Meta != null
-                        ? SourceModality.fromName(bm25Meta.get(SourceModality.METADATA_KEY))
-                        : SourceModality.TEXT;
-                vectorResults.add(new CognitiveResult(
-                        id, text, rrfScore, 0f, 0f,
-                        (short) 0, (byte) 0, type, source,
-                        tags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
-                        bm25Modality, bm25Meta));
-            }
-        }
-
-        // Sort by RRF score descending
-        vectorResults.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed());
-
-        log.debug("RRF fused {} vector + {} BM25 candidates  ->  {} unique results",
-                vectorRanks.size(), bm25Ranks.size(), vectorResults.size());
+        candidateGatherer.fuseBM25Candidates(vectorResults, bm25Hits, options, partitionRegistry);
     }
 
     // ==============================================================
@@ -1026,7 +830,7 @@ public final class RecallPipeline {
     private List<Callable<List<CognitiveResult>>> buildScanTasks(
             float[] queryVector, RecallOptions options, long nowMs, MemoryType[] targetTypes) {
         List<Callable<List<CognitiveResult>>> tasks = new ArrayList<>();
-        scan(new ParallelScanEmitter(tasks, queryVector, options, nowMs), targetTypes);
+        scan(new ParallelScanEmitter(tasks, queryVector, options, nowMs, this::scoreStoreToList, semanticRecallStrategy), targetTypes);
         return tasks;
     }
 
@@ -1066,72 +870,6 @@ public final class RecallPipeline {
 
 
 
-    /** Parallel emitter — each scan becomes an {@code madvise}-wrapped {@link Callable}. */
-    private final class ParallelScanEmitter implements ScanEmitter {
-        private final List<Callable<List<CognitiveResult>>> tasks;
-        private final float[] queryVector;
-        private final RecallOptions options;
-        private final long nowMs;
-
-        ParallelScanEmitter(List<Callable<List<CognitiveResult>>> tasks,
-                            float[] queryVector, RecallOptions options, long nowMs) {
-            this.tasks = tasks;
-            this.queryVector = queryVector;
-            this.options = options;
-            this.nowMs = nowMs;
-        }
-
-        @Override
-        public void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
-                                 CognitiveRecordLayout layout, MemoryType type,
-                                 long baseOffset, int partitionSeq) {
-            tasks.add(() -> {
-                MemorySegment seg = segment.get();
-                NativeOsMemory.advise(seg, NativeOsMemory.MADV_SEQUENTIAL);
-                try {
-                    return scoreStoreToList(seg, visibleCount.getAsInt(), layout,
-                            queryVector, options, nowMs, type, baseOffset, partitionSeq);
-                } finally {
-                    NativeOsMemory.advise(seg, NativeOsMemory.MADV_NORMAL);
-                }
-            });
-        }
-
-        @Override
-        public void emitSemanticHnsw() {
-            tasks.add(() -> semanticRecallStrategy.recall(queryVector, options, nowMs));
-        }
-    }
-
-    /** Sequential emitter — each scan runs immediately (no {@code madvise}), matching the fallback path. */
-    private final class SequentialScanEmitter implements ScanEmitter {
-        private final List<CognitiveResult> results;
-        private final float[] queryVector;
-        private final RecallOptions options;
-        private final long nowMs;
-
-        SequentialScanEmitter(List<CognitiveResult> results,
-                              float[] queryVector, RecallOptions options, long nowMs) {
-            this.results = results;
-            this.queryVector = queryVector;
-            this.options = options;
-            this.nowMs = nowMs;
-        }
-
-        @Override
-        public void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
-                                 CognitiveRecordLayout layout, MemoryType type,
-                                 long baseOffset, int partitionSeq) {
-            results.addAll(scoreStoreToList(segment.get(), visibleCount.getAsInt(), layout,
-                    queryVector, options, nowMs, type, baseOffset, partitionSeq));
-        }
-
-        @Override
-        public void emitSemanticHnsw() {
-            results.addAll(semanticRecallStrategy.recall(queryVector, options, nowMs));
-        }
-    }
-
     /** Global (working) tier strategy — invoked once per scan. */
     private static final TierScanStrategy WORKING_SCAN = new TierScanStrategy.WorkingTierScanStrategy();
 
@@ -1147,7 +885,7 @@ public final class RecallPipeline {
     private List<CognitiveResult> sequentialScan(float[] queryVector, RecallOptions options,
                                                    long nowMs, MemoryType[] targetTypes) {
         List<CognitiveResult> results = new ArrayList<>();
-        scan(new SequentialScanEmitter(results, queryVector, options, nowMs), targetTypes);
+        scan(new SequentialScanEmitter(results, queryVector, options, nowMs, this::scoreStoreToList, semanticRecallStrategy), targetTypes);
         return results;
     }
 
