@@ -15,8 +15,8 @@
  */
 package com.spectrayan.spector.memory.pipeline.gatherer;
 
-import com.spectrayan.spector.index.KeywordIndex;
-import com.spectrayan.spector.index.VectorIndex;
+import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
+import com.spectrayan.spector.memory.index.MemoryIndex;
 
 /**
  * Handles candidate retrieval across vector (HNSW/SVASQ), sparse (SPLADE),
@@ -24,19 +24,19 @@ import com.spectrayan.spector.index.VectorIndex;
  */
 public class RecallCandidateGatherer {
 
-    private final VectorIndex vectorIndex;
-    private final KeywordIndex keywordIndex;
+    private final MemoryIndex index;
+    private final MemoryBM25Index bm25Index;
 
-    public RecallCandidateGatherer(VectorIndex vectorIndex, KeywordIndex keywordIndex) {
-        this.vectorIndex = vectorIndex;
-        this.keywordIndex = keywordIndex;
+    public RecallCandidateGatherer(MemoryIndex index, MemoryBM25Index bm25Index) {
+        this.index = index;
+        this.bm25Index = bm25Index;
     }
 
-    public VectorIndex vectorIndex() {
-        return vectorIndex;
+    public MemoryIndex index() {
+        return index;
     }
 
-    public KeywordIndex keywordIndex() {
-        return keywordIndex;
+    public MemoryBM25Index bm25Index() {
+        return bm25Index;
     }
 }

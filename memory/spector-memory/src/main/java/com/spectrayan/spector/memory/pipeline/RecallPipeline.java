@@ -21,6 +21,13 @@ import com.spectrayan.spector.memory.model.RecallTrace;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
+import com.spectrayan.spector.memory.pipeline.scan.ScanContext;
+import com.spectrayan.spector.memory.pipeline.scan.ScanEmitter;
+import com.spectrayan.spector.memory.pipeline.scan.TierScanStrategy;
+import com.spectrayan.spector.memory.pipeline.gatherer.RecallCandidateGatherer;
+import com.spectrayan.spector.memory.pipeline.reranker.CognitiveReranker;
+import com.spectrayan.spector.memory.pipeline.graph.GraphExpander;
+import com.spectrayan.spector.memory.pipeline.scorer.SalienceAndHabituationScorer;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode;
@@ -166,6 +173,12 @@ public final class RecallPipeline {
     private final ColBERTReranker colbertReranker;
     private volatile boolean colbertWarnLogged = false;
 
+    //  SRP Phase Components 
+    private final RecallCandidateGatherer candidateGatherer;
+    private final CognitiveReranker cognitiveReranker;
+    private final GraphExpander graphExpander;
+    private final SalienceAndHabituationScorer salienceScorer;
+
     //  Neurodivergent: Lateral feedback tracking 
     // Maps memoryId  ->  RetrievalMode for the most recent recall.
     // Used by SpectorMemory.reinforce()/suppress() to feed LateralEvaluator.
@@ -284,34 +297,11 @@ public final class RecallPipeline {
                            MemorySpladeIndex spladeIndex,
                            SparseEmbeddingProvider spladeProvider,
                            ColBERTReranker colbertReranker) {
-        this.embeddingProvider = embeddingProvider;
-        this.partitionRegistry = partitionRegistry;
-        this.index = index;
-        this.suppressionSet = suppressionSet;
-        this.habituationPenalty = habituationPenalty;
-        this.prospectiveScheduler = prospectiveScheduler;
-        this.wal = wal;
-        this.calibrationMins = calibrationMins;
-        this.calibrationScales = calibrationScales;
-        this.semanticRecallStrategy = semanticRecallStrategy;
-        this.coActivationTracker = coActivationTracker;
-        this.hebbianGraph = hebbianGraph;
-        this.temporalChain = temporalChain;
-        this.entityDirectory = entityDirectory;
-        this.hyperEntityGraph = hyperEntityGraph;
-        this.entityExtractor = entityExtractor;
-        this.graphScoringPolicy = graphScoringPolicy != null ? graphScoringPolicy : GraphScoringPolicy.DEFAULT;
-        this.bm25Index = bm25Index;
-        this.spladeIndex = spladeIndex;
-        this.spladeProvider = spladeProvider;
-        this.colbertReranker = colbertReranker;
-        this.recallHistory = null;
-
-        //  Delegate graph expansion to focused stage class 
-        this.graphExpansionStage = new GraphExpansionStage(
-                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, entityExtractor,
-                this.graphScoringPolicy, index, partitionRegistry,
-                calibrationMins, calibrationScales);
+        this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
+                prospectiveScheduler, wal, calibrationMins, calibrationScales,
+                semanticRecallStrategy, coActivationTracker, hebbianGraph, temporalChain,
+                entityDirectory, hyperEntityGraph, entityExtractor, graphScoringPolicy,
+                bm25Index, spladeIndex, spladeProvider, colbertReranker, null);
     }
 
     /**
@@ -362,12 +352,23 @@ public final class RecallPipeline {
         this.colbertReranker = colbertReranker;
         this.recallHistory = recallHistory;
 
+        //  Phase Components Initialization 
+        this.candidateGatherer = new RecallCandidateGatherer(index, bm25Index);
+        this.cognitiveReranker = new CognitiveReranker(colbertReranker);
+        this.graphExpander = new GraphExpander(hebbianGraph, temporalChain);
+        this.salienceScorer = new SalienceAndHabituationScorer(suppressionSet, habituationPenalty);
+
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
                 hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, entityExtractor,
                 this.graphScoringPolicy, index, partitionRegistry,
                 calibrationMins, calibrationScales);
     }
+
+    public RecallCandidateGatherer candidateGatherer() { return candidateGatherer; }
+    public CognitiveReranker cognitiveReranker() { return cognitiveReranker; }
+    public GraphExpander graphExpander() { return graphExpander; }
+    public SalienceAndHabituationScorer salienceScorer() { return salienceScorer; }
 
     /**
      * Registers a post-recall listener (Observer pattern).
@@ -1063,27 +1064,7 @@ public final class RecallPipeline {
         }
     }
 
-    /** Immutable per-recall context shared by every {@link TierScanStrategy}. */
-    private record ScanContext(MemoryType[] targetTypes, CognitiveMemoryRouter active,
-                               boolean singlePartition, int activeSeq,
-                               boolean semanticHnswAvailable) {
-    }
 
-    /**
-     * Turns a strategy's per-tier scan decision into actual work: either a deferred
-     * parallel {@link Callable} (build-tasks mode) or an immediate synchronous scan
-     * (sequential-fallback mode). Segment/visibleCount are supplied lazily so the
-     * parallel path reads them at task-execution time (matching the pre-refactor lambdas).
-     */
-    private interface ScanEmitter {
-        /** Emits a full-record slab scan of the given store slice. */
-        void emitSlabScan(Supplier<MemorySegment> segment, IntSupplier visibleCount,
-                          CognitiveRecordLayout layout, MemoryType type,
-                          long baseOffset, int partitionSeq);
-
-        /** Emits the semantic HNSW fast-path recall (active single partition only). */
-        void emitSemanticHnsw();
-    }
 
     /** Parallel emitter — each scan becomes an {@code madvise}-wrapped {@link Callable}. */
     private final class ParallelScanEmitter implements ScanEmitter {
@@ -1151,97 +1132,14 @@ public final class RecallPipeline {
         }
     }
 
-    /**
-     * Produces the scan work for a single memory tier given a {@link PartitionHandle}.
-     * One implementation per {@link MemoryType} removes the per-tier if/else that used
-     * to live inline in the scan builders (OCP), while preserving the #443 per-partition
-     * fan-out and the single-partition HNSW-vs-slab decision for SEMANTIC exactly.
-     */
-    private interface TierScanStrategy {
-        MemoryType tier();
-        void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter);
-    }
-
-    /** Working memory is GLOBAL — scanned once via the active router (baseOffset 0). */
-    private static final class WorkingTierScanStrategy implements TierScanStrategy {
-        @Override public MemoryType tier() { return MemoryType.WORKING; }
-
-        @Override
-        public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
-            if (!CognitiveMemoryRouter.shouldScan(MemoryType.WORKING, ctx.targetTypes())) return;
-            CognitiveRecordMemory working = ctx.active().working();
-            if (working.visibleCount() <= 0) return;
-            emitter.emitSlabScan(working::segment, working::visibleCount,
-                    working.cognitiveLayout(), MemoryType.WORKING, 0L, ctx.activeSeq());
-        }
-    }
-
-    /** Episodic — one scan per episodic partition of the handle. */
-    private static final class EpisodicTierScanStrategy implements TierScanStrategy {
-        @Override public MemoryType tier() { return MemoryType.EPISODIC; }
-
-        @Override
-        public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
-            if (!CognitiveMemoryRouter.shouldScan(MemoryType.EPISODIC, ctx.targetTypes())) return;
-            for (EpisodicPartition partition : handle.router().episodic().partitions()) {
-                if (partition.visibleCount() > 0) {
-                    emitter.emitSlabScan(partition::segment, partition::visibleCount,
-                            partition.layout(), MemoryType.EPISODIC,
-                            partition.dataOffset(), handle.seq());
-                }
-            }
-        }
-    }
-
-    /**
-     * Semantic — the active partition uses the HNSW fast path ONLY while there is a
-     * single partition (the global HNSW's per-store slot indices collide across
-     * partitions after a roll). Once rolled, every semantic partition (including the
-     * active one) is scored on its full-record slab via CognitiveScorer, which computes
-     * similarity (SemanticRecordMemory stores header + vector).
-     */
-    private static final class SemanticTierScanStrategy implements TierScanStrategy {
-        @Override public MemoryType tier() { return MemoryType.SEMANTIC; }
-
-        @Override
-        public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
-            if (!CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, ctx.targetTypes())) return;
-            CognitiveRecordMemory semantic = handle.router().semantic();
-            if (semantic == null || semantic.visibleCount() <= 0) return;
-            boolean useHnsw = handle.writable() && ctx.singlePartition() && ctx.semanticHnswAvailable();
-            if (useHnsw) {
-                emitter.emitSemanticHnsw();
-            } else {
-                emitter.emitSlabScan(semantic::segment, semantic::visibleCount,
-                        semantic.cognitiveLayout(), MemoryType.SEMANTIC,
-                        semantic.dataOffset(), handle.seq());
-            }
-        }
-    }
-
-    /** Procedural — a single flat slab scan per handle. */
-    private static final class ProceduralTierScanStrategy implements TierScanStrategy {
-        @Override public MemoryType tier() { return MemoryType.PROCEDURAL; }
-
-        @Override
-        public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
-            if (!CognitiveMemoryRouter.shouldScan(MemoryType.PROCEDURAL, ctx.targetTypes())) return;
-            CognitiveRecordMemory procedural = handle.router().procedural();
-            if (procedural.visibleCount() <= 0) return;
-            emitter.emitSlabScan(procedural::segment, procedural::visibleCount,
-                    procedural.cognitiveLayout(), MemoryType.PROCEDURAL,
-                    procedural.dataOffset(), handle.seq());
-        }
-    }
-
     /** Global (working) tier strategy — invoked once per scan. */
-    private static final TierScanStrategy WORKING_SCAN = new WorkingTierScanStrategy();
+    private static final TierScanStrategy WORKING_SCAN = new TierScanStrategy.WorkingTierScanStrategy();
 
     /** Per-partition tier strategies, in the fixed emit order EPISODIC → SEMANTIC → PROCEDURAL. */
     private static final List<TierScanStrategy> PER_PARTITION_SCANS = List.of(
-            new EpisodicTierScanStrategy(),
-            new SemanticTierScanStrategy(),
-            new ProceduralTierScanStrategy());
+            new TierScanStrategy.EpisodicTierScanStrategy(),
+            new TierScanStrategy.SemanticTierScanStrategy(),
+            new TierScanStrategy.ProceduralTierScanStrategy());
 
     /**
      * Fallback sequential scan (used if parallel scan fails).
