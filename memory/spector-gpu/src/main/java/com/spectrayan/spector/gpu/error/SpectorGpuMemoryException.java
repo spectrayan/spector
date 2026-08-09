@@ -15,7 +15,8 @@
  */
 package com.spectrayan.spector.gpu.error;
 
-import com.spectrayan.spector.commons.error.*;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorGpuException;
 
 /**
  * Exception thrown when a GPU memory operation fails.

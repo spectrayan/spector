@@ -118,8 +118,7 @@ public final class CoordinatorGraph {
 
                             // Iteration guard — prevent infinite loops
                             if (iteration >= maxIter) {
-                                log.warn("[CoordinatorGraph] Max iterations ({}) reached, " +
-                                        "forcing DONE", maxIter);
+                                log.warn("[CoordinatorGraph] Max iterations ({}) reached, forcing DONE", maxIter);
                                 return "done";
                             }
 
