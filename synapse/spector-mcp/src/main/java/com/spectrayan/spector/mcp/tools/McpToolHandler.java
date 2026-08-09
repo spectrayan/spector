@@ -137,8 +137,11 @@ public abstract class McpToolHandler {
                 }
             }
             return sb.toString();
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new com.spectrayan.spector.commons.error.SpectorInternalException(
+                    com.spectrayan.spector.commons.error.ErrorCode.INTERNAL_ERROR, e, "Failed to extract text from MCP CallToolResult");
         }
     }
 
