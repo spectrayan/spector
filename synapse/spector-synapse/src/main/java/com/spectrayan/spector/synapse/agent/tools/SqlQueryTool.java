@@ -47,6 +47,8 @@ import java.util.stream.Collectors;
  * bounded timeout (30 seconds), and returns the results as a Markdown table for agent
  * consumption.
  */
+import java.util.concurrent.locks.ReentrantLock;
+
 @Component
 public class SqlQueryTool extends McpToolHandler {
 
@@ -58,6 +60,7 @@ public class SqlQueryTool extends McpToolHandler {
     // SLF4J logger   
     private static final Logger log = LoggerFactory.getLogger(SqlQueryTool.class);
     // Schema Caching
+    private final ReentrantLock schemaLock = new ReentrantLock();
     private volatile String cachedSchema = null;
 
     // Allowed tables:
@@ -273,12 +276,15 @@ public class SqlQueryTool extends McpToolHandler {
     private String describeSchema() {
         String schema = cachedSchema;
         if (schema == null) {
-            synchronized (this) {
+            schemaLock.lock();
+            try {
                 schema = cachedSchema;
                 if (schema == null) {
                     schema = introspectSchema();
                     cachedSchema = schema;
                 }
+            } finally {
+                schemaLock.unlock();
             }
         }
         return schema;
@@ -286,8 +292,11 @@ public class SqlQueryTool extends McpToolHandler {
 
     // Recompute the schema on next request.
     public void refreshSchema() {
-        synchronized (this) {
+        schemaLock.lock();
+        try {
             cachedSchema = null;
+        } finally {
+            schemaLock.unlock();
         }
     }
 
