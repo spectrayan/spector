@@ -15,7 +15,8 @@
  */
 package com.spectrayan.spector.index.error;
 
-import com.spectrayan.spector.commons.error.*;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorIndexException;
 
 /**
  * Exception thrown when BM25 text tokenization fails.

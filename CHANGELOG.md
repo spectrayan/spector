@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Refactored — RecallPipeline SRP Decomposition & Builder Unification (#487)
+- **spector-memory:** Decomposed `RecallPipeline` into 4 phase components (`RecallCandidateGatherer`, `CognitiveReranker`, `GraphExpander`, `SalienceAndHabituationScorer`) and extracted 9 segment scanning inner types into `com.spectrayan.spector.memory.pipeline.scan`
+- **spector-memory:** Unified builder architecture on `RecallPipelineBuilder` (`RecallPipeline.builder()`) and consolidated telescopic constructors
+- **spector-gpu & spector-index:** Standardized SLF4J log parameterization and expanded wildcard exception imports
+
 ### Refactored — Virtual Thread Locking & Exception Governance (#485)
 - **spector-memory:** Refactored `IndexRecordMemory` and `AbstractRegistryMemory` from `synchronized` monitor blocks to `ReentrantLock` (enforcing ADR-005 virtual thread concurrency safety)
 - **spector-gpu:** Refactored `GpuCapability` detection lock from `synchronized (GpuCapability.class)` to `ReentrantLock`

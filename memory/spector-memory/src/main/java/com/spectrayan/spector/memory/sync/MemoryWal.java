@@ -796,7 +796,7 @@ public final class MemoryWal implements AutoCloseable {
                 try {
                     maxSeqInChunk = getMaxSequenceInChunk(chunk);
                 } catch (IOException e) {
-                    log.error("Failed to read maximum sequence in chunk " + chunk + " during truncation", e);
+                    log.error("Failed to read maximum sequence in chunk {} during truncation", chunk, e);
                     continue;
                 }
 
