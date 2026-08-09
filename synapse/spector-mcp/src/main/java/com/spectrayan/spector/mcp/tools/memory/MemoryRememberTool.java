@@ -42,7 +42,12 @@ import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
  *
  * <p>Maps to {@link SpectorMemory#remember} with optional {@link IngestionHints}.</p>
  */
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public final class MemoryRememberTool extends MemoryToolHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(MemoryRememberTool.class);
 
     public MemoryRememberTool(SpectorMemory memory) {
         super(memory);
@@ -174,7 +179,7 @@ public final class MemoryRememberTool extends MemoryToolHandler {
                 }
             } catch (Exception e) {
                 // Non-fatal: metadata parsing failure shouldn't block ingestion
-                // Log and continue with text-only ingestion
+                log.warn("[MemoryRememberTool] Metadata parsing failed (proceeding with text-only ingestion): {}", e.getMessage());
             }
         }
 
@@ -186,6 +191,7 @@ public final class MemoryRememberTool extends MemoryToolHandler {
             estimate = memory.estimateImportance(text, hints);
         } catch (Exception e) {
             // Non-fatal: importance display is best-effort
+            log.warn("[MemoryRememberTool] Importance estimation failed: {}", e.getMessage());
         }
 
         // Ingest: auto-generate ID if not provided
