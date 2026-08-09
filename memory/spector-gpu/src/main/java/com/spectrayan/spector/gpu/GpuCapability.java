@@ -28,6 +28,8 @@ import java.lang.invoke.MethodHandle;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * Detects and reports GPU/CUDA capability at runtime via Panama FFM.
  *
@@ -46,6 +48,7 @@ import java.nio.file.Path;
 public final class GpuCapability {
 
     private static final Logger log = LoggerFactory.getLogger(GpuCapability.class);
+    private static final ReentrantLock DETECT_LOCK = new ReentrantLock();
 
     private static volatile GpuInfo cachedInfo;
 
@@ -85,11 +88,14 @@ public final class GpuCapability {
      */
     public static GpuInfo detect() {
         if (cachedInfo != null) return cachedInfo;
-        synchronized (GpuCapability.class) {
+        DETECT_LOCK.lock();
+        try {
             if (cachedInfo != null) return cachedInfo;
             cachedInfo = doDetect();
             log.info(cachedInfo.report());
             return cachedInfo;
+        } finally {
+            DETECT_LOCK.unlock();
         }
     }
 
