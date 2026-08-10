@@ -85,20 +85,41 @@ export function createBrainGeometry(): THREE.Group {
   const brainGroup = new THREE.Group();
 
   const baseMaterial = new THREE.MeshPhysicalMaterial({
-    transmission: 0.6,
-    roughness: 0.15,
-    thickness: 2.0,
+    transmission: 0.95,
+    roughness: 0.1,
+    thickness: 0.5,
     color: 0x8866cc,
     emissive: 0x220044,
-    emissiveIntensity: 0.15,
+    emissiveIntensity: 0.08,
     transparent: true,
-    opacity: 0.35,
+    opacity: 0.08,
     side: THREE.DoubleSide,
-    vertexColors: true
+    vertexColors: true,
+    depthWrite: false,
   });
 
   const leftHemisphere = generateHemisphereGeometry(-1, baseMaterial);
   const rightHemisphere = generateHemisphereGeometry(1, baseMaterial);
+
+  // Create wireframe overlay for each hemisphere — renders behind the solid
+  const wireframeMat = new THREE.MeshBasicMaterial({
+    color: 0x8866cc,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.06,
+    depthWrite: false,
+  });
+  const leftWire = new THREE.Mesh(leftHemisphere.geometry.clone(), wireframeMat);
+  leftWire.position.copy(leftHemisphere.position);
+  leftWire.renderOrder = -2;
+  brainGroup.add(leftWire);
+  const rightWire = new THREE.Mesh(rightHemisphere.geometry.clone(), wireframeMat);
+  rightWire.position.copy(rightHemisphere.position);
+  rightWire.renderOrder = -2;
+  brainGroup.add(rightWire);
+
+  leftHemisphere.renderOrder = -1;
+  rightHemisphere.renderOrder = -1;
 
   brainGroup.add(leftHemisphere);
   brainGroup.add(rightHemisphere);
@@ -108,10 +129,12 @@ export function createBrainGeometry(): THREE.Group {
   displaceCerebellumVertices(cerebellumGeo);
   const cerebellumMat = baseMaterial.clone();
   cerebellumMat.color.setHex(0xab47bc);
-  cerebellumMat.vertexColors = false; 
+  cerebellumMat.vertexColors = false;
+  cerebellumMat.opacity = 0.06;
   
   const cerebellum = new THREE.Mesh(cerebellumGeo, cerebellumMat);
   cerebellum.position.set(0, -5, -6);
+  cerebellum.renderOrder = -1;
   brainGroup.add(cerebellum);
 
   // Brain stem
@@ -119,11 +142,15 @@ export function createBrainGeometry(): THREE.Group {
   const stemMat = new THREE.MeshStandardMaterial({
     color: 0x2a1a4a,
     roughness: 0.9,
-    metalness: 0.1
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.15,
+    depthWrite: false,
   });
   const stem = new THREE.Mesh(stemGeo, stemMat);
   stem.position.set(0, -8, -5);
-  stem.rotation.x = 0.2; // Slight tilt
+  stem.rotation.x = 0.2;
+  stem.renderOrder = -1;
   brainGroup.add(stem);
 
   return brainGroup;

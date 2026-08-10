@@ -23,7 +23,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
 
   initScene(container: HTMLElement, camera: THREE.PerspectiveCamera): THREE.Scene {
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0a0512, 0.015);
+    scene.fog = new THREE.FogExp2(0x0a0512, 0.008);
 
     this.brainGroup = createBrainGeometry();
     scene.add(this.brainGroup);
@@ -31,12 +31,17 @@ export class BrainViewStrategy implements GraphViewStrategy {
     this.brainMist = createBrainMist();
     scene.add(this.brainMist);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffaaee, 1.0);
+    const directionalLight = new THREE.DirectionalLight(0xffaaee, 1.2);
     directionalLight.position.set(10, 20, 15);
     scene.add(directionalLight);
+
+    // Add a second light from below for hemisphere illumination
+    const bottomLight = new THREE.DirectionalLight(0x8866cc, 0.4);
+    bottomLight.position.set(-5, -15, -10);
+    scene.add(bottomLight);
 
     this.scene = scene;
     return scene;
@@ -85,7 +90,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
         }
 
         const labelSprite = createNeuronLabel(node.id, node.tier, node.importance || 0, color);
-        labelSprite.position.copy(position).add(new THREE.Vector3(0, baseSize * 2, 0));
+        labelSprite.position.copy(position).add(new THREE.Vector3(0, baseSize * 1.2, 0));
         labelSprite.visible = false;
 
         this.scene!.add(mesh);
@@ -94,6 +99,9 @@ export class BrainViewStrategy implements GraphViewStrategy {
 
         mesh.userData['id'] = node.id;
         mesh.userData['type'] = 'node';
+        mesh.renderOrder = 1;
+        glowSprite.renderOrder = 0;
+        labelSprite.renderOrder = 2;
 
         newNodes.push({
           id: node.id,
@@ -266,8 +274,8 @@ export class BrainViewStrategy implements GraphViewStrategy {
       const distToCamera = node.position.distanceTo(cameraPos);
       
       if (node.labelSprite) {
-        node.labelSprite.position.copy(node.position).add(new THREE.Vector3(0, node.baseSize * 2, 0));
-        node.labelSprite.visible = showLabels && distToCamera < 40;
+      node.labelSprite.position.copy(node.position).add(new THREE.Vector3(0, node.baseSize * 1.2, 0));
+        node.labelSprite.visible = showLabels && distToCamera < 30;
       }
 
       node.mesh.visible = node.visible;

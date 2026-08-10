@@ -6,13 +6,13 @@ export const environment = {
   production: false,
 
   /** Backend API base URL */
-  apiUrl: 'http://localhost:7070/api/v1',
+  apiUrl: 'http://192.168.1.71:7070/api/v1',
 
   /** API version prefix */
   apiVersion: 'v1',
 
   /** SSE event stream connects directly to backend (dev proxy buffers SSE) */
-  sseBaseUrl: 'http://localhost:7070/api/v1',
+  sseBaseUrl: 'http://192.168.1.71:7070/api/v1',
 
   /** Logging configuration */
   logging: {

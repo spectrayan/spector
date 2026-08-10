@@ -26,9 +26,9 @@ export function createNeuronSoma(color: number, size: number, importance: number
   const material = new THREE.MeshPhysicalMaterial({
     color: color,
     emissive: color,
-    emissiveIntensity: 0.2 + importance * 0.5,
+    emissiveIntensity: 0.4 + importance * 0.6,
     transparent: true,
-    opacity: 0.7 + importance * 0.3,
+    opacity: 0.85 + importance * 0.15,
     roughness: 0.3,
     metalness: 0.1
   });
@@ -125,10 +125,10 @@ export function createDendriteCurve(fromPos: THREE.Vector3, toPos: THREE.Vector3
   
   const curve = new THREE.CatmullRomCurve3([fromPos, cp1, cp2, toPos]);
   
-  let tubeRadius = 0.02;
-  if (edgeType === 'HEBBIAN') tubeRadius = 0.03 + weight * 0.07;
-  else if (edgeType === 'TEMPORAL') tubeRadius = 0.02;
-  else if (edgeType === 'ENTITY') tubeRadius = 0.04;
+  let tubeRadius = 0.06;
+  if (edgeType === 'HEBBIAN') tubeRadius = 0.08 + weight * 0.15;
+  else if (edgeType === 'TEMPORAL') tubeRadius = 0.05;
+  else if (edgeType === 'ENTITY') tubeRadius = 0.10;
   
   const geometry = new THREE.TubeGeometry(curve, 20, tubeRadius, 6, false);
   
@@ -140,7 +140,7 @@ export function createDendriteCurve(fromPos: THREE.Vector3, toPos: THREE.Vector3
     emissive: color,
     emissiveIntensity: emissiveIntensity,
     transparent: true,
-    opacity: 0.3 + weight * 0.4,
+    opacity: 0.5 + weight * 0.4,
     roughness: 0.4
   });
   
@@ -153,7 +153,7 @@ export function createDendriteCurve(fromPos: THREE.Vector3, toPos: THREE.Vector3
  * Creates a tiny glowing bulb at the endpoint of a dendrite.
  */
 export function createSynapticTerminal(position: THREE.Vector3, color: number): THREE.Mesh {
-  const geometry = new THREE.SphereGeometry(0.08, 8, 6);
+  const geometry = new THREE.SphereGeometry(0.15, 8, 6);
   const material = new THREE.MeshPhysicalMaterial({
     color: color,
     emissive: color,
@@ -213,7 +213,7 @@ export function createNeuronLabel(id: string, tier: string, importance: number, 
   });
   
   const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(10, 2.5, 1);
+  sprite.scale.set(3, 0.75, 1);
   
   return sprite;
 }
