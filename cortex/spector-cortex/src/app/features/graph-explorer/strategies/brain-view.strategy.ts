@@ -312,7 +312,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
         const newScale = THREE.MathUtils.lerp(curScale, target, delta * 5);
         node.mesh.scale.set(newScale, newScale, newScale);
         
-        const glowTarget = node.baseSize * 4 * glowPulseScale;
+        const glowTarget = node.baseSize * 1.5 * glowPulseScale;
         const newGlowScale = THREE.MathUtils.lerp(node.glowMesh.scale.x, glowTarget, delta * 5);
         node.glowMesh.scale.set(newGlowScale, newGlowScale, 1);
         
@@ -321,7 +321,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
         }
       } else {
         node.mesh.scale.set(scale, scale, scale);
-        const glowScale = node.baseSize * 4 * glowPulseScale;
+        const glowScale = node.baseSize * 1.5 * glowPulseScale;
         node.glowMesh.scale.set(glowScale, glowScale, 1);
       }
     }

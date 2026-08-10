@@ -67,7 +67,7 @@ export function createNeuronSoma(color: number, size: number, importance: number
   });
   
   const glowSprite = new THREE.Sprite(spriteMaterial);
-  const glowScale = size * 4;
+  const glowScale = size * 1.5;
   glowSprite.scale.set(glowScale, glowScale, 1);
   
   return { mesh, glowSprite };
@@ -213,7 +213,7 @@ export function createNeuronLabel(id: string, tier: string, importance: number, 
   });
   
   const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(3, 0.75, 1);
+  sprite.scale.set(1.8, 0.45, 1);
   
   return sprite;
 }

@@ -162,7 +162,7 @@ function generateHemisphereGeometry(side: -1 | 1, material: THREE.MeshPhysicalMa
   const colors = [];
   const baseColor = new THREE.Color(0x8866cc);
   
-  const clipThreshold = side === 1 ? 0.2 : -0.2;
+  const clipThreshold = side === 1 ? 0.5 : -0.5;
   const newPositions = [];
 
   const tempVertex = new THREE.Vector3();
@@ -173,23 +173,24 @@ function generateHemisphereGeometry(side: -1 | 1, material: THREE.MeshPhysicalMa
   for (let i = 0; i < positions.count; i++) {
     tempVertex.fromBufferAttribute(positions, i);
     
-    // Scale to ellipsoid
-    tempVertex.x *= 1.0;
-    tempVertex.y *= 0.85;
-    tempVertex.z *= 1.1;
+    // Scale to brain-like ellipsoid: wider left-right, shorter top-bottom, elongated front-back
+    tempVertex.x *= 1.15;
+    tempVertex.y *= 0.75;
+    tempVertex.z *= 1.25;
 
     // Displacement
     const n = noise.fbm(tempVertex.x, tempVertex.y, tempVertex.z, 3, 0.2, 1.0);
     tempVertex.normalize().multiplyScalar(baseRadius + n * wrinkleDepth);
     
     // Apply ellipsoid scaling again for the final shape after noise
-    tempVertex.x *= 1.0;
-    tempVertex.y *= 0.85;
-    tempVertex.z *= 1.1;
+    tempVertex.x *= 1.15;
+    tempVertex.y *= 0.75;
+    tempVertex.z *= 1.25;
+    
     
     // Clip the middle to create the gap between hemispheres
     if ((side === 1 && tempVertex.x > clipThreshold) || (side === -1 && tempVertex.x < clipThreshold)) {
-      tempVertex.x = clipThreshold + (Math.random() * 0.1 - 0.05);
+      tempVertex.x = clipThreshold + (Math.random() * 0.05 - 0.025);
     }
     
     newPositions.push(tempVertex.x, tempVertex.y, tempVertex.z);
@@ -282,13 +283,29 @@ export function createBrainMist(): THREE.Points {
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
+  // Create a round point texture to avoid square particles
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+    gradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.15)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 32, 32);
+  }
+  const pointTexture = new THREE.CanvasTexture(canvas);
+
   const material = new THREE.PointsMaterial({
-    size: 0.8,
+    size: 0.3,
+    map: pointTexture,
     vertexColors: true,
     transparent: true,
-    opacity: 0.2,
+    opacity: 0.15,
     blending: THREE.AdditiveBlending,
-    depthWrite: false
+    depthWrite: false,
   });
 
   return new THREE.Points(geometry, material);
