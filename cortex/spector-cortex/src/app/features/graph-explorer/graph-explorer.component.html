@@ -28,6 +28,17 @@
     </div>
 
     <div class="toolbar-controls">
+      <!-- View mode toggle -->
+      <div class="view-toggle">
+        <button mat-icon-button 
+                [matTooltip]="activeViewMode() === 'constellation' ? 'Switch to Cortex (Brain) View' : 'Switch to Constellation (Galaxy) View'"
+                (click)="switchView(activeViewMode() === 'constellation' ? 'cortex' : 'constellation')"
+                [class.cortex-active]="activeViewMode() === 'cortex'">
+          <mat-icon>{{ activeViewMode() === 'constellation' ? 'psychology' : 'auto_awesome' }}</mat-icon>
+        </button>
+        <span class="view-label cortex-mono">{{ activeViewMode() === 'constellation' ? 'CONSTELLATION' : 'CORTEX' }}</span>
+      </div>
+
       <!-- Layer toggles -->
       <mat-chip-set>
         <mat-chip [highlighted]="showHebbian()" (click)="showHebbian.set(!showHebbian())"
