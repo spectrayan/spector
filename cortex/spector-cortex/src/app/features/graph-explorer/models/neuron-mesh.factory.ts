@@ -22,7 +22,7 @@ export const TIER_COLORS: Record<string, number> = {
  * Creates a neuron cell body (soma).
  */
 export function createNeuronSoma(color: number, size: number, importance: number): { mesh: THREE.Mesh; glowSprite: THREE.Sprite } {
-  const geometry = new THREE.SphereGeometry(size * 0.8, 16, 12);
+  const geometry = new THREE.SphereGeometry(size * 0.3, 10, 8);
   const material = new THREE.MeshPhysicalMaterial({
     color: color,
     emissive: color,
@@ -67,7 +67,7 @@ export function createNeuronSoma(color: number, size: number, importance: number
   });
   
   const glowSprite = new THREE.Sprite(spriteMaterial);
-  const glowScale = size * 0.5;
+  const glowScale = size * 0.15;
   glowSprite.scale.set(glowScale, glowScale, 1);
   
   return { mesh, glowSprite };

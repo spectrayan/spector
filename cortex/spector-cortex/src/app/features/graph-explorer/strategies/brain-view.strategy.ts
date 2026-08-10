@@ -79,7 +79,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
         const pos = jitterPositionInRegion(region, indexInRegion, nodesInThisRegion);
         const position = new THREE.Vector3(pos[0], pos[1], pos[2]);
 
-        const baseSize = 0.5 + (node.importance || 0) * 0.2;
+        const baseSize = 0.2 + (node.importance || 0) * 0.15;
         const { mesh, glowSprite } = createNeuronSoma(color, baseSize, node.importance || 0);
 
         mesh.position.copy(position);
@@ -314,7 +314,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
         const newScale = THREE.MathUtils.lerp(curScale, target, delta * 5);
         node.mesh.scale.set(newScale, newScale, newScale);
         
-        const glowTarget = node.baseSize * 0.5 * glowPulseScale;
+        const glowTarget = node.baseSize * 0.15 * glowPulseScale;
         const newGlowScale = THREE.MathUtils.lerp(node.glowMesh.scale.x, glowTarget, delta * 5);
         node.glowMesh.scale.set(newGlowScale, newGlowScale, 1);
         
@@ -323,7 +323,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
         }
       } else {
         node.mesh.scale.set(scale, scale, scale);
-        const glowScale = node.baseSize * 0.5 * glowPulseScale;
+        const glowScale = node.baseSize * 0.15 * glowPulseScale;
         node.glowMesh.scale.set(glowScale, glowScale, 1);
       }
     }
