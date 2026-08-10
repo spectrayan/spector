@@ -67,7 +67,7 @@ export function createNeuronSoma(color: number, size: number, importance: number
   });
   
   const glowSprite = new THREE.Sprite(spriteMaterial);
-  const glowScale = size * 1.5;
+  const glowScale = size * 0.5;
   glowSprite.scale.set(glowScale, glowScale, 1);
   
   return { mesh, glowSprite };

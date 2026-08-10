@@ -13,12 +13,13 @@ export interface BrainRegion {
 }
 
 export const BRAIN_REGIONS: readonly BrainRegion[] = [
-  { name: 'Prefrontal Cortex', tier: 'WORKING',    center: [0, 3, 8],    radius: 4, color: 0xffb74d, noiseFrequency: 0.3 },
-  { name: 'Hippocampus',       tier: 'EPISODIC',   center: [3.5, -2, 0], radius: 2.5, color: 0x66bb6a, noiseFrequency: 0.5 },
-  { name: 'Hippocampus (L)',   tier: 'EPISODIC',   center: [-3.5, -2, 0], radius: 2.5, color: 0x66bb6a, noiseFrequency: 0.5 },
-  { name: 'Temporal Cortex',   tier: 'SEMANTIC',   center: [7, 0, -2],   radius: 5, color: 0x42a5f5, noiseFrequency: 0.25 },
-  { name: 'Temporal Cortex (L)', tier: 'SEMANTIC', center: [-7, 0, -2],  radius: 5, color: 0x42a5f5, noiseFrequency: 0.25 },
-  { name: 'Cerebellum',        tier: 'PROCEDURAL', center: [0, -5, -6],  radius: 4, color: 0xab47bc, noiseFrequency: 0.6 },
+  { name: 'Prefrontal Cortex',   tier: 'WORKING',    center: [0, 2, 10],     radius: 5,   color: 0xffb74d, noiseFrequency: 0.3 },
+  { name: 'Hippocampus',         tier: 'EPISODIC',   center: [5, -1, 0],     radius: 4,   color: 0x66bb6a, noiseFrequency: 0.5 },
+  { name: 'Hippocampus (L)',     tier: 'EPISODIC',   center: [-5, -1, 0],    radius: 4,   color: 0x66bb6a, noiseFrequency: 0.5 },
+  { name: 'Temporal Cortex',     tier: 'SEMANTIC',   center: [8, 1, -3],     radius: 6,   color: 0x42a5f5, noiseFrequency: 0.25 },
+  { name: 'Temporal Cortex (L)', tier: 'SEMANTIC',    center: [-8, 1, -3],    radius: 6,   color: 0x42a5f5, noiseFrequency: 0.25 },
+  { name: 'Parietal Cortex',     tier: 'SEMANTIC',    center: [0, 5, -2],     radius: 5,   color: 0x29b6f6, noiseFrequency: 0.25 },
+  { name: 'Cerebellum',          tier: 'PROCEDURAL',  center: [0, -5, -8],    radius: 5,   color: 0xab47bc, noiseFrequency: 0.6 },
 ];
 
 export function getRegionsForTier(tier: string): BrainRegion[] {
@@ -31,9 +32,8 @@ export function getRegionForTier(tier: string): BrainRegion {
     return regions[0];
   }
   
-  // Fallback to Temporal Cortex if no match
-  const fallback = BRAIN_REGIONS.find(r => r.name === 'Temporal Cortex');
-  return fallback || BRAIN_REGIONS[0];
+  // Fallback: cycle through ALL regions to distribute unknown tiers across the whole brain
+  return BRAIN_REGIONS[Math.floor(Math.random() * BRAIN_REGIONS.length)];
 }
 
 export function jitterPositionInRegion(region: BrainRegion, index: number, total: number): [number, number, number] {

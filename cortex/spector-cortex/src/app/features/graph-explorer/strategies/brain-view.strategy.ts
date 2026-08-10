@@ -64,17 +64,19 @@ export class BrainViewStrategy implements GraphViewStrategy {
       const color = TIER_COLORS[tier] || 0xffffff;
       
       nodes.forEach((node, index) => {
+        // Alternate between bilateral regions (left/right) using index
         let regionIndex = 0;
         if (regions.length > 1) {
-          const toggleKey = `${tier}_${node.id}`;
-          this.regionToggle[toggleKey] = !this.regionToggle[toggleKey];
-          regionIndex = this.regionToggle[toggleKey] ? 1 : 0;
+          regionIndex = index % regions.length;
         }
         
         const region = regions[regionIndex] || regions[0];
         if (!region) return;
 
-        const pos = jitterPositionInRegion(region, index, nodes.length);
+        // Distribute nodes within the chosen region
+        const nodesInThisRegion = Math.ceil(nodes.length / regions.length);
+        const indexInRegion = Math.floor(index / regions.length);
+        const pos = jitterPositionInRegion(region, indexInRegion, nodesInThisRegion);
         const position = new THREE.Vector3(pos[0], pos[1], pos[2]);
 
         const baseSize = 0.5 + (node.importance || 0) * 0.2;
@@ -312,7 +314,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
         const newScale = THREE.MathUtils.lerp(curScale, target, delta * 5);
         node.mesh.scale.set(newScale, newScale, newScale);
         
-        const glowTarget = node.baseSize * 1.5 * glowPulseScale;
+        const glowTarget = node.baseSize * 0.5 * glowPulseScale;
         const newGlowScale = THREE.MathUtils.lerp(node.glowMesh.scale.x, glowTarget, delta * 5);
         node.glowMesh.scale.set(newGlowScale, newGlowScale, 1);
         
@@ -321,7 +323,7 @@ export class BrainViewStrategy implements GraphViewStrategy {
         }
       } else {
         node.mesh.scale.set(scale, scale, scale);
-        const glowScale = node.baseSize * 1.5 * glowPulseScale;
+        const glowScale = node.baseSize * 0.5 * glowPulseScale;
         node.glowMesh.scale.set(glowScale, glowScale, 1);
       }
     }
