@@ -129,6 +129,36 @@ $text-muted: var(--mat-sys-outline);
   gap: 8px;
 }
 
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 255, 204, 0.15);
+  border-radius: 8px;
+  background: rgba(0, 255, 204, 0.04);
+  margin-right: 8px;
+  
+  .view-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: rgba(0, 255, 204, 0.5);
+    white-space: nowrap;
+  }
+
+  button {
+    color: rgba(0, 255, 204, 0.6);
+    
+    &.cortex-active {
+      color: #ab47bc;
+      
+      & + .view-label {
+        color: rgba(171, 71, 188, 0.7);
+      }
+    }
+  }
+}
+
 ::ng-deep {
   .mat-mdc-chip-set {
     display: flex;

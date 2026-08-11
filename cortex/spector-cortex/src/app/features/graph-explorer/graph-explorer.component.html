@@ -28,6 +28,14 @@
     </div>
 
     <div class="toolbar-controls">
+      <!-- View mode toggle (disabled — Cortex View coming soon) -->
+      <div class="view-toggle" matTooltip="Cortex (Brain) View coming soon">
+        <button mat-icon-button [disabled]="true">
+          <mat-icon>auto_awesome</mat-icon>
+        </button>
+        <span class="view-label cortex-mono">CONSTELLATION</span>
+      </div>
+
       <!-- Layer toggles -->
       <mat-chip-set>
         <mat-chip [highlighted]="showHebbian()" (click)="showHebbian.set(!showHebbian())"
