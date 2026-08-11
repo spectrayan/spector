@@ -312,6 +312,7 @@ export class GraphExplorerComponent implements AfterViewInit, OnDestroy {
   }
 
   switchView(mode: 'constellation' | 'cortex'): void {
+    if (mode === 'cortex') return; // Cortex (Brain) view disabled for now
     if (mode === this.activeViewMode()) return;
     this.activeViewMode.set(mode);
     
