@@ -28,6 +28,8 @@ import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.sync.WalEvent;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,6 +112,11 @@ final class ReflectionOrchestrator {
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final MemoryWal wal;
     private final int temporalRetentionDays;
+    private final EmbeddingProvider embeddingProvider;
+    private final LlmProvider llmProvider;
+    private final boolean entityResolutionEnabled;
+    private final boolean entityShadowMode;
+    private final float entityCosineThreshold;
 
     ReflectionOrchestrator(ReflectDaemon reflectDaemon,
                            HebbianGraphBase hebbianGraph,
@@ -117,7 +124,12 @@ final class ReflectionOrchestrator {
                            EntityDirectory entityDirectory,
                            HyperEntityGraphMemory hyperEntityGraph,
                            MemoryWal wal,
-                           int temporalRetentionDays) {
+                           int temporalRetentionDays,
+                           EmbeddingProvider embeddingProvider,
+                           LlmProvider llmProvider,
+                           boolean entityResolutionEnabled,
+                           boolean entityShadowMode,
+                           float entityCosineThreshold) {
         this.reflectDaemon = reflectDaemon;
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
@@ -125,6 +137,11 @@ final class ReflectionOrchestrator {
         this.hyperEntityGraph = hyperEntityGraph;
         this.wal = wal;
         this.temporalRetentionDays = temporalRetentionDays;
+        this.embeddingProvider = embeddingProvider;
+        this.llmProvider = llmProvider;
+        this.entityResolutionEnabled = entityResolutionEnabled;
+        this.entityShadowMode = entityShadowMode;
+        this.entityCosineThreshold = entityCosineThreshold;
     }
 
     /**
@@ -408,7 +425,12 @@ final class ReflectionOrchestrator {
         // hyperedge decay is handled separately in decayHyperEntityGraph().
         if (entityDirectory == null || entityDirectory.entityCount() == 0) return;
         try {
-            int entityMerged = entityDirectory.mergeSimilarEntities(ENTITY_MERGE_DISTANCE);
+            int entityMerged;
+            if (entityResolutionEnabled && embeddingProvider != null && llmProvider != null) {
+                entityMerged = entityDirectory.mergeSimilarEntities(embeddingProvider, llmProvider, entityCosineThreshold, entityShadowMode);
+            } else {
+                entityMerged = entityDirectory.mergeSimilarEntities(ENTITY_MERGE_DISTANCE);
+            }
             if (entityMerged > 0) {
                 log.info("Reflect: merged {} similar entities", entityMerged);
             }

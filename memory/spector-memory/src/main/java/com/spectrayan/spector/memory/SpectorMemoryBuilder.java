@@ -105,6 +105,11 @@ public final class SpectorMemoryBuilder {
     GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
     int temporalRetentionDays = 7;
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
+    
+    // Entity resolution config
+    boolean entityResolutionEnabled = false;
+    boolean entityShadowMode = true;
+    float entityCosineThreshold = 0.85f;
 
     //  Edge importance configuration 
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
@@ -288,6 +293,21 @@ public final class SpectorMemoryBuilder {
 
     /** Maximum edges per entity in the entity graph (default: 48). */
     public SpectorMemoryBuilder entityMaxDegree(int maxDegree) { this.entityMaxDegree = maxDegree; return this; }
+    
+    public SpectorMemoryBuilder entityResolutionEnabled(boolean enabled) {
+        this.entityResolutionEnabled = enabled;
+        return this;
+    }
+
+    public SpectorMemoryBuilder entityShadowMode(boolean shadow) {
+        this.entityShadowMode = shadow;
+        return this;
+    }
+
+    public SpectorMemoryBuilder entityCosineThreshold(float threshold) {
+        this.entityCosineThreshold = threshold;
+        return this;
+    }
 
     /**
      * Parses a cognitive profile config from a YAML string value.

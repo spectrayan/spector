@@ -209,7 +209,9 @@ public final class SpectorMemoryFactory {
         //  Extracted Components 
         ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
                 bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
-                graphs.hyperEntityGraph(), wal, builder.temporalRetentionDays);
+                graphs.hyperEntityGraph(), wal, builder.temporalRetentionDays,
+                embeddingProvider, builder.LlmProvider,
+                builder.entityResolutionEnabled, builder.entityShadowMode, builder.entityCosineThreshold);
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
                 bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPipeline,
