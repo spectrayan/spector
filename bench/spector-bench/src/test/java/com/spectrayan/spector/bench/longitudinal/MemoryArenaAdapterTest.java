@@ -44,9 +44,9 @@ class MemoryArenaAdapterTest {
                 .thenReturn("mem-1");
 
         MemoryArenaAdapter adapter = new MemoryArenaAdapter(mockEngine, CognitiveProfile.BALANCED);
-        String future = adapter.remember("test experience", 0.8f, 0.5f);
+        String id = adapter.remember("test experience", 0.8f, 0.5f);
 
-        assertThat(future.join()).isEqualTo("mem-1");
+        assertThat(id).isEqualTo("mem-1");
         assertThat(adapter.getCognitiveProfile()).isEqualTo(CognitiveProfile.BALANCED);
     }
 
