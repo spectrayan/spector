@@ -35,6 +35,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,6 +89,7 @@ final class PostIngestSync {
     private final SparseEmbeddingProvider spladeProvider;
     private final DataEncryptor encryptor;
     private final HyperEntityGraphMemory hyperEntityGraph;
+    private final TemporalKnowledgeGraph temporalKnowledgeGraph;
 
     PostIngestSync(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, MemoryWal wal,
                    VectorIndex semanticIndex,
@@ -97,7 +99,8 @@ final class PostIngestSync {
                    int activePartitionIndex,
                    MemorySpladeIndex spladeIndex, SparseEmbeddingProvider spladeProvider,
                    DataEncryptor encryptor,
-                   HyperEntityGraphMemory hyperEntityGraph) {
+                   HyperEntityGraphMemory hyperEntityGraph,
+                   TemporalKnowledgeGraph temporalKnowledgeGraph) {
         this.cognitiveRouter = cognitiveRouter;
         this.index = index;
         this.wal = wal;
@@ -113,6 +116,7 @@ final class PostIngestSync {
         this.spladeProvider = spladeProvider;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
         this.hyperEntityGraph = hyperEntityGraph;
+        this.temporalKnowledgeGraph = temporalKnowledgeGraph;
         this.activePartitionSeq = 0;
     }
 
@@ -264,12 +268,14 @@ final class PostIngestSync {
      * @param id        memory ID
      * @param text      memory content
      * @param memoryIdx memory index for entity -> memory linking
+     * @return list of extracted entities
      */
-    void syncEntityExtraction(String id, String text, int memoryIdx) {
+    List<ExtractedEntity> syncEntityExtraction(String id, String text, int memoryIdx) {
         if (entityExtractor != null && entityDirectory != null && entityExtractor.isAvailable()) {
             try {
                 List<ExtractedEntity> entities = entityExtractor.extract(id, text);
                 populateEntities(entities, memoryIdx, id);
+                return entities;
             } catch (RuntimeException e) {
                 SpectorEntityGraphException ex = new SpectorEntityGraphException("extraction", e);
                 log.warn(ex.getMessage());
@@ -279,6 +285,7 @@ final class PostIngestSync {
                     id, entityExtractor != null ? entityExtractor.getClass().getSimpleName() : "null",
                     entityExtractor != null && entityExtractor.isAvailable());
         }
+        return java.util.Collections.emptyList();
     }
 
     /**
@@ -337,6 +344,35 @@ final class PostIngestSync {
             } catch (RuntimeException e) {
                 log.warn("Failed to apply temporal link hint {}  ->  {}: {}",
                         id, linkHint.predecessorMemoryId(), e.getMessage());
+            }
+        }
+    }
+
+    void syncTemporalFacts(List<ExtractedEntity> entities, int memoryIdx, String memoryId, long ingestEpochSec) {
+        if (temporalKnowledgeGraph == null || entities == null || entities.isEmpty()) return;
+        
+        for (ExtractedEntity entity : entities) {
+            if (entity.relations() != null) {
+                for (var relation : entity.relations()) {
+                    int subjectId = entityDirectory.intern(entity.name(), entity.typeName());
+                    int objectId = entityDirectory.intern(relation.targetEntityName(), "UNKNOWN");
+                    
+                    try {
+                        temporalKnowledgeGraph.assertFact(
+                            subjectId,
+                            relation.relationTypeName(),
+                            objectId,
+                            -1L, (short) 0,
+                            ingestEpochSec,
+                            Long.MAX_VALUE,
+                            0.8f,
+                            false
+                        );
+                    } catch (RuntimeException e) {
+                        log.debug("Failed to assert temporal fact for entity '{}' relation '{}': {}",
+                                 entity.name(), relation.relationTypeName(), e.getMessage());
+                    }
+                }
             }
         }
     }

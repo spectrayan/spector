@@ -69,16 +69,20 @@ public final class RecallPipelineBuilder {
         //  RecallHistory (Executive Dysfunction context buffer) 
         RecallHistory recallHistory = new RecallHistory();
 
+        //  MMR Reranker 
+        com.spectrayan.spector.memory.pipeline.reranker.MmrReranker mmrReranker = 
+            new com.spectrayan.spector.memory.pipeline.reranker.MmrReranker(index, partitionManager, quantizer.mins(), quantizer.scales());
+
         //  Recall Pipeline 
         RecallPipeline recallPipeline = new RecallPipeline(
                 embeddingProvider, partitionManager, index,
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(), wal,
                 quantizer.mins(), quantizer.scales(), semanticStrategy,
                 null, graphs.hebbianGraph(), graphs.temporalChain(),
-                graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.entityExtractor(),
+                graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.temporalKnowledgeGraph(), graphs.entityExtractor(),
                 builder.graphScoringPolicy, retrieval.bm25Index(),
                 retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider, retrieval.colbertReranker(),
-                recallHistory);
+                recallHistory, mmrReranker);
 
         recallPipeline.addListener(new LtpReconsolidationListener(index, partitionManager, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(bio.coActivationTracker()));

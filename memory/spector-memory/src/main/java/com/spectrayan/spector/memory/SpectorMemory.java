@@ -38,6 +38,7 @@ import com.spectrayan.spector.memory.prospective.ProspectiveScheduler;
 import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.temporal.TemporalFact;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -486,6 +487,34 @@ public interface SpectorMemory extends AutoCloseable {
     SpectorMemoryAdmin admin();
 
 
+
+    /**
+     * Assert a temporal fact about an entity relationship.
+     * @param subject the subject entity name
+     * @param predicate the relationship type
+     * @param object the object entity name
+     * @param validFrom epoch seconds when fact becomes valid
+     * @param validTo epoch seconds when fact expires (Long.MAX_VALUE for open-ended)
+     * @param confidence confidence score [0.0, 1.0]
+     * @return monotonic fact ID
+     */
+    int assertFact(String subject, String predicate, String object,
+                   long validFrom, long validTo, float confidence);
+
+    /**
+     * Retract a previously asserted fact.
+     * @param factId the fact ID to retract
+     * @return the retraction record's fact ID
+     */
+    int retractFact(int factId);
+
+    /**
+     * Query temporal facts about an entity valid at the given instant.
+     * @param entityName the entity name to query
+     * @param asOf the point in time to query facts for
+     * @return list of valid temporal facts
+     */
+    List<TemporalFact> factsAbout(String entityName, Instant asOf);
 
     /** Closes the memory system and persists data. */
     @Override

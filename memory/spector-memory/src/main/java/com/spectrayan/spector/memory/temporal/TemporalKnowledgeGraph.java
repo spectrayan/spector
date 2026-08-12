@@ -21,6 +21,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.CRC32C;
 
@@ -92,6 +94,9 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
 
     // ── Fact ID generator (monotonic) ──
     private int nextFactId;
+
+    // ── Retraction cache ──
+    private final Set<Integer> retractedCache = ConcurrentHashMap.newKeySet();
 
     // ── Concurrency ──
     private final ReentrantLock writeLock = new ReentrantLock();
@@ -269,6 +274,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
                     factIdToRetract);
 
             factLog.append(segment);
+            retractedCache.add(factIdToRetract);
 
             log.debug("TKG: retracted factId={} (retraction={})", factIdToRetract, factId);
             return factId;
@@ -316,17 +322,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      * @return set of retracted fact IDs
      */
     Set<Integer> retractedFactIds() {
-        Set<Integer> retracted = new HashSet<>();
-        Iterator<MemorySegment> it = factLog.replay(0);
-        while (it.hasNext()) {
-            MemorySegment seg = it.next();
-            int retractsId = seg.get(ValueLayout.JAVA_INT,
-                    TemporalFactLayout.OFF_RETRACTS_FACT_ID);
-            if (retractsId != TemporalFact.SENTINEL_FACT) {
-                retracted.add(retractsId);
-            }
-        }
-        return retracted;
+        return Collections.unmodifiableSet(retractedCache);
     }
 
     /**
@@ -392,6 +388,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     public void rebuildIndexes() {
         subjectIndex.clear();
         validTimeIndex.clear();
+        retractedCache.clear();
 
         int maxFactId = 0;
         int factCount = 0;
@@ -423,6 +420,8 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
                 subjectIndex.add(subjectId, currentOffset + 4);
                 validTimeIndex.add(validFrom, currentOffset + 4);
                 factCount++;
+            } else {
+                retractedCache.add(retractsFactId);
             }
 
             if (factId > maxFactId) {
