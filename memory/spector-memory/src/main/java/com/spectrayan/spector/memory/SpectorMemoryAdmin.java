@@ -109,22 +109,10 @@ public interface SpectorMemoryAdmin {
     /** Returns the cognitive graph facade for high-level graph queries. */
     CognitiveGraphFacade graph();
 
-    /** @deprecated Use {@link #graph()} and its query methods instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    HebbianGraphBase hebbianGraph();
-
-    /** @deprecated Use {@link #graph()} and its query methods instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    TemporalChainMemory temporalChain();
-
     /**
      * Returns the entity identity directory — the name&harr;id index, per-entity type, and the
      * authoritative entity&rarr;memory adjacency (including single-entity memories). This is the
-     * graduated replacement for {@link #entityGraph()} identity access (ADR-0003, #455/#456).
-     * May be {@code null} when entity extraction is disabled.
-     */
-    /**
-     * Returns the entity directory.
+     * graduated replacement for identity access (ADR-0003, #455/#456).
      * May be {@code null} when entity extraction is disabled.
      */
     EntityDirectory entityDirectory();
@@ -133,10 +121,6 @@ public interface SpectorMemoryAdmin {
      * Returns the Insular Cortex self-model store.
      */
     com.spectrayan.spector.memory.insula.InsularCortex insularCortex();
-
-    /** @deprecated Use {@link #graph()} and its query methods instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    HyperEntityGraphMemory hyperEntityGraph();
 
     // ══════════════════════════════════════════════════════════════
     // OPERATIONAL

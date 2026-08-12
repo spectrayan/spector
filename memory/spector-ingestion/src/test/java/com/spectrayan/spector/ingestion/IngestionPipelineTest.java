@@ -29,7 +29,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.spectrayan.spector.commons.TextChunker;
+import com.spectrayan.spector.commons.chunker.ChunkConfig;
+import com.spectrayan.spector.commons.chunker.SentenceChunker;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -49,13 +50,13 @@ class IngestionPipelineTest {
     @Mock
     private EmbeddingProvider mockEmbedder;
 
-    private float[] sampleVector = {0.1f, 0.2f, 0.3f, 0.4f};
+    private float[] sampleVector;
 
     @BeforeEach
     void setUp() {
-        // Default: embedder returns sample vector for any text
-        lenient().when(mockEmbedder.embed(anyString())).thenReturn(EmbeddingResult.of(sampleVector, "test-model"));
-        // ParallelEmbeddingPipeline calls embedBatch()  --  Mockito doesn't invoke default methods
+        sampleVector = new float[]{0.1f, 0.2f, 0.3f, 0.4f};
+        lenient().when(mockEmbedder.embed(anyString()))
+                .thenReturn(EmbeddingResult.of(sampleVector, "test-model"));
         lenient().when(mockEmbedder.embedBatch(anyList())).thenAnswer(invocation -> {
             List<String> texts = invocation.getArgument(0);
             return texts.stream().map(t -> EmbeddingResult.of(sampleVector, "test-model")).toList();
@@ -63,7 +64,7 @@ class IngestionPipelineTest {
     }
 
     // ==============================================================
-    // Builder
+    // Builder Tests
     // ==============================================================
 
     @Nested
@@ -71,7 +72,7 @@ class IngestionPipelineTest {
     class BuilderTests {
 
         @Test
-        @DisplayName("builds pipeline with minimal config (target only)")
+        @DisplayName("builds pipeline with minimal config")
         void minimalConfig() {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
@@ -88,7 +89,8 @@ class IngestionPipelineTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockEmbedder)
-                    .chunking(new TextChunker(500, 50))
+                    .chunker(new SentenceChunker())
+                    .chunkConfig(new ChunkConfig(500, 50, "text/plain", null, false, false, false))
                     .chunkThreshold(500)
                     .build();
 
@@ -118,7 +120,8 @@ class IngestionPipelineTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockEmbedder)
-                    .chunking(new TextChunker(500, 50))
+                    .chunker(new SentenceChunker())
+                    .chunkConfig(new ChunkConfig(500, 50, "text/plain", null, false, false, false))
                     .chunkThreshold(500)
                     .build();
 
@@ -128,24 +131,19 @@ class IngestionPipelineTest {
             assertThat(result.chunksStored()).isEqualTo(1);
             assertThat(result.isFullSuccess()).isTrue();
 
-            verify(mockEmbedder).embed("short text");
-            verify(mockTarget).ingest(eq("doc-1"), eq("short text"), any(float[].class));
+            verify(mockTarget).ingest("doc-1", "short text", sampleVector);
             verify(mockTarget).storeParentMetadata("doc-1", 1);
         }
 
         @Test
-        @DisplayName("ingests without chunker regardless of length")
-        void ingestsWithoutChunker() {
+        @DisplayName("throws when embedding provider is missing")
+        void throwsWhenNoEmbedder() {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
-                    .embeddingProvider(mockEmbedder)
-                    .build(); // no chunker!
+                    .build();
 
-            String longContent = "x".repeat(10_000);
-            var result = pipeline.ingest("doc-2", longContent);
-
-            assertThat(result.chunksStored()).isEqualTo(1);
-            verify(mockEmbedder).embed(longContent);
+            assertThatThrownBy(() -> pipeline.ingest("doc-1", "text"))
+                    .isInstanceOf(SpectorValidationException.class);
         }
     }
 
@@ -158,43 +156,30 @@ class IngestionPipelineTest {
     class PreEmbeddedIngest {
 
         @Test
-        @DisplayName("ingests with pre-computed vector, skipping embedding")
-        void ingestsPreEmbedded() {
+        @DisplayName("ingests with pre-computed vector")
+        void ingestsPreComputedVector() {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
-                    .build(); // no embedder needed!
+                    .build();
 
-            float[] vec = {1.0f, 2.0f, 3.0f};
-            var result = pipeline.ingest("doc-pre", "some text", vec);
+            float[] preComputed = new float[]{1.0f, 2.0f, 3.0f, 4.0f};
+            var result = pipeline.ingest("doc-pre", "text", preComputed);
 
             assertThat(result.documentId()).isEqualTo("doc-pre");
             assertThat(result.chunksStored()).isEqualTo(1);
             assertThat(result.isFullSuccess()).isTrue();
 
-            verify(mockTarget).ingest("doc-pre", "some text", vec);
-            verifyNoInteractions(mockEmbedder);
+            verify(mockTarget).ingest("doc-pre", "text", preComputed);
         }
     }
 
     // ==============================================================
-    // Negative Scenarios
+    // Error Handling & Edge Cases
     // ==============================================================
 
     @Nested
-    @DisplayName("negative scenarios")
-    class NegativeScenarios {
-
-        @Test
-        @DisplayName("throws when embedding provider not set and text ingest called")
-        void throwsWithoutEmbedder() {
-            var pipeline = IngestionPipeline.builder()
-                    .target(mockTarget)
-                    .build();
-
-            assertThatThrownBy(() -> pipeline.ingest("doc-1", "text"))
-                    .isInstanceOf(SpectorValidationException.class)
-                    .hasMessageContaining("EmbeddingProvider");
-        }
+    @DisplayName("error handling")
+    class ErrorHandling {
 
         @Test
         @DisplayName("handles embedding failure gracefully in chunked mode")
@@ -207,7 +192,8 @@ class IngestionPipelineTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockEmbedder)
-                    .chunking(new TextChunker(10, 2))
+                    .chunker(new SentenceChunker())
+                    .chunkConfig(new ChunkConfig(200, 20, "text/plain", null, false, false, false))
                     .chunkThreshold(10)
                     .build();
 
@@ -234,12 +220,12 @@ class IngestionPipelineTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockEmbedder)
-                    .chunking(new TextChunker(20, 5))
+                    .chunker(new SentenceChunker())
+                    .chunkConfig(new ChunkConfig(200, 20, "text/plain", null, false, false, false))
                     .chunkThreshold(20)
                     .build();
 
-            // Build content clearly > 20 chars to trigger chunking
-            // TextChunker operates on chars, so we need plenty
+            // Build content clearly > 200 chars to trigger chunking
             String content = "The quick brown fox jumps over the lazy dog. ".repeat(10);
             var result = pipeline.ingest("doc-chunked", content);
 

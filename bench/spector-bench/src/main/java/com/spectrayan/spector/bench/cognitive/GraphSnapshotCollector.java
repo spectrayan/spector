@@ -57,7 +57,7 @@ public final class GraphSnapshotCollector {
         int hebbianMaxDegree = 0;
         long hebbianDegreeSum = 0;
 
-        HebbianGraphBase hg = memory.admin().hebbianGraph();
+        HebbianGraphBase hg = memory.admin().graph() != null ? memory.admin().graph().rawHebbianGraph() : null;
         if (hg != null) {
             hebbianCapacity = hg.capacity();
             hebbianTotalEdges = hg.totalEdges();
@@ -85,7 +85,7 @@ public final class GraphSnapshotCollector {
         int entityAdjHighWaterMark = 0;
 
         EntityDirectory eg = memory.admin().entityDirectory();
-        HyperEntityGraphMemory hyper = memory.admin().hyperEntityGraph();
+        HyperEntityGraphMemory hyper = memory.admin().graph() != null ? memory.admin().graph().rawHyperEntityGraph() : null;
         if (eg != null && hyper != null) {
             entityCount = eg.entityCount();
             entityEdgeCount = hyper.totalHyperedges();
@@ -107,7 +107,7 @@ public final class GraphSnapshotCollector {
         int temporalLinkedCount = 0;
         int temporalCapacity = 0;
 
-        TemporalChainMemory tc = memory.admin().temporalChain();
+        TemporalChainMemory tc = memory.admin().graph() != null ? memory.admin().graph().rawTemporalChain() : null;
         if (tc != null) {
             temporalCapacity = tc.capacity();
             // Count how many slots are linked (have temporal connections)

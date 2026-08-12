@@ -154,18 +154,7 @@ public final class CheckpointDaemon {
         this.basePath = basePath;
     }
 
-    /**
-     * Creates a checkpoint daemon (legacy constructor — no graph persistence).
-     *
-     * @deprecated Use the full constructor that includes graph subsystems.
-     */
-    @Deprecated(since = "1.0.0", forRemoval = true)
-    public CheckpointDaemon(CognitiveMemoryRouter cognitiveRouter, MemoryWal wal,
-                            Path checkpointMetaPath,
-                            MemoryIndex index, Path indexPath) {
-        this(cognitiveRouter, wal, checkpointMetaPath, index, indexPath,
-                null, null, null, null, null, null, null, null);
-    }
+
 
     /**
      * Performs a single checkpoint cycle.

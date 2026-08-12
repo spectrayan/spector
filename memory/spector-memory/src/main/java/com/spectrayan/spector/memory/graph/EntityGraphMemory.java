@@ -437,9 +437,9 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
                 TypeRegistryMemory relationTypes;
                 if (parent != null) {
                     entityTypes = TypeRegistryMemory.load(
-                            StorageLayout.entityTypes(parent), SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
+                            StorageLayout.entityTypesRuntime(parent), SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
                     relationTypes = TypeRegistryMemory.load(
-                            StorageLayout.relationTypes(parent), SystemMemoryId.RELATION_TYPE, RelationType.SEED);
+                            StorageLayout.relationTypesRuntime(parent), SystemMemoryId.RELATION_TYPE, RelationType.SEED);
                 } else {
                     entityTypes = TypeRegistryMemory.seeded(SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
                     relationTypes = TypeRegistryMemory.seeded(SystemMemoryId.RELATION_TYPE, RelationType.SEED);

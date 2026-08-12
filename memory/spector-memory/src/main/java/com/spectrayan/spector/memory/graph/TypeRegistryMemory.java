@@ -62,29 +62,8 @@ public final class TypeRegistryMemory implements RegistryMemory {
         this.backing = new DefaultRegistryMemory(systemMemoryId.id(), layout, 1024, 256 * 1024);
     }
 
-    @Deprecated
-    public TypeRegistryMemory(String label) {
-        this.label = label;
-        MemoryId registryId = "entity-type".equals(label)
-                ? SystemMemoryId.ENTITY_TYPE.id()
-                : "relation-type".equals(label)
-                        ? SystemMemoryId.RELATION_TYPE.id()
-                        : MemoryId.of("graph", label);
-        RegistryLayout layout = new RegistryLayout();
-        this.backing = new DefaultRegistryMemory(registryId, layout, 1024, 256 * 1024);
-    }
-
     public static TypeRegistryMemory seeded(SystemMemoryId systemMemoryId, String... seedTypes) {
         TypeRegistryMemory registry = new TypeRegistryMemory(systemMemoryId);
-        for (String type : seedTypes) {
-            registry.intern(type);
-        }
-        return registry;
-    }
-
-    @Deprecated
-    public static TypeRegistryMemory seeded(String label, String... seedTypes) {
-        TypeRegistryMemory registry = new TypeRegistryMemory(label);
         for (String type : seedTypes) {
             registry.intern(type);
         }
@@ -344,90 +323,6 @@ public final class TypeRegistryMemory implements RegistryMemory {
         } catch (Exception e) {
             log.error("Failed to load {} registry, creating fresh: {}", label, e.getMessage());
             return seeded(systemMemoryId, seedTypes);
-        }
-    }
-
-    @Deprecated
-    public static TypeRegistryMemory load(Path filePath, String label, String... seedTypes) {
-        if (!Files.exists(filePath)) {
-            log.info("{} registry file not found, creating seeded registry with {} types",
-                    label, seedTypes.length);
-            return seeded(label, seedTypes);
-        }
-
-        try {
-            int magic;
-            try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-                ByteBuffer mb = ByteBuffer.allocate(4);
-                ch.read(mb);
-                mb.flip();
-                magic = mb.getInt();
-            }
-
-            boolean isStandard = (magic == MemoryHeader.MAGIC || magic == 0x4D4B4D53);
-            boolean isLegacy = (magic == LEGACY_FILE_MAGIC || magic == 0x47455254);
-
-            TypeRegistryMemory registry = new TypeRegistryMemory(label);
-
-            if (isStandard) {
-                MemoryId registryId = "entity-type".equals(label)
-                        ? SystemMemoryId.ENTITY_TYPE.id()
-                        : "relation-type".equals(label)
-                                ? SystemMemoryId.RELATION_TYPE.id()
-                                : MemoryId.of("graph", label);
-                RegistryLayout layout = new RegistryLayout();
-                registry.backing.close();
-                registry.backing = new DefaultRegistryMemory(registryId, layout, 0, 0, filePath);
-
-                // Ensure all seed types are present (e.g. if new seed types were added)
-                for (String seed : seedTypes) {
-                    registry.intern(seed);
-                }
-                log.info("{} registry loaded (SMKM V1): {} types from {}", label, registry.size(), filePath.getFileName());
-                return registry;
-            } else if (isLegacy) {
-                // Read legacy file format
-                try (FileChannel ch = FileChannel.open(filePath, StandardOpenOption.READ)) {
-                    ByteBuffer header = ByteBuffer.allocate(12);
-                    ch.read(header);
-                    header.flip();
-                    header.getInt(); // magic
-                    header.getInt(); // version
-                    int count = header.getInt();
-
-                    for (int i = 0; i < count; i++) {
-                        ByteBuffer lenBuf = ByteBuffer.allocate(4);
-                        ch.read(lenBuf);
-                        lenBuf.flip();
-                        int nameLen = lenBuf.getInt();
-
-                        ByteBuffer nameBuf = ByteBuffer.allocate(nameLen);
-                        ch.read(nameBuf);
-                        nameBuf.flip();
-                        String name = StandardCharsets.UTF_8.decode(nameBuf).toString();
-
-                        ByteBuffer idBuf = ByteBuffer.allocate(4);
-                        ch.read(idBuf);
-                        idBuf.flip();
-                        int id = idBuf.getInt();
-
-                        registry.backing.putDirect(name, id);
-                    }
-                }
-
-                // Ensure all seed types are present
-                for (String seed : seedTypes) {
-                    registry.intern(seed);
-                }
-                log.info("{} registry loaded (legacy V1): {} types from {}", label, registry.size(), filePath.getFileName());
-                return registry;
-            } else {
-                log.warn("{} registry file has invalid magic: 0x{}, creating fresh", label, Integer.toHexString(magic));
-                return seeded(label, seedTypes);
-            }
-        } catch (Exception e) {
-            log.error("Failed to load {} registry, creating fresh: {}", label, e.getMessage());
-            return seeded(label, seedTypes);
         }
     }
 

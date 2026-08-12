@@ -105,7 +105,7 @@ class EntityDirectoryTest {
         Path edir = tmp.resolve("runtime").resolve("entity-directory.edir");
         Files.createDirectories(edir.getParent());
 
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         int aliceId;
         int soloId;
         int savedCount;
@@ -122,7 +122,7 @@ class EntityDirectoryTest {
         assertThat(Files.exists(edir)).isTrue();
 
         // Reload from the .edir container + sidecar and assert logical equality.
-        TypeRegistryMemory reg2 = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+        TypeRegistryMemory reg2 = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         EntityDirectory reloaded = EntityDirectory.load(edir, 64, reg2);
         try {
             assertThat(reloaded.entityCount()).isEqualTo(savedCount);
@@ -142,7 +142,7 @@ class EntityDirectoryTest {
     @Test
     @DisplayName("intern allocates a dense id space and dedups by normalized name")
     void intern_denseIdsAndDedup() {
-        TypeRegistryMemory reg = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+        TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         EntityDirectory dir = new EntityDirectory(16, reg);
         try {
             int a = dir.intern("Kubernetes", "TECHNOLOGY");

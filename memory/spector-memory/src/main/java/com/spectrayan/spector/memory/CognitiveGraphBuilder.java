@@ -94,7 +94,7 @@ final class CognitiveGraphBuilder {
             Path runtimeGraph = StorageLayout.hebbianGraphRuntime(basePath);
             Path legacyGraph = basePath.resolve(StorageLayout.FILE_HEBBIAN);
             Path v2Graph = resolvedPartitionDir != null
-                    ? StorageLayout.hebbianGraph(resolvedPartitionDir) : null;
+                    ? resolvedPartitionDir.resolve(StorageLayout.FILE_HEBBIAN) : null;
             Path loadFrom = MigrationPathResolver.getNewerPath(runtimeGraph, v2Graph, legacyGraph);
             if (loadFrom == null) {
                 loadFrom = legacyGraph;
@@ -129,7 +129,7 @@ final class CognitiveGraphBuilder {
             Path runtimeChain = StorageLayout.temporalChainRuntime(basePath);
             Path legacyChain = basePath.resolve(StorageLayout.FILE_TEMPORAL);
             Path v2Chain = resolvedPartitionDir != null
-                    ? StorageLayout.temporalChain(resolvedPartitionDir) : null;
+                    ? resolvedPartitionDir.resolve(StorageLayout.FILE_TEMPORAL) : null;
             Path loadFrom = MigrationPathResolver.getNewerPath(runtimeChain, v2Chain, legacyChain);
             if (loadFrom == null) {
                 loadFrom = legacyChain;
@@ -177,7 +177,7 @@ final class CognitiveGraphBuilder {
             } else if (isDisk && basePath != null) {
                 Path runtimeHyper = StorageLayout.hyperEntityGraphRuntime(basePath);
                 Path v2Hyper = resolvedPartitionDir != null
-                        ? StorageLayout.hyperEntityGraph(resolvedPartitionDir) : null;
+                        ? resolvedPartitionDir.resolve(StorageLayout.FILE_HYPERGRAPH) : null;
                 Path loadFrom = MigrationPathResolver.getNewerPath(runtimeHyper, v2Hyper, null);
                 if (loadFrom == null) {
                     loadFrom = runtimeHyper;

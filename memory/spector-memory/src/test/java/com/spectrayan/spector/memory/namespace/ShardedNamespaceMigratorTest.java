@@ -49,7 +49,7 @@ class ShardedNamespaceMigratorTest {
         Files.writeString(nsDir.resolve(StorageLayout.FILE_NAMESPACE),
                 "{\"id\": \"" + nsId + "\"}");
         // Create subdirs like real namespaces
-        Files.createDirectories(nsDir.resolve(StorageLayout.DIR_GLOBAL));
+        Files.createDirectories(nsDir.resolve(StorageLayout.DIR_RUNTIME));
         Files.createDirectories(nsDir.resolve(StorageLayout.DIR_PARTITIONS));
     }
 
@@ -75,7 +75,7 @@ class ShardedNamespaceMigratorTest {
         assertThat(Files.exists(StorageLayout.namespaceDirSharded(tempDir, "agent-alpha")
                 .resolve(StorageLayout.FILE_NAMESPACE))).isTrue();
         assertThat(Files.exists(StorageLayout.namespaceDirSharded(tempDir, "agent-alpha")
-                .resolve(StorageLayout.DIR_GLOBAL))).isTrue();
+                .resolve(StorageLayout.DIR_RUNTIME))).isTrue();
     }
 
     @Test

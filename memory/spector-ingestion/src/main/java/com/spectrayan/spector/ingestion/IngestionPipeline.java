@@ -74,8 +74,6 @@ public class IngestionPipeline {
     private final EmbeddingProvider embeddingProvider; // nullable for pre-embedded mode
     private final ParallelEmbeddingPipeline parallelPipeline; // nullable
     private final EmbedConfig embedConfig;              // configurable batch size
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    private final TextChunker chunker;   // nullable — legacy, use spiChunker
     private final com.spectrayan.spector.commons.chunker.TextChunker spiChunker; // nullable — new SPI
     private final ChunkConfig chunkConfig; // SPI chunk configuration
     private final int chunkThreshold;    // auto-chunk if content length exceeds this
@@ -83,7 +81,6 @@ public class IngestionPipeline {
     private IngestionPipeline(Builder builder) {
         this.target = builder.target;
         this.embeddingProvider = builder.embeddingProvider;
-        this.chunker = builder.legacyChunker;
         this.spiChunker = builder.spiChunker;
         this.chunkConfig = builder.chunkConfig;
         this.chunkThreshold = builder.chunkThreshold;
@@ -93,8 +90,7 @@ public class IngestionPipeline {
                 ? new ParallelEmbeddingPipeline(builder.embeddingProvider) : null;
         this.embedConfig = builder.embedConfig;
 
-        String chunkerName = spiChunker != null ? spiChunker.name()
-                : (chunker != null ? chunker.getClass().getSimpleName() : "none");
+        String chunkerName = spiChunker != null ? spiChunker.name() : "none";
         log.info("IngestionPipeline created: chunker={}, chunkThreshold={}, hasEmbedder={}, target={}",
                 chunkerName,
                 chunkThreshold,
@@ -172,8 +168,8 @@ public class IngestionPipeline {
         requireEmbeddingProvider();
         long start = System.nanoTime();
 
-        int chunkSize = chunker != null ? chunker.chunkSize() : 800;
-        int overlap = chunker != null ? chunker.overlap() : 100;
+        int chunkSize = chunkConfig.maxChunkSize();
+        int overlap = chunkConfig.overlap();
 
         int count = 0;
         List<String> failures = new ArrayList<>();
@@ -226,20 +222,9 @@ public class IngestionPipeline {
      * chunks in parallel using virtual threads, then stores each chunk.</p>
      */
     private IngestionResult chunkAndIngest(String id, String content, long startNanos) {
-        List<String> texts;
-        List<String> chunkIds;
-
-        if (spiChunker != null) {
-            // New SPI path
-            var spiChunks = spiChunker.chunk(id, content, chunkConfig);
-            texts = spiChunks.stream().map(Chunk::text).toList();
-            chunkIds = spiChunks.stream().map(Chunk::chunkId).toList();
-        } else {
-            // Legacy path (deprecated)
-            var legacyChunks = chunker.chunk(id, content);
-            texts = legacyChunks.stream().map(TextChunker.Chunk::text).toList();
-            chunkIds = legacyChunks.stream().map(TextChunker.Chunk::chunkId).toList();
-        }
+        var spiChunks = spiChunker != null ? spiChunker.chunk(id, content, chunkConfig) : List.<Chunk>of();
+        List<String> texts = spiChunks.stream().map(Chunk::text).toList();
+        List<String> chunkIds = spiChunks.stream().map(Chunk::chunkId).toList();
 
         // Parallel embedding using virtual threads (batch size from config)
         List<PipelineEmbeddingResult> embeddings = parallelPipeline.embed(texts, embedConfig);
@@ -273,7 +258,7 @@ public class IngestionPipeline {
     // ===============================================================
 
     private boolean shouldChunk(String content) {
-        return (spiChunker != null || chunker != null) && content.length() > chunkThreshold;
+        return spiChunker != null && content.length() > chunkThreshold;
     }
 
     private void requireEmbeddingProvider() {
@@ -287,9 +272,9 @@ public class IngestionPipeline {
         return embeddingProvider != null;
     }
 
-    /** Returns the configured chunker (nullable). */
-    public TextChunker chunker() {
-        return chunker;
+    /** Returns the configured SPI chunker (nullable). */
+    public com.spectrayan.spector.commons.chunker.TextChunker chunker() {
+        return spiChunker;
     }
 
     // ===============================================================
@@ -304,8 +289,6 @@ public class IngestionPipeline {
     public static final class Builder {
         private IngestionTarget target;
         private EmbeddingProvider embeddingProvider;
-        @Deprecated(since = "1.1.0", forRemoval = true)
-        private TextChunker legacyChunker;
         private com.spectrayan.spector.commons.chunker.TextChunker spiChunker;
         private ChunkConfig chunkConfig = ChunkConfig.DEFAULT;
         private int chunkThreshold = 800;
@@ -326,21 +309,9 @@ public class IngestionPipeline {
         }
 
         /**
-         * Sets the chunker for splitting large documents.
-         *
-         * @deprecated Use {@link #chunker(com.spectrayan.spector.commons.chunker.TextChunker)} instead.
-         */
-        @Deprecated(since = "1.1.0", forRemoval = true)
-        public Builder chunking(TextChunker chunker) {
-            this.legacyChunker = chunker;
-            return this;
-        }
-
-        /**
          * Sets the text chunker SPI implementation.
          *
-         * <p>Preferred over {@link #chunking(TextChunker)}. If not set,
-         * auto-discovers from {@link ChunkerRegistry}.</p>
+         * <p>If not set, auto-discovers from {@link ChunkerRegistry}.</p>
          *
          * @param chunker the SPI chunker implementation
          */

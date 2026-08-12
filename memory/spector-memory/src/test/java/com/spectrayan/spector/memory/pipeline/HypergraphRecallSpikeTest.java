@@ -130,7 +130,7 @@ class HypergraphRecallSpikeTest {
         Path tempDir = Files.createTempDirectory("spector-wal-roundtrip");
         try {
             MemoryWal wal = new MemoryWal(tempDir);
-            TypeRegistryMemory reg = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+            TypeRegistryMemory reg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
             EntityDirectory originalDir = new EntityDirectory(100, reg);
             HebbianGraphMemory originalHebbianGraph = new HebbianGraphMemory(100);
 
@@ -158,7 +158,7 @@ class HypergraphRecallSpikeTest {
             MemoryWal recoveryWal = new MemoryWal(tempDir);
 
             // Fresh empty instances (restart state before recovery)
-            TypeRegistryMemory recoveryReg = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+            TypeRegistryMemory recoveryReg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
             EntityDirectory recoveredDir = new EntityDirectory(100, recoveryReg);
             HebbianGraphMemory recoveredHebbianGraph = new HebbianGraphMemory(100);
 

@@ -78,7 +78,8 @@ class IngestionPipelineExtendedTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockProvider)
-                    .chunking(new TextChunker(500, 50))
+                    .chunker(new com.spectrayan.spector.commons.chunker.SentenceChunker())
+                    .chunkConfig(new com.spectrayan.spector.commons.chunker.ChunkConfig(500, 50, "text/plain", null, false, false, false))
                     .chunkThreshold(500)
                     .build();
             assertThat(pipeline.hasEmbeddingProvider()).isTrue();
@@ -137,7 +138,8 @@ class IngestionPipelineExtendedTest {
             var pipeline = IngestionPipeline.builder()
                     .target(mockTarget)
                     .embeddingProvider(mockProvider)
-                    .chunking(new TextChunker(500, 50))
+                    .chunker(new com.spectrayan.spector.commons.chunker.SentenceChunker())
+                    .chunkConfig(new com.spectrayan.spector.commons.chunker.ChunkConfig(500, 50, "text/plain", null, false, false, false))
                     .chunkThreshold(500)
                     .build();
 

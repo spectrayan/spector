@@ -68,7 +68,7 @@ final class RetrievalIndexBuilder {
             index.setTextDataStore(textDataStore);
 
             java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
-            java.nio.file.Path v2Bm25 = resolvedPartitionDir != null ? StorageLayout.bm25Bidx(resolvedPartitionDir) : null;
+            java.nio.file.Path v2Bm25 = resolvedPartitionDir != null ? resolvedPartitionDir.resolve(StorageLayout.FILE_BM25) : null;
             java.nio.file.Path loadFrom = MigrationPathResolver.getNewerPath(bm25Path, v2Bm25, null);
             if (loadFrom != null) {
                 bm25Path = loadFrom;

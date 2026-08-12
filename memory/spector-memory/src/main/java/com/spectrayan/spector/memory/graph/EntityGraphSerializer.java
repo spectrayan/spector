@@ -291,10 +291,10 @@ final class EntityGraphSerializer {
             // Load TypeRegistries — use persisted files if available, else seed from defaults
             Path graphParent = filePath.getParent();
             TypeRegistryMemory entityTypes = TypeRegistryMemory.load(
-                    StorageLayout.entityTypes(graphParent),
+                    StorageLayout.entityTypesRuntime(graphParent),
                     SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
             TypeRegistryMemory relationTypes = TypeRegistryMemory.load(
-                    StorageLayout.relationTypes(graphParent),
+                    StorageLayout.relationTypesRuntime(graphParent),
                     SystemMemoryId.RELATION_TYPE, RelationType.SEED);
 
             EntityGraphMemory graph = EntityGraphMemory.fromLoaded(entityCap, edgeCap, entCount, edgCount,
@@ -460,8 +460,8 @@ final class EntityGraphSerializer {
 
     private static void saveRegistries(EntityGraphMemory graph, Path parent) {
         try {
-            graph.entityTypeRegistry().save(StorageLayout.entityTypes(parent));
-            graph.relationTypeRegistry().save(StorageLayout.relationTypes(parent));
+            graph.entityTypeRegistry().save(StorageLayout.entityTypesRuntime(parent));
+            graph.relationTypeRegistry().save(StorageLayout.relationTypesRuntime(parent));
         } catch (IOException e) {
             log.error("Failed to save TypeRegistries alongside EntityGraphMemory: {}", e.getMessage());
         }

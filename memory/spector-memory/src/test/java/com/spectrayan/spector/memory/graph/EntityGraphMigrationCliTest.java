@@ -68,7 +68,7 @@ class EntityGraphMigrationCliTest {
         assertThat(backupFile).exists();
 
         // Verify the migrated directory can be loaded and has correct data
-        TypeRegistryMemory typeReg = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+        TypeRegistryMemory typeReg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         EntityDirectory loaded = EntityDirectory.load(edirFile, 256, typeReg, null);
         assertThat(loaded.entityCount()).isEqualTo(3);
         assertThat(loaded.findEntity("alice")).isEqualTo(alice);
@@ -107,7 +107,7 @@ class EntityGraphMigrationCliTest {
 
         // Create a dummy edir to simulate already-migrated state
         Path edirFile = runtimeDir.resolve(StorageLayout.FILE_ENTITY_DIRECTORY);
-        TypeRegistryMemory typeReg = TypeRegistryMemory.seeded("entity-type", EntityType.SEED);
+        TypeRegistryMemory typeReg = TypeRegistryMemory.seeded(com.spectrayan.spector.memory.kernel.SystemMemoryId.ENTITY_TYPE, EntityType.SEED);
         EntityDirectory dir = new EntityDirectory(edirFile, 64, typeReg);
         dir.save(edirFile);
         dir.close();
