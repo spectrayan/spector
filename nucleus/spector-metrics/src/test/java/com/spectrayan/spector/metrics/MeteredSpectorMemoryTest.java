@@ -142,10 +142,10 @@ class MeteredSpectorMemoryTest {
 
     static class DummySpectorMemory implements SpectorMemory {
         @Override public CognitiveIngestionTarget target() { return null; }
-        @Override public void remember($2) {}
-        @Override public void remember($2) {}
-        @Override public void remember($2) {}
-        @Override public void remember($2) {}
+        @Override public void remember(String id, String text, MemoryType type, MemorySource source, String... tags) {}
+        @Override public void remember(String id, String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints, String... tags) {}
+        @Override public void remember(String id, String text, MemoryType type, String... tags) {}
+        @Override public void remember(String id, String text, MemoryType type, MemorySource source, IngestionContext context, String... tags) {}
         @Override public String remember(String text, MemoryType type, MemorySource source, String... tags) { return "auto-id"; }
         @Override public String remember(String text, MemoryType type, MemorySource source, com.spectrayan.spector.memory.neurodivergent.IngestionHints hints, String... tags) { return "auto-id"; }
         @Override public String remember(String text, MemoryType type, MemorySource source, IngestionContext context, String... tags) { return "auto-id"; }
@@ -165,7 +165,7 @@ class MeteredSpectorMemoryTest {
         @Override public MemoryInsight introspect(String topic) { return null; }
         @Override public Reminder scheduleReminder(String text, Instant triggerAt, String... tags) { return null; }
         @Override public Reminder scheduleReminder(String text, Duration delay, String... tags) { return null; }
-        @Override public void scratchpad($2) {}
+        @Override public void scratchpad(String text) {}
         @Override public int totalMemories() { return 0; }
         @Override public int memoryCount(MemoryType type) { return 0; }
 
