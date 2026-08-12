@@ -21,6 +21,7 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.error.SpectorPartitionFrozenException;
 
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 
@@ -357,10 +358,17 @@ public abstract class AbstractCognitiveRecordMemory
     }
 
     protected final java.util.concurrent.locks.ReentrantLock writeLock = new java.util.concurrent.locks.ReentrantLock();
+    private volatile boolean frozen = false;
+
+    public void markFrozen() {
+        this.frozen = true;
+    }
 
     public void append(CognitiveRecordLayout.CognitiveHeader header, byte[] quantizedVec) {
+        if (frozen) throw new SpectorPartitionFrozenException(type().name());
         writeLock.lock();
         try {
+            if (frozen) throw new SpectorPartitionFrozenException(type().name());
             if (count >= capacity()) throw new com.spectrayan.spector.memory.error.SpectorMemoryTierFullException(type().name(), capacity());
             long offset = dataOffset() + (long) count * layout.stride();
             layout.writeHeader(segment(), offset, header);
