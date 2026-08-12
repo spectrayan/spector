@@ -78,7 +78,9 @@ public final class EntityDirectoryLayout implements MemoryLayout {
     /** Node field: number of adjacency entries in use. */
     public static final int ENT_OFF_ADJ_COUNT = 20;    // 4B
     /** Node field: allocated adjacency slots for this entity. */
-    public static final int ENT_OFF_ADJ_CAPACITY = 24; // 4B; pad to 64B
+    public static final int ENT_OFF_ADJ_CAPACITY = 24; // 4B
+    /** Node field: if merged, the id of the canonical entity, else -1. */
+    public static final int ENT_OFF_MERGED_INTO = 28;  // 4B; pad to 64B
 
     // ── Adjacency Entry record (8 bytes) ──
     /** Bytes per adjacency (entity→memory) entry. */

@@ -110,11 +110,11 @@ Spector Memory is a **biologically-inspired cognitive memory system** that gives
 ## 📸 Demo
 
 <p align="center">
-  <a href="docs/screenshots/spector-cortex-neural-graph.mp4">
+  <a href="https://spectrayan.com/docs/cortex#-neural-graph-in-action">
     <img src="docs/screenshots/spector-cortex-graph.png" alt="Spector Cortex — Neural Graph Explorer" width="800" />
   </a>
   <br />
-  <sub>🎥 <a href="docs/screenshots/spector-cortex-neural-graph.mp4">Watch the Neural Graph in action →</a></sub>
+  <sub>🎥 <a href="https://spectrayan.com/docs/cortex#-neural-graph-in-action">Watch the Neural Graph in action →</a></sub>
 </p>
 
 <details open>

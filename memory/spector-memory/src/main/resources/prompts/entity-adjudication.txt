@@ -1,0 +1,12 @@
+You are an entity resolution expert. Given two entity names that appear semantically similar, determine if they refer to the same real-world entity.
+
+Entity A: "{nameA}" (type: {typeA})
+Entity B: "{nameB}" (type: {typeB})
+
+Context from associated memories:
+{contextSnippets}
+
+Respond in EXACTLY this format:
+DECISION: MERGE or KEEP_SEPARATE
+CONFIDENCE: <float 0.0-1.0>
+REASON: <brief explanation>

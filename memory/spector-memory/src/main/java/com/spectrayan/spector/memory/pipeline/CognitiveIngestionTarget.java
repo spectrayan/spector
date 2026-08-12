@@ -117,6 +117,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     private final EntityExtractor entityExtractor;
     private final EntityDirectory entityDirectory;
     private final HyperEntityGraphMemory hyperEntityGraph;
+    private final com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph;
 
     //  BM25 Text Search (nullable  --  graceful degradation) 
     private final MemoryBM25Index bm25Index;
@@ -157,6 +158,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      EntityExtractor entityExtractor,
                                      EntityDirectory entityDirectory,
                                      HyperEntityGraphMemory hyperEntityGraph,
+                                     com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                                      MemoryBM25Index bm25Index,
                                      TextAppendMemory textDataStore,
                                      int activePartitionIndex,
@@ -168,7 +170,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, normalizeAtIngest,
                 hebbianGraph, temporalChain, entityExtractor,
-                entityDirectory, hyperEntityGraph,
+                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph,
                 bm25Index, textDataStore, activePartitionIndex,
                 spladeIndex, spladeProvider, DataEncryptor.NOOP, importanceProvider, sessionRegistry);
     }
@@ -192,6 +194,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      EntityExtractor entityExtractor,
                                      EntityDirectory entityDirectory,
                                      HyperEntityGraphMemory hyperEntityGraph,
+                                     com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                                      MemoryBM25Index bm25Index,
                                      TextAppendMemory textDataStore,
                                      int activePartitionIndex,
@@ -217,6 +220,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.entityExtractor = entityExtractor;
         this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
+        this.temporalKnowledgeGraph = temporalKnowledgeGraph;
         this.bm25Index = bm25Index;
         this.textDataStore = textDataStore;
         this.activePartitionIndex = activePartitionIndex;
@@ -229,7 +233,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 cognitiveRouter, index, wal, semanticIndex,
                 hebbianGraph, temporalChain, entityExtractor, entityDirectory,
                 bm25Index, textDataStore, activePartitionIndex,
-                spladeIndex, spladeProvider, this.encryptor, hyperEntityGraph);
+                spladeIndex, spladeProvider, this.encryptor, hyperEntityGraph, temporalKnowledgeGraph);
     }
 
     /**
@@ -310,7 +314,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this(quantizer, surpriseDetector, flashbulbPolicy, cognitiveRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, true,
-                null, null, null, null, null,
+                null, null, null, null, null, null,
                 null, null, -1,
                 null, null, null, null, sessionRegistry);
     }
@@ -463,7 +467,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         postIngestSync.syncGraphEdges(memoryIdx, previousIdx, sessionIntId);
 
         // Step 9d: Entity extraction and graph population
-        postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+        List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+        postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
 
         log.debug("Ingested '{}' as {} (importance={}, {} tags, graphSlot={}, source={})",
                 id, type, importance, tags.length, graphSlot, source);
@@ -700,11 +705,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         }
 
         // Step 9d: Entity extraction and graph population
+        List<ExtractedEntity> extractedEntities;
         if (context.hasEntities()) {
             postIngestSync.syncPreExtractedEntities(context.entities(), memoryIdx, id);
+            extractedEntities = context.entities();
         } else {
-            postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+            extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
         }
+        postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
 
         log.debug("Ingested '{}' as {} with IngestionContext (importance={}, {} tags, entities={}, hebbianEdges={}, temporalLinks={})",
                 id, type, importance, tags.length,

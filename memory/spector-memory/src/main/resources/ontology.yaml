@@ -1,0 +1,89 @@
+version: 1
+strictness: LOG
+entity_types:
+  PERSON:
+  ORGANIZATION:
+    aliases: [ORGANISATION, COMPANY, CORP, CORPORATION, ENTERPRISE, FIRM, STARTUP, INSTITUTE]
+  TEAM:
+    parent: ORGANIZATION
+    aliases: [SQUAD, GROUP, DEPARTMENT, DIVISION]
+  ROLE:
+  PROJECT:
+    aliases: [REPO, REPOSITORY, CODEBASE, MODULE]
+  PRODUCT:
+    aliases: [SERVICE, OFFERING, SAAS]
+  TASK:
+  CONCEPT:
+    aliases: [IDEA, PRINCIPLE, PATTERN, PARADIGM, THEORY, APPROACH, METHODOLOGY, STRATEGY]
+  TOPIC:
+    parent: CONCEPT
+  SKILL:
+    parent: CONCEPT
+  DECISION:
+    parent: CONCEPT
+  TECHNOLOGY:
+    aliases: [TECH, FRAMEWORK, LIBRARY, SDK, PACKAGE, DEPENDENCY, RUNTIME, PLATFORM, ENGINE]
+  PROGRAMMING_LANGUAGE:
+    parent: TECHNOLOGY
+    aliases: [LANGUAGE, LANG, PL]
+  API:
+    parent: TECHNOLOGY
+    aliases: [INTERFACE, ENDPOINT]
+  TOOL:
+    parent: TECHNOLOGY
+    aliases: [UTILITY, CLI, APPLICATION, APP]
+  ARTIFACT:
+    aliases: [DOCUMENT, FILE, REPORT, SPEC, DESIGN, RECORD, LOG_ENTRY]
+  EVENT:
+    aliases: [MEETING, CONFERENCE, MILESTONE, INCIDENT, OCCURRENCE]
+  LOCATION:
+    aliases: [PLACE, CITY, COUNTRY, REGION, ADDRESS, VENUE]
+  DATE_TIME:
+    aliases: [DATE, TIME, PERIOD, DURATION, TIMESTAMP, SCHEDULE]
+  PROCESS:
+    aliases: [WORKFLOW, PIPELINE, PROCEDURE, PROTOCOL]
+  METRIC:
+    aliases: [MEASUREMENT, KPI, SCORE, STATISTIC, BENCHMARK]
+  OTHER:
+
+relationship_predicates:
+  USES:
+    inverse: USED_BY
+  PART_OF:
+    inverse: CONTAINS
+    children: [MEMBER_OF]
+  MEMBER_OF:
+    parent: PART_OF
+    inverse: HAS_MEMBER
+    aliases: [EMPLOYED_AT, WORKS_AT]
+  DEVELOPED_BY:
+    inverse: DEVELOPED
+    aliases: [BUILT_BY, AUTHORED_BY]
+  WORKS_ON:
+    inverse: WORKED_ON_BY
+  MANAGES:
+    inverse: MANAGED_BY
+    children: [REPORTS_TO]
+    aliases: [OWNED_BY]
+  REPORTS_TO:
+    parent: MANAGES
+    inverse: SUPERVISES
+  RELATED_TO:
+    inverse: RELATED_TO
+  DEPENDS_ON:
+    inverse: DEPENDED_ON_BY
+  RUNS_ON:
+    inverse: HOSTS
+  CREATED_BY:
+    inverse: CREATED
+  LOCATED_IN:
+    inverse: LOCATION_OF
+    aliases: [BASED_IN, LIVES_IN]
+  COLLABORATES_WITH:
+    inverse: COLLABORATES_WITH
+  IMPLEMENTS:
+    inverse: IMPLEMENTED_BY
+  PRECEDES:
+    inverse: FOLLOWS
+  FOLLOWS:
+    inverse: PRECEDES

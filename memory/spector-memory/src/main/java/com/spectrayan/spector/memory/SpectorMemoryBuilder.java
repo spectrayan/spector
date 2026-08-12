@@ -105,6 +105,14 @@ public final class SpectorMemoryBuilder {
     GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
     int temporalRetentionDays = 7;
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
+    
+    // Entity resolution config
+    boolean entityResolutionEnabled = false;
+    boolean entityShadowMode = true;
+    float entityCosineThreshold = 0.85f;
+    
+    // Ontology config
+    com.spectrayan.spector.memory.graph.OntologyConfig ontologyConfig;
 
     //  Edge importance configuration 
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
@@ -262,6 +270,9 @@ public final class SpectorMemoryBuilder {
     /** Max entities to extract per memory (default: 10). */
     public SpectorMemoryBuilder maxEntitiesPerMemory(int c) { this.maxEntitiesPerMemory = c; return this; }
 
+    /** Ontology config for typing (default: null). */
+    public SpectorMemoryBuilder ontologyConfig(com.spectrayan.spector.memory.graph.OntologyConfig config) { this.ontologyConfig = config; return this; }
+
     /** Max relations to extract per memory (default: 20). */
     public SpectorMemoryBuilder maxRelationsPerMemory(int c) { this.maxRelationsPerMemory = c; return this; }
 
@@ -288,6 +299,21 @@ public final class SpectorMemoryBuilder {
 
     /** Maximum edges per entity in the entity graph (default: 48). */
     public SpectorMemoryBuilder entityMaxDegree(int maxDegree) { this.entityMaxDegree = maxDegree; return this; }
+    
+    public SpectorMemoryBuilder entityResolutionEnabled(boolean enabled) {
+        this.entityResolutionEnabled = enabled;
+        return this;
+    }
+
+    public SpectorMemoryBuilder entityShadowMode(boolean shadow) {
+        this.entityShadowMode = shadow;
+        return this;
+    }
+
+    public SpectorMemoryBuilder entityCosineThreshold(float threshold) {
+        this.entityCosineThreshold = threshold;
+        return this;
+    }
 
     /**
      * Parses a cognitive profile config from a YAML string value.

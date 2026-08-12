@@ -153,6 +153,7 @@ public final class RecallPipeline {
     private final CoActivationRecordMemory coActivationTracker; // nullable  --  for STDP causal boost
     private final GraphScoringPolicy graphScoringPolicy;
     private final GraphExpansionStage graphExpansionStage;
+    private final com.spectrayan.spector.memory.pipeline.graph.TemporalFactWeavingStage temporalFactWeavingStage;
 
     private final List<RecallListener> listeners = new ArrayList<>();
 
@@ -178,6 +179,8 @@ public final class RecallPipeline {
     //  SRP Phase Components 
     private final RecallCandidateGatherer candidateGatherer;
     private final CognitiveReranker cognitiveReranker;
+    private final com.spectrayan.spector.memory.pipeline.reranker.MmrReranker mmrReranker;
+    private volatile boolean mmrWarnLogged = false;
     private final GraphExpander graphExpander;
     private final SalienceAndHabituationScorer salienceScorer;
 
@@ -223,8 +226,8 @@ public final class RecallPipeline {
                            float[] calibrationScales) {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales, null, null,
-                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
-                null, null, null);
+                null, null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null);
     }
 
     /**
@@ -246,8 +249,8 @@ public final class RecallPipeline {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, null,
-                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
-                null, null, null);
+                null, null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null);
     }
 
     /**
@@ -271,8 +274,8 @@ public final class RecallPipeline {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker,
-                null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
-                null, null, null);
+                null, null, null, null, null, null, GraphScoringPolicy.DEFAULT, null,
+                null, null, null, null, null);
     }
 
     /**
@@ -302,8 +305,8 @@ public final class RecallPipeline {
         this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker, hebbianGraph, temporalChain,
-                entityDirectory, hyperEntityGraph, entityExtractor, graphScoringPolicy,
-                bm25Index, spladeIndex, spladeProvider, colbertReranker, null);
+                entityDirectory, hyperEntityGraph, null, entityExtractor, graphScoringPolicy,
+                bm25Index, spladeIndex, spladeProvider, colbertReranker, null, null);
     }
 
     /**
@@ -324,6 +327,7 @@ public final class RecallPipeline {
                            TemporalChainMemory temporalChain,
                            EntityDirectory entityDirectory,
                            com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                           com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
                            EntityExtractor entityExtractor,
                            GraphScoringPolicy graphScoringPolicy,
                            MemoryBM25Index bm25Index,
@@ -331,6 +335,40 @@ public final class RecallPipeline {
                            SparseEmbeddingProvider spladeProvider,
                            ColBERTReranker colbertReranker,
                            RecallHistory recallHistory) {
+        this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
+                prospectiveScheduler, wal, calibrationMins, calibrationScales,
+                semanticRecallStrategy, coActivationTracker, hebbianGraph, temporalChain,
+                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, entityExtractor, graphScoringPolicy,
+                bm25Index, spladeIndex, spladeProvider, colbertReranker, recallHistory, null);
+    }
+
+    /**
+     * Creates a recall pipeline with all subsystems plus RecallHistory for associative recall and MmrReranker.
+     */
+    public RecallPipeline(EmbeddingProvider embeddingProvider,
+                           PartitionRegistry partitionRegistry,
+                           MemoryIndex index,
+                           SuppressionSet suppressionSet,
+                           HabituationPenalty habituationPenalty,
+                           ProspectiveScheduler prospectiveScheduler,
+                           MemoryWal wal,
+                           float[] calibrationMins,
+                           float[] calibrationScales,
+                           SemanticRecallStrategy semanticRecallStrategy,
+                           CoActivationRecordMemory coActivationTracker,
+                           HebbianGraphBase hebbianGraph,
+                           TemporalChainMemory temporalChain,
+                           EntityDirectory entityDirectory,
+                           com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                           com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
+                           EntityExtractor entityExtractor,
+                           GraphScoringPolicy graphScoringPolicy,
+                           MemoryBM25Index bm25Index,
+                           MemorySpladeIndex spladeIndex,
+                           SparseEmbeddingProvider spladeProvider,
+                           ColBERTReranker colbertReranker,
+                           RecallHistory recallHistory,
+                           com.spectrayan.spector.memory.pipeline.reranker.MmrReranker mmrReranker) {
         this.embeddingProvider = embeddingProvider;
         this.partitionRegistry = partitionRegistry;
         this.index = index;
@@ -353,6 +391,7 @@ public final class RecallPipeline {
         this.spladeProvider = spladeProvider;
         this.colbertReranker = colbertReranker;
         this.recallHistory = recallHistory;
+        this.mmrReranker = mmrReranker;
 
         //  Phase Components Initialization 
         this.candidateGatherer = new RecallCandidateGatherer(index, bm25Index);
@@ -365,6 +404,9 @@ public final class RecallPipeline {
                 hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, entityExtractor,
                 this.graphScoringPolicy, index, partitionRegistry,
                 calibrationMins, calibrationScales);
+        
+        this.temporalFactWeavingStage = new com.spectrayan.spector.memory.pipeline.graph.TemporalFactWeavingStage(
+                temporalKnowledgeGraph, entityDirectory, entityExtractor);
     }
 
     public RecallCandidateGatherer candidateGatherer() { return candidateGatherer; }
@@ -466,6 +508,7 @@ public final class RecallPipeline {
 
         // Graph expansion
         graphExpansionStage.expand(allResults, queryVector, options);
+        temporalFactWeavingStage.weave(allResults, queryVector, options);
 
         // Filter suppressed memories (inhibition)  --  always active
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
@@ -552,6 +595,7 @@ public final class RecallPipeline {
 
         // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
         graphExpansionStage.expand(allResults, queryVector, options);
+        temporalFactWeavingStage.weave(allResults, queryVector, options);
 
         // Sort vector candidates by cognitive score descending before RRF rank assignment
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
@@ -667,6 +711,16 @@ public final class RecallPipeline {
                 log.warn("ColBERT reranking requested (mode={}) but ColBERTReranker " +
                          "not configured  --  skipping rerank step", options.textSearchMode());
                 colbertWarnLogged = true;
+            }
+        }
+
+        // Step 6c: MMR Reranker (if enabled)
+        if (options.enableMmr()) {
+            if (mmrReranker != null) {
+                allResults = mmrReranker.rerank(allResults, queryVector, options.mmrLambda(), options.topK());
+            } else if (!mmrWarnLogged) {
+                log.warn("MMR reranking requested but MmrReranker not configured");
+                mmrWarnLogged = true;
             }
         }
 

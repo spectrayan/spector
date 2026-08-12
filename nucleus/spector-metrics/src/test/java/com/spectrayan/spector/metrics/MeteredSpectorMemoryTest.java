@@ -180,6 +180,9 @@ class MeteredSpectorMemoryTest {
         @Override public SalienceProfile salienceProfile() { return SalienceProfile.NEUTRAL; }
         @Override public float computeTopicBoost(String text) { return 1.0f; }
         @Override public float computeSelfRelevanceBoost(String text) { return 1.0f; }
+        @Override public int assertFact(String subject, String predicate, String object, long validFrom, long validTo, float confidence) { return 0; }
+        @Override public int retractFact(int factId) { return 0; }
+        @Override public java.util.List<com.spectrayan.spector.memory.temporal.TemporalFact> factsAbout(String entityName, java.time.Instant asOf) { return java.util.List.of(); }
         @Override public void close() {}
     }
 }

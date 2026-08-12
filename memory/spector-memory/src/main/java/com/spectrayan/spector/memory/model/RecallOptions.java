@@ -106,6 +106,9 @@ public record RecallOptions(
         //  Reranker (ColBERT v2) 
         boolean enableReranker,
         int rerankerDepth,
+        //  MMR Diversity 
+        boolean enableMmr,
+        float mmrLambda,
         //  Auto-Profile Detection 
         boolean autoProfile,
         //  Consolidation & Contradictions 
@@ -220,6 +223,10 @@ public record RecallOptions(
         //  Reranker (ColBERT v2) 
         private boolean enableReranker = false;     // default: off (requires TokenEmbeddingProvider)
         private int rerankerDepth = 50;             // rerank top-50 first-stage candidates
+
+        //  MMR Diversity 
+        private boolean enableMmr = false;          // default: off
+        private float mmrLambda = 0.5f;             // trade-off between relevance and diversity
 
         //  Auto-Profile Detection 
         private boolean autoProfile = false;         // default: off (use explicit profile)
@@ -572,6 +579,26 @@ public record RecallOptions(
             return this;
         }
 
+        //  MMR Diversity 
+
+        /**
+         * Enables/disables Maximal Marginal Relevance (MMR) reranking for diversity.
+         */
+        public Builder enableMmr(boolean enable) {
+            this.enableMmr = enable;
+            return this;
+        }
+
+        /**
+         * Sets the lambda parameter for MMR (default: 0.5).
+         * <p>lambda = 1.0 focuses entirely on relevance (original score).
+         * lambda = 0.0 focuses entirely on diversity.</p>
+         */
+        public Builder mmrLambda(float lambda) {
+            this.mmrLambda = lambda;
+            return this;
+        }
+
         //  Auto-Profile Detection 
 
         /**
@@ -700,6 +727,7 @@ public record RecallOptions(
                     graphExpansionThreshold,
                     replayTimestamp, maxReplayEvents,
                     enableReranker, rerankerDepth,
+                    enableMmr, mmrLambda,
                     autoProfile,
                     includeContradictions,
                     resolvedProfile);

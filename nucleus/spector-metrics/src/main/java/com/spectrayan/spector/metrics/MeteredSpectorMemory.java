@@ -415,6 +415,24 @@ public class MeteredSpectorMemory implements SpectorMemory {
         return delegate.computeSelfRelevanceBoost(text);
     }
 
+    // ── Temporal Knowledge Graph ──
+
+    @Override
+    public int assertFact(String subject, String predicate, String object,
+                          long validFrom, long validTo, float confidence) {
+        return delegate.assertFact(subject, predicate, object, validFrom, validTo, confidence);
+    }
+
+    @Override
+    public int retractFact(int factId) {
+        return delegate.retractFact(factId);
+    }
+
+    @Override
+    public List<com.spectrayan.spector.memory.temporal.TemporalFact> factsAbout(String entityName, Instant asOf) {
+        return delegate.factsAbout(entityName, asOf);
+    }
+
     // ── Lifecycle ──
 
     @Override

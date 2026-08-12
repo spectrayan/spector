@@ -103,6 +103,7 @@ import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
 import com.spectrayan.spector.memory.namespace.NamespaceQuotas;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.temporal.TemporalFact;
 import com.spectrayan.spector.commons.TextChunker;
 
 import org.slf4j.Logger;
@@ -1328,6 +1329,44 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
         return ratios;
+    }
+
+    @Override
+    public int assertFact(String subject, String predicate, String object,
+                          long validFrom, long validTo, float confidence) {
+        acquireLease();
+        try {
+            int subjectId = entityDirectory.intern(subject, "UNKNOWN");
+            int objectId = entityDirectory.intern(object, "UNKNOWN");
+            return temporalKnowledgeGraph.assertFact(
+                    subjectId, predicate, objectId, -1L, (short) 0,
+                    validFrom, validTo, confidence, false);
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public int retractFact(int factId) {
+        acquireLease();
+        try {
+            return temporalKnowledgeGraph.retractFact(factId);
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public List<TemporalFact> factsAbout(String entityName, Instant asOf) {
+        acquireLease();
+        try {
+            int entityId = entityDirectory.intern(entityName, "UNKNOWN");
+            return temporalKnowledgeGraph.factsAbout(entityId)
+                    .validAt(asOf)
+                    .resolve();
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override

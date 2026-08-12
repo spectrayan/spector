@@ -25,6 +25,8 @@ import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout;
 import com.spectrayan.spector.memory.kernel.shape.AbstractGraphMemory;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -54,6 +56,7 @@ import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.
 import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_ADJ_OFFSET;
 import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_NAME_HASH;
 import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_TYPE;
+import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.ENT_OFF_MERGED_INTO;
 import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.SUB_OFF_ADJ_CAPACITY;
 import static com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout.SUB_OFF_ADJ_HWM;
 
@@ -407,6 +410,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_ADJ_OFFSET, -1); // no adj block yet
         entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_ADJ_COUNT, 0);
         entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_ADJ_CAPACITY, 0);
+        entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_MERGED_INTO, -1);
     }
 
     /**
@@ -780,7 +784,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
      * @param maxEditDistance maximum Levenshtein distance for merge
      * @return number of entities merged
      */
-    public int mergeSimilarEntities(int maxEditDistance) {
+    public int mergeSimilarEntities(int maxEditDistance, TypeNormalizer typeNormalizer) {
         long stamp = lock.writeLock();
         try {
             if (maxEditDistance <= 0 || entityCount < 2) return 0;
@@ -795,7 +799,13 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                     if (merged.contains(entries.get(j).getValue())) continue;
                     String nameB = entries.get(j).getKey();
                     int idB = entries.get(j).getValue();
-                    if (!entityType(idA).equals(entityType(idB))) continue;
+                    String typeA = entityType(idA);
+                    String typeB = entityType(idB);
+                    if (typeNormalizer != null) {
+                        if (!typeNormalizer.areMergeCompatible(typeA, typeB)) continue;
+                    } else {
+                        if (!typeA.equals(typeB)) continue;
+                    }
                     int dist = levenshteinDistance(nameA, nameB);
                     if (dist > 0 && dist <= maxEditDistance) {
                         int canonical = nameA.length() <= nameB.length() ? idA : idB;
@@ -818,6 +828,158 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         } finally {
             lock.unlockWrite(stamp);
         }
+    }
+
+    /**
+     * Set the mergedInto pointer on a duplicate entity and re-link its memories.
+     */
+    public void mergeEntity(int duplicateId, int canonicalId) {
+        long stamp = lock.writeLock();
+        try {
+            if (duplicateId < 0 || duplicateId >= entityCount || canonicalId < 0 || canonicalId >= entityCount) return;
+            if (duplicateId == canonicalId) return;
+
+            long dupOffset = (long) duplicateId * ENTITY_NODE_BYTES;
+            entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_MERGED_INTO, canonicalId);
+
+            int[] dupRefs = memoriesForEntityLocked(duplicateId);
+            for (int memIdx : dupRefs) {
+                linkEntityToMemoryLocked(canonicalId, memIdx, INITIAL_LINK_WEIGHT, true);
+            }
+            entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_ADJ_COUNT, 0);
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /**
+     * Clear the mergedInto pointer.
+     */
+    public void unmergeEntity(int entityId) {
+        long stamp = lock.writeLock();
+        try {
+            if (entityId < 0 || entityId >= entityCount) return;
+            long offset = (long) entityId * ENTITY_NODE_BYTES;
+            entitySegment.set(ValueLayout.JAVA_INT, offset + ENT_OFF_MERGED_INTO, -1);
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /**
+     * Resolves the canonical entity ID by following mergedInto pointers.
+     */
+    public int resolveEntity(int entityId) {
+        if (entityId < 0 || entityId >= entityCount) return -1;
+        long stamp = lock.readLock();
+        try {
+            int current = entityId;
+            int iterations = 0;
+            while (iterations++ < 10) { // Limit to prevent cycles
+                long offset = (long) current * ENTITY_NODE_BYTES;
+                int mergedInto = entitySegment.get(ValueLayout.JAVA_INT, offset + ENT_OFF_MERGED_INTO);
+                if (mergedInto == -1) {
+                    return current;
+                }
+                current = mergedInto;
+            }
+            return current;
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    /**
+     * Merges entities using embeddings and LLM adjudication.
+     */
+    public int mergeSimilarEntities(EmbeddingProvider embedder, LlmProvider adjudicator, float cosineThreshold, boolean shadowMode, TypeNormalizer typeNormalizer) {
+        if (embedder == null || adjudicator == null || entityCount < 2) return 0;
+        
+        long stamp = lock.writeLock();
+        try {
+            LlmEntityAdjudicator llmAdjudicator = new LlmEntityAdjudicator(adjudicator);
+            Set<Integer> merged = new HashSet<>();
+            int mergeCount = 0;
+            List<Map.Entry<String, Integer>> entries = new ArrayList<>(nameIndex.entrySet());
+            
+            // Collect embeddings for all names
+            List<String> namesToEmbed = new ArrayList<>();
+            for (Map.Entry<String, Integer> entry : entries) {
+                namesToEmbed.add(entry.getKey());
+            }
+            
+            float[][] embeddings = null;
+            try {
+                java.util.List<com.spectrayan.spector.provider.embedding.EmbeddingResult> results = embedder.embedBatch(namesToEmbed);
+                embeddings = new float[results.size()][];
+                for (int i = 0; i < results.size(); i++) {
+                    embeddings[i] = results.get(i).vector();
+                }
+            } catch (Exception e) {
+                log.warn("Failed to embed entity names for resolution", e);
+                return 0;
+            }
+            
+            for (int i = 0; i < entries.size(); i++) {
+                int idA = entries.get(i).getValue();
+                if (merged.contains(idA)) continue;
+                String nameA = entries.get(i).getKey();
+                String typeA = entityType(idA);
+                
+                for (int j = i + 1; j < entries.size(); j++) {
+                    int idB = entries.get(j).getValue();
+                    if (merged.contains(idB)) continue;
+                    String typeB = entityType(idB);
+                    if (!typeA.equals(typeB)) continue;
+                    
+                    float sim = cosineSimilarity(embeddings[i], embeddings[j]);
+                    if (sim >= cosineThreshold) {
+                        String nameB = entries.get(j).getKey();
+                        
+                        if (shadowMode) {
+                            log.info("[EntityResolution:Shadow] Proposed merge: '{}' and '{}' (sim={})", nameA, nameB, sim);
+                            continue;
+                        }
+                        
+                        var result = llmAdjudicator.adjudicate(nameA, typeA, nameB, typeB, List.of());
+                        if (result.shouldMerge()) {
+                            int canonical = nameA.length() <= nameB.length() ? idA : idB;
+                            int duplicate = canonical == idA ? idB : idA;
+                            
+                            // Re-link manually as we hold the write lock
+                            int[] dupRefs = memoriesForEntityLocked(duplicate);
+                            for (int memIdx : dupRefs) {
+                                linkEntityToMemoryLocked(canonical, memIdx, INITIAL_LINK_WEIGHT, true);
+                            }
+                            long dupOffset = (long) duplicate * ENTITY_NODE_BYTES;
+                            entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_ADJ_COUNT, 0);
+                            entitySegment.set(ValueLayout.JAVA_INT, dupOffset + ENT_OFF_MERGED_INTO, canonical);
+                            
+                            merged.add(duplicate);
+                            mergeCount++;
+                            log.info("Entity resolution merged '{}' into '{}'", 
+                                    canonical == idA ? nameB : nameA, 
+                                    canonical == idA ? nameA : nameB);
+                        }
+                    }
+                }
+            }
+            return mergeCount;
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+    
+    private float cosineSimilarity(float[] a, float[] b) {
+        if (a == null || b == null || a.length != b.length) return 0f;
+        float dot = 0f, normA = 0f, normB = 0f;
+        for (int i = 0; i < a.length; i++) {
+            dot += a[i] * b[i];
+            normA += a[i] * a[i];
+            normB += b[i] * b[i];
+        }
+        if (normA == 0f || normB == 0f) return 0f;
+        return (float) (dot / (Math.sqrt(normA) * Math.sqrt(normB)));
     }
 
     private static final ThreadLocal<int[]> LEV_PREV = ThreadLocal.withInitial(() -> new int[256]);
