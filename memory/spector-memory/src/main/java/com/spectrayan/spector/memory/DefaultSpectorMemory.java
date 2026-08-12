@@ -1239,15 +1239,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public MemoryIndex index() { return index; }
     @Override public LateralEvaluator lateralEvaluator() { return lateralEvaluator; }
     @Override public CognitiveGraphFacade graph() { return graphFacade; }
-    @SuppressWarnings("deprecation")
-    @Override public HebbianGraphBase hebbianGraph() { return graphFacade.hebbianGraph(); }
-    @SuppressWarnings("deprecation")
-    @Override public TemporalChainMemory temporalChain() { return graphFacade.temporalChain(); }
-
     @Override public EntityDirectory entityDirectory() { return entityDirectory; }
     @Override public com.spectrayan.spector.memory.insula.InsularCortex insularCortex() { return insularCortex; }
-    @SuppressWarnings("deprecation")
-    @Override public HyperEntityGraphMemory hyperEntityGraph() { return graphFacade.hyperEntityGraph(); }
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
     @Override public TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
 

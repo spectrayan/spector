@@ -42,16 +42,8 @@ class StorageLayoutTest {
             assertThat(StorageLayout.runtimeDir(BASE)).isEqualTo(BASE.resolve("runtime"));
         }
 
-        @Test void globalDir_deprecated() {
-            assertThat(StorageLayout.globalDir(BASE)).isEqualTo(BASE.resolve("global"));
-        }
-
         @Test void partitionsDir() {
             assertThat(StorageLayout.partitionsDir(BASE)).isEqualTo(BASE.resolve("partitions"));
-        }
-
-        @Test void crossDir_deprecated() {
-            assertThat(StorageLayout.crossDir(BASE)).isEqualTo(BASE.resolve("cross"));
         }
 
         @Test void walDir() {
@@ -168,9 +160,6 @@ class StorageLayoutTest {
         @Test void episodicMem()   { assertThat(StorageLayout.episodicMem(partDir).getFileName().toString()).isEqualTo("episodic.mem"); }
         @Test void proceduralMem() { assertThat(StorageLayout.proceduralMem(partDir).getFileName().toString()).isEqualTo("procedural.mem"); }
         @Test void textDat()       { assertThat(StorageLayout.textDat(partDir).getFileName().toString()).isEqualTo("text.dat"); }
-        @Test void indexMidx()     { assertThat(StorageLayout.indexMidx(partDir).getFileName().toString()).isEqualTo("index.midx"); }
-        @Test void hebbianGraph()  { assertThat(StorageLayout.hebbianGraph(partDir).getFileName().toString()).isEqualTo("hebbian.graph"); }
-        @Test void temporalChain() { assertThat(StorageLayout.temporalChain(partDir).getFileName().toString()).isEqualTo("temporal.chain"); }
     }
 
     // ══════════════════════════════════════════════════════════════

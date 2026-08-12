@@ -228,10 +228,11 @@ public final class CognitiveBenchmarkHarness {
         Map<String, Set<ContributingSubsystem>> perQueryContributions = new LinkedHashMap<>();
 
         // Get graph references for subsystem detection
-        var hebbianGraph = memory.admin().hebbianGraph();
-        var temporalChain = memory.admin().temporalChain();
+        var graph = memory.admin().graph();
+        var hebbianGraph = graph != null ? graph.rawHebbianGraph() : null;
+        var temporalChain = graph != null ? graph.rawTemporalChain() : null;
         var entityDirectory = memory.admin().entityDirectory();
-        var hyperEntityGraph = memory.admin().hyperEntityGraph();
+        var hyperEntityGraph = graph != null ? graph.rawHyperEntityGraph() : null;
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
 

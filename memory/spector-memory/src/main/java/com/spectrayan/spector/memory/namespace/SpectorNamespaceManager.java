@@ -413,15 +413,7 @@ public class SpectorNamespaceManager {
         /** Path to runtime/ within this namespace (V3 layout). */
         public Path runtimeDir() { return directory.resolve(StorageLayout.DIR_RUNTIME); }
 
-        /** @deprecated Use {@link #runtimeDir()}. Kept for migration. */
-        @Deprecated(forRemoval = true)
-        public Path globalDir() { return directory.resolve(StorageLayout.DIR_GLOBAL); }
-
         /** Path to partitions/ within this namespace. */
         public Path partitionsDir() { return directory.resolve(StorageLayout.DIR_PARTITIONS); }
-
-        /** @deprecated V3 layout eliminates cross/. */
-        @Deprecated(forRemoval = true)
-        public Path crossDir() { return directory.resolve(StorageLayout.DIR_CROSS); }
     }
 }

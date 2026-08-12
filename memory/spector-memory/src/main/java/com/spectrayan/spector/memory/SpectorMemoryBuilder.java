@@ -186,23 +186,7 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder typeRegistrySize(long s) { this.typeRegistrySize = s; return this; }
     public SpectorMemoryBuilder insulaSize(long s) { this.insulaSize = s; return this; }
 
-    /**
-     * Sets the text chunker for remember() auto-chunking.
-     *
-     * @deprecated Use {@link #chunker(com.spectrayan.spector.commons.chunker.TextChunker, com.spectrayan.spector.commons.chunker.ChunkConfig)} instead.
-     */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    public SpectorMemoryBuilder chunker(TextChunker chunker) {
-        if (chunker != null) {
-            this.chunker = new com.spectrayan.spector.commons.chunker.SentenceChunker();
-            this.chunkConfig = new com.spectrayan.spector.commons.chunker.ChunkConfig(
-                    chunker.chunkSize(), chunker.overlap(),
-                    "text/plain", "text/plain",
-                    false, false, false
-            );
-        }
-        return this;
-    }
+
 
     /**
      * Sets the text chunker and configuration for remember() auto-chunking.

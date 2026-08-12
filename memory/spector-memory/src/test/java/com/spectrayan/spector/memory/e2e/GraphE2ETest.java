@@ -40,11 +40,11 @@ class GraphE2ETest extends AbstractE2ETest {
     @Order(1)
     @DisplayName("Hebbian graph is initialized and has edges from co-ingestion")
     void hebbianGraphInitialized() {
-        assertThat(memory.admin().hebbianGraph())
+        assertThat(memory.admin().graph().rawHebbianGraph())
                 .as("Hebbian graph should be initialized")
                 .isNotNull();
 
-        int totalEdges = memory.admin().hebbianGraph().totalEdges();
+        int totalEdges = memory.admin().graph().rawHebbianGraph().totalEdges();
         log.info("Hebbian graph: {} total edges", totalEdges);
 
         assertThat(totalEdges)
@@ -59,9 +59,9 @@ class GraphE2ETest extends AbstractE2ETest {
         int idx1 = 0;
         int idx2 = 1;
 
-        memory.admin().hebbianGraph().strengthen(idx1, idx2, 5.0f);
+        memory.admin().graph().rawHebbianGraph().strengthen(idx1, idx2, 5.0f);
 
-        var neighbors = memory.admin().hebbianGraph().neighbors(idx1);
+        var neighbors = memory.admin().graph().rawHebbianGraph().neighbors(idx1);
         log.info("Hebbian neighbors of idx {}: {}", idx1, neighbors.size());
 
         boolean linked = neighbors.stream()
@@ -69,7 +69,7 @@ class GraphE2ETest extends AbstractE2ETest {
         assertThat(linked).as("idx 0 and idx 1 should be linked").isTrue();
 
         // Verify bidirectional
-        var reverseNeighbors = memory.admin().hebbianGraph().neighbors(idx2);
+        var reverseNeighbors = memory.admin().graph().rawHebbianGraph().neighbors(idx2);
         boolean reverseLinked = reverseNeighbors.stream()
                 .anyMatch(e -> e.neighborIndex() == idx1);
         assertThat(reverseLinked).as("Edge should be bidirectional").isTrue();
@@ -82,14 +82,14 @@ class GraphE2ETest extends AbstractE2ETest {
         int idxA = 3;
         int idxB = 4;
 
-        memory.admin().hebbianGraph().strengthen(idxA, idxB, 1.0f);
-        float weight1 = memory.admin().hebbianGraph().neighbors(idxA).stream()
+        memory.admin().graph().rawHebbianGraph().strengthen(idxA, idxB, 1.0f);
+        float weight1 = memory.admin().graph().rawHebbianGraph().neighbors(idxA).stream()
                 .filter(e -> e.neighborIndex() == idxB)
                 .map(e -> e.weight())
                 .findFirst().orElse(0f);
 
-        memory.admin().hebbianGraph().strengthen(idxA, idxB, 2.0f);
-        float weight2 = memory.admin().hebbianGraph().neighbors(idxA).stream()
+        memory.admin().graph().rawHebbianGraph().strengthen(idxA, idxB, 2.0f);
+        float weight2 = memory.admin().graph().rawHebbianGraph().neighbors(idxA).stream()
                 .filter(e -> e.neighborIndex() == idxB)
                 .map(e -> e.weight())
                 .findFirst().orElse(0f);
@@ -107,11 +107,11 @@ class GraphE2ETest extends AbstractE2ETest {
     @Order(10)
     @DisplayName("Temporal chain is initialized with correct capacity")
     void temporalChainInitialized() {
-        assertThat(memory.admin().temporalChain())
+        assertThat(memory.admin().graph().rawTemporalChain())
                 .as("Temporal chain should be initialized")
                 .isNotNull();
 
-        assertThat(memory.admin().temporalChain().capacity())
+        assertThat(memory.admin().graph().rawTemporalChain().capacity())
                 .as("Temporal chain capacity should be >= 500")
                 .isGreaterThanOrEqualTo(500);
     }
@@ -125,17 +125,17 @@ class GraphE2ETest extends AbstractE2ETest {
         int idx3 = 12;
 
         int sessionId = 42;
-        memory.admin().temporalChain().link(idx2, idx1, sessionId);
-        memory.admin().temporalChain().link(idx3, idx2, sessionId);
+        memory.admin().graph().rawTemporalChain().link(idx2, idx1, sessionId);
+        memory.admin().graph().rawTemporalChain().link(idx3, idx2, sessionId);
 
         // Forward traversal: idx1 → idx2 → idx3
-        int[] forward = memory.admin().temporalChain().followForward(idx1, 5);
+        int[] forward = memory.admin().graph().rawTemporalChain().followForward(idx1, 5);
         log.info("Forward from idx {}: {}", idx1, java.util.Arrays.toString(forward));
         assertThat(forward).as("Forward chain should contain idx2 and idx3")
                 .contains(idx2, idx3);
 
         // Backward traversal: idx3 → idx2 → idx1
-        int[] backward = memory.admin().temporalChain().followBackward(idx3, 5);
+        int[] backward = memory.admin().graph().rawTemporalChain().followBackward(idx3, 5);
         log.info("Backward from idx {}: {}", idx3, java.util.Arrays.toString(backward));
         assertThat(backward).as("Backward chain should contain idx2 and idx1")
                 .contains(idx2, idx1);
@@ -148,7 +148,7 @@ class GraphE2ETest extends AbstractE2ETest {
         int linked = 10; // was linked in previous test
         int unlinked = 499; // should not be linked
 
-        assertThat(memory.admin().temporalChain().isLinked(linked))
+        assertThat(memory.admin().graph().rawTemporalChain().isLinked(linked))
                 .as("Previously linked node should report isLinked=true")
                 .isTrue();
     }
@@ -240,12 +240,12 @@ class GraphE2ETest extends AbstractE2ETest {
         int a = 50, b = 51, c = 52, d = 53;
         int session = 99;
 
-        memory.admin().temporalChain().link(b, a, session);
-        memory.admin().temporalChain().link(c, b, session);
-        memory.admin().temporalChain().link(d, c, session);
+        memory.admin().graph().rawTemporalChain().link(b, a, session);
+        memory.admin().graph().rawTemporalChain().link(c, b, session);
+        memory.admin().graph().rawTemporalChain().link(d, c, session);
 
-        int[] forward = memory.admin().temporalChain().followForward(a, 10);
-        int[] backward = memory.admin().temporalChain().followBackward(d, 10);
+        int[] forward = memory.admin().graph().rawTemporalChain().followForward(a, 10);
+        int[] backward = memory.admin().graph().rawTemporalChain().followBackward(d, 10);
 
         log.info("Chain A→D: forward from A={}, backward from D={}",
                 java.util.Arrays.toString(forward), java.util.Arrays.toString(backward));
@@ -262,7 +262,7 @@ class GraphE2ETest extends AbstractE2ETest {
     @DisplayName("Hebbian self-strengthen is handled safely")
     void hebbianSelfLinkHandled() {
         // Strengthening a node with itself shouldn't crash or create invalid edges
-        assertThatCode(() -> memory.admin().hebbianGraph().strengthen(5, 5, 1.0f))
+        assertThatCode(() -> memory.admin().graph().rawHebbianGraph().strengthen(5, 5, 1.0f))
                 .as("Self-strengthening should not crash")
                 .doesNotThrowAnyException();
     }
@@ -273,7 +273,7 @@ class GraphE2ETest extends AbstractE2ETest {
     void hebbianEdgeWeightsNonNegative() {
         // Query neighbors for a few nodes and verify all weights are valid
         for (int idx = 0; idx < 10; idx++) {
-            var neighbors = memory.admin().hebbianGraph().neighbors(idx);
+            var neighbors = memory.admin().graph().rawHebbianGraph().neighbors(idx);
             for (var edge : neighbors) {
                 assertThat(edge.weight())
                         .as("Edge weight for idx %d → %d should be non-negative",

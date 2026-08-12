@@ -308,18 +308,23 @@ public final class BenchmarkSetup implements AutoCloseable {
 
         // Load graph structures from dataset definitions (null-safe: subsystems may be unconfigured)
         if (!isDiskLoaded) {
-            if (memory.admin().hebbianGraph() != null) {
-                loadHebbianEdges(memory.admin().hebbianGraph(), dataset.hebbianEdges(), idToSlot);
+            var graph = memory.admin().graph();
+            var hg = graph != null ? graph.rawHebbianGraph() : null;
+            var tc = graph != null ? graph.rawTemporalChain() : null;
+            var hyper = graph != null ? graph.rawHyperEntityGraph() : null;
+
+            if (hg != null) {
+                loadHebbianEdges(hg, dataset.hebbianEdges(), idToSlot);
             } else {
                 log.warn("HebbianGraph is null  --  skipping {} edge definitions", dataset.hebbianEdges().size());
             }
-            if (memory.admin().temporalChain() != null) {
-                loadTemporalChains(memory.admin().temporalChain(), dataset.temporalChains(), idToSlot);
+            if (tc != null) {
+                loadTemporalChains(tc, dataset.temporalChains(), idToSlot);
             } else {
                 log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
             }
-            if (memory.admin().entityDirectory() != null && memory.admin().hyperEntityGraph() != null) {
-                loadEntityGraph(memory.admin().entityDirectory(), memory.admin().hyperEntityGraph(), dataset.entityRelations(), corpus);
+            if (memory.admin().entityDirectory() != null && hyper != null) {
+                loadEntityGraph(memory.admin().entityDirectory(), hyper, dataset.entityRelations(), corpus);
             } else {
                 log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
             }

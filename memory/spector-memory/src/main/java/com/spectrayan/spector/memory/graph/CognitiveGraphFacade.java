@@ -96,20 +96,12 @@ public final class CognitiveGraphFacade {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // DEPRECATED RAW ACCESSORS (will be removed in a future release)
+    // INTERNAL & BENCHMARK ACCESSORS
     // ══════════════════════════════════════════════════════════════
 
-    /** @deprecated Use {@link #graphStats()} or {@link #neighborhood(String, int, Function)} instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    public HebbianGraphBase hebbianGraph() { return hebbianGraph; }
-
-    /** @deprecated Use {@link #graphStats()} or {@link #neighborhood(String, int, Function)} instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    public TemporalChainMemory temporalChain() { return temporalChain; }
-
-    /** @deprecated Use {@link #topologyStats()} instead. */
-    @Deprecated(since = "1.1.0", forRemoval = true)
-    public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
+    public HebbianGraphBase rawHebbianGraph() { return hebbianGraph; }
+    public TemporalChainMemory rawTemporalChain() { return temporalChain; }
+    public HyperEntityGraphMemory rawHyperEntityGraph() { return hyperEntityGraph; }
 
     // ══════════════════════════════════════════════════════════════
     // HIGH-LEVEL GRAPH QUERIES

@@ -285,12 +285,15 @@ public class MeteredSpectorMemory implements SpectorMemory {
 
     /** Captures a memory snapshot for telemetry. */
     private MemorySnapshotTelemetry captureMemorySnapshot(String phase, String cycleId) {
+        var graph = delegate.admin().graph();
+        var stats = graph != null ? graph.graphStats() : null;
+        var tempChain = graph != null ? graph.rawTemporalChain() : null;
         return new MemorySnapshotTelemetry(
                 phase, cycleId,
-                delegate.admin().hebbianGraph() != null ? delegate.admin().hebbianGraph().totalEdges() : 0,
-                delegate.admin().temporalChain() != null ? delegate.admin().temporalChain().capacity() : 0,
+                stats != null ? stats.hebbianEdges() : 0,
+                tempChain != null ? tempChain.capacity() : 0,
                 delegate.admin().entityDirectory() != null ? delegate.admin().entityDirectory().entityCount() : 0,
-                delegate.admin().hyperEntityGraph() != null ? delegate.admin().hyperEntityGraph().totalHyperedges() : 0,
+                stats != null ? stats.entityEdges() : 0,
                 0L, // offHeapBytes — from Micrometer gauge
                 0,  // tombstoneCount — TBD
                 delegate.admin().coActivation() != null ? delegate.admin().coActivation().pairCount() : 0,
