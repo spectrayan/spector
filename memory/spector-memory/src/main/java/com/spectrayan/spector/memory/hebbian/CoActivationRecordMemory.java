@@ -210,7 +210,7 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
                 }
             }
         } else if (!isNew && bundlePath != null) {
-            Path metaPath = bundlePath.resolveSibling("coactivation.dat.meta");
+            Path metaPath = bundlePath.resolveSibling(bundlePath.getFileName().toString() + ".meta");
             if (Files.exists(metaPath)) {
                 try (FileChannel ch = FileChannel.open(metaPath, StandardOpenOption.READ)) {
                     ByteBuffer countsBuf = ByteBuffer.allocate(8);
