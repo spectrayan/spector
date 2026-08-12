@@ -288,8 +288,35 @@ public final class SynapticHeaderConstants {
 
     /**
      * Constructs an encoding profile byte for a soul-derived configuration.
+     * Sets bit7 (soul-derived flag) and bits0-3 to the {@code SOUL_DERIVED} ordinal.
      */
     public static byte soulDerivedEncodingProfile() {
-        return ENCODING_FLAG_SOUL_DERIVED;
+        return (byte) (ENCODING_FLAG_SOUL_DERIVED
+                | (com.spectrayan.spector.memory.model.CognitiveProfile.SOUL_DERIVED.ordinal() & ENCODING_PROFILE_MASK));
+    }
+
+    /**
+     * Quantizes a scoring weight (alpha or beta) from {@code [0.0, 1.0]} to an
+     * unsigned byte {@code [0, 255]} for storage in the encoding state header fields.
+     *
+     * <p>The quantization is linear: {@code byte = clamp(weight × 255, 0, 255)}.</p>
+     *
+     * @param weight the scoring weight in [0.0, 1.0]
+     * @return the quantized unsigned byte value
+     */
+    public static byte quantizeWeight(float weight) {
+        int v = Math.round(Math.clamp(weight, 0.0f, 1.0f) * 255.0f);
+        return (byte) v;
+    }
+
+    /**
+     * Dequantizes a scoring weight from unsigned byte {@code [0, 255]} back to
+     * {@code [0.0, 1.0]} float.
+     *
+     * @param quantized the stored unsigned byte value
+     * @return the dequantized weight in [0.0, 1.0]
+     */
+    public static float dequantizeWeight(byte quantized) {
+        return (quantized & 0xFF) / 255.0f;
     }
 }
