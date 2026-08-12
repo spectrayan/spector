@@ -119,7 +119,7 @@ class TikaDocumentE2ETest {
 
         // Ingest via rememberFile
         String memId = memory.rememberFile(doc, "Notes on quantum computing",
-                MemoryType.SEMANTIC, MemorySource.USER_STATED, "quantum", "computing").join();
+                MemoryType.SEMANTIC, MemorySource.USER_STATED, "quantum", "computing");
 
         assertNotNull(memId, "Should return memory ID");
         log.info("Ingested text file as memory: {}", memId);
@@ -181,7 +181,7 @@ class TikaDocumentE2ETest {
                 .build();
 
         String memId = memory.remember("Architecture documentation for Spector",
-                MemoryType.SEMANTIC, MemorySource.USER_STATED, context, "architecture", "docs").join();
+                MemoryType.SEMANTIC, MemorySource.USER_STATED, context, "architecture", "docs");
 
         assertNotNull(memId);
         log.info("Ingested HTML as memory: {}", memId);
@@ -236,9 +236,9 @@ class TikaDocumentE2ETest {
 
         // Ingest both
         memory.rememberFile(mlDoc, "Machine learning reference material",
-                MemoryType.SEMANTIC, MemorySource.INFERRED, "ml", "ai").join();
+                MemoryType.SEMANTIC, MemorySource.INFERRED, "ml", "ai");
         memory.rememberFile(dbDoc, "Database systems reference",
-                MemoryType.SEMANTIC, MemorySource.INFERRED, "databases", "systems").join();
+                MemoryType.SEMANTIC, MemorySource.INFERRED, "databases", "systems");
 
         // Cross-document recall: should find vector database content
         List<CognitiveResult> vectorResults = memory.recall(
@@ -325,7 +325,7 @@ class TikaDocumentE2ETest {
 
         // Ingest
         String memId = memory.remember("Metadata test document", MemoryType.EPISODIC,
-                MemorySource.USER_STATED, context, "metadata-test").join();
+                MemorySource.USER_STATED, context, "metadata-test");
 
         assertNotNull(memId);
         log.info("Ingested metadata test document: {}", memId);

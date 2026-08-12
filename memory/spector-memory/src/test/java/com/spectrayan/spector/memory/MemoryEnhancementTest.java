@@ -82,7 +82,7 @@ class MemoryEnhancementTest {
         @DisplayName("Unresolved memories persist in recall (resist decay)")
         void unresolvedMemoriesPersist() throws Exception {
             memory.remember("task-open", "Fix the authentication bug in login service.",
-                    MemoryType.EPISODIC, MemorySource.OBSERVED, "bug", "auth").get(5, TimeUnit.SECONDS);
+                    MemoryType.EPISODIC, MemorySource.OBSERVED, "bug", "auth");
 
             List<CognitiveResult> results = memory.recall("authentication");
             assertThat(results).isNotEmpty();
@@ -93,7 +93,7 @@ class MemoryEnhancementTest {
         @DisplayName("markResolved causes memory to succumb to normal decay")
         void resolvedMemoryDecays() throws Exception {
             memory.remember("task-done", "Completed the database migration script.",
-                    MemoryType.EPISODIC, MemorySource.OBSERVED, "migration").get(5, TimeUnit.SECONDS);
+                    MemoryType.EPISODIC, MemorySource.OBSERVED, "migration");
 
             memory.markResolved("task-done");
 
@@ -107,7 +107,7 @@ class MemoryEnhancementTest {
         @DisplayName("markUnresolved re-enters the Zeigarnik loop")
         void unresolvedReopensLoop() throws Exception {
             memory.remember("task-reopen", "Deploy monitoring dashboard.",
-                    MemoryType.EPISODIC, MemorySource.OBSERVED, "deploy").get(5, TimeUnit.SECONDS);
+                    MemoryType.EPISODIC, MemorySource.OBSERVED, "deploy");
 
             memory.markResolved("task-reopen");
             memory.markUnresolved("task-reopen");
@@ -248,7 +248,7 @@ class MemoryEnhancementTest {
         @DisplayName("Repeated recalls reduce scores (satiation + habituation)")
         void repeatedRecallsReduceScores() throws Exception {
             memory.remember("satiate-1", "Kubernetes pod scheduling algorithm.",
-                    MemoryType.EPISODIC, MemorySource.OBSERVED, "k8s").get(5, TimeUnit.SECONDS);
+                    MemoryType.EPISODIC, MemorySource.OBSERVED, "k8s");
 
             // First recall
             List<CognitiveResult> first = memory.recall("kubernetes scheduling");
@@ -313,7 +313,7 @@ class MemoryEnhancementTest {
         @DisplayName("THE_EXECUTOR recalls with strict matching end-to-end")
         void executorEndToEnd() throws Exception {
             memory.remember("exact-match", "Deploy the microservice to production cluster.",
-                    MemoryType.EPISODIC, MemorySource.OBSERVED, "deploy").get(5, TimeUnit.SECONDS);
+                    MemoryType.EPISODIC, MemorySource.OBSERVED, "deploy");
 
             List<CognitiveResult> results = memory.recall("deploy microservice",
                     CognitiveProfile.THE_EXECUTOR);

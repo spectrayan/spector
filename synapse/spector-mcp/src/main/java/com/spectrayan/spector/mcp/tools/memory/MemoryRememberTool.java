@@ -199,15 +199,13 @@ public final class MemoryRememberTool extends MemoryToolHandler {
         if (autoId) {
             if (context.hasMetadata()) {
                 // Multimodal: use context-aware auto-ID path
-                var future = memory.remember(text, type, source, context, tags);
-                id = future.join();
+                id = memory.remember(text, type, source, context, tags);
             } else {
                 // Text-only: hints-only path (backward compatible)
-                var future = memory.remember(text, type, source, hints, tags);
-                id = future.join();
+                id = memory.remember(text, type, source, hints, tags);
             }
         } else {
-            memory.remember(id, text, type, source, context, tags).join();
+            memory.remember(id, text, type, source, context, tags);
         }
 
         StringBuilder sb = new StringBuilder();

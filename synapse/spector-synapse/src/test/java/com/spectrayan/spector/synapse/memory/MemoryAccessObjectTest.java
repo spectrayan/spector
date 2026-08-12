@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import org.mockito.Mock;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -74,8 +75,7 @@ class MemoryAccessObjectTest {
     @DisplayName("remember — live mode calls memory.remember and returns id")
     @SuppressWarnings("unchecked")
     void remember_liveMode_callsRemember() {
-        var futureMem = CompletableFuture.completedFuture((Void) null);
-        doReturn(futureMem).when(mockMemory)
+        doNothing().when(mockMemory)
                 .remember(eq("mem-xyz"), eq("knowledge about HNSW index"),
                         eq(MemoryType.SEMANTIC), eq(MemorySource.USER_STATED), nullable(IngestionHints.class), any(String[].class));
 

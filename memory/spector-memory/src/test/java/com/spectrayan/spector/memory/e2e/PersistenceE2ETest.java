@@ -105,10 +105,10 @@ class PersistenceE2ETest extends AbstractE2ETest {
 
             diskMemory.remember("persist-001", "This is a test memory for persistence validation",
                     MemoryType.EPISODIC, com.spectrayan.spector.memory.cortex.MemorySource.OBSERVED,
-                    "test", "persistence").join();
+                    "test", "persistence");
             diskMemory.remember("persist-002", "Second test memory for round-trip verification",
                     MemoryType.SEMANTIC, com.spectrayan.spector.memory.cortex.MemorySource.REFLECTED,
-                    "test", "verification").join();
+                    "test", "verification");
 
             int countBefore = diskMemory.totalMemories();
             log.info("DISK memory count before save: {}", countBefore);

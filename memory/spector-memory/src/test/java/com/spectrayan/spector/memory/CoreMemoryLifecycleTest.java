@@ -68,7 +68,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Remember registers memory in index")
     void remember_registersInIndex() {
         memory.remember("lifecycle-1", "The server crashed at 3am",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "server", "crash").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "server", "crash");
 
         var loc = memory.admin().index().locate("lifecycle-1");
         assertThat(loc).isNotNull();
@@ -80,7 +80,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Remember stores text in index")
     void remember_storesText() {
         memory.remember("lifecycle-2", "Always use prepared statements to prevent SQL injection",
-                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "sql", "security").join();
+                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "sql", "security");
 
         assertThat(memory.admin().index().text("lifecycle-2"))
                 .isEqualTo("Always use prepared statements to prevent SQL injection");
@@ -91,7 +91,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Remember stores tags in index")
     void remember_storesTags() {
         memory.remember("lifecycle-3", "Kubernetes uses etcd for cluster state",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "k8s", "etcd").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "k8s", "etcd");
 
         assertThat(memory.admin().index().tags("lifecycle-3")).containsExactly("k8s", "etcd");
     }
@@ -101,7 +101,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Remember stores source in index")
     void remember_storesSource() {
         memory.remember("lifecycle-4", "I prefer dark mode",
-                MemoryType.EPISODIC, MemorySource.USER_STATED, "preference").join();
+                MemoryType.EPISODIC, MemorySource.USER_STATED, "preference");
 
         assertThat(memory.admin().index().source("lifecycle-4"))
                 .isEqualTo(MemorySource.USER_STATED);
@@ -112,13 +112,13 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Remember to each tier routes correctly")
     void remember_tierRouting() {
         memory.remember("tier-working", "temporary note",
-                MemoryType.WORKING, MemorySource.OBSERVED).join();
+                MemoryType.WORKING, MemorySource.OBSERVED);
         memory.remember("tier-episodic", "meeting happened",
-                MemoryType.EPISODIC, MemorySource.OBSERVED).join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED);
         memory.remember("tier-semantic", "cats are mammals",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED).join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED);
         memory.remember("tier-procedural", "always backup before deploy",
-                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL).join();
+                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL);
 
         assertThat(memory.admin().index().locate("tier-working").type()).isEqualTo(MemoryType.WORKING);
         assertThat(memory.admin().index().locate("tier-episodic").type()).isEqualTo(MemoryType.EPISODIC);
@@ -131,7 +131,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Remember with auto-generated ID returns non-null ID")
     void remember_autoId() {
         String id = memory.remember("Auto-ID test content",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "auto").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "auto");
 
         assertThat(id).isNotNull().isNotEmpty();
         assertThat(memory.admin().index().locate(id)).isNotNull();
@@ -146,7 +146,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Recall returns non-empty results for related query")
     void recall_returnsResults() {
         memory.remember("recall-1", "Docker containers run isolated processes",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "docker").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "docker");
 
         List<CognitiveResult> results = memory.recall("Docker containers");
         assertThat(results).isNotEmpty();
@@ -171,7 +171,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Forget tombstones memory")
     void forget_tombstones() {
         memory.remember("forget-1", "This memory should be forgotten",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "forget").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "forget");
         assertThat(memory.admin().index().locate("forget-1")).isNotNull();
 
         memory.forget("forget-1");
@@ -188,7 +188,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Inspect returns full cognitive record")
     void inspect_returnsRecord() {
         memory.remember("inspect-1", "Garbage collection in JVM uses mark-and-sweep",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "jvm", "gc").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "jvm", "gc");
 
         CognitiveRecord record = memory.inspect("inspect-1");
         assertThat(record).isNotNull();
@@ -236,7 +236,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Suppress and unsuppress work without exceptions")
     void suppressUnsuppress() {
         memory.remember("suppress-1", "Suppressible memory",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "suppress").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "suppress");
 
         assertThatCode(() -> memory.suppress("suppress-1", "test reason"))
                 .doesNotThrowAnyException();
@@ -253,7 +253,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Mark resolved / unresolved toggles without exceptions")
     void resolveUnresolve() {
         memory.remember("resolve-1", "Open task: fix the build",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "task").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "task");
 
         assertThatCode(() -> memory.markResolved("resolve-1"))
                 .doesNotThrowAnyException();
@@ -270,7 +270,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Reinforce with positive valence does not throw")
     void reinforce_positive() {
         memory.remember("reinforce-1", "This approach worked great",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "reinforce").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "reinforce");
 
         assertThatCode(() -> memory.reinforce("reinforce-1", (byte) 50))
                 .doesNotThrowAnyException();
@@ -281,7 +281,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Reinforce with negative valence does not throw")
     void reinforce_negative() {
         memory.remember("reinforce-2", "This approach failed",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "reinforce").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "reinforce");
 
         assertThatCode(() -> memory.reinforce("reinforce-2", (byte) -50))
                 .doesNotThrowAnyException();
@@ -296,7 +296,7 @@ class CoreMemoryLifecycleTest {
     @DisplayName("Browse by tags returns matching memories")
     void browse_matchesTags() {
         memory.remember("browse-1", "Browsable content tagged with browse-test",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "browse-test").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "browse-test");
 
         List<CognitiveRecord> results = memory.browse("browse-test");
         assertThat(results).isNotEmpty();

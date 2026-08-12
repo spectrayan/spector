@@ -147,7 +147,7 @@ class McpToolsFunctionalTest {
             memory.remember("ft-semantic-001",
                     "Spector uses a 4-tier cognitive memory architecture inspired by Atkinson-Shiffrin.",
                     MemoryType.SEMANTIC, MemorySource.USER_STATED,
-                    "architecture", "cognitive").join();
+                    "architecture", "cognitive");
 
             System.out.printf("%n== Test 2: memory_remember SEMANTIC ==%n");
             System.out.printf("  Stored: ft-semantic-001%n");
@@ -179,7 +179,7 @@ class McpToolsFunctionalTest {
         memory.remember("ft-episodic-001",
                 "User mentioned testing Spector with Ollama qwen3-embedding model on June 3rd 2026.",
                 MemoryType.EPISODIC, MemorySource.OBSERVED,
-                "testing", "ollama").join();
+                "testing", "ollama");
 
         System.out.printf("%n== Test 3: memory_remember EPISODIC ==%n  Stored: ft-episodic-001%n");
     }
@@ -191,7 +191,7 @@ class McpToolsFunctionalTest {
         memory.remember("ft-procedural-001",
                 "To run Spector tests: mvn test -pl spector-memory. To build dist: mvn install -DskipTests.",
                 MemoryType.PROCEDURAL, MemorySource.PROCEDURAL,
-                "build", "maven").join();
+                "build", "maven");
 
         System.out.printf("%n== Test 4: memory_remember PROCEDURAL ==%n  Stored: ft-procedural-001%n");
     }
@@ -200,7 +200,7 @@ class McpToolsFunctionalTest {
     void scratchpad() throws Exception {
         Assumptions.assumeTrue(ollamaAvailable, "Ollama required for scratchpad");
 
-        memory.scratchpad("Currently debugging recall pipeline latency.").join();
+        memory.scratchpad("Currently debugging recall pipeline latency.");
 
         int workingCount = memory.memoryCount(MemoryType.WORKING);
         System.out.printf("%n== Test 5: memory_scratchpad ==%n  Working count: %d%n", workingCount);

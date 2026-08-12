@@ -69,7 +69,7 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
 
         String id = memory.remember(
                 "Diagnostic test: a bright red firetruck parked in front of a building.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, ctx, "diagnostic").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, ctx, "diagnostic");
 
         log.info("Ingested with id={}", id);
 
@@ -107,7 +107,7 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
     void ingestWithoutContext_defaultsToText() {
         memory.remember("diag-text-01",
                 "Diagnostic: plain text memory about software testing.",
-                MemoryType.SEMANTIC, MemorySource.USER_STATED, "diagnostic").join();
+                MemoryType.SEMANTIC, MemorySource.USER_STATED, "diagnostic");
 
         List<CognitiveResult> results = memory.recall("software testing diagnostic",
                 RecallOptions.builder().topK(10).build());
@@ -136,7 +136,7 @@ class ModalityDiagnosticE2ETest extends AbstractE2ETest {
 
         String id = memory.remember(
                 "Diagnostic audio: meeting recording about project deadlines.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, ctx, "diagnostic").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, ctx, "diagnostic");
 
         // Check index directly
         var admin = memory.admin();

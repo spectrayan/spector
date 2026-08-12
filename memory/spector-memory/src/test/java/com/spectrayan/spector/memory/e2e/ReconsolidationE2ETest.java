@@ -71,7 +71,7 @@ class ReconsolidationE2ETest extends AbstractE2ETest {
         // Ingest about databases
         memory.remember("e2e-recon-1",
                 "PostgreSQL supports advanced JSON queries with JSONB columns",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "database", "postgres").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "database", "postgres");
 
         // Verify initial recall
         assertThat(memory.admin().index().text("e2e-recon-1"))
@@ -93,7 +93,7 @@ class ReconsolidationE2ETest extends AbstractE2ETest {
     void reconsolidateTags_browseUpdated() {
         memory.remember("e2e-recon-tags",
                 "Machine learning models require feature engineering",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "ml").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "ml");
 
         reconsolidate("e2e-recon-tags", null, new String[]{"ai", "deep-learning", "training"});
 
@@ -108,7 +108,7 @@ class ReconsolidationE2ETest extends AbstractE2ETest {
         // Ingest about cooking
         memory.remember("e2e-recon-shift",
                 "Sourdough bread requires a 24-hour fermentation with wild yeast starter",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "cooking", "baking").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "cooking", "baking");
 
         // Recall with cooking query — should find it
         RecallOptions opts = new RecallOptions.Builder().topK(20).build();
@@ -140,7 +140,7 @@ class ReconsolidationE2ETest extends AbstractE2ETest {
     void multipleReconsolidations_preserveRecall() {
         memory.remember("e2e-recon-multi",
                 "Version 1: Introduction to functional programming",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "v1").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "v1");
 
         reconsolidate("e2e-recon-multi",
                 "Version 2: Object-oriented design patterns in Java",
@@ -166,7 +166,7 @@ class ReconsolidationE2ETest extends AbstractE2ETest {
     void reconsolidation_preservesTierType() {
         memory.remember("e2e-recon-proc",
                 "Always run database migrations before deploying",
-                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "devops").join();
+                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "devops");
 
         reconsolidate("e2e-recon-proc",
                 "Always run integration tests before merging to main",

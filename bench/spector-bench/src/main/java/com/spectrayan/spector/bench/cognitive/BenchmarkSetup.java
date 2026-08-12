@@ -292,7 +292,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                             MemorySource.OBSERVED,
                             context,
                             record.synapticTags().toArray(String[]::new)
-                    ).get(30, TimeUnit.SECONDS);
+                    );
 
                     idToSlot.put(record.id(), slot);
                     slot++;

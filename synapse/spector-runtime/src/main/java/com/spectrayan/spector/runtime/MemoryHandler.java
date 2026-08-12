@@ -89,20 +89,20 @@ public final class MemoryHandler {
      * @param tags   synaptic tags for Bloom filter encoding
      * @return future that completes when the memory is persisted
      */
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
-                                             MemorySource source, IngestionHints hints,
-                                             String... tags) {
+    public void remember(String id, String text, MemoryType type,
+                          MemorySource source, IngestionHints hints,
+                          String... tags) {
         log.debug("[Memory] remember id={}, tier={}, source={}, hints={}",
                 id, type, source, hints != null ? "ICNU" : "none");
-        return memory.remember(id, text, type, source, hints, tags);
+        memory.remember(id, text, type, source, hints, tags);
     }
 
     /**
      * Convenience overload without cognitive hints.
      */
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
-                                             MemorySource source, String... tags) {
-        return memory.remember(id, text, type, source, tags);
+    public void remember(String id, String text, MemoryType type,
+                          MemorySource source, String... tags) {
+        memory.remember(id, text, type, source, tags);
     }
 
     /**
@@ -120,12 +120,12 @@ public final class MemoryHandler {
      * @param tags    synaptic tags for Bloom filter encoding
      * @return future that completes when the memory is persisted
      */
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
-                                             MemorySource source, IngestionContext context,
-                                             String... tags) {
+    public void remember(String id, String text, MemoryType type,
+                          MemorySource source, IngestionContext context,
+                          String... tags) {
         log.debug("[Memory] remember id={}, tier={}, source={}, context={}",
                 id, type, source, context.hasMetadata() ? "multimodal" : "text-only");
-        return memory.remember(id, text, type, source, context, tags);
+        memory.remember(id, text, type, source, context, tags);
     }
 
     // ── Auto-ID convenience ──
@@ -135,8 +135,8 @@ public final class MemoryHandler {
      *
      * @return future that completes with the generated memory ID
      */
-    public CompletableFuture<String> rememberAutoId(String text, MemoryType type,
-                                                     MemorySource source, String... tags) {
+    public String rememberAutoId(String text, MemoryType type,
+                                   MemorySource source, String... tags) {
         return memory.remember(text, type, source, tags);
     }
 
@@ -145,10 +145,10 @@ public final class MemoryHandler {
      *
      * @return future that completes with the generated memory ID
      */
-    public CompletableFuture<String> rememberAutoId(String text, MemoryType type,
-                                                     MemorySource source,
-                                                     IngestionHints hints,
-                                                     String... tags) {
+    public String rememberAutoId(String text, MemoryType type,
+                                   MemorySource source,
+                                   IngestionHints hints,
+                                   String... tags) {
         return memory.remember(text, type, source, hints, tags);
     }
 
@@ -161,10 +161,10 @@ public final class MemoryHandler {
      *
      * @return future that completes with the generated memory ID
      */
-    public CompletableFuture<String> rememberAutoId(String text, MemoryType type,
-                                                     MemorySource source,
-                                                     IngestionContext context,
-                                                     String... tags) {
+    public String rememberAutoId(String text, MemoryType type,
+                                   MemorySource source,
+                                   IngestionContext context,
+                                   String... tags) {
         log.debug("[Memory] rememberAutoId tier={}, source={}, modality={}",
                 type, source, context.sourceModality());
         return memory.remember(text, type, source, context, tags);
@@ -184,11 +184,11 @@ public final class MemoryHandler {
      * @param tags     synaptic tags
      * @return future that completes with the generated memory ID
      */
-    public CompletableFuture<String> rememberFile(java.nio.file.Path filePath,
-                                                    String text,
-                                                    MemoryType type,
-                                                    MemorySource source,
-                                                    String... tags) {
+    public String rememberFile(java.nio.file.Path filePath,
+                                String text,
+                                MemoryType type,
+                                MemorySource source,
+                                String... tags) {
         log.debug("[Memory] rememberFile path={}, tier={}, source={}", filePath, type, source);
         return memory.rememberFile(filePath, text, type, source, tags);
     }
@@ -305,8 +305,8 @@ public final class MemoryHandler {
     /**
      * Stores ephemeral text in working memory scratchpad.
      */
-    public CompletableFuture<Void> scratchpad(String text) {
-        return memory.scratchpad(text);
+    public void scratchpad(String text) {
+        memory.scratchpad(text);
     }
 
     /**

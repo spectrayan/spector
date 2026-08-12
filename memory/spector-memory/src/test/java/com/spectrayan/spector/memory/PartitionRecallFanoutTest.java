@@ -93,11 +93,11 @@ class PartitionRecallFanoutTest {
 
         // Fill partition 000 (cap 2), then overflow → roll to partition 001.
         memory.remember("epi-0", "the database migration failed on shard seven",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
         memory.remember("epi-1", "cache warmup completed for the payments service",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
         memory.remember("epi-2", "kafka consumer lag spiked during the deploy",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
 
         assertThat(partitionDirCount(dir)).as("a roll must have occurred").isGreaterThanOrEqualTo(2);
         assertThat(memory.memoryCount(MemoryType.EPISODIC)).isEqualTo(3);
@@ -116,11 +116,11 @@ class PartitionRecallFanoutTest {
         memory = build(dir, /*episodicCap*/ 64, /*semanticCap*/ 2);
 
         memory.remember("sem-0", "postgres uses MVCC for concurrency control",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "grp");
         memory.remember("sem-1", "redis is an in-memory key value store",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "grp");
         memory.remember("sem-2", "kubernetes schedules pods onto worker nodes",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "grp");
 
         assertThat(partitionDirCount(dir)).as("a roll must have occurred").isGreaterThanOrEqualTo(2);
 
@@ -145,11 +145,11 @@ class PartitionRecallFanoutTest {
         memory = build(dir, /*episodicCap*/ 2, /*semanticCap*/ 64);
 
         memory.remember("d-0", "the incident postmortem is due friday",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
         memory.remember("d-1", "rotate the tls certificate before it expires",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
         memory.remember("d-2", "the on-call rotation changes next week",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
 
         assertThat(partitionDirCount(dir)).as("a roll must have occurred").isGreaterThanOrEqualTo(2);
 

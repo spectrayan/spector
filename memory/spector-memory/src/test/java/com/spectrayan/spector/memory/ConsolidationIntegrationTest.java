@@ -83,8 +83,8 @@ class ConsolidationIntegrationTest {
         embeddingProvider.register(textB, vector);
 
         // Store them in the SEMANTIC tier
-        memory.remember("dup-a", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "ui").get(5, TimeUnit.SECONDS);
-        memory.remember("dup-b", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "theme").get(5, TimeUnit.SECONDS);
+        memory.remember("dup-a", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "ui");
+        memory.remember("dup-b", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "theme");
 
         assertThat(memory.memoryCount(MemoryType.SEMANTIC)).isEqualTo(2);
 
@@ -121,8 +121,8 @@ class ConsolidationIntegrationTest {
         llmProvider.registerResponse(" Lyon", "YES");
 
         // Store in SEMANTIC tier
-        memory.remember("fact-a", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "geography").get(5, TimeUnit.SECONDS);
-        memory.remember("fact-b", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "geography").get(5, TimeUnit.SECONDS);
+        memory.remember("fact-a", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "geography");
+        memory.remember("fact-b", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "geography");
 
         // Run consolidation
         memory.consolidate();

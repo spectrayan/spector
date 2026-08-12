@@ -97,20 +97,15 @@ class OllamaRealEmbeddingTest {
     void semanticSimilarity_darkMode() throws Exception {
         // Ingest diverse memories
         memory.remember("pref-dark", "The user strongly prefers dark mode for all their IDE editors and applications.",
-                MemoryType.EPISODIC, MemorySource.USER_STATED, "ui", "preferences")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.USER_STATED, "ui", "preferences");
         memory.remember("pref-java", "The user prefers Java over Python for backend development.",
-                MemoryType.EPISODIC, MemorySource.USER_STATED, "language", "preferences")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.USER_STATED, "language", "preferences");
         memory.remember("error-db", "Encountered a database connection timeout on the users table during migration.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "database")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "database");
         memory.remember("deploy-v2", "Successfully deployed version 2.1 to the staging environment.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "deployment")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "deployment");
         memory.remember("pref-light", "The user explicitly rejected the light theme during onboarding.",
-                MemoryType.EPISODIC, MemorySource.USER_STATED, "ui", "preferences")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.USER_STATED, "ui", "preferences");
 
         // Query: "dark mode"
         List<CognitiveResult> results = memory.recall("dark mode settings",
@@ -135,17 +130,13 @@ class OllamaRealEmbeddingTest {
     @DisplayName("Semantic recall: 'database error' query ranks DB-related highest")
     void semanticSimilarity_databaseError() throws Exception {
         memory.remember("err-db", "Database connection pool exhausted  --  50 active, 0 idle connections.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "database")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "database");
         memory.remember("err-npe", "NullPointerException in UserService.getPreferences at line 42.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "java")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "java");
         memory.remember("fact-pg", "PostgreSQL supports JSONB columns for semi-structured data.",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "database", "postgresql")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "database", "postgresql");
         memory.remember("rule-retry", "Always implement exponential backoff for database retries.",
-                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "database", "retry")
-                .get(30, TimeUnit.SECONDS);
+                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "database", "retry");
 
         List<CognitiveResult> results = memory.recall("database connection error",
                 RecallOptions.builder().topK(5).build());
@@ -174,13 +165,13 @@ class OllamaRealEmbeddingTest {
     @DisplayName("Cross-tier recall: results from Working, Episodic, Semantic, Procedural")
     void crossTierRecall() throws Exception {
         memory.remember("w-1", "Currently analyzing the Spring Boot configuration issue.",
-                MemoryType.WORKING, "spring", "debugging").get(30, TimeUnit.SECONDS);
+                MemoryType.WORKING, "spring", "debugging");
         memory.remember("e-1", "Yesterday the Spring app failed to start because of circular dependencies.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "spring", "error").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "spring", "error");
         memory.remember("s-1", "Spring Boot auto-configuration resolves beans using conditional annotations.",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "spring", "framework").get(30, TimeUnit.SECONDS);
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "spring", "framework");
         memory.remember("p-1", "When troubleshooting Spring, always check @ConditionalOn annotations first.",
-                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "spring", "debugging").get(30, TimeUnit.SECONDS);
+                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "spring", "debugging");
 
         List<CognitiveResult> results = memory.recall("Spring Boot configuration problem",
                 RecallOptions.builder().topK(10).build());
@@ -234,8 +225,7 @@ class OllamaRealEmbeddingTest {
                 default -> MemoryType.PROCEDURAL;
             };
             memory.remember("real-" + i, text, type,
-                    MemorySource.OBSERVED, "topic-" + (i % 10))
-                    .get(30, TimeUnit.SECONDS);
+                    MemorySource.OBSERVED, "topic-" + (i % 10));
         }
         long ingestElapsed = System.nanoTime() - ingestStart;
         System.out.printf("  Ingest: 50 memories in %.1f s (%.0f ms/memory, includes Ollama API)%n",
@@ -279,9 +269,9 @@ class OllamaRealEmbeddingTest {
     @DisplayName("Suppression: suppressed memory excluded from recall")
     void suppression_excludesFromRecall() throws Exception {
         memory.remember("mem-java", "Java has garbage collection for automatic memory management.",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "java").get(30, TimeUnit.SECONDS);
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "java");
         memory.remember("mem-rust", "Rust uses ownership system instead of garbage collection.",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "rust").get(30, TimeUnit.SECONDS);
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "rust");
 
         // Suppress Java memory
         memory.suppress("mem-java", "Wrong context");
@@ -304,7 +294,7 @@ class OllamaRealEmbeddingTest {
     @DisplayName("Habituation: repeated recall penalizes score")
     void habituation_penalizesRepeatedRecall() throws Exception {
         memory.remember("hab-1", "The deployment pipeline uses blue-green strategy for zero downtime.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "deployment").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "deployment");
 
         // First recall
         List<CognitiveResult> first = memory.recall("deployment strategy",
@@ -333,11 +323,11 @@ class OllamaRealEmbeddingTest {
     @DisplayName("Type-filtered recall: only returns memories from specified tiers")
     void typeFilteredRecall() throws Exception {
         memory.remember("e-fact", "Python 3.12 introduced faster pattern matching.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "python").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "python");
         memory.remember("s-fact", "Python uses indentation for code block scoping.",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "python").get(30, TimeUnit.SECONDS);
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "python");
         memory.remember("p-fact", "Always use virtual environments for Python projects.",
-                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "python").get(30, TimeUnit.SECONDS);
+                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "python");
 
         // Only semantic
         List<CognitiveResult> semanticOnly = memory.recall("Python programming",
@@ -362,9 +352,9 @@ class OllamaRealEmbeddingTest {
     @DisplayName("Forget: tombstoned memory excluded from recall")
     void forget_tombstonedExcluded() throws Exception {
         memory.remember("forget-me", "This memory should be forgotten completely.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "temp").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "temp");
         memory.remember("keep-me", "This memory should persist across operations.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "persistent").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "persistent");
 
         memory.forget("forget-me");
 
@@ -409,13 +399,13 @@ class OllamaRealEmbeddingTest {
     void recallQuality_relevanceOrdering() throws Exception {
         // Use EPISODIC tier so full CognitiveRecord (with quantized vector) is used for similarity scoring
         memory.remember("gc-direct", "The Java G1 garbage collector divides the heap into regions for concurrent collection.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "java", "gc").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "java", "gc");
         // Somewhat related
         memory.remember("gc-related", "Memory allocation in Java uses the TLAB (Thread-Local Allocation Buffer).",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "java", "memory").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "java", "memory");
         // Unrelated
         memory.remember("gc-unrelated", "Kubernetes uses etcd for distributed consensus on cluster state.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "kubernetes", "etcd").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "kubernetes", "etcd");
 
         List<CognitiveResult> results = memory.recall("Java G1 garbage collection pause times",
                 RecallOptions.builder().topK(5).build());

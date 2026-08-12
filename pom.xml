@@ -585,7 +585,7 @@
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
                         <!-- ${argLine} placeholder lets JaCoCo inject its agent -->
-                        <argLine>${argLine} --add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
+                        <argLine>${argLine} --add-modules ${vector.api.module} --enable-native-access=ALL-UNNAMED --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED -Dnet.bytebuddy.experimental=true</argLine>
                         <!-- Exclude functional tests (require external services) -->
                         <excludedGroups>functional</excludedGroups>
                     </configuration>

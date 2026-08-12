@@ -239,6 +239,49 @@ public final class ConcurrentTasks {
                 : forkJoin2Classic(taskA, taskB);
     }
 
+    /**
+     * Forks all tasks concurrently and joins them. All must succeed.
+     *
+     * <p>In structured mode, if any task fails, all siblings are automatically cancelled
+     * and a {@link ConcurrentExecutionException} is thrown.</p>
+     *
+     * <p>In classic mode, if any task fails, remaining futures are cancelled manually.</p>
+     *
+     * @param tasks the tasks to execute concurrently
+     * @throws ConcurrentExecutionException if any task fails
+     * @throws InterruptedException         if the calling thread is interrupted
+     */
+    public static void forkRunAll(List<Runnable> tasks)
+            throws ConcurrentExecutionException, InterruptedException {
+        if (tasks.isEmpty()) return;
+        if (tasks.size() == 1) {
+            try {
+                tasks.getFirst().run();
+                return;
+            } catch (Exception e) {
+                throw new ConcurrentExecutionException("Single task failed", e);
+            }
+        }
+
+        if (STRUCTURED_AVAILABLE) {
+            forkRunAllStructured(tasks);
+        } else {
+            forkRunAllClassic(tasks);
+        }
+    }
+
+    /**
+     * Convenience overload for running multiple tasks concurrently.
+     *
+     * @param tasks the tasks to execute concurrently
+     * @throws ConcurrentExecutionException if any task fails
+     * @throws InterruptedException         if the calling thread is interrupted
+     */
+    public static void forkRunAll(Runnable... tasks)
+            throws ConcurrentExecutionException, InterruptedException {
+        forkRunAll(List.of(tasks));
+    }
+
     // ── Structured implementation ───────────────────────────────────────
 
     @SuppressWarnings("preview")
@@ -260,6 +303,20 @@ public final class ConcurrentTasks {
             return results;
         } catch (StructuredTaskScope.FailedException e) {
             throw new ConcurrentExecutionException("Structured fork-join failed", e.getCause());
+        }
+    }
+
+    @SuppressWarnings("preview")
+    private static void forkRunAllStructured(List<Runnable> tasks)
+            throws ConcurrentExecutionException, InterruptedException {
+        try (var scope = StructuredTaskScope.open(
+                StructuredTaskScope.Joiner.awaitAllSuccessfulOrThrow())) {
+            for (Runnable task : tasks) {
+                scope.fork(() -> { task.run(); return null; });
+            }
+            scope.join();
+        } catch (StructuredTaskScope.FailedException e) {
+            throw new ConcurrentExecutionException("Structured fork-run failed", e.getCause());
         }
     }
 
@@ -327,6 +384,39 @@ public final class ConcurrentTasks {
                         "Task " + failIndex + " failed", firstFailure.getCause());
             }
             return results;
+        }
+    }
+
+    private static void forkRunAllClassic(List<Runnable> tasks)
+            throws ConcurrentExecutionException, InterruptedException {
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<?>> futures = new ArrayList<>(tasks.size());
+            for (Runnable task : tasks) {
+                futures.add(executor.submit(task));
+            }
+
+            Exception firstFailure = null;
+            int failIndex = -1;
+
+            for (int i = 0; i < futures.size(); i++) {
+                try {
+                    futures.get(i).get();
+                } catch (ExecutionException e) {
+                    if (firstFailure == null) {
+                        firstFailure = e;
+                        failIndex = i;
+                        // Cancel remaining
+                        for (int j = i + 1; j < futures.size(); j++) {
+                            futures.get(j).cancel(true);
+                        }
+                    }
+                }
+            }
+
+            if (firstFailure != null) {
+                throw new ConcurrentExecutionException(
+                        "Task " + failIndex + " failed", firstFailure.getCause());
+            }
         }
     }
 

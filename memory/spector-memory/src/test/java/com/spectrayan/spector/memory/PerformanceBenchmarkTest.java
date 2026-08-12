@@ -334,7 +334,7 @@ class PerformanceBenchmarkTest {
             for (int i = 0; i < 1000; i++) {
                 memory.remember("mem-" + i, "Memory content about topic " + (i % 50) + " with detail " + i,
                         MemoryType.EPISODIC, MemorySource.OBSERVED,
-                        "tag-" + (i % 10), "cat-" + (i % 5)).get(5, TimeUnit.SECONDS);
+                        "tag-" + (i % 10), "cat-" + (i % 5));
             }
             long ingestElapsed = System.nanoTime() - ingestStart;
 

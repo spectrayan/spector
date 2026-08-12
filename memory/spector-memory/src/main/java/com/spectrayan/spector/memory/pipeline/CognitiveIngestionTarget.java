@@ -133,7 +133,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
     //  Session tracking for Hebbian co-ingestion and temporal chains 
     private final AtomicInteger lastIngestedMemoryIdx = new AtomicInteger(-1);
-    private volatile int currentSessionId = 0;
+    private final com.spectrayan.spector.memory.session.SessionRegistry sessionRegistry;
 
     //  Post-ingest index synchronization stage 
     private final PostIngestSync postIngestSync;
@@ -162,14 +162,15 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      int activePartitionIndex,
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
-                                     ImportanceProvider importanceProvider) {
+                                     ImportanceProvider importanceProvider,
+                                     com.spectrayan.spector.memory.session.SessionRegistry sessionRegistry) {
         this(quantizer, surpriseDetector, flashbulbPolicy, cognitiveRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, normalizeAtIngest,
                 hebbianGraph, temporalChain, entityExtractor,
                 entityDirectory, hyperEntityGraph,
                 bm25Index, textDataStore, activePartitionIndex,
-                spladeIndex, spladeProvider, DataEncryptor.NOOP, importanceProvider);
+                spladeIndex, spladeProvider, DataEncryptor.NOOP, importanceProvider, sessionRegistry);
     }
 
     /**
@@ -197,7 +198,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      MemorySpladeIndex spladeIndex,
                                      SparseEmbeddingProvider spladeProvider,
                                      DataEncryptor encryptor,
-                                     ImportanceProvider importanceProvider) {
+                                     ImportanceProvider importanceProvider,
+                                     com.spectrayan.spector.memory.session.SessionRegistry sessionRegistry) {
         this.quantizer = quantizer;
         this.surpriseDetector = surpriseDetector;
         this.flashbulbPolicy = flashbulbPolicy;
@@ -221,6 +223,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.spladeIndex = spladeIndex;
         this.spladeProvider = spladeProvider;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
+        this.sessionRegistry = sessionRegistry;
         this.salienceProfile = SalienceProfile.NEUTRAL;
         this.postIngestSync = new PostIngestSync(
                 cognitiveRouter, index, wal, semanticIndex,
@@ -302,13 +305,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      WorkingRecordMemory workingStore,
                                      IcnuWeights icnuWeights,
                                      VectorIndex semanticIndex,
-                                     TagExtractor tagExtractor) {
+                                     TagExtractor tagExtractor,
+                                     com.spectrayan.spector.memory.session.SessionRegistry sessionRegistry) {
         this(quantizer, surpriseDetector, flashbulbPolicy, cognitiveRouter,
                 index, wal, workingStore, icnuWeights, semanticIndex,
                 tagExtractor, true,
                 null, null, null, null, null,
                 null, null, -1,
-                null, null, null);
+                null, null, null, null, sessionRegistry);
     }
 
     // ===============================================================
@@ -451,12 +455,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Steps 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
         int memoryIdx = index.size() - 1;
-        if (hebbianGraph != null && hebbianGraph.isNewSession()) {
-            currentSessionId++;
-            lastIngestedMemoryIdx.set(-1);
-        }
+        String tsid = com.spectrayan.spector.commons.concurrent.MemoryScope.sessionId();
+        int sessionIntId = sessionRegistry != null ? sessionRegistry.resolve(tsid) : 0;
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
-        postIngestSync.syncGraphEdges(memoryIdx, previousIdx, currentSessionId);
+        postIngestSync.syncGraphEdges(memoryIdx, previousIdx, sessionIntId);
 
         // Step 9d: Entity extraction and graph population
         postIngestSync.syncEntityExtraction(id, text, memoryIdx);
@@ -678,12 +680,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Steps 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
         int memoryIdx = index.size() - 1;
-        if (hebbianGraph != null && hebbianGraph.isNewSession()) {
-            currentSessionId++;
-            lastIngestedMemoryIdx.set(-1);
-        }
+        String tsid = com.spectrayan.spector.commons.concurrent.MemoryScope.sessionId();
+        int sessionIntId = sessionRegistry != null ? sessionRegistry.resolve(tsid) : 0;
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
-        postIngestSync.syncGraphEdges(memoryIdx, previousIdx, currentSessionId);
+        postIngestSync.syncGraphEdges(memoryIdx, previousIdx, sessionIntId);
 
         // Step 9b-ext: Pre-computed Hebbian edges from IngestionContext
         if (context.hasHebbianEdges()) {

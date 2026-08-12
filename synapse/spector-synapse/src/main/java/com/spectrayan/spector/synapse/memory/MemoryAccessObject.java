@@ -95,7 +95,7 @@ public class MemoryAccessObject {
             return id;
         }
         try {
-            memory.remember(id, text, type, source, (IngestionHints) hints, tags).join();
+            memory.remember(id, text, type, source, (IngestionHints) hints, tags);
             log.debug("[MemoryAccessObject] Remembered memory: id={}", id);
             return id;
         } catch (Exception e) {
@@ -325,7 +325,7 @@ public class MemoryAccessObject {
             String[] tags = request.tags() != null ? request.tags().toArray(String[]::new) : record.tags();
 
             // Re-store memory with the same ID, overwriting previous content
-            memory.remember(id, request.text(), record.memoryType(), record.source(), (IngestionHints) null, tags).join();
+            memory.remember(id, request.text(), record.memoryType(), record.source(), (IngestionHints) null, tags);
             log.info("[MemoryAccessObject] Updated memory id={}", id);
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Update memory failed for id={}: {}", id, e.getMessage(), e);

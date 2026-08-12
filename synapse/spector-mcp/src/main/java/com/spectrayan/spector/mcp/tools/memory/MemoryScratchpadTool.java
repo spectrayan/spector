@@ -65,7 +65,7 @@ public final class MemoryScratchpadTool extends MemoryToolHandler {
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
                                                        Map<String, Object> args) throws Exception {
         String text = requireString(args, "text");
-        memory.scratchpad(text).join();
+        memory.scratchpad(text);
         return textResult("📝 Stored in working memory scratchpad.");
     }
 }
