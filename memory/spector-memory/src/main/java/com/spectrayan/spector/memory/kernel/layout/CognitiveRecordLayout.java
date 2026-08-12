@@ -292,6 +292,31 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
         headerLayout.writeStorageStrength(segment, offset, strength);
     }
 
+    /** Reads the encoding-time cognitive profile byte. Returns 0 for pre-V3 records. */
+    public byte readEncodingProfile(MemorySegment segment, long offset) {
+        return headerLayout.readEncodingProfile(segment, offset);
+    }
+
+    /** Reads the quantized alpha at encoding time. */
+    public byte readEncodingAlpha(MemorySegment segment, long offset) {
+        return headerLayout.readEncodingAlpha(segment, offset);
+    }
+
+    /** Reads the quantized beta at encoding time. */
+    public byte readEncodingBeta(MemorySegment segment, long offset) {
+        return headerLayout.readEncodingBeta(segment, offset);
+    }
+
+    /** Reads the soul version counter. */
+    public short readSoulVersion(MemorySegment segment, long offset) {
+        return headerLayout.readSoulVersion(segment, offset);
+    }
+
+    /** Reads the surprise z-score at encoding time. */
+    public float readEncodingSurprise(MemorySegment segment, long offset) {
+        return headerLayout.readEncodingSurprise(segment, offset);
+    }
+
     /**
      * Writes a pre-quantized vector payload to the segment at the record's vector offset.
      *
@@ -344,6 +369,11 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
      * @param flags           bit field (tombstone, type, consolidated, pinned, resolved)
      * @param arousal         emotional intensity (unsigned 0-255, V2+)
      * @param storageStrength Two-Factor Memory storage strength (V2+, default 1.0f)
+     * @param encodingProfile   cognitive state at encoding (bit7=soul-derived, bits0-3=profile ordinal)
+     * @param encodingAlpha     quantized alpha weight at encoding (0-255 → 0.0-1.0)
+     * @param encodingBeta      quantized beta weight at encoding (0-255 → 0.0-1.0)
+     * @param soulVersion       monotonic soul configuration version counter
+     * @param encodingSurprise  surprise z-score from SurpriseDetector at ingestion
      */
     public record CognitiveHeader(
             long timestampMs,
@@ -356,7 +386,13 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
             byte flags,
             // ── Extended fields (V2+) ──
             byte arousal,
-            float storageStrength
+            float storageStrength,
+            // ── Encoding State ──
+            byte encodingProfile,
+            byte encodingAlpha,
+            byte encodingBeta,
+            short soulVersion,
+            float encodingSurprise
     ) {
         /**
          * V1-compatible constructor — defaults for extended fields.
@@ -369,7 +405,21 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
                                 byte valence, byte flags) {
             this(timestampMs, synapticTags, exactNorm, importance,
                  agentRecallCount, centroidId, valence, flags,
-                 (byte) 0, 1.0f);
+                 (byte) 0, 1.0f,
+                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
+        }
+
+        /**
+         * V2-compatible constructor — defaults for encoding state fields.
+         */
+        public CognitiveHeader(long timestampMs, long synapticTags, float exactNorm,
+                                float importance, int agentRecallCount, short centroidId,
+                                byte valence, byte flags,
+                                byte arousal, float storageStrength) {
+            this(timestampMs, synapticTags, exactNorm, importance,
+                 agentRecallCount, centroidId, valence, flags,
+                 arousal, storageStrength,
+                 (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
         }
 
         /**
@@ -379,7 +429,9 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
                                               float importance, short centroidId, MemoryType memoryType) {
             byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, memoryType.ordinal());
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
-                    0, centroidId, (byte) 0, flags);
+                    0, centroidId, (byte) 0, flags,
+                    (byte) 0, 1.0f,
+                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
         }
 
         /**
@@ -391,7 +443,8 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
                                                           byte valence, byte arousal) {
             byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, memoryType.ordinal());
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
-                    0, centroidId, valence, flags, arousal, 1.0f);
+                    0, centroidId, valence, flags, arousal, 1.0f,
+                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
         }
 
         /**
@@ -421,7 +474,27 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
                 flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
             }
             return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
-                    0, centroidId, valence, flags, arousal, 1.0f);
+                    0, centroidId, valence, flags, arousal, 1.0f,
+                    (byte) 0, (byte) 0, (byte) 0, (short) 0, 0.0f);
+        }
+
+        /**
+         * Creates a new header with full encoding state for V3+ ingestion.
+         */
+        public static CognitiveHeader createWithEncodingState(
+                long timestampMs, long synapticTags, float exactNorm, float importance,
+                short centroidId, MemoryType memoryType, SourceModality modality,
+                byte valence, byte arousal,
+                byte encodingProfile, byte encodingAlpha, byte encodingBeta,
+                short soulVersion, float encodingSurprise) {
+            byte flags = SynapticHeaderConstants.withMemoryType((byte) 0, memoryType.ordinal());
+            if (modality != null && modality != SourceModality.TEXT) {
+                flags = SynapticHeaderConstants.withSourceModality(flags, modality.ordinal());
+            }
+            return new CognitiveHeader(timestampMs, synapticTags, exactNorm, importance,
+                    0, centroidId, valence, flags, arousal, 1.0f,
+                    encodingProfile, encodingAlpha, encodingBeta,
+                    soulVersion, encodingSurprise);
         }
     }
 }

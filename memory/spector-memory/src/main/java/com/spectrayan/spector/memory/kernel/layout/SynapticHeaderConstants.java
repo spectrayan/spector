@@ -30,15 +30,19 @@ import java.lang.foreign.ValueLayout;
  *    8      8B    timestamp_ms       Phase 1b      ~99% (temporal gating)
  *   16      4B    agent_recall_count Phase 4       ~95% (reconsolidation)
  *   20      4B    exact_norm         Heap insert   ~0.1% (cosine normalization)
- *   24      8B    synaptic_tags      Phase 2       ~98% (Bloom filter, AT END of core for 128-bit growth)
- *   ── 32B: end of core fields ─────────────────────────────────────────
+ *   24      8B    synaptic_tags      Phase 2       ~98% (Bloom filter)
  *   32      2B    centroid_id        Heap insert   ~0.1% (IVF routing)
- *   34      2B    _pad0              —             Alignment to 4B
+ *   34      1B    consolidation_flags Phase 5      ~2% (semantic deduplication)
+ *   35      1B    encoding_profile   Phase 5       ~2% (cognitive state stamp)
  *   36      4B    storage_strength   Phase 6       ~1-10% (Two-Factor scoring)
  *   40      4B    spector_recall_cnt Auto-LTP      Passive retrieval counter
- *   44      4B    _reserved_f1       —             Future float field
+ *   44      1B    encoding_alpha     Phase 6       ~1% (weight encoding)
+ *   45      1B    encoding_beta      Phase 6       ~1% (weight encoding)
+ *   46      2B    soul_version       Phase 5       ~2% (config tracking)
  *   48      8B    last_auto_ltp      Auto-LTP      Auto-LTP timestamp
- *   56      8B    _reserved_l1       —             Future: 128-bit tag upper half
+ *   56      4B    encoding_surprise  Phase 6       ~1% (surprise encoding)
+ *   60      1B    last_recall_profile Phase 5      ~2% (cognitive state stamp)
+ *   61      3B    _reserved          —             Alignment padding
  *   ── 64B: full cache line ────────────────────────────────────────────
  * </pre>
  *
@@ -47,8 +51,7 @@ import java.lang.foreign.ValueLayout;
  *   <li><b>Version at byte 0</b> — universal convention (ELF, PNG, Java .class).</li>
  *   <li><b>Flags at byte 1</b> — first decision field in scoring hot path.</li>
  *   <li><b>Natural alignment</b> — longs at 8B boundaries, ints/floats at 4B.</li>
- *   <li><b>Synaptic tags at end of core (offset 24)</b> — growable to 128-bit
- *       without reshuffling core fields.</li>
+ *   <li><b>128-bit tags</b> — will be addressed via header version bump.</li>
  * </ul>
  *
  * <h3>Flags Bitfield (byte 1)</h3>
@@ -74,7 +77,7 @@ public final class SynapticHeaderConstants {
     /** Current header format version. */
     public static final int HEADER_VERSION = 1;
 
-    // ── Core field offsets (first 32 bytes) ──
+    // ── Field offsets (first 32 bytes) ──
 
     /** Offset of header_version byte (always byte 0). */
     public static final long OFFSET_HEADER_VERSION      = 0L;
@@ -92,27 +95,32 @@ public final class SynapticHeaderConstants {
     public static final long OFFSET_AGENT_RECALL_COUNT  = 16L;
     /** Offset of exact_norm float. */
     public static final long OFFSET_EXACT_NORM          = 20L;
-    /** Offset of synaptic_tags long (8B-aligned, at end of core for 128-bit growth). */
+    /** Offset of synaptic_tags long (8B-aligned). */
     public static final long OFFSET_SYNAPTIC_TAGS       = 24L;
 
-    // ── Extended field offsets (bytes 32-63) ──
+    // ── Field offsets (bytes 32-63) ──
 
     /** Offset of centroid_id short (IVF routing). */
     public static final long OFFSET_CENTROID_ID         = 32L;
-    // 34-35: alignment padding
-    /** Offset of consolidation flags byte (repurposed from _pad0). */
+    /** Offset of consolidation flags byte. */
     public static final long OFFSET_CONSOLIDATION_FLAGS = 34L;
+    /** Offset of encoding-time cognitive profile byte. */
+    public static final long OFFSET_ENCODING_PROFILE    = 35L;
     /** Offset of storage_strength float (Two-Factor scoring). */
     public static final long OFFSET_STORAGE_STRENGTH    = 36L;
     /** Offset of spector-internal recall count int (auto-LTP). */
     public static final long OFFSET_SPECTOR_RECALL_COUNT = 40L;
-    /** Offset of reserved float field. */
-    public static final long OFFSET_RESERVED_F1         = 44L;
+    /** Offset of quantized alpha weight at encoding time. */
+    public static final long OFFSET_ENCODING_ALPHA      = 44L;
+    /** Offset of quantized beta weight at encoding time. */
+    public static final long OFFSET_ENCODING_BETA       = 45L;
+    /** Offset of monotonic soul configuration version counter (2 bytes). */
+    public static final long OFFSET_SOUL_VERSION        = 46L;
     /** Offset of last auto-LTP timestamp long (8B-aligned). */
     public static final long OFFSET_LAST_AUTO_LTP       = 48L;
-    /** Offset of reserved long field (future: 128-bit tag upper half, partially used for profile ordinal at byte 60). */
-    public static final long OFFSET_RESERVED_L1         = 56L;
-    /** Profile ordinal of the CognitiveProfile used during last recall (1 byte, inside reserved region). */
+    /** Offset of surprise z-score at encoding time (float32). */
+    public static final long OFFSET_ENCODING_SURPRISE   = 56L;
+    /** Profile ordinal of the CognitiveProfile used during last recall. */
     public static final long OFFSET_LAST_RECALL_PROFILE = 60L;
 
     // ── Value layouts ──
@@ -131,6 +139,11 @@ public final class SynapticHeaderConstants {
     public static final ValueLayout.OfFloat LAYOUT_STORAGE_STRENGTH   = ValueLayout.JAVA_FLOAT;
     public static final ValueLayout.OfInt   LAYOUT_SPECTOR_RECALL_COUNT = ValueLayout.JAVA_INT;
     public static final ValueLayout.OfLong  LAYOUT_LAST_AUTO_LTP      = ValueLayout.JAVA_LONG;
+    public static final ValueLayout.OfByte  LAYOUT_ENCODING_PROFILE  = ValueLayout.JAVA_BYTE;
+    public static final ValueLayout.OfByte  LAYOUT_ENCODING_ALPHA    = ValueLayout.JAVA_BYTE;
+    public static final ValueLayout.OfByte  LAYOUT_ENCODING_BETA     = ValueLayout.JAVA_BYTE;
+    public static final ValueLayout.OfShort LAYOUT_SOUL_VERSION      = ValueLayout.JAVA_SHORT;
+    public static final ValueLayout.OfFloat LAYOUT_ENCODING_SURPRISE = ValueLayout.JAVA_FLOAT;
 
     // ── VarHandle views for atomic access ──
 
@@ -168,6 +181,13 @@ public final class SynapticHeaderConstants {
 
     /** Bit 0: Memory has a conflicting near-duplicate in the tier. */
     public static final byte FLAG_CONTRADICTED = 0x01;
+
+    // ── Encoding Profile bitmasks (offset 35) ──
+
+    /** Bit 7: Memory was ingested under a soul-derived configuration (not a preset CognitiveProfile). */
+    public static final byte ENCODING_FLAG_SOUL_DERIVED = (byte) 0x80;
+    /** Bits 0-3: CognitiveProfile ordinal when not soul-derived (0-15). */
+    public static final byte ENCODING_PROFILE_MASK = 0x0F;
 
     // ── Convenience methods ──
 
@@ -242,5 +262,34 @@ public final class SynapticHeaderConstants {
      */
     public static boolean isContradicted(byte consolidationFlags) {
         return (consolidationFlags & FLAG_CONTRADICTED) != 0;
+    }
+
+    /**
+     * Checks if the encoding profile byte indicates a soul-derived configuration.
+     */
+    public static boolean isSoulDerived(byte encodingProfile) {
+        return (encodingProfile & ENCODING_FLAG_SOUL_DERIVED) != 0;
+    }
+
+    /**
+     * Extracts the CognitiveProfile ordinal from the encoding profile byte.
+     * Only meaningful when {@link #isSoulDerived(byte)} returns false.
+     */
+    public static int encodingProfileOrdinal(byte encodingProfile) {
+        return encodingProfile & ENCODING_PROFILE_MASK;
+    }
+
+    /**
+     * Constructs an encoding profile byte for a preset CognitiveProfile.
+     */
+    public static byte presetEncodingProfile(int profileOrdinal) {
+        return (byte) (profileOrdinal & ENCODING_PROFILE_MASK);
+    }
+
+    /**
+     * Constructs an encoding profile byte for a soul-derived configuration.
+     */
+    public static byte soulDerivedEncodingProfile() {
+        return ENCODING_FLAG_SOUL_DERIVED;
     }
 }
