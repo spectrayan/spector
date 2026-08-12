@@ -120,7 +120,7 @@ class AudioIngestionE2ETest {
         String memId = memory.remember(
                 "Recording of the team standup meeting discussing sprint goals",
                 MemoryType.EPISODIC, MemorySource.USER_STATED, context,
-                "audio", "meeting", "standup").join();
+                "audio", "meeting", "standup");
 
         assertNotNull(memId, "Should store audio memory");
         log.info("Ingested audio as: {}", memId);
@@ -147,7 +147,7 @@ class AudioIngestionE2ETest {
                 .build();
         String id1 = memory.remember("First audio recording  --  morning briefing",
                 MemoryType.EPISODIC, MemorySource.USER_STATED, ctx1,
-                "audio", "morning").join();
+                "audio", "morning");
 
         var ctx2 = IngestionContext.builder()
                 .metadata(SourceModality.ATTACHMENTS_KEY, wav2.toAbsolutePath().toString())
@@ -155,7 +155,7 @@ class AudioIngestionE2ETest {
                 .build();
         String id2 = memory.remember("Second audio recording  --  afternoon review",
                 MemoryType.EPISODIC, MemorySource.USER_STATED, ctx2,
-                "audio", "afternoon").join();
+                "audio", "afternoon");
 
         assertNotNull(id1);
         assertNotNull(id2);
@@ -172,7 +172,7 @@ class AudioIngestionE2ETest {
         // Ingest a text-only memory for comparison
         memory.remember("Written notes about the project architecture",
                 MemoryType.SEMANTIC, MemorySource.USER_STATED, (IngestionContext) null,
-                "notes", "architecture").join();
+                "notes", "architecture");
 
         // Ingest audio memory
         var ctx = IngestionContext.builder()
@@ -181,7 +181,7 @@ class AudioIngestionE2ETest {
                 .build();
         memory.remember("Audio recording about the project architecture",
                 MemoryType.EPISODIC, MemorySource.USER_STATED, ctx,
-                "audio", "architecture").join();
+                "audio", "architecture");
 
         // Recall should find both
         List<CognitiveResult> results = memory.recall("project architecture",

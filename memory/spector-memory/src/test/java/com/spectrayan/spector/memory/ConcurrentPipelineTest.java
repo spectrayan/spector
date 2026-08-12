@@ -114,7 +114,7 @@ class ConcurrentPipelineTest {
                             default -> MemoryType.PROCEDURAL;
                         };
                         memory.remember(id, text, type, MemorySource.OBSERVED,
-                                "writer-" + writerId).get(30, TimeUnit.SECONDS);
+                                "writer-" + writerId);
                     }
                 } catch (Throwable e) {
                     errors.add(e);
@@ -156,8 +156,7 @@ class ConcurrentPipelineTest {
                     for (int i = 0; i < 10; i++) {
                         memory.remember("live-w" + wId + "-" + i,
                                 "Live ingestion from writer " + wId + " about topic " + i,
-                                MemoryType.EPISODIC, MemorySource.OBSERVED, "live")
-                                .get(30, TimeUnit.SECONDS);
+                                MemoryType.EPISODIC, MemorySource.OBSERVED, "live");
                     }
                 } catch (Throwable e) {
                     errors.add(e);
@@ -424,8 +423,7 @@ class ConcurrentPipelineTest {
                     for (int i = 0; i < 5; i++) {
                         memory.remember("roll-w" + wId + "-" + i,
                                 "Working memory overflow test item " + (wId * 5 + i),
-                                MemoryType.WORKING, "roll-test")
-                                .get(30, TimeUnit.SECONDS);
+                                MemoryType.WORKING, "roll-test");
                     }
                 } catch (Throwable e) {
                     errors.add(e);
@@ -484,8 +482,7 @@ class ConcurrentPipelineTest {
                 barrier.await(TIMEOUT_SECONDS, TimeUnit.SECONDS);
                 for (int i = 0; i < 20; i++) {
                     memory.remember("mixed-" + i, "Mixed ops memory " + i,
-                            MemoryType.EPISODIC, MemorySource.OBSERVED, "mixed")
-                            .get(30, TimeUnit.SECONDS);
+                            MemoryType.EPISODIC, MemorySource.OBSERVED, "mixed");
                 }
             } catch (Throwable e) {
                 errors.add(e);
@@ -566,8 +563,7 @@ class ConcurrentPipelineTest {
                 };
                 memory.remember("seed-" + i, "Seed memory about topic number " + (i % 10)
                                 + " from area " + (i % 5),
-                        type, MemorySource.OBSERVED, "seed", "topic-" + (i % 10))
-                        .get(30, TimeUnit.SECONDS);
+                        type, MemorySource.OBSERVED, "seed", "topic-" + (i % 10));
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to seed memories", e);

@@ -131,7 +131,28 @@ public class ChatService {
      * @param listener       callback for real-time streaming events
      * @return typed agent chat response with trace, metadata, and session info
      */
-    public AgentChatResponse executeChat(
+        public AgentChatResponse executeChat(
+            String message,
+            String sessionId,
+            String model,
+            AgentSoul soul,
+            int contextDepth,
+            List<Map<String, Object>> messages,
+            AgentChatListener listener) {
+
+        String resolvedSessionId = sessionId != null && !sessionId.isBlank()
+                ? sessionId
+                : tsid.generate();
+
+        try {
+            return java.lang.ScopedValue.where(com.spectrayan.spector.commons.concurrent.MemoryScope.SESSION_ID, resolvedSessionId)
+                    .call(() -> processChat(message, resolvedSessionId, model, soul, contextDepth, messages, listener));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private AgentChatResponse processChat(
             String message,
             String sessionId,
             String model,

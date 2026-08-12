@@ -269,7 +269,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
 
         // Ingest via the auto-ID IngestionContext path
         imageMemoryId = memory.remember(imageCaption, MemoryType.EPISODIC,
-                MemorySource.OBSERVED, context, "photo", "cat", "workspace").join();
+                MemorySource.OBSERVED, context, "photo", "cat", "workspace");
 
         log.info("✅ Stored image memory: id={}, modality=IMAGE", imageMemoryId);
 
@@ -286,23 +286,23 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
         // Add several text memories about similar topics
         memory.remember("pet-01",
                 "My cat loves to sleep on the keyboard while I'm coding. She's an orange tabby named Maple.",
-                MemoryType.EPISODIC, MemorySource.USER_STATED, "cat", "workspace").join();
+                MemoryType.EPISODIC, MemorySource.USER_STATED, "cat", "workspace");
 
         memory.remember("pet-02",
                 "The office has a strict no-pets policy, but remote work lets me have Maple on my desk.",
-                MemoryType.EPISODIC, MemorySource.USER_STATED, "cat", "remote-work").join();
+                MemoryType.EPISODIC, MemorySource.USER_STATED, "cat", "remote-work");
 
         memory.remember("workspace-01",
                 "My home office setup: standing desk, dual monitors, mechanical keyboard, and a good espresso machine.",
-                MemoryType.SEMANTIC, MemorySource.USER_STATED, "workspace", "setup").join();
+                MemoryType.SEMANTIC, MemorySource.USER_STATED, "workspace", "setup");
 
         memory.remember("workspace-02",
                 "Switched from IntelliJ to VS Code for lighter memory footprint. The laptop overheats less now.",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "workspace", "tools").join();
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "workspace", "tools");
 
         memory.remember("food-01",
                 "Best coffee beans I've tried: Ethiopian Yirgacheffe for pour-over, medium roast.",
-                MemoryType.SEMANTIC, MemorySource.USER_STATED, "coffee", "food").join();
+                MemoryType.SEMANTIC, MemorySource.USER_STATED, "coffee", "food");
 
         log.info("✅ Ingested 5 additional text memories");
     }
@@ -574,7 +574,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
         String audioId = memory.remember(
                 "Team standup: discussed the multimodal memory feature. the lead developer wants image "
                         + "and video support. Target is to ship by end of sprint.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, audioCtx, "meeting", "standup").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, audioCtx, "meeting", "standup");
 
         log.info("Stored audio memory: id={}", audioId);
 
@@ -616,7 +616,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
         String videoId = memory.remember(
                 "Screen recording: demonstrated the new recall pipeline with multimodal "
                         + "results showing source modality badges in the UI.",
-                MemoryType.PROCEDURAL, MemorySource.OBSERVED, videoCtx, "demo", "video").join();
+                MemoryType.PROCEDURAL, MemorySource.OBSERVED, videoCtx, "demo", "video");
 
         // Verify via recall
         List<CognitiveResult> results = memory.recall("demo showing multimodal recall",
@@ -649,7 +649,7 @@ class MultimodalMemoryE2ETest extends AbstractE2ETest {
 
         String bareId = memory.remember(
                 "A sunset photograph taken during the team offsite in Austin.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, bareCtx, "photo").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, bareCtx, "photo");
 
         assertThat(bareId).isNotNull().isNotEmpty();
 

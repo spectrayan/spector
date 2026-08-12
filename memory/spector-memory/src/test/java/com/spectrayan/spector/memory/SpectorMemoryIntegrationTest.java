@@ -65,11 +65,11 @@ class SpectorMemoryIntegrationTest {
     @Test
     void rememberAndRecall() throws Exception {
         memory.remember("pref-dark", "User prefers dark mode.",
-                MemoryType.EPISODIC, MemorySource.USER_STATED, "ui", "preferences").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.USER_STATED, "ui", "preferences");
         memory.remember("pref-java", "User prefers Java over Python.",
-                MemoryType.EPISODIC, MemorySource.USER_STATED, "language", "preferences").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.USER_STATED, "language", "preferences");
         memory.remember("error-db", "Database lock timeout on table users.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "database").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "error", "database");
 
         assertThat(memory.totalMemories()).isEqualTo(3);
         assertThat(memory.memoryCount(MemoryType.EPISODIC)).isEqualTo(3);
@@ -82,13 +82,13 @@ class SpectorMemoryIntegrationTest {
     @Test
     void rememberMultipleTiers() throws Exception {
         memory.remember("working-1", "In-progress reasoning.",
-                MemoryType.WORKING, "scratch").get(5, TimeUnit.SECONDS);
+                MemoryType.WORKING, "scratch");
         memory.remember("semantic-1", "Java is a programming language.",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "java").get(5, TimeUnit.SECONDS);
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "java");
         memory.remember("procedural-1", "Always check null before accessing.",
-                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "rule").get(5, TimeUnit.SECONDS);
+                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "rule");
         memory.remember("episodic-1", "Deployed v2.1 to staging.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "deployment").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "deployment");
 
         assertThat(memory.memoryCount(MemoryType.WORKING)).isEqualTo(1);
         assertThat(memory.memoryCount(MemoryType.SEMANTIC)).isEqualTo(1);
@@ -100,7 +100,7 @@ class SpectorMemoryIntegrationTest {
     @Test
     void forgetRemovesFromRecall() throws Exception {
         memory.remember("to-forget", "This will be forgotten.",
-                MemoryType.EPISODIC, "temp").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "temp");
         assertThat(memory.totalMemories()).isEqualTo(1);
 
         memory.forget("to-forget");
@@ -112,7 +112,7 @@ class SpectorMemoryIntegrationTest {
 
     @Test
     void scratchpadStoresInWorking() throws Exception {
-        memory.scratchpad("Thinking about the architecture...").get(5, TimeUnit.SECONDS);
+        memory.scratchpad("Thinking about the architecture...");
         assertThat(memory.memoryCount(MemoryType.WORKING)).isEqualTo(1);
     }
 
@@ -121,7 +121,7 @@ class SpectorMemoryIntegrationTest {
     @Test
     void reinforceUpdatesValence() throws Exception {
         memory.remember("to-reinforce", "This approach works well.",
-                MemoryType.EPISODIC, "test").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "test");
 
         // Reinforce with positive outcome
         memory.reinforce("to-reinforce", Valence.STRONGLY_POSITIVE);
@@ -141,9 +141,9 @@ class SpectorMemoryIntegrationTest {
     @Test
     void suppressExcludesFromRecall() throws Exception {
         memory.remember("to-suppress", "Misleading information.",
-                MemoryType.EPISODIC, "test").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "test");
         memory.remember("keep-this", "Helpful information.",
-                MemoryType.EPISODIC, "test").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "test");
 
         memory.suppress("to-suppress", "led to wrong answer");
 
@@ -154,7 +154,7 @@ class SpectorMemoryIntegrationTest {
     @Test
     void unsuppressAllowsRecall() throws Exception {
         memory.remember("suppress-then-allow", "Toggle suppression test.",
-                MemoryType.EPISODIC, "test").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "test");
 
         memory.suppress("suppress-then-allow");
         assertThat(memory.admin().suppression().isSuppressed("suppress-then-allow")).isTrue();
@@ -169,7 +169,7 @@ class SpectorMemoryIntegrationTest {
     void introspectReturnsInsight() throws Exception {
         for (int i = 0; i < 5; i++) {
             memory.remember("java-" + i, "Java fact number " + i,
-                    MemoryType.EPISODIC, MemorySource.OBSERVED, "java").get(5, TimeUnit.SECONDS);
+                    MemoryType.EPISODIC, MemorySource.OBSERVED, "java");
         }
 
         MemoryInsight insight = memory.introspect("java");
@@ -182,7 +182,7 @@ class SpectorMemoryIntegrationTest {
     @Test
     void scheduleReminderAppearsInRecall() throws Exception {
         memory.remember("base", "Background memory.",
-                MemoryType.EPISODIC, "test").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "test");
 
         // Schedule a reminder in the past (should trigger immediately)
         memory.scheduleReminder("Check deployment status",
@@ -200,7 +200,7 @@ class SpectorMemoryIntegrationTest {
     void reflectReturnsReport() throws Exception {
         for (int i = 0; i < 5; i++) {
             memory.remember("episodic-" + i, "Event " + i + " happened.",
-                    MemoryType.EPISODIC, MemorySource.OBSERVED, "events").get(5, TimeUnit.SECONDS);
+                    MemoryType.EPISODIC, MemorySource.OBSERVED, "events");
         }
 
         ReflectReport report = memory.reflect();
@@ -213,9 +213,9 @@ class SpectorMemoryIntegrationTest {
     @Test
     void walTracksAllMutations() throws Exception {
         memory.remember("wal-1", "First memory.",
-                MemoryType.EPISODIC, "test").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "test");
         memory.remember("wal-2", "Second memory.",
-                MemoryType.EPISODIC, "test").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "test");
         memory.forget("wal-1");
         memory.reinforce("wal-2", Valence.POSITIVE);
 
@@ -228,9 +228,9 @@ class SpectorMemoryIntegrationTest {
     @Test
     void hebbianTracksCoActivation() throws Exception {
         memory.remember("co-1", "Java performance tuning.",
-                MemoryType.EPISODIC, "java", "performance").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "java", "performance");
         memory.remember("co-2", "Java garbage collection.",
-                MemoryType.EPISODIC, "java", "gc").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "java", "gc");
 
         // Recall should trigger co-activation tracking
         memory.recall("java performance gc");
@@ -245,7 +245,7 @@ class SpectorMemoryIntegrationTest {
     @Test
     void habituationPenalizesRepeatResults() throws Exception {
         memory.remember("repeat-1", "Always returned memory.",
-                MemoryType.EPISODIC, "common").get(5, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, "common");
 
         // First recall
         List<CognitiveResult> first = memory.recall("common topic");

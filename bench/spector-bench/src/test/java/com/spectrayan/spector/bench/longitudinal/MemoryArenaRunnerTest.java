@@ -49,7 +49,7 @@ class MemoryArenaRunnerTest {
         );
 
         when(mockEngine.remember(anyString(), any(MemoryType.class), any(MemorySource.class)))
-                .thenReturn(CompletableFuture.completedFuture("mem-1"));
+                .thenReturn("mem-1");
         when(mockEngine.recall(anyString(), any(CognitiveProfile.class))).thenReturn(List.of(result));
 
         LongitudinalSession session = new LongitudinalSession(

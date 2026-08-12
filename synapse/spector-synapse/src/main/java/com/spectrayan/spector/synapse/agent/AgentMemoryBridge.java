@@ -63,12 +63,12 @@ public final class AgentMemoryBridge {
      * Stores a thought into WORKING memory (volatile scratchpad for the active step)
      * and EPISODIC memory (the chronologically decayable session log).
      */
-    public CompletableFuture<Void> saveThought(String sessionId, AgentThought thought) {
+    public void saveThought(String sessionId, AgentThought thought) {
         String content = "Thought: " + thought.content();
         String sessionTag = "session_" + sessionId;
 
         // WORKING Memory: Active scratchpad
-        CompletableFuture<String> workFut = memory().remember(
+        String workFut = memory().remember(
                 content,
                 MemoryType.WORKING,
                 MemorySource.INFERRED,
@@ -76,25 +76,25 @@ public final class AgentMemoryBridge {
         );
 
         // EPISODIC Memory: Temporal logs
-        CompletableFuture<String> epiFut = memory().remember(
+        String epiFut = memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
                 "agent_thought", "session_log", sessionTag
         );
 
-        return CompletableFuture.allOf(workFut, epiFut);
+        
     }
 
     /**
      * Stores an action execution log into EPISODIC memory.
      */
-    public CompletableFuture<Void> saveAction(String sessionId, AgentAction action) {
+    public void saveAction(String sessionId, AgentAction action) {
         String content = String.format("Action: Called tool '%s' with args %s",
                 action.toolName(), action.arguments());
         String sessionTag = "session_" + sessionId;
 
-        return memory().remember(
+        memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
@@ -105,11 +105,11 @@ public final class AgentMemoryBridge {
     /**
      * Stores an observation/result log into EPISODIC memory.
      */
-    public CompletableFuture<Void> saveObservation(String sessionId, AgentObservation observation) {
+    public void saveObservation(String sessionId, AgentObservation observation) {
         String content = "Observation: " + observation.result();
         String sessionTag = "session_" + sessionId;
 
-        return memory().remember(
+        memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
@@ -121,11 +121,11 @@ public final class AgentMemoryBridge {
      * Stores a consolidated fact or generalized concept into SEMANTIC memory.
      * Semantic memory bypasses temporal decay, storing it as permanent knowledge.
      */
-    public CompletableFuture<Void> saveLearnedFact(String sessionId, String fact) {
+    public void saveLearnedFact(String sessionId, String fact) {
         String sessionTag = "session_" + sessionId;
         log.info("[MemoryBridge] Consolidating permanent semantic fact for session {}: '{}'", sessionId, fact);
 
-        return memory().remember(
+        memory().remember(
                 fact,
                 MemoryType.SEMANTIC,
                 MemorySource.INFERRED,
@@ -136,9 +136,9 @@ public final class AgentMemoryBridge {
     /**
      * Registers a tool's executable schema into PROCEDURAL memory.
      */
-    public CompletableFuture<Void> saveToolDefinition(McpToolHandler tool) {
+    public void saveToolDefinition(McpToolHandler tool) {
         String content = String.format("Tool '%s' schema: %s", tool.name(), tool.description());
-        return memory().remember(
+        memory().remember(
                 content,
                 MemoryType.PROCEDURAL,
                 MemorySource.PROCEDURAL,

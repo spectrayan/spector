@@ -42,7 +42,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
                 "Investigating order-service timeout in production. "
                         + "Users report 30-second delays when placing orders during peak hours.",
                 MemoryType.WORKING, MemorySource.OBSERVED,
-                "task", "debugging", "performance").join();
+                "task", "debugging", "performance");
 
         assertThat(memory.admin().index().locate("lifecycle-task"))
                 .as("New task memory should be in the index")
@@ -84,7 +84,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
                         + "acquires a database advisory lock but does not release it on timeout, "
                         + "causing connection pool starvation. Fix: add try-finally around lock acquisition.",
                 MemoryType.EPISODIC, MemorySource.OBSERVED,
-                "debugging", "database", "fix", "connection-pool").join();
+                "debugging", "database", "fix", "connection-pool");
 
         assertThat(memory.admin().index().locate("lifecycle-finding"))
                 .as("Finding should be in the index")
@@ -171,7 +171,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
                         + "3) Check for missing try-finally blocks around lock acquisition. "
                         + "4) Verify pool size against concurrent request volume.",
                 MemoryType.PROCEDURAL, MemorySource.REFLECTED,
-                "procedure", "debugging", "database", "connection-pool").join();
+                "procedure", "debugging", "database", "connection-pool");
 
         assertThat(memory.admin().index().locate("lifecycle-procedure"))
                 .as("Learned procedure should be in the index")
@@ -280,7 +280,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
         memory.remember(taskId,
                 "Unresolved investigation: network latency spikes between user-service and order-service during peak hours",
                 MemoryType.EPISODIC, MemorySource.OBSERVED,
-                "debugging", "performance", "zeigarnik").join();
+                "debugging", "performance", "zeigarnik");
 
         // Recall before marking as unresolved
         List<CognitiveResult> beforeResults = memory.recall(
@@ -325,7 +325,7 @@ class FullLifecycleE2ETest extends AbstractE2ETest {
         memory.remember(taskId,
                 "Resolved task: configured proper TLS certificates for inter-service mTLS communication",
                 MemoryType.EPISODIC, MemorySource.OBSERVED,
-                "security", "resolved", "zeigarnik").join();
+                "security", "resolved", "zeigarnik");
 
         memory.markUnresolved(taskId);
         memory.markResolved(taskId);

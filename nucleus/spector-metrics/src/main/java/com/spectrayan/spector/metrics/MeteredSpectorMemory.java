@@ -176,46 +176,46 @@ public class MeteredSpectorMemory implements SpectorMemory {
     // ══════════════════════════════════════════════════════════════
 
     @Override
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    public void remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
         rememberCounter.increment();
-        return delegate.remember(id, text, type, source, tags);
+        delegate.remember(id, text, type, source, tags);
     }
 
     @Override
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
                                               com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                               String... tags) {
         rememberCounter.increment();
-        return delegate.remember(id, text, type, source, hints, tags);
+        delegate.remember(id, text, type, source, hints, tags);
     }
 
     @Override
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    public void remember(String id, String text, MemoryType type,
                                               String... tags) {
         rememberCounter.increment();
-        return delegate.remember(id, text, type, tags);
+        delegate.remember(id, text, type, tags);
     }
 
     @Override
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
                                               com.spectrayan.spector.memory.model.IngestionContext context,
                                               String... tags) {
         rememberCounter.increment();
-        return delegate.remember(id, text, type, source, context, tags);
+        delegate.remember(id, text, type, source, context, tags);
     }
 
     @Override
-    public CompletableFuture<String> remember(String text, MemoryType type,
+    public String remember(String text, MemoryType type,
                                               MemorySource source, String... tags) {
         rememberCounter.increment();
         return delegate.remember(text, type, source, tags);
     }
 
     @Override
-    public CompletableFuture<String> remember(String text, MemoryType type,
+    public String remember(String text, MemoryType type,
                                               MemorySource source,
                                               com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                               String... tags) {
@@ -224,7 +224,7 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
-    public CompletableFuture<String> remember(String text, MemoryType type,
+    public String remember(String text, MemoryType type,
                                               MemorySource source,
                                               com.spectrayan.spector.memory.model.IngestionContext context,
                                               String... tags) {
@@ -359,8 +359,8 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
-    public CompletableFuture<Void> scratchpad(String text) {
-        return delegate.scratchpad(text);
+    public void scratchpad(String text) {
+        delegate.scratchpad(text);
     }
 
     @Override public int totalMemories() { return delegate.totalMemories(); }

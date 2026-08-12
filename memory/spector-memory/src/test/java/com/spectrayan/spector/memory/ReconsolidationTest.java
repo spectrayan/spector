@@ -70,7 +70,7 @@ class ReconsolidationTest {
     // ══════════════════════════════════════════════════════════════
 
     private void ingest(String id, String text, MemoryType type, String... tags) {
-        memory.remember(id, text, type, MemorySource.USER_STATED, tags).join();
+        memory.remember(id, text, type, MemorySource.USER_STATED, tags);
     }
 
     private void reconsolidate(String id, String newText, String[] newTags) {
@@ -198,7 +198,7 @@ class ReconsolidationTest {
 
         // Second remember with same ID should be silently skipped by dedup guard
         memory.remember("dedup-1", "Should be ignored", MemoryType.EPISODIC,
-                MemorySource.USER_STATED, "ignored").join();
+                MemorySource.USER_STATED, "ignored");
 
         // Index should still have original text (dedup guard blocked)
         assertThat(memory.admin().index().text("dedup-1")).isEqualTo("Original content");

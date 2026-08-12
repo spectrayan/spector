@@ -228,7 +228,7 @@ class NegativeTestingE2ETest extends AbstractE2ETest {
         String uniqueId = "neg-forget-test-" + System.nanoTime();
         memory.remember(uniqueId,
                 "This memory about quantum encryption should be forgotten immediately",
-                MemoryType.EPISODIC, "test", "forget").join();
+                MemoryType.EPISODIC, "test", "forget");
 
         // Forget it
         memory.forget(uniqueId);
@@ -252,7 +252,7 @@ class NegativeTestingE2ETest extends AbstractE2ETest {
         String uniqueId = "neg-suppress-test-" + System.nanoTime();
         memory.remember(uniqueId,
                 "This memory about blockchain consensus algorithms should be suppressed",
-                MemoryType.EPISODIC, "test", "suppress").join();
+                MemoryType.EPISODIC, "test", "suppress");
 
         // Suppress it
         memory.suppress(uniqueId, "Testing suppression");
@@ -276,7 +276,7 @@ class NegativeTestingE2ETest extends AbstractE2ETest {
         String uniqueId = "neg-unsuppress-test-" + System.nanoTime();
         memory.remember(uniqueId,
                 "This memory about neural network pruning techniques should survive unsuppression",
-                MemoryType.EPISODIC, "test", "unsuppress").join();
+                MemoryType.EPISODIC, "test", "unsuppress");
 
         memory.suppress(uniqueId, "Testing suppress/unsuppress cycle");
         memory.unsuppress(uniqueId);
@@ -299,7 +299,7 @@ class NegativeTestingE2ETest extends AbstractE2ETest {
         String uniqueId = "neg-double-forget-" + System.nanoTime();
         memory.remember(uniqueId,
                 "Memory for double-forget idempotency test",
-                MemoryType.EPISODIC, "test").join();
+                MemoryType.EPISODIC, "test");
 
         assertThatCode(() -> {
             memory.forget(uniqueId);

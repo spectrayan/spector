@@ -74,8 +74,7 @@ class MemoryAccessObjectTest {
     @DisplayName("remember — live mode calls memory.remember and returns id")
     @SuppressWarnings("unchecked")
     void remember_liveMode_callsRemember() {
-        var futureMem = CompletableFuture.completedFuture((Void) null);
-        doReturn(futureMem).when(mockMemory)
+        doNothing().when(mockMemory)
                 .remember(eq("mem-xyz"), eq("knowledge about HNSW index"),
                         eq(MemoryType.SEMANTIC), eq(MemorySource.USER_STATED), nullable(IngestionHints.class), any(String[].class));
 

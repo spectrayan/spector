@@ -129,7 +129,7 @@ class RealFileMultimodalE2ETest {
                     .build();
 
             String memId = memory.remember("A photo taken at the park",
-                    MemoryType.EPISODIC, MemorySource.USER_STATED, context, "photo", "dog").join();
+                    MemoryType.EPISODIC, MemorySource.USER_STATED, context, "photo", "dog");
 
             assertNotNull(memId, "Should store memory");
             log.info("Ingested golden retriever image as: {}", memId);
@@ -164,7 +164,7 @@ class RealFileMultimodalE2ETest {
 
             String memId = memory.remember("Whiteboard photo from planning session",
                     MemoryType.SEMANTIC, MemorySource.USER_STATED, context,
-                    "whiteboard", "diagram", "planning").join();
+                    "whiteboard", "diagram", "planning");
 
             assertNotNull(memId);
             log.info("Ingested whiteboard image as: {}", memId);
@@ -221,7 +221,7 @@ class RealFileMultimodalE2ETest {
 
             String memId = memory.rememberFile(doc,
                     "Technical reference document",
-                    MemoryType.SEMANTIC, MemorySource.INFERRED, "docs", "reference").join();
+                    MemoryType.SEMANTIC, MemorySource.INFERRED, "docs", "reference");
 
             assertNotNull(memId);
             log.info("Ingested text doc as: {}", memId);
@@ -236,7 +236,7 @@ class RealFileMultimodalE2ETest {
 
             String memId = memory.rememberFile(doc,
                     "Web page content with HTML formatting",
-                    MemoryType.SEMANTIC, MemorySource.INFERRED, "html", "web").join();
+                    MemoryType.SEMANTIC, MemorySource.INFERRED, "html", "web");
 
             assertNotNull(memId);
             log.info("Ingested HTML doc as: {}", memId);
@@ -317,7 +317,7 @@ class RealFileMultimodalE2ETest {
             // meaningful transcription, the context should be handled gracefully
             String memId = memory.remember("Recording of a test tone at 440Hz",
                     MemoryType.EPISODIC, MemorySource.USER_STATED, context,
-                    "audio", "test-tone").join();
+                    "audio", "test-tone");
 
             assertNotNull(memId);
             log.info("Ingested audio as: {}", memId);
@@ -377,7 +377,7 @@ class RealFileMultimodalE2ETest {
 
             String memId = memory.remember("A short test video clip showing text overlay",
                     MemoryType.EPISODIC, MemorySource.USER_STATED, context,
-                    "video", "test-clip").join();
+                    "video", "test-clip");
 
             assertNotNull(memId);
             log.info("Ingested video as: {}", memId);
@@ -442,7 +442,7 @@ class RealFileMultimodalE2ETest {
 
         String memId = memory.remember("Meeting notes with photo and document reference",
                 MemoryType.EPISODIC, MemorySource.USER_STATED, context,
-                "meeting", "multi-attach").join();
+                "meeting", "multi-attach");
 
         assertNotNull(memId);
         log.info("Ingested multi-attachment memory: {}", memId);

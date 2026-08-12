@@ -45,7 +45,7 @@ public class MemoryArenaAdapter {
     /**
      * Stores an experience into Spector memory asynchronously.
      */
-    public CompletableFuture<String> remember(String text, float importance, float valence) {
+    public String remember(String text, float importance, float valence) {
         Objects.requireNonNull(text, "text cannot be null");
         log.debug("MemoryArenaAdapter remember [profile={}]: {}", cognitiveProfile, text);
         return memoryEngine.remember(text, MemoryType.EPISODIC, MemorySource.OBSERVED);

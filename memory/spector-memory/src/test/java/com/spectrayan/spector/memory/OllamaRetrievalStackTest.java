@@ -105,13 +105,13 @@ class OllamaRetrievalStackTest {
     @DisplayName("BM25 keyword recall  --  exact-term matches found in keyword-only mode")
     void bm25_keywordRecall() throws Exception {
         memory.remember("kw-java", "Java uses garbage collection for automatic memory management.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "java").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "java");
         memory.remember("kw-rust", "Rust uses ownership and borrowing instead of garbage collection.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "rust").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "rust");
         memory.remember("kw-python", "Python has dynamic typing and is commonly used for scripting.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "python").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "python");
         memory.remember("kw-deploy", "The deployment pipeline uses blue-green strategy for zero downtime.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "deployment").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "deployment");
 
         // Keyword search for "garbage collection"
         List<CognitiveResult> results = memory.recall("garbage collection",
@@ -136,9 +136,9 @@ class OllamaRetrievalStackTest {
     @DisplayName("BM25 no false positives  --  unrelated query returns empty or very low scores")
     void bm25_noFalsePositives() throws Exception {
         memory.remember("fp-java", "Java is a strongly typed programming language.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "java").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "java");
         memory.remember("fp-python", "Python is popular for machine learning.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "python").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "python");
 
         // Query for completely unrelated term in keyword-only mode
         List<CognitiveResult> results = memory.recall("quantum entanglement teleportation",
@@ -174,13 +174,13 @@ class OllamaRetrievalStackTest {
     void hybrid_recall() throws Exception {
         // Keyword-matchable
         memory.remember("h-exact", "PostgreSQL connection pool exhausted during peak traffic.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "database", "error").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "database", "error");
         // Semantically related but no keyword overlap
         memory.remember("h-semantic", "The relational database had too many open sessions at the same time.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "database", "error").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "database", "error");
         // Unrelated
         memory.remember("h-unrelated", "React component lifecycle hooks were deprecated in favor of hooks API.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "frontend").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "frontend");
 
         List<CognitiveResult> results = memory.recall("PostgreSQL connection pool",
                 RecallOptions.builder()
@@ -211,11 +211,11 @@ class OllamaRetrievalStackTest {
     @DisplayName("Vector-only recall  --  semantic similarity with real embeddings")
     void vectorOnly_semanticSimilarity() throws Exception {
         memory.remember("v-direct", "The Kubernetes autoscaler adjusts pod count based on CPU utilization metrics.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "k8s").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "k8s");
         memory.remember("v-related", "Container orchestration platforms can dynamically scale workloads.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "containers").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "containers");
         memory.remember("v-unrelated", "The chef prepared a delicious pasta with homemade tomato sauce.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "food").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "food");
 
         List<CognitiveResult> results = memory.recall("scaling pods in Kubernetes cluster",
                 RecallOptions.builder()
@@ -250,9 +250,9 @@ class OllamaRetrievalStackTest {
     @DisplayName("Text search mode switching  --  HYBRID, KEYWORD_ONLY, VECTOR_ONLY all work")
     void textSearchModeSwitching() throws Exception {
         memory.remember("ts-1", "Spring Boot auto-configuration resolves beans using conditional annotations.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "spring").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "spring");
         memory.remember("ts-2", "The framework automatically sets up database connections based on classpath.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "spring").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "spring");
 
         String query = "Spring Boot auto-configuration";
 
@@ -304,8 +304,7 @@ class OllamaRetrievalStackTest {
 
         for (int i = 0; i < topics.length; i++) {
             memory.remember("conc-" + i, topics[i],
-                    MemoryType.EPISODIC, MemorySource.OBSERVED, "tech")
-                    .get(30, TimeUnit.SECONDS);
+                    MemoryType.EPISODIC, MemorySource.OBSERVED, "tech");
         }
 
         int threadCount = 5;
@@ -375,7 +374,7 @@ class OllamaRetrievalStackTest {
                 default -> MemoryType.PROCEDURAL;
             };
             memory.remember("e2e-" + i, text, type, MemorySource.OBSERVED,
-                    "topic-" + (i % 10)).get(30, TimeUnit.SECONDS);
+                    "topic-" + (i % 10));
         }
         long ingestElapsed = System.nanoTime() - ingestStart;
         System.out.printf("  Ingest: 50 docs in %.1f s (%.0f ms/doc)%n",
@@ -428,13 +427,13 @@ class OllamaRetrievalStackTest {
     @DisplayName("Cross-tier keyword recall  --  BM25 finds matches across all memory tiers")
     void crossTier_keywordRecall() throws Exception {
         memory.remember("ct-w", "Working on fixing the NullPointerException in the authentication module.",
-                MemoryType.WORKING, "auth", "error").get(30, TimeUnit.SECONDS);
+                MemoryType.WORKING, "auth", "error");
         memory.remember("ct-e", "Yesterday we encountered a NullPointerException during login flow testing.",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "auth", "error").get(30, TimeUnit.SECONDS);
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "auth", "error");
         memory.remember("ct-s", "NullPointerException occurs when dereferencing a null object reference in Java.",
-                MemoryType.SEMANTIC, MemorySource.OBSERVED, "java", "error").get(30, TimeUnit.SECONDS);
+                MemoryType.SEMANTIC, MemorySource.OBSERVED, "java", "error");
         memory.remember("ct-p", "Always add null checks before method calls to prevent NullPointerException.",
-                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "java", "best-practice").get(30, TimeUnit.SECONDS);
+                MemoryType.PROCEDURAL, MemorySource.PROCEDURAL, "java", "best-practice");
 
         List<CognitiveResult> results = memory.recall("NullPointerException",
                 RecallOptions.builder().topK(10).textSearchMode(TextSearchMode.HYBRID).build());

@@ -112,7 +112,7 @@ class VideoIngestionE2ETest {
         String memId = memory.remember(
                 "Screen recording of debugging a UI layout issue with CSS flexbox",
                 MemoryType.EPISODIC, MemorySource.USER_STATED, context,
-                "video", "debugging", "css").join();
+                "video", "debugging", "css");
 
         assertNotNull(memId, "Should store video memory");
         log.info("Ingested video as: {}", memId);
@@ -163,7 +163,7 @@ class VideoIngestionE2ETest {
 
             memory.remember("Photo from the company picnic",
                     MemoryType.EPISODIC, MemorySource.USER_STATED, imgCtx,
-                    "photo", "company").join();
+                    "photo", "company");
         }
 
         // Query something generic

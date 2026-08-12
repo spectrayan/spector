@@ -92,11 +92,11 @@ class PartitionRestartRecallTest {
         // Phase A: build a store, force a roll so records straddle partition 000 and 001.
         memory = build(dir, /*episodicCap*/ 2, /*semanticCap*/ 64);
         memory.remember("r-0", "the database migration failed on shard seven",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
         memory.remember("r-1", "cache warmup completed for the payments service",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
         memory.remember("r-2", "kafka consumer lag spiked during the deploy",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "grp");
 
         assertThat(partitionDirCount(dir)).as("a roll must have occurred").isGreaterThanOrEqualTo(2);
         memory.close();
@@ -134,11 +134,11 @@ class PartitionRestartRecallTest {
         // record lands at the SAME physical offset. Pre-#443 these collided on the reverse key.
         memory = build(dir, /*episodicCap*/ 1, /*semanticCap*/ 64);
         memory.remember("c-0", "first record lives in partition zero",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "col").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "col");
         memory.remember("c-1", "second record lives in partition one",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "col").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "col");
         memory.remember("c-2", "third record lives in partition two",
-                MemoryType.EPISODIC, MemorySource.OBSERVED, "col").join();
+                MemoryType.EPISODIC, MemorySource.OBSERVED, "col");
 
         assertThat(partitionDirCount(dir)).as("multiple rolls must have occurred").isGreaterThanOrEqualTo(3);
         memory.close();

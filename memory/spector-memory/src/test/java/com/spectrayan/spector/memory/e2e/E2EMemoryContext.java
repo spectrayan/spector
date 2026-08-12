@@ -30,8 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Shared singleton context for all E2E test classes.
  *
@@ -122,12 +120,9 @@ public final class E2EMemoryContext {
         log.info("=== Ingesting {} seed memories ===", seedMemories.size());
         long start = System.currentTimeMillis();
 
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
         for (SeedMemory seed : seedMemories) {
-            futures.add(memory.remember(
-                    seed.id(), seed.text(), seed.type(), seed.source(), seed.tags()));
+            memory.remember(seed.id(), seed.text(), seed.type(), seed.source(), seed.tags());
         }
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         long elapsed = System.currentTimeMillis() - start;
         log.info("[x] Ingested {} memories in {}ms ({}ms/memory)",

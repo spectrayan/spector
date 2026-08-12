@@ -41,10 +41,10 @@ class MemoryArenaAdapterTest {
     void testRememberDelegatesToRemember() {
         SpectorMemory mockEngine = Mockito.mock(SpectorMemory.class);
         when(mockEngine.remember(anyString(), any(MemoryType.class), any(MemorySource.class)))
-                .thenReturn(CompletableFuture.completedFuture("mem-1"));
+                .thenReturn("mem-1");
 
         MemoryArenaAdapter adapter = new MemoryArenaAdapter(mockEngine, CognitiveProfile.BALANCED);
-        CompletableFuture<String> future = adapter.remember("test experience", 0.8f, 0.5f);
+        String future = adapter.remember("test experience", 0.8f, 0.5f);
 
         assertThat(future.join()).isEqualTo("mem-1");
         assertThat(adapter.getCognitiveProfile()).isEqualTo(CognitiveProfile.BALANCED);
