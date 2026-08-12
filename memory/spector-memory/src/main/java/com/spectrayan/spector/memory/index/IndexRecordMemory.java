@@ -57,6 +57,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     private static final int LEGACY_INDEX_MAGIC = 0x4D494458;
 
     /** Standard SMKM schema versions. v6 adds the persisted colocatedPartition (#443). */
+    static final int INDEX_VERSION_V7 = 7;
     private static final int INDEX_VERSION_V6 = 6;
     private static final int INDEX_VERSION_V5 = 5;
 
@@ -98,6 +99,27 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
     // ── Insertion-order tracking ──
     private final java.util.concurrent.locks.ReentrantLock orderedIdsLock = new java.util.concurrent.locks.ReentrantLock();
     private final java.util.LinkedHashSet<String> orderedIds = new java.util.LinkedHashSet<>();
+
+    /** Monotonic graph-slot allocator. Never decreases, never reuses slots. */
+    private final java.util.concurrent.atomic.AtomicInteger graphSlotHighWater =
+            new java.util.concurrent.atomic.AtomicInteger(0);
+
+    // ── Graph-slot bimap (O(1) both directions) ──────────────────────────────
+    /** Positional slot→id mapping. Null entries are tombstones (forgotten memories). */
+    private volatile String[] slotToId = new String[256];
+    /** Reverse id→slot mapping. */
+    private final java.util.concurrent.ConcurrentHashMap<String, Integer> idToSlot =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Grows the slotToId array if needed. Must be called under orderedIdsLock. */
+    private void ensureSlotCapacity(int minCapacity) {
+        String[] arr = slotToId;
+        if (minCapacity > arr.length) {
+            int newCap = Math.max(minCapacity, arr.length * 2);
+            String[] grown = java.util.Arrays.copyOf(arr, newCap);
+            slotToId = grown; // volatile write
+        }
+    }
 
     /**
      * Tracks where a memory is physically stored.
@@ -197,9 +219,17 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
 
         reverseIndex.put(reverseKey(location.colocatedPartition(), location.type(), location.offset()), id);
 
+        // Register in graph-slot bimap (skip if graphSlot < 0 — legacy/non-graph entries)
+        int slot = location.graphSlot();
         orderedIdsLock.lock();
         try {
             orderedIds.add(id);
+            if (slot >= 0) {
+                // Bimap: slot → id, id → slot
+                ensureSlotCapacity(slot + 1);
+                slotToId[slot] = id;
+                idToSlot.put(id, slot);
+            }
         } finally {
             orderedIdsLock.unlock();
         }
@@ -219,6 +249,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         orderedIdsLock.lock();
         try {
             orderedIds.remove(id);
+            // Tombstone bimap — do NOT shift remaining entries
+            Integer slot = idToSlot.remove(id);
+            if (slot != null && slot < slotToId.length) {
+                slotToId[slot] = null;
+            }
         } finally {
             orderedIdsLock.unlock();
         }
@@ -417,15 +452,78 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                                         java.util.Map<String, Integer> idToSlot) {
         orderedIdsLock.lock();
         try {
-            int i = 0;
-            for (String id : orderedIds) {
-                slotToId.put(i, id);
-                idToSlot.put(id, i);
-                i++;
+            int maxSlot = -1;
+            for (var entry : locations.entrySet()) {
+                String id = entry.getKey();
+                MemoryLocation loc = entry.getValue();
+                int slot = loc.graphSlot();
+                if (slot >= 0) {
+                    slotToId.put(slot, id);
+                    idToSlot.put(id, slot);
+                    if (slot > maxSlot) maxSlot = slot;
+                }
             }
+            // Also rebuild internal bimap
+            int requiredCapacity = maxSlot + 2;
+            ensureSlotCapacity(requiredCapacity);
+            String[] arr = this.slotToId;
+            java.util.Arrays.fill(arr, null);
+            this.idToSlot.clear();
+            for (var entry : slotToId.entrySet()) {
+                int s = entry.getKey();
+                String memId = entry.getValue();
+                arr[s] = memId;
+                this.idToSlot.put(memId, s);
+            }
+            this.slotToId = arr; // volatile write
+            // Restore high-water mark defensively: max(persisted, maxSlotSeen + 1)
+            int restoredHw = maxSlot + 1;
+            graphSlotHighWater.set(Math.max(graphSlotHighWater.get(), restoredHw));
         } finally {
             orderedIdsLock.unlock();
         }
+    }
+
+    /**
+     * Allocates a new monotonic graph slot. Thread-safe, never reuses slots.
+     * @return the next available graph slot index
+     */
+    public int allocateGraphSlot() {
+        return graphSlotHighWater.getAndIncrement();
+    }
+
+    /**
+     * Returns the memory ID at the given graph slot, or {@code null} if the slot
+     * is tombstoned, out of range, or was never allocated.
+     */
+    public String idAt(int slot) {
+        String[] arr = slotToId; // volatile read
+        if (slot < 0 || slot >= arr.length) return null;
+        return arr[slot];
+    }
+
+    /**
+     * Returns the graph slot for the given memory ID, or {@code null} if unknown.
+     */
+    public Integer slotOf(String id) {
+        return idToSlot.get(id);
+    }
+
+    /**
+     * Returns the current high-water mark for graph slot allocation.
+     */
+    public int graphSlotHighWater() {
+        return graphSlotHighWater.get();
+    }
+
+    /**
+     * Restores the high-water mark from a persisted or computed value.
+     * Used during index load to set the initial allocation counter.
+     *
+     * @param highWater the value to restore (must be ≥ 0)
+     */
+    public void restoreGraphSlotHighWater(int highWater) {
+        graphSlotHighWater.set(Math.max(0, highWater));
     }
 
     // NOTE (issue #443): this remains keyed on graphSlot (the former misnamed field), not
@@ -522,7 +620,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         final int slotStride;
         final boolean readColocated;
         switch (schemaVersion) {
-            case INDEX_VERSION_V6 -> {
+            case INDEX_VERSION_V7, INDEX_VERSION_V6 -> {
                 slotStride = 48;
                 readColocated = true;
             }
@@ -564,6 +662,16 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         if (readColocated) {
             markColocatedPartitionPersisted();
         }
+        
+        // Restore graphSlotHighWater from reserved field (offset 60)
+        long headerBaseOffset = 0L;
+        int persistedHw = bundleMidxSlice.get(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60);
+        int computedMaxSlot = -1;
+        for (MemoryLocation loc : locations.values()) {
+            if (loc.graphSlot() > computedMaxSlot) computedMaxSlot = loc.graphSlot();
+        }
+        graphSlotHighWater.set(Math.max(persistedHw, computedMaxSlot + 1));
+
         log.info("MemoryIndex loaded from bundle (v{}): {} entries", schemaVersion, size());
     }
 
@@ -596,8 +704,12 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 long totalSlotBytes = (long) entryCount * stride;
 
                 long now = System.currentTimeMillis();
-                MemoryHeader.write(bundleMidxSlice, 0L, INDEX_VERSION_V6, MemoryShape.RECORD, entryCount,
+                MemoryHeader.write(bundleMidxSlice, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, entryCount,
                         (int) (MemoryHeader.HEADER_BYTES + totalSlotBytes), 0, 0, new IndexEntryLayout().layoutId(), now, now);
+                // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
+                long headerBaseOffset = 0L;
+                bundleMidxSlice.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, graphSlotHighWater.get());
+
                 MemoryHeader.write(bundleIdplSlice, 0L, 1, MemoryShape.APPEND, entryCount,
                         (int) (MemoryHeader.HEADER_BYTES + totalPoolBytes), 0, 0, new IdBlobLayout().layoutId(), now, now);
 
@@ -696,6 +808,13 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 try (DefaultRecordMemory<IndexEntryLayout> slotMemory = new DefaultRecordMemory<>(
                         slotId, slotLayout, entryCount, MemoryHeader.HEADER_BYTES + totalSlotBytes, filePath)) {
                     
+                    long headerBaseOffset = 0L;
+                    // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
+                    slotMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, graphSlotHighWater.get());
+                    // Since DefaultRecordMemory uses INDEX_VERSION_V6 by default (if it uses that), we should manually bump to V7
+                    slotMemory.segment().set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 8, INDEX_VERSION_V7);
+
+                    
                     int index = 0;
                     for (int i = 0; i < orderedKeys.size(); i++) {
                         String id = orderedKeys.get(i);
@@ -788,7 +907,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     final int slotStride;
                     final boolean readColocated;
                     switch (schemaVersion) {
-                        case INDEX_VERSION_V6 -> {
+                        case INDEX_VERSION_V7, INDEX_VERSION_V6 -> {
                             slotStride = 48;      // v6 slot: 48 bytes incl. colocatedPartition + reserved
                             readColocated = true;
                         }
@@ -800,7 +919,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                         }
                         default -> throw new SpectorStorageException(ErrorCode.FILE_FORMAT_INVALID,
                                 "MemoryIndex unsupported schema version v" + schemaVersion
-                                        + (schemaVersion > INDEX_VERSION_V6 ? " (newer than supported v6)" : "")
+                                        + (schemaVersion > INDEX_VERSION_V7 ? " (newer than supported v7)" : "")
                                         + ": " + filePath);
                     }
 
@@ -842,6 +961,16 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     if (readColocated) {
                         index.markColocatedPartitionPersisted();
                     }
+                    
+                    // Restore graphSlotHighWater from reserved field (offset 60)
+                    long headerBaseOffset = 0L;
+                    int persistedHw = slotMemory.segment().get(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60);
+                    int computedMaxSlot = -1;
+                    for (MemoryLocation loc : index.locationMap().values()) {
+                        if (loc.graphSlot() > computedMaxSlot) computedMaxSlot = loc.graphSlot();
+                    }
+                    index.restoreGraphSlotHighWater(Math.max(persistedHw, computedMaxSlot + 1));
+
                     log.info("MemoryIndex loaded (SMKM v{}): {} entries from {}",
                             schemaVersion, index.size(), filePath.getFileName());
                 }

@@ -236,11 +236,12 @@ final class GraphExpansionStage {
                 MemoryIndex.MemoryLocation loc = index.locate(seed.id());
                 if (loc == null) continue;
 
-                int memIdx = offsetToRecordIndex(loc);
+                int memIdx = loc.graphSlot();
                 var activated = hebbianGraph.activateNeighbors(memIdx, graphScoringPolicy.hebbianMaxDepth());
                 for (var edge : activated) {
-                    String neighborId = findMemoryByApproximateIndex(edge.neighborIndex());
-                    if (neighborId != null && !existingIds.contains(neighborId) && matchesFilters(neighborId, options)) {
+                    String neighborId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(edge.neighborIndex());
+                    if (neighborId == null) continue;
+                    if (!existingIds.contains(neighborId) && matchesFilters(neighborId, options)) {
                         float neighborSim = computeNeighborSimilarity(neighborId, queryVector);
                         float saturatedWeight = Math.min(edge.weight() / 5.0f, 1.0f);
                         float graphScore = neighborSim
@@ -274,7 +275,7 @@ final class GraphExpansionStage {
                 MemoryIndex.MemoryLocation loc = index.locate(seed.id());
                 if (loc == null) continue;
 
-                int memIdx = offsetToRecordIndex(loc);
+                int memIdx = loc.graphSlot();
                 for (int chainIdx : temporalChain.followForward(memIdx, graphScoringPolicy.temporalMaxHops())) {
                     addChainResultCoFusion(chainIdx, seed, existingIds, graphCandidates,
                             queryVector, graphScoringPolicy.temporalForwardFactor(), options);
@@ -329,8 +330,9 @@ final class GraphExpansionStage {
                 Set<Integer> reachableMemories =
                         hyperEntityGraph.collectMemories(entityId, graphScoringPolicy.entityMaxHops());
                 for (int memIdx : reachableMemories) {
-                    String memId = findMemoryByApproximateIndex(memIdx);
-                    if (memId != null && !existingIds.contains(memId) && matchesFilters(memId, options)) {
+                    String memId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(memIdx);
+                    if (memId == null) continue;
+                    if (!existingIds.contains(memId) && matchesFilters(memId, options)) {
                         float neighborSim = computeNeighborSimilarity(memId, queryVector);
                         float fanAttenuation = entityDirectory.fanFactor(entityId);
                         float entityScore = neighborSim
@@ -358,8 +360,9 @@ final class GraphExpansionStage {
                                          Set<String> existingIds,
                                          Map<String, CognitiveResult> graphCandidates,
                                          float[] queryVector, float attenuation, RecallOptions options) {
-        String chainId = findMemoryByApproximateIndex(chainIdx);
-        if (chainId != null && !existingIds.contains(chainId) && matchesFilters(chainId, options)) {
+        String chainId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(chainIdx);
+        if (chainId == null) return;
+        if (!existingIds.contains(chainId) && matchesFilters(chainId, options)) {
             float neighborSim = computeNeighborSimilarity(chainId, queryVector);
             float chainScore = neighborSim + seed.score() * attenuation * 0.2f;
 
@@ -415,38 +418,7 @@ final class GraphExpansionStage {
                 modality, metadata);
     }
 
-    /**
-     * Converts a MemoryLocation's byte offset to a record index.
-     */
-    int offsetToRecordIndex(MemoryIndex.MemoryLocation loc) {
-        CognitiveMemoryRouter router = activeRouter();
-        int stride = router.layoutFor(loc.type()).stride();
-        com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(loc.type());
-        long dataOffset = (store != null && store.isPersistent())
-                ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
-        return (int) ((loc.offset() - dataOffset) / stride);
-    }
 
-    /**
-     * Finds a memory ID by approximate index across all tiers.
-     */
-    String findMemoryByApproximateIndex(int approxIdx) {
-        CognitiveMemoryRouter router = activeRouter();
-        if (router == null) return null;
-        for (MemoryType type : MemoryType.values()) {
-            var layout = router.layoutFor(type);
-            if (layout == null) continue;
-            com.spectrayan.spector.memory.cortex.CognitiveRecordMemory store = router.get(type);
-            long dataOffset = AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES;
-            long baseOffset = (store != null && store.isPersistent()) ? dataOffset : 0;
-            long offset = baseOffset + (long) approxIdx * layout.stride();
-            // Legacy overload resolves against the active partition seq (graph expansion
-            // is active-partition-focused for #443).
-            String id = index.findIdByOffset(type, offset);
-            if (id != null) return id;
-        }
-        return null;
-    }
 
     /**
      * Computes actual cosine-derived similarity for a graph-expanded neighbor.
