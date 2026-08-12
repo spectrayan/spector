@@ -784,7 +784,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
      * @param maxEditDistance maximum Levenshtein distance for merge
      * @return number of entities merged
      */
-    public int mergeSimilarEntities(int maxEditDistance) {
+    public int mergeSimilarEntities(int maxEditDistance, TypeNormalizer typeNormalizer) {
         long stamp = lock.writeLock();
         try {
             if (maxEditDistance <= 0 || entityCount < 2) return 0;
@@ -799,7 +799,13 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                     if (merged.contains(entries.get(j).getValue())) continue;
                     String nameB = entries.get(j).getKey();
                     int idB = entries.get(j).getValue();
-                    if (!entityType(idA).equals(entityType(idB))) continue;
+                    String typeA = entityType(idA);
+                    String typeB = entityType(idB);
+                    if (typeNormalizer != null) {
+                        if (!typeNormalizer.areMergeCompatible(typeA, typeB)) continue;
+                    } else {
+                        if (!typeA.equals(typeB)) continue;
+                    }
                     int dist = levenshteinDistance(nameA, nameB);
                     if (dist > 0 && dist <= maxEditDistance) {
                         int canonical = nameA.length() <= nameB.length() ? idA : idB;
@@ -886,7 +892,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     /**
      * Merges entities using embeddings and LLM adjudication.
      */
-    public int mergeSimilarEntities(EmbeddingProvider embedder, LlmProvider adjudicator, float cosineThreshold, boolean shadowMode) {
+    public int mergeSimilarEntities(EmbeddingProvider embedder, LlmProvider adjudicator, float cosineThreshold, boolean shadowMode, TypeNormalizer typeNormalizer) {
         if (embedder == null || adjudicator == null || entityCount < 2) return 0;
         
         long stamp = lock.writeLock();

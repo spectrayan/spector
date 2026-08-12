@@ -110,6 +110,9 @@ public final class SpectorMemoryBuilder {
     boolean entityResolutionEnabled = false;
     boolean entityShadowMode = true;
     float entityCosineThreshold = 0.85f;
+    
+    // Ontology config
+    com.spectrayan.spector.memory.graph.OntologyConfig ontologyConfig;
 
     //  Edge importance configuration 
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
@@ -266,6 +269,9 @@ public final class SpectorMemoryBuilder {
 
     /** Max entities to extract per memory (default: 10). */
     public SpectorMemoryBuilder maxEntitiesPerMemory(int c) { this.maxEntitiesPerMemory = c; return this; }
+
+    /** Ontology config for typing (default: null). */
+    public SpectorMemoryBuilder ontologyConfig(com.spectrayan.spector.memory.graph.OntologyConfig config) { this.ontologyConfig = config; return this; }
 
     /** Max relations to extract per memory (default: 20). */
     public SpectorMemoryBuilder maxRelationsPerMemory(int c) { this.maxRelationsPerMemory = c; return this; }

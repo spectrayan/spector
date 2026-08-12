@@ -148,6 +148,14 @@ public final class SpectorMemoryFactory {
         //  3-Layer cognitive graph (+ facade) 
         CognitiveGraphBuilder.CognitiveGraphs graphs =
                 CognitiveGraphBuilder.build(builder, cortex, index);
+                
+        com.spectrayan.spector.memory.graph.TypeNormalizer typeNormalizer = null;
+        if (builder.ontologyConfig != null) {
+            typeNormalizer = new com.spectrayan.spector.memory.graph.TypeNormalizer(builder.ontologyConfig);
+            if (graphs.entityExtractor() instanceof com.spectrayan.spector.memory.graph.LlmEntityExtractor llmExtractor) {
+                llmExtractor.setTypeNormalizer(typeNormalizer);
+            }
+        }
 
         //  Retrieval indices (BM25 + SPLADE + ColBERT) 
         RetrievalIndexBuilder.RetrievalIndices retrieval =
@@ -211,7 +219,7 @@ public final class SpectorMemoryFactory {
                 bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
                 graphs.hyperEntityGraph(), wal, builder.temporalRetentionDays,
                 embeddingProvider, builder.LlmProvider,
-                builder.entityResolutionEnabled, builder.entityShadowMode, builder.entityCosineThreshold);
+                builder.entityResolutionEnabled, builder.entityShadowMode, builder.entityCosineThreshold, typeNormalizer);
 
         ReinforcementHandler reinforcementHandler = new ReinforcementHandler(
                 bio.valenceTracker(), graphs.hebbianGraph(), bio.lateralEvaluator(), recallPipeline,

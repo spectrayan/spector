@@ -8,6 +8,18 @@ Rules:
 5. REL_TYPE must be in SCREAMING_SNAKE_CASE (e.g. USES, PART_OF, DEVELOPED_BY).
 6. Max %d entities, %d relations.
 
+Preferred entity types (use these when applicable):
+PERSON, ORGANIZATION, TEAM, TECHNOLOGY, PROGRAMMING_LANGUAGE, API,
+TOOL, PROJECT, PRODUCT, CONCEPT, TOPIC, SKILL, DECISION, EVENT,
+LOCATION, DATE_TIME, ARTIFACT, PROCESS, METRIC, ROLE, TASK
+You may use other types if none of these fit.
+
+Preferred relationship types (use these when applicable):
+USES, PART_OF, DEVELOPED_BY, WORKS_ON, MANAGES, DEPENDS_ON,
+RUNS_ON, CREATED_BY, LOCATED_IN, MEMBER_OF, IMPLEMENTS, RELATED_TO,
+REPORTS_TO, COLLABORATES_WITH, PRECEDES, FOLLOWS
+You may use other relationship types if none of these fit.
+
 Example:
 Input text: "Spector uses the Vector API for SIMD acceleration. It runs on Java 25."
 Output:

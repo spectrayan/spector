@@ -113,6 +113,7 @@ public final class LlmEntityExtractor implements EntityExtractor {
     private final int maxEntities;
     private final int maxRelations;
     private final com.spectrayan.spector.provider.generation.GenerationOptions generationOptions;
+    private TypeNormalizer typeNormalizer;
 
     /** Default generation options for entity extraction. */
     private static final com.spectrayan.spector.provider.generation.GenerationOptions DEFAULT_OPTIONS =
@@ -158,6 +159,10 @@ public final class LlmEntityExtractor implements EntityExtractor {
         this.maxEntities = maxEntities;
         this.maxRelations = maxRelations;
         this.generationOptions = options != null ? options : DEFAULT_OPTIONS;
+    }
+    
+    public void setTypeNormalizer(TypeNormalizer typeNormalizer) {
+        this.typeNormalizer = typeNormalizer;
     }
 
     @Override
@@ -227,6 +232,9 @@ public final class LlmEntityExtractor implements EntityExtractor {
         while (entityMatcher.find() && entityCount < maxEntities) {
             String name = entityMatcher.group(1).trim();
             String typeStr = entityMatcher.group(2).trim().toUpperCase(Locale.ROOT);
+            if (typeNormalizer != null) {
+                typeStr = typeNormalizer.normalize(typeStr).canonical();
+            }
 
             // Filter out pronouns and generic placeholders
             if (isBlockedName(name)) {
@@ -282,6 +290,9 @@ public final class LlmEntityExtractor implements EntityExtractor {
                 relTypeStr = g2.toUpperCase(Locale.ROOT).replaceAll("[- ]+", "_");
                 target = g3;
             }
+            if (typeNormalizer != null) {
+                relTypeStr = typeNormalizer.normalizePredicate(relTypeStr);
+            }
 
             // Filter out relations involving pronouns or generic placeholders
             if (isBlockedName(source) || isBlockedName(target)) {
@@ -313,6 +324,9 @@ public final class LlmEntityExtractor implements EntityExtractor {
                     if (mergedUpper.startsWith(eUpper + "_")) {
                         source = eName;
                         relTypeStr = mergedUpper.substring(eUpper.length() + 1);
+                        if (typeNormalizer != null) {
+                            relTypeStr = typeNormalizer.normalizePredicate(relTypeStr);
+                        }
                         break;
                     }
                 }
