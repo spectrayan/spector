@@ -451,10 +451,12 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Steps 7b-9a: Index synchronization (HNSW, ID index, WAL, BM25, SPLADE)
         var syncParams = new PostIngestSync.SyncParams(
                 id, text, vector, quantized, type, tags, source, offset);
-        int storeIndex = postIngestSync.syncIndexes(syncParams);
+        int graphSlot = postIngestSync.syncIndexes(syncParams);
 
         // Steps 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
-        int memoryIdx = index.size() - 1;
+        // #497: use the monotonic graphSlot allocated during syncIndexes, not
+        // index.size()-1 which is non-monotonic (shrinks on forget, causing reuse).
+        int memoryIdx = graphSlot;
         String tsid = com.spectrayan.spector.commons.concurrent.MemoryScope.sessionId();
         int sessionIntId = sessionRegistry != null ? sessionRegistry.resolve(tsid) : 0;
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
@@ -463,8 +465,8 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 9d: Entity extraction and graph population
         postIngestSync.syncEntityExtraction(id, text, memoryIdx);
 
-        log.debug("Ingested '{}' as {} (importance={}, {} tags, hnswIdx={}, source={})",
-                id, type, importance, tags.length, storeIndex, source);
+        log.debug("Ingested '{}' as {} (importance={}, {} tags, graphSlot={}, source={})",
+                id, type, importance, tags.length, graphSlot, source);
     }
 
     // ===============================================================
@@ -676,10 +678,12 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         java.util.Map<String, String> metadata = context.hasMetadata() ? context.metadata() : null;
         var syncParams = new PostIngestSync.SyncParams(
                 id, text, vector, quantized, type, tags, source, offset, metadata);
-        int storeIndex = postIngestSync.syncIndexes(syncParams);
+        int graphSlot = postIngestSync.syncIndexes(syncParams);
 
         // Steps 9b + 9c: Hebbian + Temporal linking (co-ingestion within session)
-        int memoryIdx = index.size() - 1;
+        // #497: use the monotonic graphSlot allocated during syncIndexes, not
+        // index.size()-1 which is non-monotonic (shrinks on forget, causing reuse).
+        int memoryIdx = graphSlot;
         String tsid = com.spectrayan.spector.commons.concurrent.MemoryScope.sessionId();
         int sessionIntId = sessionRegistry != null ? sessionRegistry.resolve(tsid) : 0;
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);

@@ -41,7 +41,7 @@ public final class IndexEntryLayout implements MemoryLayout {
 
     private static final int STRIDE = 48;
     private static final int LAYOUT_ID = 0x4D494458; // 'MIDX'
-    private static final int VERSION = 6;
+    private static final int VERSION = 7;
 
     @Override
     public int layoutId() {

@@ -187,7 +187,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .proceduralCapacity(Math.max(50, corpusSize / 5))
                 .hebbianGraphCapacity(corpusSize + 100)
                 .temporalChainCapacity(corpusSize + 100)
-                .entityGraphCapacity(Math.max(200, corpusSize))
+                .entityGraphCapacity(Math.max(200, corpusSize * 5))
                 .entityExtractionMode(EntityExtractionMode.CUSTOM)
                 .entityExtractor(customExtractor);
 
@@ -324,7 +324,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 log.warn("TemporalChain is null  --  skipping {} chain definitions", dataset.temporalChains().size());
             }
             if (memory.admin().entityDirectory() != null && hyper != null) {
-                loadEntityGraph(memory.admin().entityDirectory(), hyper, dataset.entityRelations(), corpus);
+                loadEntityGraph(memory.admin().entityDirectory(), hyper, dataset.entityRelations(), idToSlot);
             } else {
                 log.warn("EntityGraph is null  --  skipping {} entity relation definitions", dataset.entityRelations().size());
             }
@@ -349,12 +349,7 @@ public final class BenchmarkSetup implements AutoCloseable {
     }
 
     private static int offsetToRecordIndex(com.spectrayan.spector.memory.index.MemoryIndex.MemoryLocation loc, SpectorMemory memory) {
-        var router = memory.admin().cognitiveRouter();
-        int stride = router.layoutFor(loc.type()).stride();
-        var store = router.get(loc.type());
-        long dataOffset = (store != null && store.isPersistent())
-                ? com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
-        return (int) ((loc.offset() - dataOffset) / stride);
+        return loc.graphSlot();
     }
 
     /**
@@ -450,13 +445,7 @@ public final class BenchmarkSetup implements AutoCloseable {
      * @param corpus    the corpus records (used for entity mention  ->  memory linking)
      */
     void loadEntityGraph(EntityDirectory dir, HyperEntityGraphMemory hyper, List<EntityRelation> relations,
-                         List<BenchmarkCorpusRecord> corpus) {
-        // Build a lookup from memory ID to corpus index
-        Map<String, Integer> idToIndex = new HashMap<>(corpus.size());
-        for (int i = 0; i < corpus.size(); i++) {
-            idToIndex.put(corpus.get(i).id(), i);
-        }
-
+                         Map<String, Integer> idToSlot) {
         int relationsLoaded = 0;
 
         for (EntityRelation relation : relations) {
@@ -474,7 +463,7 @@ public final class BenchmarkSetup implements AutoCloseable {
 
             // Link entities to their source memories
             for (String memoryId : relation.sourceMemoryIds()) {
-                Integer memIdx = idToIndex.get(memoryId);
+                Integer memIdx = idToSlot.get(memoryId);
                 if (memIdx != null) {
                     dir.linkEntityToMemory(fromEntityId, memIdx);
                     dir.linkEntityToMemory(toEntityId, memIdx);

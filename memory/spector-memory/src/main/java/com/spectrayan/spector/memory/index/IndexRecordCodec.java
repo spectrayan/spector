@@ -44,6 +44,6 @@ public final class IndexRecordCodec implements Codec<IndexEntryLayout> {
 
     @Override
     public List<CodecStep> steps() {
-        return List.of(new MidxToSmkmStep());
+        return List.of(new MidxToSmkmStep(), new MidxV6ToV7Step());
     }
 }

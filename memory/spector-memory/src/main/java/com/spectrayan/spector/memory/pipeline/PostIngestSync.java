@@ -158,12 +158,16 @@ final class PostIngestSync {
      * can be captured and stored in MemoryLocation for off-heap random access.</p>
      *
      * @param params sync parameters
-     * @return the HNSW store index (-1 if not indexed)
+     * @return the monotonic global graph slot assigned to this memory
      */
     int syncIndexes(SyncParams params) {
         boolean isParentChunk = params.metadata() != null && "parent".equals(params.metadata().get("chunk_role"));
 
         int storeIndex = -1;
+        // #497: allocate a monotonic global graph slot BEFORE the try block so it's
+        // in scope for the return. The slot is the sole authoritative node ID used by
+        // Hebbian, Temporal, Entity, and Hypergraphs. Never reused.
+        int graphSlot = index.allocateGraphSlot();
         try {
             // Step 7b: Add to HNSW index (SEMANTIC only)
             if (params.type() == MemoryType.SEMANTIC && semanticIndex != null
@@ -180,9 +184,8 @@ final class PostIngestSync {
             long textOffset = (textPos != null) ? textPos.textOffset() : -1L;
             int textLength = (textPos != null) ? textPos.textLength() : -1;
             // #443: stamp the colocated partition (activePartitionSeq) so recall, text
-            // resolution and direct-resolve can locate this record's partition. storeIndex
-            // remains the semantic/graph node slot (graphSlot — behaviour unchanged).
-            var location = new MemoryLocation(params.type(), params.offset(), storeIndex,
+            // resolution and direct-resolve can locate this record's partition.
+            var location = new MemoryLocation(params.type(), params.offset(), graphSlot,
                     activePartitionSeq, textOffset, textLength);
 
             if (params.metadata() != null) {
@@ -209,7 +212,7 @@ final class PostIngestSync {
                     "Post-write sync failed: " + e.getMessage());
         }
 
-        return storeIndex;
+        return graphSlot;
     }
 
     private void compensateTombstone(String id) {

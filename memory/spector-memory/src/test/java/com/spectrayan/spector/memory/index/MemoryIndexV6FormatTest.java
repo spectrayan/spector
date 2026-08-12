@@ -141,19 +141,19 @@ class MemoryIndexV6FormatTest {
     // ── 3. throw-on-unreadable: newer version + truncation ────────
 
     @Test
-    @DisplayName("newer-than-v6 schema throws SpectorStorageException")
+    @DisplayName("newer-than-v7 schema throws SpectorStorageException")
     void newerSchemaVersionThrows() throws Exception {
         Path midx = dir.resolve("future.midx");
         byte[] file = new byte[HEADER]; // header only, count=0
         MemorySegment seg = MemorySegment.ofArray(file);
-        MemoryHeader.write(seg, 0, /*schemaVersion*/ 7, MemoryShape.RECORD, 0x01,
+        MemoryHeader.write(seg, 0, /*schemaVersion*/ 8, MemoryShape.RECORD, 0x01,
                 /*capacity*/ 0, /*count*/ 0, V6_STRIDE, LAYOUT_ID,
                 System.currentTimeMillis(), System.currentTimeMillis());
         Files.write(midx, file);
 
         assertThatThrownBy(() -> MemoryIndex.load(midx))
                 .isInstanceOf(SpectorStorageException.class)
-                .hasMessageContaining("v7");
+                .hasMessageContaining("v8");
     }
 
     @Test
