@@ -56,6 +56,9 @@ public class CognitiveSoulService {
             .communicationStyle("professional")
             .model("qwen3.5:latest")
             .tools(List.of())
+            .soulVersion((short) 1)
+            .createdAt(java.time.Instant.now())
+            .updatedAt(java.time.Instant.now())
             .build();
 
     private final UserMemoryRegistry userMemoryRegistry;
@@ -85,6 +88,7 @@ public class CognitiveSoulService {
                 .flatMap(bytes -> fromJsonBytes(bytes, InsulaSelfModel.class))
                 .map(model -> {
                     if (model.soul() instanceof AgentSoul agentSoul) {
+                        memory.setSoulVersion(agentSoul.soulVersion());
                         return agentSoul;
                     }
                     return null;
@@ -112,13 +116,48 @@ public class CognitiveSoulService {
             return;
         }
 
-        InsulaSelfModel selfModel = new InsulaSelfModel("AGENT", soul, null, Map.of());
-        byte[] bytes = toJsonBytes(selfModel);
+        short nextVersion = 1;
         var insula = memory.admin().insularCortex();
+        if (insula != null) {
+            nextVersion = insula.get()
+                .flatMap(bytes -> fromJsonBytes(bytes, InsulaSelfModel.class))
+                .map(model -> {
+                    if (model.soul() instanceof AgentSoul as) {
+                        return (short)(as.soulVersion() + 1);
+                    }
+                    return (short)1;
+                })
+                .orElse((short)1);
+        }
+
+        AgentSoul savedSoul = AgentSoul.builder()
+                .id(soul.id())
+                .name(soul.name())
+                .description(soul.description())
+                .systemPrompt(soul.systemPrompt())
+                .purpose(soul.purpose())
+                .personality(soul.personality())
+                .expertiseDomains(soul.expertiseDomains())
+                .coreValues(soul.coreValues())
+                .ethicalGuardrails(soul.ethicalGuardrails())
+                .emotionalBaseline(soul.emotionalBaseline())
+                .communicationStyle(soul.communicationStyle())
+                .model(soul.model())
+                .tools(soul.tools())
+                .expertiseEmbedding(soul.expertiseEmbedding())
+                .purposeEmbedding(soul.purposeEmbedding())
+                .soulVersion(nextVersion)
+                .createdAt(soul.createdAt() != null ? soul.createdAt() : java.time.Instant.now())
+                .updatedAt(java.time.Instant.now())
+                .build();
+
+        InsulaSelfModel selfModel = new InsulaSelfModel("AGENT", savedSoul, null, Map.of());
+        byte[] bytes = toJsonBytes(selfModel);
         if (bytes != null && insula != null) {
             insula.put(bytes);
         }
-        log.info("[CognitiveSoul] Saved agent soul '{}' in INSULA", soul.name());
+        memory.setSoulVersion(nextVersion);
+        log.info("[CognitiveSoul] Saved agent soul '{}' v{} in INSULA", soul.name(), nextVersion);
     }
 
     /**
@@ -171,18 +210,39 @@ public class CognitiveSoulService {
             return;
         }
 
-        UserSoul userSoul = new UserSoul(nsId, "User", "User Persona", persona, persona.aboutEmbedding());
+        short nextVersion = 1;
+        java.time.Instant createdAt = java.time.Instant.now();
+        var insula = memory.admin().insularCortex();
+        if (insula != null) {
+            var existingOpt = insula.get()
+                .flatMap(bytes -> fromJsonBytes(bytes, InsulaSelfModel.class))
+                .map(model -> {
+                    if (model.soul() instanceof UserSoul us) {
+                        return us;
+                    }
+                    return null;
+                });
+            if (existingOpt.isPresent()) {
+                UserSoul us = existingOpt.get();
+                nextVersion = (short)(us.soulVersion() + 1);
+                if (us.createdAt() != null) {
+                    createdAt = us.createdAt();
+                }
+            }
+        }
+
+        UserSoul userSoul = new UserSoul(nsId, "User", "User Persona", persona, persona.aboutEmbedding(), nextVersion, createdAt, java.time.Instant.now());
         InsulaSelfModel selfModel = new InsulaSelfModel("USER", userSoul, salienceProvider.effectiveProfile(), Map.of());
         
         byte[] bytes = toJsonBytes(selfModel);
-        var insula = memory.admin().insularCortex();
         if (bytes != null && insula != null) {
             insula.put(bytes);
         }
+        memory.setSoulVersion(nextVersion);
 
         // Propagate to salience provider
         salienceProvider.updateUserPersona(persona);
-        log.info("[CognitiveSoul] Saved user persona context to INSULA — salience profile updated");
+        log.info("[CognitiveSoul] Saved user persona v{} to INSULA — salience profile updated", nextVersion);
     }
 
     /** Get the current active agent soul, or a default fallback. */
@@ -214,7 +274,11 @@ public class CognitiveSoulService {
                 .personality(updates.containsKey("personality") ? (String) updates.get("personality") : current.personality())
                 .emotionalBaseline(updates.containsKey("emotionalBaseline") ? parseEmotionalBaseline(updates.get("emotionalBaseline")) : current.emotionalBaseline())
                 .communicationStyle(updates.containsKey("communicationStyle") ? (String) updates.get("communicationStyle") : current.communicationStyle())
-                .model(updates.containsKey("model") ? (String) updates.get("model") : current.model());
+                .model(updates.containsKey("model") ? (String) updates.get("model") : current.model())
+                .expertiseEmbedding(current.expertiseEmbedding())
+                .purposeEmbedding(current.purposeEmbedding())
+                .soulVersion(current.soulVersion())
+                .createdAt(current.createdAt());
 
         if (updates.containsKey("expertiseDomains")) {
             builder.expertiseDomains((List<String>) updates.get("expertiseDomains"));

@@ -131,6 +131,9 @@ public class UpdateAgentSoulTool extends McpToolHandler {
                     .communicationStyle(current.communicationStyle())
                     .model(current.model())
                     .tools(current.tools())
+                    .expertiseEmbedding(current.expertiseEmbedding())
+                    .purposeEmbedding(current.purposeEmbedding())
+                    .soulVersion(current.soulVersion())
                     .createdAt(current.createdAt())
                     .updatedAt(Instant.now());
 

@@ -213,6 +213,9 @@ public class ChatService {
                 .personality(soul != null ? soul.personality() : null)
                 .model(model != null ? model : DEFAULT_MODEL)
                 .tools(soul != null ? soul.tools() : List.of())
+                .expertiseEmbedding(soul != null ? soul.expertiseEmbedding() : null)
+                .purposeEmbedding(soul != null ? soul.purposeEmbedding() : null)
+                .soulVersion(soul != null ? soul.soulVersion() : (short) 1)
                 .createdAt(soul != null ? soul.createdAt() : java.time.Instant.now())
                 .updatedAt(soul != null ? soul.updatedAt() : java.time.Instant.now());
 

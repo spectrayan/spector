@@ -224,6 +224,7 @@ public final class DynamicGraphBuilder {
                                 .name(agentSpec.name() != null ? agentSpec.name() : agentId)
                                 .systemPrompt(agentSpec.systemPrompt())
                                 .model(agentSpec.llm() != null ? agentSpec.llm().model() : "qwen3.5:latest")
+                                .soulVersion((short) 1)
                                 .build();
                     }
                     // Fall back to active default soul
