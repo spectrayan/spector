@@ -42,7 +42,6 @@ import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Primary interface for the Spector Cognitive Memory system.
@@ -56,7 +55,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <h3>Core API</h3>
  * <ul>
- *   <li>{@link #remember} — Ingest a memory (async, Virtual Thread)</li>
+ *   <li>{@link #remember} — Ingest a memory</li>
  *   <li>{@link #recall} — Fused cognitive scoring across tiers</li>
  *   <li>{@link #forget} — Tombstone a memory</li>
  *   <li>{@link #reflect} — Trigger sleep consolidation</li>
@@ -85,8 +84,8 @@ public interface SpectorMemory extends AutoCloseable {
     // CORE API — remember / recall / forget / reflect
     // ══════════════════════════════════════════════════════════════
 
-    /** Ingests a new memory asynchronously on a Virtual Thread. */
-    CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    /** Ingests a new memory. */
+    void remember(String id, String text, MemoryType type,
                                       MemorySource source, String... tags);
 
     /**
@@ -105,7 +104,7 @@ public interface SpectorMemory extends AutoCloseable {
      * @param tags   synaptic tag strings for Bloom filter encoding
      * @see com.spectrayan.spector.memory.neurodivergent.IngestionHints
      */
-    CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    void remember(String id, String text, MemoryType type,
                                       MemorySource source,
                                       com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                       String... tags);
@@ -126,13 +125,13 @@ public interface SpectorMemory extends AutoCloseable {
      * @param tags    synaptic tag strings for Bloom filter encoding
      * @see IngestionContext
      */
-    CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    void remember(String id, String text, MemoryType type,
                                       MemorySource source,
                                       IngestionContext context,
                                       String... tags);
 
     /** Convenience overload with default source. */
-    CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    void remember(String id, String text, MemoryType type,
                                       String... tags);
 
     // ══════════════════════════════════════════════════════════════
@@ -150,9 +149,9 @@ public interface SpectorMemory extends AutoCloseable {
      * @param type   cognitive tier
      * @param source provenance source
      * @param tags   synaptic tag strings
-     * @return a future that completes with the generated ID
+     * @return the generated ID
      */
-    CompletableFuture<String> remember(String text, MemoryType type,
+    String remember(String text, MemoryType type,
                                        MemorySource source, String... tags);
 
     /**
@@ -163,9 +162,9 @@ public interface SpectorMemory extends AutoCloseable {
      * @param source provenance source
      * @param hints  ICNU + emotional context (null for novelty-only)
      * @param tags   synaptic tag strings
-     * @return a future that completes with the generated ID
+     * @return the generated ID
      */
-    CompletableFuture<String> remember(String text, MemoryType type,
+    String remember(String text, MemoryType type,
                                        MemorySource source,
                                        com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                        String... tags);
@@ -182,9 +181,9 @@ public interface SpectorMemory extends AutoCloseable {
      * @param source  provenance source
      * @param context consolidated cognitive metadata (metadata, hints, entities, etc.)
      * @param tags    synaptic tag strings
-     * @return a future that completes with the generated ID
+     * @return the generated ID
      */
-    CompletableFuture<String> remember(String text, MemoryType type,
+    String remember(String text, MemoryType type,
                                        MemorySource source,
                                        IngestionContext context,
                                        String... tags);
@@ -206,9 +205,9 @@ public interface SpectorMemory extends AutoCloseable {
      * @param type     cognitive tier
      * @param source   provenance source
      * @param tags     synaptic tag strings
-     * @return a future that completes with the generated ID
+     * @return the generated ID
      */
-    default CompletableFuture<String> rememberFile(java.nio.file.Path filePath,
+    default String rememberFile(java.nio.file.Path filePath,
                                                     String text,
                                                     MemoryType type,
                                                     MemorySource source,
@@ -413,7 +412,7 @@ public interface SpectorMemory extends AutoCloseable {
     Reminder scheduleReminder(String text, Duration delay, String... tags);
 
     /** Stores ephemeral text in working memory. */
-    CompletableFuture<Void> scratchpad(String text);
+    void scratchpad(String text);
 
     /** Returns the total number of memories across all tiers. */
     int totalMemories();

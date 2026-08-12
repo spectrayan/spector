@@ -333,124 +333,113 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // ==============================================================
 
     @Override
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    public void remember(String id, String text, MemoryType type,
                                               MemorySource source, String... tags) {
-        return remember(id, text, type, source,
+        remember(id, text, type, source,
                 (com.spectrayan.spector.memory.neurodivergent.IngestionHints) null, tags);
     }
 
     @Override
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
                                               com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                               String... tags) {
-        final String sessionId = MemoryScope.sessionId();
-        return CompletableFuture.runAsync(() -> {
-            Runnable task = () -> {
-                acquireLease();
-                try {
-                    if (shouldChunk(text)) {
-                        rememberChunked(id, text, type, source, hints, null, tags);
-                    } else {
-                        String[] finalTags = tags;
-                        if (tags == null || tags.length == 0) {
-                            var tagExtractor = cognitiveTarget.tagExtractor();
-                            if (tagExtractor != null) {
-                                finalTags = tagExtractor.extract(id, text);
-                            }
-                        }
-                        float[] vector = embeddingProvider.embed(text).vector();
-                        if (sessionId != null) {
-                            sessionBuffers.computeIfAbsent(sessionId, k -> new SessionWriteBuffer())
-                                    .add(id, text, vector, type, System.currentTimeMillis());
-                        }
-                        cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
-                    }
-                    checkCircadianTrigger(type);
-                } catch (RuntimeException e) {
-                    log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-                    throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
-                } finally {
-                    releaseLease();
-                }
-            };
-            if (sessionId != null) {
-                java.lang.ScopedValue.where(MemoryScope.SESSION_ID, sessionId).run(task);
+        acquireLease();
+        try {
+            if (shouldChunk(text)) {
+                rememberChunked(id, text, type, source, hints, null, tags);
             } else {
-                task.run();
+                String[] finalTags = tags;
+                if (tags == null || tags.length == 0) {
+                    var tagExtractor = cognitiveTarget.tagExtractor();
+                    if (tagExtractor != null) {
+                        finalTags = tagExtractor.extract(id, text);
+                    }
+                }
+                float[] vector = embeddingProvider.embed(text).vector();
+                String sessionId = MemoryScope.sessionId();
+                if (sessionId != null) {
+                    sessionBuffers.computeIfAbsent(sessionId, k -> new SessionWriteBuffer())
+                            .add(id, text, vector, type, System.currentTimeMillis());
+                }
+                cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
             }
-        }, ConcurrentTasks.virtualExecutor());
+            checkCircadianTrigger(type);
+        } catch (RuntimeException e) {
+            log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
+            throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+        } finally {
+            releaseLease();
+        }
     }
 
     @Override
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    public void remember(String id, String text, MemoryType type,
                                               String... tags) {
-        return remember(id, text, type, MemorySource.OBSERVED, tags);
+        remember(id, text, type, MemorySource.OBSERVED, tags);
     }
 
     @Override
-    public CompletableFuture<String> remember(String text, MemoryType type,
+    public String remember(String text, MemoryType type,
                                                MemorySource source, String... tags) {
         String generatedId = idGenerator.generate();
-        return remember(generatedId, text, type, source, tags)
-                .thenApply(v -> generatedId);
+        remember(generatedId, text, type, source, tags);
+        return generatedId;
     }
 
     @Override
-    public CompletableFuture<String> remember(String text, MemoryType type,
+    public String remember(String text, MemoryType type,
                                                MemorySource source,
                                                com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                                String... tags) {
         String generatedId = idGenerator.generate();
-        return remember(generatedId, text, type, source, hints, tags)
-                .thenApply(v -> generatedId);
+        remember(generatedId, text, type, source, hints, tags);
+        return generatedId;
     }
 
     @Override
-    public CompletableFuture<String> remember(String text, MemoryType type,
+    public String remember(String text, MemoryType type,
                                                MemorySource source,
                                                IngestionContext context,
                                                String... tags) {
         String generatedId = idGenerator.generate();
-        return remember(generatedId, text, type, source, context, tags)
-                .thenApply(v -> generatedId);
+        remember(generatedId, text, type, source, context, tags);
+        return generatedId;
     }
 
     @Override
-    public CompletableFuture<Void> remember(String id, String text, MemoryType type,
+    public void remember(String id, String text, MemoryType type,
                                               MemorySource source,
                                               IngestionContext context,
                                               String... tags) {
-        return CompletableFuture.runAsync(() -> {
-            acquireLease();
-            try {
-                if (shouldChunk(text)) {
-                    rememberChunked(id, text, type, source, null, context, tags);
-                } else {
-                    String[] finalTags = tags;
-                    if (tags == null || tags.length == 0) {
-                        var tagExtractor = cognitiveTarget.tagExtractor();
-                        if (tagExtractor != null) {
-                            finalTags = tagExtractor.extract(id, text);
-                        }
+        acquireLease();
+        try {
+            if (shouldChunk(text)) {
+                rememberChunked(id, text, type, source, null, context, tags);
+            } else {
+                String[] finalTags = tags;
+                if (tags == null || tags.length == 0) {
+                    var tagExtractor = cognitiveTarget.tagExtractor();
+                    if (tagExtractor != null) {
+                        finalTags = tagExtractor.extract(id, text);
                     }
-                    float[] vector = embeddingProvider.embed(text).vector();
-                    cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, context);
                 }
-
-                // Process attachments if present in context metadata
-                if (context != null && context.hasAttachments()) {
-                    processAttachments(id, context, type, source, tags);
-                }
-
-                checkCircadianTrigger(type);
-            } catch (RuntimeException e) {
-                log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-                throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
-            } finally {
-                releaseLease();
+                float[] vector = embeddingProvider.embed(text).vector();
+                cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, context);
             }
-        }, ConcurrentTasks.virtualExecutor());
+
+            // Process attachments if present in context metadata
+            if (context != null && context.hasAttachments()) {
+                processAttachments(id, context, type, source, tags);
+            }
+
+            checkCircadianTrigger(type);
+        } catch (RuntimeException e) {
+            log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
+            throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+        } finally {
+            releaseLease();
+        }
     }
 
     /**
@@ -1098,8 +1087,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
-    public CompletableFuture<Void> scratchpad(String text) {
-        return remember("scratchpad-" + System.nanoTime(), text, MemoryType.WORKING);
+    public void scratchpad(String text) {
+        remember("scratchpad-" + System.nanoTime(), text, MemoryType.WORKING);
     }
 
     @Override
