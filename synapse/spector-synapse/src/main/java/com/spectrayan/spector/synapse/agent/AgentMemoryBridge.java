@@ -68,7 +68,7 @@ public final class AgentMemoryBridge {
         String sessionTag = "session_" + sessionId;
 
         // WORKING Memory: Active scratchpad
-        String workFut = memory().remember(
+        memory().remember(
                 content,
                 MemoryType.WORKING,
                 MemorySource.INFERRED,
@@ -76,14 +76,12 @@ public final class AgentMemoryBridge {
         );
 
         // EPISODIC Memory: Temporal logs
-        String epiFut = memory().remember(
+        memory().remember(
                 content,
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
                 "agent_thought", "session_log", sessionTag
         );
-
-        
     }
 
     /**
@@ -99,7 +97,7 @@ public final class AgentMemoryBridge {
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
                 "agent_action", "session_log", sessionTag
-        ).thenAccept(id -> {});
+        );
     }
 
     /**
@@ -114,7 +112,7 @@ public final class AgentMemoryBridge {
                 MemoryType.EPISODIC,
                 MemorySource.INFERRED,
                 "agent_observation", "session_log", sessionTag
-        ).thenAccept(id -> {});
+        );
     }
 
     /**
@@ -130,7 +128,7 @@ public final class AgentMemoryBridge {
                 MemoryType.SEMANTIC,
                 MemorySource.INFERRED,
                 "consolidated_fact", "knowledge", sessionTag
-                ).thenAccept(id -> {});
+        );
     }
 
     /**
@@ -143,7 +141,7 @@ public final class AgentMemoryBridge {
                 MemoryType.PROCEDURAL,
                 MemorySource.PROCEDURAL,
                 "tool_definition", tool.name()
-        ).thenAccept(id -> {});
+        );
     }
 
     /**
