@@ -324,6 +324,10 @@ public enum ErrorCode {
     PARTITION_INDEX_INVALID    (310_013, ErrorCategory.MEMORY,
             "Partition index {} is out of range [0, {})"),
 
+    /** Partition is frozen and no longer accepts writes. */
+    PARTITION_FROZEN           (310_014, ErrorCategory.MEMORY,
+            "Partition frozen for tier: {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // GPU (SPE-400-xxx)
     // ══════════════════════════════════════════════════════════════════════
