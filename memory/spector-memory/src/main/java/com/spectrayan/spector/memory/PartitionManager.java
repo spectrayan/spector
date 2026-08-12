@@ -413,11 +413,17 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                 // Freeze the current active handle (kept OPEN — leak fix) and publish
                 // a new immutable snapshot = frozen… + newlyFrozen + newActive.
                 List<PartitionHandle> current = registry;
+                PartitionHandle oldActive = current.get(current.size() - 1);
+                
+                oldActive.router().episodic().markFrozen();
+                oldActive.router().semantic().markFrozen();
+                oldActive.router().procedural().markFrozen();
+
                 List<PartitionHandle> next = new ArrayList<>(current.size() + 1);
                 for (int i = 0; i < current.size() - 1; i++) {
                     next.add(current.get(i)); // already frozen
                 }
-                next.add(current.get(current.size() - 1).asFrozen()); // freeze prev active
+                next.add(oldActive.asFrozen()); // freeze prev active
                 PartitionHandle newActive = new PartitionHandle(
                         nextSeq, newPartition, newRouter, newText, true, newBundle);
                 next.add(newActive);

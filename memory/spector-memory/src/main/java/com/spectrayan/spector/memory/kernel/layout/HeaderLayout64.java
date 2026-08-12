@@ -209,6 +209,33 @@ public record HeaderLayout64() implements HeaderLayout {
         return (int) VAR_HANDLE_AGENT_RECALL_COUNT.getAndAdd(seg, off + OFFSET_AGENT_RECALL_COUNT, 1);
     }
 
+    @Override
+    public float casStorageStrength(MemorySegment seg, long off, FloatUnaryOperator updateFn) {
+        long addr = off + OFFSET_STORAGE_STRENGTH;
+        float prev, next;
+        do {
+            prev = (float) VAR_HANDLE_STORAGE_STRENGTH.getVolatile(seg, addr);
+            next = updateFn.applyAsFloat(prev);
+        } while (!VAR_HANDLE_STORAGE_STRENGTH.compareAndSet(seg, addr, prev, next));
+        return next;
+    }
+
+    @Override
+    public float casImportance(MemorySegment seg, long off, FloatUnaryOperator updateFn) {
+        long addr = off + OFFSET_IMPORTANCE;
+        float prev, next;
+        do {
+            prev = (float) VAR_HANDLE_IMPORTANCE.getVolatile(seg, addr);
+            next = updateFn.applyAsFloat(prev);
+        } while (!VAR_HANDLE_IMPORTANCE.compareAndSet(seg, addr, prev, next));
+        return next;
+    }
+
+    @Override
+    public void writeValenceRelease(MemorySegment seg, long off, byte valence) {
+        seg.set(LAYOUT_VALENCE, off + OFFSET_VALENCE, valence);
+    }
+
     // ── Auto-LTP field implementations ──
 
     @Override public int readSpectorRecallCount(MemorySegment seg, long off) {

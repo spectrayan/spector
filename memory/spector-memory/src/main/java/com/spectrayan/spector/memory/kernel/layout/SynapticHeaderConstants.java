@@ -140,6 +140,10 @@ public final class SynapticHeaderConstants {
     public static final java.lang.invoke.VarHandle VAR_HANDLE_SPECTOR_RECALL_COUNT = LAYOUT_SPECTOR_RECALL_COUNT.varHandle();
     /** VarHandle for atomic bitwise synaptic tag merging (getAndBitwiseOr). */
     public static final java.lang.invoke.VarHandle VAR_HANDLE_SYNAPTIC_TAGS = LAYOUT_SYNAPTIC_TAGS.varHandle();
+    /** VarHandle for atomic updates to the storage_strength field. */
+    public static final java.lang.invoke.VarHandle VAR_HANDLE_STORAGE_STRENGTH = LAYOUT_STORAGE_STRENGTH.varHandle();
+    /** VarHandle for atomic updates to the importance field. */
+    public static final java.lang.invoke.VarHandle VAR_HANDLE_IMPORTANCE = LAYOUT_IMPORTANCE.varHandle();
 
     // ── Flags bitmasks ──
 

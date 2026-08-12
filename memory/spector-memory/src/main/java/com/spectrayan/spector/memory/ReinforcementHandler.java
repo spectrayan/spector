@@ -127,13 +127,11 @@ final class ReinforcementHandler {
             // ΔS = sGain × (1 - R(t)) → max boost when retrieval was hard
             var headerLayout = layout.headerLayout();
             if (headerLayout.headerBytes() > 32) { // V2+ has storage_strength
-                float currentS = headerLayout.readStorageStrength(segment, loc.offset());
                 long timestamp = layout.readTimestamp(segment, loc.offset());
                 int rawBucket = DecayStrategy.ageToBucket(timestamp, System.currentTimeMillis());
                 float currentR = DecayStrategy.decay(rawBucket);
                 float deltaS = twoFactorConfig.sGain() * (1.0f - currentR);
-                float newS = Math.min(currentS + deltaS, twoFactorConfig.sMax());
-                headerLayout.writeStorageStrength(segment, loc.offset(), newS);
+                headerLayout.casStorageStrength(segment, loc.offset(), currentS -> Math.min(twoFactorConfig.sMax(), Math.max(0.01f, currentS + deltaS)));
             }
         }
 
@@ -204,33 +202,36 @@ final class ReinforcementHandler {
         if (segment == null) return;
 
         CognitiveRecordLayout layout = cognitiveRouter.layoutFor(loc.type());
-        float currentImportance = layout.readImportance(segment, loc.offset());
+        var headerLayout = layout.headerLayout();
 
-        float newImportance;
-        if (updatedHints != null && !updatedHints.isEmpty()) {
-            // Re-fuse importance with updated ICNU hints
-            float noveltyApprox = Math.min(1.0f, currentImportance / 5.0f);
-            float refusedImportance = IcnuWeights.DEFAULT.fuse(updatedHints, noveltyApprox);
-            // Blend 50/50 with current importance to avoid wild swings
-            newImportance = 0.5f * currentImportance + 0.5f * refusedImportance;
-        } else {
-            // Degree centrality boost from Hebbian graph
-            int graphIdx = loc.graphSlot();
-            if (graphIdx >= 0 && hebbianGraph != null) {
-                var edges = hebbianGraph.neighbors(graphIdx);
-                int degree = edges.size();
-                // Logarithmic boost: +5% per edge, capped at +30%
-                float boost = Math.min(0.30f, degree * 0.05f);
-                newImportance = Math.min(10.0f, currentImportance * (1.0f + boost));
+        float oldImportance = layout.readImportance(segment, loc.offset());
+        float finalImportance = headerLayout.casImportance(segment, loc.offset(), currentImportance -> {
+            float newImportance;
+            if (updatedHints != null && !updatedHints.isEmpty()) {
+                // Re-fuse importance with updated ICNU hints
+                float noveltyApprox = Math.min(1.0f, currentImportance / 5.0f);
+                float refusedImportance = IcnuWeights.DEFAULT.fuse(updatedHints, noveltyApprox);
+                // Blend 50/50 with current importance to avoid wild swings
+                newImportance = 0.5f * currentImportance + 0.5f * refusedImportance;
             } else {
-                newImportance = currentImportance; // no graph data, no change
+                // Degree centrality boost from Hebbian graph
+                int graphIdx = loc.graphSlot();
+                if (graphIdx >= 0 && hebbianGraph != null) {
+                    var edges = hebbianGraph.neighbors(graphIdx);
+                    int degree = edges.size();
+                    // Logarithmic boost: +5% per edge, capped at +30%
+                    float boost = Math.min(0.30f, degree * 0.05f);
+                    newImportance = Math.min(10.0f, currentImportance * (1.0f + boost));
+                } else {
+                    newImportance = currentImportance; // no graph data, no change
+                }
             }
-        }
+            return newImportance;
+        });
 
-        if (Math.abs(newImportance - currentImportance) > 0.001f) {
-            layout.writeImportance(segment, loc.offset(), newImportance);
+        if (Math.abs(finalImportance - oldImportance) > 0.001f) {
             log.debug("Reinforce re-fusion: '{}' importance {} → {}",
-                    memoryId, currentImportance, newImportance);
+                    memoryId, oldImportance, finalImportance);
         }
     }
 }

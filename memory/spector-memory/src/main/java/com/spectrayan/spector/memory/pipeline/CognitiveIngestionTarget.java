@@ -427,7 +427,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 7: Route to tier store and write (with automatic partition rolling)
         long offset;
         try {
-            offset = cognitiveRouter.write(type, header, quantized);
+            try {
+                offset = cognitiveRouter.write(type, header, quantized);
+            } catch (com.spectrayan.spector.memory.error.SpectorPartitionFrozenException e) {
+                offset = cognitiveRouter.write(type, header, quantized);
+            }
         } catch (SpectorMemoryTierFullException e) {
             if (partitionRollCallback != null) {
                 log.info("Tier {} full ({} records)  --  rolling to new partition",
@@ -527,7 +531,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 7: Route to tier store and write
         long offset;
         try {
-            offset = cognitiveRouter.write(type, header, quantized);
+            try {
+                offset = cognitiveRouter.write(type, header, quantized);
+            } catch (com.spectrayan.spector.memory.error.SpectorPartitionFrozenException e) {
+                offset = cognitiveRouter.write(type, header, quantized);
+            }
         } catch (SpectorMemoryTierFullException e) {
             if (partitionRollCallback != null) {
                 log.info("Migration: tier {} full  --  rolling partition", type);
@@ -648,7 +656,11 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // Step 7: Route to tier store and write
         long offset;
         try {
-            offset = cognitiveRouter.write(type, header, quantized);
+            try {
+                offset = cognitiveRouter.write(type, header, quantized);
+            } catch (com.spectrayan.spector.memory.error.SpectorPartitionFrozenException e) {
+                offset = cognitiveRouter.write(type, header, quantized);
+            }
         } catch (SpectorMemoryTierFullException e) {
             if (partitionRollCallback != null) {
                 partitionRollCallback.run();

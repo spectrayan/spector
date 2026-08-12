@@ -163,44 +163,67 @@ final class PostIngestSync {
     int syncIndexes(SyncParams params) {
         boolean isParentChunk = params.metadata() != null && "parent".equals(params.metadata().get("chunk_role"));
 
-        // Step 7b: Add to HNSW index (SEMANTIC only)
         int storeIndex = -1;
-        if (params.type() == MemoryType.SEMANTIC && semanticIndex != null
-                && !semanticIndex.isReadOnly()
-                && !isParentChunk) {
-            storeIndex = cognitiveRouter.countFor(MemoryType.SEMANTIC) - 1;
-            semanticIndex.add(params.id(), storeIndex, params.vector());
-        }
+        try {
+            // Step 7b: Add to HNSW index (SEMANTIC only)
+            if (params.type() == MemoryType.SEMANTIC && semanticIndex != null
+                    && !semanticIndex.isReadOnly()
+                    && !isParentChunk) {
+                storeIndex = cognitiveRouter.countFor(MemoryType.SEMANTIC) - 1;
+                semanticIndex.add(params.id(), storeIndex, params.vector());
+            }
 
-        // Step 9a (moved earlier): Write text.dat FIRST to capture byte position
-        var textPos = syncTextIndex(params.id(), params.text(), params.type());
+            // Step 9a (moved earlier): Write text.dat FIRST to capture byte position
+            var textPos = syncTextIndex(params.id(), params.text(), params.type());
 
-        // Step 8: Register in ID index (with text.dat byte offsets for off-heap reads)
-        long textOffset = (textPos != null) ? textPos.textOffset() : -1L;
-        int textLength = (textPos != null) ? textPos.textLength() : -1;
-        // #443: stamp the colocated partition (activePartitionSeq) so recall, text
-        // resolution and direct-resolve can locate this record's partition. storeIndex
-        // remains the semantic/graph node slot (graphSlot — behaviour unchanged).
-        var location = new MemoryLocation(params.type(), params.offset(), storeIndex,
-                activePartitionSeq, textOffset, textLength);
+            // Step 8: Register in ID index (with text.dat byte offsets for off-heap reads)
+            long textOffset = (textPos != null) ? textPos.textOffset() : -1L;
+            int textLength = (textPos != null) ? textPos.textLength() : -1;
+            // #443: stamp the colocated partition (activePartitionSeq) so recall, text
+            // resolution and direct-resolve can locate this record's partition. storeIndex
+            // remains the semantic/graph node slot (graphSlot — behaviour unchanged).
+            var location = new MemoryLocation(params.type(), params.offset(), storeIndex,
+                    activePartitionSeq, textOffset, textLength);
 
-        if (params.metadata() != null) {
-            index.register(params.id(), location,
-                    params.text(), params.source(), params.tags(), params.metadata());
-        } else {
-            index.register(params.id(), location,
-                    params.text(), params.source(), params.tags());
-        }
+            if (params.metadata() != null) {
+                index.register(params.id(), location,
+                        params.text(), params.source(), params.tags(), params.metadata());
+            } else {
+                index.register(params.id(), location,
+                        params.text(), params.source(), params.tags());
+            }
 
-        // Step 9: WAL append (encrypt payload when encryption is active)
-        wal.appendRemember(params.id(), encryptor.encryptPayload(params.quantized()));
+            // Step 9: WAL append (encrypt payload when encryption is active)
+            wal.appendRemember(params.id(), encryptor.encryptPayload(params.quantized()));
 
-        // Step 9a-splade: SPLADE sparse index (if provider available)
-        if (!isParentChunk) {
-            syncSpladeIndex(params.id(), params.text());
+            // Step 9a-splade: SPLADE sparse index (if provider available)
+            if (!isParentChunk) {
+                syncSpladeIndex(params.id(), params.text());
+            }
+        } catch (Exception e) {
+            log.warn("[Ingestion] Post-write sync failed for '{}', applying compensating tombstone: {}", params.id(), e.getMessage());
+            compensateTombstone(params.id());
+            throw new com.spectrayan.spector.commons.error.SpectorIngestionException(
+                    com.spectrayan.spector.commons.error.ErrorCode.INGESTION_PIPELINE_FAILED,
+                    e,
+                    "Post-write sync failed: " + e.getMessage());
         }
 
         return storeIndex;
+    }
+
+    private void compensateTombstone(String id) {
+        try {
+            MemoryLocation loc = index.locate(id);
+            if (loc != null) {
+                if (cognitiveRouter != null) {
+                    cognitiveRouter.tombstone(loc);
+                }
+                index.remove(id);
+            }
+        } catch (Exception e) {
+            log.error("[Ingestion] Failed to apply compensating tombstone for '{}': {}", id, e.getMessage(), e);
+        }
     }
 
     /**

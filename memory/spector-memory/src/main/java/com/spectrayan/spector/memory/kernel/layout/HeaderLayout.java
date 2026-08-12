@@ -163,6 +163,35 @@ public sealed interface HeaderLayout
      */
     int incrementAgentRecallCount(MemorySegment seg, long off);
 
+    /**
+     * Atomically updates the storage strength using the given update function.
+     *
+     * @param seg the memory segment
+     * @param off the record offset
+     * @param updateFn the function to compute the new value
+     * @return the newly updated storage strength
+     */
+    float casStorageStrength(MemorySegment seg, long off, FloatUnaryOperator updateFn);
+
+    /**
+     * Atomically updates the importance using the given update function.
+     *
+     * @param seg the memory segment
+     * @param off the record offset
+     * @param updateFn the function to compute the new value
+     * @return the newly updated importance
+     */
+    float casImportance(MemorySegment seg, long off, FloatUnaryOperator updateFn);
+
+    /**
+     * Directly writes the valence release value.
+     *
+     * @param seg the memory segment
+     * @param off the record offset
+     * @param valence the valence value to write
+     */
+    void writeValenceRelease(MemorySegment seg, long off, byte valence);
+
     // ── Auto-LTP fields ──
 
     /**
