@@ -16,6 +16,10 @@ import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 
+import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.memory.session.SessionWriteBuffer;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
@@ -241,6 +245,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final RuntimeBundle runtimeBundle;
     private final com.spectrayan.spector.memory.insula.InsularCortex insularCortex;
 
+    private final ConcurrentHashMap<String, SessionWriteBuffer> sessionBuffers = new ConcurrentHashMap<>();
+
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
         this.cognitiveTarget = bundle.cognitiveTarget();
@@ -338,28 +344,40 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                                               MemorySource source,
                                               com.spectrayan.spector.memory.neurodivergent.IngestionHints hints,
                                               String... tags) {
+        final String sessionId = MemoryScope.sessionId();
         return CompletableFuture.runAsync(() -> {
-            acquireLease();
-            try {
-                if (shouldChunk(text)) {
-                    rememberChunked(id, text, type, source, hints, null, tags);
-                } else {
-                    String[] finalTags = tags;
-                    if (tags == null || tags.length == 0) {
-                        var tagExtractor = cognitiveTarget.tagExtractor();
-                        if (tagExtractor != null) {
-                            finalTags = tagExtractor.extract(id, text);
+            Runnable task = () -> {
+                acquireLease();
+                try {
+                    if (shouldChunk(text)) {
+                        rememberChunked(id, text, type, source, hints, null, tags);
+                    } else {
+                        String[] finalTags = tags;
+                        if (tags == null || tags.length == 0) {
+                            var tagExtractor = cognitiveTarget.tagExtractor();
+                            if (tagExtractor != null) {
+                                finalTags = tagExtractor.extract(id, text);
+                            }
                         }
+                        float[] vector = embeddingProvider.embed(text).vector();
+                        if (sessionId != null) {
+                            sessionBuffers.computeIfAbsent(sessionId, k -> new SessionWriteBuffer())
+                                    .add(id, text, vector, type, System.currentTimeMillis());
+                        }
+                        cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
                     }
-                    float[] vector = embeddingProvider.embed(text).vector();
-                    cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
+                    checkCircadianTrigger(type);
+                } catch (RuntimeException e) {
+                    log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
+                    throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+                } finally {
+                    releaseLease();
                 }
-                checkCircadianTrigger(type);
-            } catch (RuntimeException e) {
-                log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
-                throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
-            } finally {
-                releaseLease();
+            };
+            if (sessionId != null) {
+                java.lang.ScopedValue.where(MemoryScope.SESSION_ID, sessionId).run(task);
+            } else {
+                task.run();
             }
         }, ConcurrentTasks.virtualExecutor());
     }
@@ -516,77 +534,87 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         List<String> childTexts = childChunks.stream().map(com.spectrayan.spector.commons.chunker.Chunk::text).toList();
         List<PipelineEmbeddingResult> childEmbeddings = childTexts.isEmpty() ? List.of() : parallelPipeline.embed(childTexts, embedConfig);
 
-        int stored = 0;
-        List<String> failures = new ArrayList<>();
+        List<String> ingestedChunkIds = new ArrayList<>();
+        int totalChunks = parentChunks.size() + childChunks.size();
 
-        // 1. Ingest parent chunks (bypass embedding via zero vector)
-        float[] dummyVector = new float[this.dimensions];
-        for (var chunk : parentChunks) {
-            IngestionContext parentContext = IngestionContext.builder()
-                    .metadata(chunk.metadata())
-                    .build();
-            try {
-                cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
-                        dummyVector, type, provenanceTags, source, parentContext);
-                stored++;
-            } catch (RuntimeException e) {
-                failures.add(chunk.chunkId());
-                log.warn("[Remember] Ingestion failed for parent chunk '{}': {}", chunk.chunkId(), e.getMessage());
-            }
-        }
-
-        // 2. Ingest child chunks
-        for (int i = 0; i < childChunks.size(); i++) {
-            var chunk = childChunks.get(i);
-            var embedding = childEmbeddings.get(i);
-
-            if (!embedding.success()) {
-                failures.add(chunk.chunkId());
-                log.warn("[Remember] Embedding failed for chunk '{}': {}", chunk.chunkId(), embedding.error());
-                continue;
-            }
-
-            // Extract content-specific tags from this chunk's text
-            String[] contentTags = chunkTagExtractor.extract(chunk.chunkId(), chunk.text());
-
-            // Merge provenance + per-chunk content tags (deduplicated)
-            var mergedSet = new java.util.LinkedHashSet<String>();
-            for (String pt : provenanceTags) mergedSet.add(pt);
-            for (String ct : contentTags) mergedSet.add(ct);
-            String[] chunkTags = mergedSet.toArray(String[]::new);
-
-            // Construct child IngestionContext merging metadata
-            IngestionContext childContext;
-            if (context != null) {
-                var mergedMeta = new java.util.HashMap<>(context.metadata());
-                mergedMeta.putAll(chunk.metadata());
-                childContext = IngestionContext.builder()
-                        .hints(context.hints())
-                        .entities(context.entities())
-                        .hebbianEdges(context.hebbianEdges())
-                        .temporalLinks(context.temporalLinks())
-                        .metadata(mergedMeta)
-                        .build();
-            } else {
-                childContext = IngestionContext.builder()
-                        .hints(hints)
+        try {
+            // 1. Ingest parent chunks (bypass embedding via zero vector)
+            float[] dummyVector = new float[this.dimensions];
+            for (var chunk : parentChunks) {
+                IngestionContext parentContext = IngestionContext.builder()
                         .metadata(chunk.metadata())
                         .build();
+                cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
+                        dummyVector, type, provenanceTags, source, parentContext);
+                ingestedChunkIds.add(chunk.chunkId());
             }
 
-            try {
+            // 2. Ingest child chunks
+            for (int i = 0; i < childChunks.size(); i++) {
+                var chunk = childChunks.get(i);
+                var embedding = childEmbeddings.get(i);
+
+                if (!embedding.success()) {
+                    throw new RuntimeException("Embedding failed for chunk: " + embedding.error());
+                }
+
+                // Extract content-specific tags from this chunk's text
+                String[] contentTags = chunkTagExtractor.extract(chunk.chunkId(), chunk.text());
+
+                // Merge provenance + per-chunk content tags (deduplicated)
+                var mergedSet = new java.util.LinkedHashSet<String>();
+                for (String pt : provenanceTags) mergedSet.add(pt);
+                for (String ct : contentTags) mergedSet.add(ct);
+                String[] chunkTags = mergedSet.toArray(String[]::new);
+
+                // Construct child IngestionContext merging metadata
+                IngestionContext childContext;
+                if (context != null) {
+                    var mergedMeta = new java.util.HashMap<>(context.metadata());
+                    mergedMeta.putAll(chunk.metadata());
+                    childContext = IngestionContext.builder()
+                            .hints(context.hints())
+                            .entities(context.entities())
+                            .hebbianEdges(context.hebbianEdges())
+                            .temporalLinks(context.temporalLinks())
+                            .metadata(mergedMeta)
+                            .build();
+                } else {
+                    childContext = IngestionContext.builder()
+                            .hints(hints)
+                            .metadata(chunk.metadata())
+                            .build();
+                }
+
                 cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
                         embedding.embedding(), type, chunkTags, source, childContext);
-                stored++;
-            } catch (RuntimeException e) {
-                failures.add(chunk.chunkId());
-                log.warn("[Remember] Ingestion failed for chunk '{}': {}", chunk.chunkId(), e.getMessage());
+                ingestedChunkIds.add(chunk.chunkId());
             }
-        }
 
-        log.info("[Remember] Chunked '{}'  ->  {} chunks stored ({} failed) from {} chars (chunkSize={}, overlap={})",
-                id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
-                stored, failures.size(), text.length(), chunkConfig.maxChunkSize(), chunkConfig.overlap());
+            log.info("[Remember] Chunked '{}'  ->  {} chunks stored from {} chars (chunkSize={}, overlap={})",
+                    id.length() > 60 ? "..." + id.substring(id.length() - 57) : id,
+                    ingestedChunkIds.size(), text.length(), chunkConfig.maxChunkSize(), chunkConfig.overlap());
+
+        } catch (Exception e) {
+            log.warn("[RememberChunked] Chunk ingestion failed for '{}' after {}/{} chunks. Rolling back.", id, ingestedChunkIds.size(), totalChunks);
+            for (String chunkId : ingestedChunkIds) {
+                try {
+                    tombstoneById(chunkId);
+                } catch (Exception te) {
+                    log.warn("Failed to tombstone chunk '{}' during rollback: {}", chunkId, te.getMessage());
+                }
+            }
+            throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
+        }
+    }
+
+    private void tombstoneById(String memoryId) {
+        MemoryLocation loc = index.locate(memoryId);
+        if (loc != null) {
+            partitionManager.routerFor(loc.colocatedPartition()).tombstone(loc);
+            index.remove(memoryId);
+            wal.appendForget(memoryId);
+        }
     }
 
     /** Sanitizes a memory ID into a valid tag (lowercase, hyphens, no special chars). */
@@ -714,7 +742,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         .autoProfile(true)
                         .build();
             }
-            return recallPipeline.recall(queryText, options);
+            List<CognitiveResult> storeResults = recallPipeline.recall(queryText, options);
+            String sessionId = MemoryScope.sessionId();
+            if (sessionId != null) {
+                SessionWriteBuffer buffer = sessionBuffers.get(sessionId);
+                if (buffer != null) {
+                    buffer.evictConfirmed(() -> 0);
+                    if (!buffer.isEmpty()) {
+                        float[] queryVector = embeddingProvider.embed(queryText).vector();
+                        List<CognitiveResult> bufferedResults = buffer.search(queryText, queryVector, options);
+                        List<CognitiveResult> merged = new java.util.ArrayList<>(storeResults);
+                        merged.addAll(bufferedResults);
+                        merged.sort(java.util.Comparator.comparing(CognitiveResult::score).reversed());
+                        storeResults = merged.stream().limit(options.topK()).collect(java.util.stream.Collectors.toList());
+                    }
+                }
+            }
+            return storeResults;
         } finally {
             releaseLease();
         }
