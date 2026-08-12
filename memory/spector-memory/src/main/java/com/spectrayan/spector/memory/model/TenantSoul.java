@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 
@@ -24,7 +25,10 @@ public record TenantSoul(
         String description,
         List<String> domainFocus,
         List<String> complianceRules,
-        float[] identityEmbedding
+        float[] identityEmbedding,
+        short soulVersion,
+        Instant createdAt,
+        Instant updatedAt
 ) implements SoulContext {
     public TenantSoul {
         domainFocus = domainFocus != null ? Collections.unmodifiableList(domainFocus) : List.of();

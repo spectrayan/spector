@@ -209,7 +209,25 @@ public enum CognitiveProfile {
      * with recent recall context. Graph expansion threshold is high (0.80)
      * to aggressively expand associative connections.</p>
      */
-    EXECUTIVE_DYSFUNCTION(0.3f, 0.7f, 0.1f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.80f);
+    EXECUTIVE_DYSFUNCTION(0.3f, 0.7f, 0.1f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.80f),
+
+    // ══ Soul-Derived Profile (encoding state stamp) ══
+
+    /**
+     * Soul-derived mode — α/β/γ weights were computed from the InsulaSelfModel
+     * rather than from a preset CognitiveProfile.
+     *
+     * <p>This profile is used exclusively as the {@code encoding_profile} value
+     * in the synaptic header when the memory was ingested with custom soul-derived
+     * weights. It should NOT be used as a recall profile — the agent's current
+     * SalienceProfile supplies the actual α/β at recall time.</p>
+     *
+     * <p>At ingestion, when {@code salienceProfile.alpha()} or {@code .beta()}
+     * are non-null (i.e., overridden by the soul), the encoding profile byte is
+     * set to {@code SOUL_DERIVED.ordinal()} with bit7=1 via
+     * {@code SynapticHeaderConstants.soulDerivedEncodingProfile()}.</p>
+     */
+    SOUL_DERIVED(0.6f, 0.4f, 0.3f, Byte.MIN_VALUE, Byte.MAX_VALUE, 0.40f);
 
     private final float alpha;
     private final float beta;

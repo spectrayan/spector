@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import java.time.Instant;
+
 /**
  * User-level soul/identity context wrapping the PersonaContext.
  */
@@ -20,8 +22,19 @@ public record UserSoul(
         String name,
         String description,
         PersonaContext persona,
-        float[] identityEmbedding
+        float[] identityEmbedding,
+        short soulVersion,
+        Instant createdAt,
+        Instant updatedAt
 ) implements SoulContext {
+
+    /** Backward-compatible constructor (version=0, no timestamps). */
+    public UserSoul(String id, String name, String description,
+                    PersonaContext persona, float[] identityEmbedding) {
+        this(id, name, description, persona, identityEmbedding,
+                (short) 0, null, null);
+    }
+
     @Override
     public float[] identityEmbedding() {
         if (identityEmbedding != null) {

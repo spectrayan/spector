@@ -15,6 +15,8 @@ package com.spectrayan.spector.memory.model;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
+import java.time.Instant;
+
 /**
  * Polymorphic soul context representing the self-model identity across different scopes.
  */
@@ -58,4 +60,29 @@ public sealed interface SoulContext permits TenantSoul, OrgUnitSoul, AgentSoul, 
      * @return the purpose embedding vector, or null if not computed
      */
     float[] identityEmbedding();
+
+    /**
+     * Monotonically increasing version counter for this soul configuration.
+     *
+     * <p>Incremented each time the soul is saved/updated. Used by the
+     * encoding-time cognitive state stamp to detect stale memories whose
+     * importance was computed under an older soul configuration.</p>
+     *
+     * @return the soul version (0 = never explicitly versioned)
+     */
+    short soulVersion();
+
+    /**
+     * Timestamp when this soul was first created.
+     *
+     * @return the creation instant, or null if not tracked
+     */
+    Instant createdAt();
+
+    /**
+     * Timestamp when this soul was last updated.
+     *
+     * @return the last update instant, or null if not tracked
+     */
+    Instant updatedAt();
 }
