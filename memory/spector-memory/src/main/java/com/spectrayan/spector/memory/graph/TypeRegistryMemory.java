@@ -213,8 +213,8 @@ public final class TypeRegistryMemory implements RegistryMemory {
     public void save(Path filePath) throws IOException {
         if (bundleManaged) {
             long now = System.currentTimeMillis();
-            MemoryHeader.write(bundleSlice, 0L, backing.layout().schemaVersion(), MemoryShape.REGISTRY, backing.size(),
-                    (int) bundleSlice.byteSize(), 0, 0, backing.layout().layoutId(), now, now);
+            MemoryHeader.write(bundleSlice, 0L, backing.layout().schemaVersion(), MemoryShape.REGISTRY, 0,
+                    backing.capacity(), backing.size(), backing.layout().recordStride(), backing.layout().layoutId(), now, now);
             backing.flush();
             log.info("{} registry saved to bundle: {} types", label, backing.size());
             return;

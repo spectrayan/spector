@@ -309,8 +309,8 @@ final class CognitiveCortexBuilder {
         long typeRegistrySize = builder.typeRegistrySize;
         long insulaSize = builder.insulaSize;
 
-        // BM25 region sizing: header(24) + docIds(~48B/doc) + docLengths(4B/doc) + terms+postings(~80B/doc)
-        long bm25InitialSize = Math.max(64 * 1024, 24 + 132L * workingCap);
+        // BM25 region sizing: header(24) + docIds(~48B/doc) + docLengths(4B/doc) + terms+postings(~1400B/doc)
+        long bm25InitialSize = Math.max(4L * 1024 * 1024, 24 + 1500L * builder.episodicPartitionCapacity);
 
         return List.of(
                 new RegionSizeSpec(

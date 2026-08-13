@@ -64,7 +64,7 @@ public final class SpectorMemoryBuilder {
 
     //  Core configuration 
     boolean managedByRegistry = false;
-    boolean useBundleMode = false;  // V4 bundle architecture (ADR-0004)
+    boolean useBundleMode = true;   // V4 bundle architecture (ADR-0004)
     int dimensions;
     EmbeddingProvider embeddingProvider;
     Path persistencePath;

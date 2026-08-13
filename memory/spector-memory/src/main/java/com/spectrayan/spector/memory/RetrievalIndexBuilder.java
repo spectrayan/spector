@@ -114,19 +114,23 @@ final class RetrievalIndexBuilder {
                 if (!allTexts.isEmpty()) {
                     bm25Index.rebuildPartition(0, allTexts);
                     log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
-                    // Save to file (V3 compat) and bundle region (V4)
-                    java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
-                    bm25Index.partition(0).save(bm25Path);
+                    // Save to bundle region (V4) or file (V3 fallback)
+                    boolean savedToBundle = false;
                     if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
                         try {
                             java.lang.foreign.MemorySegment bm25Region = cortex.runtimeBundle().regionSegment(
                                     com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
                             if (bm25Region != null) {
-                                bm25Index.partition(0).saveToRegion(bm25Region);
+                                int written = bm25Index.partition(0).saveToRegion(bm25Region);
+                                savedToBundle = written > 0;
                             }
                         } catch (Exception e) {
                             log.debug("BM25 bundle region save failed: {}", e.getMessage());
                         }
+                    }
+                    if (!savedToBundle) {
+                        java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
+                        bm25Index.partition(0).save(bm25Path);
                     }
                 }
             }

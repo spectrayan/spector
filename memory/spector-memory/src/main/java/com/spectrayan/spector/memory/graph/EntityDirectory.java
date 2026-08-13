@@ -192,7 +192,9 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             MemoryHeader.write(adjacencyRegionSlice, 0L, LAYOUT.schemaVersion(), MemoryShape.GRAPH, 0,
                     (int) adjacencyRegionSlice.byteSize(), 0, 0, LAYOUT.layoutId(), now, now);
 
-            int adjCap = (int) ((adjacencyRegionSlice.byteSize() - MemoryHeader.HEADER_BYTES - 16) / ADJ_ENTRY_BYTES);
+            long reservedForNames = 32L * entityCapacity;
+            long availableForAdj = Math.max(0, adjacencyRegionSlice.byteSize() - MemoryHeader.HEADER_BYTES - 16 - reservedForNames);
+            int adjCap = (int) (availableForAdj / ADJ_ENTRY_BYTES);
             adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_CAPACITY, adjCap);
             adjacencyRegionSlice.set(ValueLayout.JAVA_INT, headerStart + SUB_OFF_ADJ_HWM, 0);
             this.adjSegmentCapacity = adjCap;

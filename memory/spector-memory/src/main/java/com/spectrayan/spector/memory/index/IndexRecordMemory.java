@@ -704,14 +704,14 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                 long totalSlotBytes = (long) entryCount * stride;
 
                 long now = System.currentTimeMillis();
-                MemoryHeader.write(bundleMidxSlice, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, entryCount,
-                        (int) (MemoryHeader.HEADER_BYTES + totalSlotBytes), 0, 0, new IndexEntryLayout().layoutId(), now, now);
+                MemoryHeader.write(bundleMidxSlice, 0L, INDEX_VERSION_V7, MemoryShape.RECORD, 0,
+                        100_000L, entryCount, stride, new IndexEntryLayout().layoutId(), now, now);
                 // Persist graphSlotHighWater in the reserved field (offset 60, outside CRC range)
                 long headerBaseOffset = 0L;
                 bundleMidxSlice.set(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, headerBaseOffset + 60, graphSlotHighWater.get());
 
-                MemoryHeader.write(bundleIdplSlice, 0L, 1, MemoryShape.APPEND, entryCount,
-                        (int) (MemoryHeader.HEADER_BYTES + totalPoolBytes), 0, 0, new IdBlobLayout().layoutId(), now, now);
+                MemoryHeader.write(bundleIdplSlice, 0L, 1, MemoryShape.APPEND, 0,
+                        totalPoolBytes, entryCount, 0, new IdBlobLayout().layoutId(), now, now);
 
                 long poolOffset = 0;
                 int index = 0;
@@ -729,7 +729,7 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
                     ByteBuffer slotBuf = ByteBuffer.wrap(slotBytes);
                     slotBuf.order(java.nio.ByteOrder.nativeOrder());
 
-                    slotBuf.putLong(poolOffset);
+                    slotBuf.putLong(poolOffset + 4);
                     slotBuf.putInt(blobBytes.length);
                     slotBuf.putInt(loc.type().ordinal());
                     slotBuf.putLong(loc.offset());

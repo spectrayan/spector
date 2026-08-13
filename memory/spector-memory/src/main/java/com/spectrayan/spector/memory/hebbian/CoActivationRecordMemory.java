@@ -187,6 +187,7 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
               pairCap, arena, regionSlice,
               isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
               true, bundlePath, null, true); // bundleManaged=true
+        this.checkpointRegion = checkpointRegion;
 
         long totalBytes = 8 + 32L * pairCap + 40L * edgeCap;
         MemorySegment segment = segment();
