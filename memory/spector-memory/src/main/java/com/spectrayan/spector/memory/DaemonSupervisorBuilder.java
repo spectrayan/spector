@@ -61,6 +61,9 @@ final class DaemonSupervisorBuilder {
             Path indexSavePath = resolvedPartitionDir != null
                     ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX)
                     : StorageLayout.indexMidxRuntime(basePath);
+            java.lang.foreign.MemorySegment ckptSlice = cortex.useBundleMode() && cortex.runtimeBundle() != null
+                    ? cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT)
+                    : null;
             checkpointDaemon = new CheckpointDaemon(
                     cortex.cognitiveRouter(), wal,
                     StorageLayout.checkpointMeta(basePath),
@@ -68,7 +71,7 @@ final class DaemonSupervisorBuilder {
                     graphs.hebbianGraph(), graphs.temporalChain(),
                     graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
                     graphs.temporalKnowledgeGraph(),
-                    resolvedPartitionDir, basePath);
+                    resolvedPartitionDir, basePath, ckptSlice);
             daemonSupervisor = new DaemonSupervisor("memory");
             daemonSupervisor.schedule(
                     "checkpoint",
