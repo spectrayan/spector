@@ -490,6 +490,16 @@ public final class CognitiveBenchmarkHarness {
             writer.writeSummary(outputDir, report);
             writer.writeDetail(outputDir, queryResults);
             writer.writePerQueryResults(outputDir, perQueryCognitiveResults);
+
+            // Also auto-save reports into dataset repository under results/YYYYMMDD/
+            if (datasetDir != null && datasetDir.getParent() != null) {
+                String yyyymmdd = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+                Path datasetResultsDir = datasetDir.getParent().resolve("results").resolve(yyyymmdd);
+                writer.writeSummary(datasetResultsDir, report);
+                writer.writeDetail(datasetResultsDir, queryResults);
+                log.info("Auto-saved dataset results to {}", datasetResultsDir);
+            }
+
             writer.logSummary(report);
         } catch (Exception e) {
             log.error("Failed to write reports: {}", e.getMessage(), e);
