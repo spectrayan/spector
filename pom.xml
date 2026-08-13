@@ -93,6 +93,7 @@
         <module>synapse/spector-cli</module>
         <module>synapse/spector-client</module>
         <module>synapse/spector-spring</module>
+        <module>synapse/spector-batch</module>
         <module>synapse/spector-synapse</module>
         <module>synapse/spector-dist</module>
 
@@ -296,6 +297,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-cli</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-batch</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

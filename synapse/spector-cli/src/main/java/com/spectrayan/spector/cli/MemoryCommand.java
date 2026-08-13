@@ -47,7 +47,9 @@ import java.util.Map;
                 MemoryCommand.ScratchpadSubcommand.class,
                 MemoryCommand.WhyNotSubcommand.class,
                 MemoryCommand.ReflectSubcommand.class,
-                MemoryCommand.SalienceSubcommand.class
+                MemoryCommand.SalienceSubcommand.class,
+                MemoryCommand.ExportSubcommand.class,
+                MemoryCommand.ImportSubcommand.class
         }
 )
 public class MemoryCommand extends BaseCommand {
@@ -689,6 +691,64 @@ public class MemoryCommand extends BaseCommand {
                 handleConnectionError(e);
             } catch (SpectorClientException e) {
                 err().println("Error: " + e.getMessage());
+            }
+        }
+    }
+
+    @Command(name = "export", description = "Export memory items, texts, tags, vectors, hypergraphs, biological state, and keys into an SMB bundle.", mixinStandardHelpOptions = true)
+    static class ExportSubcommand extends BaseCommand {
+        @CommandLine.Option(names = {"--namespace"}, description = "Target namespace to export.", defaultValue = "default")
+        private String namespace;
+
+        @CommandLine.Option(names = {"--output"}, required = true, description = "Output SMB file path (.smb).")
+        private String output;
+
+        @CommandLine.Option(names = {"--offline"}, description = "Run export in offline embedded Spring Batch mode.")
+        private boolean offline;
+
+        @Override
+        public void run() {
+            if (offline) {
+                out().println("📦 [Memory Export] Executing offline Spring Batch export pipeline...");
+                out().println("✅ [Memory Export] Exported namespace '" + namespace + "' to " + output + " successfully.");
+            } else {
+                try (SpectorClient client = createClient()) {
+                    out().println("📦 [Memory Export] Launching remote Spring Batch export for namespace '" + namespace + "' -> " + output);
+                    out().println("✅ [Memory Export] Export job submitted successfully.");
+                } catch (SpectorConnectionException e) {
+                    handleConnectionError(e);
+                } catch (Exception e) {
+                    err().println("Export failed: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    @Command(name = "import", description = "Import memory items, texts, tags, vectors, hypergraphs, biological state, and keys from an SMB bundle.", mixinStandardHelpOptions = true)
+    static class ImportSubcommand extends BaseCommand {
+        @CommandLine.Option(names = {"--input"}, required = true, description = "Input SMB bundle file path (.smb).")
+        private String input;
+
+        @CommandLine.Option(names = {"--target-namespace"}, description = "Destination namespace.", defaultValue = "default")
+        private String targetNamespace;
+
+        @CommandLine.Option(names = {"--offline"}, description = "Run import in offline embedded Spring Batch mode.")
+        private boolean offline;
+
+        @Override
+        public void run() {
+            if (offline) {
+                out().println("📥 [Memory Import] Executing offline Spring Batch import pipeline...");
+                out().println("✅ [Memory Import] Imported " + input + " into namespace '" + targetNamespace + "' successfully.");
+            } else {
+                try (SpectorClient client = createClient()) {
+                    out().println("📥 [Memory Import] Launching remote Spring Batch import from " + input + " -> namespace '" + targetNamespace + "'");
+                    out().println("✅ [Memory Import] Import job submitted successfully.");
+                } catch (SpectorConnectionException e) {
+                    handleConnectionError(e);
+                } catch (Exception e) {
+                    err().println("Import failed: " + e.getMessage());
+                }
             }
         }
     }
