@@ -192,7 +192,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .proceduralCapacity(Math.max(50, corpusSize / 5))
                 .hebbianGraphCapacity(corpusSize + 100)
                 .temporalChainCapacity(corpusSize + 100)
-                .entityGraphCapacity(Math.max(200, corpusSize * 5))
+                .entityGraphCapacity(Math.max(50_000, corpusSize * 50))
                 .entityExtractionMode(EntityExtractionMode.CUSTOM)
                 .entityExtractor(customExtractor);
 
