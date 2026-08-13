@@ -1,0 +1,124 @@
+/*
+ * Copyright 2026 Spectrayan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.spectrayan.spector.bench.cognitive.locomo;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.spectrayan.spector.bench.cognitive.BenchmarkSetup;
+import com.spectrayan.spector.bench.cognitive.CachedEmbeddingProvider;
+import com.spectrayan.spector.bench.cognitive.DatasetLoader;
+import com.spectrayan.spector.bench.cognitive.DatasetLoader.LoadedDataset;
+import com.spectrayan.spector.bench.cognitive.model.BenchmarkExitCode;
+import com.spectrayan.spector.bench.cognitive.model.BenchmarkQuery;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.RecallMode;
+import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ScoringMode;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
+
+/**
+ * CLI Harness for executing the LoCoMo (Long-Term Conversation Memory) Benchmark.
+ */
+public final class LoCoMoBenchmarkHarness {
+
+    private static final Logger log = LoggerFactory.getLogger(LoCoMoBenchmarkHarness.class);
+
+    private final Path datasetDir;
+    private final Path outputDir;
+    private final int topK;
+
+    public LoCoMoBenchmarkHarness(Path datasetDir, Path outputDir, int topK) {
+        this.datasetDir = datasetDir;
+        this.outputDir = outputDir;
+        this.topK = topK;
+    }
+
+    public static void main(String[] args) {
+        Path datasetDir = Paths.get("D:/git/spector-datasets/locomo/data");
+        Path outputDir = Paths.get("target/benchmark-results/locomo");
+        int topK = 10;
+
+        if (args.length >= 1) datasetDir = Paths.get(args[0]);
+        if (args.length >= 2) outputDir = Paths.get(args[1]);
+        if (args.length >= 3) topK = Integer.parseInt(args[2]);
+
+        LoCoMoBenchmarkHarness harness = new LoCoMoBenchmarkHarness(datasetDir, outputDir, topK);
+        BenchmarkExitCode exitCode = harness.run();
+        System.exit(exitCode.code());
+    }
+
+    public BenchmarkExitCode run() {
+        log.info("Starting LoCoMo Benchmark Run on dataset {}", datasetDir);
+        try {
+            DatasetLoader loader = new DatasetLoader();
+            LoadedDataset dataset = loader.load(datasetDir);
+
+            EmbeddingProvider rawEmbedder = OllamaEmbeddingProvider.createDefault();
+            Path cacheFile = datasetDir.resolve("embeddings.bin");
+
+            try (BenchmarkSetup setup = new BenchmarkSetup();
+                 EmbeddingProvider embedder = new CachedEmbeddingProvider(rawEmbedder, cacheFile)) {
+
+                SpectorMemory memory = setup.createMemoryInstance(dataset, embedder, datasetDir);
+                log.info("LoCoMo SpectorMemory instance created with {} records.", memory.totalMemories());
+
+                List<BenchmarkQuery> queries = dataset.queries();
+                int totalQueries = queries.size();
+                int similarityHits = 0;
+                int cognitiveHits = 0;
+
+                for (BenchmarkQuery q : queries) {
+                    // Arm A: SIMILARITY
+                    RecallOptions simOptions = RecallOptions.builder()
+                            .recallMode(RecallMode.OBSERVE)
+                            .scoringMode(ScoringMode.SIMILARITY)
+                            .topK(topK)
+                            .build();
+                    List<CognitiveResult> simResults = memory.recall(q.text(), simOptions);
+
+                    // Arm B: COGNITIVE
+                    RecallOptions cogOptions = RecallOptions.builder()
+                            .recallMode(RecallMode.OBSERVE)
+                            .scoringMode(ScoringMode.COGNITIVE)
+                            .enableMmr(true)
+                            .topK(topK)
+                            .build();
+                    List<CognitiveResult> cogResults = memory.recall(q.text(), cogOptions);
+
+                    log.info("Query '{}'  --  SIMILARITY returned {} hits, COGNITIVE returned {} hits",
+                            q.id(), simResults.size(), cogResults.size());
+
+                    if (!simResults.isEmpty()) similarityHits++;
+                    if (!cogResults.isEmpty()) cognitiveHits++;
+                }
+
+                log.info("LoCoMo Evaluation Finished. Total Queries: {}, SIMILARITY hits: {}, COGNITIVE hits: {}",
+                        totalQueries, similarityHits, cognitiveHits);
+                return BenchmarkExitCode.SUCCESS;
+            }
+        } catch (Exception e) {
+            log.error("LoCoMo Benchmark Execution Failed: {}", e.getMessage(), e);
+            return BenchmarkExitCode.SETUP_FAILED;
+        }
+    }
+}
