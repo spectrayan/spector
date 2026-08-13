@@ -75,6 +75,7 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
     private volatile Map<Long, EnumMap<CognitiveProfile, RunningStats>> banditStats =
             new ConcurrentHashMap<>();
     private final ReentrantLock saveLock = new ReentrantLock();
+    private volatile MemorySegment checkpointRegion;   // nullable — V4 bundle CHECKPOINT region for metadata
 
     public record DirectedEdge(String sourceTag, String targetTag) {
         @Override
@@ -88,6 +89,19 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
             float newWeight = Math.clamp(weight + deltaWeight, MIN_WEIGHT, MAX_WEIGHT);
             return new EdgeWeight(newWeight, nowMs, activationCount + 1);
         }
+    }
+
+    /**
+     * Sets the V4 bundle CHECKPOINT region for persisting CoActivation metadata.
+     *
+     * <p>When set, {@link #save(Path)} writes tag index and bandit stats directly
+     * to this region slice (at offset 16, after the 16-byte checkpoint header)
+     * instead of a standalone {@code .meta} sidecar file.</p>
+     *
+     * @param checkpointRegion the CHECKPOINT region MemorySegment, or null for V3 fallback
+     */
+    public void setCheckpointRegion(MemorySegment checkpointRegion) {
+        this.checkpointRegion = checkpointRegion;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -155,12 +169,20 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
     public static CoActivationRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
                                                        int pairCap, int edgeCap,
                                                        Path bundlePath, boolean isNew) {
-        return new CoActivationRecordMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew);
+        return new CoActivationRecordMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew, null);
+    }
+
+    public static CoActivationRecordMemory fromBundle(Arena arena, MemorySegment regionSlice,
+                                                       int pairCap, int edgeCap,
+                                                       Path bundlePath, boolean isNew,
+                                                       MemorySegment checkpointRegion) {
+        return new CoActivationRecordMemory(arena, regionSlice, pairCap, edgeCap, bundlePath, isNew, checkpointRegion);
     }
 
     private CoActivationRecordMemory(Arena arena, MemorySegment regionSlice,
                                      int pairCap, int edgeCap,
-                                     Path bundlePath, boolean isNew) {
+                                     Path bundlePath, boolean isNew,
+                                     MemorySegment checkpointRegion) {
         super(SystemMemoryId.COACTIVATION.id(), new CoActivationLayout(),
               pairCap, arena, regionSlice,
               isNew ? 0 : (int) MemoryHeader.readCount(regionSlice, 0),
@@ -209,6 +231,49 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
                     log.warn("Failed to delete legacy coactivation.dat after migration: {}", e.getMessage());
                 }
             }
+        } else if (!isNew && checkpointRegion != null) {
+            try {
+                int pairs = checkpointRegion.get(ValueLayout.JAVA_INT, 16);
+                int edges = checkpointRegion.get(ValueLayout.JAVA_INT, 20);
+                this.pairTable.setCount(pairs);
+                this.edgeTable.setCount(edges);
+
+                int nameCount = checkpointRegion.get(ValueLayout.JAVA_INT, 24);
+                long offset = 28;
+                for (int i = 0; i < nameCount; i++) {
+                    long hash = checkpointRegion.get(ValueLayout.JAVA_LONG, offset);
+                    offset += 8;
+                    int len = checkpointRegion.get(ValueLayout.JAVA_INT, offset);
+                    offset += 4;
+                    byte[] nameBytes = new byte[len];
+                    MemorySegment.copy(checkpointRegion, offset, MemorySegment.ofArray(nameBytes), 0, len);
+                    offset += len;
+                    String name = new String(nameBytes, StandardCharsets.UTF_8);
+                    this.hashToTag.put(hash, name);
+                }
+
+                int entryCount = checkpointRegion.get(ValueLayout.JAVA_INT, offset);
+                offset += 4;
+                CognitiveProfile[] profiles = CognitiveProfile.values();
+                for (int i = 0; i < entryCount; i++) {
+                    long ctxHash = checkpointRegion.get(ValueLayout.JAVA_LONG, offset);
+                    int ordinal = checkpointRegion.get(ValueLayout.JAVA_BYTE, offset + 8) & 0xFF;
+                    float ema = checkpointRegion.get(ValueLayout.JAVA_FLOAT, offset + 12);
+                    int totalSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + 16);
+                    int positiveSignals = checkpointRegion.get(ValueLayout.JAVA_INT, offset + 20);
+                    long lastUpdatedMs = checkpointRegion.get(ValueLayout.JAVA_LONG, offset + 24);
+                    offset += 32;
+
+                    if (ordinal < profiles.length) {
+                        CognitiveProfile profile = profiles[ordinal];
+                        RunningStats rs = new RunningStats(ema, totalSignals, positiveSignals, lastUpdatedMs);
+                        this.banditStats.computeIfAbsent(ctxHash, _ -> new EnumMap<>(CognitiveProfile.class))
+                                .put(profile, rs);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to load CoActivationRecordMemory metadata from CHECKPOINT region, starting empty", e);
+            }
         } else if (!isNew && bundlePath != null) {
             Path metaPath = bundlePath.resolveSibling(bundlePath.getFileName().toString() + ".meta");
             if (Files.exists(metaPath)) {
@@ -232,6 +297,8 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
                 }
             }
         }
+
+        this.checkpointRegion = checkpointRegion;
 
         log.info("CoActivationRecordMemory initialized (bundle): pairCap={}, edgeCap={}, count={}",
                 pairCap, edgeCap, size());
@@ -430,28 +497,69 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
         saveLock.lock();
         try {
             if (isBundleManaged()) {
-                Path path = filePath != null ? filePath : filePath();
-                if (path == null) return;
-                Path metaPath = path.resolveSibling(path.getFileName().toString() + ".meta");
-                try {
-                    Path parent = metaPath.getParent();
-                    if (parent != null) {
-                        Files.createDirectories(parent);
-                    }
+                if (checkpointRegion != null) {
                     flush();
-                    try (FileChannel ch = FileChannel.open(metaPath,
-                            StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-                        ByteBuffer countsBuf = ByteBuffer.allocate(8);
-                        countsBuf.putInt(pairTable.count());
-                        countsBuf.putInt(edgeTable.count());
-                        countsBuf.flip();
-                        ch.write(countsBuf);
-
-                        writeTagIndex(ch);
-                        writeBanditStats(ch);
+                    int tagsSize = 4;
+                    for (String tag : hashToTag.values()) {
+                        tagsSize += 12 + tag.getBytes(StandardCharsets.UTF_8).length;
                     }
-                } catch (IOException e) {
-                    throw new SpectorGraphPersistenceException("CoActivationRecordMemory", metaPath, e);
+                    int banditSize = 4 + banditStatsCount() * 32;
+                    int totalSize = 8 + tagsSize + banditSize;
+                    ByteBuffer buf = ByteBuffer.allocate(totalSize);
+
+                    buf.putInt(pairTable.count());
+                    buf.putInt(edgeTable.count());
+
+                    buf.putInt(hashToTag.size());
+                    for (Map.Entry<Long, String> entry : hashToTag.entrySet()) {
+                        byte[] nameBytes = entry.getValue().getBytes(StandardCharsets.UTF_8);
+                        buf.putLong(entry.getKey());
+                        buf.putInt(nameBytes.length);
+                        buf.put(nameBytes);
+                    }
+
+                    buf.putInt(banditStatsCount());
+                    for (Map.Entry<Long, EnumMap<CognitiveProfile, RunningStats>> ctxEntry : banditStats.entrySet()) {
+                        long ctxHash = ctxEntry.getKey();
+                        for (Map.Entry<CognitiveProfile, RunningStats> profEntry : ctxEntry.getValue().entrySet()) {
+                            RunningStats rs = profEntry.getValue();
+                            buf.putLong(ctxHash);
+                            buf.put((byte) profEntry.getKey().ordinal());
+                            buf.put((byte) 0);
+                            buf.put((byte) 0);
+                            buf.put((byte) 0);
+                            buf.putFloat(rs.ema());
+                            buf.putInt(rs.totalSignals());
+                            buf.putInt(rs.positiveSignals());
+                            buf.putLong(rs.lastUpdatedMs());
+                        }
+                    }
+                    buf.flip();
+                    MemorySegment.copy(MemorySegment.ofBuffer(buf), 0, checkpointRegion, 16, totalSize);
+                } else {
+                    Path path = filePath != null ? filePath : filePath();
+                    if (path == null) return;
+                    Path metaPath = path.resolveSibling(path.getFileName().toString() + ".meta");
+                    try {
+                        Path parent = metaPath.getParent();
+                        if (parent != null) {
+                            Files.createDirectories(parent);
+                        }
+                        flush();
+                        try (FileChannel ch = FileChannel.open(metaPath,
+                                StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                            ByteBuffer countsBuf = ByteBuffer.allocate(8);
+                            countsBuf.putInt(pairTable.count());
+                            countsBuf.putInt(edgeTable.count());
+                            countsBuf.flip();
+                            ch.write(countsBuf);
+
+                            writeTagIndex(ch);
+                            writeBanditStats(ch);
+                        }
+                    } catch (IOException e) {
+                        throw new SpectorGraphPersistenceException("CoActivationRecordMemory", metaPath, e);
+                    }
                 }
             } else if (!isPersistent()) {
                 try {

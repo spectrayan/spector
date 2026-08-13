@@ -426,6 +426,15 @@ final class CognitiveCortexBuilder {
                         InsularLayout.LAYOUT_ID,
                         InsularLayout.SCHEMA_VERSION,
                         false
+                ),
+                new RegionSizeSpec(
+                        RegionId.CHECKPOINT,
+                        128L * 1024,
+                        1,
+                        0,
+                        0x434B5054,
+                        1,
+                        true
                 )
         );
     }
