@@ -177,6 +177,7 @@ class MeteredSpectorMemoryTest {
         @Override public java.util.List<com.spectrayan.spector.memory.model.CognitiveRecord> browse(String... tags) { return java.util.List.of(); }
         @Override public String exportJson() { return "[]"; }
         @Override public void setSalienceProfile(SalienceProfile profile) {}
+        @Override public void setSoulVersion(short version) {}
         @Override public SalienceProfile salienceProfile() { return SalienceProfile.NEUTRAL; }
         @Override public float computeTopicBoost(String text) { return 1.0f; }
         @Override public float computeSelfRelevanceBoost(String text) { return 1.0f; }
