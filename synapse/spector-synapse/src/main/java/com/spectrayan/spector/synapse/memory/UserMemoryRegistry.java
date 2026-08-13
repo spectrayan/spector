@@ -322,6 +322,11 @@ public final class UserMemoryRegistry implements AutoCloseable {
                         built.setSalienceProfile(model.salience());
                         log.info("[UserMemoryRegistry] Restored salience profile from INSULA for user/agent {}", userId);
                     }
+                    if (model != null && model.soul() != null) {
+                        built.setSoulVersion(model.soul().soulVersion());
+                        log.info("[UserMemoryRegistry] Restored soul version {} from INSULA for user/agent {}",
+                                model.soul().soulVersion(), userId);
+                    }
                 }
             }
         } catch (Exception e) {

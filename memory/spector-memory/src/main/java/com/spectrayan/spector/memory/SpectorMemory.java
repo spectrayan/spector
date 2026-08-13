@@ -438,6 +438,17 @@ public interface SpectorMemory extends AutoCloseable {
     void setSalienceProfile(com.spectrayan.spector.memory.model.SalienceProfile profile);
 
     /**
+     * Sets the current soul version for encoding state stamping during ingestion.
+     *
+     * <p>The soul version is monotonically increasing and stamped into the
+     * synaptic header at ingestion time. This enables detection of stale memories
+     * whose importance was computed under an older soul configuration.</p>
+     *
+     * @param version the current soul version
+     */
+    void setSoulVersion(short version);
+
+    /**
      * Returns the currently active salience profile.
      *
      * @return the effective salience profile (never null — NEUTRAL if unset)

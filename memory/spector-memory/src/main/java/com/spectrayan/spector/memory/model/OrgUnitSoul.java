@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 
@@ -23,7 +24,10 @@ public record OrgUnitSoul(
         String name,
         String description,
         List<String> expertise,
-        float[] identityEmbedding
+        float[] identityEmbedding,
+        short soulVersion,
+        Instant createdAt,
+        Instant updatedAt
 ) implements SoulContext {
     public OrgUnitSoul {
         expertise = expertise != null ? Collections.unmodifiableList(expertise) : List.of();

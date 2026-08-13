@@ -1194,6 +1194,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     }
 
     @Override
+    public void setSoulVersion(short version) {
+        cognitiveTarget.setSoulVersion(version);
+    }
+
+    @Override
     public SalienceProfile salienceProfile() {
         return cognitiveTarget.salienceProfile();
     }

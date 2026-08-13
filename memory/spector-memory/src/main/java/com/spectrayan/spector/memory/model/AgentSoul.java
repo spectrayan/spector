@@ -51,7 +51,8 @@ public record AgentSoul(
         float[] expertiseEmbedding,
         float[] purposeEmbedding,
 
-        // Timestamps
+        // Versioning & timestamps
+        short soulVersion,
         Instant createdAt,
         Instant updatedAt
 ) implements SoulContext {
@@ -93,7 +94,7 @@ public record AgentSoul(
             List.of(), List.of(), List.of(),
             EmotionalBaseline.NEUTRAL,
             null, null, List.of(),
-            null, null, null, null);
+            null, null, (short) 0, null, null);
 
     /**
      * Creates a minimal agent soul with defaults (backwards compatibility).
@@ -105,7 +106,7 @@ public record AgentSoul(
                 List.of(), List.of(), List.of(),
                 EmotionalBaseline.NEUTRAL,
                 null, null, List.of(),
-                null, null, now, now);
+                null, null, (short) 0, now, now);
     }
 
     /**
@@ -160,6 +161,7 @@ public record AgentSoul(
         private List<String> tools = new ArrayList<>();
         private float[] expertiseEmbedding;
         private float[] purposeEmbedding;
+        private short soulVersion;
         private Instant createdAt;
         private Instant updatedAt;
 
@@ -223,6 +225,7 @@ public record AgentSoul(
             return this;
         }
 
+        public Builder soulVersion(short soulVersion) { this.soulVersion = soulVersion; return this; }
         public Builder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
         public Builder updatedAt(Instant updatedAt) { this.updatedAt = updatedAt; return this; }
 
@@ -235,7 +238,7 @@ public record AgentSoul(
                     communicationStyle,
                     model, tools,
                     expertiseEmbedding, purposeEmbedding,
-                    createdAt, updatedAt);
+                    soulVersion, createdAt, updatedAt);
         }
     }
 

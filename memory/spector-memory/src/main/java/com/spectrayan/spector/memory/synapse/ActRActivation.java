@@ -69,10 +69,14 @@ public final class ActRActivation {
     /** Number of recall timestamp slots in the ring buffer. */
     public static final int RING_BUFFER_SLOTS = 3;
 
-    // ── Reserved field offsets repurposed as recall timestamp ring buffer ──
-    private static final long OFFSET_RECALL_TS_0 = SynapticHeaderConstants.OFFSET_RESERVED_F1;  // 44
-    private static final long OFFSET_RECALL_TS_1 = SynapticHeaderConstants.OFFSET_RESERVED_L1;  // 56
-    private static final long OFFSET_RECALL_TS_2 = SynapticHeaderConstants.OFFSET_RESERVED_L1 + 4; // 60
+    // ── Recall timestamp ring buffer offsets ──
+    // NOTE: These offsets overlap with encoding state fields (encoding_alpha at 44,
+    // encoding_surprise at 56, last_recall_profile at 60). The ACT-R ring buffer
+    // is gated behind header version >= 3 (never reached with V1 headers).
+    // When V2 headers are introduced, the ring buffer needs dedicated space.
+    private static final long OFFSET_RECALL_TS_0 = SynapticHeaderConstants.OFFSET_ENCODING_ALPHA;  // 44
+    private static final long OFFSET_RECALL_TS_1 = SynapticHeaderConstants.OFFSET_ENCODING_SURPRISE;  // 56
+    private static final long OFFSET_RECALL_TS_2 = SynapticHeaderConstants.OFFSET_ENCODING_SURPRISE + 4; // 60
 
     private static final long[] OFFSETS = {
             OFFSET_RECALL_TS_0, OFFSET_RECALL_TS_1, OFFSET_RECALL_TS_2

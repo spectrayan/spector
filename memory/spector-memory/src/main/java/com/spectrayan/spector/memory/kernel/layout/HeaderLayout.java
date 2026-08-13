@@ -47,7 +47,7 @@ public sealed interface HeaderLayout
     /** Layout version number. */
     int version();
 
-    // ── Core field reads ──
+    // ── Field reads ──
 
     /** Reads the timestamp (epoch millis) at the given record offset. */
     long readTimestamp(MemorySegment seg, long off);
@@ -226,6 +226,38 @@ public sealed interface HeaderLayout
      * Writes the last auto-LTP timestamp.
      */
     void writeLastAutoLtp(MemorySegment seg, long off, long timestampMs);
+
+    // ── Encoding State fields ──
+
+    /** Reads the encoding-time cognitive profile byte. Returns 0 (BALANCED) for pre-V3 records. */
+    default byte readEncodingProfile(MemorySegment seg, long off) { return 0; }
+
+    /** Writes the encoding-time cognitive profile byte. */
+    default void writeEncodingProfile(MemorySegment seg, long off, byte profile) {}
+
+    /** Reads the quantized alpha weight at encoding time. Returns 0 for pre-V3 records. */
+    default byte readEncodingAlpha(MemorySegment seg, long off) { return 0; }
+
+    /** Writes the quantized alpha weight at encoding time. */
+    default void writeEncodingAlpha(MemorySegment seg, long off, byte alpha) {}
+
+    /** Reads the quantized beta weight at encoding time. Returns 0 for pre-V3 records. */
+    default byte readEncodingBeta(MemorySegment seg, long off) { return 0; }
+
+    /** Writes the quantized beta weight at encoding time. */
+    default void writeEncodingBeta(MemorySegment seg, long off, byte beta) {}
+
+    /** Reads the soul version counter. Returns 0 (no soul) for pre-V3 records. */
+    default short readSoulVersion(MemorySegment seg, long off) { return 0; }
+
+    /** Writes the soul version counter. */
+    default void writeSoulVersion(MemorySegment seg, long off, short version) {}
+
+    /** Reads the surprise z-score at encoding time. Returns 0.0f for pre-V3 records. */
+    default float readEncodingSurprise(MemorySegment seg, long off) { return 0f; }
+
+    /** Writes the surprise z-score at encoding time. */
+    default void writeEncodingSurprise(MemorySegment seg, long off, float surprise) {}
 
     // ── Factory methods ──
 

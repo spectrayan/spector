@@ -132,6 +132,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     //  Salience Profile (NEUTRAL in OSS mode) 
     private volatile SalienceProfile salienceProfile;
 
+    //  Soul version stamp (updated alongside salience profile) 
+    private volatile short currentSoulVersion;
+
     //  Session tracking for Hebbian co-ingestion and temporal chains 
     private final AtomicInteger lastIngestedMemoryIdx = new AtomicInteger(-1);
     private final com.spectrayan.spector.memory.session.SessionRegistry sessionRegistry;
@@ -287,6 +290,24 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.salienceProfile = profile != null ? profile : SalienceProfile.NEUTRAL;
     }
 
+    /**
+     * Updates the current soul version for encoding state stamping.
+     *
+     * <p>Called by the synapse layer when the soul is loaded or updated.
+     * The version is stamped into the synaptic header at ingestion time
+     * so that stale memories can be detected for re-fusion.</p>
+     *
+     * @param version the current soul version (monotonically increasing)
+     */
+    public void setSoulVersion(short version) {
+        this.currentSoulVersion = version;
+    }
+
+    /** Returns the current soul version (for testing/introspection). */
+    public short currentSoulVersion() {
+        return currentSoulVersion;
+    }
+
     /** Returns the current salience profile (for testing/introspection). */
     public SalienceProfile salienceProfile() {
         return salienceProfile;
@@ -421,16 +442,23 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             flags = (byte) (flags | SynapticHeaderConstants.FLAG_PINNED);
         }
 
-        // Step 6: Build cognitive header (with emotional context from hints)
+        // Step 6: Build cognitive header (with emotional context and encoding state)
         float l2Norm = computeL2Norm(vector);
         byte rawValence = (hints != null) ? hints.valence() : (byte) 0;
         byte rawArousal = (hints != null) ? hints.effectiveArousal() : (byte) 0;
         // Step 6a: Personality-modulated emotional encoding
         byte valence = salienceProfile.modulateValence(rawValence);
         byte arousal = salienceProfile.modulateArousal(rawArousal);
+        // Step 6b: Encoding state stamp — captures cognitive context at formation time
+        float surpriseZScore = (float) surpriseDetector.stats().zScore(nearestDist);
+        byte encodingProfile = computeEncodingProfile(salienceProfile);
+        byte encodingAlpha = computeEncodingAlpha(salienceProfile);
+        byte encodingBeta = computeEncodingBeta(salienceProfile);
         CognitiveHeader header = new CognitiveHeader(
                 System.currentTimeMillis(), synapticTags, l2Norm, importance,
-                0, (short) 0, valence, flags, arousal, 1.0f);
+                0, (short) 0, valence, flags, arousal, 1.0f,
+                encodingProfile, encodingAlpha, encodingBeta,
+                currentSoulVersion, surpriseZScore);
 
         // Step 7: Route to tier store and write (with automatic partition rolling)
         long offset;
@@ -526,15 +554,20 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         float l2Norm = computeL2Norm(vector);
         CognitiveHeader header = new CognitiveHeader(
                 preservedHeader.timestampMs(),       // [x] original timestamp
-                synapticTags,                        // ðŸ”„ re-encoded (same tags)
-                l2Norm,                              // ðŸ”„ from new vector
+                synapticTags,                        // 🔄 re-encoded (same tags)
+                l2Norm,                              // 🔄 from new vector
                 preservedHeader.importance(),         // [x] original importance
                 preservedHeader.agentRecallCount(),   // [x] original recall count
-                (short) 0,                           // ðŸ”„ centroidId recomputed
+                (short) 0,                           // 🔄 centroidId recomputed
                 preservedHeader.valence(),            // [x] original valence
                 preservedHeader.flags(),              // [x] original flags
                 preservedHeader.arousal(),            // [x] original arousal
-                preservedHeader.storageStrength()     // [x] original storage strength
+                preservedHeader.storageStrength(),    // [x] original storage strength
+                preservedHeader.encodingProfile(),    // [x] original encoding profile
+                preservedHeader.encodingAlpha(),      // [x] original encoding alpha
+                preservedHeader.encodingBeta(),       // [x] original encoding beta
+                preservedHeader.soulVersion(),        // [x] original soul version
+                preservedHeader.encodingSurprise()    // [x] original encoding surprise
         );
 
         // Step 7: Route to tier store and write
@@ -658,9 +691,16 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         byte valence = salienceProfile.modulateValence(rawValence);
         byte arousal = salienceProfile.modulateArousal(rawArousal);
         long timestampMs = context.effectiveTimestampMs();
+        // Encoding state stamp
+        float surpriseZScore = (float) surpriseDetector.stats().zScore(nearestDist);
+        byte encodingProfile = computeEncodingProfile(salienceProfile);
+        byte encodingAlpha = computeEncodingAlpha(salienceProfile);
+        byte encodingBeta = computeEncodingBeta(salienceProfile);
         CognitiveHeader header = new CognitiveHeader(
                 timestampMs, synapticTags, l2Norm, importance,
-                0, (short) 0, valence, flags, arousal, 1.0f);
+                0, (short) 0, valence, flags, arousal, 1.0f,
+                encodingProfile, encodingAlpha, encodingBeta,
+                currentSoulVersion, surpriseZScore);
 
         // Step 7: Route to tier store and write
         long offset;
@@ -757,5 +797,65 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             return null;
         }
         return value.replace('\n', '_').replace('\r', '_');
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ENCODING STATE HELPERS
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Determines the encoding profile byte from the current SalienceProfile.
+     *
+     * <p>If the profile has custom α/β overrides (soul-derived), the byte
+     * encodes bit7=1 (soul flag) + SOUL_DERIVED ordinal. Otherwise, it
+     * encodes the preset CognitiveProfile ordinal.</p>
+     */
+    private static byte computeEncodingProfile(SalienceProfile profile) {
+        if (profile.alpha() != null || profile.beta() != null) {
+            // Soul-derived: custom α/β from InsulaSelfModel
+            return SynapticHeaderConstants.soulDerivedEncodingProfile();
+        }
+        // Preset profile
+        com.spectrayan.spector.memory.model.CognitiveProfile cogProfile =
+                profile.defaultProfile() != null
+                        ? profile.defaultProfile()
+                        : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
+        return SynapticHeaderConstants.presetEncodingProfile(cogProfile.ordinal());
+    }
+
+    /**
+     * Quantizes the effective alpha weight to unsigned byte [0, 255].
+     * Uses the SalienceProfile override if present, otherwise the default profile's alpha.
+     */
+    private static byte computeEncodingAlpha(SalienceProfile profile) {
+        float alpha;
+        if (profile.alpha() != null) {
+            alpha = profile.alpha();
+        } else {
+            com.spectrayan.spector.memory.model.CognitiveProfile cogProfile =
+                    profile.defaultProfile() != null
+                            ? profile.defaultProfile()
+                            : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
+            alpha = cogProfile.alpha();
+        }
+        return SynapticHeaderConstants.quantizeWeight(alpha);
+    }
+
+    /**
+     * Quantizes the effective beta weight to unsigned byte [0, 255].
+     * Uses the SalienceProfile override if present, otherwise the default profile's beta.
+     */
+    private static byte computeEncodingBeta(SalienceProfile profile) {
+        float beta;
+        if (profile.beta() != null) {
+            beta = profile.beta();
+        } else {
+            com.spectrayan.spector.memory.model.CognitiveProfile cogProfile =
+                    profile.defaultProfile() != null
+                            ? profile.defaultProfile()
+                            : com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED;
+            beta = cogProfile.beta();
+        }
+        return SynapticHeaderConstants.quantizeWeight(beta);
     }
 }

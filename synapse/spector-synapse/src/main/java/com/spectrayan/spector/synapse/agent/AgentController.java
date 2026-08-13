@@ -84,6 +84,11 @@ public class AgentController {
                 .communicationStyle(soul.communicationStyle())
                 .model(soul.model())
                 .tools(soul.tools())
+                .expertiseEmbedding(soul.expertiseEmbedding())
+                .purposeEmbedding(soul.purposeEmbedding())
+                .soulVersion(soul.soulVersion())
+                .createdAt(soul.createdAt())
+                .updatedAt(soul.updatedAt())
                 .build();
         soulService.saveAgentSoul(updated);
         return ResponseEntity.ok(updated);
@@ -141,6 +146,11 @@ public class AgentController {
                 .communicationStyle(soul.communicationStyle())
                 .model(soul.model())
                 .tools(soul.tools())
+                .expertiseEmbedding(soul.expertiseEmbedding())
+                .purposeEmbedding(soul.purposeEmbedding())
+                .soulVersion(soul.soulVersion())
+                .createdAt(soul.createdAt())
+                .updatedAt(soul.updatedAt())
                 .build();
         soulService.saveAgentSoul(updated);
         return ResponseEntity.ok(updated);

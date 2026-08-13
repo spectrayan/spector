@@ -401,6 +401,11 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
+    public void setSoulVersion(short version) {
+        delegate.setSoulVersion(version);
+    }
+
+    @Override
     public com.spectrayan.spector.memory.model.SalienceProfile salienceProfile() {
         return delegate.salienceProfile();
     }
