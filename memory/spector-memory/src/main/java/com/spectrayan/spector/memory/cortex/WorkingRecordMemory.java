@@ -169,10 +169,11 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
             layout.writeHeader(segment(), offset, header);
 
             // Write quantized vector payload
+            int copyLen = Math.min(quantizedVec.length, layout.quantizedVecBytes());
             MemorySegment.copy(
                     MemorySegment.ofArray(quantizedVec), 0,
                     segment(), layout.vectorOffset(offset),
-                    quantizedVec.length
+                    copyLen
             );
 
             // Advance circular buffer
@@ -257,9 +258,10 @@ public final class WorkingRecordMemory extends AbstractCognitiveRecordMemory {
             if (SynapticHeaderConstants.isTombstoned(flags)) continue;
 
             // Compute calibrated L2 distance via SIMD kernel
+            int dims = Math.min(queryVector.length, Math.min(mins.length, layout.quantizedVecBytes()));
             float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
                     queryVector, segment(), layout.vectorOffset(offset),
-                    mins, scales, layout.quantizedVecBytes());
+                    mins, scales, dims);
 
             if (dist < minDist) minDist = dist;
         }

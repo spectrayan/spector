@@ -393,7 +393,7 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.HYPERGRAPH,
-                        64 + 16 + 48L * hyperCap + 24L * hyperEdgeCap,
+                        64 + 16 + 48L * hyperEdgeCap + 128L * hyperEdgeCap,
                         hyperCap,
                         48,
                         new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout().layoutId(),

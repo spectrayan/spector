@@ -1102,9 +1102,10 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
 
     @Override
     public void close() {
-        // All four segments share the substrate arena, so arena.close() releases them together.
         log.info("HyperEntityGraphMemory closing: {} hyperedges", totalHyperedges);
-        arena.close();
+        if (!bundleManaged && arena != null && arena.scope().isAlive()) {
+            arena.close();
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
