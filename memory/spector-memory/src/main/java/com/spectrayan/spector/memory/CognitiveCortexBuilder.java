@@ -309,6 +309,9 @@ final class CognitiveCortexBuilder {
         long typeRegistrySize = builder.typeRegistrySize;
         long insulaSize = builder.insulaSize;
 
+        // BM25 region sizing: header(24) + docIds(~48B/doc) + docLengths(4B/doc) + terms+postings(~80B/doc)
+        long bm25InitialSize = Math.max(64 * 1024, 24 + 132L * workingCap);
+
         return List.of(
                 new RegionSizeSpec(
                         RegionId.WORKING,
@@ -384,12 +387,12 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.ENTITY_NAMES,
-                        64 + 16 + 8L * hyperCap * 16,
+                        64 + 16 + 8L * hyperCap * 16 + 32L * hyperCap, // adjacency + name index space
                         1,
                         8,
                         new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().layoutId(),
                         new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().schemaVersion(),
-                        false
+                        true  // growable — name index may exceed initial allocation
                 ),
                 new RegionSizeSpec(
                         RegionId.HYPERGRAPH,
@@ -426,6 +429,24 @@ final class CognitiveCortexBuilder {
                         InsularLayout.LAYOUT_ID,
                         InsularLayout.SCHEMA_VERSION,
                         false
+                ),
+                new RegionSizeSpec(
+                        RegionId.CHECKPOINT,
+                        128L * 1024,
+                        1,
+                        0,
+                        0x434B5054,
+                        1,
+                        true
+                ),
+                new RegionSizeSpec(
+                        RegionId.BM25,
+                        bm25InitialSize,
+                        1,
+                        0,
+                        0x42494458,  // "BIDX" magic
+                        1,
+                        true  // growable — term/posting lists grow dynamically
                 )
         );
     }

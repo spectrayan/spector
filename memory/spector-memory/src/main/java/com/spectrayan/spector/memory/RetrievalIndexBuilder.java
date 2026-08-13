@@ -67,17 +67,42 @@ final class RetrievalIndexBuilder {
             textDataStore.readAll();
             index.setTextDataStore(textDataStore);
 
-            java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
-            java.nio.file.Path v2Bm25 = resolvedPartitionDir != null ? resolvedPartitionDir.resolve(StorageLayout.FILE_BM25) : null;
-            java.nio.file.Path loadFrom = MigrationPathResolver.getNewerPath(bm25Path, v2Bm25, null);
-            if (loadFrom != null) {
-                bm25Path = loadFrom;
+            // V4 bundle path: try loading from BM25 region first
+            BM25Index loadedBm25 = null;
+            boolean usedBundleRegion = false;
+            if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+                try {
+                    java.lang.foreign.MemorySegment bm25Region = cortex.runtimeBundle().regionSegment(
+                            com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+                    if (bm25Region != null) {
+                        loadedBm25 = BM25Index.loadFromRegion(bm25Region);
+                        if (loadedBm25 != null) {
+                            usedBundleRegion = true;
+                            log.info("BM25 loaded from bundle region: {} docs", loadedBm25.size());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("BM25 bundle region load failed, falling back to file: {}", e.getMessage());
+                }
             }
-            BM25Index loadedBm25 = BM25Index.load(bm25Path);
+
+            // V3 fallback: load from bm25.bidx file
+            if (loadedBm25 == null) {
+                java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
+                java.nio.file.Path v2Bm25 = resolvedPartitionDir != null ? resolvedPartitionDir.resolve(StorageLayout.FILE_BM25) : null;
+                java.nio.file.Path loadFrom = MigrationPathResolver.getNewerPath(bm25Path, v2Bm25, null);
+                if (loadFrom != null) {
+                    bm25Path = loadFrom;
+                }
+                loadedBm25 = BM25Index.load(bm25Path);
+                if (loadedBm25 != null) {
+                    log.info("BM25 loaded from binary index: {} docs", loadedBm25.size());
+                }
+            }
+
             bm25Index = new MemoryBM25Index(1);
             if (loadedBm25 != null) {
                 bm25Index.setPartition(0, loadedBm25);
-                log.info("BM25 loaded from binary index: {} docs", loadedBm25.size());
             } else {
                 Map<String, String> allTexts = new java.util.HashMap<>();
                 for (var entry : index.locationMap().entrySet()) {
@@ -89,7 +114,20 @@ final class RetrievalIndexBuilder {
                 if (!allTexts.isEmpty()) {
                     bm25Index.rebuildPartition(0, allTexts);
                     log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
+                    // Save to file (V3 compat) and bundle region (V4)
+                    java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
                     bm25Index.partition(0).save(bm25Path);
+                    if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
+                        try {
+                            java.lang.foreign.MemorySegment bm25Region = cortex.runtimeBundle().regionSegment(
+                                    com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+                            if (bm25Region != null) {
+                                bm25Index.partition(0).saveToRegion(bm25Region);
+                            }
+                        } catch (Exception e) {
+                            log.debug("BM25 bundle region save failed: {}", e.getMessage());
+                        }
+                    }
                 }
             }
         } else {
