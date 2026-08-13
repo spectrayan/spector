@@ -384,12 +384,12 @@ final class CognitiveCortexBuilder {
                 ),
                 new RegionSizeSpec(
                         RegionId.ENTITY_NAMES,
-                        64 + 16 + 8L * hyperCap * 16,
+                        64 + 16 + 8L * hyperCap * 16 + 32L * hyperCap, // adjacency + name index space
                         1,
                         8,
                         new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().layoutId(),
                         new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().schemaVersion(),
-                        false
+                        true  // growable — name index may exceed initial allocation
                 ),
                 new RegionSizeSpec(
                         RegionId.HYPERGRAPH,

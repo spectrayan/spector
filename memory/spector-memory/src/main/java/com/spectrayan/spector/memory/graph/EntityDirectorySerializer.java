@@ -200,4 +200,85 @@ final class EntityDirectorySerializer {
         }
         return names;
     }
+
+    // ── V4 Bundle Region Name Index Codec ──
+
+    /**
+     * Writes the name index to a V4 bundle ENTITY_NAMES region at the given offset.
+     *
+     * <p>Format: {@code [4B count][entries: (4B nameLen + nameBytes + 4B id)]}.
+     * The first 4 bytes at {@code offset} store the total serialized length (including itself),
+     * followed by the name index payload.</p>
+     *
+     * @param region    the ENTITY_NAMES region MemorySegment
+     * @param offset    byte offset within the region to start writing
+     * @param nameIndex the name→id map to serialize
+     * @return number of bytes written (including the 4-byte length prefix)
+     */
+    static int saveNameIndexToRegion(java.lang.foreign.MemorySegment region, long offset,
+                                     ConcurrentHashMap<String, Integer> nameIndex) {
+        // Serialize to byte array first
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ByteBuffer countBuf = ByteBuffer.allocate(4);
+        countBuf.putInt(nameIndex.size());
+        countBuf.flip();
+        baos.write(countBuf.array(), 0, 4);
+
+        for (Map.Entry<String, Integer> entry : nameIndex.entrySet()) {
+            byte[] nameBytes = entry.getKey().getBytes(StandardCharsets.UTF_8);
+            ByteBuffer entryBuf = ByteBuffer.allocate(4 + nameBytes.length + 4);
+            entryBuf.putInt(nameBytes.length);
+            entryBuf.put(nameBytes);
+            entryBuf.putInt(entry.getValue());
+            entryBuf.flip();
+            baos.write(entryBuf.array(), 0, entryBuf.limit());
+        }
+
+        byte[] payload = baos.toByteArray();
+        int totalBytes = 4 + payload.length; // 4-byte length prefix + payload
+
+        if (offset + totalBytes > region.byteSize()) {
+            log.warn("Name index ({} bytes) exceeds ENTITY_NAMES region capacity at offset {} (region size={})",
+                    totalBytes, offset, region.byteSize());
+            return -1;
+        }
+
+        // Write length prefix then payload
+        region.set(java.lang.foreign.ValueLayout.JAVA_INT, offset, payload.length);
+        java.lang.foreign.MemorySegment.copy(
+                java.lang.foreign.MemorySegment.ofArray(payload), 0,
+                region, offset + 4, payload.length);
+
+        log.info("EntityDirectory name index saved to bundle region: {} names, {} bytes at offset {}",
+                nameIndex.size(), totalBytes, offset);
+        return totalBytes;
+    }
+
+    /**
+     * Loads the name index from a V4 bundle ENTITY_NAMES region at the given offset.
+     *
+     * @param region the ENTITY_NAMES region MemorySegment
+     * @param offset byte offset within the region where the name index starts
+     * @return the deserialized name→id map, or empty map if no data present
+     */
+    static ConcurrentHashMap<String, Integer> loadNameIndexFromRegion(
+            java.lang.foreign.MemorySegment region, long offset) {
+        if (region == null || offset + 4 > region.byteSize()) {
+            return new ConcurrentHashMap<>();
+        }
+
+        int payloadLen = region.get(java.lang.foreign.ValueLayout.JAVA_INT, offset);
+        if (payloadLen <= 0 || offset + 4 + payloadLen > region.byteSize()) {
+            return new ConcurrentHashMap<>();
+        }
+
+        byte[] payload = new byte[payloadLen];
+        java.lang.foreign.MemorySegment.copy(region, offset + 4,
+                java.lang.foreign.MemorySegment.ofArray(payload), 0, payloadLen);
+
+        ConcurrentHashMap<String, Integer> names = parseNameIndexBytes(payload);
+        log.info("EntityDirectory name index loaded from bundle region: {} names, {} bytes at offset {}",
+                names.size(), payloadLen + 4, offset);
+        return names;
+    }
 }

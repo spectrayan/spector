@@ -199,15 +199,24 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             this.adjHighWaterMark = 0;
         }
 
-        // Load names from sidecar
+        // Load names: try V4 bundle region first, then V3 sidecar
         if (!isNew && bundlePath != null) {
             try {
-                ConcurrentHashMap<String, Integer> names = EntityDirectorySerializer.loadNameIndexSidecar(bundlePath, null);
-                if (names != null) {
+                long nameIndexOffset = MemoryHeader.HEADER_BYTES + 16
+                        + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
+                ConcurrentHashMap<String, Integer> names = EntityDirectorySerializer.loadNameIndexFromRegion(
+                        adjacencyRegionSlice, nameIndexOffset);
+                if (names != null && !names.isEmpty()) {
                     this.nameIndex.putAll(names);
+                } else {
+                    // V3 fallback: load from sidecar file
+                    names = EntityDirectorySerializer.loadNameIndexSidecar(bundlePath, null);
+                    if (names != null) {
+                        this.nameIndex.putAll(names);
+                    }
                 }
             } catch (Exception e) {
-                log.warn("Failed to load EntityDirectory name index sidecar: {}", e.getMessage());
+                log.warn("Failed to load EntityDirectory name index: {}", e.getMessage());
             }
         }
 
@@ -1125,7 +1134,15 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
 
                 Path path = filePath != null ? filePath : mmapFilePath;
                 if (path != null) {
-                    EntityDirectorySerializer.saveNameIndexSidecar(this, path, encryptor);
+                    // V4 bundle path: write name index to ENTITY_NAMES region after adjacency data
+                    long nameIndexOffset = MemoryHeader.HEADER_BYTES + 16
+                            + (long) adjSegmentCapacity * ADJ_ENTRY_BYTES;
+                    int written = EntityDirectorySerializer.saveNameIndexToRegion(
+                            adjacencySegment, nameIndexOffset, nameIndex);
+                    if (written < 0) {
+                        // Fallback to sidecar file if region too small
+                        EntityDirectorySerializer.saveNameIndexSidecar(this, path, encryptor);
+                    }
                 }
             } finally {
                 lock.unlockRead(stamp);
