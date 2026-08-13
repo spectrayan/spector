@@ -95,12 +95,50 @@ public class SpectorImportJobConfig {
     @StepScope
     public Tasklet validateManifestTasklet(@Value("#{jobParameters['bundlePath']}") String bundlePath) {
         return (contribution, chunkContext) -> {
-            Path manifestPath = getStagingDir(bundlePath).resolve("manifest.json");
+            Path stagingDir = getStagingDir(bundlePath);
+            Path manifestPath = stagingDir.resolve("manifest.json");
             if (!Files.exists(manifestPath)) {
                 throw new IllegalStateException("Invalid SMB bundle: missing manifest.json");
             }
             String manifestJson = Files.readString(manifestPath);
-            log.info("[ImportJob] Validated bundle manifest successfully:\n{}", manifestJson);
+
+            // 1. Verify nodes component
+            Path nodesDir = stagingDir.resolve("nodes");
+            if (!Files.exists(nodesDir) || !Files.isDirectory(nodesDir)) {
+                throw new IllegalStateException("Invalid SMB bundle: missing nodes directory");
+            }
+            long nodeCount = 0;
+            try (var stream = Files.list(nodesDir)) {
+                for (Path file : stream.filter(p -> p.toString().endsWith(".jsonl")).toList()) {
+                    nodeCount += Files.lines(file).filter(line -> !line.isBlank()).count();
+                }
+            }
+
+            // 2. Verify vectors component
+            Path vectorsDir = stagingDir.resolve("vectors");
+            if (!Files.exists(vectorsDir) || !Files.isDirectory(vectorsDir)) {
+                throw new IllegalStateException("Invalid SMB bundle: missing vectors directory");
+            }
+
+            // 3. Verify graph component
+            Path graphDir = stagingDir.resolve("graph");
+            if (!Files.exists(graphDir) || !Files.isDirectory(graphDir)) {
+                throw new IllegalStateException("Invalid SMB bundle: missing graph directory");
+            }
+
+            // 4. Verify subsystems component
+            Path subDir = stagingDir.resolve("subsystems");
+            if (!Files.exists(subDir) || !Files.isDirectory(subDir)) {
+                throw new IllegalStateException("Invalid SMB bundle: missing subsystems directory");
+            }
+
+            // 5. Verify security component
+            Path secDir = stagingDir.resolve("security");
+            if (!Files.exists(secDir) || !Files.isDirectory(secDir)) {
+                throw new IllegalStateException("Invalid SMB bundle: missing security directory");
+            }
+
+            log.info("[ImportJob] Bundle validation PASSED: verified manifest, nodesCount={}, vectors, graph, subsystems, security", nodeCount);
             return RepeatStatus.FINISHED;
         };
     }

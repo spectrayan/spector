@@ -38,6 +38,10 @@
         <!-- ── Runtime (local mode — direct ingestion via runtime) ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
+            <artifactId>spector-batch</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
             <artifactId>spector-runtime</artifactId>
         </dependency>
         <dependency>

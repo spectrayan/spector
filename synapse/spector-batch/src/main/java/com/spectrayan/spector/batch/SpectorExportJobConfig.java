@@ -62,6 +62,7 @@ public class SpectorExportJobConfig {
                 .next(exportGraphStep())
                 .next(exportSubsystemsStep())
                 .next(exportKeysStep())
+                .next(validateExportStep())
                 .next(packageBundleStep())
                 .build();
     }
@@ -212,6 +213,98 @@ public class SpectorExportJobConfig {
                     """;
             Files.writeString(keysFile, keys);
             log.info("[ExportJob] Encryption headers and metadata exported.");
+            return RepeatStatus.FINISHED;
+        };
+    }
+
+    @Bean
+    public Step validateExportStep() {
+        return new StepBuilder("validateExportStep", jobRepository)
+                .tasklet(validateExportTasklet(null, null), transactionManager)
+                .build();
+    }
+
+    @Bean
+    @StepScope
+    public Tasklet validateExportTasklet(
+            @Value("#{jobParameters['namespace']}") String namespace,
+            @Value("#{jobParameters['targetBundlePath']}") String targetBundlePath) {
+        return (contribution, chunkContext) -> {
+            Path stagingDir = getStagingDir(targetBundlePath);
+
+            // 1. Validate nodes
+            Path nodesDir = stagingDir.resolve("nodes");
+            if (!Files.exists(nodesDir) || !Files.isDirectory(nodesDir)) {
+                throw new IllegalStateException("Export validation failed: nodes directory missing");
+            }
+            long nodeCount = 0;
+            try (var stream = Files.list(nodesDir)) {
+                for (Path file : stream.filter(p -> p.toString().endsWith(".jsonl")).toList()) {
+                    nodeCount += Files.lines(file).filter(line -> !line.isBlank()).count();
+                }
+            }
+            if (nodeCount == 0) {
+                throw new IllegalStateException("Export validation failed: 0 memory nodes exported");
+            }
+
+            // 2. Validate vectors
+            Path vectorsDir = stagingDir.resolve("vectors");
+            if (!Files.exists(vectorsDir) || !Files.isDirectory(vectorsDir)) {
+                throw new IllegalStateException("Export validation failed: vectors directory missing");
+            }
+            long vectorFilesCount = 0;
+            try (var stream = Files.list(vectorsDir)) {
+                vectorFilesCount = stream.filter(p -> p.toString().endsWith(".bin")).count();
+            }
+            if (vectorFilesCount == 0) {
+                throw new IllegalStateException("Export validation failed: 0 vector files exported");
+            }
+
+            // 3. Validate graph
+            Path graphDir = stagingDir.resolve("graph");
+            if (!Files.exists(graphDir) || !Files.isDirectory(graphDir)) {
+                throw new IllegalStateException("Export validation failed: graph directory missing");
+            }
+            long edgeCount = 0;
+            Path edgesFile = graphDir.resolve("edges.jsonl");
+            if (Files.exists(edgesFile)) {
+                edgeCount = Files.lines(edgesFile).filter(line -> !line.isBlank()).count();
+            }
+
+            // 4. Validate subsystems
+            Path subDir = stagingDir.resolve("subsystems");
+            if (!Files.exists(subDir) || !Files.isDirectory(subDir) || !Files.exists(subDir.resolve("state.json"))) {
+                throw new IllegalStateException("Export validation failed: subsystems state missing");
+            }
+
+            // 5. Validate security
+            Path secDir = stagingDir.resolve("security");
+            if (!Files.exists(secDir) || !Files.isDirectory(secDir) || !Files.exists(secDir.resolve("keys.json"))) {
+                throw new IllegalStateException("Export validation failed: security keys missing");
+            }
+
+            // 6. Update manifest with verified counts
+            Path manifestFile = stagingDir.resolve("manifest.json");
+            String manifestJson = String.format("""
+                    {
+                      "schemaVersion": "2.0.0",
+                      "namespace": "%s",
+                      "exportTimestamp": "%s",
+                      "components": ["nodes", "vectors", "graph", "subsystems", "security"],
+                      "counts": {
+                        "nodes": %d,
+                        "vectorFiles": %d,
+                        "edges": %d,
+                        "subsystems": 1,
+                        "keys": 1
+                      },
+                      "verified": true
+                    }
+                    """, namespace, Instant.now().toString(), nodeCount, vectorFilesCount, edgeCount);
+            Files.writeString(manifestFile, manifestJson);
+
+            log.info("[ExportJob] Validation PASSED: namespace='{}', nodes={}, vectorFiles={}, edges={}",
+                    namespace, nodeCount, vectorFilesCount, edgeCount);
             return RepeatStatus.FINISHED;
         };
     }
