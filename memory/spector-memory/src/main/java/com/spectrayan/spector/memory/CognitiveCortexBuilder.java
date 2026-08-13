@@ -309,6 +309,9 @@ final class CognitiveCortexBuilder {
         long typeRegistrySize = builder.typeRegistrySize;
         long insulaSize = builder.insulaSize;
 
+        // BM25 region sizing: header(24) + docIds(~48B/doc) + docLengths(4B/doc) + terms+postings(~80B/doc)
+        long bm25InitialSize = Math.max(64 * 1024, 24 + 132L * workingCap);
+
         return List.of(
                 new RegionSizeSpec(
                         RegionId.WORKING,
@@ -435,6 +438,15 @@ final class CognitiveCortexBuilder {
                         0x434B5054,
                         1,
                         true
+                ),
+                new RegionSizeSpec(
+                        RegionId.BM25,
+                        bm25InitialSize,
+                        1,
+                        0,
+                        0x42494458,  // "BIDX" magic
+                        1,
+                        true  // growable — term/posting lists grow dynamically
                 )
         );
     }

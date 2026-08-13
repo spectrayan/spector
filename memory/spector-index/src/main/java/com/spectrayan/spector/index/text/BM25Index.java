@@ -667,4 +667,161 @@ public class BM25Index implements KeywordIndex {
             return null;
         }
     }
+
+    // ── V4 Bundle Region I/O ──
+
+    /**
+     * Saves this BM25 index to a V4 bundle region MemorySegment.
+     *
+     * <p>Uses the same binary format as {@link #save(java.nio.file.Path)} but writes
+     * to a memory-mapped region instead of a file. The first 4 bytes store the
+     * total payload length, followed by the binary index data.</p>
+     *
+     * @param region the BM25 region MemorySegment
+     * @return number of bytes written, or -1 if region too small
+     */
+    public int saveToRegion(java.lang.foreign.MemorySegment region) {
+        rwLock.readLock().lock();
+        try {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            java.io.DataOutputStream dos = new java.io.DataOutputStream(baos);
+
+            // Header
+            dos.writeInt(MAGIC);
+            dos.writeInt(FORMAT_VERSION);
+            dos.writeInt(totalDocs);
+            dos.writeInt(invertedIndex.size());
+            dos.writeLong(totalDocLength);
+
+            // DocIds
+            int docCount = docIds.size();
+            dos.writeInt(docCount);
+            for (String id : docIds) {
+                byte[] idBytes = id.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                dos.writeInt(idBytes.length);
+                dos.write(idBytes);
+            }
+
+            // DocLengths
+            dos.writeInt(docCount);
+            for (int i = 0; i < docCount; i++) {
+                dos.writeInt(docLengthsArray[i]);
+            }
+
+            // Terms + Postings
+            dos.writeInt(invertedIndex.size());
+            for (var entry : invertedIndex.entrySet()) {
+                byte[] termBytes = entry.getKey().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                PostingList pl = entry.getValue();
+                dos.writeInt(termBytes.length);
+                dos.write(termBytes);
+                dos.writeInt(pl.size);
+                for (int i = 0; i < pl.size; i++) {
+                    dos.writeInt(pl.docIndices[i]);
+                    dos.writeInt(pl.termFrequencies[i]);
+                }
+            }
+
+            dos.flush();
+            byte[] data = baos.toByteArray();
+            int totalBytes = 4 + data.length; // 4-byte length prefix + payload
+
+            if (totalBytes > region.byteSize()) {
+                log.warn("BM25 index ({} bytes) exceeds region capacity ({}B)",
+                        totalBytes, region.byteSize());
+                return -1;
+            }
+
+            // Write length prefix then payload
+            region.set(java.lang.foreign.ValueLayout.JAVA_INT, 0, data.length);
+            java.lang.foreign.MemorySegment.copy(
+                    java.lang.foreign.MemorySegment.ofArray(data), 0,
+                    region, 4, data.length);
+
+            log.info("BM25 index saved to bundle region: {} docs, {} terms, {} bytes",
+                    totalDocs, invertedIndex.size(), totalBytes);
+            return totalBytes;
+
+        } catch (java.io.IOException e) {
+            log.error("Failed to save BM25 index to bundle region", e);
+            return -1;
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Loads a BM25 index from a V4 bundle region MemorySegment.
+     *
+     * @param region the BM25 region MemorySegment
+     * @return the loaded BM25Index, or null if no valid data present
+     */
+    public static BM25Index loadFromRegion(java.lang.foreign.MemorySegment region) {
+        if (region == null || region.byteSize() < 28) return null; // 4B len + 24B min header
+
+        int payloadLen = region.get(java.lang.foreign.ValueLayout.JAVA_INT, 0);
+        if (payloadLen <= 0 || 4 + payloadLen > region.byteSize()) return null;
+
+        byte[] data = new byte[payloadLen];
+        java.lang.foreign.MemorySegment.copy(region, 4,
+                java.lang.foreign.MemorySegment.ofArray(data), 0, payloadLen);
+
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+
+        // Header
+        int magic = buf.getInt();
+        if (magic != MAGIC) return null;
+        int version = buf.getInt();
+        if (version != FORMAT_VERSION) return null;
+        int savedTotalDocs = buf.getInt();
+        int termCount = buf.getInt();
+        long savedTotalDocLength = buf.getLong();
+
+        BM25Index idx = new BM25Index();
+
+        // DocIds
+        int docCount = buf.getInt();
+        for (int i = 0; i < docCount; i++) {
+            int idLen = buf.getInt();
+            byte[] idBytes = new byte[idLen];
+            buf.get(idBytes);
+            String id = new String(idBytes, java.nio.charset.StandardCharsets.UTF_8);
+            idx.docIds.add(id);
+            idx.docIdToIndex.put(id, i);
+        }
+
+        // DocLengths
+        int docLenCount = buf.getInt();
+        if (docLenCount > idx.docLengthsCapacity) {
+            idx.docLengthsCapacity = docLenCount;
+            idx.docLengthsArray = new int[docLenCount];
+        }
+        for (int i = 0; i < docLenCount; i++) {
+            idx.docLengthsArray[i] = buf.getInt();
+        }
+
+        // Terms + Postings
+        int savedTermCount = buf.getInt();
+        for (int t = 0; t < savedTermCount; t++) {
+            int termLen = buf.getInt();
+            byte[] termBytes = new byte[termLen];
+            buf.get(termBytes);
+            String term = new String(termBytes, java.nio.charset.StandardCharsets.UTF_8);
+
+            int postingsSize = buf.getInt();
+            PostingList pl = new PostingList(Math.max(postingsSize, 16));
+            for (int p = 0; p < postingsSize; p++) {
+                pl.add(buf.getInt(), buf.getInt());
+            }
+            idx.invertedIndex.put(term, pl);
+        }
+
+        idx.totalDocs = savedTotalDocs;
+        idx.totalDocLength = savedTotalDocLength;
+        idx.avgDocLength = savedTotalDocs > 0 ? (double) savedTotalDocLength / savedTotalDocs : 0;
+
+        log.info("BM25 index loaded from bundle region: {} docs, {} terms, {} bytes",
+                savedTotalDocs, savedTermCount, payloadLen + 4);
+        return idx;
+    }
 }
