@@ -160,17 +160,21 @@ public final class BenchmarkSetup implements AutoCloseable {
         com.spectrayan.spector.memory.graph.EntityExtractor customExtractor = new com.spectrayan.spector.memory.graph.EntityExtractor() {
             @Override
             public java.util.List<com.spectrayan.spector.memory.graph.ExtractedEntity> extract(String id, String text) {
-                java.util.List<com.spectrayan.spector.memory.graph.ExtractedEntity> res;
-                if (id != null && id.startsWith("mem-")) {
-                    res = memoryEntitiesMap.getOrDefault(id, java.util.List.of());
-                } else {
-                    res = textEntitiesMap.getOrDefault(text, java.util.List.of());
-                    if (res.isEmpty() && text != null && !text.isBlank()) {
-                        log.warn("customExtractor: text not found in textEntitiesMap. text length={}, first 50 chars='{}', map has exact key={}",
-                                text.length(), text.substring(0, Math.min(50, text.length())), textEntitiesMap.containsKey(text));
+                java.util.List<com.spectrayan.spector.memory.graph.ExtractedEntity> res = null;
+                if (id != null) {
+                    res = memoryEntitiesMap.get(id);
+                }
+                if ((res == null || res.isEmpty()) && text != null) {
+                    res = textEntitiesMap.get(text);
+                    if (res == null || res.isEmpty()) {
+                        res = textEntitiesMap.get(text.trim());
+                    }
+                    if (res == null || res.isEmpty() && (text.startsWith("user: ") || text.startsWith("assistant: "))) {
+                        String stripped = text.substring(text.indexOf(':') + 1).trim();
+                        res = textEntitiesMap.get(stripped);
                     }
                 }
-                return res;
+                return res != null ? res : java.util.List.of();
             }
             @Override
             public boolean isAvailable() {
@@ -188,7 +192,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .proceduralCapacity(Math.max(50, corpusSize / 5))
                 .hebbianGraphCapacity(corpusSize + 100)
                 .temporalChainCapacity(corpusSize + 100)
-                .entityGraphCapacity(Math.max(200, corpusSize * 5))
+                .entityGraphCapacity(Math.max(50_000, corpusSize * 50))
                 .entityExtractionMode(EntityExtractionMode.CUSTOM)
                 .entityExtractor(customExtractor);
 
@@ -225,6 +229,10 @@ public final class BenchmarkSetup implements AutoCloseable {
                 persistencePath = Path.of(sysPropPath);
             }
             if (persistencePath == null && datasetDir != null) {
+                Path datasetConfig = datasetDir.resolve("spector-bench.yml");
+                if (Files.exists(datasetConfig)) {
+                    log.info("Loaded dataset configuration from {}", datasetConfig);
+                }
                 persistencePath = datasetDir.resolve("ingested-memory");
             }
             if (persistencePath == null) {

@@ -183,7 +183,7 @@ public final class BridgeDetector {
             if (budgetMs > 0) {
                 long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
                 if (elapsedMs > budgetMs) {
-                    log.warn("BridgeDetector spanning tree budget exceeded after {}ms ({}/{} trees)",
+                    log.debug("BridgeDetector spanning tree budget exceeded after {}ms ({}/{} trees)",
                             elapsedMs, treesCompleted, sampleCount);
                     return null; // Caller falls back to heuristic
                 }
