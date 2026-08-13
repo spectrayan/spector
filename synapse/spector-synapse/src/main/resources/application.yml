@@ -114,6 +114,9 @@ management:
 spring:
   application:
     name: spector-synapse
+  batch:
+    job:
+      enabled: false
   jmx:
     enabled: false
   datasource:
