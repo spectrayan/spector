@@ -180,7 +180,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         this.adjSegmentCapacity = initialAdjCap;
         this.adjHighWaterMark = adjHwm;
         this.fileBacked = true;
-        this.headerSegment = entityRegionSlice.asSlice(0, MemoryHeader.HEADER_BYTES);
+        this.headerSegment = entityRegionSlice.asSlice(0, MemoryHeader.HEADER_BYTES + 16);
         this.mmapFilePath = bundlePath;
         this.memoryId = MEMORY_ID;
         this.entityTypeRegistryMemory = entityTypeRegistry;

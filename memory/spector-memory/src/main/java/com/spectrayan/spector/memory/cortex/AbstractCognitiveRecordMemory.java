@@ -373,8 +373,9 @@ public abstract class AbstractCognitiveRecordMemory
             long offset = dataOffset() + (long) count * layout.stride();
             layout.writeHeader(segment(), offset, header);
             if (quantizedVec != null) {
+                int copyLen = Math.min(quantizedVec.length, layout.quantizedVecBytes());
                 MemorySegment.copy(MemorySegment.ofArray(quantizedVec), 0,
-                        segment(), layout.vectorOffset(offset), quantizedVec.length);
+                        segment(), layout.vectorOffset(offset), copyLen);
             }
             count++;
             persistCount();

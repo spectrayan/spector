@@ -73,7 +73,8 @@ public final class QuantizedEuclideanDistance {
 
         FloatVector sumSq = FloatVector.zero(SPECIES);
 
-        int limit = SPECIES.loopBound(length);
+        int safeLength = Math.min(length, Math.min(query.length, Math.min(mins.length, scales.length)));
+        int limit = SPECIES.loopBound(safeLength);
         for (int i = 0; i < limit; i += laneCount) {
             FloatVector vQuery = FloatVector.fromArray(SPECIES, query, i);
 
@@ -91,7 +92,7 @@ public final class QuantizedEuclideanDistance {
 
         // Scalar tail for remaining dimensions
         float tail = 0.0f;
-        for (int i = limit; i < length; i++) {
+        for (int i = limit; i < safeLength; i++) {
             int unsigned = segment.get(ValueLayout.JAVA_BYTE, offset + i) & 0xFF;
             float d = unsigned * scales[i] + mins[i];
             float diff = query[i] - d;
