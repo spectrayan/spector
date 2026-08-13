@@ -1,136 +1,158 @@
 #!/usr/bin/env python3
 """
-Fetch and preprocess the LongMemEval Benchmark Dataset.
-Stores output in spector-datasets repo: d:/git/spector-datasets/longmemeval/data/
+Preprocess the official full LongMemEval Benchmark Dataset.
+Source: d:/git/spector-datasets/longmemeval/original/data/longmemeval_oracle.json (15.3 MB)
+        (or longmemeval_s_cleaned.json for 200k scale)
+Target: d:/git/spector-datasets/longmemeval/data/
 
-Outputs:
-- corpus.jsonl: Multi-session long-horizon assistant interactions matching Spector DatasetLoader schema
-- queries.jsonl: Benchmark questions across 5 core evaluation dimensions
-- qrels.tsv: Ground-truth relevance mapping (query_id -> corpus_id)
-- persona.json: Dataset metadata matching DatasetLoader schema
-- entities.jsonl: Extracted entity relation definitions
-- temporal_chains.jsonl: Temporal session chain ordering
-- hebbian_edges.jsonl: Co-activation edge definitions
+Generates:
+- corpus.jsonl (10,866 corpus turn records across multi-session conversations)
+- queries.jsonl (500 benchmark evaluation queries across 5 core dimensions)
+- qrels.tsv (5,479 ground-truth relevance mappings: query_id -> corpus_id)
+- persona.json (Persona metadata definition)
+- entities.jsonl (Entity relation definitions)
+- temporal_chains.jsonl (Session temporal chain definitions)
+- hebbian_edges.jsonl (Co-activation edges)
 """
 
 import json
 import os
 import sys
+import re
+from datetime import datetime, timezone
 
+DATASET_SRC_ORACLE = r"D:\git\spector-datasets\longmemeval\original\data\longmemeval_oracle.json"
+DATASET_SRC_S = r"D:\git\spector-datasets\longmemeval\original\data\longmemeval_s_cleaned.json"
 DATASET_DIR = r"D:\git\spector-datasets\longmemeval\data"
 
-SAMPLE_LONGMEMEVAL_SESSIONS = [
-    {
-        "session_id": "lme_sess_1",
-        "timestamp_ms": 1770100000000,
-        "utterances": [
-            {"id": "lme_u101", "speaker": "User", "text": "I'm planning a 2-week vacation to Kyoto in October. I prefer quiet traditional ryokans with private hot springs."},
-            {"id": "lme_u102", "speaker": "User", "text": "My budget per night is around 40,000 JPY."},
-        ]
-    },
-    {
-        "session_id": "lme_sess_2",
-        "timestamp_ms": 1770800000000,
-        "utterances": [
-            {"id": "lme_u201", "speaker": "User", "text": "Change of plans: my Kyoto trip budget has increased to 65,000 JPY per night."},
-            {"id": "lme_u202", "speaker": "User", "text": "Also, I've decided to travel in November instead of October for autumn foliage."},
-        ]
-    },
-    {
-        "session_id": "lme_sess_3",
-        "timestamp_ms": 1771500000000,
-        "utterances": [
-            {"id": "lme_u301", "speaker": "User", "text": "I just booked Gion Sano Ryokan in Kyoto for November 10-24."},
-            {"id": "lme_u302", "speaker": "User", "text": "Can you remind me what my updated nightly accommodation budget was?"},
-        ]
-    }
-]
+def parse_date_to_ts(date_str: str) -> int:
+    """Parse LongMemEval date strings like '2023/04/10 (Mon) 23:07' into timestamp ms."""
+    if not date_str:
+        return 1700000000000
+    try:
+        # Strip day of week in parentheses e.g. '(Mon)'
+        clean_str = re.sub(r"\([A-Za-z]+\)", "", date_str).strip()
+        dt = datetime.strptime(clean_str, "%Y/%m/%d %H:%M")
+        return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
+    except Exception:
+        return 1700000000000
 
-SAMPLE_LONGMEMEVAL_QUERIES = [
-    {
-        "id": "lme_q1",
-        "text": "What is the user's updated nightly budget for their Kyoto trip?",
-        "gold_answer": "The updated nightly budget is 65,000 JPY (updated from 40,000 JPY).",
-        "cognitiveProfile": "BALANCED",
-        "expectedSubsystem": "TEMPORAL_CHAIN",
-        "cognitiveNdcg": 1.0,
-        "baselineNdcg": 0.5,
-        "relevant_corpus_ids": ["lme_u201"]
-    },
-    {
-        "id": "lme_q2",
-        "text": "When is the user travelling to Kyoto and where are they staying?",
-        "gold_answer": "Travelling in November (10-24), staying at Gion Sano Ryokan.",
-        "cognitiveProfile": "BALANCED",
-        "expectedSubsystem": "TEMPORAL_CHAIN",
-        "cognitiveNdcg": 1.0,
-        "baselineNdcg": 0.5,
-        "relevant_corpus_ids": ["lme_u202", "lme_u301"]
-    },
-    {
-        "id": "lme_q3",
-        "text": "What type of accommodation does the user prefer?",
-        "gold_answer": "Quiet traditional ryokans with private hot springs.",
-        "cognitiveProfile": "BALANCED",
-        "expectedSubsystem": "HEBBIAN",
-        "cognitiveNdcg": 1.0,
-        "baselineNdcg": 0.5,
-        "relevant_corpus_ids": ["lme_u101"]
-    }
-]
+def get_subsystem_for_qtype(q_type: str) -> str:
+    """Map LongMemEval question_type to Spector memory subsystem."""
+    if "temporal" in q_type.lower():
+        return "TEMPORAL_CHAIN"
+    elif "update" in q_type.lower():
+        return "TEMPORAL_CHAIN"
+    elif "multi" in q_type.lower():
+        return "HYPERGRAPH"
+    else:
+        return "HEBBIAN"
 
 def main():
+    use_full = "--full" in sys.argv
+    src_file = DATASET_SRC_S if use_full and os.path.exists(DATASET_SRC_S) else DATASET_SRC_ORACLE
+
+    if not os.path.exists(src_file):
+        print(f"Error: Source dataset not found at {src_file}", file=sys.stderr)
+        sys.exit(1)
+
     os.makedirs(DATASET_DIR, exist_ok=True)
+    print(f"Reading LongMemEval source dataset: {src_file}...")
 
-    corpus_records = []
-    temporal_chains = []
+    with open(src_file, "r", encoding="utf-8") as f:
+        lme_data = json.load(f)
 
-    for session in SAMPLE_LONGMEMEVAL_SESSIONS:
-        sess_id = session["session_id"]
-        ts = session["timestamp_ms"]
-        u_ids = []
-        for u in session["utterances"]:
-            u_ids.append(u["id"])
-            record = {
-                "id": u["id"],
-                "text": u["text"],
-                "title": f"Interaction {u['id']}",
-                "synapticTags": ["longmemeval", "agent_interaction"],
-                "valence": 0,
-                "importance": 1.0,
-                "arousal": 0,
-                "sessionId": sess_id,
-                "timestampMs": ts,
-                "memoryType": "EPISODIC",
-                "agentRecallCount": 0,
-                "entityMentions": []
-            }
-            corpus_records.append(record)
+    corpus_map = {}
+    queries = []
+    qrels = []
+    temporal_chains = {}
+    hebbian_edges = []
 
-        temporal_chains.append({"sessionId": sess_id, "orderedMemoryIds": u_ids})
+    for q_idx, item in enumerate(lme_data):
+        q_id = item.get("question_id", f"lme_q_{q_idx+1}")
+        q_text = item.get("question", "")
+        gold_ans = str(item.get("answer", ""))
+        q_type = item.get("question_type", "temporal-reasoning")
 
+        ans_sess_ids = set(item.get("answer_session_ids", []))
+        subsystem = get_subsystem_for_qtype(q_type)
+
+        query_record = {
+            "id": q_id,
+            "text": q_text,
+            "goldAnswer": gold_ans,
+            "cognitiveProfile": "BALANCED",
+            "expectedSubsystem": subsystem,
+            "cognitiveNdcg": 1.0,
+            "baselineNdcg": 0.5
+        }
+        queries.append(query_record)
+
+        sessions = item.get("haystack_sessions", [])
+        session_ids = item.get("haystack_session_ids", [])
+        session_dates = item.get("haystack_dates", [])
+
+        for s_idx, turns in enumerate(sessions):
+            s_id_raw = session_ids[s_idx] if s_idx < len(session_ids) else f"s_{q_idx}_{s_idx}"
+            s_id = re.sub(r"[^a-zA-Z0-9_]", "_", s_id_raw)
+            s_date = session_dates[s_idx] if s_idx < len(session_dates) else ""
+            ts_ms = parse_date_to_ts(s_date)
+            is_ans_sess = s_id_raw in ans_sess_ids or s_id in ans_sess_ids
+
+            if s_id not in temporal_chains:
+                temporal_chains[s_id] = []
+
+            for t_idx, turn in enumerate(turns):
+                role = turn.get("role", "user")
+                text = turn.get("content", "")
+                if not text:
+                    continue
+
+                corpus_id = f"{s_id}_t{t_idx}"
+                temporal_chains[s_id].append(corpus_id)
+
+                if corpus_id not in corpus_map:
+                    corpus_map[corpus_id] = {
+                        "id": corpus_id,
+                        "text": f"{role}: {text}",
+                        "title": f"LongMemEval Session {s_id} Turn {t_idx}",
+                        "synapticTags": ["longmemeval", s_id, role.lower()],
+                        "valence": 0,
+                        "importance": 1.0,
+                        "arousal": 0,
+                        "sessionId": s_id,
+                        "timestampMs": ts_ms,
+                        "memoryType": "EPISODIC",
+                        "agentRecallCount": 0,
+                        "entityMentions": []
+                    }
+
+                if is_ans_sess and role == "user":
+                    qrels.append((q_id, corpus_id))
+
+    # Write output files
+    corpus_records = list(corpus_map.values())
     with open(os.path.join(DATASET_DIR, "corpus.jsonl"), "w", encoding="utf-8") as f:
         for rec in corpus_records:
             f.write(json.dumps(rec) + "\n")
 
     with open(os.path.join(DATASET_DIR, "queries.jsonl"), "w", encoding="utf-8") as f:
-        for q in SAMPLE_LONGMEMEVAL_QUERIES:
+        for q in queries:
             f.write(json.dumps(q) + "\n")
 
     with open(os.path.join(DATASET_DIR, "qrels.tsv"), "w", encoding="utf-8") as f:
         f.write("query_id\tcorpus_id\trelevance\n")
-        for q in SAMPLE_LONGMEMEVAL_QUERIES:
-            for cid in q["relevant_corpus_ids"]:
-                f.write(f"{q['id']}\t{cid}\t1\n")
+        for q_id, c_id in qrels:
+            f.write(f"{q_id}\t{c_id}\t1\n")
 
     persona = {
-        "name": "Sarah Miller",
-        "age": 29,
-        "occupation": "Travel Writer",
-        "interests": ["travel planning", "Japanese culture", "hot springs"],
-        "lifeContext": "Sarah is an avid traveler and writer planning a multi-week trip to Kyoto, managing accommodation budgets and schedules.",
-        "personalityTraits": ["adventurous", "detail-oriented", "organized"],
-        "companionRelationship": "The AI assistant manages trip planning updates, budget changes, and accommodation preferences."
+        "name": "LongMemEval Benchmark Persona",
+        "age": 28,
+        "occupation": "Long-Horizon AI Assistant User",
+        "interests": ["memory evaluation", "temporal reasoning", "information updates"],
+        "lifeContext": "LongMemEval is an official benchmark evaluating long-horizon memory capabilities, temporal reasoning, and information updates across hundreds of multi-session interactions.",
+        "personalityTraits": ["organized", "analytical", "adaptable"],
+        "companionRelationship": "The AI assistant manages long-horizon session state, multi-session user queries, and updating temporal facts over months of conversation history."
     }
     with open(os.path.join(DATASET_DIR, "persona.json"), "w", encoding="utf-8") as f:
         json.dump(persona, f, indent=2)
@@ -138,31 +160,44 @@ def main():
     entities = [
         {
             "fromEntity": {"name": "User", "type": "PERSON"},
-            "toEntity": {"name": "Kyoto", "type": "LOCATION"},
+            "toEntity": {"name": "Assistant", "type": "AGENT"},
             "relationType": "OTHER",
-            "sourceMemoryIds": ["lme_u101"]
+            "sourceMemoryIds": [corpus_records[0]["id"]] if corpus_records else []
         }
     ]
     with open(os.path.join(DATASET_DIR, "entities.jsonl"), "w", encoding="utf-8") as f:
         for ent in entities:
             f.write(json.dumps(ent) + "\n")
 
+    chain_records = [
+        {"sessionId": s_id, "orderedMemoryIds": turn_ids}
+        for s_id, turn_ids in temporal_chains.items()
+        if turn_ids
+    ]
     with open(os.path.join(DATASET_DIR, "temporal_chains.jsonl"), "w", encoding="utf-8") as f:
-        for tc in temporal_chains:
+        for tc in chain_records:
             f.write(json.dumps(tc) + "\n")
 
-    hebbian_edges = [
-        {"memoryIdA": "lme_u102", "memoryIdB": "lme_u201", "coActivationCount": 3}
-    ]
+    # Generate Hebbian edges for adjacent turns in sessions
+    for turn_ids in temporal_chains.values():
+        if len(turn_ids) >= 2:
+            for i in range(len(turn_ids) - 1):
+                hebbian_edges.append({
+                    "memoryIdA": turn_ids[i],
+                    "memoryIdB": turn_ids[i+1],
+                    "coActivationCount": 2
+                })
+
     with open(os.path.join(DATASET_DIR, "hebbian_edges.jsonl"), "w", encoding="utf-8") as f:
-        for edge in hebbian_edges:
+        for edge in hebbian_edges[:1000]: # Cap to first 1000 edges for clean loading
             f.write(json.dumps(edge) + "\n")
 
-    emb_file = os.path.join(DATASET_DIR, "embeddings.bin")
-    if os.path.exists(emb_file):
-        os.remove(emb_file)
-
-    print(f"Generated LongMemEval dataset: {len(corpus_records)} records, {len(SAMPLE_LONGMEMEVAL_QUERIES)} queries.")
+    print(f"=== LongMemEval Full Dataset Preprocessing Complete ===")
+    print(f"Corpus Records: {len(corpus_records)}")
+    print(f"Queries:        {len(queries)}")
+    print(f"Qrels Mappings: {len(qrels)}")
+    print(f"Temporal Chains:{len(chain_records)}")
+    print(f"Output Path:    {DATASET_DIR}")
 
 if __name__ == "__main__":
     main()
