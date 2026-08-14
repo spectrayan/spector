@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.test.judge;
 
+import com.spectrayan.spector.config.SpectorPropertyConstants;
+
 /**
  * Configuration for LLM test judge, loaded from environment variables and system properties.
  *
@@ -44,13 +46,13 @@ public record LlmJudgeConfig(
 ) {
 
     /** Default model for judging — use a model available locally. */
-    public static final String DEFAULT_MODEL = "llama3.1";
+    public static final String DEFAULT_MODEL = SpectorPropertyConstants.DEFAULT_TEST_JUDGE_MODEL;
 
     /** Default Ollama URL. */
-    public static final String DEFAULT_BASE_URL = "http://localhost:11434";
+    public static final String DEFAULT_BASE_URL = SpectorPropertyConstants.DEFAULT_TEST_JUDGE_BASE_URL;
 
     /** Default confidence threshold. */
-    public static final float DEFAULT_CONFIDENCE = 0.6f;
+    public static final float DEFAULT_CONFIDENCE = SpectorPropertyConstants.DEFAULT_TEST_JUDGE_CONFIDENCE;
 
     /**
      * Loads configuration from environment variables and system properties.
