@@ -153,7 +153,9 @@ public class HybridSearchOrchestrator implements AutoCloseable {
         if (!hasVector) return executeKeywordSearch(query);
 
         // Expand retrieval window for better fusion
-        int retrievalK = Math.max(query.topK() * 2, 50);
+        int retrievalK = Math.max(
+                query.topK() * com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_HYBRID_FANOUT_MULTIPLIER,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_HYBRID_MIN_RETRIEVAL_K);
 
         try {
             var pair = ConcurrentTasks.forkJoin2(

@@ -40,7 +40,7 @@ import java.util.Map;
 public final class ReciprocalRankFusion {
 
     /** Default RRF constant — standard value from the original paper. */
-    public static final int DEFAULT_K = 60;
+    public static final int DEFAULT_K = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_RRF_K;
 
     private ReciprocalRankFusion() {
         // utility class

@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
 public final class QueryParser {
 
     private static final Pattern DIRECTIVE = Pattern.compile("(mode|k):(\\S+)");
-    private static final int DEFAULT_TOP_K = 10;
+    private static final int DEFAULT_TOP_K = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_DEFAULT_TOP_K;
 
     private QueryParser() {}
 
