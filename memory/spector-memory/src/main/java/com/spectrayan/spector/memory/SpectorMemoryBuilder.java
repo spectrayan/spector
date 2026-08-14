@@ -73,23 +73,23 @@ public final class SpectorMemoryBuilder {
     String namespaceId = "default";
     boolean persistWorkingMemory = false;
     CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
-    int workingCapacity = 100;
-    int episodicPartitionCapacity = 1_000;
-    int semanticCapacity = 10_000;
-    int nodesPerPartition = 10_000;
-    int proceduralCapacity = 1_000;
-    int surpriseWarmup = 10;
-    double flashbulbThreshold = 3.0;
-    float valenceLearningRate = 0.3f;
-    float deduplicationRadius = 0.05f;
+    int workingCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_WORKING_CAPACITY;
+    int episodicPartitionCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_EPISODIC_PARTITION_CAPACITY;
+    int semanticCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_SEMANTIC_CAPACITY;
+    int nodesPerPartition = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_NODES_PER_PARTITION;
+    int proceduralCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PROCEDURAL_CAPACITY;
+    int surpriseWarmup = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_SURPRISE_WARMUP;
+    double flashbulbThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_FLASHBULB_THRESHOLD;
+    float valenceLearningRate = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_VALENCE_LEARNING_RATE;
+    float deduplicationRadius = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_DEDUPLICATION_RADIUS;
     LlmProvider LlmProvider;
     ScalarQuantizer quantizer;
     com.spectrayan.spector.index.VectorIndex semanticIndex;
-    long inhibitionTtlMs = 300_000L;
-    float inhibitionFloor = 0.1f;
+    long inhibitionTtlMs = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_INHIBITION_TTL_MS;
+    float inhibitionFloor = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_INHIBITION_FLOOR;
     IcnuWeights icnuWeights;
     boolean pinSourceEpisodes = false;
-    int pinnedQuota = 10_000;
+    int pinnedQuota = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PINNED_QUOTA;
     TagExtractor tagExtractor;
     CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
 
@@ -98,26 +98,26 @@ public final class SpectorMemoryBuilder {
     int temporalChainCapacity = 0;
     EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
     EntityExtractor entityExtractor;
-    int entityGraphCapacity = 50_000;
-    int maxEntitiesPerMemory = 10;
-    int maxRelationsPerMemory = 20;
+    int entityGraphCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_GRAPH_CAPACITY;
+    int maxEntitiesPerMemory = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_MAX_PER_MEM;
+    int maxRelationsPerMemory = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_RELATION_MAX_PER_MEM;
     GenerationOptions llmGenerationOptions;
     GraphScoringPolicy graphScoringPolicy = GraphScoringPolicy.DEFAULT;
-    int temporalRetentionDays = 7;
+    int temporalRetentionDays = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_RETENTION_DAYS;
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
     
     // Entity resolution config
     boolean entityResolutionEnabled = false;
     boolean entityShadowMode = true;
-    float entityCosineThreshold = 0.85f;
+    float entityCosineThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_COSINE_THRESHOLD;
     
     // Ontology config
     com.spectrayan.spector.memory.graph.OntologyConfig ontologyConfig;
 
     //  Edge importance configuration 
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
-    int hebbianMaxDegree = HebbianGraph.DEFAULT_MAX_DEGREE;
-    int entityMaxDegree = 16;
+    int hebbianMaxDegree = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_MAX_DEGREE;
+    int entityMaxDegree = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_MAX_DEGREE;
 
     //  ID generation strategy 
     IdStrategy idStrategy = IdStrategy.TSID;
@@ -128,14 +128,16 @@ public final class SpectorMemoryBuilder {
     TokenEmbeddingProvider tokenEmbeddingProvider;
 
     //  Checkpoint daemon configuration 
-    int checkpointIntervalSeconds = 30;
+    int checkpointIntervalSeconds = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CHECKPOINT_INTERVAL_SECONDS;
 
     //  Chunking for remember() 
     com.spectrayan.spector.commons.chunker.TextChunker chunker = new com.spectrayan.spector.commons.chunker.MarkdownChunker();
-    com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig = com.spectrayan.spector.commons.chunker.ChunkConfig.markdown(2500, 200);
+    com.spectrayan.spector.commons.chunker.ChunkConfig chunkConfig = com.spectrayan.spector.commons.chunker.ChunkConfig.markdown(
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_SIZE,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_OVERLAP);
 
     //  Embedding pipeline batch size 
-    int embedBatchSize = 32;
+    int embedBatchSize = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_PROVIDER_EMBEDDING_BATCH_SIZE;
 
     //  Salience profile provider (enterprise SPI) 
     SalienceProfileProvider salienceProfileProvider;

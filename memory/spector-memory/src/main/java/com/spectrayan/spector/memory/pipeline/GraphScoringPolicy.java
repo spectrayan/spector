@@ -67,7 +67,7 @@ public record GraphScoringPolicy(
     private static final Logger log = LoggerFactory.getLogger(GraphScoringPolicy.class);
 
     /** System property key for configuring the graph expansion threshold at runtime. */
-    public static final String THRESHOLD_SYSTEM_PROPERTY = "spector.benchmark.graphExpansionThreshold";
+    public static final String THRESHOLD_SYSTEM_PROPERTY = com.spectrayan.spector.config.SpectorPropertyConstants.GRAPH_EXPANSION_THRESHOLD_PROPERTY;
 
     /**
      * Backward-compatible constructor — uses default graph expansion threshold, GATED mode.
@@ -105,7 +105,7 @@ public record GraphScoringPolicy(
     public static final GraphScoringPolicy DEFAULT = resolveDefault();
 
     private static GraphScoringPolicy resolveDefault() {
-        float threshold = 0.40f;
+        float threshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD;
         String thresholdStr = System.getProperty(THRESHOLD_SYSTEM_PROPERTY);
         if (thresholdStr != null && !thresholdStr.isBlank()) {
             try {
@@ -117,11 +117,11 @@ public record GraphScoringPolicy(
         GraphExpansionMode mode = GraphExpansionMode.resolve();
 
         return new GraphScoringPolicy(
-                0.3f,   // causalBoostWeight
-                0.3f,   // hebbianBoostFactor
-                0.8f,   // temporalForwardFactor
-                0.7f,   // temporalBackwardFactor
-                0.25f,  // entityHopAttenuation
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_CAUSAL_BOOST,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_HEBBIAN_BOOST,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_TEMPORAL_FWD,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_TEMPORAL_BWD,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_ENTITY_ATTENUATION,
                 2,      // hebbianMaxDepth
                 3,      // temporalMaxHops
                 2,      // entityMaxHops

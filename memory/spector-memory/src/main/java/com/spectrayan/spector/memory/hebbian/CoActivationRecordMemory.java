@@ -54,10 +54,10 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
     private static final Logger log = LoggerFactory.getLogger(CoActivationRecordMemory.class);
 
     // ── STDP Constants ──
-    private static final float A_PLUS = 0.1f;
-    private static final float A_MINUS = 0.05f;
-    private static final float TAU_PLUS = 30_000f;
-    private static final float TAU_MINUS = 30_000f;
+    private static final float A_PLUS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_STDP_A_PLUS;
+    private static final float A_MINUS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_STDP_A_MINUS;
+    private static final float TAU_PLUS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_STDP_TAU_PLUS;
+    private static final float TAU_MINUS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_STDP_TAU_MINUS;
     static final float MIN_WEIGHT = 0.0f;
     static final float MAX_WEIGHT = 1.0f;
 

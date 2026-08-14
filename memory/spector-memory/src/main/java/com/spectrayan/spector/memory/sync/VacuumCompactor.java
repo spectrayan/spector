@@ -59,7 +59,7 @@ public final class VacuumCompactor {
     private static final Logger log = LoggerFactory.getLogger(VacuumCompactor.class);
 
     /** Default tombstone ratio threshold for triggering compaction (20%). */
-    public static final float DEFAULT_THRESHOLD = 0.20f;
+    public static final float DEFAULT_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_VACUUM_DEFAULT_THRESHOLD;
 
     private VacuumCompactor() {} // utility class
 

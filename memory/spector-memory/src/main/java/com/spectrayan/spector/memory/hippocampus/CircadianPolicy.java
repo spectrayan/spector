@@ -59,10 +59,10 @@ public record CircadianPolicy(
      * Builder for {@link CircadianPolicy}.
      */
     public static final class Builder {
-        private int volumeTrigger = 100;
-        private Duration timeTrigger = Duration.ofHours(1);
-        private float tombstoneThreshold = 0.30f;
-        private float decayPruneThreshold = 0.05f;
+        private int volumeTrigger = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CIRCADIAN_VOLUME_TRIGGER;
+        private Duration timeTrigger = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CIRCADIAN_TIME_TRIGGER;
+        private float tombstoneThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CIRCADIAN_TOMBSTONE_THRESHOLD;
+        private float decayPruneThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CIRCADIAN_DECAY_PRUNE_THRESHOLD;
         private float interferenceThreshold = 0.12f;
         private float interferenceDecayFactor = 0.7f;
 

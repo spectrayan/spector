@@ -214,7 +214,7 @@ public record RecallOptions(
         private Long maxTimestamp = null;
 
         //  Graph Expansion Gating 
-        private float graphExpansionThreshold = 0.40f; // default: expand when max similarity < 0.40
+        private float graphExpansionThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD;
 
         //  WAL Replay (Time-Travel) 
         private Instant replayTimestamp = null;    // null = disabled

@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
  */
 public class SessionWriteBuffer {
 
-    private static final int MAX_SIZE = 64;
-    private static final long TTL_MS = 5000;
+    private static final int MAX_SIZE = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_SESSION_BUFFER_MAX_SIZE;
+    private static final long TTL_MS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_SESSION_BUFFER_TTL_MS;
 
     private final ConcurrentLinkedDeque<BufferedEntry> entries = new ConcurrentLinkedDeque<>();
 

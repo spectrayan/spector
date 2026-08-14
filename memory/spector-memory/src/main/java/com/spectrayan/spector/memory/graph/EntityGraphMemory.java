@@ -137,7 +137,7 @@ final class EntityGraphMemory extends AbstractGraphMemory<EntityLayout> {
     static final int DEFAULT_ADJ_PER_ENTITY = 8;
 
     /** LTP weight increment when an entity is re-mentioned in a memory. */
-    private static final float LTP_REINFORCEMENT = 0.2f;
+    private static final float LTP_REINFORCEMENT = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_LTP_REINFORCEMENT;
 
     /** Initial weight for a new entity→memory link. */
     private static final float INITIAL_LINK_WEIGHT = 1.0f;

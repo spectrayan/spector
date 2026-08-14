@@ -84,7 +84,7 @@ public final class MemoryWal implements AutoCloseable {
     static final int FILE_HEADER_BYTES = 8;
 
     /** Default max chunk size before rolling (8 MB). */
-    private static final long DEFAULT_MAX_CHUNK_BYTES = 8L * 1024 * 1024;
+    private static final long DEFAULT_MAX_CHUNK_BYTES = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES;
 
     private final Path walDir;
     private final long maxChunkBytes;
