@@ -55,24 +55,20 @@ public record IcnuWeights(float interest, float challenge, float novelty, float 
     private static final float MAX_IMPORTANCE = 10.0f;
 
     /** Default sigmoid threshold — stimuli below 0.2 are nearly invisible. */
-    private static final float DEFAULT_THRESHOLD = 0.2f;
+    private static final float DEFAULT_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ICNU_THRESHOLD;
 
     /** Default sigmoid steepness — moderate cutoff sharpness. */
-    private static final float DEFAULT_STEEPNESS = 8.0f;
+    private static final float DEFAULT_STEEPNESS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ICNU_STEEPNESS;
 
     /**
      * Default: novelty-dominant, interest is strongest LLM signal.
      * Sigmoid threshold=0.2, steepness=8 (moderate gating).
-     *
-     * <p>Rationale:</p>
-     * <ul>
-     *   <li><b>Novelty (0.4)</b>: Strongest — objectively measurable, model-agnostic, impossible to game</li>
-     *   <li><b>Interest (0.3)</b>: Second — the LLM knows what it's working on</li>
-     *   <li><b>Urgency (0.2)</b>: Third — temporal priority matters but is often over-reported</li>
-     *   <li><b>Challenge (0.1)</b>: Lowest — hardest for the LLM to assess honestly</li>
-     * </ul>
      */
-    public static final IcnuWeights DEFAULT = new IcnuWeights(0.30f, 0.10f, 0.40f, 0.20f,
+    public static final IcnuWeights DEFAULT = new IcnuWeights(
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ICNU_WEIGHT_INTEREST,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ICNU_WEIGHT_CHALLENGE,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ICNU_WEIGHT_NOVELTY,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ICNU_WEIGHT_URGENCY,
             DEFAULT_THRESHOLD, DEFAULT_STEEPNESS);
 
     /**

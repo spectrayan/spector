@@ -383,6 +383,60 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_NAMESPACE_SOFT_WARNING_THRESHOLD = "spector.memory.namespace.soft-warning-threshold";
     public static final float DEFAULT_MEMORY_NAMESPACE_SOFT_WARNING_THRESHOLD = 0.70f;
 
+    public static final String MEMORY_MAX_NAMESPACES = "spector.memory.max-namespaces";
+    public static final int DEFAULT_MEMORY_MAX_NAMESPACES = 100;
+
+    public static final String MEMORY_NAMESPACE_ID = "spector.memory.namespace-id";
+    public static final String DEFAULT_MEMORY_NAMESPACE_ID = "default";
+
+    public static final String MEMORY_PERSISTENCE_MODE_FLAG = "spector.memory.persistence-mode";
+    public static final String DEFAULT_MEMORY_PERSISTENCE_MODE_NAME = "DISK";
+
+    public static final String MEMORY_PERSIST_WORKING_MEMORY = "spector.memory.persist-working-memory";
+    public static final boolean DEFAULT_MEMORY_PERSIST_WORKING_MEMORY = false;
+
+    public static final String MEMORY_PIN_SOURCE_EPISODES = "spector.memory.pin-source-episodes";
+    public static final boolean DEFAULT_MEMORY_PIN_SOURCE_EPISODES = false;
+
+    public static final String MEMORY_ENTITY_EXTRACTION_MODE = "spector.memory.entity.extraction-mode";
+    public static final String DEFAULT_MEMORY_ENTITY_EXTRACTION_MODE = "NONE";
+
+    public static final String MEMORY_ENTITY_RESOLUTION_ENABLED = "spector.memory.entity.resolution-enabled";
+    public static final boolean DEFAULT_MEMORY_ENTITY_RESOLUTION_ENABLED = false;
+
+    public static final String MEMORY_ENTITY_SHADOW_MODE = "spector.memory.entity.shadow-mode";
+    public static final boolean DEFAULT_MEMORY_ENTITY_SHADOW_MODE = true;
+
+    public static final String MEMORY_EDGE_IMPORTANCE = "spector.memory.edge-importance";
+    public static final String DEFAULT_MEMORY_EDGE_IMPORTANCE = "DEFAULT";
+
+    public static final String MEMORY_ID_STRATEGY = "spector.memory.id-strategy";
+    public static final String DEFAULT_MEMORY_ID_STRATEGY = "TSID";
+
+    public static final String MEMORY_GRAPH_EXPANSION_MODE = "spector.memory.graph.expansion-mode";
+    public static final String DEFAULT_MEMORY_GRAPH_EXPANSION_MODE = "GATED";
+
+    public static final String MEMORY_ENTITY_ADJ_DECAY_FACTOR = "spector.memory.entity.adj-decay-factor";
+    public static final float DEFAULT_MEMORY_ENTITY_ADJ_DECAY_FACTOR = 0.95f;
+
+    public static final String MEMORY_ENTITY_ADJ_PRUNE_THRESHOLD = "spector.memory.entity.adj-prune-threshold";
+    public static final float DEFAULT_MEMORY_ENTITY_ADJ_PRUNE_THRESHOLD = 0.2f;
+
+    public static final String MEMORY_ENTITY_MERGE_DISTANCE = "spector.memory.entity.merge-distance";
+    public static final int DEFAULT_MEMORY_ENTITY_MERGE_DISTANCE = 2;
+
+    public static final String MEMORY_CROSS_CAPTURE_MIN_WEIGHT = "spector.memory.cross-capture.min-weight";
+    public static final float DEFAULT_MEMORY_CROSS_CAPTURE_MIN_WEIGHT = 2.0f;
+
+    public static final String MEMORY_CROSS_CAPTURE_SCALE_FACTOR = "spector.memory.cross-capture.scale-factor";
+    public static final float DEFAULT_MEMORY_CROSS_CAPTURE_SCALE_FACTOR = 0.05f;
+
+    public static final String MEMORY_CIRCADIAN_INTERFERENCE_THRESHOLD = "spector.memory.circadian.interference-threshold";
+    public static final float DEFAULT_MEMORY_CIRCADIAN_INTERFERENCE_THRESHOLD = 0.12f;
+
+    public static final String MEMORY_CIRCADIAN_INTERFERENCE_DECAY_FACTOR = "spector.memory.circadian.interference-decay-factor";
+    public static final float DEFAULT_MEMORY_CIRCADIAN_INTERFERENCE_DECAY_FACTOR = 0.7f;
+
     public static final String MEMORY_HYPERFOCUS_TTL_MS = "spector.memory.hyperfocus.ttl-ms";
     public static final long DEFAULT_MEMORY_HYPERFOCUS_TTL_MS = 1800_000L;
 
@@ -391,6 +445,18 @@ public final class SpectorPropertyConstants {
 
     public static final String MEMORY_ICNU_STEEPNESS = "spector.memory.icnu.steepness";
     public static final float DEFAULT_MEMORY_ICNU_STEEPNESS = 8.0f;
+
+    public static final String MEMORY_ICNU_WEIGHT_INTEREST = "spector.memory.icnu.weight-interest";
+    public static final float DEFAULT_MEMORY_ICNU_WEIGHT_INTEREST = 0.30f;
+
+    public static final String MEMORY_ICNU_WEIGHT_CHALLENGE = "spector.memory.icnu.weight-challenge";
+    public static final float DEFAULT_MEMORY_ICNU_WEIGHT_CHALLENGE = 0.10f;
+
+    public static final String MEMORY_ICNU_WEIGHT_NOVELTY = "spector.memory.icnu.weight-novelty";
+    public static final float DEFAULT_MEMORY_ICNU_WEIGHT_NOVELTY = 0.40f;
+
+    public static final String MEMORY_ICNU_WEIGHT_URGENCY = "spector.memory.icnu.weight-urgency";
+    public static final float DEFAULT_MEMORY_ICNU_WEIGHT_URGENCY = 0.20f;
 
     public static final String MEMORY_COACTIVATION_PAIR_CAPACITY = "spector.memory.coactivation-pair-capacity";
     public static final int DEFAULT_MEMORY_COACTIVATION_PAIR_CAPACITY = 10_000;
@@ -415,6 +481,58 @@ public final class SpectorPropertyConstants {
 
     public static final String MEMORY_INSULA_SIZE = "spector.memory.insula-size";
     public static final long DEFAULT_MEMORY_INSULA_SIZE = 1024L * 1024;
+
+    // Recall & Search Pipeline Flags (RecallOptions)
+    public static final String RECALL_TEXT_SEARCH_ENABLED = "spector.recall.text-search.enabled";
+    public static final boolean DEFAULT_RECALL_TEXT_SEARCH_ENABLED = true;
+
+    public static final String RECALL_TEXT_SEARCH_MODE = "spector.recall.text-search.mode";
+    public static final String DEFAULT_RECALL_TEXT_SEARCH_MODE = "HYBRID";
+
+    public static final String RECALL_SCORING_MODE = "spector.recall.scoring-mode";
+    public static final String DEFAULT_RECALL_SCORING_MODE = "COGNITIVE";
+
+    public static final String RECALL_TRACE_ENABLED = "spector.recall.trace.enabled";
+    public static final boolean DEFAULT_RECALL_TRACE_ENABLED = false;
+
+    public static final String RECALL_RERANKER_ENABLED = "spector.recall.reranker.enabled";
+    public static final boolean DEFAULT_RECALL_RERANKER_ENABLED = false;
+
+    public static final String RECALL_RERANKER_DEPTH = "spector.recall.reranker.depth";
+    public static final int DEFAULT_RECALL_RERANKER_DEPTH = 50;
+
+    public static final String RECALL_MMR_ENABLED = "spector.recall.mmr.enabled";
+    public static final boolean DEFAULT_RECALL_MMR_ENABLED = false;
+
+    public static final String RECALL_MMR_LAMBDA = "spector.recall.mmr.lambda";
+    public static final float DEFAULT_RECALL_MMR_LAMBDA = 0.5f;
+
+    public static final String RECALL_AUTO_PROFILE_ENABLED = "spector.recall.auto-profile.enabled";
+    public static final boolean DEFAULT_RECALL_AUTO_PROFILE_ENABLED = false;
+
+    public static final String RECALL_INCLUDE_CONTRADICTIONS = "spector.recall.include-contradictions";
+    public static final boolean DEFAULT_RECALL_INCLUDE_CONTRADICTIONS = false;
+
+    public static final String RECALL_LATERAL_ENABLED = "spector.recall.lateral.enabled";
+    public static final boolean DEFAULT_RECALL_LATERAL_ENABLED = false;
+
+    public static final String RECALL_LATERAL_DISTANCE_THRESHOLD = "spector.recall.lateral.distance-threshold";
+    public static final float DEFAULT_RECALL_LATERAL_DISTANCE_THRESHOLD = 1.2f;
+
+    public static final String RECALL_LATERAL_MIN_TAG_OVERLAP = "spector.recall.lateral.min-tag-overlap";
+    public static final float DEFAULT_RECALL_LATERAL_MIN_TAG_OVERLAP = 0.5f;
+
+    public static final String RECALL_STRICTNESS_COEFFICIENT = "spector.recall.strictness-coefficient";
+    public static final float DEFAULT_RECALL_STRICTNESS_COEFFICIENT = 1.0f;
+
+    public static final String RECALL_VALENCE_ALIGNMENT_ENABLED = "spector.recall.valence-alignment.enabled";
+    public static final boolean DEFAULT_RECALL_VALENCE_ALIGNMENT_ENABLED = false;
+
+    public static final String RECALL_MODE = "spector.recall.mode";
+    public static final String DEFAULT_RECALL_MODE = "LEARN";
+
+    public static final String RECALL_MAX_REPLAY_EVENTS = "spector.recall.max-replay-events";
+    public static final int DEFAULT_RECALL_MAX_REPLAY_EVENTS = 100_000;
 
     // Ingestion
     public static final String INGESTION_ROOT_DIRECTORY = "spector.ingestion.root-directory";

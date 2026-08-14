@@ -138,6 +138,12 @@ spector:
     enabled: true
     persistence-mode: DISK
     persistence-path: .spector/memory
+    max-namespaces: 100
+    namespace-id: default
+    persist-working-memory: false
+    pin-source-episodes: false
+    edge-importance: DEFAULT
+    id-strategy: TSID
     dimensions: 384
     capacity: 100000
     nodes-per-partition: 10000
@@ -180,13 +186,23 @@ spector:
       sample-count: 15
       budget-ms: 500
     entity:
+      extraction-mode: NONE
+      resolution-enabled: false
+      shadow-mode: true
       max-degree: 16
       max-per-memory: 10
       cosine-threshold: 0.85
       retention-days: 7
       decay-factor: 0.95
       prune-threshold: 0.5
+      adj-decay-factor: 0.95
+      adj-prune-threshold: 0.2
+      merge-distance: 2
+    cross-capture:
+      min-weight: 2.0
+      scale-factor: 0.05
     graph:
+      expansion-mode: GATED
       causal-boost: 0.3
       hebbian-boost: 0.3
       temporal-forward: 0.8
@@ -198,6 +214,8 @@ spector:
       time-trigger: 1h
       tombstone-threshold: 0.30
       decay-prune-threshold: 0.05
+      interference-threshold: 0.12
+      interference-decay-factor: 0.7
     reflect:
       min-cluster-size: 5
     wal:
@@ -215,6 +233,37 @@ spector:
     icnu:
       threshold: 0.2
       steepness: 8.0
+      weight-interest: 0.30
+      weight-challenge: 0.10
+      weight-novelty: 0.40
+      weight-urgency: 0.20
+
+  # ─── Recall & Search Pipeline ───
+  recall:
+    text-search:
+      enabled: true
+      mode: HYBRID
+    scoring-mode: COGNITIVE
+    trace:
+      enabled: false
+    reranker:
+      enabled: false
+      depth: 50
+    mmr:
+      enabled: false
+      lambda: 0.5
+    auto-profile:
+      enabled: false
+    include-contradictions: false
+    lateral:
+      enabled: false
+      distance-threshold: 1.2
+      min-tag-overlap: 0.5
+    strictness-coefficient: 1.0
+    valence-alignment:
+      enabled: false
+    mode: LEARN
+    max-replay-events: 100000
 
   # ─── File Ingestion ───
   ingestion:

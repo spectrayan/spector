@@ -68,10 +68,13 @@ public final class SpectorMemoryBuilder {
     int dimensions;
     EmbeddingProvider embeddingProvider;
     Path persistencePath;
-    MemoryPersistenceMode persistenceMode = MemoryPersistenceMode.DISK;
-    int maxActiveNamespaces = Integer.getInteger("spector.memory.max-namespaces", 100);
-    String namespaceId = "default";
-    boolean persistWorkingMemory = false;
+    MemoryPersistenceMode persistenceMode = MemoryPersistenceMode.valueOf(
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PERSISTENCE_MODE_NAME);
+    int maxActiveNamespaces = Integer.getInteger(
+            com.spectrayan.spector.config.SpectorPropertyConstants.MEMORY_MAX_NAMESPACES,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_MAX_NAMESPACES);
+    String namespaceId = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_NAMESPACE_ID;
+    boolean persistWorkingMemory = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PERSIST_WORKING_MEMORY;
     CircadianPolicy circadianPolicy = CircadianPolicy.DEFAULT;
     int workingCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_WORKING_CAPACITY;
     int episodicPartitionCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_EPISODIC_PARTITION_CAPACITY;
@@ -88,15 +91,16 @@ public final class SpectorMemoryBuilder {
     long inhibitionTtlMs = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_INHIBITION_TTL_MS;
     float inhibitionFloor = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_INHIBITION_FLOOR;
     IcnuWeights icnuWeights;
-    boolean pinSourceEpisodes = false;
+    boolean pinSourceEpisodes = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PIN_SOURCE_EPISODES;
     int pinnedQuota = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PINNED_QUOTA;
     TagExtractor tagExtractor;
     CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
 
-    //  3-Layer Cognitive Graph configuration 
+    // ─── 3-Layer Cognitive Graph configuration ───
     int hebbianGraphCapacity = 0;
     int temporalChainCapacity = 0;
-    EntityExtractionMode entityExtractionMode = EntityExtractionMode.NONE;
+    EntityExtractionMode entityExtractionMode = EntityExtractionMode.valueOf(
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_EXTRACTION_MODE);
     EntityExtractor entityExtractor;
     int entityGraphCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_GRAPH_CAPACITY;
     int maxEntitiesPerMemory = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_MAX_PER_MEM;
@@ -107,20 +111,21 @@ public final class SpectorMemoryBuilder {
     TwoFactorConfig twoFactorConfig = TwoFactorConfig.DEFAULT;
     
     // Entity resolution config
-    boolean entityResolutionEnabled = false;
-    boolean entityShadowMode = true;
+    boolean entityResolutionEnabled = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_RESOLUTION_ENABLED;
+    boolean entityShadowMode = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_SHADOW_MODE;
     float entityCosineThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_COSINE_THRESHOLD;
     
     // Ontology config
     com.spectrayan.spector.memory.graph.OntologyConfig ontologyConfig;
 
-    //  Edge importance configuration 
+    // ─── Edge importance configuration ───
     EdgeImportance edgeImportance = EdgeImportance.DEFAULT;
     int hebbianMaxDegree = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_MAX_DEGREE;
     int entityMaxDegree = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_MAX_DEGREE;
 
-    //  ID generation strategy 
-    IdStrategy idStrategy = IdStrategy.TSID;
+    // ─── ID generation strategy ───
+    IdStrategy idStrategy = IdStrategy.valueOf(
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ID_STRATEGY);
     MemoryIdGenerator idGenerator;
 
     //  SPLADE + ColBERT providers 
