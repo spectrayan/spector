@@ -115,7 +115,7 @@ class EpisodicSessionIndexTest {
         index.appendTurn(SESSION_2, 20L);
 
         List<Long> removed = index.removeSession(SESSION_1);
-        assertEquals(List.of(10L, 20L), removed);
+        assertEquals(List.of(10L), removed);
         assertEquals(0, index.turnCount(SESSION_1));
         assertEquals(1, index.sessionCount());
         

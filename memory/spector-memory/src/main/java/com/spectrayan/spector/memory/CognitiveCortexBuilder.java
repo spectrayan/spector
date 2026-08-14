@@ -245,6 +245,9 @@ final class CognitiveCortexBuilder {
                     builder.semanticCapacity, quantizedVecBytes, bundleFile, isNew);
             EpisodicLogMemory episodicLogStore = EpisodicLogMemory.fromBundle(
                     partitionBundle.arena(), epiSlice, bundleFile, isNew);
+            EpisodicRecordMemory episodicStore = EpisodicRecordMemory.fromBundle(
+                    partitionBundle.arena(), epiSlice,
+                    builder.episodicPartitionCapacity, quantizedVecBytes, bundleFile, isNew);
             ProceduralRecordMemory proceduralStore = ProceduralRecordMemory.fromBundle(
                     partitionBundle.arena(), procSlice,
                     builder.proceduralCapacity, quantizedVecBytes, bundleFile, isNew);
@@ -252,7 +255,7 @@ final class CognitiveCortexBuilder {
                     partitionBundle.arena(), textSlice, bundleFile, isNew,
                     builder.dataEncryptor);
 
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, null, semanticStore, proceduralStore, episodicLogStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore);
             log.info("V4 bundle mode: {} ({}, {} stores, episodic=log-structured)",
                     bundleFile.getFileName(), isNew ? "created" : "opened", 4);
 
@@ -261,6 +264,8 @@ final class CognitiveCortexBuilder {
             EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
                     StorageLayout.episodicMem(resolvedPartitionDir),
                     quantizedVecBytes, builder.episodicPartitionCapacity);
+            EpisodicLogMemory episodicLogStore = new EpisodicLogMemory(
+                    (long) builder.episodicPartitionCapacity * 256L);
             ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
                     quantizedVecBytes, builder.proceduralCapacity,
                     StorageLayout.proceduralMem(resolvedPartitionDir));
@@ -269,15 +274,17 @@ final class CognitiveCortexBuilder {
                     StorageLayout.semanticMem(resolvedPartitionDir));
             textStore = new TextAppendMemory(
                     StorageLayout.textDat(resolvedPartitionDir), builder.dataEncryptor);
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore);
         } else {
+            EpisodicRecordMemory episodicStore = new EpisodicRecordMemory(
+                    quantizedVecBytes, builder.episodicPartitionCapacity);
             EpisodicLogMemory episodicLogStore = new EpisodicLogMemory(
-                    (long) builder.episodicPartitionCapacity * 256); // ~256B avg per turn
+                    (long) builder.episodicPartitionCapacity * 256L); // ~256B avg per turn
             ProceduralRecordMemory proceduralStore = new ProceduralRecordMemory(
                     quantizedVecBytes, builder.proceduralCapacity);
             SemanticRecordMemory semanticStore = new SemanticRecordMemory(
                     quantizedVecBytes, builder.semanticCapacity);
-            cognitiveRouter = new CognitiveMemoryRouter(workingStore, null, semanticStore, proceduralStore, episodicLogStore);
+            cognitiveRouter = new CognitiveMemoryRouter(workingStore, episodicStore, semanticStore, proceduralStore, episodicLogStore);
         }
 
         if (insularCortex == null) {

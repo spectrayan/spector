@@ -86,7 +86,7 @@ public final class EpisodicFieldAccessor {
      * not a float, despite sharing the same offset.</p>
      */
     public static int readSequenceId(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_IMPORTANCE);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_IMPORTANCE);
     }
 
     /**
@@ -94,7 +94,7 @@ public final class EpisodicFieldAccessor {
      * Same interpretation as cognitive records.
      */
     public static long readTimestamp(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_LONG, offset + SynapticHeaderConstants.OFFSET_TIMESTAMP);
+        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_TIMESTAMP);
     }
 
     /**
@@ -105,14 +105,14 @@ public final class EpisodicFieldAccessor {
      * enabling direct equality comparison for session-scoped queries.</p>
      */
     public static long readSessionId(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_LONG, offset + SynapticHeaderConstants.OFFSET_SYNAPTIC_TAGS);
+        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SYNAPTIC_TAGS);
     }
 
     /**
      * Reads the input token count from the agent_recall_count field (offset 16).
      */
     public static int readTokenInCount(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT);
     }
 
     /**
@@ -121,14 +121,14 @@ public final class EpisodicFieldAccessor {
      * <p>Reinterprets the 4-byte exact_norm float as an int32 token counter.</p>
      */
     public static int readTokenOutCount(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_EXACT_NORM);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_EXACT_NORM);
     }
 
     /**
      * Reads the LLM model registry ID from the centroid_id field (offset 32).
      */
     public static short readModelId(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_SHORT, offset + SynapticHeaderConstants.OFFSET_CENTROID_ID);
+        return segment.get(ValueLayout.JAVA_SHORT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_CENTROID_ID);
     }
 
     /**
@@ -137,7 +137,7 @@ public final class EpisodicFieldAccessor {
      * <p>Reinterprets the 4-byte storage_strength float as an int32 latency counter.</p>
      */
     public static int readLatencyMs(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH);
     }
 
     /**
@@ -147,7 +147,7 @@ public final class EpisodicFieldAccessor {
      * conversation session.</p>
      */
     public static long readUserId(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_LONG, offset + SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP);
+        return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP);
     }
 
     /**
@@ -158,7 +158,7 @@ public final class EpisodicFieldAccessor {
      * {@code offset + 64 + bodyLength}.</p>
      */
     public static int readBodyLength(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_ENCODING_SURPRISE);
+        return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_ENCODING_SURPRISE);
     }
 
     /**
@@ -179,7 +179,7 @@ public final class EpisodicFieldAccessor {
      * Reads the soul version (offset 46). Same interpretation as cognitive records.
      */
     public static short readSoulVersion(MemorySegment segment, long offset) {
-        return segment.get(ValueLayout.JAVA_SHORT, offset + SynapticHeaderConstants.OFFSET_SOUL_VERSION);
+        return segment.get(ValueLayout.JAVA_SHORT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SOUL_VERSION);
     }
 
     /**
@@ -267,22 +267,22 @@ public final class EpisodicFieldAccessor {
         segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_AROUSAL, (byte) 0);
 
         // Bytes 4-7: sequence_id (reinterprets importance as int32)
-        segment.set(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_IMPORTANCE, sequenceId);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_IMPORTANCE, sequenceId);
 
         // Bytes 8-15: timestamp_ms (same interpretation)
-        segment.set(ValueLayout.JAVA_LONG, offset + SynapticHeaderConstants.OFFSET_TIMESTAMP, timestampMs);
+        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_TIMESTAMP, timestampMs);
 
         // Bytes 16-19: token_in_count (reinterprets agent_recall_count)
-        segment.set(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT, tokenIn);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_AGENT_RECALL_COUNT, tokenIn);
 
         // Bytes 20-23: token_out_count (reinterprets exact_norm as int32)
-        segment.set(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_EXACT_NORM, tokenOut);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_EXACT_NORM, tokenOut);
 
         // Bytes 24-31: session_id (reinterprets synaptic_tags as raw hash)
-        segment.set(ValueLayout.JAVA_LONG, offset + SynapticHeaderConstants.OFFSET_SYNAPTIC_TAGS, sessionId);
+        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SYNAPTIC_TAGS, sessionId);
 
         // Bytes 32-33: model_id (reinterprets centroid_id)
-        segment.set(ValueLayout.JAVA_SHORT, offset + SynapticHeaderConstants.OFFSET_CENTROID_ID, modelId);
+        segment.set(ValueLayout.JAVA_SHORT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_CENTROID_ID, modelId);
 
         // Byte 34: conversation_flags (reinterprets consolidation_flags)
         segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_CONSOLIDATION_FLAGS, (byte) 0);
@@ -291,23 +291,23 @@ public final class EpisodicFieldAccessor {
         segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_ENCODING_PROFILE, (byte) 0);
 
         // Bytes 36-39: latency_ms (reinterprets storage_strength as int32)
-        segment.set(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH, latencyMs);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_STORAGE_STRENGTH, latencyMs);
 
         // Bytes 40-43: reserved (reinterprets spector_recall_cnt)
-        segment.set(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_SPECTOR_RECALL_COUNT, 0);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SPECTOR_RECALL_COUNT, 0);
 
         // Bytes 44-45: reserved (reinterprets encoding_alpha/beta)
         segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_ENCODING_ALPHA, (byte) 0);
         segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_ENCODING_BETA, (byte) 0);
 
         // Bytes 46-47: soul_version (same interpretation)
-        segment.set(ValueLayout.JAVA_SHORT, offset + SynapticHeaderConstants.OFFSET_SOUL_VERSION, soulVersion);
+        segment.set(ValueLayout.JAVA_SHORT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_SOUL_VERSION, soulVersion);
 
         // Bytes 48-55: user_id (reinterprets last_auto_ltp as raw hash)
-        segment.set(ValueLayout.JAVA_LONG, offset + SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP, userId);
+        segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_LAST_AUTO_LTP, userId);
 
         // Bytes 56-59: body_length (reinterprets encoding_surprise as int32)
-        segment.set(ValueLayout.JAVA_INT, offset + SynapticHeaderConstants.OFFSET_ENCODING_SURPRISE, bodyLength);
+        segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset + SynapticHeaderConstants.OFFSET_ENCODING_SURPRISE, bodyLength);
 
         // Byte 60: reserved (reinterprets last_recall_profile)
         segment.set(ValueLayout.JAVA_BYTE, offset + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE, (byte) 0);

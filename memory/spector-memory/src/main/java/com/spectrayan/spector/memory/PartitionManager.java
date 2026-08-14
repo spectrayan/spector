@@ -382,6 +382,9 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                     SemanticRecordMemory newSemantic = SemanticRecordMemory.fromBundle(
                             newBundle.arena(), newBundle.regionSegment(RegionId.SEMANTIC),
                             semanticCapacity, quantizedVecBytes, bundleFile, true);
+                    EpisodicRecordMemory newEpisodic = EpisodicRecordMemory.fromBundle(
+                            newBundle.arena(), newBundle.regionSegment(RegionId.EPISODIC),
+                            episodicPartitionCapacity, quantizedVecBytes, bundleFile, true);
                     EpisodicLogMemory newEpisodicLog = EpisodicLogMemory.fromBundle(
                             newBundle.arena(), newBundle.regionSegment(RegionId.EPISODIC),
                             bundleFile, true);
@@ -393,7 +396,7 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                             bundleFile, true, encryptor);
 
                     newRouter = new CognitiveMemoryRouter(
-                            workingStore, null, newSemantic, newProcedural, newEpisodicLog);
+                            workingStore, newEpisodic, newSemantic, newProcedural, newEpisodicLog);
                 } else {
                     // ── V3 Legacy Mode ──
                     EpisodicRecordMemory newEpisodic = new EpisodicRecordMemory(

@@ -31,10 +31,11 @@ class PartitionBundleTest {
     private static final int DIMS = 64;
     private static final int SEM_CAP = 100;
     private static final int EPI_CAP = 50;
+    private static final CognitiveRecordLayout COG_LAYOUT = new CognitiveRecordLayout(DIMS);
+    private static final long EPI_BYTES = (long) EPI_CAP * COG_LAYOUT.recordStride();
     private static final int PROC_CAP = 20;
     private static final long TEXT_BYTES = 4096;
 
-    private static final CognitiveRecordLayout COG_LAYOUT = new CognitiveRecordLayout(DIMS);
     private static final TextBlobLayout TEXT_LAYOUT = new TextBlobLayout();
 
     // ── Heap Tests ──
@@ -42,7 +43,7 @@ class PartitionBundleTest {
     @Test
     void heapBundleCreatesAllFourRegions() {
         try (PartitionBundle bundle = PartitionBundle.Init.heap(
-                SEM_CAP, EPI_CAP, PROC_CAP, TEXT_BYTES, DIMS,
+                SEM_CAP, EPI_BYTES, PROC_CAP, TEXT_BYTES, DIMS,
                 COG_LAYOUT.layoutId(), COG_LAYOUT.schemaVersion(),
                 TEXT_LAYOUT.layoutId(), TEXT_LAYOUT.schemaVersion())) {
 
@@ -119,7 +120,7 @@ class PartitionBundleTest {
 
         // Create
         try (PartitionBundle bundle = PartitionBundle.Init.mmap(
-                bundlePath, SEM_CAP, EPI_CAP, PROC_CAP, TEXT_BYTES, DIMS,
+                bundlePath, SEM_CAP, EPI_BYTES, PROC_CAP, TEXT_BYTES, DIMS,
                 COG_LAYOUT.layoutId(), COG_LAYOUT.schemaVersion(),
                 TEXT_LAYOUT.layoutId(), TEXT_LAYOUT.schemaVersion())) {
 
@@ -152,7 +153,7 @@ class PartitionBundleTest {
         Path bundlePath = tempDir.resolve("partition.bundle");
 
         try (PartitionBundle bundle = PartitionBundle.Init.mmap(
-                bundlePath, SEM_CAP, EPI_CAP, PROC_CAP, TEXT_BYTES, DIMS,
+                bundlePath, SEM_CAP, EPI_BYTES, PROC_CAP, TEXT_BYTES, DIMS,
                 COG_LAYOUT.layoutId(), COG_LAYOUT.schemaVersion(),
                 TEXT_LAYOUT.layoutId(), TEXT_LAYOUT.schemaVersion())) {
 
@@ -180,7 +181,7 @@ class PartitionBundleTest {
         Path bundlePath = tempDir.resolve("partition.bundle");
 
         try (PartitionBundle bundle = PartitionBundle.Init.mmap(
-                bundlePath, SEM_CAP, EPI_CAP, PROC_CAP, TEXT_BYTES, DIMS,
+                bundlePath, SEM_CAP, EPI_BYTES, PROC_CAP, TEXT_BYTES, DIMS,
                 COG_LAYOUT.layoutId(), COG_LAYOUT.schemaVersion(),
                 TEXT_LAYOUT.layoutId(), TEXT_LAYOUT.schemaVersion())) {
 

@@ -199,7 +199,7 @@ public final class PartitionBundle implements AutoCloseable {
          * @param textSchemaVer      the schemaVersion from TextBlobLayout
          * @return an in-memory PartitionBundle
          */
-        public static PartitionBundle heap(int semanticCapacity, int episodicCapacity,
+        public static PartitionBundle heap(int semanticCapacity, long episodicBytes,
                                             int proceduralCapacity, long textBytes,
                                             int quantizedVecBytes,
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
@@ -212,8 +212,9 @@ public final class PartitionBundle implements AutoCloseable {
                             semanticCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
                     new RegionSizeSpec(
                             RegionId.EPISODIC,
-                            MemoryHeader.HEADER_BYTES + (long) episodicCapacity * cogStride,
-                            episodicCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
+                            MemoryHeader.HEADER_BYTES + episodicBytes,
+                            0, 0, EpisodicLogLayout.INSTANCE.layoutId(),
+                            EpisodicLogLayout.INSTANCE.schemaVersion(), false),
                     new RegionSizeSpec(
                             RegionId.PROCEDURAL,
                             MemoryHeader.HEADER_BYTES + (long) proceduralCapacity * cogStride,
