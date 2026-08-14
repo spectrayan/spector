@@ -43,7 +43,7 @@ import com.spectrayan.spector.commons.ParseUtils;
 public class OllamaProviderFactory implements ProviderFactory {
 
     /** Default Ollama base URL. */
-    private static final String DEFAULT_BASE_URL = "http://localhost:11434";
+    private static final String DEFAULT_BASE_URL = EmbeddingConfig.OLLAMA_DEFAULT.baseUrl();
 
     @Override
     public String name() {

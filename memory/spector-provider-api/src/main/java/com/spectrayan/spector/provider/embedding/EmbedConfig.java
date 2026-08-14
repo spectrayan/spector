@@ -26,7 +26,7 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
  */
 public record EmbedConfig(int batchSize, int maxRetries) {
 
-    /** Default configuration: batch size 32, 3 retries. */
+    /** Default configuration: batch size 32, 3 retries (aligned with SpectorPropertyConstants). */
     public static final EmbedConfig DEFAULT = new EmbedConfig(32, 3);
 
     public EmbedConfig {

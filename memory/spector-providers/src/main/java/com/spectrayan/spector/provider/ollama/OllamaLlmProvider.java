@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.provider.ollama;
 
+import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
 import com.spectrayan.spector.provider.generation.GenerationOptions;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
@@ -51,15 +52,24 @@ public class OllamaLlmProvider implements LlmProvider {
     }
 
     public static OllamaLlmProvider create(String model) {
-        return new OllamaLlmProvider(model, "http://localhost:11434", Duration.ofSeconds(60));
+        return new OllamaLlmProvider(
+                model,
+                EmbeddingConfig.OLLAMA_DEFAULT.baseUrl(),
+                Duration.ofSeconds(60));
     }
 
     public static OllamaLlmProvider create(String model, String baseUrl) {
-        return new OllamaLlmProvider(model, baseUrl, Duration.ofSeconds(60));
+        return new OllamaLlmProvider(
+                model,
+                baseUrl,
+                Duration.ofSeconds(60));
     }
 
     public static OllamaLlmProvider createDefault() {
-        return new OllamaLlmProvider("qwen3:0.6b", "http://localhost:11434", Duration.ofSeconds(60));
+        return new OllamaLlmProvider(
+                "qwen3:0.6b",
+                EmbeddingConfig.OLLAMA_DEFAULT.baseUrl(),
+                Duration.ofSeconds(60));
     }
 
     @Override
