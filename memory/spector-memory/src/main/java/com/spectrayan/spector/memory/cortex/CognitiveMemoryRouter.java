@@ -16,6 +16,7 @@ import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import java.lang.foreign.MemorySegment;
@@ -49,6 +50,7 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     private final EpisodicRecordMemory episodicStore;
     private final SemanticRecordMemory semanticStore;
     private final ProceduralRecordMemory proceduralStore;
+    private final EpisodicLogMemory episodicLogStore;
 
     /**
      * Creates a CognitiveMemoryRouter with all four cognitive memory stores.
@@ -57,14 +59,32 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
                                  EpisodicRecordMemory episodicStore,
                                  SemanticRecordMemory semanticStore,
                                  ProceduralRecordMemory proceduralStore) {
+        this(workingStore, episodicStore, semanticStore, proceduralStore, null);
+    }
+
+    /**
+     * Creates a CognitiveMemoryRouter with the new log-structured episodic store.
+     *
+     * <p>When {@code episodicLogStore} is non-null, the EPISODIC slot uses the
+     * log-structured store and the legacy fixed-stride episodic store is not
+     * registered in the EnumMap.</p>
+     */
+    public CognitiveMemoryRouter(WorkingRecordMemory workingStore,
+                                 EpisodicRecordMemory episodicStore,
+                                 SemanticRecordMemory semanticStore,
+                                 ProceduralRecordMemory proceduralStore,
+                                 EpisodicLogMemory episodicLogStore) {
         this.workingStore = workingStore;
         this.episodicStore = episodicStore;
         this.semanticStore = semanticStore;
         this.proceduralStore = proceduralStore;
+        this.episodicLogStore = episodicLogStore;
 
         // Register in EnumMap for polymorphic dispatch
         stores.put(MemoryType.WORKING, workingStore);
-        stores.put(MemoryType.EPISODIC, episodicStore);
+        if (episodicStore != null) {
+            stores.put(MemoryType.EPISODIC, episodicStore);
+        }
         stores.put(MemoryType.SEMANTIC, semanticStore);
         stores.put(MemoryType.PROCEDURAL, proceduralStore);
     }
@@ -243,8 +263,14 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     /** Returns the Working Memory store (for circular buffer scan). */
     public WorkingRecordMemory working() { return workingStore; }
 
-    /** Returns the Episodic Memory store (for partition iteration). */
+    /** Returns the Episodic Memory store (for partition iteration). Null when log mode active. */
     public EpisodicRecordMemory episodic() { return episodicStore; }
+
+    /** Returns the log-structured Episodic store. Null in legacy mode. */
+    public EpisodicLogMemory episodicLog() { return episodicLogStore; }
+
+    /** Returns true when the new log-structured episodic store is active. */
+    public boolean isEpisodicLogMode() { return episodicLogStore != null; }
 
     /** Returns the Semantic Memory store (for header slab access). */
     public SemanticRecordMemory semantic() { return semanticStore; }

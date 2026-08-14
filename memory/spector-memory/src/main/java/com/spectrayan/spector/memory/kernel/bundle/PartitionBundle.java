@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.kernel.bundle;
 
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicLogLayout;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,7 +96,7 @@ public final class PartitionBundle implements AutoCloseable {
          *
          * @param path               path to the new bundle file
          * @param semanticCapacity   max records for semantic region
-         * @param episodicCapacity   max records for episodic region
+         * @param episodicBytes      allocated bytes for the episodic log region (variable-length)
          * @param proceduralCapacity max records for procedural region
          * @param textBytes          allocated bytes for the text append region
          * @param quantizedVecBytes  bytes per quantized vector (for stride calculation)
@@ -106,7 +107,7 @@ public final class PartitionBundle implements AutoCloseable {
          * @return an open PartitionBundle ready for use
          */
         public static PartitionBundle mmap(Path path,
-                                            int semanticCapacity, int episodicCapacity,
+                                            int semanticCapacity, long episodicBytes,
                                             int proceduralCapacity, long textBytes,
                                             int quantizedVecBytes,
                                             int cognitiveLayoutId, int cognitiveSchemaVer,
@@ -119,8 +120,9 @@ public final class PartitionBundle implements AutoCloseable {
                             semanticCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
                     new RegionSizeSpec(
                             RegionId.EPISODIC,
-                            MemoryHeader.HEADER_BYTES + (long) episodicCapacity * cogStride,
-                            episodicCapacity, cogStride, cognitiveLayoutId, cognitiveSchemaVer, false),
+                            MemoryHeader.HEADER_BYTES + episodicBytes,
+                            0, 0, EpisodicLogLayout.INSTANCE.layoutId(),
+                            EpisodicLogLayout.INSTANCE.schemaVersion(), false),
                     new RegionSizeSpec(
                             RegionId.PROCEDURAL,
                             MemoryHeader.HEADER_BYTES + (long) proceduralCapacity * cogStride,
