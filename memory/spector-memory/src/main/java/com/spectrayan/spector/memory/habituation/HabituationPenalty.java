@@ -76,14 +76,18 @@ public final class HabituationPenalty {
      * @param decayRate habituation strength (default: 0.2, higher = faster habituation)
      */
     public HabituationPenalty(float decayRate) {
-        this(decayRate, 300_000L, 0.1f);
+        this(decayRate,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_INHIBITION_TTL_MS,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_INHIBITION_FLOOR);
     }
 
     /**
-     * Creates a habituation penalty with all defaults (decayRate=0.2, TTL=5min, floor=0.1).
+     * Creates a habituation penalty with all defaults from SpectorPropertyConstants.
      */
     public HabituationPenalty() {
-        this(0.2f, 300_000L, 0.1f);
+        this(0.2f,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_INHIBITION_TTL_MS,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_INHIBITION_FLOOR);
     }
 
     /**

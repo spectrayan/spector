@@ -108,7 +108,7 @@ public final class ReflectDaemon {
     private static final Logger log = LoggerFactory.getLogger(ReflectDaemon.class);
 
     /** Default minimum cluster size for REM consolidation. */
-    private static final int DEFAULT_MIN_CLUSTER_SIZE = 5;
+    private static final int DEFAULT_MIN_CLUSTER_SIZE = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_REFLECT_MIN_CLUSTER_SIZE;
 
     private final CircadianPolicy policy;
     private final TombstoneCompactor compactor;

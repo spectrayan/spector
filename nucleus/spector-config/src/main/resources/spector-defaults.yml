@@ -22,6 +22,38 @@ spector:
   # ─── Global Mode (MEMORY) ───
   mode: MEMORY
 
+  # ─── Concurrency & Events ───
+  concurrency:
+    structured: true
+  events:
+    async: false
+
+  # ─── Chunking Defaults ───
+  chunking:
+    text:
+      size: 512
+      overlap: 64
+    token:
+      limit: 128
+      overlap: 16
+    document:
+      max-size: 104857600
+
+  # ─── HDC Vector Parameters ───
+  hdc:
+    dimensions: 10000
+    ngram-size: 3
+
+  # ─── SVASQ Quantization ───
+  quantization:
+    svasq:
+      seed: 42
+      clip-percentile: 0.001
+      clip-sigmas: 3.0
+      clip-sigmas-4bit: 2.5
+      max-sample-size: 10000
+      min-std: 0.000001
+
   # ─── HNSW Index Parameters ───
   hnsw:
     m: 16
@@ -61,9 +93,11 @@ spector:
         stats-log-interval: 5m
     generation:
       type: ollama
-      model: ""
+      model: "llama3.2"
       base-url: http://localhost:11434
       api-key: ""
+      timeout: 60s
+      fallback-model: "qwen3:0.6b"
 
   # ─── Persistence File Names ───
   persistence:
@@ -72,15 +106,54 @@ spector:
       vectors: vectors.mmap
       documents: documents.dat
       id-mappings: id-mappings.dat
+      shard-dir-name: index_shards
+
+  # ─── Query & Ranking ───
+  query:
+    default-top-k: 10
+    rrf-k: 60
+    reranker:
+      max-candidates: 20
+      connect-timeout: 5s
+      request-timeout: 30s
+      doc-snippet-length: 500
+    hybrid:
+      fanout-multiplier: 2
+      min-retrieval-k: 50
+
+  # ─── GPU Vector Search ───
+  gpu:
+    batch:
+      min-window-ms: 1
+      max-window-ms: 100
+      default-window: 10ms
+      default-max-batch: 1024
+    memory:
+      min-budget-bytes: 268435456
+    leak-detector:
+      threshold: 300s
 
   # ─── Cognitive Memory Module ───
   memory:
     enabled: true
     persistence-mode: DISK
     persistence-path: .spector/memory
+    max-namespaces: 100
+    namespace-id: default
+    persist-working-memory: false
+    pin-source-episodes: false
+    edge-importance: DEFAULT
+    id-strategy: TSID
     dimensions: 384
     capacity: 100000
     nodes-per-partition: 10000
+    working-capacity: 100
+    episodic-partition-capacity: 1000
+    semantic-capacity: 10000
+    procedural-capacity: 1000
+    entity-graph-capacity: 50000
+    pinned-quota: 10000
+    checkpoint-interval-seconds: 30
     decay-enabled: true
     consolidation-interval: 60s
     default-ingestion-tier: SEMANTIC
@@ -91,6 +164,106 @@ spector:
     splade-enabled: true
     colbert-enabled: true
     bm25-enabled: true
+    surprise-warmup: 10
+    flashbulb-threshold: 3.0
+    valence-learning-rate: 0.3
+    deduplication-radius: 0.05
+    inhibition-ttl-ms: 300000
+    inhibition-floor: 0.1
+    habituation-decay-rate: 0.2
+    ltp-cooldown-ms: 300000
+    hebbian:
+      max-degree: 24
+      session-boundary-ms: 300000
+      promotion-min-weight: 3.0
+      decay-factor: 0.9
+    stdp:
+      a-plus: 0.1
+      a-minus: 0.05
+      tau-plus: 30000
+      tau-minus: 30000
+    bridge:
+      sample-count: 15
+      budget-ms: 500
+    entity:
+      extraction-mode: NONE
+      resolution-enabled: false
+      shadow-mode: true
+      max-degree: 16
+      max-per-memory: 10
+      cosine-threshold: 0.85
+      retention-days: 7
+      decay-factor: 0.95
+      prune-threshold: 0.5
+      adj-decay-factor: 0.95
+      adj-prune-threshold: 0.2
+      merge-distance: 2
+    cross-capture:
+      min-weight: 2.0
+      scale-factor: 0.05
+    graph:
+      expansion-mode: GATED
+      causal-boost: 0.3
+      hebbian-boost: 0.3
+      temporal-forward: 0.8
+      temporal-backward: 0.7
+      entity-attenuation: 0.25
+      expansion-threshold: 0.40
+    circadian:
+      volume-trigger: 100
+      time-trigger: 1h
+      tombstone-threshold: 0.30
+      decay-prune-threshold: 0.05
+      interference-threshold: 0.12
+      interference-decay-factor: 0.7
+    reflect:
+      min-cluster-size: 5
+    wal:
+      max-chunk-bytes: 8388608
+    vacuum:
+      threshold: 0.20
+    session:
+      buffer-size: 64
+      buffer-ttl-ms: 5000
+    namespace:
+      max-id-length: 63
+      soft-warning-threshold: 0.70
+    hyperfocus:
+      ttl-ms: 1800000
+    icnu:
+      threshold: 0.2
+      steepness: 8.0
+      weight-interest: 0.30
+      weight-challenge: 0.10
+      weight-novelty: 0.40
+      weight-urgency: 0.20
+
+  # ─── Recall & Search Pipeline ───
+  recall:
+    text-search:
+      enabled: true
+      mode: HYBRID
+    scoring-mode: COGNITIVE
+    trace:
+      enabled: false
+    reranker:
+      enabled: false
+      depth: 50
+    mmr:
+      enabled: false
+      lambda: 0.5
+    auto-profile:
+      enabled: false
+    include-contradictions: false
+    lateral:
+      enabled: false
+      distance-threshold: 1.2
+      min-tag-overlap: 0.5
+    strictness-coefficient: 1.0
+    valence-alignment:
+      enabled: false
+    mode: LEARN
+    max-replay-events: 100000
 
   # ─── File Ingestion ───
   ingestion:
@@ -99,3 +272,34 @@ spector:
     skip-dirs: ".git,.idea,.mvn,target,node_modules,.github"
     chunk-size: 2500
     chunk-overlap: 200
+    parallelism: 4
+    max-retries: 3
+    retry-delay-ms: 2000
+
+  # ─── Multimodal Sensory Media ───
+  multimodal:
+    enabled: false
+    vision:
+      model: moondream
+      base-url: http://localhost:11434
+      timeout: 120
+      max-image-size: 20971520
+    audio:
+      model: gemma4
+      timeout: 180
+      max-file-size: 52428800
+    video:
+      keyframe-interval-seconds: 10
+      max-keyframes: 30
+    asset-store:
+      type: local
+      base-path: .spector/assets
+    tika:
+      max-content-length: 104857600
+
+  # ─── Test Judge ───
+  test:
+    judge:
+      model: llama3.1
+      base-url: http://localhost:11434
+      confidence: 0.6

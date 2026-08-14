@@ -29,8 +29,8 @@ public record GenerationOptions(
         float topP,
         String[] stopSequences
 ) {
-    /** Default options: deterministic, 512 max tokens. */
-    public static final GenerationOptions DEFAULT = new GenerationOptions(0.1f, 512, 0.9f, new String[0]);
+    /** Default options: aligned with SpectorPropertyConstants (0.3f, 1024 tokens, 0.95f top-p). */
+    public static final GenerationOptions DEFAULT = new GenerationOptions(0.3f, 1024, 0.95f, new String[0]);
 
     /** Creative options: higher temperature for synthesis. */
     public static final GenerationOptions CREATIVE = new GenerationOptions(0.7f, 1024, 0.95f, new String[0]);

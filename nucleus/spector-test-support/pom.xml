@@ -25,6 +25,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-config</artifactId>
+        </dependency>
+
         <!-- Spector provider API (TextGenerationProvider interface) -->
         <dependency>
             <groupId>com.spectrayan</groupId>

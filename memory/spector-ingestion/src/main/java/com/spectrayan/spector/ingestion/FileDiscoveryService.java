@@ -190,11 +190,11 @@ public class FileDiscoveryService {
     // ─────────────── Builder ───────────────
 
     public static class Builder {
-        private Path rootDirectory = Path.of(".");
-        private String filePattern = "**/*.md";
+        private Path rootDirectory = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_ROOT_DIRECTORY;
+        private String filePattern = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_FILE_PATTERN;
         private List<String> skipDirs = List.of(".git", ".idea", ".mvn", "target", "node_modules", ".github");
-        private int chunkSize = 800;
-        private int chunkOverlap = 100;
+        private int chunkSize = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_SIZE;
+        private int chunkOverlap = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_OVERLAP;
 
         public Builder rootDirectory(Path rootDirectory) { this.rootDirectory = rootDirectory; return this; }
         public Builder filePattern(String filePattern) { this.filePattern = filePattern; return this; }

@@ -197,65 +197,68 @@ public record RecallOptions(
 
         //  Text Search (BM25 Hybrid) 
         private float gamma = 0.3f;                             // BM25 weight in fused score
-        private boolean enableTextSearch = true;                 // enable BM25 parallel path
-        private TextSearchMode textSearchMode = TextSearchMode.HYBRID; // search mode
+        private boolean enableTextSearch = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_TEXT_SEARCH_ENABLED;
+        private TextSearchMode textSearchMode = TextSearchMode.valueOf(
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_TEXT_SEARCH_MODE);
 
-        //  Scoring Mode 
-        private ScoringMode scoringMode = ScoringMode.COGNITIVE; // default: full cognitive
+        // ─── Scoring Mode ───
+        private ScoringMode scoringMode = ScoringMode.valueOf(
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_SCORING_MODE);
 
-        //  Entity Hints 
+        // ─── Entity Hints ───
         private List<ExtractedEntity> entityHints = List.of(); // default: empty (use EntityExtractor)
 
-        //  Pipeline Tracing 
-        private boolean enableTrace = false; // default: off (no allocation overhead)
+        // ─── Pipeline Tracing ───
+        private boolean enableTrace = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_TRACE_ENABLED;
 
-        //  Temporal Gating 
+        // ─── Temporal Gating ───
         private Long minTimestamp = null;
         private Long maxTimestamp = null;
 
-        //  Graph Expansion Gating 
-        private float graphExpansionThreshold = 0.40f; // default: expand when max similarity < 0.40
+        // ─── Graph Expansion Gating ───
+        private float graphExpansionThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD;
 
-        //  WAL Replay (Time-Travel) 
+        // ─── WAL Replay (Time-Travel) ───
         private Instant replayTimestamp = null;    // null = disabled
-        private int maxReplayEvents = 100_000;     // cap to prevent OOM on large WALs
+        private int maxReplayEvents = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_MAX_REPLAY_EVENTS;
 
-        //  Reranker (ColBERT v2) 
-        private boolean enableReranker = false;     // default: off (requires TokenEmbeddingProvider)
-        private int rerankerDepth = 50;             // rerank top-50 first-stage candidates
+        // ─── Reranker (ColBERT v2) ───
+        private boolean enableReranker = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_RERANKER_ENABLED;
+        private int rerankerDepth = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_RERANKER_DEPTH;
 
-        //  MMR Diversity 
-        private boolean enableMmr = false;          // default: off
-        private float mmrLambda = 0.5f;             // trade-off between relevance and diversity
+        // ─── MMR Diversity ───
+        private boolean enableMmr = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_MMR_ENABLED;
+        private float mmrLambda = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_MMR_LAMBDA;
 
-        //  Auto-Profile Detection 
-        private boolean autoProfile = false;         // default: off (use explicit profile)
-        private boolean includeContradictions = false; // default: off (exclude contradicted records)
+        // ─── Auto-Profile Detection ───
+        private boolean autoProfile = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_AUTO_PROFILE_ENABLED;
+        private boolean includeContradictions = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_INCLUDE_CONTRADICTIONS;
         private CognitiveProfile resolvedProfile = null; // set when profile() is called
 
-        //  Neurodivergent: Hyperfocus 
+        // ─── Neurodivergent: Hyperfocus ───
         private long hyperfocusMask = 0L;       // 0 = disabled
         private float hyperfocusBoost = 1.0f;   // post-score multiplier
 
-        //  Neurodivergent: Lateral Retrieval 
-        private boolean lateralMode = false;
-        private float lateralDistanceThreshold = 1.2f;
+        // ─── Neurodivergent: Lateral Retrieval ───
+        private boolean lateralMode = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_ENABLED;
+        private float lateralDistanceThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_DISTANCE_THRESHOLD;
         private int lateralMaxResults = -1;      // -1 = topK/3
-        private float lateralMinTagOverlap = 0.5f;
+        private float lateralMinTagOverlap = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_LATERAL_MIN_TAG_OVERLAP;
 
-        //  Enhanced Scoring 
-        private float strictnessCoefficient = 1.0f; // 1.0 = standard, 10.0 = Heaviside cliff
+        // ─── Enhanced Scoring ───
+        private float strictnessCoefficient = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_STRICTNESS_COEFFICIENT;
 
-        //  Valence Alignment (State-Dependent Recall) 
+        // ─── Valence Alignment (State-Dependent Recall) ───
         private byte queryValence = 0;              // 0 = neutral
-        private boolean enableValenceAlignment = false;
+        private boolean enableValenceAlignment = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_VALENCE_ALIGNMENT_ENABLED;
 
-        //  Two-Factor Memory (Bjork & Bjork) 
+        // ─── Two-Factor Memory (Bjork & Bjork) ───
         private com.spectrayan.spector.memory.synapse.TwoFactorConfig twoFactorConfig
                 = com.spectrayan.spector.memory.synapse.TwoFactorConfig.DEFAULT;
 
-        //  Recall Mode 
-        private RecallMode recallMode = RecallMode.LEARN;
+        // ─── Recall Mode ───
+        private RecallMode recallMode = RecallMode.valueOf(
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_MODE);
 
         /**
          * Applies a {@link CognitiveProfile} preset to this builder.

@@ -65,8 +65,8 @@ public final class LlmEntityExtractor implements EntityExtractor {
     /** Pattern to strip <think>...</think> reasoning blocks from qwen3 output. */
     private static final Pattern THINK_BLOCK = Pattern.compile(
             "<think>.*?</think>", Pattern.DOTALL);
-    private static final int DEFAULT_MAX_ENTITIES = 10;
-    private static final int DEFAULT_MAX_RELATIONS = 20;
+    private static final int DEFAULT_MAX_ENTITIES = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_MAX_PER_MEM;
+    private static final int DEFAULT_MAX_RELATIONS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_RELATION_MAX_PER_MEM;
 
     private static final Pattern ENTITY_PATTERN = Pattern.compile(
             "^ENTITY:\\s*(.+?)\\s*\\|\\s*(\\w+)\\s*$", Pattern.MULTILINE);

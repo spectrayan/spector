@@ -65,13 +65,13 @@ public final class OllamaVisionExtractor implements SensoryExtractor {
     private static final Logger log = LoggerFactory.getLogger(OllamaVisionExtractor.class);
 
     /** Default vision model. */
-    private static final String DEFAULT_MODEL = "moondream";
+    private static final String DEFAULT_MODEL = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_VISION_MODEL;
 
     /** Default timeout for vision inference (images take longer). */
-    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(120);
+    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_VISION_TIMEOUT);
 
     /** Maximum image file size (20 MB). */
-    private static final long MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
+    private static final long MAX_IMAGE_SIZE_BYTES = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_VISION_MAX_IMAGE_SIZE;
 
     /** Captioning prompt — instructs the VLM to produce a rich description. */
     private static final String CAPTIONING_PROMPT =

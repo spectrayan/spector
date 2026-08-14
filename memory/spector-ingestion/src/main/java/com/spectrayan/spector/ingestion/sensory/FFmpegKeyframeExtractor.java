@@ -67,10 +67,10 @@ public class FFmpegKeyframeExtractor implements SensoryExtractor {
     );
 
     /** Default keyframe extraction interval in seconds. */
-    private static final int DEFAULT_INTERVAL_SECONDS = 10;
+    private static final int DEFAULT_INTERVAL_SECONDS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_VIDEO_KEYFRAME_INTERVAL;
 
     /** Default max keyframes to extract. */
-    private static final int DEFAULT_MAX_KEYFRAMES = 30;
+    private static final int DEFAULT_MAX_KEYFRAMES = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_VIDEO_MAX_KEYFRAMES;
 
     private final int intervalSeconds;
     private final int maxKeyframes;

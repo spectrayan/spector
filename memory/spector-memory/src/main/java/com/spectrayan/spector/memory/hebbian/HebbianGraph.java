@@ -79,7 +79,7 @@ public final class HebbianGraph implements HebbianGraphBase {
     private static final int FILE_HEADER_BYTES = 16;
 
     /** Default maximum number of Hebbian neighbors per memory (configurable). */
-    public static final int DEFAULT_MAX_DEGREE = 24;
+    public static final int DEFAULT_MAX_DEGREE = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_MAX_DEGREE;
 
     /**
      * Bytes per edge (V2): 4B neighbor + 4B weight + 2B lastCycle + 1B bridgeScore + 1B flags.

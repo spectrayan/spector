@@ -33,11 +33,11 @@ public record EmbeddingConfig(
         int batchSize,
         int maxConcurrent
 ) {
-    /** Default Ollama configuration. */
+    /** Default Ollama configuration (aligned with SpectorPropertyConstants: 30s timeout). */
     public static final EmbeddingConfig OLLAMA_DEFAULT = new EmbeddingConfig(
             "nomic-embed-text",
             "http://localhost:11434",
-            Duration.ofMinutes(2),
+            Duration.ofSeconds(30),
             32,
             0
     );
@@ -58,21 +58,21 @@ public record EmbeddingConfig(
     }
 
     /**
-     * Returns a new config with a different request timeout.
+     * Returns a new config with a different timeout.
      */
     public EmbeddingConfig withTimeout(Duration timeout) {
         return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
     }
 
     /**
-     * Returns a new config with a different batch size limit.
+     * Returns a new config with a different batch size.
      */
     public EmbeddingConfig withBatchSize(int batchSize) {
         return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);
     }
 
     /**
-     * Returns a new config with a different concurrency limit.
+     * Returns a new config with a different max concurrent requests setting.
      */
     public EmbeddingConfig withMaxConcurrent(int maxConcurrent) {
         return new EmbeddingConfig(model, baseUrl, timeout, batchSize, maxConcurrent);

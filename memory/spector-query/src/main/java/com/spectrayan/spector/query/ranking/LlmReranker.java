@@ -78,7 +78,7 @@ public class LlmReranker implements Reranker {
         this.model = model;
         this.maxCandidates = maxCandidates;
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
+                .connectTimeout(com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_RERANKER_CONNECT_TIMEOUT)
                 .build();
 
         log.info("LlmReranker initialized: model={}, maxCandidates={}", model, maxCandidates);
@@ -86,7 +86,7 @@ public class LlmReranker implements Reranker {
 
     /** Convenience constructor with defaults. */
     public LlmReranker(String ollamaBaseUrl, String model) {
-        this(ollamaBaseUrl, model, 20);
+        this(ollamaBaseUrl, model, com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_RERANKER_MAX_CANDIDATES);
     }
 
     @Override
@@ -180,7 +180,7 @@ public class LlmReranker implements Reranker {
                 .uri(URI.create(ollamaBaseUrl + "/api/generate"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
-                .timeout(Duration.ofSeconds(30))
+                .timeout(com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_RERANKER_REQUEST_TIMEOUT)
                 .build();
 
         HttpResponse<String> response = httpClient.send(request,

@@ -73,7 +73,7 @@ public class GpuMemoryManager implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(GpuMemoryManager.class);
 
     /** Minimum configurable budget: 256 MB */
-    private static final long MIN_BUDGET_BYTES = 256L * 1024 * 1024;
+    private static final long MIN_BUDGET_BYTES = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_GPU_MEMORY_MIN_BUDGET_BYTES;
 
     /** ID generator for allocation tracking */
     private static final AtomicLong ID_GENERATOR = new AtomicLong(0);

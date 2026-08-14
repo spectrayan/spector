@@ -53,11 +53,19 @@ public record TwoFactorConfig(
         boolean enabled
 ) {
 
-    /** Default configuration with gentle S(t) influence. */
-    public static final TwoFactorConfig DEFAULT = new TwoFactorConfig(0.1f, 5.0f, 0.3f, true);
+    /** Default configuration with gentle S(t) influence from SpectorPropertyConstants. */
+    public static final TwoFactorConfig DEFAULT = new TwoFactorConfig(
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_GAIN,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_EXPONENT,
+            true);
 
     /** Disabled configuration — S(t) has no effect on scoring. */
-    public static final TwoFactorConfig DISABLED = new TwoFactorConfig(0.1f, 5.0f, 0.3f, false);
+    public static final TwoFactorConfig DISABLED = new TwoFactorConfig(
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_GAIN,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_MAX,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_TWOFACTOR_S_EXPONENT,
+            false);
 
     /**
      * Compact constructor with validation.

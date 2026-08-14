@@ -64,7 +64,7 @@ public class PanamaMemoryDetector {
     private static final Logger log = LoggerFactory.getLogger(PanamaMemoryDetector.class);
 
     /** Default lifetime threshold: 300 seconds. */
-    private static final Duration DEFAULT_THRESHOLD = Duration.ofSeconds(300);
+    private static final Duration DEFAULT_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_GPU_LEAK_DETECTOR_THRESHOLD;
 
     /** Minimum allowed threshold: 1 second. */
     private static final Duration MIN_THRESHOLD = Duration.ofSeconds(1);

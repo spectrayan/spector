@@ -57,10 +57,10 @@ public final class BridgeDetector {
     private static final Logger log = LoggerFactory.getLogger(BridgeDetector.class);
 
     /** Default number of spanning trees to sample. */
-    public static final int DEFAULT_SAMPLE_COUNT = 15;
+    public static final int DEFAULT_SAMPLE_COUNT = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_BRIDGE_SAMPLE_COUNT;
 
     /** Maximum time budget for spanning tree computation (milliseconds). */
-    public static final long DEFAULT_BUDGET_MS = 500;
+    public static final long DEFAULT_BUDGET_MS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_BRIDGE_BUDGET_MS;
 
     private BridgeDetector() {}
 

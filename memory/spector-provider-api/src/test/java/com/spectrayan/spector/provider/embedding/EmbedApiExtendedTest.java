@@ -66,9 +66,9 @@ class EmbedApiExtendedTest {
 
         @Test @DisplayName("DEFAULT preset")
         void defaultPreset() {
-            assertThat(GenerationOptions.DEFAULT.temperature()).isEqualTo(0.1f);
-            assertThat(GenerationOptions.DEFAULT.maxTokens()).isEqualTo(512);
-            assertThat(GenerationOptions.DEFAULT.topP()).isEqualTo(0.9f);
+            assertThat(GenerationOptions.DEFAULT.temperature()).isEqualTo(0.3f);
+            assertThat(GenerationOptions.DEFAULT.maxTokens()).isEqualTo(1024);
+            assertThat(GenerationOptions.DEFAULT.topP()).isEqualTo(0.95f);
         }
 
         @Test @DisplayName("CREATIVE preset")
@@ -99,8 +99,8 @@ class EmbedApiExtendedTest {
         @Test @DisplayName("Builder defaults")
         void builderDefaults() {
             var opts = GenerationOptions.builder().build();
-            assertThat(opts.temperature()).isEqualTo(0.1f);
-            assertThat(opts.maxTokens()).isEqualTo(512);
+            assertThat(opts.temperature()).isEqualTo(0.3f);
+            assertThat(opts.maxTokens()).isEqualTo(1024);
         }
     }
 

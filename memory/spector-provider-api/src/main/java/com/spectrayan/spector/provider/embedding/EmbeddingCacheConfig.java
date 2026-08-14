@@ -62,10 +62,13 @@ public record EmbeddingCacheConfig(
         return new EmbeddingCacheConfig(false, 1, Duration.ZERO, Duration.ZERO);
     }
 
-    /**
-     * Returns {@code true} if cached entries expire after {@link #ttl()}.
-     */
+    /** Whether TTL-based expiration is active. */
     public boolean ttlEnabled() {
-        return !ttl.isZero();
+        return !ttl.isZero() && !ttl.isNegative();
+    }
+
+    /** Whether periodic stats logging is active. */
+    public boolean statsLoggingEnabled() {
+        return !statsLogInterval.isZero() && !statsLogInterval.isNegative();
     }
 }

@@ -63,8 +63,11 @@ public record DecayConfig(
     /** Number of decay buckets in the 12-bucket power-law system. */
     public static final int BUCKET_COUNT = 12;
 
-    /** Default: moderate forgetting (d=0.15), 10% permastore floor. */
-    public static final DecayConfig DEFAULT = new DecayConfig(0.15f, 0.10f, null);
+    /** Default from SpectorPropertyConstants: moderate forgetting (d=0.15), 10% permastore floor. */
+    public static final DecayConfig DEFAULT = new DecayConfig(
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_DECAY_EXPONENT,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_DECAY_FLOOR,
+            null);
 
     /** Slow forgetting: for digital legacy, long-term knowledge bases. */
     public static final DecayConfig SLOW_FORGET = new DecayConfig(0.08f, 0.15f, null);

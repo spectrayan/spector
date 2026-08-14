@@ -60,25 +60,25 @@ final class ReflectionOrchestrator {
     private static final Logger log = LoggerFactory.getLogger(ReflectionOrchestrator.class);
 
     /** Minimum Hebbian weight to qualify for cross-layer promotion to entity graph. */
-    private static final float HEBBIAN_PROMOTION_MIN_WEIGHT = 3.0f;
+    private static final float HEBBIAN_PROMOTION_MIN_WEIGHT = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_PROMOTION_MIN_WEIGHT;
 
     /** Hebbian decay factor per reflection cycle (10% decay = multiply by 0.9). */
-    private static final float HEBBIAN_DECAY_FACTOR = 0.9f;
+    private static final float HEBBIAN_DECAY_FACTOR = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_HEBBIAN_DECAY_FACTOR;
 
     /** Entity edge decay factor per cycle (5% decay). */
-    private static final float ENTITY_DECAY_FACTOR = 0.95f;
+    private static final float ENTITY_DECAY_FACTOR = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_DECAY_FACTOR;
 
     /** Entity edge pruning threshold (edges below this weight are removed). */
-    private static final float ENTITY_PRUNE_THRESHOLD = 0.5f;
+    private static final float ENTITY_PRUNE_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_PRUNE_THRESHOLD;
 
     /** Entity→memory adjacency decay factor per cycle (5% decay — LTD). */
-    private static final float ENTITY_ADJ_DECAY_FACTOR = 0.95f;
+    private static final float ENTITY_ADJ_DECAY_FACTOR = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_ADJ_DECAY_FACTOR;
 
     /** Entity→memory adjacency pruning threshold (links below this are removed). */
-    private static final float ENTITY_ADJ_PRUNE_THRESHOLD = 0.2f;
+    private static final float ENTITY_ADJ_PRUNE_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_ADJ_PRUNE_THRESHOLD;
 
     /** Levenshtein distance threshold for merging near-duplicate entities. */
-    private static final int ENTITY_MERGE_DISTANCE = 2;
+    private static final int ENTITY_MERGE_DISTANCE = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_MERGE_DISTANCE;
 
     // ── STC Cross-Capture Constants ──
 
@@ -86,13 +86,13 @@ final class ReflectionOrchestrator {
      * Minimum Hebbian weight to qualify for cross-capture propagation.
      * Only moderately-strong edges propagate signals across layers.
      */
-    private static final float CROSS_CAPTURE_MIN_WEIGHT = 2.0f;
+    private static final float CROSS_CAPTURE_MIN_WEIGHT = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CROSS_CAPTURE_MIN_WEIGHT;
 
     /**
      * Scale factor mapping Hebbian weight to entity edge boost.
      * Hebbian weight 4.0 × 0.05 = 0.20 boost to entity edge weight.
      */
-    private static final float CROSS_CAPTURE_SCALE_FACTOR = 0.05f;
+    private static final float CROSS_CAPTURE_SCALE_FACTOR = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_CROSS_CAPTURE_SCALE_FACTOR;
 
     /**
      * Maximum per-cycle boost to an entity edge from cross-capture.
