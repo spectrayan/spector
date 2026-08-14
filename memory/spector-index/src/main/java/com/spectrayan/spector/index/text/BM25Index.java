@@ -62,7 +62,7 @@ public class BM25Index implements KeywordIndex {
     /** Threshold: use parallel term scoring when total postings exceed this.
      * Set conservatively — virtual thread scheduling overhead only pays off
      * for large posting lists. Below 20K, sequential scoring is faster. */
-    private static final int PARALLEL_POSTING_THRESHOLD = 20_000;
+    private static final int PARALLEL_POSTING_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INDEX_BM25_PARALLEL_THRESHOLD;
 
     private final Analyzer analyzer;
     private final float k1;
@@ -149,9 +149,9 @@ public class BM25Index implements KeywordIndex {
         this.totalDocs = 0;
     }
 
-    /** Creates a BM25 index with default parameters (k1=1.2, b=0.75). */
+    /** Creates a BM25 index with default parameters from SpectorPropertyConstants. */
     public BM25Index(Analyzer analyzer) {
-        this(analyzer, 1.2f, 0.75f);
+        this(analyzer, com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INDEX_BM25_K1, com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INDEX_BM25_B);
     }
 
     /** Creates a BM25 index with the standard analyzer and default params. */

@@ -144,11 +144,11 @@ public final class SpectorIndex implements VectorIndex {
      */
     public static final class Builder {
         private int dimensions = -1;
-        private int nCentroids = 256;
-        private int nProbe = 16;
-        private int shardThreshold = 20_000;
-        private int oversamplingFactor = 3;
-        private int kMeansIterations = 25;
+        private int nCentroids = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_N_CENTROIDS;
+        private int nProbe = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_N_PROBE;
+        private int shardThreshold = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_SHARD_THRESHOLD;
+        private int oversamplingFactor = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_OVERSAMPLING_FACTOR;
+        private int kMeansIterations = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_KMEANS_ITERATIONS;
         private SimilarityFunction similarityFunction = SimilarityFunction.COSINE;
         private HnswProperties hnswProperties = HnswProperties.DEFAULT;
 

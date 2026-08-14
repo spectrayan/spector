@@ -103,12 +103,12 @@ public final class ColBERTTokenCache implements AutoCloseable {
     }
 
     /**
-     * Creates a ColBERT token cache with default capacity (1024 entries).
+     * Creates a ColBERT token cache with default capacity from SpectorPropertyConstants.
      *
      * @param tokenDims dimensionality of each token embedding
      */
     public ColBERTTokenCache(int tokenDims) {
-        this(tokenDims, 1024);
+        this(tokenDims, com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INDEX_COLBERT_CACHE_CAPACITY);
     }
 
     /**

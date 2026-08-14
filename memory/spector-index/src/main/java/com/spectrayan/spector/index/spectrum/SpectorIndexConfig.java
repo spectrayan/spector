@@ -57,11 +57,15 @@ public record SpectorIndexConfig(
 ) {
 
     /**
-     * Default configuration: 256 centroids, nprobe=16, flat→HNSW at 20K vectors,
-     * 3× SVASQ oversampling, 25 K-Means iterations, cosine similarity, standard HNSW params.
+     * Default configuration from SpectorPropertyConstants: 256 centroids, nprobe=16,
+     * flat→HNSW at 20K vectors, 3× SVASQ oversampling, 25 K-Means iterations, cosine similarity.
      */
     public static final SpectorIndexConfig DEFAULT = new SpectorIndexConfig(
-            256, 16, 20_000, 3, 25,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_N_CENTROIDS,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_N_PROBE,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_SHARD_THRESHOLD,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_OVERSAMPLING_FACTOR,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_SPECTRUM_KMEANS_ITERATIONS,
             SimilarityFunction.COSINE,
             HnswProperties.DEFAULT
     );

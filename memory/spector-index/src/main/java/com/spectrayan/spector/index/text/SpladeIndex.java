@@ -79,7 +79,7 @@ public class SpladeIndex implements KeywordIndex {
     /** Threshold: use parallel term scoring when total postings exceed this.
      * Matches the strategy in {@link BM25Index}  --  virtual thread scheduling
      * overhead only pays off for large posting lists. */
-    private static final int PARALLEL_POSTING_THRESHOLD = 15_000;
+    private static final int PARALLEL_POSTING_THRESHOLD = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INDEX_SPLADE_PARALLEL_THRESHOLD;
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
