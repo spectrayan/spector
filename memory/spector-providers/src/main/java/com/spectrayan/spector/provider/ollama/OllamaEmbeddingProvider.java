@@ -41,10 +41,12 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
 
     public OllamaEmbeddingProvider(EmbeddingConfig config) {
         this.config = Objects.requireNonNull(config, "config");
+        Duration timeout = config.timeout() != null ? config.timeout() : Duration.ofMinutes(3);
         this.delegate = OllamaEmbeddingModel.builder()
                 .baseUrl(config.baseUrl())
                 .modelName(config.model())
-                .timeout(config.timeout())
+                .timeout(timeout)
+                .maxRetries(3)
                 .build();
         // Uses 1 as a placeholder dimension since OllamaEmbeddingProvider overrides the dimensions() getter
         this.adapter = new LangChain4jEmbeddingAdapter(delegate, config.model(), 1);

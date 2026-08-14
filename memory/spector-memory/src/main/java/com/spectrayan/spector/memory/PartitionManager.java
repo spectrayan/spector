@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory;
 
+import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
@@ -367,9 +368,12 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                     TextBlobLayout textLayout = new TextBlobLayout();
                     long textSize = Long.getLong("spector.memory.text-segment-size", 32 * 1024 * 1024L);
 
+                    long episodicSize = Long.getLong("spector.memory.episodic-segment-size",
+                            (long) episodicPartitionCapacity * 256L);
+
                     newBundle = PartitionBundle.Init.mmap(
                             bundleFile,
-                            semanticCapacity, episodicPartitionCapacity,
+                            semanticCapacity, episodicSize,
                             proceduralCapacity, textSize,
                             quantizedVecBytes,
                             cogLayout.layoutId(), cogLayout.schemaVersion(),
@@ -381,6 +385,9 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                     EpisodicRecordMemory newEpisodic = EpisodicRecordMemory.fromBundle(
                             newBundle.arena(), newBundle.regionSegment(RegionId.EPISODIC),
                             episodicPartitionCapacity, quantizedVecBytes, bundleFile, true);
+                    EpisodicLogMemory newEpisodicLog = EpisodicLogMemory.fromBundle(
+                            newBundle.arena(), newBundle.regionSegment(RegionId.EPISODIC),
+                            bundleFile, true);
                     ProceduralRecordMemory newProcedural = ProceduralRecordMemory.fromBundle(
                             newBundle.arena(), newBundle.regionSegment(RegionId.PROCEDURAL),
                             proceduralCapacity, quantizedVecBytes, bundleFile, true);
@@ -389,7 +396,7 @@ final class PartitionManager implements PartitionRegistry, AutoCloseable {
                             bundleFile, true, encryptor);
 
                     newRouter = new CognitiveMemoryRouter(
-                            workingStore, newEpisodic, newSemantic, newProcedural);
+                            workingStore, newEpisodic, newSemantic, newProcedural, newEpisodicLog);
                 } else {
                     // ── V3 Legacy Mode ──
                     EpisodicRecordMemory newEpisodic = new EpisodicRecordMemory(

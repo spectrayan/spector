@@ -39,6 +39,10 @@ import com.spectrayan.spector.memory.prospective.Reminder;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.memory.temporal.TemporalFact;
+import com.spectrayan.spector.memory.model.ConversationRole;
+import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -384,6 +388,70 @@ public interface SpectorMemory extends AutoCloseable {
      * @return list of matching cognitive records (without vectors — use inspect() for full detail)
      */
     List<CognitiveRecord> browse(String... tags);
+
+    // ══════════════════════════════════════════════════════════════
+    // EPISODIC CONVERSATION API  (ADR-0006)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Appends a conversation turn to the episodic log.
+     *
+     * <p><b>Lightweight path:</b> bypasses the full cognitive pipeline
+     * (embedding, HNSW, BM25, etc.). Writes directly to the log-structured
+     * mmap region.</p>
+     *
+     * @param role        conversation role
+     * @param sequenceId  monotonic turn counter per session
+     * @param timestampMs epoch milliseconds
+     * @param sessionId   8B TSID hash identifying the session
+     * @param body        raw CBOR body bytes
+     * @param modelId     LLM model registry ID
+     * @param tokenIn     input token count
+     * @param tokenOut    output token count
+     * @param latencyMs   response latency in ms
+     * @param userId      user/tenant 8B TSID hash
+     * @param soulVersion agent soul configuration version
+     * @param modality    source modality
+     * @return the byte offset of the written record
+     */
+    default long rememberEpisodic(ConversationRole role, int sequenceId,
+                                   long timestampMs, long sessionId,
+                                   byte[] body, short modelId,
+                                   int tokenIn, int tokenOut,
+                                   int latencyMs, long userId,
+                                   short soulVersion, SourceModality modality) {
+        throw new UnsupportedOperationException("Episodic log not supported by this implementation");
+    }
+
+    /**
+     * Reads paginated conversation turns for a session.
+     *
+     * @param sessionId 8B TSID hash
+     * @param offset    zero-based start index
+     * @param limit     maximum number of turns
+     * @return list of decoded episodic records
+     */
+    default List<EpisodicFieldAccessor.EpisodicRecord> browseEpisodic(long sessionId, int offset, int limit) {
+        return List.of();
+    }
+
+    /**
+     * Returns the last N turns for a session (for LLM context assembly).
+     *
+     * @param sessionId 8B TSID hash
+     * @param count     number of recent turns
+     * @return list of decoded episodic records
+     */
+    default List<EpisodicFieldAccessor.EpisodicRecord> tailEpisodic(long sessionId, int count) {
+        return List.of();
+    }
+
+    /**
+     * Returns the session index for external query.
+     */
+    default EpisodicSessionIndex episodicSessionIndex() {
+        return null;
+    }
 
     // ══════════════════════════════════════════════════════════════
     // EXPORT — Bulk Memory Export

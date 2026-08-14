@@ -88,7 +88,8 @@ public class LangChain4jGenerationAdapter implements LlmProvider {
             outputTokens = response.tokenUsage().outputTokenCount() != null ? response.tokenUsage().outputTokenCount() : 0;
         }
 
-        return new LlmResponse(response.aiMessage().text(), inputTokens, outputTokens, modelName);
+        String aiText = response.aiMessage() != null && response.aiMessage().text() != null ? response.aiMessage().text() : "";
+        return new LlmResponse(aiText, inputTokens, outputTokens, modelName);
     }
 
     private dev.langchain4j.data.message.ChatMessage mapMessage(ChatMessage message) {

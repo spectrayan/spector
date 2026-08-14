@@ -16,6 +16,12 @@ import com.spectrayan.spector.memory.adaptor.ProfileAdaptor;
 import com.spectrayan.spector.memory.model.SalienceProfile;
 import com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle;
 
+import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
+import com.spectrayan.spector.memory.model.ConversationRole;
+import com.spectrayan.spector.memory.model.SourceModality;
+import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
+
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.memory.session.SessionWriteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -248,6 +254,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     private final ConcurrentHashMap<String, SessionWriteBuffer> sessionBuffers = new ConcurrentHashMap<>();
 
+    //  Episodic Conversation Architecture (ADR-0006) 
+    private final EpisodicSessionIndex episodicSessionIndex;
+    private final EpisodicLogMemory episodicLogStore;
+
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
         this.cognitiveTarget = bundle.cognitiveTarget();
@@ -312,6 +322,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         } else {
             this.shutdownHook = null;
+        }
+
+        //  Episodic Session Index rebuild (ADR-0006) 
+        this.episodicLogStore = partitionManager.cognitiveRouter().episodicLog();
+        this.episodicSessionIndex = new EpisodicSessionIndex();
+        if (episodicLogStore != null) {
+            int liveRecords = episodicLogStore.rebuildSessionIndex(episodicSessionIndex);
+            log.info("Episodic session index rebuilt: {} live records, {} sessions",
+                    liveRecords, episodicSessionIndex.sessionCount());
         }
     }
 
@@ -458,6 +477,98 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 });
             }
         }
+    }
+
+    // ==============================================================
+    // EPISODIC CONVERSATION API  (ADR-0006)
+    // ==============================================================
+
+    /**
+     * Appends a conversation turn to the episodic log.
+     *
+     * <p><b>Lightweight ingestion path:</b> bypasses embedding, quantization,
+     * surprise detection, importance scoring, BM25, SPLADE, Hebbian,
+     * entity extraction, and temporal chain. Only writes the 64B episodic
+     * header + CBOR body to the log-structured mmap region, updates the
+     * in-memory session index, and fires the circadian trigger.</p>
+     *
+     * @param role        conversation role (USER, ASSISTANT, SYSTEM, etc.)
+     * @param sequenceId  monotonic turn counter per session
+     * @param timestampMs epoch milliseconds
+     * @param sessionId   8B TSID hash identifying the conversation session
+     * @param body        raw CBOR body bytes (serialized by the synapse layer)
+     * @param modelId     LLM model registry ID
+     * @param tokenIn     input token count
+     * @param tokenOut    output token count
+     * @param latencyMs   response generation latency in milliseconds
+     * @param userId      user/tenant 8B TSID hash
+     * @param soulVersion agent soul configuration version
+     * @param modality    source modality (TEXT, IMAGE, AUDIO, VIDEO)
+     * @return the byte offset of the written record
+     * @throws IllegalStateException if the episodic log store is not available
+     */
+    public long rememberEpisodic(ConversationRole role, int sequenceId,
+                                  long timestampMs, long sessionId,
+                                  byte[] body, short modelId,
+                                  int tokenIn, int tokenOut,
+                                  int latencyMs, long userId,
+                                  short soulVersion, SourceModality modality) {
+        if (episodicLogStore == null) {
+            throw new IllegalStateException("Episodic log store not available (legacy mode?)");
+        }
+
+        long offset = episodicLogStore.appendTurn(role, sequenceId,
+                timestampMs, sessionId, body, modelId,
+                tokenIn, tokenOut, latencyMs, userId,
+                soulVersion, modality);
+
+        // Update session index
+        episodicSessionIndex.appendTurn(sessionId, offset);
+
+        // Fire circadian trigger (episodic volume → auto-reflect)
+        checkCircadianTrigger(MemoryType.EPISODIC);
+
+        log.debug("Episodic turn appended: session={}, seq={}, role={}, offset={}",
+                Long.toHexString(sessionId), sequenceId, role, offset);
+        return offset;
+    }
+
+    /**
+     * Reads paginated conversation turns for a session.
+     *
+     * @param sessionId 8B TSID hash
+     * @param offset    zero-based start index
+     * @param limit     maximum number of turns to return
+     * @return list of decoded episodic records with CBOR bodies
+     */
+    public List<EpisodicFieldAccessor.EpisodicRecord> browseEpisodic(long sessionId, int offset, int limit) {
+        if (episodicLogStore == null) {
+            return List.of();
+        }
+        List<Long> offsets = episodicSessionIndex.paginate(sessionId, offset, limit);
+        return episodicLogStore.readTurns(offsets, true);
+    }
+
+    /**
+     * Returns the last N turns for a session (for LLM context window assembly).
+     *
+     * @param sessionId 8B TSID hash
+     * @param count     number of recent turns
+     * @return list of decoded episodic records
+     */
+    public List<EpisodicFieldAccessor.EpisodicRecord> tailEpisodic(long sessionId, int count) {
+        if (episodicLogStore == null) {
+            return List.of();
+        }
+        List<Long> offsets = episodicSessionIndex.tailTurns(sessionId, count);
+        return episodicLogStore.readTurns(offsets, true);
+    }
+
+    /**
+     * Returns the session index for external query by the synapse layer.
+     */
+    public EpisodicSessionIndex episodicSessionIndex() {
+        return episodicSessionIndex;
     }
 
     /**
@@ -1126,7 +1237,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         long nowMs = System.currentTimeMillis();
         long thresholdMs = nowMs - olderThan.toMillis();
 
-        var partitions = partitionManager.cognitiveRouter().episodic().partitions();
+        var episodicStore = partitionManager.cognitiveRouter().episodic();
+        if (episodicStore == null) return 0; // Log-structured mode: no importance decay for conversation turns
+        var partitions = episodicStore.partitions();
         if (partitions.isEmpty()) return 0;
 
         try {

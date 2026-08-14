@@ -184,6 +184,9 @@ public final class BundleMigrationCli {
             int cogStride = cogLayout.stride();
             int semanticCap = fileCapacity(semantic, cogStride);
             int episodicCap = fileCapacity(episodic, cogStride);
+            long episodicBytes = episodic.segment != null
+                    ? Math.max(episodic.segment.byteSize() - MemoryHeader.HEADER_BYTES, (long) episodicCap * cogStride)
+                    : (long) episodicCap * cogStride;
             int proceduralCap = fileCapacity(procedural, cogStride);
             long textBytes = text.segment != null
                     ? Math.max(text.segment.byteSize() - MemoryHeader.HEADER_BYTES, 1024)
@@ -192,7 +195,7 @@ public final class BundleMigrationCli {
             // Create the V4 bundle
             PartitionBundle bundle = PartitionBundle.Init.mmap(
                     bundleFile,
-                    semanticCap, episodicCap, proceduralCap, textBytes,
+                    semanticCap, episodicBytes, proceduralCap, textBytes,
                     dimensions,
                     cogLayout.layoutId(), cogLayout.schemaVersion(),
                     textLayout.layoutId(), textLayout.schemaVersion());

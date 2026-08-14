@@ -218,7 +218,11 @@ class VideoIngestionE2ETest {
         if (url != null) {
             try { return Path.of(url.toURI()); } catch (Exception e) { /* fall through */ }
         }
-        return Path.of("d:/git/spector-search/spector-ingestion/src/test/resources", relativePath);
+        Path local = Path.of("memory/spector-ingestion/src/test/resources", relativePath);
+        if (Files.exists(local)) return local;
+        Path parent = Path.of("../spector-ingestion/src/test/resources", relativePath);
+        if (Files.exists(parent)) return parent;
+        return Path.of("d:/git/spector/memory/spector-ingestion/src/test/resources", relativePath);
     }
     /**
      * Adapts OllamaVisionExtractor to the ImageDescriber SPI.
