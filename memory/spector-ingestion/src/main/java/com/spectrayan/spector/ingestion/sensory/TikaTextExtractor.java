@@ -78,7 +78,7 @@ public final class TikaTextExtractor implements SensoryExtractor {
     );
 
     /** Maximum content length Tika will extract (100 MB as text). */
-    private static final int MAX_CONTENT_LENGTH = 100 * 1024 * 1024;
+    private static final int MAX_CONTENT_LENGTH = (int) com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_TIKA_MAX_CONTENT_LENGTH;
 
     private final Tika tika;
     private final int chunkSize;
@@ -88,16 +88,16 @@ public final class TikaTextExtractor implements SensoryExtractor {
     /**
      * Creates an extractor with configurable chunk size and a TextChunker SPI implementation.
      *
-     * @param chunkSize    characters per chunk (default: 800)
-     * @param chunkOverlap overlap between consecutive chunks (default: 100)
+     * @param chunkSize    characters per chunk
+     * @param chunkOverlap overlap between consecutive chunks
      * @param textChunker  the TextChunker SPI to delegate chunking to (nullable — defaults to MarkdownChunker)
      */
     public TikaTextExtractor(int chunkSize, int chunkOverlap,
                              com.spectrayan.spector.commons.chunker.TextChunker textChunker) {
         this.tika = new Tika();
         this.tika.setMaxStringLength(MAX_CONTENT_LENGTH);
-        this.chunkSize = chunkSize > 0 ? chunkSize : 800;
-        this.chunkOverlap = chunkOverlap >= 0 ? chunkOverlap : 100;
+        this.chunkSize = chunkSize > 0 ? chunkSize : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_SIZE;
+        this.chunkOverlap = chunkOverlap >= 0 ? chunkOverlap : com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_OVERLAP;
         this.textChunker = textChunker != null ? textChunker : new MarkdownChunker();
         log.info("TikaTextExtractor initialized: chunkSize={}, overlap={}, chunker={}",
                 this.chunkSize, this.chunkOverlap, this.textChunker.name());
@@ -106,16 +106,17 @@ public final class TikaTextExtractor implements SensoryExtractor {
     /**
      * Creates an extractor with configurable chunk size.
      *
-     * @param chunkSize    characters per chunk (default: 800)
-     * @param chunkOverlap overlap between consecutive chunks (default: 100)
+     * @param chunkSize    characters per chunk
+     * @param chunkOverlap overlap between consecutive chunks
      */
     public TikaTextExtractor(int chunkSize, int chunkOverlap) {
         this(chunkSize, chunkOverlap, null);
     }
 
-    /** Creates an extractor with default settings (800 char chunks, 100 overlap). */
+    /** Creates an extractor with default settings from SpectorPropertyConstants. */
     public TikaTextExtractor() {
-        this(800, 100, null);
+        this(com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_SIZE,
+                com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_INGESTION_CHUNK_OVERLAP, null);
     }
 
     @Override

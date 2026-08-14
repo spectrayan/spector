@@ -37,7 +37,7 @@ class AudioExtractorConfigTest {
             var cfg = AudioExtractorConfig.DEFAULT;
             assertEquals("gemma4", cfg.model());
             assertNull(cfg.baseUrl(), "baseUrl should be null (resolved by ProviderDiscovery)");
-            assertEquals(120, cfg.timeoutSeconds());
+            assertEquals(180, cfg.timeoutSeconds());
             assertEquals(0, cfg.maxSegmentSeconds());
             assertNull(cfg.language());
         }
@@ -115,17 +115,17 @@ class AudioExtractorConfigTest {
         }
 
         @Test
-        @DisplayName("Zero timeout defaults to 120")
+        @DisplayName("Zero timeout defaults to 180")
         void zeroTimeoutDefaults() {
             var cfg = new AudioExtractorConfig("m", "http://localhost:11434", 0, 0, null);
-            assertEquals(120, cfg.timeoutSeconds());
+            assertEquals(180, cfg.timeoutSeconds());
         }
 
         @Test
-        @DisplayName("Negative timeout defaults to 120")
+        @DisplayName("Negative timeout defaults to 180")
         void negativeTimeoutDefaults() {
             var cfg = new AudioExtractorConfig("m", "http://localhost:11434", -5, 0, null);
-            assertEquals(120, cfg.timeoutSeconds());
+            assertEquals(180, cfg.timeoutSeconds());
         }
 
         @Test
@@ -146,7 +146,7 @@ class AudioExtractorConfigTest {
         @DisplayName("Record equality works")
         void recordEquality() {
             var a = AudioExtractorConfig.DEFAULT;
-            var b = new AudioExtractorConfig("gemma4", null, 120, 0, null);
+            var b = new AudioExtractorConfig("gemma4", null, 180, 0, null);
             assertEquals(a, b);
             assertEquals(a.hashCode(), b.hashCode());
         }

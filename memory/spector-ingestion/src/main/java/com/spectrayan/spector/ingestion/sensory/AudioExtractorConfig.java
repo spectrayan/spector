@@ -34,9 +34,13 @@ public record AudioExtractorConfig(
         int maxSegmentSeconds,
         String language
 ) {
-    /** Default configuration for Ollama-based audio extraction. */
+    /** Default configuration for Ollama-based audio extraction from SpectorPropertyConstants. */
     public static final AudioExtractorConfig DEFAULT = new AudioExtractorConfig(
-            "gemma4", null, 120, 0, null
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_AUDIO_MODEL,
+            null,
+            com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_AUDIO_TIMEOUT,
+            0,
+            null
     );
 
     /** Creates config with just a model name, using defaults for everything else. */

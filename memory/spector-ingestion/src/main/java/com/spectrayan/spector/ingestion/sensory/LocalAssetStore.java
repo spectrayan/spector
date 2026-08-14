@@ -46,7 +46,7 @@ public final class LocalAssetStore implements AssetStore {
     private static final Logger log = LoggerFactory.getLogger(LocalAssetStore.class);
 
     /** Default base directory for asset storage. */
-    private static final String DEFAULT_BASE_DIR = ".spector/assets";
+    private static final String DEFAULT_BASE_DIR = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_ASSET_BASE_PATH.toString();
 
     private final Path baseDir;
 

@@ -61,7 +61,7 @@ public final class OllamaAudioExtractor implements AudioTranscriptExtractor {
     private static final Logger log = LoggerFactory.getLogger(OllamaAudioExtractor.class);
 
     /** Maximum file size for direct processing (50 MB). */
-    private static final long MAX_FILE_SIZE = 50 * 1024 * 1024;
+    private static final long MAX_FILE_SIZE = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_AUDIO_MAX_FILE_SIZE;
 
     private static final String TRANSCRIPTION_PROMPT = """
             Listen to this audio carefully and provide a complete, accurate transcription.
