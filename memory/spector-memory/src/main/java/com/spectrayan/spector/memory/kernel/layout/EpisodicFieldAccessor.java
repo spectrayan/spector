@@ -198,10 +198,24 @@ public final class EpisodicFieldAccessor {
     }
 
     /**
+     * Checks if the given flags byte has the tombstone bit set.
+     */
+    public static boolean isTombstoned(byte flags) {
+        return SynapticHeaderConstants.isTombstoned(flags);
+    }
+
+    /**
      * Checks if this record has been consolidated (reflected into SEMANTIC tier).
      */
     public static boolean isConsolidated(MemorySegment segment, long offset) {
         return SynapticHeaderConstants.isConsolidated(readFlags(segment, offset));
+    }
+
+    /**
+     * Checks if the given flags byte has the consolidated bit set.
+     */
+    public static boolean isConsolidated(byte flags) {
+        return SynapticHeaderConstants.isConsolidated(flags);
     }
 
     // ── Write accessors ──
