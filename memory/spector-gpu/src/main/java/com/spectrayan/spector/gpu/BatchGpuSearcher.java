@@ -61,19 +61,19 @@ public class BatchGpuSearcher implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(BatchGpuSearcher.class);
 
     /** Minimum batching window: 1ms */
-    private static final long MIN_WINDOW_MS = 1;
+    private static final long MIN_WINDOW_MS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_GPU_BATCH_MIN_WINDOW_MS;
 
     /** Maximum batching window: 100ms */
-    private static final long MAX_WINDOW_MS = 100;
+    private static final long MAX_WINDOW_MS = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_GPU_BATCH_MAX_WINDOW_MS;
 
     /** Maximum batch size */
-    private static final int MAX_BATCH_SIZE = 1024;
+    private static final int MAX_BATCH_SIZE = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_GPU_BATCH_DEFAULT_MAX_BATCH;
 
     /** Default batching window */
-    private static final Duration DEFAULT_WINDOW = Duration.ofMillis(10);
+    private static final Duration DEFAULT_WINDOW = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_GPU_BATCH_DEFAULT_WINDOW;
 
     /** Default max batch size */
-    private static final int DEFAULT_MAX_BATCH = 1024;
+    private static final int DEFAULT_MAX_BATCH = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_GPU_BATCH_DEFAULT_MAX_BATCH;
 
     private final SimilarityKernel kernel;
     private final GpuMemoryManager memoryManager;
