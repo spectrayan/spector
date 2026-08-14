@@ -465,8 +465,12 @@ class RealFileMultimodalE2ETest {
                 // fall through
             }
         }
-        // Fallback to absolute path
-        return Path.of("d:/git/spector-search/spector-ingestion/src/test/resources", relativePath);
+        // Fallback to local or absolute path
+        Path local = Path.of("memory/spector-ingestion/src/test/resources", relativePath);
+        if (Files.exists(local)) return local;
+        Path parent = Path.of("../spector-ingestion/src/test/resources", relativePath);
+        if (Files.exists(parent)) return parent;
+        return Path.of("d:/git/spector/memory/spector-ingestion/src/test/resources", relativePath);
     }
 
     private static String truncate(String s, int max) {

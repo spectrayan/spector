@@ -246,6 +246,10 @@ class TikaPdfDocxExtractorTest {
         if (url != null) {
             try { return Path.of(url.toURI()); } catch (Exception e) { /* fall through */ }
         }
-        return Path.of("d:/git/spector-search/spector-ingestion/src/test/resources", relativePath);
+        Path local = Path.of("src/test/resources", relativePath);
+        if (Files.exists(local)) return local;
+        Path modulePath = Path.of("memory/spector-ingestion/src/test/resources", relativePath);
+        if (Files.exists(modulePath)) return modulePath;
+        return Path.of("d:/git/spector/memory/spector-ingestion/src/test/resources", relativePath);
     }
 }

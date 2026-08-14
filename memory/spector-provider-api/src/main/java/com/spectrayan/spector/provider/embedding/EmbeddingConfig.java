@@ -37,7 +37,7 @@ public record EmbeddingConfig(
     public static final EmbeddingConfig OLLAMA_DEFAULT = new EmbeddingConfig(
             "nomic-embed-text",
             "http://localhost:11434",
-            Duration.ofSeconds(30),
+            Duration.ofMinutes(2),
             32,
             0
     );

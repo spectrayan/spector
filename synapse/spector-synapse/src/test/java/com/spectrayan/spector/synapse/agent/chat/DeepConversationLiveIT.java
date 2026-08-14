@@ -96,7 +96,7 @@ class DeepConversationLiveIT {
     private static final String OLLAMA_URL = System.getProperty(
             "ollama.url", "http://localhost:11434");
     private static final String MODEL = System.getProperty(
-            "ollama.model", "qwen3.5:latest");
+            "ollama.model", "llama3.1:latest");
 
     private static boolean ollamaAvailable = false;
 
@@ -134,6 +134,8 @@ class DeepConversationLiveIT {
                         new CorsProperties("http://localhost:4200"),
                         null
                 );
+                props.getProvider().getGeneration().setModel(MODEL);
+                props.getProvider().getGeneration().setBaseUrl(OLLAMA_URL);
 
                 llmBridge = new LlmBridge(props, new com.spectrayan.spector.provider.DefaultProviderRegistry());
                 toolRegistry = new ToolRegistry(List.of(new CurrentTimeTool()));

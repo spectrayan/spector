@@ -38,6 +38,7 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
     private final EmbeddingProvider embeddingProvider;
     private final int tokenDimensions;
     private final String modelName;
+    private final Map<String, float[]> tokenVectorCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public DenseDerivedTokenProvider(EmbeddingProvider embeddingProvider, int tokenDimensions) {
         this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
@@ -62,16 +63,29 @@ public class DenseDerivedTokenProvider implements TokenEmbeddingProvider {
             return new TokenEmbeddingResult(new float[0][0], new String[0], 0, modelName);
         }
 
-        // Batch embed terms
-        List<EmbeddingResult> termResults = embeddingProvider.embedBatch(terms);
+        // Resolve terms from cache, batch-embed only cache misses
+        List<String> missingTerms = new ArrayList<>();
+        for (String term : terms) {
+            if (!tokenVectorCache.containsKey(term)) {
+                missingTerms.add(term);
+            }
+        }
+        if (!missingTerms.isEmpty()) {
+            List<EmbeddingResult> missingResults = embeddingProvider.embedBatch(missingTerms);
+            for (int i = 0; i < missingTerms.size(); i++) {
+                tokenVectorCache.put(missingTerms.get(i), missingResults.get(i).vector());
+            }
+        }
 
         // Project/slice terms to target token dimensions
         float[][] matrix = new float[terms.size()][tokenDimensions];
         for (int i = 0; i < terms.size(); i++) {
-            float[] denseVector = termResults.get(i).vector();
-            int copyLen = Math.min(tokenDimensions, denseVector.length);
-            System.arraycopy(denseVector, 0, matrix[i], 0, copyLen);
-            normalize(matrix[i]);
+            float[] denseVector = tokenVectorCache.get(terms.get(i));
+            if (denseVector != null) {
+                int copyLen = Math.min(tokenDimensions, denseVector.length);
+                System.arraycopy(denseVector, 0, matrix[i], 0, copyLen);
+                normalize(matrix[i]);
+            }
         }
 
         return new TokenEmbeddingResult(matrix, terms.toArray(new String[0]), terms.size(), modelName);

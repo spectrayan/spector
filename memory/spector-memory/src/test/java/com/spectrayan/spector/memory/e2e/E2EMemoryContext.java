@@ -48,7 +48,7 @@ public final class E2EMemoryContext {
     private static final Logger log = LoggerFactory.getLogger(E2EMemoryContext.class);
 
     /** Embedding model used for all tests. */
-    static final String EMBEDDING_MODEL = "qwen3-embedding";
+    static final String EMBEDDING_MODEL = System.getProperty("ollama.embedding.model", "qwen3-embedding:0.6b");
 
     private static SpectorMemory memory;
     private static OllamaEmbeddingProvider embeddingProvider;

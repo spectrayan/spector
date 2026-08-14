@@ -13,6 +13,7 @@
 package com.spectrayan.spector.memory.e2e;
 
 import com.spectrayan.spector.memory.*;
+import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.model.*;
 
 import org.junit.jupiter.api.*;
@@ -117,12 +118,9 @@ class PersistenceE2ETest extends AbstractE2ETest {
             diskMemory.close();
 
             // 3. Verify persistence files exist
-            assertThat(Files.exists(testDataDir.resolve("memory-index.mem")))
-                    .as("memory-index.mem should exist").isTrue();
-            assertThat(Files.exists(testDataDir.resolve("hebbian.graph")))
-                    .as("hebbian.graph should exist").isTrue();
-            assertThat(Files.exists(testDataDir.resolve("temporal.chain")))
-                    .as("temporal.chain should exist").isTrue();
+            assertThat(Files.exists(StorageLayout.runtimeBundleFile(testDataDir))
+                    || Files.exists(StorageLayout.indexMidxRuntime(testDataDir)))
+                    .as("Runtime storage bundle/index should exist").isTrue();
 
             // 4. Reload from disk
             SpectorMemory reloaded = DefaultSpectorMemory.builder()
@@ -168,8 +166,8 @@ class PersistenceE2ETest extends AbstractE2ETest {
 
     @Test
     @Order(21)
-    @DisplayName("Double close throws IllegalStateException (MemorySegment already closed)")
-    void doubleCloseThrowsExpectedException() throws Exception {
+    @DisplayName("Double close is idempotent (AutoCloseable contract)")
+    void doubleCloseIsIdempotent() throws Exception {
         Path testDataDir = Path.of(".test-data", "e2e-double-close-" + System.currentTimeMillis());
         Files.createDirectories(testDataDir);
 
@@ -189,10 +187,10 @@ class PersistenceE2ETest extends AbstractE2ETest {
 
             diskMemory.close();
 
-            // HebbianGraph uses Panama MemorySegment which throws on double close
-            assertThatThrownBy(diskMemory::close)
-                    .as("Double close should throw due to MemorySegment already closed")
-                    .isInstanceOf(IllegalStateException.class);
+            // DefaultSpectorMemory close() is idempotent
+            assertThatCode(diskMemory::close)
+                    .as("Double close should be idempotent")
+                    .doesNotThrowAnyException();
         } finally {
             deleteRecursively(testDataDir);
         }

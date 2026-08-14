@@ -27,6 +27,8 @@ import com.spectrayan.spector.memory.model.SourceModality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+
 import java.lang.foreign.MemorySegment;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -69,6 +71,7 @@ public class RecallCandidateGatherer {
                                    PartitionRegistry partitionRegistry) {
         if (bm25Hits == null || bm25Hits.isEmpty()) return;
         final int RRF_K = 60;
+        final long nowMs = System.currentTimeMillis();
 
         Map<String, Integer> vectorRanks = new LinkedHashMap<>();
         for (int i = 0; i < vectorResults.size(); i++) {
@@ -121,36 +124,64 @@ public class RecallCandidateGatherer {
                         existing.retrievalMode(), existing.breakdown(), existing.trace(),
                         existing.sourceModality(), existing.metadata()));
             } else if (index != null) {
-                if (!options.includeContradictions() && partitionRegistry != null) {
-                    MemoryIndex.MemoryLocation loc = index.locate(id);
-                    if (loc != null) {
-                        CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
-                        if (router != null) {
-                            MemorySegment segment = router.segmentFor(loc.type());
-                            if (segment != null) {
-                                CognitiveRecordLayout layout = router.layoutFor(loc.type());
-                                byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
-                                if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
+                MemoryIndex.MemoryLocation loc = index.locate(id);
+                if (loc == null) continue;
+
+                MemoryType type = loc.type();
+                if (!CognitiveMemoryRouter.shouldScan(type, options.memoryTypes())) continue;
+
+                float importance = 0f;
+                byte valence = 0;
+                float ageDays = 0f;
+                short recallCount = 0;
+
+                if (partitionRegistry != null) {
+                    CognitiveMemoryRouter router = partitionRegistry.routerFor(loc.colocatedPartition());
+                    if (router != null) {
+                        MemorySegment segment = router.segmentFor(type);
+                        if (segment != null) {
+                            CognitiveRecordLayout layout = router.layoutFor(type);
+                            byte cFlags = layout.readConsolidationFlags(segment, loc.offset());
+                            if (!options.includeContradictions() && SynapticHeaderConstants.isContradicted(cFlags)) continue;
+
+                            var header = layout.readHeader(segment, loc.offset());
+                            importance = header.importance();
+                            valence = header.valence();
+                            recallCount = (short) header.agentRecallCount();
+                            long ts = header.timestampMs();
+                            if (ts > 0) {
+                                ageDays = (float) ((nowMs - ts) / (double) (24 * 60 * 60 * 1000));
                             }
                         }
                     }
+                }
+
+                // Check valence & importance filters
+                if (valence < options.minValence() || valence > options.maxValence()) continue;
+                if (options.minImportance() > 0 && importance < options.minImportance()) continue;
+
+                // Check tag filters
+                String[] tags = index.tags(id);
+                if (options.hyperfocusMask() != 0L) {
+                    long recTags = SynapticTagEncoder.encode(tags);
+                    if ((recTags & options.hyperfocusMask()) != options.hyperfocusMask()) continue;
+                } else if (options.synapticTagMask() != 0L) {
+                    long recTags = SynapticTagEncoder.encode(tags);
+                    if ((recTags & options.synapticTagMask()) == 0L) continue;
                 }
 
                 String text = index.text(id);
                 if (text == null || text.isEmpty()) continue;
 
                 MemorySource source = index.source(id);
-                String[] tags = index.tags(id);
-                MemoryIndex.MemoryLocation loc = index.locate(id);
-                MemoryType type = loc != null ? loc.type() : MemoryType.SEMANTIC;
-
                 Map<String, String> bm25Meta = index.metadata(id);
                 SourceModality bm25Modality = bm25Meta != null
                         ? SourceModality.fromName(bm25Meta.get(SourceModality.METADATA_KEY))
                         : SourceModality.TEXT;
+
                 vectorResults.add(new CognitiveResult(
-                        id, text, rrfScore, 0f, 0f,
-                        (short) 0, (byte) 0, type, source,
+                        id, text, rrfScore, importance, ageDays,
+                        recallCount, valence, type, source,
                         tags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
                         bm25Modality, bm25Meta));
             }

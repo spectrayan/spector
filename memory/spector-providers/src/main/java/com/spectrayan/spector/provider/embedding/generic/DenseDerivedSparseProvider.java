@@ -39,6 +39,7 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
     private final EmbeddingProvider embeddingProvider;
     private final float weightThreshold;
     private final String modelName;
+    private final Map<String, float[]> termVectorCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public DenseDerivedSparseProvider(EmbeddingProvider embeddingProvider, float weightThreshold) {
         this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
@@ -67,27 +68,34 @@ public class DenseDerivedSparseProvider implements SparseEmbeddingProvider {
             return new SparseEmbeddingResult(Map.of(), docResult.tokenCount(), modelName);
         }
 
-        // 3. Batch embed each term -> [T_1, T_2, ..., T_n]
-        List<EmbeddingResult> termResults = embeddingProvider.embedBatch(terms);
-
-        // 4. Calculate cosine similarity weights
-        Map<String, Float> weights = new HashMap<>();
-        for (int i = 0; i < terms.size(); i++) {
-            String term = terms.get(i);
-            float[] termVector = termResults.get(i).vector();
-            float cosine = cosineSimilarity(termVector, docVector);
-            float sim = Math.max(0.0f, cosine);
-            if (sim >= weightThreshold) {
-                weights.put(term, sim);
+        // 3. Resolve terms from cache, batch-embed only cache misses
+        List<String> missingTerms = new ArrayList<>();
+        for (String term : terms) {
+            if (!termVectorCache.containsKey(term)) {
+                missingTerms.add(term);
+            }
+        }
+        if (!missingTerms.isEmpty()) {
+            List<EmbeddingResult> missingResults = embeddingProvider.embedBatch(missingTerms);
+            for (int i = 0; i < missingTerms.size(); i++) {
+                termVectorCache.put(missingTerms.get(i), missingResults.get(i).vector());
             }
         }
 
-        int totalTokens = docResult.tokenCount();
-        for (var tr : termResults) {
-            totalTokens += tr.tokenCount();
+        // 4. Calculate cosine similarity weights
+        Map<String, Float> weights = new HashMap<>();
+        for (String term : terms) {
+            float[] termVector = termVectorCache.get(term);
+            if (termVector != null) {
+                float cosine = cosineSimilarity(termVector, docVector);
+                float sim = Math.max(0.0f, cosine);
+                if (sim >= weightThreshold) {
+                    weights.put(term, sim);
+                }
+            }
         }
 
-        return new SparseEmbeddingResult(weights, totalTokens, modelName);
+        return new SparseEmbeddingResult(weights, docResult.tokenCount(), modelName);
     }
 
     @Override
