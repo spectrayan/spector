@@ -1,0 +1,11 @@
+Hello, {{name}}! Welcome to {{platform}}.
+{{#if admin}}
+Role: Administrator
+{{else}}
+Role: Standard User
+{{/if}}
+Score: {{formatDecimal score "%.2f"}}
+Multiplier: {{formatMult boost}}
+Bio: {{truncate bio 15}}
+Fallback: {{default missing "DefaultValue"}}
+Tags: {{join tags ", "}}
