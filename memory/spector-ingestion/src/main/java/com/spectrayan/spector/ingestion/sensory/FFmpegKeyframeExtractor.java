@@ -72,6 +72,10 @@ public class FFmpegKeyframeExtractor implements SensoryExtractor {
     /** Default max keyframes to extract. */
     private static final int DEFAULT_MAX_KEYFRAMES = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MULTIMODAL_VIDEO_MAX_KEYFRAMES;
 
+    /** Default ffmpeg binary name (resolved via system PATH). */
+    private static final String DEFAULT_FFMPEG = "ffmpeg";
+
+    private final String ffmpegPath;
     private final int intervalSeconds;
     private final int maxKeyframes;
     private final ImageDescriber imageDescriber;
@@ -100,24 +104,40 @@ public class FFmpegKeyframeExtractor implements SensoryExtractor {
      * @param imageDescriber VLM bridge for captioning extracted frames
      */
     public FFmpegKeyframeExtractor(ImageDescriber imageDescriber) {
-        this(imageDescriber, DEFAULT_INTERVAL_SECONDS, DEFAULT_MAX_KEYFRAMES);
+        this(DEFAULT_FFMPEG, imageDescriber, DEFAULT_INTERVAL_SECONDS, DEFAULT_MAX_KEYFRAMES);
     }
 
     /**
-     * Creates a keyframe extractor with custom settings.
+     * Creates a keyframe extractor with custom settings and default ffmpeg path.
      *
      * @param imageDescriber  VLM bridge for captioning extracted frames
      * @param intervalSeconds seconds between keyframe captures
      * @param maxKeyframes    maximum number of keyframes to extract
      */
     public FFmpegKeyframeExtractor(ImageDescriber imageDescriber, int intervalSeconds, int maxKeyframes) {
+        this(DEFAULT_FFMPEG, imageDescriber, intervalSeconds, maxKeyframes);
+    }
+
+    /**
+     * Creates a keyframe extractor with explicit ffmpeg binary path.
+     *
+     * @param ffmpegPath      absolute or PATH-resolvable path to the ffmpeg binary
+     * @param imageDescriber  VLM bridge for captioning extracted frames
+     * @param intervalSeconds seconds between keyframe captures
+     * @param maxKeyframes    maximum number of keyframes to extract
+     */
+    public FFmpegKeyframeExtractor(String ffmpegPath, ImageDescriber imageDescriber,
+                                   int intervalSeconds, int maxKeyframes) {
+        if (ffmpegPath == null || ffmpegPath.isBlank()) throw new IllegalArgumentException("ffmpegPath is required");
         if (imageDescriber == null) throw new IllegalArgumentException("imageDescriber is required");
         if (intervalSeconds <= 0) throw new IllegalArgumentException("intervalSeconds must be > 0");
         if (maxKeyframes <= 0) throw new IllegalArgumentException("maxKeyframes must be > 0");
+        this.ffmpegPath = ffmpegPath;
         this.imageDescriber = imageDescriber;
         this.intervalSeconds = intervalSeconds;
         this.maxKeyframes = maxKeyframes;
-        log.info("FFmpegKeyframeExtractor: interval={}s, maxFrames={}", intervalSeconds, maxKeyframes);
+        log.info("FFmpegKeyframeExtractor: ffmpeg={}, interval={}s, maxFrames={}",
+                ffmpegPath, intervalSeconds, maxKeyframes);
     }
 
     @Override
@@ -199,7 +219,7 @@ public class FFmpegKeyframeExtractor implements SensoryExtractor {
         // FFmpeg command: extract 1 frame every N seconds as JPEG
         String outputPattern = outputDir.resolve("frame_%04d.jpg").toString();
         ProcessBuilder pb = new ProcessBuilder(
-                "ffmpeg", "-i", videoPath.toString(),
+                ffmpegPath, "-i", videoPath.toString(),
                 "-vf", "fps=1/" + intervalSeconds,
                 "-frames:v", String.valueOf(maxKeyframes),
                 "-q:v", "2",  // High quality JPEG
@@ -253,7 +273,7 @@ public class FFmpegKeyframeExtractor implements SensoryExtractor {
     @Override
     public boolean isAvailable() {
         try {
-            Process process = new ProcessBuilder("ffmpeg", "-version")
+            Process process = new ProcessBuilder(ffmpegPath, "-version")
                     .redirectErrorStream(true)
                     .start();
             process.getInputStream().readAllBytes();
