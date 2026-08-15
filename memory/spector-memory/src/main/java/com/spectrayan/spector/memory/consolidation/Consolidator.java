@@ -31,7 +31,7 @@ import java.util.function.Function;
  * applies CADP directional resolution to contradictory memories, and merges
  * non-contradictory duplicate memories.</p>
  */
-public interface Consolidator {
+public interface Consolidator extends AutoCloseable {
 
     /**
      * Executes consolidation across cognitive memory.
@@ -56,4 +56,9 @@ public interface Consolidator {
             CognitiveIngestionTarget ingestionTarget,
             MemoryWal wal,
             Function<String, CognitiveRecord> inspectFunction);
+
+    @Override
+    default void close() {
+        // Default no-op for stateless consolidator implementations
+    }
 }

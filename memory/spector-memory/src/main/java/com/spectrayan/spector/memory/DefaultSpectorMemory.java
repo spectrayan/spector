@@ -1542,7 +1542,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             daemonSupervisor.close();
         }
 
-        // Close eager consolidator
+        // Close consolidators
+        if (batchConsolidator != null) {
+            try {
+                batchConsolidator.close();
+            } catch (Exception e) {
+                log.warn("Failed to close BatchConsolidator on close", e);
+            }
+        }
         if (eagerConsolidator != null) {
             try {
                 eagerConsolidator.close();
