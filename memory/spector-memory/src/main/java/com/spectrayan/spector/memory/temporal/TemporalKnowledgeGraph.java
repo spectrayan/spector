@@ -321,7 +321,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      *
      * @return set of retracted fact IDs
      */
-    Set<Integer> retractedFactIds() {
+    public Set<Integer> retractedFactIds() {
         return Collections.unmodifiableSet(retractedCache);
     }
 

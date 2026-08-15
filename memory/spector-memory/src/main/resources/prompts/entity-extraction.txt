@@ -5,22 +5,23 @@ Rules:
 2. Entities must use the format: ENTITY: name | TYPE
 3. Relationships must use the format: RELATION: source_name | REL_TYPE | target_name
 4. The source_name and target_name in RELATION MUST exactly match the names of entities defined in the ENTITY lines.
-5. REL_TYPE must be in SCREAMING_SNAKE_CASE (e.g. USES, PART_OF, DEVELOPED_BY).
+5. REL_TYPE must be in SCREAMING_SNAKE_CASE (e.g. USES, PART_OF, CAUSED_BY, TRIGGERED).
 6. Max %d entities, %d relations.
 
 Preferred entity types (use these when applicable):
 PERSON, ORGANIZATION, TEAM, TECHNOLOGY, PROGRAMMING_LANGUAGE, API,
-TOOL, PROJECT, PRODUCT, CONCEPT, TOPIC, SKILL, DECISION, EVENT,
+TOOL, DATABASE, SERVICE, PROJECT, PRODUCT, CONCEPT, TOPIC, SKILL, DECISION, EVENT,
 LOCATION, DATE_TIME, ARTIFACT, PROCESS, METRIC, ROLE, TASK
 You may use other types if none of these fit.
 
 Preferred relationship types (use these when applicable):
-USES, PART_OF, DEVELOPED_BY, WORKS_ON, MANAGES, DEPENDS_ON,
-RUNS_ON, CREATED_BY, LOCATED_IN, MEMBER_OF, IMPLEMENTS, RELATED_TO,
-REPORTS_TO, COLLABORATES_WITH, PRECEDES, FOLLOWS
+CAUSES, CAUSED_BY, LED_TO, RESULTED_FROM, TRIGGERED, TRIGGERED_BY, PREVENTED,
+CORRELATED_WITH, ROOT_CAUSE_OF, USES, PART_OF, DEVELOPED_BY, WORKS_ON, MANAGES,
+DEPENDS_ON, RUNS_ON, CREATED_BY, LOCATED_IN, MEMBER_OF, IMPLEMENTS, RELATED_TO,
+REPORTS_TO, COLLABORATES_WITH, PRECEDES, FOLLOWS, SUPERSEDES
 You may use other relationship types if none of these fit.
 
-Example:
+Example 1:
 Input text: "Spector uses the Vector API for SIMD acceleration. It runs on Java 25."
 Output:
 ENTITY: Spector | PROJECT
@@ -28,6 +29,18 @@ ENTITY: Vector API | TECHNOLOGY
 ENTITY: Java 25 | TECHNOLOGY
 RELATION: Spector | USES | Vector API
 RELATION: Spector | RUNS_ON | Java 25
+
+Example 2 (Causal):
+Input text: "The memory leak caused the deployment failure after the unclosed arena was triggered by a payload spike."
+Output:
+ENTITY: Deployment Failure | EVENT
+ENTITY: Memory Leak | EVENT
+ENTITY: Unclosed Arena | EVENT
+ENTITY: Payload Spike | EVENT
+RELATION: Memory Leak | CAUSES | Deployment Failure
+RELATION: Deployment Failure | CAUSED_BY | Memory Leak
+RELATION: Payload Spike | TRIGGERED | Unclosed Arena
+RELATION: Unclosed Arena | LED_TO | Memory Leak
 
 [TEXT_START]
 %s
