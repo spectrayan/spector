@@ -18,19 +18,29 @@ package com.spectrayan.spector.connector.spi;
 import java.util.Optional;
 
 /**
- * SPI for resolving credentials (API keys, tokens, secrets) at route
- * instantiation time.
+ * SPI for resolving credentials (API keys, tokens, secrets, connection strings)
+ * at route instantiation or outbound dispatch time.
  *
- * <p>Implementations can resolve secrets from environment variables,
- * file-based vaults, or external secret managers. The default
- * implementation resolves from environment variables.</p>
+ * <p>Implementations can resolve secrets from encrypted relational vaults,
+ * external KMS systems (HashiCorp Vault, AWS Secrets Manager), or environment variables.</p>
  */
 public interface CredentialProvider {
 
     /**
-     * Resolves a credential by its reference key.
+     * Resolves a credential by its reference key within a tenant context.
      *
-     * @param credentialRef the reference (e.g., env var name, vault path)
+     * @param credentialRef the reference (e.g. "tenant:whatsapp-token", "env:SLACK_BOT_TOKEN")
+     * @param tenantId      the tenant identifier context (optional, defaults to "default" if null)
+     * @return the resolved secret, or empty if not found
+     */
+    default Optional<String> resolve(String credentialRef, String tenantId) {
+        return resolve(credentialRef);
+    }
+
+    /**
+     * Resolves a credential by its reference key using default tenant context.
+     *
+     * @param credentialRef the reference (e.g. "env:OPENAI_API_KEY", "slack-token")
      * @return the resolved secret, or empty if not found
      */
     Optional<String> resolve(String credentialRef);
@@ -42,9 +52,21 @@ public interface CredentialProvider {
      * and {@code env:} prefixed references (e.g., {@code env:OPENAI_API_KEY}).</p>
      */
     static CredentialProvider fromEnvironment() {
-        return ref -> {
-            String key = ref.startsWith("env:") ? ref.substring(4) : ref;
-            return Optional.ofNullable(System.getenv(key));
+        return new CredentialProvider() {
+            @Override
+            public Optional<String> resolve(String credentialRef, String tenantId) {
+                return resolve(credentialRef);
+            }
+
+            @Override
+            public Optional<String> resolve(String credentialRef) {
+                if (credentialRef == null || credentialRef.isBlank()) {
+                    return Optional.empty();
+                }
+                String key = credentialRef.startsWith("env:") ? credentialRef.substring(4) : credentialRef;
+                return Optional.ofNullable(System.getenv(key))
+                        .or(() -> Optional.ofNullable(System.getProperty(key)));
+            }
         };
     }
 }
