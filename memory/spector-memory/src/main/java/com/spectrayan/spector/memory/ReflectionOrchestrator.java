@@ -149,29 +149,28 @@ final class ReflectionOrchestrator {
     }
 
     /**
-     * Runs a full reflection cycle: REM consolidation, graph decay, temporal pruning,
-     * cross-layer promotion, and entity maintenance.
+     * Runs a full reflection cycle across all frozen and active partitions (#446):
+     * REM consolidation, graph decay, temporal pruning, cross-layer promotion, and entity maintenance.
      *
-     * @param cognitiveRouter the current cognitive memory router
-     * @param index      the memory index (for text lookups during consolidation)
+     * @param partitionManager the partition manager providing all open partition handles
+     * @param index            the memory index (for text lookups and graph slot resolution)
+     * @param ingestionTarget  the ingestion target for promoted semantic memories (active partition)
      * @return a {@link ReflectReport} summarizing what was consolidated, pruned, and promoted
      */
-    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, CognitiveIngestionTarget ingestionTarget) {
-        log.info("Manual reflection triggered");
+    ReflectReport reflect(PartitionManager partitionManager, MemoryIndex index, CognitiveIngestionTarget ingestionTarget) {
+        log.info("Manual reflection triggered across partitions");
 
         // Create metrics collector for this cycle
         var graphMetrics = new GraphHealthMetrics();
 
-        // Phase 1: REM cycle — episodic → semantic consolidation
-        ReflectReport daemonReport = reflectDaemon.runCycle(
-                cognitiveRouter.episodic(), ingestionTarget,
-                offset -> index.findTextByOffset(MemoryType.EPISODIC, offset));
+        // Phase 1: REM cycle — episodic → semantic consolidation across all partition handles
+        ReflectReport daemonReport = reflectDaemon.runCycle(partitionManager, ingestionTarget, index);
 
-        // Phase 2: Hebbian decay (synaptic homeostasis, arousal-modulated)
-        decayHebbianEdges(cognitiveRouter, graphMetrics);
+        // Phase 2: Hebbian decay (synaptic homeostasis, arousal-modulated across all partitions)
+        decayHebbianEdges(partitionManager, index, graphMetrics);
 
-        // Phase 3: Temporal chain pruning (age + importance)
-        int temporalPruned = pruneTemporalChain(cognitiveRouter);
+        // Phase 3: Temporal chain pruning (age + importance across all partitions)
+        int temporalPruned = pruneTemporalChain(partitionManager, index);
 
         // Phase 4: Cross-layer promotion (Hebbian → Entity)
         promoteCrossLayer();
@@ -206,7 +205,59 @@ final class ReflectionOrchestrator {
                 daemonReport.duration(), graphMetrics);
     }
 
+    /**
+     * Backward-compatible reflect overload using a single cognitive router.
+     */
+    ReflectReport reflect(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, CognitiveIngestionTarget ingestionTarget) {
+        log.info("Manual reflection triggered (single-router fallback)");
+
+        var graphMetrics = new GraphHealthMetrics();
+
+        ReflectReport daemonReport = reflectDaemon.runCycle(
+                cognitiveRouter != null ? cognitiveRouter.episodic() : null, ingestionTarget,
+                offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null);
+
+        decayHebbianEdges(cognitiveRouter, graphMetrics);
+        int temporalPruned = pruneTemporalChain(cognitiveRouter);
+
+        promoteCrossLayer();
+        crossCaptureHebbianToEntity(graphMetrics);
+        maintainEntityGraph(graphMetrics);
+        decayEntityAdjacency();
+        compactEntityAdjacency();
+        decayHyperEntityGraph();
+
+        if (graphMetrics.totalEdgesDecayed() > 0 || graphMetrics.totalEdgesSurviving() > 0) {
+            log.info("Reflect: graph health — {}", graphMetrics);
+        }
+
+        wal.append(WalEvent.EventType.REFLECT, "system", null);
+
+        return new ReflectReport(
+                daemonReport.consolidatedCount(), daemonReport.tombstonedCount(),
+                daemonReport.compactedPartitions(), temporalPruned,
+                daemonReport.duration(), graphMetrics);
+    }
+
     // ── Phase 2: Hebbian Decay ──
+
+    private void decayHebbianEdges(PartitionManager partitionManager, MemoryIndex index, GraphHealthMetrics metrics) {
+        try {
+            hebbianGraph.setDecayModulator(
+                    new SynapticDecayModulator(partitionManager, index, hebbianGraph.capacity()));
+
+            int decayed = hebbianGraph.decayEdges(HEBBIAN_DECAY_FACTOR, metrics);
+            hebbianGraph.setDecayModulator(null);
+
+            if (decayed > 0) {
+                log.info("Reflect: Hebbian graph decayed {} weak edges (arousal-modulated across partitions)", decayed);
+            }
+        } catch (RuntimeException e) {
+            hebbianGraph.setDecayModulator(null);
+            SpectorGraphDecayException ex = new SpectorGraphDecayException("Hebbian edge decay", e);
+            log.warn(ex.getMessage());
+        }
+    }
 
     private void decayHebbianEdges(CognitiveMemoryRouter cognitiveRouter, GraphHealthMetrics metrics) {
         try {
@@ -230,6 +281,41 @@ final class ReflectionOrchestrator {
     }
 
     // ── Phase 3: Temporal Pruning ──
+
+    private int pruneTemporalChain(PartitionManager partitionManager, MemoryIndex index) {
+        if (temporalChain == null) return 0;
+        try {
+            long cutoffMs = System.currentTimeMillis()
+                    - (long) temporalRetentionDays * 24 * 60 * 60 * 1000;
+
+            int agePruned = temporalChain.pruneOlderThan(cutoffMs);
+
+            int importancePruned = 0;
+            if (partitionManager != null && index != null) {
+                importancePruned = temporalChain.pruneByImportance(
+                        cutoffMs, TEMPORAL_IMPORTANCE_THRESHOLD,
+                        memIdx -> {
+                            try {
+                                String id = index.idAt(memIdx);
+                                if (id == null) return 0f;
+                                var loc = index.locate(id);
+                                if (loc == null) return 0f;
+                                var router = partitionManager.routerFor(loc.colocatedPartition());
+                                if (router == null) return 0f;
+                                var body = router.readRecordBody(loc, false);
+                                return body != null && body.header() != null ? body.header().importance() : 0f;
+                            } catch (RuntimeException e) {
+                                return 0f;
+                            }
+                        });
+            }
+
+            return agePruned + importancePruned;
+        } catch (RuntimeException e) {
+            log.warn("Temporal chain pruning failed: {}", e.getMessage());
+            return 0;
+        }
+    }
 
     private int pruneTemporalChain(CognitiveMemoryRouter cognitiveRouter) {
         if (temporalChain == null) return 0;

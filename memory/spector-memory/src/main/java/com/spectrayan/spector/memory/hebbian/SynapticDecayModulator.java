@@ -12,14 +12,18 @@
  */
 package com.spectrayan.spector.memory.hebbian;
 
+import com.spectrayan.spector.memory.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
 import java.lang.foreign.MemorySegment;
 
 /**
- * Arousal-modulated decay modulator backed by synaptic header data.
+ * Arousal-modulated decay modulator backed by synaptic header data across all partitions.
  *
  * <h3>Neuroscience Basis</h3>
  * <p>The amygdala modulates synaptic consolidation via noradrenergic signaling:
@@ -28,8 +32,8 @@ import java.lang.foreign.MemorySegment;
  * pathways between nodes.</p>
  *
  * <h3>Implementation</h3>
- * <p>Reads importance, arousal, and valence from the episodic partition's
- * synaptic headers. For each memory slot, computes a composite modifier:</p>
+ * <p>Reads importance, arousal, and valence from synaptic headers across frozen and active
+ * partitions. For each graph slot, computes a composite modifier:</p>
  * <pre>
  *   modifier = 1.0 + 0.3 * importance + 0.2 * arousal + 0.1 * abs(valence)
  * </pre>
@@ -46,18 +50,62 @@ public final class SynapticDecayModulator implements HebbianGraph.DecayModulator
     private final float[] modifiers;
 
     /**
-     * Creates a modulator by pre-reading synaptic headers from the episodic partition.
+     * Creates a partition-aware modulator by resolving synaptic headers across frozen and active partitions.
      *
-     * <p>Pre-reads all values into a float array for O(1) lookup during the decay loop.
-     * Cost: O(partitionCount) — typically &lt; 100K entries, &lt; 1ms.</p>
+     * @param partitionManager partition manager resolving colocated partition routers
+     * @param index            memory index mapping graph slots to memory IDs and locations
+     * @param capacity         HebbianGraph capacity (number of slots)
+     */
+    public SynapticDecayModulator(PartitionManager partitionManager, MemoryIndex index, int capacity) {
+        this.modifiers = new float[capacity];
+        java.util.Arrays.fill(modifiers, 1.0f);
+
+        if (partitionManager == null || index == null) return;
+
+        for (int s = 0; s < capacity; s++) {
+            try {
+                String id = index.idAt(s);
+                if (id == null) continue;
+
+                MemoryLocation loc = index.locate(id);
+                if (loc == null) continue;
+
+                CognitiveMemoryRouter router = partitionManager.routerFor(loc.colocatedPartition());
+                if (router == null) continue;
+
+                CognitiveMemoryRouter.CognitiveRecordBody body = router.readRecordBody(loc, false);
+                if (body == null || body.header() == null) continue;
+
+                CognitiveHeader header = body.header();
+                if (SynapticHeaderConstants.isTombstoned(header.flags())) continue;
+
+                float normArousal = (header.arousal() & 0xFF) / 255.0f;  // unsigned [0,1]
+                float normValence = Math.abs(header.valence()) / 127.0f; // absolute [0,1]
+
+                float modifier = 1.0f
+                        + 0.3f * header.importance()  // ACT-R base-level activation
+                        + 0.2f * normArousal          // Amygdala noradrenergic modulation
+                        + 0.1f * normValence;         // Emotional valence (polarity-independent)
+
+                modifiers[s] = modifier;
+            } catch (RuntimeException e) {
+                // Skip corrupted entries — default modifier remains 1.0f
+                modifiers[s] = 1.0f;
+            }
+        }
+    }
+
+    /**
+     * Creates a modulator by pre-reading synaptic headers from a single cognitive router (legacy/fallback).
      *
-     * @param cognitiveRouter the current cognitive memory router (provides access to episodic store)
+     * @param cognitiveRouter the current cognitive memory router
      * @param capacity        HebbianGraph capacity (number of slots)
      */
     public SynapticDecayModulator(CognitiveMemoryRouter cognitiveRouter, int capacity) {
         this.modifiers = new float[capacity];
         java.util.Arrays.fill(modifiers, 1.0f);
 
+        if (cognitiveRouter == null) return;
         var episodic = cognitiveRouter.episodic();
         if (episodic == null) return;
 
@@ -75,19 +123,16 @@ public final class SynapticDecayModulator implements HebbianGraph.DecayModulator
                 byte arousal = layout.readArousal(segment, offset);
                 byte valence = layout.readValence(segment, offset);
 
-                // Normalize: importance is [0,1], arousal/valence are signed bytes [-128,127]
-                float normArousal = (arousal & 0xFF) / 255.0f;  // unsigned [0,1]
-                float normValence = Math.abs(valence) / 127.0f; // absolute [0,1]
+                float normArousal = (arousal & 0xFF) / 255.0f;
+                float normValence = Math.abs(valence) / 127.0f;
 
-                // Composite: baseline 1.0 + weighted signals
                 float modifier = 1.0f
-                        + 0.3f * importance     // ACT-R base-level activation
-                        + 0.2f * normArousal    // Amygdala noradrenergic modulation
-                        + 0.1f * normValence;   // Emotional valence (polarity-independent)
+                        + 0.3f * importance
+                        + 0.2f * normArousal
+                        + 0.1f * normValence;
 
                 modifiers[i] = modifier;
             } catch (RuntimeException e) {
-                // Skip corrupted entries — use default modifier
                 modifiers[i] = 1.0f;
             }
         }

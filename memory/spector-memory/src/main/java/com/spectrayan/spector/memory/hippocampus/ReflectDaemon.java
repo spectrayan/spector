@@ -14,6 +14,10 @@ package com.spectrayan.spector.memory.hippocampus;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
+import com.spectrayan.spector.memory.PartitionManager;
+import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.layout.EpisodicFieldAccessor;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
@@ -189,6 +193,171 @@ public final class ReflectDaemon {
      * @param ingestionTarget the cognitive ingestion target to promote into
      * @return report summarizing what was done
      */
+    /**
+     * Runs a single synchronous reflection cycle across all frozen and active partitions (#446).
+     *
+     * @param partitionManager the partition manager providing frozen and active partition handles
+     * @param ingestionTarget the cognitive ingestion target to promote into (active partition)
+     * @param index memory index for text lookup
+     * @return report summarizing what was done
+     */
+    public ReflectReport runCycle(PartitionManager partitionManager,
+                                   CognitiveIngestionTarget ingestionTarget,
+                                   MemoryIndex index) {
+        if (partitionManager == null) {
+            return ReflectReport.EMPTY;
+        }
+
+        if (!running.compareAndSet(false, true)) {
+            log.warn("Reflection cycle already in progress  --  skipping");
+            return ReflectReport.EMPTY;
+        }
+
+        Instant start = Instant.now();
+        int totalTombstoned = 0;
+        int totalCompacted = 0;
+        int totalConsolidated = 0;
+
+        try {
+            var handles = partitionManager.snapshot();
+
+            // 1. Reflect log-structured episodic conversation turns across all partitions (ADR-0006)
+            for (var handle : handles) {
+                if (handle.router() != null && handle.router().isEpisodicLogMode()) {
+                    var logStore = handle.router().episodicLog();
+                    if (logStore != null) {
+                        int consolidatedTurns = reflectEpisodicLog(logStore, ingestionTarget);
+                        totalConsolidated += consolidatedTurns;
+                    }
+                }
+            }
+
+            // 2. Reflect legacy fixed-stride episodic partitions across all partition handles if present
+            List<EpisodicPartition> allLegacyPartitions = new ArrayList<>();
+            for (var handle : handles) {
+                if (handle.router() != null && !handle.router().isEpisodicLogMode()) {
+                    var episodicStore = handle.router().episodic();
+                    if (episodicStore != null) {
+                        allLegacyPartitions.addAll(episodicStore.partitions());
+                    }
+                }
+            }
+
+            if (!allLegacyPartitions.isEmpty()) {
+                long nowMs = System.currentTimeMillis();
+                for (EpisodicPartition partition : allLegacyPartitions) {
+                    totalTombstoned += compactor.pruneDecayed(partition, policy.decayPruneThreshold(), nowMs);
+                    int promoted = centroidRouter != null
+                            ? clusterAndSynthesize(partition, ingestionTarget, offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null)
+                            : promoteHighestImportance(partition, ingestionTarget, offset -> index != null ? index.findTextByOffset(MemoryType.EPISODIC, offset) : null);
+                    totalConsolidated += promoted;
+                }
+            }
+
+            Duration elapsed = Duration.between(start, Instant.now());
+            log.info("Reflection complete across {} partitions: consolidated={}, tombstoned={}, compacted={}, duration={}ms",
+                    handles.size(), totalConsolidated, totalTombstoned, totalCompacted, elapsed.toMillis());
+
+            return new ReflectReport(totalConsolidated, totalTombstoned, totalCompacted, 0, elapsed);
+        } finally {
+            running.set(false);
+        }
+    }
+
+    private int reflectEpisodicLog(EpisodicLogMemory logStore, CognitiveIngestionTarget ingestionTarget) {
+        if (logStore == null || ingestionTarget == null) return 0;
+        List<Long> unconsolidatedOffsets = logStore.unconsolidatedTurnOffsets();
+        if (unconsolidatedOffsets.isEmpty()) return 0;
+
+        List<EpisodicFieldAccessor.EpisodicRecord> turns = logStore.readTurns(unconsolidatedOffsets, true);
+        if (turns.isEmpty()) return 0;
+
+        // Group unconsolidated turns by sessionId
+        Map<Long, List<EpisodicFieldAccessor.EpisodicRecord>> sessionTurns = new HashMap<>();
+        Map<EpisodicFieldAccessor.EpisodicRecord, Long> turnToOffset = new HashMap<>();
+        for (int i = 0; i < turns.size(); i++) {
+            var turn = turns.get(i);
+            long offset = unconsolidatedOffsets.get(i);
+            sessionTurns.computeIfAbsent(turn.sessionId(), k -> new ArrayList<>()).add(turn);
+            turnToOffset.put(turn, offset);
+        }
+
+        int totalPromoted = 0;
+        for (Map.Entry<Long, List<EpisodicFieldAccessor.EpisodicRecord>> entry : sessionTurns.entrySet()) {
+            List<EpisodicFieldAccessor.EpisodicRecord> sessionList = entry.getValue();
+            if (sessionList.isEmpty()) continue;
+
+            List<String> turnTexts = new ArrayList<>();
+            for (var turn : sessionList) {
+                String text = extractTurnText(turn);
+                if (text != null && !text.isBlank()) {
+                    turnTexts.add(turn.role() + ": " + text);
+                }
+            }
+
+            if (turnTexts.isEmpty()) continue;
+
+            PromotedFact promoted = null;
+            if (textGenerator != null && embeddingProvider != null) {
+                promoted = synthesizeWithLlm(turnTexts, 0L, 1.0f);
+            }
+
+            if (promoted == null && !turnTexts.isEmpty()) {
+                String joinedText = String.join("\n", turnTexts);
+                if (joinedText.length() > 500) {
+                    joinedText = joinedText.substring(0, 500);
+                }
+                float[] vec = embeddingProvider != null ? embeddingProvider.embed(joinedText).vector() : new float[ingestionTarget.quantizer().dimensions()];
+                CognitiveHeader header = new CognitiveHeader(
+                        System.currentTimeMillis(),
+                        0L,
+                        1.0f,
+                        1.0f,
+                        1,
+                        (short) 0,
+                        (byte) 0,
+                        SynapticHeaderConstants.withMemoryType(SynapticHeaderConstants.FLAG_CONSOLIDATED, MemoryType.SEMANTIC.ordinal()),
+                        (byte) 0,
+                        1.0f
+                );
+                promoted = new PromotedFact(joinedText, vec, header);
+            }
+
+            if (promoted != null && promoted.header() != null) {
+                String newId = "rem-log-" + new com.spectrayan.spector.memory.id.TsidGenerator().generate();
+                ingestionTarget.ingestCognitiveWithHeader(
+                        newId,
+                        promoted.text(),
+                        promoted.vector(),
+                        MemoryType.SEMANTIC,
+                        new String[]{"conversation-reflection", "session-" + Long.toHexString(entry.getKey())},
+                        MemorySource.REFLECTED,
+                        promoted.header()
+                );
+                totalPromoted++;
+
+                // Mark all source turns in this session consolidated
+                for (var turn : sessionList) {
+                    Long off = turnToOffset.get(turn);
+                    if (off != null) {
+                        logStore.markConsolidated(off);
+                    }
+                }
+            }
+        }
+
+        return totalPromoted;
+    }
+
+    private String extractTurnText(EpisodicFieldAccessor.EpisodicRecord turn) {
+        if (turn.body() == null || turn.body().length == 0) return "";
+        try {
+            return new String(turn.body(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     public ReflectReport runCycle(EpisodicRecordMemory episodicStore,
                                    CognitiveIngestionTarget ingestionTarget) {
         return runCycle(episodicStore, ingestionTarget, null);

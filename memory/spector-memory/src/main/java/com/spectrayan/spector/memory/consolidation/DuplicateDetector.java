@@ -46,70 +46,84 @@ public final class DuplicateDetector {
     public record DuplicatePair(int indexA, int indexB, String idA, String idB, float distance) {}
 
     /**
+     * Associates a partition sequence number with a tier memory store.
+     */
+    public record PartitionStore(int partitionSeq, CognitiveRecordMemory store) {}
+
+    private record ScannedEntry(int partitionSeq, int recordIndex, String id, float[] decodedVector) {}
+
+    /**
      * Scans the given store for duplicate pairs.
      */
     public List<DuplicatePair> findDuplicates(CognitiveRecordMemory store, MemoryIndex index, ScalarQuantizer quantizer) {
+        if (store == null) return List.of();
+        int partitionSeq = index != null ? index.activePartitionSeq() : 0;
+        return findDuplicatesAcrossPartitions(List.of(new PartitionStore(partitionSeq, store)), index, quantizer);
+    }
+
+    /**
+     * Scans multiple partition stores for duplicate pairs across frozen and active partitions (#446).
+     */
+    public List<DuplicatePair> findDuplicatesAcrossPartitions(
+            List<PartitionStore> partitionStores,
+            MemoryIndex index,
+            ScalarQuantizer quantizer) {
         List<DuplicatePair> pairs = new ArrayList<>();
-        int recordCount = store.visibleCount();
-        if (recordCount < 2) {
+        if (partitionStores == null || partitionStores.isEmpty() || index == null || quantizer == null) {
             return pairs;
         }
 
-        MemorySegment segment = store.segment();
-        CognitiveRecordLayout layout = store.cognitiveLayout();
-        long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L;
-        int stride = layout.stride();
-        int vecBytes = layout.quantizedVecBytes();
-        float[] mins = quantizer.mins();
-        float[] scales = quantizer.scales();
+        List<ScannedEntry> entries = new ArrayList<>();
 
-        byte[] quantizedBuf = new byte[vecBytes];
-        float[] decodedVector = new float[quantizer.dimensions()];
+        for (PartitionStore ps : partitionStores) {
+            CognitiveRecordMemory store = ps.store();
+            if (store == null) continue;
+            int recordCount = store.visibleCount();
+            if (recordCount == 0) continue;
 
-        for (int i = 0; i < recordCount; i++) {
-            long offsetI = baseOffset + (long) i * stride;
-            byte flagsI = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS, offsetI + SynapticHeaderConstants.OFFSET_FLAGS);
+            MemorySegment segment = store.segment();
+            CognitiveRecordLayout layout = store.cognitiveLayout();
+            long baseOffset = store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L;
+            int stride = layout.stride();
+            int qVecBytes = layout.quantizedVecBytes();
+            byte[] quantizedBuf = new byte[qVecBytes];
 
-            // Skip tombstoned records
-            if (SynapticHeaderConstants.isTombstoned(flagsI)) {
-                continue;
-            }
+            for (int i = 0; i < recordCount; i++) {
+                long offset = baseOffset + (long) i * stride;
+                byte flags = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS, offset + SynapticHeaderConstants.OFFSET_FLAGS);
 
-            // Resolve ID of record A
-            String idA = index.findIdByOffset(store.type(), offsetI);
-            if (idA == null) {
-                continue;
-            }
-
-            // Read and dequantize vector A
-            long vecOffsetI = layout.vectorOffset(offsetI);
-            MemorySegment.copy(segment, java.lang.foreign.ValueLayout.JAVA_BYTE, vecOffsetI,
-                    MemorySegment.ofArray(quantizedBuf), java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
-            quantizer.decode(quantizedBuf, 0, decodedVector, 0);
-
-            // Compare against subsequent records
-            for (int j = i + 1; j < recordCount; j++) {
-                long offsetJ = baseOffset + (long) j * stride;
-                byte flagsJ = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS, offsetJ + SynapticHeaderConstants.OFFSET_FLAGS);
-
-                if (SynapticHeaderConstants.isTombstoned(flagsJ)) {
+                if (SynapticHeaderConstants.isTombstoned(flags)) {
                     continue;
                 }
 
-                String idB = index.findIdByOffset(store.type(), offsetJ);
-
-                if (idB == null) {
+                String id = index.findIdByOffset(ps.partitionSeq(), store.type(), offset);
+                if (id == null) {
                     continue;
                 }
 
-                // Compute calibrated L2 distance via SimilarityFunction
-                float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
-                        decodedVector, segment, layout.vectorOffset(offsetJ),
-                        mins, scales, vecBytes);
+                long vecOffset = layout.vectorOffset(offset);
+                MemorySegment.copy(segment, java.lang.foreign.ValueLayout.JAVA_BYTE, vecOffset,
+                        MemorySegment.ofArray(quantizedBuf), java.lang.foreign.ValueLayout.JAVA_BYTE, 0, qVecBytes);
+                float[] decoded = new float[quantizer.dimensions()];
+                quantizer.decode(quantizedBuf, 0, decoded, 0);
 
+                entries.add(new ScannedEntry(ps.partitionSeq(), i, id, decoded));
+            }
+        }
+
+        int totalEntries = entries.size();
+        for (int i = 0; i < totalEntries; i++) {
+            ScannedEntry entryA = entries.get(i);
+            for (int j = i + 1; j < totalEntries; j++) {
+                ScannedEntry entryB = entries.get(j);
+                if (entryA.id().equals(entryB.id())) continue;
+
+                float dist = SimilarityFunction.EUCLIDEAN.compute(entryA.decodedVector(), entryB.decodedVector());
                 if (dist <= distanceThreshold) {
-                    log.debug("DuplicateDetector: found near-duplicate pair [{}, {}] with L2={}", idA, idB, dist);
-                    pairs.add(new DuplicatePair(i, j, idA, idB, dist));
+                    log.debug("DuplicateDetector: found near-duplicate pair [{}, {}] with L2={}",
+                            entryA.id(), entryB.id(), dist);
+                    pairs.add(new DuplicatePair(entryA.recordIndex(), entryB.recordIndex(),
+                            entryA.id(), entryB.id(), dist));
                 }
             }
         }

@@ -77,6 +77,62 @@ public abstract class AbstractConsolidator implements Consolidator {
      * @param enableMerge            whether to execute duplicate fusion for non-contradictions
      * @return true if the pair was processed (either resolved or merged), false otherwise
      */
+    /**
+     * Evaluates a candidate pair of memories across partitions. If contradictory, applies CADP resolution.
+     * If non-contradictory and {@code enableMerge} is true, merges the duplicate pair.
+     *
+     * @param recordA                first record
+     * @param recordB                second record
+     * @param partitionManager       partition manager resolving partition routers (optional)
+     * @param store                  cognitive tier store fallback (optional)
+     * @param quantizer              scalar quantizer (optional)
+     * @param entityDirectory        entity directory (optional)
+     * @param hyperEntityGraph       hypergraph memory (optional)
+     * @param temporalKnowledgeGraph temporal knowledge graph (optional)
+     * @param ingestionTarget        ingestion target for merged memories (optional)
+     * @param index                  memory index for tombstoning (optional)
+     * @param wal                    memory WAL for tombstoning (optional)
+     * @param enableMerge            whether to execute duplicate fusion for non-contradictions
+     * @return true if the pair was processed (either resolved or merged), false otherwise
+     */
+    protected boolean evaluateAndResolvePair(
+            CognitiveRecord recordA,
+            CognitiveRecord recordB,
+            com.spectrayan.spector.memory.PartitionManager partitionManager,
+            CognitiveRecordMemory store,
+            ScalarQuantizer quantizer,
+            EntityDirectory entityDirectory,
+            HyperEntityGraphMemory hyperEntityGraph,
+            TemporalKnowledgeGraph temporalKnowledgeGraph,
+            CognitiveIngestionTarget ingestionTarget,
+            MemoryIndex index,
+            MemoryWal wal,
+            boolean enableMerge) {
+
+        if (recordA == null || recordB == null) {
+            return false;
+        }
+
+        // 1. Contradiction classification
+        boolean isContradictory = contradictionDetector.areContradictory(recordA.text(), recordB.text());
+
+        if (isContradictory) {
+            log.info("Consolidator: Detected contradiction between '{}' and '{}'", recordA.id(), recordB.id());
+            CadpContradictionResolver.resolve(
+                    recordA, recordB, partitionManager, store, hyperEntityGraph, entityDirectory, temporalKnowledgeGraph);
+            return true;
+        } else if (enableMerge && memoryMerger != null && ingestionTarget != null && quantizer != null && index != null) {
+            log.info("Consolidator: Merging duplicate memories '{}' and '{}'", recordA.id(), recordB.id());
+            mergeDuplicate(recordA, recordB, partitionManager, store, quantizer, ingestionTarget, index, wal);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Evaluates a candidate pair in a single store (backward compatibility).
+     */
     protected boolean evaluateAndResolvePair(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
@@ -89,35 +145,18 @@ public abstract class AbstractConsolidator implements Consolidator {
             MemoryIndex index,
             MemoryWal wal,
             boolean enableMerge) {
-
-        if (recordA == null || recordB == null || store == null) {
-            return false;
-        }
-
-        // 1. Contradiction classification
-        boolean isContradictory = contradictionDetector.areContradictory(recordA.text(), recordB.text());
-
-        if (isContradictory) {
-            log.info("Consolidator: Detected contradiction between '{}' and '{}'", recordA.id(), recordB.id());
-            CadpContradictionResolver.resolve(
-                    recordA, recordB, store, hyperEntityGraph, entityDirectory, temporalKnowledgeGraph);
-            return true;
-        } else if (enableMerge && memoryMerger != null && ingestionTarget != null && quantizer != null && index != null) {
-            log.info("Consolidator: Merging duplicate memories '{}' and '{}'", recordA.id(), recordB.id());
-            mergeDuplicate(recordA, recordB, store, quantizer, ingestionTarget, index, wal);
-            return true;
-        }
-
-        return false;
+        return evaluateAndResolvePair(recordA, recordB, null, store, quantizer,
+                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, ingestionTarget, index, wal, enableMerge);
     }
 
     /**
-     * Merges two non-contradictory duplicate records into a new consolidated memory,
+     * Merges two non-contradictory duplicate records across partitions into a new consolidated memory,
      * ingests it, and tombstones the original records.
      */
     protected void mergeDuplicate(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
+            com.spectrayan.spector.memory.PartitionManager partitionManager,
             CognitiveRecordMemory store,
             ScalarQuantizer quantizer,
             CognitiveIngestionTarget ingestionTarget,
@@ -128,8 +167,8 @@ public abstract class AbstractConsolidator implements Consolidator {
         String newId = "cns-" + tsidGenerator.generate();
 
         // Tombstone old records in off-heap, WAL, and index
-        tombstoneRecord(recordA, store, index, wal);
-        tombstoneRecord(recordB, store, index, wal);
+        tombstoneRecord(recordA, partitionManager, store, index, wal);
+        tombstoneRecord(recordB, partitionManager, store, index, wal);
 
         byte semanticFlags = SynapticHeaderConstants.withMemoryType(
                 SynapticHeaderConstants.FLAG_CONSOLIDATED,
@@ -162,17 +201,43 @@ public abstract class AbstractConsolidator implements Consolidator {
     }
 
     /**
-     * Tombstones a record off-heap, logs to WAL, and removes it from the index.
+     * Merges two non-contradictory duplicate records in a single store (backward compatibility).
+     */
+    protected void mergeDuplicate(
+            CognitiveRecord recordA,
+            CognitiveRecord recordB,
+            CognitiveRecordMemory store,
+            ScalarQuantizer quantizer,
+            CognitiveIngestionTarget ingestionTarget,
+            MemoryIndex index,
+            MemoryWal wal) {
+        mergeDuplicate(recordA, recordB, null, store, quantizer, ingestionTarget, index, wal);
+    }
+
+    /**
+     * Tombstones a record off-heap in its colocated partition, logs to WAL, and removes it from the index.
      */
     protected void tombstoneRecord(
             CognitiveRecord record,
-            CognitiveRecordMemory store,
+            com.spectrayan.spector.memory.PartitionManager partitionManager,
+            CognitiveRecordMemory fallbackStore,
             MemoryIndex index,
             MemoryWal wal) {
 
-        MemorySegment segment = store.segment();
-        CognitiveRecordLayout layout = store.cognitiveLayout();
-        layout.tombstone(segment, record.byteOffset());
+        if (partitionManager != null) {
+            var router = partitionManager.routerFor(record.partitionIndex());
+            if (router != null) {
+                var layout = router.layoutFor(record.memoryType());
+                var segment = router.segmentFor(record.memoryType());
+                if (layout != null && segment != null) {
+                    layout.tombstone(segment, record.byteOffset());
+                }
+            }
+        } else if (fallbackStore != null) {
+            MemorySegment segment = fallbackStore.segment();
+            CognitiveRecordLayout layout = fallbackStore.cognitiveLayout();
+            layout.tombstone(segment, record.byteOffset());
+        }
 
         if (wal != null) {
             wal.appendForget(record.id());
@@ -181,6 +246,17 @@ public abstract class AbstractConsolidator implements Consolidator {
             index.remove(record.id());
         }
         log.debug("Consolidator: Tombstoned and de-indexed memory '{}'", record.id());
+    }
+
+    /**
+     * Tombstones a record off-heap, logs to WAL, and removes it from the index (backward compatibility).
+     */
+    protected void tombstoneRecord(
+            CognitiveRecord record,
+            CognitiveRecordMemory store,
+            MemoryIndex index,
+            MemoryWal wal) {
+        tombstoneRecord(record, null, store, index, wal);
     }
 
     /**

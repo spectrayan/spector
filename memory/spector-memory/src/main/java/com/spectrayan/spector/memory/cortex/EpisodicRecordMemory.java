@@ -47,7 +47,11 @@ import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
  *   <li>Flat SIMD scan via the scorer</li>
  *   <li>Persistent across JVM restarts via {@code FileChannel.map()}</li>
  * </ul>
+ *
+ * @deprecated As of Spector 1.3.0, replaced by {@link EpisodicLogMemory} (ADR-0006 log-structured
+ *             conversation store) and scheduled for removal in a future major release.
  */
+@Deprecated(since = "1.3.0", forRemoval = true)
 public class EpisodicRecordMemory extends AbstractCognitiveRecordMemory {
 
     private static final Logger log = LoggerFactory.getLogger(EpisodicRecordMemory.class);

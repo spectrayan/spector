@@ -180,7 +180,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
                 continue;
             }
 
-            String idB = index.findIdByOffset(store.type(), offsetJ);
+            String idB = index.findIdByOffset(index.activePartitionSeq(), store.type(), offsetJ);
             if (idB == null || idB.equals(recordA.id())) {
                 continue;
             }

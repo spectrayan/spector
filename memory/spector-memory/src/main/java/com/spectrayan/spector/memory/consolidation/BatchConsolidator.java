@@ -61,6 +61,81 @@ public final class BatchConsolidator extends AbstractConsolidator {
     }
 
     /**
+     * Executes the consolidation cycle across all partitions (frozen + active) (#446).
+     */
+    public void consolidate(com.spectrayan.spector.memory.PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer,
+                            EntityDirectory entityDirectory, HyperEntityGraphMemory hyperEntityGraph,
+                            TemporalKnowledgeGraph temporalKnowledgeGraph,
+                            CognitiveIngestionTarget ingestionTarget,
+                            MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
+        if (partitionManager == null) {
+            return;
+        }
+
+        var handles = partitionManager.snapshot();
+        List<DuplicateDetector.PartitionStore> partitionStores = new java.util.ArrayList<>();
+        int totalVisible = 0;
+        for (var handle : handles) {
+            var semantic = handle.router() != null ? handle.router().semantic() : null;
+            if (semantic != null && semantic.visibleCount() > 0) {
+                partitionStores.add(new DuplicateDetector.PartitionStore(handle.seq(), semantic));
+                totalVisible += semantic.visibleCount();
+            }
+        }
+
+        if (totalVisible < 2 || partitionStores.isEmpty()) {
+            log.debug("BatchConsolidator: semantic store across partitions too small to run consolidation (totalVisible={})",
+                    totalVisible);
+            return;
+        }
+
+        log.info("BatchConsolidator: scanning semantic memory across {} partitions for duplicates... ({} visible)",
+                partitionStores.size(), totalVisible);
+        List<DuplicateDetector.DuplicatePair> duplicatePairs = duplicateDetector.findDuplicatesAcrossPartitions(partitionStores, index, quantizer);
+        if (duplicatePairs.isEmpty()) {
+            log.info("BatchConsolidator: no duplicate pairs found.");
+            return;
+        }
+
+        log.info("BatchConsolidator: found {} duplicate pairs. Evaluating contradictions & merging...", duplicatePairs.size());
+
+        Set<String> processedIds = new HashSet<>();
+
+        for (DuplicateDetector.DuplicatePair pair : duplicatePairs) {
+            if (processedIds.contains(pair.idA()) || processedIds.contains(pair.idB())) {
+                continue; // already handled in a previous merge/contradiction in this cycle
+            }
+
+            CognitiveRecord recordA = inspectFunction.apply(pair.idA());
+            CognitiveRecord recordB = inspectFunction.apply(pair.idB());
+
+            if (recordA == null || recordB == null || recordA.isTombstoned() || recordB.isTombstoned()) {
+                continue;
+            }
+
+            boolean processed = evaluateAndResolvePair(
+                    recordA,
+                    recordB,
+                    partitionManager,
+                    null,
+                    quantizer,
+                    entityDirectory,
+                    hyperEntityGraph,
+                    temporalKnowledgeGraph,
+                    ingestionTarget,
+                    index,
+                    wal,
+                    true // enable duplicate merge in batch mode
+            );
+
+            if (processed) {
+                processedIds.add(pair.idA());
+                processedIds.add(pair.idB());
+            }
+        }
+    }
+
+    /**
      * Executes the consolidation cycle across the semantic store with TemporalKnowledgeGraph bridge (#527).
      */
     public void consolidate(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer,

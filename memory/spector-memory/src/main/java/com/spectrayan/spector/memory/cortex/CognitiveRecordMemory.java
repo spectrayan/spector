@@ -119,6 +119,13 @@ public interface CognitiveRecordMemory extends RecordMemory<CognitiveRecordLayou
     void force();
 
     /**
+     * Returns true if this memory store is frozen (read-only / older partition).
+     */
+    default boolean isFrozen() {
+        return false;
+    }
+
+    /**
      * Closes the memory store and releases off-heap resources.
      */
     @Override

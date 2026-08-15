@@ -353,7 +353,13 @@ public abstract class AbstractCognitiveRecordMemory
     }
 
     @Override
+    public boolean isFrozen() {
+        return frozen;
+    }
+
+    @Override
     public void force() {
+        if (frozen) return;
         super.flush();
     }
 

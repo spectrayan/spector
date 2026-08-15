@@ -76,11 +76,12 @@ public final class CadpContradictionResolver {
     }
 
     /**
-     * Executes full CADP contradiction resolution between two contradictory memories.
+     * Executes full CADP contradiction resolution between two contradictory memories across partitions (#446).
      *
      * @param recordA                first record
      * @param recordB                second record
-     * @param store                  cognitive tier store
+     * @param partitionManager       partition manager resolving partition routers (optional)
+     * @param store                  cognitive tier store fallback (optional)
      * @param hyperEntityGraph       hypergraph memory (optional)
      * @param entityDirectory        entity directory (optional)
      * @param temporalKnowledgeGraph temporal knowledge graph (optional)
@@ -89,6 +90,7 @@ public final class CadpContradictionResolver {
     public static ResolutionResult resolve(
             CognitiveRecord recordA,
             CognitiveRecord recordB,
+            com.spectrayan.spector.memory.PartitionManager partitionManager,
             CognitiveRecordMemory store,
             HyperEntityGraphMemory hyperEntityGraph,
             EntityDirectory entityDirectory,
@@ -98,15 +100,47 @@ public final class CadpContradictionResolver {
         CognitiveRecord winner = result.winner();
         CognitiveRecord loser = result.loser();
 
-        // 1. Mark loser contradicted off-heap
-        MemorySegment segment = store.segment();
-        CognitiveRecordLayout layout = store.cognitiveLayout();
-        layout.markContradicted(segment, loser.byteOffset());
+        // 1. Mark loser contradicted off-heap on the partition where loser physically resides
+        if (partitionManager != null) {
+            var router = partitionManager.routerFor(loser.partitionIndex());
+            if (router != null) {
+                var layout = router.layoutFor(loser.memoryType());
+                var segment = router.segmentFor(loser.memoryType());
+                if (layout != null && segment != null) {
+                    layout.markContradicted(segment, loser.byteOffset());
+                }
+            }
+        } else if (store != null) {
+            MemorySegment segment = store.segment();
+            CognitiveRecordLayout layout = store.cognitiveLayout();
+            layout.markContradicted(segment, loser.byteOffset());
+        }
         log.info("CADP resolved: winner='{}' corrects loser='{}'", winner.id(), loser.id());
 
         // 2. Resolve entity references for winner and loser
-        int slotWinner = memorySlot(winner, store, layout);
-        int slotLoser = memorySlot(loser, store, layout);
+        int slotWinner = -1;
+        int slotLoser = -1;
+        if (partitionManager != null) {
+            var routerWinner = partitionManager.routerFor(winner.partitionIndex());
+            if (routerWinner != null) {
+                var storeWinner = routerWinner.get(winner.memoryType());
+                var layoutWinner = routerWinner.layoutFor(winner.memoryType());
+                if (storeWinner != null && layoutWinner != null) {
+                    slotWinner = memorySlot(winner, storeWinner, layoutWinner);
+                }
+            }
+            var routerLoser = partitionManager.routerFor(loser.partitionIndex());
+            if (routerLoser != null) {
+                var storeLoser = routerLoser.get(loser.memoryType());
+                var layoutLoser = routerLoser.layoutFor(loser.memoryType());
+                if (storeLoser != null && layoutLoser != null) {
+                    slotLoser = memorySlot(loser, storeLoser, layoutLoser);
+                }
+            }
+        } else if (store != null) {
+            slotWinner = memorySlot(winner, store, store.cognitiveLayout());
+            slotLoser = memorySlot(loser, store, store.cognitiveLayout());
+        }
 
         List<Integer> entitiesWinner = findEntitiesForSlot(entityDirectory, slotWinner);
         List<Integer> entitiesLoser = findEntitiesForSlot(entityDirectory, slotLoser);
@@ -146,6 +180,19 @@ public final class CadpContradictionResolver {
         }
 
         return result;
+    }
+
+    /**
+     * Executes full CADP contradiction resolution between two contradictory memories in a single store.
+     */
+    public static ResolutionResult resolve(
+            CognitiveRecord recordA,
+            CognitiveRecord recordB,
+            CognitiveRecordMemory store,
+            HyperEntityGraphMemory hyperEntityGraph,
+            EntityDirectory entityDirectory,
+            TemporalKnowledgeGraph temporalKnowledgeGraph) {
+        return resolve(recordA, recordB, null, store, hyperEntityGraph, entityDirectory, temporalKnowledgeGraph);
     }
 
     /**
