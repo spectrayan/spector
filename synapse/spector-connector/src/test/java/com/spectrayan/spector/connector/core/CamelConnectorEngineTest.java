@@ -457,6 +457,19 @@ class CamelConnectorEngineTest {
         assertThat(config.tenantId()).isEqualTo("default");
     }
 
+    @Test
+    @DisplayName("deployRoute dynamically registers DataSource when jdbcUrl is provided")
+    void deployRouteWithJdbcUrlRegistersDataSource() throws Exception {
+        engine.start();
+        var config = RouteConfig.builder("sql-route", "SQL Ingest", "direct")
+                .properties(Map.of("jdbcUrl", "jdbc:h2:mem:engine_test_db;DB_CLOSE_DELAY=-1"))
+                .build();
+        engine.deployRoute(config);
+
+        var dataSources = engine.camelContext().getRegistry().findByType(javax.sql.DataSource.class);
+        assertThat(dataSources).isNotEmpty();
+    }
+
     // ─────────────── Helpers ───────────────
 
     private static void deleteRecursive(Path path) throws IOException {

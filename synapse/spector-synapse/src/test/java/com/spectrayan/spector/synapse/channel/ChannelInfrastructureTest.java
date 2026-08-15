@@ -12,17 +12,24 @@
  */
 package com.spectrayan.spector.synapse.channel;
 
-import com.spectrayan.spector.synapse.channel.ChannelAdapter;
-import com.spectrayan.spector.synapse.channel.ChannelRouter;
+import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.AgentChatResponse;
+import com.spectrayan.spector.synapse.agent.chat.service.ChatService;
+import com.spectrayan.spector.synapse.channel.model.ChannelType;
 import com.spectrayan.spector.synapse.channel.model.UnifiedMessage;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for UnifiedMessage, ChannelAdapter, and ChannelRouter.
@@ -73,6 +80,7 @@ class ChannelInfrastructureTest {
         assertThat(router.size()).isEqualTo(1);
         assertThat(router.channelIds()).containsExactly("test");
         assertThat(router.adapter("test")).isPresent();
+        assertThat(router.adapter(ChannelType.SLACK)).isEmpty();
     }
 
     @Test
@@ -118,6 +126,55 @@ class ChannelInfrastructureTest {
                 createTestAdapter("b", false)));
         var health = router.healthStatus();
         assertThat(health).hasSize(2);
+    }
+
+    @Test
+    void routeOutboundDispatchesToAdapter() {
+        var sentMessages = new ArrayList<UnifiedMessage>();
+        var adapter = new ChannelAdapter() {
+            @Override public String channelId() { return "slack"; }
+            @Override public String displayName() { return "Slack"; }
+            @Override public boolean isEnabled() { return true; }
+            @Override public UnifiedMessage normalize(Object nativeMessage) { return UnifiedMessage.text("slack", "u", nativeMessage.toString()); }
+            @Override public void send(UnifiedMessage message) { sentMessages.add(message); }
+        };
+
+        var router = new ChannelRouter(List.of(adapter));
+        var msg = UnifiedMessage.text("slack", "user-1", "Outbound test");
+        router.routeOutbound(msg);
+
+        assertThat(sentMessages).hasSize(1);
+        assertThat(sentMessages.getFirst().content()).isEqualTo("Outbound test");
+    }
+
+    @Test
+    void routeInboundAndProcessExecutesChatTurn() {
+        ChatService mockChatService = Mockito.mock(ChatService.class);
+        AgentChatResponse mockResponse = Mockito.mock(AgentChatResponse.class);
+        when(mockResponse.response()).thenReturn("Agent reply text");
+        when(mockChatService.executeChat(eq("User question"), any(), any(), any(), anyInt(), any(), any()))
+                .thenReturn(mockResponse);
+
+        var sentMessages = new ArrayList<UnifiedMessage>();
+        var adapter = new ChannelAdapter() {
+            @Override public String channelId() { return "telegram"; }
+            @Override public String displayName() { return "Telegram"; }
+            @Override public boolean isEnabled() { return true; }
+            @Override public UnifiedMessage normalize(Object nativeMessage) {
+                return new UnifiedMessage("m1", "telegram", "user-42", "Alice", nativeMessage.toString(),
+                        null, "chat-100", null, List.of(), Map.of());
+            }
+            @Override public void send(UnifiedMessage message) { sentMessages.add(message); }
+        };
+
+        var router = new ChannelRouter(List.of(adapter), mockChatService);
+        UnifiedMessage reply = router.routeInboundAndProcess("telegram", "User question");
+
+        assertThat(reply).isNotNull();
+        assertThat(reply.content()).isEqualTo("Agent reply text");
+        assertThat(reply.channel()).isEqualTo("telegram");
+        assertThat(reply.replyToId()).isEqualTo("m1");
+        assertThat(sentMessages).hasSize(1);
     }
 
     // ── Helper ──────────────────────────────────────────────────────────

@@ -201,21 +201,23 @@ public class CamelConnectorEngine implements AutoCloseable {
         // Build parameters map from config properties
         Map<String, String> params = new HashMap<>(config.properties());
 
-        // Register MongoClient bean dynamically if deploying a MongoDB route template
-        if ("mongodb-poll".equals(config.templateId())) {
-            String connectionUri = params.get("connectionUri");
-            if (connectionUri != null && !connectionUri.isBlank()) {
-                var existingClients = camelContext.getRegistry().findByType(com.mongodb.client.MongoClient.class);
-                if (existingClients.isEmpty()) {
-                    try {
-                        var mongoClient = com.mongodb.client.MongoClients.create(connectionUri);
-                        camelContext.getRegistry().bind("mongoClient", mongoClient);
-                        log.info("[ConnectorEngine] Bound MongoClient dynamically");
-                    } catch (Exception e) {
-                        log.error("[ConnectorEngine] Failed to register MongoClient dynamically", e);
+        // Register JDBC DataSource bean dynamically if jdbcUrl is provided in route properties
+        String jdbcUrl = params.get("jdbcUrl");
+        if (jdbcUrl != null && !jdbcUrl.isBlank()) {
+            var existingDataSources = camelContext.getRegistry().findByType(javax.sql.DataSource.class);
+            if (existingDataSources.isEmpty()) {
+                try {
+                    String username = params.getOrDefault("username", "");
+                    String password = params.getOrDefault("password", "");
+                    String driverClass = params.getOrDefault("driverClassName", "");
+                    if (!driverClass.isBlank()) {
+                        Class.forName(driverClass);
                     }
-                } else {
-                    log.info("[ConnectorEngine] Reusing existing MongoClient found in registry: {}", existingClients.iterator().next());
+                    javax.sql.DataSource ds = new SimpleDriverDataSource(jdbcUrl, username, password);
+                    camelContext.getRegistry().bind("dataSource", ds);
+                    log.info("[ConnectorEngine] Bound dynamic JDBC DataSource");
+                } catch (Exception e) {
+                    log.warn("[ConnectorEngine] Could not dynamically bind JDBC DataSource", e);
                 }
             }
         }

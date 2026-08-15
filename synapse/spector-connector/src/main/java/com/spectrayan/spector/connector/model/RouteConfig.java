@@ -78,6 +78,7 @@ public record RouteConfig(
         private String routeYaml;
         private RouteStatus status = RouteStatus.DRAFT;
         private boolean enabled = true;
+        private Instant createdAt;
 
         private Builder(String id, String name, String templateId) {
             this.id = id;
@@ -94,10 +95,11 @@ public record RouteConfig(
         public Builder routeYaml(String routeYaml) { this.routeYaml = routeYaml; return this; }
         public Builder status(RouteStatus status) { this.status = status; return this; }
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
+        public Builder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
 
         public RouteConfig build() {
             return new RouteConfig(id, name, templateId, connectorType, tenantId, source, schedule,
-                    properties, credentialRef, routeYaml, status, enabled, Instant.now());
+                    properties, credentialRef, routeYaml, status, enabled, createdAt != null ? createdAt : Instant.now());
         }
     }
 }

@@ -26,10 +26,12 @@ public class FlywayConfig {
 
     @Bean(initMethod = "migrate")
     public Flyway flyway(DataSource dataSource) {
-        return Flyway.configure()
+        Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .baselineVersion("0")
                 .baselineOnMigrate(true)
                 .load();
+        flyway.repair();
+        return flyway;
     }
 }

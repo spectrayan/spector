@@ -1,0 +1,25 @@
+- routeTemplate:
+    id: "channel-discord"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: botToken
+        defaultValue: ""
+      - name: channelId
+        defaultValue: ""
+    from:
+      uri: "direct:{{routeId}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: Authorization
+            simple: "Bot {{botToken}}"
+        - setHeader:
+            name: Content-Type
+            constant: "application/json"
+        - to:
+            uri: "https://discord.com/api/v10/channels/{{channelId}}/messages"
+        - log:
+            message: "Discord message sent to channel {{channelId}} for route {{routeId}}"

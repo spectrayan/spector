@@ -19,6 +19,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import com.spectrayan.spector.synapse.channel.config.ChannelProperties;
 import com.spectrayan.spector.synapse.config.FeatureFlags;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 
@@ -42,7 +43,7 @@ import com.spectrayan.spector.synapse.config.SynapseProperties;
  * @see com.spectrayan.spector.synapse.config.FeatureFlags
  */
 @SpringBootApplication
-@EnableConfigurationProperties({SynapseProperties.class, FeatureFlags.class})
+@EnableConfigurationProperties({SynapseProperties.class, FeatureFlags.class, ChannelProperties.class})
 @EnableScheduling
 public class SynapseApplication {
 

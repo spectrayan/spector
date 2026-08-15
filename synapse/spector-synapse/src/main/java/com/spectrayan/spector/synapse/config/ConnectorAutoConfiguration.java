@@ -12,22 +12,24 @@
  */
 package com.spectrayan.spector.synapse.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.connector.core.CamelConnectorEngine;
 import com.spectrayan.spector.connector.core.RouteLifecycleService;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
 import com.spectrayan.spector.connector.spi.CredentialProvider;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
-import com.spectrayan.spector.connector.spi.InMemoryRouteConfigProvider;
 import com.spectrayan.spector.connector.spi.RouteConfigProvider;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.synapse.connector.repository.JdbcRouteConfigProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -55,8 +57,9 @@ public class ConnectorAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public RouteConfigProvider routeConfigProvider() {
-        return new InMemoryRouteConfigProvider();
+    public RouteConfigProvider routeConfigProvider(JdbcClient jdbc, ObjectMapper mapper) {
+        log.info("[ConnectorAutoConfig] Initializing persistent JdbcRouteConfigProvider");
+        return new JdbcRouteConfigProvider(jdbc, mapper);
     }
 
     @Bean

@@ -1,0 +1,22 @@
+- routeTemplate:
+    id: "channel-telegram"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: botToken
+        defaultValue: ""
+      - name: chatId
+        defaultValue: ""
+    from:
+      uri: "direct:{{routeId}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: CamelTelegramChatId
+            constant: "{{chatId}}"
+        - to:
+            uri: "telegram:bots?authorizationToken={{botToken}}"
+        - log:
+            message: "Telegram message sent for route {{routeId}}"
