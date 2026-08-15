@@ -215,9 +215,9 @@ public class CamelConnectorEngine implements AutoCloseable {
                     }
                     javax.sql.DataSource ds = new SimpleDriverDataSource(jdbcUrl, username, password);
                     camelContext.getRegistry().bind("dataSource", ds);
-                    log.info("[ConnectorEngine] Bound dynamic JDBC DataSource for url: {}", jdbcUrl);
+                    log.info("[ConnectorEngine] Bound dynamic JDBC DataSource");
                 } catch (Exception e) {
-                    log.warn("[ConnectorEngine] Could not dynamically bind JDBC DataSource for url: {}", jdbcUrl, e);
+                    log.warn("[ConnectorEngine] Could not dynamically bind JDBC DataSource", e);
                 }
             }
         }
