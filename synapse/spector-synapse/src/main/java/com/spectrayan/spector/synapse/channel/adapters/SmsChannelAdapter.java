@@ -12,68 +12,31 @@
  */
 package com.spectrayan.spector.synapse.channel.adapters;
 
-import com.spectrayan.spector.synapse.channel.ChannelAdapter;
-import com.spectrayan.spector.synapse.channel.model.UnifiedMessage;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.spectrayan.spector.connector.core.CamelConnectorEngine;
+import com.spectrayan.spector.synapse.channel.config.ChannelProperties;
+import com.spectrayan.spector.synapse.channel.model.ChannelType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
 /**
- * SMS channel adapter — Twilio SDK integration for sending/receiving SMS.
+ * SMS (Twilio) channel adapter — dispatches messages via Camel route templates.
  */
 @Component
-@ConditionalOnProperty(prefix = "spector.channels.sms", name = "enabled", havingValue = "true")
-public class SmsChannelAdapter implements ChannelAdapter {
+@ConditionalOnProperty(name = "spector.channels.sms.enabled", havingValue = "true", matchIfMissing = true)
+public class SmsChannelAdapter extends CamelChannelAdapter {
 
-    private static final Logger log = LoggerFactory.getLogger(SmsChannelAdapter.class);
-
-    @Override
-    public String channelId() { return "sms"; }
-
-    @Override
-    public String displayName() { return "SMS (Twilio)"; }
-
-    @Override
-    public boolean isEnabled() { return true; }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public UnifiedMessage normalize(Object rawPayload) {
-        if (rawPayload instanceof Map<?,?> raw) {
-            var map = (Map<String, Object>) raw;
-            return new UnifiedMessage(
-                    strOrDefault(map, "MessageSid", UUID.randomUUID().toString()),
-                    "sms",
-                    strOrDefault(map, "From", ""),
-                    null,
-                    strOrDefault(map, "Body", ""),
-                    Instant.now(), null, null, List.of(),
-                    Map.of("to", strOrDefault(map, "To", ""),
-                           "account_sid", strOrDefault(map, "AccountSid", ""))
-            );
-        }
-        return UnifiedMessage.text("sms", "unknown", rawPayload.toString());
+    @Autowired
+    public SmsChannelAdapter(ChannelProperties properties,
+                             @Autowired(required = false) CamelConnectorEngine connectorEngine) {
+        super(ChannelType.SMS, properties, connectorEngine);
     }
 
-    @Override
-    public void send(UnifiedMessage message) throws ChannelException {
-        log.info("[SmsAdapter] Sending SMS to: {}", message.senderId());
+    public SmsChannelAdapter(ChannelProperties properties) {
+        this(properties, null);
     }
 
-    @Override
-    public ChannelHealth health() {
-        return new ChannelHealth(channelId(), true, "ready");
-    }
-
-    private static String strOrDefault(Map<String, Object> map, String key, String defaultValue) {
-        var val = map.get(key);
-        return val != null ? val.toString() : defaultValue;
+    public SmsChannelAdapter() {
+        this(new ChannelProperties(), null);
     }
 }

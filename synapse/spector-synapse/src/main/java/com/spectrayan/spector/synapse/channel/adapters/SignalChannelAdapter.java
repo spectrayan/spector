@@ -12,68 +12,31 @@
  */
 package com.spectrayan.spector.synapse.channel.adapters;
 
-import com.spectrayan.spector.synapse.channel.ChannelAdapter;
-import com.spectrayan.spector.synapse.channel.model.UnifiedMessage;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.spectrayan.spector.connector.core.CamelConnectorEngine;
+import com.spectrayan.spector.synapse.channel.config.ChannelProperties;
+import com.spectrayan.spector.synapse.channel.model.ChannelType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
 /**
- * Signal channel adapter — signal-cli or libsignal-java integration.
+ * Signal Messenger channel adapter — dispatches messages via Camel route templates.
  */
 @Component
-@ConditionalOnProperty(prefix = "spector.channels.signal", name = "enabled", havingValue = "true")
-public class SignalChannelAdapter implements ChannelAdapter {
+@ConditionalOnProperty(name = "spector.channels.signal.enabled", havingValue = "true", matchIfMissing = true)
+public class SignalChannelAdapter extends CamelChannelAdapter {
 
-    private static final Logger log = LoggerFactory.getLogger(SignalChannelAdapter.class);
-
-    @Override
-    public String channelId() { return "signal"; }
-
-    @Override
-    public String displayName() { return "Signal Messenger"; }
-
-    @Override
-    public boolean isEnabled() { return true; }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public UnifiedMessage normalize(Object rawPayload) {
-        if (rawPayload instanceof Map<?,?> raw) {
-            var map = (Map<String, Object>) raw;
-            return new UnifiedMessage(
-                    UUID.randomUUID().toString(),
-                    "signal",
-                    strOrDefault(map, "source", ""),
-                    strOrDefault(map, "source_name", null),
-                    strOrDefault(map, "message", ""),
-                    Instant.now(),
-                    strOrDefault(map, "group_id", null),
-                    null, List.of(), Map.of()
-            );
-        }
-        return UnifiedMessage.text("signal", "unknown", rawPayload.toString());
+    @Autowired
+    public SignalChannelAdapter(ChannelProperties properties,
+                                @Autowired(required = false) CamelConnectorEngine connectorEngine) {
+        super(ChannelType.SIGNAL, properties, connectorEngine);
     }
 
-    @Override
-    public void send(UnifiedMessage message) throws ChannelException {
-        log.info("[SignalAdapter] Sending to: {}", message.senderId());
+    public SignalChannelAdapter(ChannelProperties properties) {
+        this(properties, null);
     }
 
-    @Override
-    public ChannelHealth health() {
-        return new ChannelHealth(channelId(), true, "ready");
-    }
-
-    private static String strOrDefault(Map<String, Object> map, String key, String defaultValue) {
-        var val = map.get(key);
-        return val != null ? val.toString() : defaultValue;
+    public SignalChannelAdapter() {
+        this(new ChannelProperties(), null);
     }
 }
