@@ -15,17 +15,20 @@
  */
 package com.spectrayan.spector.connector.core;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConnectorException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.connector.model.ConnectionTestResult;
 import com.spectrayan.spector.connector.model.RouteConfig;
 import com.spectrayan.spector.connector.model.TemplateDescriptor;
+import com.spectrayan.spector.connector.spi.ConnectionProber;
 import com.spectrayan.spector.connector.spi.CredentialProvider;
 import com.spectrayan.spector.connector.template.TemplateDescriptorValidator;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
 
-import com.spectrayan.spector.connector.spi.ConnectionProber;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.util.HashMap;
 import java.util.List;
@@ -36,9 +39,6 @@ import java.util.Objects;
  * High-level service for route lifecycle operations.
  *
  * <p>Orchestrates: validate → resolve credentials → deploy route.</p>
- *
- * <p>Validation is driven entirely by the {@link TemplateDescriptor}
- * metadata — no per-connector adapter classes needed.</p>
  */
 public class RouteLifecycleService {
 
@@ -49,8 +49,8 @@ public class RouteLifecycleService {
     private final CredentialProvider credentialProvider;
 
     public RouteLifecycleService(CamelConnectorEngine engine,
-                                  TemplateRegistry templateRegistry,
-                                  CredentialProvider credentialProvider) {
+                                 TemplateRegistry templateRegistry,
+                                 CredentialProvider credentialProvider) {
         this.engine = Objects.requireNonNull(engine);
         this.templateRegistry = Objects.requireNonNull(templateRegistry);
         this.credentialProvider = Objects.requireNonNull(credentialProvider);
@@ -61,43 +61,59 @@ public class RouteLifecycleService {
      *
      * @param config the route configuration
      * @return the deployed RouteConfig
-     * @throws IllegalArgumentException if validation fails
      */
     public RouteConfig activateRoute(RouteConfig config) throws Exception {
         Objects.requireNonNull(config, "RouteConfig must not be null");
 
-        // 1. Validate against template descriptor
-        List<String> errors = validateRoute(config);
-        if (!errors.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Route validation failed: " + String.join("; ", errors));
+        MDC.put("routeId", config.id());
+        MDC.put("tenantId", config.tenantId());
+        MDC.put("templateId", config.templateId());
+
+        try {
+            // 1. Validate against template descriptor
+            List<String> errors = validateRoute(config);
+            if (!errors.isEmpty()) {
+                throw new SpectorValidationException(
+                        ErrorCode.ARGUMENT_INVALID, "routeConfig", "Route validation failed: " + String.join("; ", errors));
+            }
+
+            // 2. Resolve credentials into parameters
+            Map<String, String> resolvedParams = resolveParameters(config);
+
+            // 3. If credentials were resolved, rebuild config with merged properties
+            RouteConfig deployConfig = config;
+            if (!resolvedParams.equals(config.properties()) || config.status() != com.spectrayan.spector.connector.model.RouteStatus.ACTIVE) {
+                deployConfig = RouteConfig.builder(config.id(), config.name(), config.templateId())
+                        .connectorType(config.connectorType())
+                        .tenantId(config.tenantId())
+                        .source(config.source())
+                        .schedule(config.schedule())
+                        .properties(resolvedParams)
+                        .credentialRef(config.credentialRef())
+                        .routeYaml(config.routeYaml())
+                        .status(com.spectrayan.spector.connector.model.RouteStatus.ACTIVE)
+                        .enabled(config.enabled())
+                        .build();
+            }
+
+            // 4. Deploy via engine
+            engine.deployRoute(deployConfig);
+
+            log.info("[Lifecycle] Activated route '{}' (template={}, tenant={})",
+                    config.id(), config.templateId(), config.tenantId());
+            return deployConfig;
+        } catch (Exception e) {
+            log.error("[Lifecycle] Failed activating route '{}': {}", config.id(), e.getMessage());
+            if (e instanceof com.spectrayan.spector.commons.error.SpectorException) {
+                throw e;
+            }
+            throw new SpectorConnectorException(
+                    ErrorCode.CONNECTOR_ROUTE_START_FAILED, e, config.id(), e.getMessage());
+        } finally {
+            MDC.remove("routeId");
+            MDC.remove("tenantId");
+            MDC.remove("templateId");
         }
-
-        // 2. Resolve credentials into parameters
-        Map<String, String> resolvedParams = resolveParameters(config);
-
-        // 3. If credentials were resolved, rebuild config with merged properties
-        RouteConfig deployConfig = config;
-        if (!resolvedParams.equals(config.properties()) || config.status() != com.spectrayan.spector.connector.model.RouteStatus.ACTIVE) {
-            deployConfig = RouteConfig.builder(config.id(), config.name(), config.templateId())
-                    .connectorType(config.connectorType())
-                    .tenantId(config.tenantId())
-                    .source(config.source())
-                    .schedule(config.schedule())
-                    .properties(resolvedParams)
-                    .credentialRef(config.credentialRef())
-                    .routeYaml(config.routeYaml())
-                    .status(com.spectrayan.spector.connector.model.RouteStatus.ACTIVE)
-                    .enabled(config.enabled())
-                    .build();
-        }
-
-        // 4. Deploy via engine
-        engine.deployRoute(deployConfig);
-
-        log.info("[Lifecycle] Activated route '{}' (template={}, tenant={})",
-                config.id(), config.templateId(), config.tenantId());
-        return deployConfig;
     }
 
     /**
@@ -121,20 +137,15 @@ public class RouteLifecycleService {
 
     /**
      * Validate a route configuration against its template descriptor.
-     *
-     * <p>Uses {@link TemplateDescriptorValidator} which reads the YAML
-     * metadata — no per-connector adapter classes needed.</p>
-     *
-     * @return list of validation errors (empty = valid)
      */
     public List<String> validateRoute(RouteConfig config) {
         return templateRegistry.findTemplate(config.templateId())
                 .map(descriptor -> TemplateDescriptorValidator.validate(config, descriptor))
-                .orElse(List.of()); // Unknown template → skip validation, Camel will fail later
+                .orElse(List.of());
     }
 
     /**
-     * Test connectivity for a route config (v1: validation only).
+     * Test connectivity for a route config.
      */
     public ConnectionTestResult testConnection(RouteConfig config) {
         List<String> errors = validateRoute(config);
@@ -144,13 +155,10 @@ public class RouteLifecycleService {
 
         long start = System.currentTimeMillis();
         try {
-            // Resolve credentials first so prober gets full properties
             Map<String, String> resolvedParams = resolveParameters(config);
 
-            // Get the prober for this connectorType
             String connectorType = config.connectorType();
             if (connectorType == null || connectorType.isBlank()) {
-                // Try to find default template
                 connectorType = templateRegistry.findTemplate(config.templateId())
                         .map(TemplateDescriptor::connectorType)
                         .orElse("DEFAULT");
@@ -160,26 +168,29 @@ public class RouteLifecycleService {
             prober.probe(resolvedParams);
 
             long latency = System.currentTimeMillis() - start;
-            return ConnectionTestResult.success("Connection successful", latency);
+            log.info("[Lifecycle] Connection test passed for route '{}' (type={}) in {}ms",
+                    config.id(), connectorType, latency);
+            return ConnectionTestResult.success("Connection test passed", latency);
         } catch (Exception e) {
-            log.warn("[Lifecycle] Connection probe failed for route '{}' (template={}): {}",
-                    config.id(), config.templateId(), e.getMessage());
+            log.warn("[Lifecycle] Connection test failed for route '{}': {}", config.id(), e.getMessage());
             return ConnectionTestResult.failure("Connection test failed: " + e.getMessage());
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-
+    /**
+     * Resolve credentials for a route config and merge with existing properties.
+     */
     private Map<String, String> resolveParameters(RouteConfig config) {
-        Map<String, String> params = new HashMap<>(config.properties());
-
-        if (config.credentialRef() != null && !config.credentialRef().isBlank()) {
-            String secret = credentialProvider.resolve(config.credentialRef())
-                    .orElseThrow(() -> new IllegalStateException(
-                            "Could not resolve credential: " + config.credentialRef()));
-            params.put("_resolvedCredential", secret);
+        Map<String, String> merged = new HashMap<>(config.properties());
+        String credRef = config.credentialRef();
+        if (credRef != null && !credRef.isBlank()) {
+            credentialProvider.resolve(credRef).ifPresent(secret -> {
+                merged.putIfAbsent("apiKey", secret);
+                merged.putIfAbsent("token", secret);
+                merged.putIfAbsent("apiToken", secret);
+                merged.putIfAbsent("oauthToken", secret);
+            });
         }
-
-        return params;
+        return merged;
     }
 }

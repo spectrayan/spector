@@ -21,16 +21,18 @@ import java.time.Instant;
 /**
  * Execution record for a connector route run.
  *
- * @param routeId       the route that ran
- * @param tenantId      tenant isolation
- * @param status        execution status
+ * @param traceId            unique trace/correlation ID for this execution
+ * @param routeId            the route that ran
+ * @param tenantId           tenant isolation
+ * @param status             execution status
  * @param documentsProcessed number of documents ingested
- * @param errors        number of errors
- * @param duration      how long the execution took
- * @param startedAt     when the execution started
- * @param errorMessage  error details (null if successful)
+ * @param errors             number of errors
+ * @param duration           how long the execution took
+ * @param startedAt          when the execution started
+ * @param errorMessage       error details (null if successful)
  */
 public record ExecutionRecord(
+        String traceId,
         String routeId,
         String tenantId,
         ExecutionStatus status,
@@ -44,18 +46,33 @@ public record ExecutionRecord(
         RUNNING, COMPLETED, FAILED, CANCELLED
     }
 
-    /** Creates a successful execution record. */
+    /** Creates a successful execution record with a traceId. */
+    public static ExecutionRecord success(String traceId, String routeId, String tenantId, int docs, Duration duration) {
+        return new ExecutionRecord(traceId, routeId, tenantId, ExecutionStatus.COMPLETED, docs, 0, duration, Instant.now(), null);
+    }
+
+    /** Creates a successful execution record (backward-compatible). */
     public static ExecutionRecord success(String routeId, String tenantId, int docs, Duration duration) {
-        return new ExecutionRecord(routeId, tenantId, ExecutionStatus.COMPLETED, docs, 0, duration, Instant.now(), null);
+        return success(null, routeId, tenantId, docs, duration);
     }
 
-    /** Creates a failed execution record. */
+    /** Creates a failed execution record with a traceId. */
+    public static ExecutionRecord failure(String traceId, String routeId, String tenantId, int docs, int errors, Duration duration, String message) {
+        return new ExecutionRecord(traceId, routeId, tenantId, ExecutionStatus.FAILED, docs, errors, duration, Instant.now(), message);
+    }
+
+    /** Creates a failed execution record (backward-compatible). */
     public static ExecutionRecord failure(String routeId, String tenantId, int docs, int errors, Duration duration, String message) {
-        return new ExecutionRecord(routeId, tenantId, ExecutionStatus.FAILED, docs, errors, duration, Instant.now(), message);
+        return failure(null, routeId, tenantId, docs, errors, duration, message);
     }
 
-    /** Creates a running execution record. */
+    /** Creates a running execution record with a traceId. */
+    public static ExecutionRecord running(String traceId, String routeId, String tenantId) {
+        return new ExecutionRecord(traceId, routeId, tenantId, ExecutionStatus.RUNNING, 0, 0, Duration.ZERO, Instant.now(), null);
+    }
+
+    /** Creates a running execution record (backward-compatible). */
     public static ExecutionRecord running(String routeId, String tenantId) {
-        return new ExecutionRecord(routeId, tenantId, ExecutionStatus.RUNNING, 0, 0, Duration.ZERO, Instant.now(), null);
+        return running(null, routeId, tenantId);
     }
 }

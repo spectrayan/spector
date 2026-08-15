@@ -1,0 +1,36 @@
+- routeTemplate:
+    id: "salesforce"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: instanceUrl
+      - name: soqlQuery
+        defaultValue: "SELECT Id, Name, Description FROM Case"
+      - name: pollIntervalMs
+        defaultValue: "3600000"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "sfdc-${date:now:yyyyMMddHHmmss}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Salesforce poll completed for route {{routeId}}"

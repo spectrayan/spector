@@ -1,0 +1,49 @@
+- routeTemplate:
+    id: "notion-pages"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: databaseId
+      - name: apiKey
+        defaultValue: ""
+      - name: pollIntervalMs
+        defaultValue: "3600000"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: CamelHttpMethod
+            constant: "POST"
+        - setHeader:
+            name: Authorization
+            simple: "Bearer {{apiKey}}"
+        - setHeader:
+            name: Notion-Version
+            constant: "2022-06-28"
+        - to:
+            uri: "https://api.notion.com/v1/databases/{{databaseId}}/query"
+        - split:
+            jsonpath: "$.results[*]"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "notion-${header.CamelSplitIndex}-${date:now:yyyyMMddHHmmss}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Notion page ingested for route {{routeId}}"

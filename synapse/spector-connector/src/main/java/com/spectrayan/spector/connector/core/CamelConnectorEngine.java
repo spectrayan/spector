@@ -18,6 +18,7 @@ package com.spectrayan.spector.connector.core;
 import com.spectrayan.spector.connector.model.ExecutionRecord;
 import com.spectrayan.spector.connector.model.RouteConfig;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
+import com.spectrayan.spector.connector.spi.ExecutionLogger;
 import com.spectrayan.spector.connector.spi.RouteConfigProvider;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
 
@@ -57,6 +58,7 @@ public class CamelConnectorEngine implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(CamelConnectorEngine.class);
 
+    private final ExecutionLogger executionLogger;
     private final SpectorIngestionSink ingestionSink;
     private final RouteConfigProvider configProvider;
     private final TemplateRegistry templateRegistry;
@@ -67,35 +69,76 @@ public class CamelConnectorEngine implements AutoCloseable {
     private volatile boolean started = false;
 
     /**
-     * Creates a connector engine with template-based routing.
+     * Creates a fully generic connector engine with engine-level execution logger.
      *
-     * @param ingestionSink   the sink that bridges Camel → Spector
-     * @param configProvider  route config persistence
+     * @param executionLogger  execution history and audit logger (defaults to in-memory if null)
+     * @param ingestionSink    optional ingestion sink for Inbound -> Spector ingestion routes
+     * @param configProvider   route config persistence
+     * @param templateRegistry template registry for route creation
+     * @param camelContext     CamelContext instance
+     */
+    public CamelConnectorEngine(ExecutionLogger executionLogger,
+                                SpectorIngestionSink ingestionSink,
+                                RouteConfigProvider configProvider,
+                                TemplateRegistry templateRegistry,
+                                CamelContext camelContext) {
+        this.executionLogger = executionLogger != null
+                ? executionLogger
+                : (ingestionSink != null && ingestionSink.executionLogger() != null
+                        ? ingestionSink.executionLogger()
+                        : new com.spectrayan.spector.connector.spi.InMemoryExecutionLogger());
+        this.ingestionSink = ingestionSink;
+        this.configProvider = Objects.requireNonNull(configProvider, "RouteConfigProvider must not be null");
+        this.templateRegistry = Objects.requireNonNull(templateRegistry, "TemplateRegistry must not be null");
+        this.camelContext = Objects.requireNonNull(camelContext, "CamelContext must not be null");
+    }
+
+    /**
+     * Creates a connector engine with execution logging and optional ingestion sink.
+     */
+    public CamelConnectorEngine(ExecutionLogger executionLogger,
+                                SpectorIngestionSink ingestionSink,
+                                RouteConfigProvider configProvider,
+                                TemplateRegistry templateRegistry) {
+        this(executionLogger, ingestionSink, configProvider, templateRegistry, new DefaultCamelContext());
+    }
+
+    /**
+     * Creates a generic connector engine without a dedicated ingestion sink
+     * (e.g. for notifications, chat communications, exports, and custom integrations).
+     */
+    public CamelConnectorEngine(ExecutionLogger executionLogger,
+                                RouteConfigProvider configProvider,
+                                TemplateRegistry templateRegistry) {
+        this(executionLogger, null, configProvider, templateRegistry, new DefaultCamelContext());
+    }
+
+    /**
+     * Creates a connector engine with an ingestion sink (backward-compatible).
+     *
+     * @param ingestionSink    the sink that bridges Camel → Spector
+     * @param configProvider   route config persistence
      * @param templateRegistry template registry for route creation
      */
     public CamelConnectorEngine(SpectorIngestionSink ingestionSink,
-                                 RouteConfigProvider configProvider,
-                                 TemplateRegistry templateRegistry) {
-        this.ingestionSink = Objects.requireNonNull(ingestionSink);
-        this.configProvider = Objects.requireNonNull(configProvider);
-        this.templateRegistry = Objects.requireNonNull(templateRegistry);
-        this.camelContext = new DefaultCamelContext();
+                                RouteConfigProvider configProvider,
+                                TemplateRegistry templateRegistry) {
+        this(ingestionSink != null ? ingestionSink.executionLogger() : null,
+                ingestionSink, configProvider, templateRegistry, new DefaultCamelContext());
     }
 
     /** Package-private constructor for testing with a custom CamelContext. */
     CamelConnectorEngine(SpectorIngestionSink ingestionSink,
-                          RouteConfigProvider configProvider,
-                          TemplateRegistry templateRegistry,
-                          CamelContext camelContext) {
-        this.ingestionSink = Objects.requireNonNull(ingestionSink);
-        this.configProvider = Objects.requireNonNull(configProvider);
-        this.templateRegistry = Objects.requireNonNull(templateRegistry);
-        this.camelContext = Objects.requireNonNull(camelContext);
+                         RouteConfigProvider configProvider,
+                         TemplateRegistry templateRegistry,
+                         CamelContext camelContext) {
+        this(ingestionSink != null ? ingestionSink.executionLogger() : null,
+                ingestionSink, configProvider, templateRegistry, camelContext);
     }
 
     /**
-     * Starts the Camel engine — registers templates, ingestion sink,
-     * and loads all enabled routes.
+     * Starts the Camel engine — registers audit event notifier, execution logger,
+     * templates, ingestion sink (if configured), and loads all enabled routes.
      */
     public void start() throws Exception {
         lifecycleLock.lock();
@@ -105,15 +148,24 @@ public class CamelConnectorEngine implements AutoCloseable {
                 return;
             }
 
-            // Register the ingestion sink as a named bean in the registry
-            camelContext.getRegistry().bind("spectorIngestionSink", ingestionSink);
+            // Register audit event notifier for generic route execution history tracking
+            camelContext.getManagementStrategy().addEventNotifier(
+                    new ConnectorExecutionAuditNotifier(executionLogger));
+
+            // Register execution logger as a named bean in the Camel registry
+            camelContext.getRegistry().bind("spectorExecutionLogger", executionLogger);
+
+            // Register the ingestion sink as a named bean in the registry if configured
+            if (ingestionSink != null) {
+                camelContext.getRegistry().bind("spectorIngestionSink", ingestionSink);
+            }
 
             // Load route templates from YAML (classpath + filesystem)
             templateRegistry.loadRouteTemplatesInto(camelContext);
 
             camelContext.start();
             started = true;
-            log.info("[ConnectorEngine] Started CamelContext with route templates");
+            log.info("[ConnectorEngine] Started CamelContext with route templates and generic audit logging");
 
             // Load and deploy all enabled routes
             var enabledRoutes = configProvider.findAllEnabled();
@@ -243,11 +295,28 @@ public class CamelConnectorEngine implements AutoCloseable {
                 .toList();
     }
 
-    /** Returns execution history for a route. */
+    /** Returns execution history for a route across all connector types. */
     public List<ExecutionRecord> getExecutionHistory(String routeId, int limit) {
-        return ingestionSink.executionLogger() != null
-                ? ingestionSink.executionLogger().getHistory(routeId, limit)
+        return executionLogger != null
+                ? executionLogger.getHistory(routeId, limit)
                 : List.of();
+    }
+
+    /** Returns the latest execution record for a route, if any. */
+    public Optional<ExecutionRecord> getLatestExecution(String routeId) {
+        return executionLogger != null
+                ? executionLogger.getLatest(routeId)
+                : Optional.empty();
+    }
+
+    /** Returns the engine-level execution logger. */
+    public ExecutionLogger executionLogger() {
+        return executionLogger;
+    }
+
+    /** Returns the configured ingestion sink, if any. */
+    public Optional<SpectorIngestionSink> ingestionSink() {
+        return Optional.ofNullable(ingestionSink);
     }
 
     /** Returns the template registry. */

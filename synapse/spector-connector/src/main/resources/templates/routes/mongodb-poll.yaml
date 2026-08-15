@@ -1,0 +1,40 @@
+- routeTemplate:
+    id: "mongodb-poll"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: database
+      - name: collectionName
+      - name: connectionUri
+      - name: pollIntervalMs
+        defaultValue: "300000"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - to:
+            uri: "mongodb:mongoClient?mongoConnection=#mongoClient&database={{database}}&collection={{collectionName}}&operation=findAll"
+        - split:
+            simple: "${body}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "mongodb-${routeId}-${exchangeId}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Ingested document from MongoDB collection {{collectionName}} for route {{routeId}}"

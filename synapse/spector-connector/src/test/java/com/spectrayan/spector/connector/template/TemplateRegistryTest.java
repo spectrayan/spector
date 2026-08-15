@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.connector.template;
 
+import com.spectrayan.spector.commons.error.SpectorConnectorException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.connector.model.ConnectorType;
 import com.spectrayan.spector.connector.model.TemplateDescriptor;
 
@@ -192,17 +194,6 @@ class TemplateRegistryTest {
         assertThat(templates).hasSize(20);
     }
 
-    @Test
-    @DisplayName("YamlTemplateLoader reads route template YAML")
-    void yamlLoaderReadsRouteTemplates() {
-        var loader = new YamlTemplateLoader();
-        var yaml = loader.loadRouteTemplateYaml(null);
-        assertThat(yaml).isPresent();
-        assertThat(yaml.get()).contains("routeTemplate");
-        assertThat(yaml.get()).contains("file-watch");
-        assertThat(yaml.get()).contains("s3-poll");
-    }
-
     // ─────────────── Custom Template CRUD Guards ───────────────
 
     @Test
@@ -213,7 +204,7 @@ class TemplateRegistryTest {
                 .displayName("Modified")
                 .build();
 
-        assertThatIllegalArgumentException()
+        assertThatExceptionOfType(SpectorValidationException.class)
                 .isThrownBy(() -> registry.saveCustomTemplate(modified))
                 .withMessageContaining("Cannot modify built-in");
     }
@@ -221,7 +212,7 @@ class TemplateRegistryTest {
     @Test
     @DisplayName("Cannot delete built-in template")
     void cannotDeleteBuiltIn() {
-        assertThatIllegalArgumentException()
+        assertThatExceptionOfType(SpectorValidationException.class)
                 .isThrownBy(() -> registry.deleteCustomTemplate("file-watch"))
                 .withMessageContaining("Cannot delete built-in");
     }
@@ -234,7 +225,7 @@ class TemplateRegistryTest {
                 .displayName("Custom")
                 .build();
 
-        assertThatIllegalStateException()
+        assertThatExceptionOfType(SpectorConnectorException.class)
                 .isThrownBy(() -> registry.saveCustomTemplate(custom))
                 .withMessageContaining("TemplateConfigProvider not configured");
     }

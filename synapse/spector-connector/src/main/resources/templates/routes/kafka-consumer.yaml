@@ -1,0 +1,36 @@
+- routeTemplate:
+    id: "kafka-consumer"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: topic
+      - name: brokers
+        defaultValue: "localhost:9092"
+      - name: groupId
+        defaultValue: "spector-ingest"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "kafka:{{topic}}?brokers={{brokers}}&groupId={{groupId}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "kafka-${header.kafka.OFFSET}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Kafka message ingested from {{topic}} for route {{routeId}}"

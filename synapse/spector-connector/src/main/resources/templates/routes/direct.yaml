@@ -1,0 +1,28 @@
+- routeTemplate:
+    id: "direct"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "direct:{{routeId}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Ingested from route {{routeId}}"

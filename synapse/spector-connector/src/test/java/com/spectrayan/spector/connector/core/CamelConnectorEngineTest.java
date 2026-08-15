@@ -246,15 +246,15 @@ class CamelConnectorEngineTest {
     // ─────────────── Template Validation ───────────────
 
     @Test
-    @DisplayName("Unknown template throws IllegalArgumentException")
+    @DisplayName("Unknown template throws SpectorConnectorException")
     void unknownTemplateThrows() throws Exception {
         engine.start();
 
         var config = RouteConfig.builder("bad-route", "Bad Route", "nonexistent-template").build();
 
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> engine.deployRoute(config))
-                .withMessageContaining("Template not found");
+        assertThatThrownBy(() -> engine.deployRoute(config))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorConnectorException.class)
+                .hasMessageContaining("not found");
     }
 
     @Test

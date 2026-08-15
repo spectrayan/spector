@@ -1,0 +1,46 @@
+- routeTemplate:
+    id: "rest-api-poll"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: url
+      - name: method
+        defaultValue: "GET"
+      - name: authHeader
+        defaultValue: ""
+      - name: pollIntervalMs
+        defaultValue: "300000"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: CamelHttpMethod
+            constant: "{{method}}"
+        - setHeader:
+            name: Authorization
+            constant: "{{authHeader}}"
+        - to:
+            uri: "{{url}}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "{{routeId}}-${date:now:yyyyMMddHHmmss}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "REST poll completed for route {{routeId}}"

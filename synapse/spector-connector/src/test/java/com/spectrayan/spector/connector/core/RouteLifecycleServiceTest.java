@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.connector.core;
 
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.connector.model.ConnectorType;
 import com.spectrayan.spector.connector.model.RouteConfig;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
@@ -43,8 +44,10 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RouteLifecycleServiceTest {
 
-    @Mock private IngestionTarget target;
-    @Mock private EmbeddingProvider embeddingProvider;
+    @Mock
+    private IngestionTarget target;
+    @Mock
+    private EmbeddingProvider embeddingProvider;
 
     private CamelConnectorEngine engine;
     private RouteLifecycleService lifecycleService;
@@ -98,7 +101,7 @@ class RouteLifecycleServiceTest {
                 .connectorType(ConnectorType.S3)
                 .build();
 
-        assertThatIllegalArgumentException()
+        assertThatExceptionOfType(SpectorValidationException.class)
                 .isThrownBy(() -> lifecycleService.activateRoute(config))
                 .withMessageContaining("validation failed");
     }
@@ -114,7 +117,7 @@ class RouteLifecycleServiceTest {
                 .properties(Map.of("bucketName", "my-bucket"))
                 .build();
 
-        assertThatIllegalArgumentException()
+        assertThatExceptionOfType(SpectorValidationException.class)
                 .isThrownBy(() -> lifecycleService.activateRoute(config))
                 .withMessageContaining("credential");
     }
@@ -129,7 +132,7 @@ class RouteLifecycleServiceTest {
                 .properties(Map.of("url", "ftp://not-http"))
                 .build();
 
-        assertThatIllegalArgumentException()
+        assertThatExceptionOfType(SpectorValidationException.class)
                 .isThrownBy(() -> lifecycleService.activateRoute(config))
                 .withMessageContaining("http");
     }
@@ -144,7 +147,7 @@ class RouteLifecycleServiceTest {
                 .properties(Map.of("url", "https://api.test.com", "pollIntervalMs", "not-a-number"))
                 .build();
 
-        assertThatIllegalArgumentException()
+        assertThatExceptionOfType(SpectorValidationException.class)
                 .isThrownBy(() -> lifecycleService.activateRoute(config))
                 .withMessageContaining("number");
     }

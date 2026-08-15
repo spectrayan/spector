@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.connector.template;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConnectorException;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.connector.model.TemplateDescriptor;
 import com.spectrayan.spector.connector.spi.TemplateConfigProvider;
 
@@ -28,6 +31,7 @@ import org.apache.camel.support.ResourceHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,19 +45,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * Composite template registry — serves templates from multiple sources:
  * <ol>
  *   <li><b>YAML files (classpath)</b>: Shipped descriptors in
- *       {@code templates/built-in-templates.yaml}.</li>
+ *       {@code templates/built-in-templates.yaml} and individual route files in {@code templates/routes/*.yaml}.</li>
  *   <li><b>YAML files (filesystem)</b>: Admin-managed overrides and
  *       custom templates in a configurable external directory.</li>
  *   <li><b>SPI (TemplateConfigProvider)</b>: Programmatic or DB-backed
- *       custom templates — optional, for future use.</li>
+ *       custom templates.</li>
  * </ol>
- *
- * <p>Route templates (the actual Camel routeTemplate DSL) are loaded
- * from {@code route-templates.yaml} via Camel's native {@link RoutesLoader},
- * following the same pattern as synaptiq's {@code CamelEngineManager}.</p>
- *
- * <p>This design means <b>no code changes are needed</b> to add new
- * integration types. Just add a YAML file to the templates directory.</p>
  */
 public class TemplateRegistry {
 
@@ -95,7 +92,7 @@ public class TemplateRegistry {
             builtInIds.add(t.templateId());
         });
 
-        log.info("Template registry initialized with {} templates from YAML", templates.size());
+        log.info("[TemplateRegistry] Initialized with {} template descriptors", templates.size());
     }
 
     /**
@@ -112,30 +109,38 @@ public class TemplateRegistry {
     /**
      * Load Camel YAML DSL route templates into the given CamelContext.
      *
-     * <p>This loads the {@code route-templates.yaml} file via Camel's
-     * native {@link RoutesLoader}, exactly like synaptiq's
-     * {@code CamelEngineManager.loadRouteFromYaml()}.</p>
+     * <p>Loads individual route files from {@code templates/routes/*.yaml} via Camel's
+     * native {@link RoutesLoader} independently for granular error isolation.</p>
      *
      * @param context the CamelContext to load templates into
      */
     public void loadRouteTemplatesInto(CamelContext context) {
         Objects.requireNonNull(context, "CamelContext must not be null");
 
-        Optional<String> routeYaml = yamlLoader.loadRouteTemplateYaml(externalDir);
-        if (routeYaml.isPresent()) {
+        Map<String, String> routeMap = yamlLoader.loadRouteTemplateMap(externalDir);
+        if (routeMap.isEmpty()) {
+            log.warn("[TemplateRegistry] No route templates found");
+            return;
+        }
+
+        RoutesLoader loader = PluginHelper.getRoutesLoader(context);
+        int successCount = 0;
+        for (Map.Entry<String, String> entry : routeMap.entrySet()) {
+            String templateId = entry.getKey();
+            String yamlContent = entry.getValue();
             try {
                 Resource resource = ResourceHelper.fromBytes(
-                        "route-templates.yaml", routeYaml.get().getBytes());
-                RoutesLoader loader = PluginHelper.getRoutesLoader(context);
+                        templateId + ".yaml", yamlContent.getBytes(StandardCharsets.UTF_8));
                 loader.loadRoutes(resource);
-                log.info("Loaded Camel route templates from YAML into CamelContext");
+                successCount++;
+                log.debug("[TemplateRegistry] Loaded Camel route template '{}' into context", templateId);
             } catch (Exception e) {
-                throw new IllegalStateException(
-                        "Failed to load route templates YAML into CamelContext", e);
+                log.error("[TemplateRegistry] Failed to load route template '{}': {}", templateId, e.getMessage(), e);
+                throw new SpectorConnectorException(ErrorCode.CONNECTOR_TEMPLATE_INVALID, e, templateId, e.getMessage());
             }
-        } else {
-            log.warn("No route-templates.yaml found — no built-in route templates loaded");
         }
+        log.info("[TemplateRegistry] Loaded {}/{} Camel route templates into CamelContext",
+                successCount, routeMap.size());
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -193,9 +198,6 @@ public class TemplateRegistry {
     /**
      * Instantiate a route from a template in the given CamelContext.
      *
-     * <p>Uses Camel's native {@link TemplatedRouteBuilder} which references
-     * the route templates already loaded via {@link #loadRouteTemplatesInto}.</p>
-     *
      * @param context    the CamelContext
      * @param templateId the template to instantiate
      * @param routeId    the route ID to assign
@@ -212,16 +214,14 @@ public class TemplateRegistry {
         Objects.requireNonNull(routeId, "routeId must not be null");
 
         TemplateDescriptor descriptor = findTemplate(templateId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Template not found: " + templateId));
+                .orElseThrow(() -> new SpectorConnectorException(
+                        ErrorCode.CONNECTOR_TEMPLATE_NOT_FOUND, templateId));
 
-        // For SPI-provided custom templates with inline routeYaml,
-        // load the YAML into CamelContext first
+        // For SPI-provided custom templates with inline routeYaml, load into CamelContext
         if (!builtInIds.contains(templateId) && descriptor.routeYaml() != null) {
             loadCustomTemplateYaml(context, templateId, descriptor.routeYaml());
         }
 
-        // Use Camel's native TemplatedRouteBuilder for instantiation
         TemplatedRouteBuilder builder = TemplatedRouteBuilder.builder(context, templateId)
                 .routeId(routeId)
                 .parameter("tenantId", tenantId != null ? tenantId : "default")
@@ -231,12 +231,11 @@ public class TemplateRegistry {
 
         try {
             builder.add();
-            log.info("Instantiated template '{}' as route '{}' for tenant '{}'",
+            log.info("[TemplateRegistry] Instantiated template '{}' as route '{}' for tenant '{}'",
                     templateId, routeId, tenantId);
         } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to instantiate template '" + templateId
-                            + "' as route '" + routeId + "'", e);
+            throw new SpectorConnectorException(
+                    ErrorCode.CONNECTOR_ROUTE_START_FAILED, e, routeId, e.getMessage());
         }
     }
 
@@ -249,12 +248,12 @@ public class TemplateRegistry {
      */
     public TemplateDescriptor saveCustomTemplate(TemplateDescriptor template) {
         if (builtInIds.contains(template.templateId())) {
-            throw new IllegalArgumentException(
-                    "Cannot modify built-in template: " + template.templateId());
+            throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_INVALID, "templateId", "Cannot modify built-in template: " + template.templateId());
         }
         if (templateConfigProvider == null) {
-            throw new IllegalStateException(
-                    "TemplateConfigProvider not configured — cannot persist custom templates");
+            throw new SpectorConnectorException(
+                    ErrorCode.CONNECTOR_INIT_FAILED, "TemplateConfigProvider not configured — cannot persist custom templates");
         }
         return templateConfigProvider.save(template);
     }
@@ -264,8 +263,8 @@ public class TemplateRegistry {
      */
     public void deleteCustomTemplate(String templateId) {
         if (builtInIds.contains(templateId)) {
-            throw new IllegalArgumentException(
-                    "Cannot delete built-in template: " + templateId);
+            throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_INVALID, "templateId", "Cannot delete built-in template: " + templateId);
         }
         if (templateConfigProvider != null) {
             templateConfigProvider.deleteByTemplateId(templateId);
@@ -281,26 +280,22 @@ public class TemplateRegistry {
     //  Internal
     // ═══════════════════════════════════════════════════════════════
 
-    /**
-     * Load a custom template's YAML into the CamelContext so it becomes
-     * available for TemplatedRouteBuilder.
-     */
     private void loadCustomTemplateYaml(CamelContext context,
                                         String templateId,
                                         String yamlContent) {
         if (!loadedCustomTemplates.add(templateId)) {
-            return; // Already loaded
+            return;
         }
         try {
             Resource resource = ResourceHelper.fromBytes(
-                    templateId + ".yaml", yamlContent.getBytes());
+                    templateId + ".yaml", yamlContent.getBytes(StandardCharsets.UTF_8));
             RoutesLoader loader = PluginHelper.getRoutesLoader(context);
             loader.loadRoutes(resource);
-            log.info("Loaded custom template YAML into CamelContext: {}", templateId);
+            log.info("[TemplateRegistry] Loaded custom template YAML into CamelContext: {}", templateId);
         } catch (Exception e) {
-            loadedCustomTemplates.remove(templateId); // Rollback
-            throw new IllegalStateException(
-                    "Failed to load custom template YAML: " + templateId, e);
+            loadedCustomTemplates.remove(templateId);
+            throw new SpectorConnectorException(
+                    ErrorCode.CONNECTOR_TEMPLATE_INVALID, e, templateId, e.getMessage());
         }
     }
 }

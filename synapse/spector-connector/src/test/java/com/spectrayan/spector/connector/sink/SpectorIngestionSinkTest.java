@@ -263,11 +263,13 @@ class SpectorIngestionSinkTest {
         Exchange exchange = mock(Exchange.class);
         Message message = mock(Message.class);
         when(exchange.getIn()).thenReturn(message);
-        when(message.getBody(String.class)).thenReturn(body);
-        when(message.getHeader(SpectorIngestionSink.HEADER_ROUTE_ID, "unknown", String.class)).thenReturn(routeId);
-        when(message.getHeader(SpectorIngestionSink.HEADER_TENANT_ID, "default", String.class)).thenReturn(tenantId);
+        lenient().when(message.getBody(String.class)).thenReturn(body);
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_ROUTE_ID, "unknown", String.class)).thenReturn(routeId);
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_TENANT_ID, "default", String.class)).thenReturn(tenantId);
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_TRACE_ID, String.class)).thenReturn(null);
         lenient().when(exchange.getExchangeId()).thenReturn("ex-" + docId);
         lenient().when(message.getHeader(SpectorIngestionSink.HEADER_DOC_ID, String.class)).thenReturn(docId);
+        lenient().when(message.getHeader(Exchange.FILE_NAME, String.class)).thenReturn(null);
         lenient().when(message.getHeader(SpectorIngestionSink.HEADER_COLLECTION, "default", String.class)).thenReturn("default");
         return exchange;
     }
@@ -276,11 +278,12 @@ class SpectorIngestionSinkTest {
         Exchange exchange = mock(Exchange.class);
         Message message = mock(Message.class);
         when(exchange.getIn()).thenReturn(message);
-        when(message.getBody(String.class)).thenReturn(body);
-        when(message.getHeader(SpectorIngestionSink.HEADER_DOC_ID, String.class)).thenReturn(null);
-        when(message.getHeader(Exchange.FILE_NAME, String.class)).thenReturn(fileName);
-        when(message.getHeader(SpectorIngestionSink.HEADER_ROUTE_ID, "unknown", String.class)).thenReturn("route");
-        when(message.getHeader(SpectorIngestionSink.HEADER_TENANT_ID, "default", String.class)).thenReturn("default");
+        lenient().when(message.getBody(String.class)).thenReturn(body);
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_DOC_ID, String.class)).thenReturn(null);
+        lenient().when(message.getHeader(Exchange.FILE_NAME, String.class)).thenReturn(fileName);
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_ROUTE_ID, "unknown", String.class)).thenReturn("route");
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_TENANT_ID, "default", String.class)).thenReturn("default");
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_TRACE_ID, String.class)).thenReturn(null);
         lenient().when(exchange.getExchangeId()).thenReturn("ex-file");
         return exchange;
     }
@@ -289,12 +292,13 @@ class SpectorIngestionSinkTest {
         Exchange exchange = mock(Exchange.class);
         Message message = mock(Message.class);
         when(exchange.getIn()).thenReturn(message);
-        when(exchange.getExchangeId()).thenReturn(exchangeId);
-        when(message.getBody(String.class)).thenReturn(body);
-        when(message.getHeader(SpectorIngestionSink.HEADER_DOC_ID, String.class)).thenReturn(null);
-        when(message.getHeader(Exchange.FILE_NAME, String.class)).thenReturn(null);
-        when(message.getHeader(SpectorIngestionSink.HEADER_ROUTE_ID, "unknown", String.class)).thenReturn("route");
-        when(message.getHeader(SpectorIngestionSink.HEADER_TENANT_ID, "default", String.class)).thenReturn("default");
+        lenient().when(exchange.getExchangeId()).thenReturn(exchangeId);
+        lenient().when(message.getBody(String.class)).thenReturn(body);
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_DOC_ID, String.class)).thenReturn(null);
+        lenient().when(message.getHeader(Exchange.FILE_NAME, String.class)).thenReturn(null);
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_ROUTE_ID, "unknown", String.class)).thenReturn("route");
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_TENANT_ID, "default", String.class)).thenReturn("default");
+        lenient().when(message.getHeader(SpectorIngestionSink.HEADER_TRACE_ID, String.class)).thenReturn(null);
         return exchange;
     }
 }

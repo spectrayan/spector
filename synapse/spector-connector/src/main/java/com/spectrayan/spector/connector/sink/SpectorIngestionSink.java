@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.connector.sink;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConnectorException;
 import com.spectrayan.spector.connector.model.ExecutionRecord;
 import com.spectrayan.spector.connector.spi.ChunkChangeDetector;
 import com.spectrayan.spector.connector.spi.ExecutionLogger;
@@ -26,10 +28,12 @@ import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -37,16 +41,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <p>When a Camel route processes a document, it flows through this sink which:</p>
  * <ol>
- *   <li>Extracts document metadata and text payload from the Camel exchange</li>
+ *   <li>Resolves traceId, document metadata and text payload from the Camel exchange</li>
+ *   <li>Sets structured MDC logging context (traceId, routeId, tenantId, docId)</li>
  *   <li>Scrubs PII and secrets via {@link PiiScrubber}</li>
  *   <li>Optionally skips unchanged chunks using {@link ChunkChangeDetector}</li>
  *   <li>Embeds the scrubbed text using the configured {@link EmbeddingProvider}</li>
  *   <li>Ingests the result into Spector via {@link IngestionTarget}</li>
- *   <li>Logs the execution result to {@link ExecutionLogger}</li>
+ *   <li>Logs the execution result with traceId to {@link ExecutionLogger}</li>
  * </ol>
  *
  * <h3>Exchange Headers</h3>
  * <ul>
+ *   <li>{@code spector-trace-id} — correlation / trace ID (optional; falls back to exchangeId)</li>
  *   <li>{@code spector-doc-id} — document ID (required; falls back to CamelFileName or exchange ID)</li>
  *   <li>{@code spector-collection} — target collection (optional, default: "default")</li>
  *   <li>{@code spector-tenant-id} — tenant ID for logging (optional, default: "default")</li>
@@ -54,15 +60,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>{@code spector-pipeline-id} — pipeline ID for delta upsert tracking (optional)</li>
  *   <li>{@code spector-chunk-index} — chunk index for delta upsert tracking (optional)</li>
  * </ul>
- *
- * <h3>Thread Safety</h3>
- * <p>Fully thread-safe. Multiple Camel routes can share a single sink instance.
- * Embedded counters use atomic operations.</p>
  */
 public class SpectorIngestionSink implements Processor {
 
     private static final Logger log = LoggerFactory.getLogger(SpectorIngestionSink.class);
 
+    public static final String HEADER_TRACE_ID = "spector-trace-id";
     public static final String HEADER_DOC_ID = "spector-doc-id";
     public static final String HEADER_COLLECTION = "spector-collection";
     public static final String HEADER_TENANT_ID = "spector-tenant-id";
@@ -80,27 +83,12 @@ public class SpectorIngestionSink implements Processor {
     private final AtomicInteger totalErrors = new AtomicInteger();
     private final AtomicInteger totalSkippedUnchanged = new AtomicInteger();
 
-    /**
-     * Creates an ingestion sink.
-     *
-     * @param target            Spector ingestion target (engine or memory)
-     * @param embeddingProvider provider for embedding text → vectors
-     * @param executionLogger   logger for execution audit trail (nullable)
-     */
     public SpectorIngestionSink(IngestionTarget target,
                                 EmbeddingProvider embeddingProvider,
                                 ExecutionLogger executionLogger) {
         this(target, embeddingProvider, executionLogger, null);
     }
 
-    /**
-     * Creates an ingestion sink with optional delta upsert support.
-     *
-     * @param target              Spector ingestion target (engine or memory)
-     * @param embeddingProvider   provider for embedding text → vectors
-     * @param executionLogger     logger for execution audit trail (nullable)
-     * @param chunkChangeDetector chunk-level change detector for delta upserts (nullable)
-     */
     public SpectorIngestionSink(IngestionTarget target,
                                 EmbeddingProvider embeddingProvider,
                                 ExecutionLogger executionLogger,
@@ -114,17 +102,24 @@ public class SpectorIngestionSink implements Processor {
     @Override
     public void process(Exchange exchange) throws Exception {
         Instant start = Instant.now();
+        String traceId = resolveTraceId(exchange);
         String routeId = exchange.getIn().getHeader(HEADER_ROUTE_ID, "unknown", String.class);
         String tenantId = exchange.getIn().getHeader(HEADER_TENANT_ID, "default", String.class);
         String docId = resolveDocId(exchange);
         String originalContent = exchange.getIn().getBody(String.class);
 
-        if (originalContent == null || originalContent.isBlank()) {
-            log.warn("[Sink] Empty content for doc '{}' from route '{}', skipping", docId, routeId);
-            return;
-        }
+        // Bind MDC context for structured log tracing
+        MDC.put("traceId", traceId);
+        MDC.put("routeId", routeId);
+        MDC.put("tenantId", tenantId);
+        MDC.put("docId", docId);
 
         try {
+            if (originalContent == null || originalContent.isBlank()) {
+                log.warn("[Sink] Empty content for doc '{}' from route '{}', skipping", docId, routeId);
+                return;
+            }
+
             // 1. PII and Secret Scrubbing
             String scrubbedContent = PiiScrubber.scrub(originalContent);
 
@@ -160,7 +155,8 @@ public class SpectorIngestionSink implements Processor {
                     docId, elapsed.toMillis(), embeddingResult.tokenCount(), tenantId, processed);
 
             if (executionLogger != null) {
-                executionLogger.log(ExecutionRecord.success(routeId, tenantId, 1, elapsed));
+                executionLogger.log(ExecutionRecord.success(traceId, routeId, tenantId, 1, elapsed));
+                exchange.setProperty("spector-execution-logged", Boolean.TRUE);
             }
         } catch (Exception e) {
             totalErrors.incrementAndGet();
@@ -170,18 +166,32 @@ public class SpectorIngestionSink implements Processor {
                     routeId, tenantId, e.getMessage(), e);
 
             if (executionLogger != null) {
-                executionLogger.log(ExecutionRecord.failure(routeId, tenantId, 0, 1, elapsed, e.getMessage()));
+                executionLogger.log(ExecutionRecord.failure(traceId, routeId, tenantId, 0, 1, elapsed, e.getMessage()));
+                exchange.setProperty("spector-execution-logged", Boolean.TRUE);
             }
 
-            throw e;
+            if (e instanceof SpectorConnectorException sce) {
+                throw sce;
+            }
+            throw new SpectorConnectorException(
+                    ErrorCode.CONNECTOR_EXECUTION_FAILED, e, routeId, docId, e.getMessage());
+        } finally {
+            MDC.remove("traceId");
+            MDC.remove("routeId");
+            MDC.remove("tenantId");
+            MDC.remove("docId");
         }
     }
 
-    /**
-     * Resolves the document ID from the exchange.
-     *
-     * <p>Priority: spector-doc-id header &gt; CamelFileName header &gt; exchange ID.</p>
-     */
+    private String resolveTraceId(Exchange exchange) {
+        String traceId = exchange.getIn().getHeader(HEADER_TRACE_ID, String.class);
+        if (traceId != null && !traceId.isBlank()) {
+            return traceId;
+        }
+        String exchangeId = exchange.getExchangeId();
+        return (exchangeId != null && !exchangeId.isBlank()) ? exchangeId : UUID.randomUUID().toString();
+    }
+
     private String resolveDocId(Exchange exchange) {
         String docId = exchange.getIn().getHeader(HEADER_DOC_ID, String.class);
         if (docId != null && !docId.isBlank()) {
@@ -194,30 +204,29 @@ public class SpectorIngestionSink implements Processor {
         return exchange.getExchangeId();
     }
 
-    /** Returns total documents successfully ingested. */
+    public ExecutionLogger executionLogger() {
+        return executionLogger;
+    }
+
     public int totalProcessed() {
         return totalProcessed.get();
     }
 
-    /** Returns total ingestion errors. */
     public int totalErrors() {
         return totalErrors.get();
     }
 
-    /** Returns total chunks skipped due to unchanged content (delta upserts). */
     public int totalSkippedUnchanged() {
         return totalSkippedUnchanged.get();
     }
 
-    /** Resets all counters (for testing). */
-    public void resetCounters() {
+    public void resetMetrics() {
         totalProcessed.set(0);
         totalErrors.set(0);
         totalSkippedUnchanged.set(0);
     }
 
-    /** Returns the configured ExecutionLogger, or null if not enabled. */
-    public ExecutionLogger executionLogger() {
-        return executionLogger;
+    public void resetCounters() {
+        resetMetrics();
     }
 }

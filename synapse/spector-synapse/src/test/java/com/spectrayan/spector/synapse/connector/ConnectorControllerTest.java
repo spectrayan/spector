@@ -1,7 +1,7 @@
 /*
  * Copyright 2026 Spectrayan
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Business Source License 1.1 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -96,15 +96,15 @@ class ConnectorControllerTest {
     }
 
     @Test
-    @DisplayName("Get nonexistent template returns 404 NOT_FOUND")
+    @DisplayName("Get nonexistent template throws SpectorConnectorException")
     void getTemplateNotFound() {
-        ResponseEntity<TemplateDescriptor> response = controller.getTemplate("nonexistent");
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.getTemplate("nonexistent"))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorConnectorException.class);
     }
 
     @Test
     @DisplayName("Create and activate valid direct route")
-    void createRouteSuccess() {
+    void createRouteSuccess() throws Exception {
         RouteConfig config = RouteConfig.builder("test-direct", "Direct Test Route", "direct")
                 .tenantId("tenant-1")
                 .properties(Map.of("collection", "default"))
@@ -120,18 +120,18 @@ class ConnectorControllerTest {
     }
 
     @Test
-    @DisplayName("Create route with invalid template returns 400 BAD_REQUEST")
+    @DisplayName("Create route with invalid template throws SpectorConnectorException")
     void createRouteInvalidTemplate() {
         RouteConfig config = RouteConfig.builder("invalid-route", "Invalid Route", "nonexistent-template")
                 .build();
 
-        ResponseEntity<?> response = controller.createRoute(config);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.createRoute(config))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorConnectorException.class);
     }
 
     @Test
     @DisplayName("Start, stop, and delete route lifecycle")
-    void routeLifecycle() {
+    void routeLifecycle() throws Exception {
         RouteConfig config = RouteConfig.builder("lifecycle-route", "Lifecycle Route", "direct")
                 .build();
 
@@ -146,8 +146,8 @@ class ConnectorControllerTest {
         ResponseEntity<Void> deleteResponse = controller.deleteRoute("lifecycle-route");
         assertThat(deleteResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
 
-        ResponseEntity<RouteConfig> getResponse = controller.getRoute("lifecycle-route");
-        assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.getRoute("lifecycle-route"))
+                .isInstanceOf(com.spectrayan.spector.commons.error.SpectorConnectorException.class);
     }
 
     @Test
