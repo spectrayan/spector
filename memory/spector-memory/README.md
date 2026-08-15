@@ -58,6 +58,7 @@ spector-memory/
 │     ├── CognitiveScorer.java          (6-phase fused scoring hot-loop)
 │     ├── SynapticTagEncoder.java       (64-bit inline Bloom filter)
 │     ├── SynapticHeaderConstants.java  (offsets, masks, field sizes)
+│     ├── TemperatureSoftmax.java       (numerically stable retrieval temperature)
 │     └── DecayStrategy.java            (SIMD-friendly temporal decay)
 │
 ├── dopamine/                       ← "Dopamine System" — surprise & importance
