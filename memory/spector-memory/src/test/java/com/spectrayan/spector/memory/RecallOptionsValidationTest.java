@@ -184,4 +184,29 @@ class RecallOptionsValidationTest {
                 .build();
         assertThat(options.validate()).isEmpty();
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // Temperature bounds validation
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void invalidMinMaxTemperatureWarns() {
+        RecallOptions options = RecallOptions.builder()
+                .temperatureBounds(3.0f, 1.0f) // min > max
+                .build();
+        List<String> warnings = options.validate();
+        assertThat(warnings).hasSize(1);
+        assertThat(warnings.get(0)).contains("minTemperature").contains("maxTemperature");
+    }
+
+    @Test
+    void negativeBaseTemperatureWarns() {
+        RecallOptions options = RecallOptions.builder()
+                .baseTemperature(-0.5f)
+                .build();
+        List<String> warnings = options.validate();
+        assertThat(warnings).hasSize(1);
+        assertThat(warnings.get(0)).contains("baseTemperature").contains("positive");
+    }
 }
+
