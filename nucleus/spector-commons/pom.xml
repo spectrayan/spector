@@ -26,6 +26,12 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
 
+        <!-- Handlebars Template Engine -->
+        <dependency>
+            <groupId>com.github.jknack</groupId>
+            <artifactId>handlebars</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

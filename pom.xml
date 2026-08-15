@@ -146,6 +146,7 @@
         <pdfbox.version>3.0.8</pdfbox.version>
         <netty.version>4.2.13.Final</netty.version>
         <picocli.version>4.7.6</picocli.version>
+        <handlebars.version>4.4.0</handlebars.version>
 
         <!-- Test dependency versions -->
         <junit.version>6.1.2</junit.version>
@@ -369,6 +370,13 @@
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
                 <version>${snakeyaml.version}</version>
+            </dependency>
+
+            <!-- ── Handlebars (Template Engine) ── -->
+            <dependency>
+                <groupId>com.github.jknack</groupId>
+                <artifactId>handlebars</artifactId>
+                <version>${handlebars.version}</version>
             </dependency>
 
             <!-- ── Logging ── -->
