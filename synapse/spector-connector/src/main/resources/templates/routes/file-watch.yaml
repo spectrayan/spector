@@ -1,0 +1,37 @@
+- routeTemplate:
+    id: "file-watch"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: path
+        defaultValue: "/tmp/spector-watch"
+      - name: pattern
+        defaultValue: ".*\\.(txt|md|pdf|docx)"
+      - name: recursive
+        defaultValue: "true"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "file:{{path}}?include={{pattern}}&noop=true&recursive={{recursive}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "${header.CamelFileName}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Ingested file ${header.CamelFileName} from route {{routeId}}"

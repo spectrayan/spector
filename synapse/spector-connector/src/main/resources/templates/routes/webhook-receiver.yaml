@@ -1,0 +1,32 @@
+- routeTemplate:
+    id: "webhook-receiver"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: webhookPath
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "netty-http:http://0.0.0.0:8765{{webhookPath}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "webhook-${date:now:yyyyMMddHHmmssSSS}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Webhook received on {{webhookPath}} for route {{routeId}}"

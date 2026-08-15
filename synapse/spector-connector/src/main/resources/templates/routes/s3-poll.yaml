@@ -1,0 +1,40 @@
+- routeTemplate:
+    id: "s3-poll"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: bucketName
+      - name: region
+        defaultValue: "us-east-1"
+      - name: prefix
+        defaultValue: ""
+      - name: pollIntervalMs
+        defaultValue: "300000"
+      - name: deleteAfterRead
+        defaultValue: "false"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "aws2-s3://{{bucketName}}?region={{region}}&prefix={{prefix}}&deleteAfterRead={{deleteAfterRead}}&delay={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "${header.CamelAwsS3Key}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Ingested S3 object ${header.CamelAwsS3Key} from route {{routeId}}"

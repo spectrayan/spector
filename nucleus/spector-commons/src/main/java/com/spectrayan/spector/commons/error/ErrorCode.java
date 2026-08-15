@@ -429,6 +429,50 @@ public enum ErrorCode {
             "Ingestion pipeline failed: {}"),
 
     // ══════════════════════════════════════════════════════════════════════
+    // CONNECTOR (SPE-610-xxx)
+    // ══════════════════════════════════════════════════════════════════════
+
+    /** Connector engine initialization failed. */
+    CONNECTOR_INIT_FAILED        (610_001, ErrorCategory.CONNECTOR,
+            "Connector engine initialization failed: {}"),
+
+    /** The requested connector template was not found. */
+    CONNECTOR_TEMPLATE_NOT_FOUND (610_002, ErrorCategory.CONNECTOR,
+            "Connector template '{}' not found"),
+
+    /** The connector template definition is invalid or failed validation. */
+    CONNECTOR_TEMPLATE_INVALID   (610_003, ErrorCategory.CONNECTOR,
+            "Invalid connector template '{}': {}"),
+
+    /** A connector route failed to start. */
+    CONNECTOR_ROUTE_START_FAILED (610_004, ErrorCategory.CONNECTOR,
+            "Failed to start connector route '{}': {}"),
+
+    /** A connector route failed to stop. */
+    CONNECTOR_ROUTE_STOP_FAILED  (610_005, ErrorCategory.CONNECTOR,
+            "Failed to stop connector route '{}': {}"),
+
+    /** The requested connector route was not found. */
+    CONNECTOR_ROUTE_NOT_FOUND    (610_006, ErrorCategory.CONNECTOR,
+            "Connector route '{}' not found"),
+
+    /** Connection probe failed before route activation. */
+    CONNECTOR_PROBE_FAILED       (610_007, ErrorCategory.CONNECTOR,
+            "Connection probe failed for route '{}': {}"),
+
+    /** Connector route invocation by an agent or trigger failed. */
+    CONNECTOR_INVOCATION_FAILED  (610_008, ErrorCategory.CONNECTOR,
+            "Connector route invocation failed for '{}': {}"),
+
+    /** Ingestion or outbound sink failed processing an exchange for a connector route. */
+    CONNECTOR_EXECUTION_FAILED   (610_009, ErrorCategory.CONNECTOR,
+            "Connector execution failed for route '{}' doc '{}': {}"),
+
+    /** A required credential for the connector was not found. */
+    CONNECTOR_CREDENTIAL_MISSING (610_010, ErrorCategory.CONNECTOR,
+            "Required credential for connector route '{}' not found"),
+
+    // ══════════════════════════════════════════════════════════════════════
     // CLUSTER (SPE-700-xxx)
     // ══════════════════════════════════════════════════════════════════════
 

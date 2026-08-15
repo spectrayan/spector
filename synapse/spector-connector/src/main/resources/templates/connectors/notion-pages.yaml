@@ -1,0 +1,50 @@
+# Spector Enterprise — Notion Pages Connector Template
+templates:
+  - templateId: notion-pages
+    displayName: "Notion Pages"
+    description: "Ingest Notion pages and databases as semantic memories — preserves page structure and metadata"
+    icon: article
+    category: Data
+    connectorType: NOTION
+    requiresCredential: true
+    parameters:
+      - name: apiKey
+        displayName: "Notion Integration Token"
+        type: secret
+        required: true
+        credential: true
+        placeholder: "secret_..."
+        description: "Internal integration token from notion.so/my-integrations"
+      - name: databaseId
+        displayName: "Database ID (optional)"
+        type: string
+        required: false
+        placeholder: "abc123def456..."
+        description: "Specific database to ingest. Leave blank to ingest all shared pages."
+      - name: pageFilter
+        displayName: "Page Title Filter (regex)"
+        type: string
+        required: false
+        placeholder: ".*"
+        description: "Only ingest pages matching this title pattern"
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: number
+        required: false
+        defaultValue: "600000"
+        description: "How often to check for changes (default: 10 minutes)"
+      - name: includeChildren
+        displayName: "Include Child Pages"
+        type: boolean
+        required: false
+        defaultValue: "true"
+      - name: maxDepth
+        displayName: "Max Page Depth"
+        type: number
+        required: false
+        defaultValue: "3"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "notion"

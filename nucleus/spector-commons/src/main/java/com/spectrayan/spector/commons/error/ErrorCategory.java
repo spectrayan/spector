@@ -70,6 +70,9 @@ public enum ErrorCategory {
     /** Document parsing, chunking, and ingestion pipeline errors. */
     INGESTION   ("Ingestion",      600, 609),
 
+    /** Connector engine, external data sync, routes, and outbound sinks. */
+    CONNECTOR   ("Connector",      610, 619),
+
     /** Distributed mode — sharding, routing, and membership errors. */
     CLUSTER     ("Cluster",        700, 709),
 

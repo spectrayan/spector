@@ -131,6 +131,23 @@ class SpectorExceptionHierarchyTest {
     }
 
     @Nested
+    @DisplayName("SpectorConnectorException")
+    class ConnectorTests {
+        @Test void construction() {
+            var ex = new SpectorConnectorException(ErrorCode.CONNECTOR_ROUTE_NOT_FOUND, "route-1");
+            assertThat(ex).isInstanceOf(SpectorException.class);
+            assertThat(ex.errorCode()).isEqualTo(ErrorCode.CONNECTOR_ROUTE_NOT_FOUND);
+            assertThat(ex.getMessage()).contains("route-1");
+        }
+        @Test void withCause() {
+            var cause = new RuntimeException("connection refused");
+            var ex = new SpectorConnectorException(ErrorCode.CONNECTOR_PROBE_FAILED, cause, "route-1", "connection refused");
+            assertThat(ex.getCause()).isEqualTo(cause);
+            assertThat(ex.errorCode()).isEqualTo(ErrorCode.CONNECTOR_PROBE_FAILED);
+        }
+    }
+
+    @Nested
     @DisplayName("SpectorMemoryException")
     class MemoryTests {
         @Test void construction() {

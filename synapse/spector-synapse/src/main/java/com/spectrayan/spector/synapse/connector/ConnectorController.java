@@ -12,35 +12,31 @@
  */
 package com.spectrayan.spector.synapse.connector;
 
-import com.spectrayan.spector.synapse.connector.ConnectorDto.ConnectionTestResult;
-import com.spectrayan.spector.synapse.connector.ConnectorDto.ExecutionRecord;
-import com.spectrayan.spector.synapse.connector.ConnectorDto.RouteConfig;
-import com.spectrayan.spector.synapse.connector.ConnectorDto.RouteStatus;
-import com.spectrayan.spector.synapse.connector.ConnectorDto.TemplateDescriptor;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorConnectorException;
+import com.spectrayan.spector.connector.core.CamelConnectorEngine;
+import com.spectrayan.spector.connector.core.RouteLifecycleService;
+import com.spectrayan.spector.connector.model.ConnectionTestResult;
+import com.spectrayan.spector.connector.model.ExecutionRecord;
+import com.spectrayan.spector.connector.model.RouteConfig;
+import com.spectrayan.spector.connector.model.TemplateDescriptor;
+import com.spectrayan.spector.connector.template.TemplateRegistry;
 import com.spectrayan.spector.synapse.config.FeatureGate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Optional;
 
 /**
  * Connector management REST API.
  *
- * <p>Manages connector templates, route instances, and connection testing.</p>
+ * <p>Manages connector templates, route instances, lifecycle, and connection testing.</p>
  *
  * <p>Gated by the {@code connectorsEnabled} feature flag — returns HTTP 404
  * when connectors are disabled.</p>
@@ -53,94 +49,146 @@ public class ConnectorController {
     private static final Logger log = LoggerFactory.getLogger(ConnectorController.class);
 
     private final TemplateRegistry templateRegistry;
-    private final ConcurrentHashMap<String, RouteConfig> routes = new ConcurrentHashMap<>();
+    private final CamelConnectorEngine connectorEngine;
+    private final RouteLifecycleService lifecycleService;
 
-    public ConnectorController(TemplateRegistry templateRegistry) {
+    public ConnectorController(TemplateRegistry templateRegistry,
+                               CamelConnectorEngine connectorEngine,
+                               RouteLifecycleService lifecycleService) {
         this.templateRegistry = templateRegistry;
+        this.connectorEngine = connectorEngine;
+        this.lifecycleService = lifecycleService;
     }
 
     /** List all connector templates. */
     @GetMapping("/templates")
     public ResponseEntity<List<TemplateDescriptor>> listTemplates() {
-        return ResponseEntity.ok(templateRegistry.all());
+        return ResponseEntity.ok(templateRegistry.listTemplates());
     }
 
-    /** Get a specific template. */
+    /** Get a specific template by ID. */
     @GetMapping("/templates/{id}")
     public ResponseEntity<TemplateDescriptor> getTemplate(@PathVariable String id) {
-        return templateRegistry.get(id)
+        return templateRegistry.findTemplate(id)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new SpectorConnectorException(
+                        ErrorCode.CONNECTOR_TEMPLATE_NOT_FOUND, id));
     }
 
-    /** Create a connector route from a template. */
+    /** Create and activate a connector route from a template. */
     @PostMapping("/routes")
-    public ResponseEntity<RouteConfig> createRoute(@RequestBody RouteConfig config) {
-        String id = config.id() != null ? config.id() : UUID.randomUUID().toString();
-        RouteConfig route = new RouteConfig(id, config.templateId(), config.name(),
-                RouteStatus.CREATED, config.config(), config.cronExpression(),
-                Instant.now(), null);
-        routes.put(id, route);
-        log.info("[Connector] Created route: {} (template={})", route.name(), route.templateId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(route);
+    public ResponseEntity<RouteConfig> createRoute(@RequestBody RouteConfig config) throws Exception {
+        MDC.put("routeId", config.id());
+        MDC.put("tenantId", config.tenantId());
+        try {
+            RouteConfig activated = lifecycleService.activateRoute(config);
+            log.info("[Connector] Activated route: {} (template={}, tenant={})",
+                    activated.name(), activated.templateId(), activated.tenantId());
+            return ResponseEntity.status(HttpStatus.CREATED).body(activated);
+        } finally {
+            MDC.remove("routeId");
+            MDC.remove("tenantId");
+        }
     }
 
     /** List all connector routes. */
     @GetMapping("/routes")
-    public ResponseEntity<List<RouteConfig>> listRoutes() {
-        return ResponseEntity.ok(List.copyOf(routes.values()));
+    public ResponseEntity<List<RouteConfig>> listRoutes(
+            @RequestParam(name = "tenantId", required = false) String tenantId) {
+        if (tenantId != null && !tenantId.isBlank()) {
+            return ResponseEntity.ok(connectorEngine.listRoutes(tenantId));
+        }
+        return ResponseEntity.ok(connectorEngine.listRoutes());
     }
 
-    /** Get a specific route. */
+    /** Get a specific route by ID. */
     @GetMapping("/routes/{id}")
     public ResponseEntity<RouteConfig> getRoute(@PathVariable String id) {
-        RouteConfig route = routes.get(id);
-        return route != null ? ResponseEntity.ok(route) : ResponseEntity.notFound().build();
+        return connectorEngine.getRoute(id)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new SpectorConnectorException(
+                        ErrorCode.CONNECTOR_ROUTE_NOT_FOUND, id));
+    }
+
+    /** Get route runtime status. */
+    @GetMapping("/routes/{id}/status")
+    public ResponseEntity<Map<String, Object>> getRouteStatus(@PathVariable String id) {
+        org.apache.camel.ServiceStatus status = connectorEngine.getRouteStatus(id);
+        if (status == null && connectorEngine.getRoute(id).isEmpty()) {
+            throw new SpectorConnectorException(ErrorCode.CONNECTOR_ROUTE_NOT_FOUND, id);
+        }
+        return ResponseEntity.ok(Map.of("routeId", id, "status", status != null ? status.name() : "STOPPED"));
     }
 
     /** Start a connector route. */
     @PostMapping("/routes/{id}/start")
-    public ResponseEntity<RouteConfig> startRoute(@PathVariable String id) {
-        RouteConfig route = routes.get(id);
-        if (route == null) return ResponseEntity.notFound().build();
-
-        RouteConfig updated = new RouteConfig(route.id(), route.templateId(), route.name(),
-                RouteStatus.RUNNING, route.config(), route.cronExpression(),
-                route.createdAt(), Instant.now());
-        routes.put(id, updated);
-        log.info("[Connector] Started route: {}", route.name());
-        return ResponseEntity.ok(updated);
+    public ResponseEntity<RouteConfig> startRoute(@PathVariable String id) throws Exception {
+        if (connectorEngine.getRoute(id).isEmpty()) {
+            throw new SpectorConnectorException(ErrorCode.CONNECTOR_ROUTE_NOT_FOUND, id);
+        }
+        try {
+            connectorEngine.startRoute(id);
+            log.info("[Connector] Started route: {}", id);
+            return connectorEngine.getRoute(id)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.ok().build());
+        } catch (Exception e) {
+            throw new SpectorConnectorException(
+                    ErrorCode.CONNECTOR_ROUTE_START_FAILED, e, id, e.getMessage());
+        }
     }
 
     /** Stop a connector route. */
     @PostMapping("/routes/{id}/stop")
-    public ResponseEntity<RouteConfig> stopRoute(@PathVariable String id) {
-        RouteConfig route = routes.get(id);
-        if (route == null) return ResponseEntity.notFound().build();
-
-        RouteConfig updated = new RouteConfig(route.id(), route.templateId(), route.name(),
-                RouteStatus.STOPPED, route.config(), route.cronExpression(),
-                route.createdAt(), route.lastRunAt());
-        routes.put(id, updated);
-        log.info("[Connector] Stopped route: {}", route.name());
-        return ResponseEntity.ok(updated);
+    public ResponseEntity<RouteConfig> stopRoute(@PathVariable String id) throws Exception {
+        if (connectorEngine.getRoute(id).isEmpty()) {
+            throw new SpectorConnectorException(ErrorCode.CONNECTOR_ROUTE_NOT_FOUND, id);
+        }
+        try {
+            connectorEngine.stopRoute(id);
+            log.info("[Connector] Stopped route: {}", id);
+            return connectorEngine.getRoute(id)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.ok().build());
+        } catch (Exception e) {
+            throw new SpectorConnectorException(
+                    ErrorCode.CONNECTOR_ROUTE_STOP_FAILED, e, id, e.getMessage());
+        }
     }
 
-    /** Delete a connector route. */
+    /** Delete (deactivate and undeploy) a connector route. */
     @DeleteMapping("/routes/{id}")
-    public ResponseEntity<Void> deleteRoute(@PathVariable String id) {
-        RouteConfig removed = routes.remove(id);
-        return removed != null ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    public ResponseEntity<Void> deleteRoute(@PathVariable String id) throws Exception {
+        boolean deactivated = lifecycleService.deactivateRoute(id);
+        if (!deactivated) {
+            throw new SpectorConnectorException(ErrorCode.CONNECTOR_ROUTE_NOT_FOUND, id);
+        }
+        return ResponseEntity.noContent().build();
     }
 
-    /** Test connection for a route. */
+    /** Test connection for an existing route ID. */
     @PostMapping("/routes/{id}/test")
-    public ResponseEntity<ConnectionTestResult> testConnection(@PathVariable String id) {
-        RouteConfig route = routes.get(id);
-        if (route == null) return ResponseEntity.notFound().build();
-
-        // TODO: Implement actual connection testing per connector type
-        ConnectionTestResult result = ConnectionTestResult.success(Duration.ofMillis(42));
+    public ResponseEntity<ConnectionTestResult> testConnectionForRoute(@PathVariable String id) {
+        Optional<RouteConfig> route = connectorEngine.getRoute(id);
+        if (route.isEmpty()) {
+            throw new SpectorConnectorException(ErrorCode.CONNECTOR_ROUTE_NOT_FOUND, id);
+        }
+        ConnectionTestResult result = lifecycleService.testConnection(route.get());
         return ResponseEntity.ok(result);
+    }
+
+    /** Test connection for a given route configuration payload without deploying it. */
+    @PostMapping("/test")
+    public ResponseEntity<ConnectionTestResult> testConnectionConfig(@RequestBody RouteConfig config) {
+        ConnectionTestResult result = lifecycleService.testConnection(config);
+        return ResponseEntity.ok(result);
+    }
+
+    /** Get execution records for a specific route. */
+    @GetMapping("/routes/{id}/history")
+    public ResponseEntity<List<ExecutionRecord>> getExecutionHistory(
+            @PathVariable String id,
+            @RequestParam(name = "limit", defaultValue = "50") int limit) {
+        return ResponseEntity.ok(connectorEngine.getExecutionHistory(id, limit));
     }
 }

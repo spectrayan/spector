@@ -62,7 +62,7 @@ public interface SynapsePlugin {
     /**
      * Returns the list of connector types this plugin provides.
      */
-    default List<com.spectrayan.spector.synapse.connector.ConnectorDto.TemplateDescriptor> connectorTemplates() {
+    default List<com.spectrayan.spector.connector.model.TemplateDescriptor> connectorTemplates() {
         return List.of();
     }
 

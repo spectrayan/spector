@@ -1,0 +1,34 @@
+- routeTemplate:
+    id: "sharepoint"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: siteId
+      - name: pollIntervalMs
+        defaultValue: "3600000"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "sharepoint-${date:now:yyyyMMddHHmmss}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "SharePoint poll completed for route {{routeId}}"

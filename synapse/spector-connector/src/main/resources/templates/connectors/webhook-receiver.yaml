@@ -1,0 +1,20 @@
+# Spector Enterprise — Webhook Receiver Connector Template
+templates:
+  - templateId: webhook-receiver
+    displayName: "Webhook Receiver"
+    description: "Receive inbound HTTP webhooks and ingest the payload"
+    icon: webhook
+    category: Triggers
+    connectorType: WEBHOOK
+    requiresCredential: false
+    parameters:
+      - name: webhookPath
+        displayName: "Webhook Path"
+        type: string
+        required: true
+        placeholder: "/my-webhook"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "default"

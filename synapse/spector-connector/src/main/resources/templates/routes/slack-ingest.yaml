@@ -1,0 +1,34 @@
+- routeTemplate:
+    id: "slack-ingest"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: channel
+      - name: token
+        defaultValue: ""
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "slack:{{channel}}?token={{token}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "slack-{{channel}}-${date:now:yyyyMMddHHmmssSSS}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Slack message ingested from {{channel}} for route {{routeId}}"

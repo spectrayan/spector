@@ -1,0 +1,35 @@
+# Spector Enterprise — REST API Polling Connector Template
+templates:
+  - templateId: rest-api-poll
+    displayName: "REST API Polling"
+    description: "Periodically poll a REST API endpoint and ingest the response"
+    icon: http
+    category: Data
+    connectorType: REST_API
+    requiresCredential: false
+    parameters:
+      - name: url
+        displayName: "API URL"
+        type: url
+        required: true
+        placeholder: "https://api.example.com/data"
+      - name: method
+        displayName: "HTTP Method"
+        type: string
+        required: false
+        defaultValue: "GET"
+      - name: authHeader
+        displayName: "Authorization Header"
+        type: secret
+        required: false
+        placeholder: "Bearer ..."
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: number
+        required: false
+        defaultValue: "300000"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "default"

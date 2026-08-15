@@ -1,0 +1,21 @@
+- routeTemplate:
+    id: "slack-notify"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: channel
+      - name: webhookUrl
+        defaultValue: ""
+    from:
+      uri: "direct:{{routeId}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: CamelSlackChannel
+            constant: "{{channel}}"
+        - to:
+            uri: "slack:#{{channel}}?webhookUrl={{webhookUrl}}"
+        - log:
+            message: "Slack message sent to {{channel}} for route {{routeId}}"

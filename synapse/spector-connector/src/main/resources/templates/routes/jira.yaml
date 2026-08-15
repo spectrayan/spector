@@ -1,0 +1,44 @@
+- routeTemplate:
+    id: "jira"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: host
+      - name: projectKey
+      - name: username
+      - name: apiToken
+      - name: pollIntervalMs
+        defaultValue: "3600000"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: CamelHttpMethod
+            constant: "GET"
+        - to:
+            uri: "https://{{host}}/rest/api/3/search?jql=project%3D{{projectKey}}"
+        - split:
+            jsonpath: "$.issues[*]"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "jira-${header.CamelSplitIndex}-${date:now:yyyyMMddHHmmss}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Ingested Jira issue for route {{routeId}}"

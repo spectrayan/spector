@@ -1,0 +1,30 @@
+# Spector Enterprise — Database Query Connector Template
+templates:
+  - templateId: db-query
+    displayName: "Database Query"
+    description: "Periodically execute a SQL query and ingest the results"
+    icon: database
+    category: Data
+    connectorType: DATABASE
+    requiresCredential: true
+    parameters:
+      - name: query
+        displayName: "SQL Query"
+        type: string
+        required: true
+        placeholder: "SELECT * FROM docs WHERE updated_at > :lastRun"
+      - name: jdbcUrl
+        displayName: "JDBC URL"
+        type: string
+        required: true
+        placeholder: "jdbc:postgresql://localhost:5432/mydb"
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: number
+        required: false
+        defaultValue: "600000"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "default"

@@ -1,0 +1,48 @@
+- routeTemplate:
+    id: "github-ingest"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: repo
+      - name: branch
+        defaultValue: "main"
+      - name: oauthToken
+        defaultValue: ""
+      - name: pollIntervalMs
+        defaultValue: "3600000"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: CamelHttpMethod
+            constant: "GET"
+        - setHeader:
+            name: Authorization
+            simple: "token {{oauthToken}}"
+        - to:
+            uri: "https://api.github.com/repos/{{repo}}/commits?sha={{branch}}"
+        - split:
+            jsonpath: "$.[*]"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "gh-${header.CamelSplitIndex}-${date:now:yyyyMMddHHmmss}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "GitHub commit ingested for route {{routeId}}"

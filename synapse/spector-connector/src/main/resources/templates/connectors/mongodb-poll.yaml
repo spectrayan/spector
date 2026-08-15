@@ -1,0 +1,35 @@
+# Spector Enterprise — MongoDB Polling Connector Template
+templates:
+  - templateId: mongodb-poll
+    displayName: "MongoDB Polling"
+    description: "Periodically query a MongoDB collection and ingest documents into Spector"
+    icon: database
+    category: Data
+    connectorType: MONGODB
+    requiresCredential: false
+    parameters:
+      - name: connectionUri
+        displayName: "MongoDB Connection URI"
+        type: string
+        required: true
+        placeholder: "mongodb://localhost:27017"
+      - name: database
+        displayName: "Database Name"
+        type: string
+        required: true
+        placeholder: "mydb"
+      - name: collectionName
+        displayName: "Collection Name"
+        type: string
+        required: true
+        placeholder: "documents"
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: number
+        required: false
+        defaultValue: "300000"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "default"

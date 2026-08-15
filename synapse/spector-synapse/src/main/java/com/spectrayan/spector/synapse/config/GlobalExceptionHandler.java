@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.config;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorException;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +32,26 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(SpectorException.class)
+    public ResponseEntity<ErrorResponse> handleSpectorException(SpectorException ex) {
+        ErrorCode code = ex.errorCode();
+        HttpStatus status = switch (code.category()) {
+            case VALIDATION -> HttpStatus.BAD_REQUEST;
+            case CONFIG -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case CONNECTOR -> (code == ErrorCode.CONNECTOR_ROUTE_NOT_FOUND ||
+                               code == ErrorCode.CONNECTOR_TEMPLATE_NOT_FOUND)
+                    ? HttpStatus.NOT_FOUND
+                    : HttpStatus.BAD_REQUEST;
+            case INGESTION -> HttpStatus.BAD_REQUEST;
+            case SERVER -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        log.warn("[SpectorException] [{}] status={} message={}", code.id(), status.value(), ex.getMessage());
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(status.value(), code.id(), ex.getMessage()));
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
@@ -73,7 +95,7 @@ public class GlobalExceptionHandler {
         String msg = ex.getMessage();
         if (msg != null && (msg.toLowerCase().contains("broken pipe") || msg.toLowerCase().contains("connection reset"))) {
             log.debug("[Error] Client disconnected abruptly: {}", msg);
-            return null; // Client has disconnected, no response is needed
+            return null;
         }
         log.error("[Error] I/O error occurred", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

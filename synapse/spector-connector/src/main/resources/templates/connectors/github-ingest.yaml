@@ -1,0 +1,60 @@
+# Spector Enterprise — GitHub Repository Ingestion Connector Template
+templates:
+  - templateId: github-ingest
+    displayName: "GitHub Repository"
+    description: "Ingest GitHub issues, pull requests, and README files as knowledge memories with full metadata"
+    icon: code
+    category: Data
+    connectorType: GITHUB
+    requiresCredential: true
+    parameters:
+      - name: personalAccessToken
+        displayName: "GitHub Personal Access Token"
+        type: secret
+        required: true
+        credential: true
+        placeholder: "ghp_..."
+        description: "Fine-grained PAT with repo read access"
+      - name: repository
+        displayName: "Repository (owner/repo)"
+        type: string
+        required: true
+        placeholder: "spectrayan/spector"
+        description: "Full repository path: owner/repo"
+      - name: ingestIssues
+        displayName: "Ingest Issues"
+        type: boolean
+        required: false
+        defaultValue: "true"
+      - name: ingestPRs
+        displayName: "Ingest Pull Requests"
+        type: boolean
+        required: false
+        defaultValue: "true"
+      - name: ingestReadme
+        displayName: "Ingest README"
+        type: boolean
+        required: false
+        defaultValue: "true"
+      - name: ingestWiki
+        displayName: "Ingest Wiki Pages"
+        type: boolean
+        required: false
+        defaultValue: "false"
+      - name: issueState
+        displayName: "Issue State Filter"
+        type: string
+        required: false
+        defaultValue: "all"
+        description: "Filter issues by state: open, closed, or all"
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: number
+        required: false
+        defaultValue: "600000"
+        description: "How often to check for new issues/PRs (default: 10 minutes)"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "github"

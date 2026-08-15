@@ -1,0 +1,37 @@
+templates:
+  - templateId: salesforce
+    displayName: "Salesforce CRM"
+    description: "Ingest CRM objects, cases, knowledge articles, and accounts from Salesforce."
+    icon: "salesforce"
+    category: "Enterprise"
+    connectorType: "SALESFORCE"
+    requiresCredential: true
+    parameters:
+      - name: instanceUrl
+        displayName: "Salesforce Instance URL"
+        type: "url"
+        required: true
+        placeholder: "https://yourinstance.salesforce.com"
+      - name: clientId
+        displayName: "Connected App Consumer Key"
+        type: "string"
+        required: true
+      - name: clientSecret
+        displayName: "Consumer Secret"
+        type: "secret"
+        required: true
+      - name: soqlQuery
+        displayName: "SOQL Query"
+        type: "string"
+        required: false
+        defaultValue: "SELECT Id, Name, Description FROM Case"
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: "number"
+        required: false
+        defaultValue: "3600000"
+      - name: collection
+        displayName: "Target Collection"
+        type: "string"
+        required: false
+        defaultValue: "default"

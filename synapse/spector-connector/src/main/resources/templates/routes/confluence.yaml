@@ -1,0 +1,44 @@
+- routeTemplate:
+    id: "confluence"
+    parameters:
+      - name: tenantId
+      - name: routeId
+      - name: host
+      - name: spaceKey
+      - name: username
+      - name: apiToken
+      - name: pollIntervalMs
+        defaultValue: "3600000"
+      - name: collection
+        defaultValue: "default"
+    from:
+      uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
+      steps:
+        - setHeader:
+            name: spector-trace-id
+            simple: "${exchangeId}"
+        - setHeader:
+            name: CamelHttpMethod
+            constant: "GET"
+        - to:
+            uri: "https://{{host}}/wiki/rest/api/content?spaceKey={{spaceKey}}&expand=body.storage"
+        - split:
+            jsonpath: "$.results[*]"
+        - setHeader:
+            name: spector-route-id
+            constant: "{{routeId}}"
+        - setHeader:
+            name: spector-tenant-id
+            constant: "{{tenantId}}"
+        - setHeader:
+            name: spector-collection
+            constant: "{{collection}}"
+        - setHeader:
+            name: spector-doc-id
+            simple: "confluence-${header.CamelSplitIndex}-${date:now:yyyyMMddHHmmss}"
+        - convertBodyTo:
+            type: "java.lang.String"
+        - process:
+            ref: "spectorIngestionSink"
+        - log:
+            message: "Ingested Confluence page for route {{routeId}}"
