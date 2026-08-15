@@ -184,6 +184,9 @@ public final class RecallPipeline {
     private final GraphExpander graphExpander;
     private final SalienceAndHabituationScorer salienceScorer;
 
+    //  Surprise & Dopamine (nullable) 
+    private final com.spectrayan.spector.memory.dopamine.SurpriseDetector surpriseDetector;
+
     //  Neurodivergent: Lateral feedback tracking 
     // Maps memoryId  ->  RetrievalMode for the most recent recall.
     // Used by SpectorMemory.reinforce()/suppress() to feed LateralEvaluator.
@@ -369,6 +372,41 @@ public final class RecallPipeline {
                            ColBERTReranker colbertReranker,
                            RecallHistory recallHistory,
                            com.spectrayan.spector.memory.pipeline.reranker.MmrReranker mmrReranker) {
+        this(embeddingProvider, partitionRegistry, index, suppressionSet, habituationPenalty,
+                prospectiveScheduler, wal, calibrationMins, calibrationScales,
+                semanticRecallStrategy, coActivationTracker, hebbianGraph, temporalChain,
+                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, entityExtractor, graphScoringPolicy,
+                bm25Index, spladeIndex, spladeProvider, colbertReranker, recallHistory, mmrReranker, null);
+    }
+
+    /**
+     * Creates a recall pipeline with all subsystems including SurpriseDetector for adaptive retrieval temperature.
+     */
+    public RecallPipeline(EmbeddingProvider embeddingProvider,
+                           PartitionRegistry partitionRegistry,
+                           MemoryIndex index,
+                           SuppressionSet suppressionSet,
+                           HabituationPenalty habituationPenalty,
+                           ProspectiveScheduler prospectiveScheduler,
+                           MemoryWal wal,
+                           float[] calibrationMins,
+                           float[] calibrationScales,
+                           SemanticRecallStrategy semanticRecallStrategy,
+                           CoActivationRecordMemory coActivationTracker,
+                           HebbianGraphBase hebbianGraph,
+                           TemporalChainMemory temporalChain,
+                           EntityDirectory entityDirectory,
+                           com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
+                           com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
+                           EntityExtractor entityExtractor,
+                           GraphScoringPolicy graphScoringPolicy,
+                           MemoryBM25Index bm25Index,
+                           MemorySpladeIndex spladeIndex,
+                           SparseEmbeddingProvider spladeProvider,
+                           ColBERTReranker colbertReranker,
+                           RecallHistory recallHistory,
+                           com.spectrayan.spector.memory.pipeline.reranker.MmrReranker mmrReranker,
+                           com.spectrayan.spector.memory.dopamine.SurpriseDetector surpriseDetector) {
         this.embeddingProvider = embeddingProvider;
         this.partitionRegistry = partitionRegistry;
         this.index = index;
@@ -392,6 +430,7 @@ public final class RecallPipeline {
         this.colbertReranker = colbertReranker;
         this.recallHistory = recallHistory;
         this.mmrReranker = mmrReranker;
+        this.surpriseDetector = surpriseDetector;
 
         //  Phase Components Initialization 
         this.candidateGatherer = new RecallCandidateGatherer(index, bm25Index);
@@ -409,6 +448,7 @@ public final class RecallPipeline {
                 temporalKnowledgeGraph, entityDirectory, entityExtractor);
     }
 
+    public com.spectrayan.spector.memory.dopamine.SurpriseDetector surpriseDetector() { return surpriseDetector; }
     public RecallCandidateGatherer candidateGatherer() { return candidateGatherer; }
     public CognitiveReranker cognitiveReranker() { return cognitiveReranker; }
     public GraphExpander graphExpander() { return graphExpander; }
@@ -446,6 +486,31 @@ public final class RecallPipeline {
     private void applyCognitiveScoring(List<CognitiveResult> allResults,
                                        RecallOptions options, long nowMs) {
         salienceScorer.applyCognitiveScoring(allResults, options, nowMs, coActivationTracker, graphScoringPolicy);
+    }
+
+    /**
+     * Estimates query-side surprise z-score and computes effective retrieval temperature.
+     */
+    private float computeEffectiveTemperature(float[] queryVector, RecallOptions options) {
+        if (!options.adaptiveTemperature()) {
+            return options.computeEffectiveTemperature(0.0);
+        }
+        double zSurprise = 0.0;
+        if (surpriseDetector != null && queryVector != null && partitionRegistry != null) {
+            try {
+                CognitiveMemoryRouter activeRouter = partitionRegistry.activeRouter();
+                if (activeRouter != null && activeRouter.working() != null) {
+                    float nearestDist = activeRouter.working().nearestDistance(
+                            queryVector, calibrationMins, calibrationScales);
+                    if (nearestDist != Float.MAX_VALUE) {
+                        zSurprise = surpriseDetector.querySurpriseZScore(nearestDist);
+                    }
+                }
+            } catch (RuntimeException e) {
+                log.debug("Failed to compute query surprise z-score: {}", e.getMessage());
+            }
+        }
+        return options.computeEffectiveTemperature(zSurprise);
     }
 
     private boolean runTierScan(List<CognitiveResult> allResults, float[] queryVector,
@@ -512,6 +577,12 @@ public final class RecallPipeline {
 
         // Filter suppressed memories (inhibition)  --  always active
         allResults.removeIf(r -> suppressionSet.isSuppressed(r.id()));
+
+        // Softmax temperature modulation (adaptive or explicit temperature)
+        float effectiveTemp = computeEffectiveTemperature(queryVector, options);
+        if (Math.abs(effectiveTemp - 1.0f) >= 1e-4f) {
+            com.spectrayan.spector.memory.synapse.TemperatureSoftmax.applySoftmaxTemperature(allResults, effectiveTemp);
+        }
 
         // Sort and limit
         allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
@@ -724,6 +795,16 @@ public final class RecallPipeline {
             }
         }
 
+        // Step 6d: Softmax temperature modulation (adaptive or explicit temperature)
+        float effectiveTemp = computeEffectiveTemperature(queryVector, options);
+        if (Math.abs(effectiveTemp - 1.0f) >= 1e-4f) {
+            com.spectrayan.spector.memory.synapse.TemperatureSoftmax.applySoftmaxTemperature(allResults, effectiveTemp);
+            allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+            if (allResults.size() > options.topK()) {
+                allResults = new ArrayList<>(allResults.subList(0, options.topK()));
+            }
+        }
+
         // Step 7: Fire async post-recall listeners (LTP reconsolidation + Hebbian)
         // In OBSERVE mode, listeners are skipped to prevent persistent mutations.
         if (options.recallMode() == RecallMode.LEARN && !listeners.isEmpty()) {
@@ -844,6 +925,14 @@ public final class RecallPipeline {
                         traceBuilder.addStep("VALENCE_ALIGN", r.score(), r.score() + bd.valenceAlignment(),
                                 totalCandidates, totalCandidates,
                                 String.format("alignment=%.4f", bd.valenceAlignment()));
+                    }
+
+                    // Phase 4.5: Temperature Softmax
+                    if (Math.abs(effectiveTemp - 1.0f) >= 1e-4f) {
+                        traceBuilder.addStep("TEMPERATURE_SOFTMAX", bd.finalScore(), r.score(),
+                                totalCandidates, totalCandidates,
+                                String.format("temperature=%.3f, adaptive=%b",
+                                        effectiveTemp, options.adaptiveTemperature()));
                     }
                 } else {
                     // No breakdown  --  just record final score

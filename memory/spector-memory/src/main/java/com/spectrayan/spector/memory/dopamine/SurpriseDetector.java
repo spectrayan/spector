@@ -93,6 +93,23 @@ public final class SurpriseDetector {
     }
 
     /**
+     * Estimates the surprise z-score for a query without updating the running distribution.
+     *
+     * <p>Used during recall to dynamically adapt retrieval temperature based on
+     * prediction error. If the detector has not seen enough samples (&lt; warmupSamples),
+     * returns 0.0 (neutral baseline).</p>
+     *
+     * @param distanceToNearest L2 distance from query vector to nearest memory/centroid
+     * @return surprise z-score (0.0 if not warmed up)
+     */
+    public double querySurpriseZScore(float distanceToNearest) {
+        if (stats.count() < warmupSamples) {
+            return 0.0;
+        }
+        return stats.zScore(distanceToNearest);
+    }
+
+    /**
      * Maps a z-score to an importance value using a continuous sigmoid.
      *
      * <p>Produces a smooth, unique importance value for each memory instead of

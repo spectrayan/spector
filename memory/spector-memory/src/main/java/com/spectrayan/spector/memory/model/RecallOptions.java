@@ -114,7 +114,13 @@ public record RecallOptions(
         //  Consolidation & Contradictions 
         boolean includeContradictions,
         //  Resolved Profile (for header stamping) 
-        CognitiveProfile resolvedProfile
+        CognitiveProfile resolvedProfile,
+        //  Temperature & Adaptive Retrieval 
+        boolean adaptiveTemperature,
+        float baseTemperature,
+        float temperatureSurpriseCoefficient,
+        float minTemperature,
+        float maxTemperature
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -130,6 +136,27 @@ public record RecallOptions(
     // ==============================================================
     // Composed sub-record accessors  --  progressive migration API
     // ==============================================================
+
+    /** Returns temperature parameters as a composed {@link TemperatureOptions}. */
+    public TemperatureOptions temperature() {
+        return new TemperatureOptions(adaptiveTemperature, baseTemperature,
+                temperatureSurpriseCoefficient, minTemperature, maxTemperature);
+    }
+
+    /**
+     * Computes the effective temperature for a given query surprise z-score.
+     *
+     * @param zSurprise query-side surprise z-score
+     * @return clamped effective temperature
+     */
+    public float computeEffectiveTemperature(double zSurprise) {
+        if (!adaptiveTemperature) {
+            return Math.clamp(baseTemperature, minTemperature, maxTemperature);
+        }
+        double positiveSurprise = Math.max(0.0, zSurprise);
+        float effective = (float) (baseTemperature * (1.0 + temperatureSurpriseCoefficient * positiveSurprise));
+        return Math.clamp(effective, minTemperature, maxTemperature);
+    }
 
     /** Returns filter parameters as a composed {@link FilterOptions}. */
     public FilterOptions filter() {
@@ -234,6 +261,13 @@ public record RecallOptions(
         private boolean autoProfile = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_AUTO_PROFILE_ENABLED;
         private boolean includeContradictions = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_INCLUDE_CONTRADICTIONS;
         private CognitiveProfile resolvedProfile = null; // set when profile() is called
+
+        // ─── Temperature & Adaptive Retrieval ───
+        private boolean adaptiveTemperature = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_ADAPTIVE_TEMPERATURE_ENABLED;
+        private float baseTemperature = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_BASE_TEMPERATURE;
+        private float temperatureSurpriseCoefficient = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_TEMPERATURE_SURPRISE_COEFFICIENT;
+        private float minTemperature = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_MIN_TEMPERATURE;
+        private float maxTemperature = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_MAX_TEMPERATURE;
 
         // ─── Neurodivergent: Hyperfocus ───
         private long hyperfocusMask = 0L;       // 0 = disabled
@@ -627,6 +661,57 @@ public record RecallOptions(
             return this;
         }
 
+        // ─── Temperature & Adaptive Retrieval ───
+
+        /**
+         * Enables/disables adaptive temperature based on query surprise z-score (default: false).
+         */
+        public Builder adaptiveTemperature(boolean enable) {
+            this.adaptiveTemperature = enable;
+            return this;
+        }
+
+        /**
+         * Sets the base temperature (default: 1.0).
+         */
+        public Builder baseTemperature(float baseTemp) {
+            this.baseTemperature = baseTemp;
+            return this;
+        }
+
+        /**
+         * Sets the temperature surprise coefficient kappa (default: 0.15).
+         */
+        public Builder temperatureSurpriseCoefficient(float kappa) {
+            this.temperatureSurpriseCoefficient = kappa;
+            return this;
+        }
+
+        /**
+         * Sets the minimum temperature clamping bound (default: 0.1).
+         */
+        public Builder minTemperature(float min) {
+            this.minTemperature = min;
+            return this;
+        }
+
+        /**
+         * Sets the maximum temperature clamping bound (default: 5.0).
+         */
+        public Builder maxTemperature(float max) {
+            this.maxTemperature = max;
+            return this;
+        }
+
+        /**
+         * Sets both min and max temperature clamping bounds.
+         */
+        public Builder temperatureBounds(float min, float max) {
+            this.minTemperature = min;
+            this.maxTemperature = max;
+            return this;
+        }
+
         /**
          * Sets the scoring mode (default: {@link ScoringMode#COGNITIVE}).
          *
@@ -733,7 +818,12 @@ public record RecallOptions(
                     enableMmr, mmrLambda,
                     autoProfile,
                     includeContradictions,
-                    resolvedProfile);
+                    resolvedProfile,
+                    adaptiveTemperature,
+                    baseTemperature,
+                    temperatureSurpriseCoefficient,
+                    minTemperature,
+                    maxTemperature);
             return options;
         }
     }
@@ -805,6 +895,24 @@ public record RecallOptions(
         if (recallMode == RecallMode.REPLAY && replayTimestamp == null) {
             String msg = "recallMode=REPLAY requires replayTimestamp to be set. "
                     + "Use RecallOptions.builder().replayTimestamp(Instant.parse(...)).build()";
+            warnings.add(msg);
+            VALIDATION_LOG.warn(msg);
+        }
+
+        // 6. Temperature bounds validation
+        if (minTemperature > maxTemperature) {
+            String msg = "minTemperature (" + minTemperature + ") is greater than maxTemperature ("
+                    + maxTemperature + ").";
+            warnings.add(msg);
+            VALIDATION_LOG.warn(msg);
+        }
+        if (baseTemperature <= 0.0f) {
+            String msg = "baseTemperature (" + baseTemperature + ") must be positive.";
+            warnings.add(msg);
+            VALIDATION_LOG.warn(msg);
+        }
+        if (minTemperature <= 0.0f) {
+            String msg = "minTemperature (" + minTemperature + ") must be positive.";
             warnings.add(msg);
             VALIDATION_LOG.warn(msg);
         }
@@ -887,6 +995,11 @@ public record RecallOptions(
         b.autoProfile = this.autoProfile;
         b.includeContradictions = this.includeContradictions;
         b.resolvedProfile = this.resolvedProfile;
+        b.adaptiveTemperature = this.adaptiveTemperature;
+        b.baseTemperature = this.baseTemperature;
+        b.temperatureSurpriseCoefficient = this.temperatureSurpriseCoefficient;
+        b.minTemperature = this.minTemperature;
+        b.maxTemperature = this.maxTemperature;
         return b;
     }
 }

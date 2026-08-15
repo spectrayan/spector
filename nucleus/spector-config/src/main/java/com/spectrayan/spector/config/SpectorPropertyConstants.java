@@ -537,6 +537,21 @@ public final class SpectorPropertyConstants {
     public static final String RECALL_MAX_REPLAY_EVENTS = "spector.recall.max-replay-events";
     public static final int DEFAULT_RECALL_MAX_REPLAY_EVENTS = 100_000;
 
+    public static final String RECALL_ADAPTIVE_TEMPERATURE_ENABLED = "spector.recall.adaptive-temperature.enabled";
+    public static final boolean DEFAULT_RECALL_ADAPTIVE_TEMPERATURE_ENABLED = false;
+
+    public static final String RECALL_BASE_TEMPERATURE = "spector.recall.base-temperature";
+    public static final float DEFAULT_RECALL_BASE_TEMPERATURE = 1.0f;
+
+    public static final String RECALL_TEMPERATURE_SURPRISE_COEFFICIENT = "spector.recall.temperature-surprise-coefficient";
+    public static final float DEFAULT_RECALL_TEMPERATURE_SURPRISE_COEFFICIENT = 0.15f;
+
+    public static final String RECALL_MIN_TEMPERATURE = "spector.recall.min-temperature";
+    public static final float DEFAULT_RECALL_MIN_TEMPERATURE = 0.1f;
+
+    public static final String RECALL_MAX_TEMPERATURE = "spector.recall.max-temperature";
+    public static final float DEFAULT_RECALL_MAX_TEMPERATURE = 5.0f;
+
     // Ingestion
     public static final String INGESTION_ROOT_DIRECTORY = "spector.ingestion.root-directory";
     public static final Path DEFAULT_INGESTION_ROOT_DIRECTORY = Path.of(".");
