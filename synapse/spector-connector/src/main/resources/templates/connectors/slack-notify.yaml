@@ -1,0 +1,20 @@
+# Spector Enterprise — Slack Notification Connector Template
+templates:
+  - templateId: slack-notify
+    displayName: "Slack Notification"
+    description: "Send messages to a Slack channel"
+    icon: slack
+    category: Messaging
+    connectorType: SLACK
+    requiresCredential: true
+    parameters:
+      - name: channel
+        displayName: "Channel"
+        type: string
+        required: true
+        placeholder: "#general"
+      - name: webhookUrl
+        displayName: "Webhook URL"
+        type: secret
+        required: true
+        placeholder: "https://hooks.slack.com/..."

@@ -1,0 +1,37 @@
+templates:
+  - templateId: jira
+    displayName: "Atlassian Jira"
+    description: "Ingest issues, epics, comments, and project changelogs from Jira."
+    icon: "jira"
+    category: "Enterprise"
+    connectorType: "JIRA"
+    requiresCredential: true
+    parameters:
+      - name: host
+        displayName: "Jira Host"
+        type: "string"
+        required: true
+        placeholder: "your-domain.atlassian.net"
+      - name: projectKey
+        displayName: "Project Key"
+        type: "string"
+        required: true
+        placeholder: "PROJ"
+      - name: apiToken
+        displayName: "API Token / Password"
+        type: "secret"
+        required: true
+      - name: username
+        displayName: "Username / Email"
+        type: "string"
+        required: true
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: "number"
+        required: false
+        defaultValue: "3600000"
+      - name: collection
+        displayName: "Target Collection"
+        type: "string"
+        required: false
+        defaultValue: "default"

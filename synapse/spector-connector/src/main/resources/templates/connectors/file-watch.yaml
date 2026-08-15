@@ -1,0 +1,31 @@
+# Spector Enterprise — File Watch Connector Template
+templates:
+  - templateId: file-watch
+    displayName: "Local File Watch"
+    description: "Watch a local directory for new files and ingest them into Spector"
+    icon: folder
+    category: Data
+    connectorType: FILE_WATCH
+    requiresCredential: false
+    parameters:
+      - name: path
+        displayName: "Directory Path"
+        type: string
+        required: true
+        placeholder: "/data/documents"
+      - name: pattern
+        displayName: "File Pattern (regex)"
+        type: string
+        required: false
+        defaultValue: ".*\\.(txt|md|pdf|docx)"
+        placeholder: ".*\\.txt"
+      - name: recursive
+        displayName: "Recursive"
+        type: boolean
+        required: false
+        defaultValue: "true"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "default"

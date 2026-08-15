@@ -1,0 +1,30 @@
+# Spector Enterprise — Kafka Consumer Connector Template
+templates:
+  - templateId: kafka-consumer
+    displayName: "Kafka Consumer"
+    description: "Consume messages from a Kafka topic and ingest into Spector"
+    icon: kafka
+    category: Data
+    connectorType: KAFKA
+    requiresCredential: false
+    parameters:
+      - name: topic
+        displayName: "Topic"
+        type: string
+        required: true
+        placeholder: "documents"
+      - name: brokers
+        displayName: "Bootstrap Servers"
+        type: string
+        required: true
+        placeholder: "localhost:9092"
+      - name: groupId
+        displayName: "Consumer Group ID"
+        type: string
+        required: false
+        defaultValue: "spector-ingest"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "default"

@@ -89,6 +89,7 @@
 
         <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
         <module>synapse/spector-runtime</module>
+        <module>synapse/spector-connector</module>
         <module>synapse/spector-mcp</module>
         <module>synapse/spector-cli</module>
         <module>synapse/spector-client</module>
@@ -147,11 +148,13 @@
         <netty.version>4.2.13.Final</netty.version>
         <picocli.version>4.7.6</picocli.version>
         <handlebars.version>4.4.0</handlebars.version>
+        <camel.version>4.11.0</camel.version>
 
         <!-- Test dependency versions -->
         <junit.version>6.1.2</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.23.0</mockito.version>
+        <awaitility.version>4.2.2</awaitility.version>
 
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
@@ -272,6 +275,11 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-synapse</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
+                <artifactId>spector-connector</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
@@ -481,6 +489,23 @@
                 <version>${netty.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- ── Apache Camel BOM ── -->
+            <dependency>
+                <groupId>org.apache.camel</groupId>
+                <artifactId>camel-bom</artifactId>
+                <version>${camel.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Awaitility (for async testing) -->
+            <dependency>
+                <groupId>org.awaitility</groupId>
+                <artifactId>awaitility</artifactId>
+                <version>${awaitility.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <!-- Apache Tika (PDF, DOCX, HTML text extraction) -->

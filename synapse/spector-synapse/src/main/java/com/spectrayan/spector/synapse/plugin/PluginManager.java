@@ -13,7 +13,7 @@
 package com.spectrayan.spector.synapse.plugin;
 
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
-import com.spectrayan.spector.synapse.connector.TemplateRegistry;
+import com.spectrayan.spector.connector.template.TemplateRegistry;
 import com.spectrayan.spector.synapse.plugin.SynapsePlugin.PluginInfo;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -68,7 +68,13 @@ public class PluginManager {
                 plugin.tools().forEach(toolRegistry::register);
 
                 // Register connector templates from plugin
-                plugin.connectorTemplates().forEach(templateRegistry::register);
+                plugin.connectorTemplates().forEach(t -> {
+                    try {
+                        templateRegistry.saveCustomTemplate(t);
+                    } catch (Exception e) {
+                        log.debug("[PluginManager] Custom template registration for {}: {}", t.templateId(), e.getMessage());
+                    }
+                });
 
                 log.info("[PluginManager] ✓ {} v{} — {} tools, {} connectors",
                         plugin.name(), plugin.version(),

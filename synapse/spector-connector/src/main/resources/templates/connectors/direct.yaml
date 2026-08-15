@@ -1,0 +1,15 @@
+# Spector Enterprise — Direct Endpoint Connector Template
+templates:
+  - templateId: direct
+    displayName: "Direct Endpoint"
+    description: "Programmatic endpoint for testing and internal routing"
+    icon: code
+    category: Internal
+    connectorType: DIRECT
+    requiresCredential: false
+    parameters:
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "default"

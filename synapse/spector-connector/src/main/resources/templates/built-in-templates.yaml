@@ -1,0 +1,39 @@
+# ──────────────────────────────────────────────────────
+# Spector Core — Built-in Template Manifest
+# ──────────────────────────────────────────────────────
+# Each file below defines one connector template.
+# The loader reads this manifest and loads each file
+# from the classpath. To add a new connector, create
+# a new YAML file and add it here.
+# ──────────────────────────────────────────────────────
+
+files:
+  # ── Data Sources ──
+  - connectors/file-watch.yaml
+  - connectors/s3-poll.yaml
+  - connectors/rest-api-poll.yaml
+  - connectors/db-query.yaml
+  - connectors/mongodb-poll.yaml
+  - connectors/kafka-consumer.yaml
+  - connectors/notion-pages.yaml
+  - connectors/github-ingest.yaml
+  - connectors/rss.yaml
+  - connectors/web-scraper.yaml
+
+  # ── Extended Enterprise Sources ──
+  - connectors/confluence.yaml
+  - connectors/jira.yaml
+  - connectors/google-drive.yaml
+  - connectors/sharepoint.yaml
+  - connectors/salesforce.yaml
+
+  # ── Messaging ──
+  - connectors/slack-notify.yaml
+  - connectors/slack-ingest.yaml
+  - connectors/email-notify.yaml
+
+  # ── Triggers ──
+  - connectors/webhook-receiver.yaml
+
+  # ── Internal ──
+  - connectors/direct.yaml

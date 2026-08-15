@@ -1,0 +1,35 @@
+templates:
+  - templateId: sharepoint
+    displayName: "Microsoft SharePoint & OneDrive"
+    description: "Ingest document libraries and files from Microsoft 365 SharePoint and OneDrive."
+    icon: "sharepoint"
+    category: "Enterprise"
+    connectorType: "SHAREPOINT"
+    requiresCredential: true
+    parameters:
+      - name: tenantId
+        displayName: "Azure AD Tenant ID"
+        type: "string"
+        required: true
+      - name: clientId
+        displayName: "Application (Client) ID"
+        type: "string"
+        required: true
+      - name: clientSecret
+        displayName: "Client Secret"
+        type: "secret"
+        required: true
+      - name: siteId
+        displayName: "SharePoint Site ID"
+        type: "string"
+        required: true
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: "number"
+        required: false
+        defaultValue: "3600000"
+      - name: collection
+        displayName: "Target Collection"
+        type: "string"
+        required: false
+        defaultValue: "default"

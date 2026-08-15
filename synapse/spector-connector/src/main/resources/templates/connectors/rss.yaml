@@ -1,0 +1,29 @@
+templates:
+  - templateId: rss
+    displayName: "RSS / Atom Feed"
+    description: "Continuously poll and ingest new articles and posts from RSS or Atom feeds."
+    icon: "rss"
+    category: "Data"
+    connectorType: "RSS"
+    requiresCredential: false
+    parameters:
+      - name: feedUrl
+        displayName: "Feed URL"
+        type: "url"
+        required: true
+        placeholder: "https://example.com/feed.xml"
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: "number"
+        required: false
+        defaultValue: "3600000"
+      - name: splitEntries
+        displayName: "Split Entries"
+        type: "boolean"
+        required: false
+        defaultValue: "true"
+      - name: collection
+        displayName: "Target Collection"
+        type: "string"
+        required: false
+        defaultValue: "default"

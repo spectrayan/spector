@@ -1,0 +1,44 @@
+# Spector Enterprise — Slack Channel Ingestion Connector Template
+templates:
+  - templateId: slack-ingest
+    displayName: "Slack Channel Ingestion"
+    description: "Ingest Slack channel messages as episodic memories — captures conversation threads with participant context"
+    icon: chat
+    category: Messaging
+    connectorType: SLACK
+    requiresCredential: true
+    parameters:
+      - name: botToken
+        displayName: "Bot OAuth Token"
+        type: secret
+        required: true
+        credential: true
+        placeholder: "xoxb-..."
+        description: "Slack Bot User OAuth Token (requires channels:history, channels:read scopes)"
+      - name: channels
+        displayName: "Channel IDs"
+        type: string
+        required: true
+        placeholder: "C01ABC123,C02DEF456"
+        description: "Comma-separated Slack channel IDs to ingest from"
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: number
+        required: false
+        defaultValue: "300000"
+        description: "How often to check for new messages (default: 5 minutes)"
+      - name: includeThreads
+        displayName: "Include Thread Replies"
+        type: boolean
+        required: false
+        defaultValue: "true"
+      - name: maxMessages
+        displayName: "Max Messages per Poll"
+        type: number
+        required: false
+        defaultValue: "100"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "slack"

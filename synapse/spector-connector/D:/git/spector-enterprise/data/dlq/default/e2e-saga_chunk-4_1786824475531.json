@@ -1,0 +1,8 @@
+{
+  "tenantId": "default",
+  "routeId": "e2e-saga",
+  "docId": "chunk-4",
+  "timestamp": "2026-08-15T20:07:55.531755972Z",
+  "errorMessage": "Simulated embedding failure on call #5",
+  "content": "Chapter 5: Performance optimization and deployment best practices."
+}

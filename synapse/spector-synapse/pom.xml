@@ -113,6 +113,10 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
+            <artifactId>spector-connector</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.spectrayan</groupId>
             <artifactId>spector-batch</artifactId>
         </dependency>
         <dependency>

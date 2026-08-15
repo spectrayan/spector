@@ -1,0 +1,40 @@
+# Spector Enterprise — S3 Bucket Polling Connector Template
+templates:
+  - templateId: s3-poll
+    displayName: "S3 Bucket Polling"
+    description: "Poll an AWS S3 or MinIO bucket for new objects and ingest them"
+    icon: s3
+    category: Data
+    connectorType: S3
+    requiresCredential: true
+    parameters:
+      - name: bucketName
+        displayName: "Bucket Name"
+        type: string
+        required: true
+        placeholder: "my-documents"
+      - name: region
+        displayName: "AWS Region"
+        type: string
+        required: false
+        defaultValue: "us-east-1"
+      - name: prefix
+        displayName: "Key Prefix"
+        type: string
+        required: false
+        placeholder: "docs/"
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: number
+        required: false
+        defaultValue: "300000"
+      - name: deleteAfterRead
+        displayName: "Delete After Read"
+        type: boolean
+        required: false
+        defaultValue: "false"
+      - name: collection
+        displayName: "Target Collection"
+        type: string
+        required: false
+        defaultValue: "default"

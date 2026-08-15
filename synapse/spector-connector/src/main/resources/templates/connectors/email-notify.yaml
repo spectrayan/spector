@@ -1,0 +1,30 @@
+# Spector Enterprise — Email Notification Connector Template
+templates:
+  - templateId: email-notify
+    displayName: "Email Notification"
+    description: "Send email notifications via SMTP"
+    icon: email
+    category: Messaging
+    connectorType: EMAIL
+    requiresCredential: true
+    parameters:
+      - name: to
+        displayName: "To Address"
+        type: string
+        required: true
+        placeholder: "alerts@example.com"
+      - name: subject
+        displayName: "Subject"
+        type: string
+        required: false
+        defaultValue: "Spector Notification"
+      - name: smtpHost
+        displayName: "SMTP Host"
+        type: string
+        required: true
+        placeholder: "smtp.gmail.com"
+      - name: smtpPort
+        displayName: "SMTP Port"
+        type: number
+        required: false
+        defaultValue: "587"

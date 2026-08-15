@@ -1,0 +1,27 @@
+templates:
+  - templateId: google-drive
+    displayName: "Google Drive"
+    description: "Ingest documents, spreadsheets, slides, and files from Google Drive folders."
+    icon: "google-drive"
+    category: "Cloud Storage"
+    connectorType: "GOOGLE_DRIVE"
+    requiresCredential: true
+    parameters:
+      - name: folderId
+        displayName: "Folder ID"
+        type: "string"
+        required: true
+      - name: serviceAccountKey
+        displayName: "Service Account JSON / Key"
+        type: "secret"
+        required: true
+      - name: pollIntervalMs
+        displayName: "Poll Interval (ms)"
+        type: "number"
+        required: false
+        defaultValue: "3600000"
+      - name: collection
+        displayName: "Target Collection"
+        type: "string"
+        required: false
+        defaultValue: "default"
