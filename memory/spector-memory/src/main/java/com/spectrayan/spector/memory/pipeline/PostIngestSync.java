@@ -173,11 +173,11 @@ final class PostIngestSync {
         // Hebbian, Temporal, Entity, and Hypergraphs. Never reused.
         int graphSlot = index.allocateGraphSlot();
         try {
-            // Step 7b: Add to HNSW index (SEMANTIC only)
+            // Step 7b: Add to HNSW index (SEMANTIC only, #445: use monotonic graphSlot)
             if (params.type() == MemoryType.SEMANTIC && semanticIndex != null
                     && !semanticIndex.isReadOnly()
                     && !isParentChunk) {
-                storeIndex = cognitiveRouter.countFor(MemoryType.SEMANTIC) - 1;
+                storeIndex = graphSlot;
                 semanticIndex.add(params.id(), storeIndex, params.vector());
             }
 

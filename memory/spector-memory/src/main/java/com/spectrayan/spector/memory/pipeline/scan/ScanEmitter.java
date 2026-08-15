@@ -29,6 +29,6 @@ public interface ScanEmitter {
                       CognitiveRecordLayout layout, MemoryType type,
                       long baseOffset, int partitionSeq);
 
-    /** Emits the semantic HNSW fast-path recall (active single partition only). */
+    /** Emits the semantic HNSW fast-path recall across all partitions (ADR-0009). */
     void emitSemanticHnsw();
 }

@@ -14,88 +14,89 @@ package com.spectrayan.spector.memory.cortex;
 
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.index.VectorIndex;
+import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
+import com.spectrayan.spector.memory.index.MemoryIndex;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ScoreBreakdown;
 import com.spectrayan.spector.memory.model.ScoringMode;
-import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
-import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.synapse.DecayStrategy;
-import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 /**
- * Fused semantic recall strategy — HNSW vector search + cognitive header scoring.
+ * Fused HNSW + Cognitive Scoring recall strategy for Semantic Memory (ADR-0009, #445).
  *
- * <h3>Problem (The Truncation Trap — Semantic Variant)</h3>
- * <p>The {@code SemanticMemoryStore} stores only 64-byte cognitive headers (no vectors).
- * This means flat-scanning the header slab cannot compute vector similarity — the
- * {@code alpha * similarity} term is entirely missing. Semantic recall was scoring
- * only {@code beta * importance * decay}, which is fundamentally broken for
- * similarity-based retrieval.</p>
- *
- * <h3>Solution: Fused Pipeline</h3>
+ * <h3>Architecture</h3>
+ * <p>Semantic memory uses a unified {@link VectorIndex} (HNSW/IVF) for $O(\log N)$
+ * approximate nearest neighbor retrieval across all partitions. When a recall query arrives,
+ * the strategy:</p>
  * <ol>
- *   <li>Query the {@link VectorIndex} (HNSW) for top-N candidates with similarity scores</li>
- *   <li>For each candidate, look up the cognitive header from the header slab</li>
- *   <li>Apply the full 6-phase cognitive scoring: tag gating, valence filtering,
- *       temporal decay, reconsolidation, and weighted tag relevance</li>
- *   <li>Re-rank by fused score and return</li>
+ *   <li>Queries HNSW for {@code topK * semanticCandidateMultiplier} candidates</li>
+ *   <li>Resolves each candidate ID to its physical partition and offset via {@link MemoryIndex#location(String)}</li>
+ *   <li>Reads the 64-byte {@link CognitiveHeader} from the partition's off-heap slab segment</li>
+ *   <li>Applies tombstones, contradiction gating, temporal bounds, synaptic tags / hyperfocus, valence, and importance filtering</li>
+ *   <li>Computes the fused cognitive score (similarity + decay * importance * tag boost)</li>
+ *   <li>Sorts and returns the top-K cognitive results</li>
  * </ol>
  *
- * <h3>Performance</h3>
- * <p>HNSW search is O(log N) vs O(N) flat scan. For 100K+ semantic memories,
- * this is orders of magnitude faster. The over-fetch multiplier (default: 3×)
- * ensures cognitive re-ranking has enough candidates to find truly relevant results.</p>
- *
- * <h3>Graceful Degradation</h3>
- * <p>If no {@code VectorIndex} is configured, the caller falls back to
- * the header-only scoring path (with the newly-added tag/valence filters).</p>
+ * <h3>Partition Awareness</h3>
+ * <p>Unlike the legacy single-store implementation, this strategy resolves partition handles dynamically via
+ * {@link PartitionRegistry#handleFor(int)}, guaranteeing zero offset collisions across partition rolls.</p>
  */
 public final class SemanticRecallStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(SemanticRecallStrategy.class);
 
     private final VectorIndex vectorIndex;
-    private final SemanticRecordMemory semanticStore;
+    private final PartitionRegistry partitionRegistry;
+    private final SemanticRecordMemory legacyStore;
     private final MemoryIndex memoryIndex;
 
     /**
-     * Creates a fused semantic recall strategy.
+     * Creates a partition-aware fused semantic recall strategy (ADR-0009).
      *
-     * @param vectorIndex   the HNSW/IVF index backing semantic memory
-     * @param semanticStore the header-only semantic slab
-     * @param memoryIndex   the ID → metadata index for reverse lookups
+     * @param vectorIndex       the HNSW/IVF index backing semantic memory
+     * @param partitionRegistry the partition registry for partition resolution
+     * @param memoryIndex       the ID → metadata index for location lookups
      */
     public SemanticRecallStrategy(VectorIndex vectorIndex,
-                                   SemanticRecordMemory semanticStore,
-                                   MemoryIndex memoryIndex) {
+                                  PartitionRegistry partitionRegistry,
+                                  MemoryIndex memoryIndex) {
         this.vectorIndex = vectorIndex;
-        this.semanticStore = semanticStore;
+        this.partitionRegistry = partitionRegistry;
+        this.legacyStore = null;
         this.memoryIndex = memoryIndex;
     }
 
     /**
-     * Executes a fused semantic recall: HNSW search → cognitive re-ranking.
+     * Legacy constructor for single-store configurations and tests.
      *
-     * <p>Steps:</p>
-     * <ol>
-     *   <li>Search HNSW for {@code topK * multiplier} candidates</li>
-     *   <li>For each candidate, read the cognitive header from the slab</li>
-     *   <li>Apply tag gating, valence filtering, importance threshold</li>
-     *   <li>Compute fused score: {@code alpha * similarity + beta * importance * decay}</li>
-     *   <li>Apply weighted tag relevance boost</li>
-     *   <li>Sort and return top-K</li>
-     * </ol>
+     * @param vectorIndex   the HNSW/IVF index backing semantic memory
+     * @param semanticStore the single semantic slab
+     * @param memoryIndex   the ID → metadata index for reverse lookups
+     */
+    public SemanticRecallStrategy(VectorIndex vectorIndex,
+                                  SemanticRecordMemory semanticStore,
+                                  MemoryIndex memoryIndex) {
+        this.vectorIndex = vectorIndex;
+        this.partitionRegistry = null;
+        this.legacyStore = semanticStore;
+        this.memoryIndex = memoryIndex;
+    }
+
+    /**
+     * Executes a fused semantic recall: HNSW search → partition-aware cognitive re-ranking.
      *
      * @param queryVector the embedded query vector
      * @param options     recall configuration
@@ -113,6 +114,7 @@ public final class SemanticRecallStrategy {
 
         // Extract filter parameters
         long queryTagMask = options.synapticTagMask();
+        long hyperfocusMask = options.hyperfocusMask();
         byte minValence = options.minValence();
         byte maxValence = options.maxValence();
         float minImportance = options.minImportance();
@@ -125,16 +127,31 @@ public final class SemanticRecallStrategy {
         float beta = options.beta();
         float tagRelevanceBoost = options.tagRelevanceBoost();
 
-        CognitiveRecordLayout layout = semanticStore.cognitiveLayout();
-        java.lang.foreign.MemorySegment headerSlab = semanticStore.primarySegment();
-
         List<CognitiveResult> results = new ArrayList<>();
 
         for (ScoredResult sr : hnswResults) {
-            // HNSW returns an internal store index — compute record offset in segment
-            // For persistent stores, records start after the 64-byte metadata header
-            long dataOffset = semanticStore.isPersistent() ? AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
-            long headerOffset = dataOffset + (long) sr.index() * layout.stride();
+            String id = sr.id();
+            if (id == null) continue;
+
+            MemoryLocation loc = memoryIndex.location(id);
+            if (loc == null || loc.type() != MemoryType.SEMANTIC) continue;
+
+            int partitionSeq = loc.colocatedPartition();
+            long headerOffset = loc.offset();
+
+            SemanticRecordMemory store;
+            if (partitionRegistry != null) {
+                PartitionHandle handle = partitionRegistry.handleFor(partitionSeq);
+                if (handle == null || handle.router() == null) continue;
+                store = handle.router().semantic();
+            } else {
+                store = legacyStore;
+            }
+
+            if (store == null) continue;
+
+            CognitiveRecordLayout layout = store.cognitiveLayout();
+            MemorySegment headerSlab = store.primarySegment();
 
             // Bounds check: ensure we're within the slab
             if (headerSlab == null || headerOffset + layout.headerLayout().headerBytes() > headerSlab.byteSize()) {
@@ -146,20 +163,24 @@ public final class SemanticRecallStrategy {
             // Phase 1: Tombstone check (always applied)
             if (SynapticHeaderConstants.isTombstoned(header.flags())) continue;
 
+            // Phase 1c: Contradiction Gating
             if (!options.includeContradictions()) {
                 byte cFlags = layout.readConsolidationFlags(headerSlab, headerOffset);
                 if (SynapticHeaderConstants.isContradicted(cFlags)) continue;
             }
-
 
             // Phase 1b: Temporal gating (absolute timestamp bounds)
             long timestamp = header.timestampMs();
             if (minTimestamp != null && timestamp < minTimestamp) continue;
             if (maxTimestamp != null && timestamp > maxTimestamp) continue;
 
-            // Phase 2: Synaptic tag gating (skip on zero overlap)
+            // Phase 2: Synaptic tag gating
             long recordTags = header.synapticTags();
-            if (queryTagMask != 0 && (recordTags & queryTagMask) == 0) continue;
+            if (hyperfocusMask != 0L) {
+                if ((recordTags & hyperfocusMask) != hyperfocusMask) continue;
+            } else if (queryTagMask != 0L) {
+                if ((recordTags & queryTagMask) == 0L) continue;
+            }
 
             // Phase 3: Valence filter
             byte valence = header.valence();
@@ -175,43 +196,35 @@ public final class SemanticRecallStrategy {
             float rawDecay;
 
             if (pureSimilarity) {
-                // ── SIMILARITY mode: HNSW cosine score IS the final score ──
-                // No importance weighting, no decay, no tag boost.
-                // Pure information retrieval ranking.
                 finalScore = sr.score();
                 decay = 1.0f;
                 rawDecay = 1.0f;
             } else {
-                // ── COGNITIVE mode: full biologically-inspired scoring ──
-                // Phase 5: Use HNSW similarity score directly
                 float similarity = sr.score();
-
-                // Phase 6: Temporal decay + reconsolidation
                 int rawBucket = DecayStrategy.ageToBucket(timestamp, nowMs);
                 int adjusted = DecayStrategy.adjustForReconsolidation(rawBucket, agentRecallCount);
                 decay = DecayStrategy.decay(adjusted);
                 rawDecay = DecayStrategy.decay(rawBucket);
 
-                // Fused cognitive score with weighted tag relevance
                 float baseScore = alpha * similarity + beta * importance * decay;
                 float tagOverlap = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
                 finalScore = baseScore * (1.0f + tagOverlap * tagRelevanceBoost);
             }
 
-            // Build result — use the same headerOffset for reverse lookup
-            String id = memoryIndex.findIdByOffset(MemoryType.SEMANTIC, headerOffset);
-            String text = id != null ? memoryIndex.text(id) : "";
-            MemorySource source = id != null ? memoryIndex.source(id) : MemorySource.OBSERVED;
-            String[] tags = id != null ? memoryIndex.tags(id) : new String[0];
+            String text = memoryIndex.text(id);
+            if (text == null) text = "";
+            MemorySource source = memoryIndex.source(id);
+            if (source == null) source = MemorySource.OBSERVED;
+            String[] tags = memoryIndex.tags(id);
+            if (tags == null) tags = new String[0];
             float ageDays = (nowMs - timestamp) / (1000f * 60f * 60f * 24f);
 
-            // Build breakdown for diagnostic output
             ScoreBreakdown breakdown;
             if (pureSimilarity) {
                 breakdown = new ScoreBreakdown(sr.score(), 0f, 1.0f, 1.0f, 1.0f, 1.0f, finalScore);
             } else {
                 float importanceDecay = importance * decay;
-                float tagOverlapForBd = SynapticTagEncoder.overlapRatio(header.synapticTags(), queryTagMask);
+                float tagOverlapForBd = SynapticTagEncoder.overlapRatio(recordTags, queryTagMask);
                 float tagBoostFactor = 1.0f + tagOverlapForBd * tagRelevanceBoost;
                 breakdown = new ScoreBreakdown(
                         sr.score(), importanceDecay, tagBoostFactor,
@@ -219,8 +232,7 @@ public final class SemanticRecallStrategy {
             }
 
             results.add(new CognitiveResult(
-                    id != null ? id : "semantic-" + sr.index(),
-                    text, finalScore, importance, ageDays,
+                    id, text, finalScore, importance, ageDays,
                     agentRecallCount, valence, MemoryType.SEMANTIC, source,
                     tags, rawDecay, decay,
                     CognitiveResult.RetrievalMode.STANDARD, breakdown));
@@ -229,7 +241,7 @@ public final class SemanticRecallStrategy {
         // Sort by fused score descending
         results.sort(Comparator.comparing(CognitiveResult::score).reversed());
 
-        log.debug("Semantic fused recall: {} HNSW candidates → {} after filtering",
+        log.debug("Semantic partition-aware fused recall: {} HNSW candidates → {} after filtering",
                 hnswResults.length, results.size());
 
         return results;
