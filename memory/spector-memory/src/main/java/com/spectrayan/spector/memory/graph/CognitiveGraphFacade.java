@@ -22,7 +22,10 @@ import com.spectrayan.spector.memory.model.GraphStats;
 import com.spectrayan.spector.memory.model.TopologyStats;
 import com.spectrayan.spector.memory.model.TopologyStats.EntityTypeStats;
 import com.spectrayan.spector.memory.model.TopologyStats.RelationTypeStats;
+import com.spectrayan.spector.memory.graph.causal.CausalChain;
+import com.spectrayan.spector.memory.graph.causal.CausalQueryEngine;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +58,8 @@ public final class CognitiveGraphFacade {
     /** Identity companion (ADR-0003 #455). When present, all identity reads route here. */
     private final EntityDirectory entityDirectory;
     private final HyperEntityGraphMemory hyperEntityGraph;
+    private final TemporalKnowledgeGraph temporalKnowledgeGraph;
+    private final OntologyConfig ontologyConfig;
     private final MemoryIndex index;
 
     /**
@@ -65,7 +70,7 @@ public final class CognitiveGraphFacade {
                                 TemporalChainMemory temporalChain,
                                 HyperEntityGraphMemory hyperEntityGraph,
                                 MemoryIndex index) {
-        this(hebbianGraph, temporalChain, null, hyperEntityGraph, index);
+        this(hebbianGraph, temporalChain, null, hyperEntityGraph, null, null, index);
     }
 
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
@@ -73,10 +78,31 @@ public final class CognitiveGraphFacade {
                                 EntityDirectory entityDirectory,
                                 HyperEntityGraphMemory hyperEntityGraph,
                                 MemoryIndex index) {
+        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, null, null, index);
+    }
+
+    public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
+                                TemporalChainMemory temporalChain,
+                                EntityDirectory entityDirectory,
+                                HyperEntityGraphMemory hyperEntityGraph,
+                                TemporalKnowledgeGraph temporalKnowledgeGraph,
+                                MemoryIndex index) {
+        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, null, index);
+    }
+
+    public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
+                                TemporalChainMemory temporalChain,
+                                EntityDirectory entityDirectory,
+                                HyperEntityGraphMemory hyperEntityGraph,
+                                TemporalKnowledgeGraph temporalKnowledgeGraph,
+                                OntologyConfig ontologyConfig,
+                                MemoryIndex index) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
+        this.temporalKnowledgeGraph = temporalKnowledgeGraph;
+        this.ontologyConfig = ontologyConfig != null ? ontologyConfig : OntologyConfig.defaultInstance();
         this.index = index;
     }
 
@@ -296,6 +322,60 @@ public final class CognitiveGraphFacade {
             log.error("[CognitiveGraphFacade] Topology stats failed: {}", e.getMessage(), e);
             return TopologyStats.empty();
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // CAUSAL REASONING QUERIES (ADR-0010, #273)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Answers "Why did X happen?" or "What caused X?" by traversing causal antecedents
+     * backward from the target entity up to {@code maxHops}.
+     *
+     * @param entityName the focal entity or incident name
+     * @param maxHops    maximum traversal hops
+     * @param inspector  optional record inspector for memory text snippets
+     * @return structured causal chain
+     */
+    public CausalChain traceWhy(String entityName, int maxHops, Function<String, CognitiveRecord> inspector) {
+        CausalQueryEngine engine = new CausalQueryEngine(
+                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph,
+                temporalKnowledgeGraph != null ? temporalKnowledgeGraph.predicateRegistry() : null,
+                ontologyConfig, index, inspector);
+        return engine.traceWhy(entityName, maxHops);
+    }
+
+    public CausalChain traceWhy(String entityName, int maxHops) {
+        return traceWhy(entityName, maxHops, null);
+    }
+
+    public CausalChain traceWhy(String entityName) {
+        return traceWhy(entityName, 5, null);
+    }
+
+    /**
+     * Answers "What resulted from X?" or "What did X cause?" by traversing causal consequences
+     * forward from the source entity up to {@code maxHops}.
+     *
+     * @param entityName the focal event or entity name
+     * @param maxHops    maximum traversal hops
+     * @param inspector  optional record inspector for memory text snippets
+     * @return structured causal chain with downstream consequences
+     */
+    public CausalChain traceEffects(String entityName, int maxHops, Function<String, CognitiveRecord> inspector) {
+        CausalQueryEngine engine = new CausalQueryEngine(
+                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph,
+                temporalKnowledgeGraph != null ? temporalKnowledgeGraph.predicateRegistry() : null,
+                ontologyConfig, index, inspector);
+        return engine.traceEffects(entityName, maxHops);
+    }
+
+    public CausalChain traceEffects(String entityName, int maxHops) {
+        return traceEffects(entityName, maxHops, null);
+    }
+
+    public CausalChain traceEffects(String entityName) {
+        return traceEffects(entityName, 5, null);
     }
 
     // ══════════════════════════════════════════════════════════════

@@ -19,7 +19,17 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * Immutable in-memory configuration and taxonomy rules for entity types and relationship predicates.
+ *
+ * <p>Supports modular configuration split across {@code entity-types.yaml} and
+ * {@code relationship-predicates.yaml} or a combined {@code ontology.yaml}.</p>
+ *
+ * <p>Thread safety: Fully immutable after creation, shared as a lock-free JVM singleton
+ * via {@link #defaultInstance()}.</p>
+ */
 public final class OntologyConfig {
+
     public enum Strictness { LOG, WARN, REJECT }
     
     public record EntityTypeConfig(String name, List<String> aliases, String parent, List<String> children) {}
@@ -33,6 +43,22 @@ public final class OntologyConfig {
     // Fast lookup maps
     private final Map<String, String> entityAliasMap = new HashMap<>();
     private final Map<String, String> predicateAliasMap = new HashMap<>();
+
+    /**
+     * Lazy JVM singleton holder for high-concurrency zero-contention access (ADR-0010).
+     */
+    private static final class DefaultHolder {
+        static final OntologyConfig INSTANCE = loadDefault();
+    }
+
+    /**
+     * Returns the JVM-wide default singleton instance of {@link OntologyConfig}.
+     *
+     * @return the shared default ontology configuration
+     */
+    public static OntologyConfig defaultInstance() {
+        return DefaultHolder.INSTANCE;
+    }
 
     private OntologyConfig(Strictness strictness, Map<String, EntityTypeConfig> entityTypes, Map<String, PredicateConfig> predicates) {
         this.strictness = strictness;
@@ -53,13 +79,58 @@ public final class OntologyConfig {
         }
     }
 
+    /**
+     * Loads the default ontology from classpath, preferring modular {@code entity-types.yaml}
+     * and {@code relationship-predicates.yaml}, with fallback to {@code ontology.yaml}.
+     */
     public static OntologyConfig loadDefault() {
+        InputStream entitiesStream = OntologyConfig.class.getResourceAsStream("/entity-types.yaml");
+        InputStream predicatesStream = OntologyConfig.class.getResourceAsStream("/relationship-predicates.yaml");
+
+        if (entitiesStream != null || predicatesStream != null) {
+            try {
+                return load(entitiesStream, predicatesStream);
+            } finally {
+                closeQuietly(entitiesStream);
+                closeQuietly(predicatesStream);
+            }
+        }
+
         try (InputStream in = OntologyConfig.class.getResourceAsStream("/ontology.yaml")) {
-            if (in == null) throw new IllegalStateException("ontology.yaml not found on classpath");
+            if (in == null) throw new IllegalStateException("Neither modular ontology YAMLs nor ontology.yaml found on classpath");
             return load(in);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load ontology.yaml", e);
         }
+    }
+
+    /**
+     * Loads ontology configuration from two modular input streams (entities and relationship predicates).
+     *
+     * @param entityTypesStream input stream for entity types YAML (optional if predicatesStream provided)
+     * @param predicatesStream  input stream for relationship predicates YAML (optional if entityTypesStream provided)
+     * @return the merged immutable OntologyConfig
+     */
+    public static OntologyConfig load(InputStream entityTypesStream, InputStream predicatesStream) {
+        Strictness strictness = Strictness.LOG;
+        Map<String, EntityTypeConfig> entityTypes = new HashMap<>();
+        Map<String, PredicateConfig> predicates = new HashMap<>();
+
+        if (entityTypesStream != null) {
+            OntologyConfig parsedEntities = load(entityTypesStream);
+            strictness = parsedEntities.strictness();
+            entityTypes.putAll(parsedEntities.entityTypes);
+            predicates.putAll(parsedEntities.predicates);
+        }
+
+        if (predicatesStream != null) {
+            OntologyConfig parsedPredicates = load(predicatesStream);
+            if (entityTypesStream == null) strictness = parsedPredicates.strictness();
+            entityTypes.putAll(parsedPredicates.entityTypes);
+            predicates.putAll(parsedPredicates.predicates);
+        }
+
+        return new OntologyConfig(strictness, entityTypes, predicates);
     }
 
     public static OntologyConfig load(InputStream in) {
@@ -158,6 +229,14 @@ public final class OntologyConfig {
         }
     }
 
+    private static void closeQuietly(InputStream stream) {
+        if (stream != null) {
+            try {
+                stream.close();
+            } catch (IOException ignored) {}
+        }
+    }
+
     public Strictness strictness() { return strictness; }
 
     public Set<String> canonicalTypes() { return entityTypes.keySet(); }
@@ -195,6 +274,10 @@ public final class OntologyConfig {
 
     public Optional<String> resolvePredicate(String rawPredicate) {
         return Optional.ofNullable(predicateAliasMap.get(rawPredicate));
+    }
+
+    public boolean isKnownPredicate(String predicate) {
+        return predicates.containsKey(predicate);
     }
 
     public Optional<String> inversePredicate(String canonical) {

@@ -149,9 +149,12 @@ public final class SpectorMemoryFactory {
         CognitiveGraphBuilder.CognitiveGraphs graphs =
                 CognitiveGraphBuilder.build(builder, cortex, index);
                 
+        com.spectrayan.spector.memory.graph.OntologyConfig ontConfig = builder.ontologyConfig != null
+                ? builder.ontologyConfig
+                : com.spectrayan.spector.memory.graph.OntologyConfig.defaultInstance();
         com.spectrayan.spector.memory.graph.TypeNormalizer typeNormalizer = null;
-        if (builder.ontologyConfig != null) {
-            typeNormalizer = new com.spectrayan.spector.memory.graph.TypeNormalizer(builder.ontologyConfig);
+        if (ontConfig != null) {
+            typeNormalizer = new com.spectrayan.spector.memory.graph.TypeNormalizer(ontConfig);
             if (graphs.entityExtractor() instanceof com.spectrayan.spector.memory.graph.LlmEntityExtractor llmExtractor) {
                 llmExtractor.setTypeNormalizer(typeNormalizer);
             }

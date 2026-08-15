@@ -156,7 +156,9 @@ class EagerConsolidationAndTraversalsIntegrationTest {
         assertThat(record2.isContradicted()).isFalse();
 
         // Verify that the loser's temporal fact (London) was retracted in TemporalKnowledgeGraph (#527)
-        List<TemporalFact> activeAfter = memory.temporalKnowledgeGraph().factsAbout(aliceId).resolve();
+        List<TemporalFact> activeAfter = memory.temporalKnowledgeGraph().factsAbout(aliceId)
+                .excludeRetracted()
+                .resolve();
         assertThat(activeAfter).noneMatch(f -> f.factId() == factId);
     }
 
@@ -249,11 +251,11 @@ class EagerConsolidationAndTraversalsIntegrationTest {
         public LlmResponse generate(LlmRequest request, GenerationOptions options) {
             String prompt = request.messages().isEmpty() ? "" : request.messages().get(0).text();
             if (prompt.contains("Extract all named entities") || prompt.contains("ENTITY:")) {
-                if (prompt.contains("London") || prompt.contains("Alice")) {
-                    return new LlmResponse("ENTITY: Alice | PERSON\nENTITY: London | LOCATION\nRELATION: Alice | lives_in | London", 10, 10, "mock-llm");
-                }
                 if (prompt.contains("Berlin")) {
                     return new LlmResponse("ENTITY: Alice | PERSON\nENTITY: Berlin | LOCATION\nRELATION: Alice | lives_in | Berlin", 10, 10, "mock-llm");
+                }
+                if (prompt.contains("London") || prompt.contains("Alice")) {
+                    return new LlmResponse("ENTITY: Alice | PERSON\nENTITY: London | LOCATION\nRELATION: Alice | lives_in | London", 10, 10, "mock-llm");
                 }
             }
             if (prompt.contains("Merge these")) {

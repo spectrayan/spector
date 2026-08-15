@@ -452,6 +452,25 @@ final class PostIngestSync {
                 hyperEntityGraph.addHyperedge(vertexArr, roles,
                         0, 1.0f, memoryIdx, System.currentTimeMillis());
             }
+
+            // Create typed binary hyperedges for explicit extracted relations (ADR-0010, #273)
+            if (hyperEntityGraph != null) {
+                for (ExtractedEntity entity : entities) {
+                    if (entity.relations() != null) {
+                        for (var relation : entity.relations()) {
+                            int subjectId = entityDirectory.intern(entity.name(), entity.typeName());
+                            int objectId = entityDirectory.intern(relation.targetEntityName(), "UNKNOWN");
+                            int predType = temporalKnowledgeGraph != null && temporalKnowledgeGraph.predicateRegistry() != null
+                                    ? temporalKnowledgeGraph.predicateRegistry().intern(relation.relationTypeName())
+                                    : 0;
+                            int[] vertexArr = new int[]{subjectId, objectId};
+                            int[] roles = new int[]{HyperEntityGraphMemory.ROLE_SUBJECT, HyperEntityGraphMemory.ROLE_OBJECT};
+                            hyperEntityGraph.addHyperedge(vertexArr, roles, predType, 1.0f, memoryIdx, System.currentTimeMillis());
+                            relationsAdded++;
+                        }
+                    }
+                }
+            }
         }
     }
 }

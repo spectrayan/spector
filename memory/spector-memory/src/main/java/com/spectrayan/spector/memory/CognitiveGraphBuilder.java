@@ -19,6 +19,7 @@ import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.LlmEntityExtractor;
 import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
+import com.spectrayan.spector.memory.graph.OntologyConfig;
 import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
@@ -264,9 +265,14 @@ final class CognitiveGraphBuilder {
             temporalKnowledgeGraph = new TemporalKnowledgeGraph(predRegistry);
         }
 
+        OntologyConfig ontConfig = builder.ontologyConfig != null
+                ? builder.ontologyConfig
+                : OntologyConfig.defaultInstance();
+
         //  Cognitive Graph Facade 
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
-                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, index);
+                hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
+                temporalKnowledgeGraph, ontConfig, index);
 
         return new CognitiveGraphs(
                 hebbianGraph, temporalChain, entityExtractor, entityDirectory,

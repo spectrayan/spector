@@ -628,6 +628,16 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         return entityTypeRegistryMemory.nameOf(typeId);
     }
 
+    /** Returns the entity name string for an entity id. */
+    public String entityName(int entityId) {
+        for (Map.Entry<String, Integer> entry : nameIndex.entrySet()) {
+            if (entry.getValue() == entityId) {
+                return entry.getKey();
+            }
+        }
+        return "Entity#" + entityId;
+    }
+
     /** Returns the number of entities in the directory. */
     public int entityCount() {
         return entityCount;
