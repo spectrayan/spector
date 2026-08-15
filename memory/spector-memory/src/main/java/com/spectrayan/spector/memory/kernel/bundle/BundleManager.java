@@ -15,6 +15,8 @@ package com.spectrayan.spector.memory.kernel.bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Locale;
+
 /**
  * Orchestrates region growth and capacity monitoring for a {@link RuntimeBundle}.
  *
@@ -69,8 +71,8 @@ public final class BundleManager {
      * @param regionId the region to grow
      */
     public void growRegion(RegionId regionId) {
-        log.info("BundleManager: growing region {} (usage={:.1f}%)",
-                regionId, regionUsage(regionId) * 100);
+        log.info("BundleManager: growing region {} (usage={}%)",
+                regionId, String.format(Locale.ROOT, "%.1f", regionUsage(regionId) * 100));
         bundle.growRegion(regionId);
     }
 

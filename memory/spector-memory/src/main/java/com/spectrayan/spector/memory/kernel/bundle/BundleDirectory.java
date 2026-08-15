@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.kernel.bundle;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorServerException;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 
@@ -48,16 +50,16 @@ public final class BundleDirectory {
      */
     public static BundleDirectory read(MemorySegment masterSegment) {
         if (!MemoryHeader.isValid(masterSegment, HEADER_OFFSET)) {
-            throw new IllegalStateException("Invalid SMKM header");
+            throw new SpectorServerException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid SMKM header");
         }
         if (MemoryHeader.readShape(masterSegment, HEADER_OFFSET) != MemoryShape.BUNDLE) {
-            throw new IllegalStateException("MemoryShape is not BUNDLE");
+            throw new SpectorServerException(ErrorCode.ARGUMENT_INVALID, "MemoryShape is not BUNDLE");
         }
         if (MemoryHeader.readLayoutId(masterSegment, HEADER_OFFSET) != BundleLayout.LAYOUT_ID) {
-            throw new IllegalStateException("LayoutId does not match BundleLayout");
+            throw new SpectorServerException(ErrorCode.ARGUMENT_INVALID, "LayoutId does not match BundleLayout");
         }
         if (!BundleSubHeader.isValid(masterSegment)) {
-            throw new IllegalStateException("Invalid BundleSubHeader CRC");
+            throw new SpectorServerException(ErrorCode.RECORD_CRC_CORRUPTED, "Invalid BundleSubHeader CRC");
         }
         
         int bundleMagic = BundleSubHeader.readBundleMagic(masterSegment);
