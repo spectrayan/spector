@@ -25,10 +25,15 @@ import com.spectrayan.spector.connector.template.TemplateRegistry;
 import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
+import com.spectrayan.spector.synapse.connector.api.dto.CreateCredentialRequest;
 import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
 import com.spectrayan.spector.synapse.connector.model.CredentialType;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
+import com.spectrayan.spector.synapse.connector.repository.JdbcCredentialRepository;
 import com.spectrayan.spector.synapse.connector.repository.JdbcEncryptedCredentialProvider;
 import com.spectrayan.spector.synapse.connector.repository.JdbcRouteConfigProvider;
+import com.spectrayan.spector.synapse.connector.service.CredentialService;
+import com.spectrayan.spector.synapse.connector.service.DefaultCredentialService;
 import com.spectrayan.spector.synapse.security.crypto.AesGcmCipher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,16 +54,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * End-to-end integration test verifying the database-backed connector lifecycle and encrypted credentials vault.
+ * End-to-end integration test verifying the database-backed connector lifecycle and layered encrypted credentials vault.
  *
  * <p>Validates that route definitions persisted via {@link JdbcRouteConfigProvider} and credentials
- * persisted via {@link JdbcEncryptedCredentialProvider} in H2 are dynamically started, hot-reloaded,
+ * managed by {@link CredentialService} in H2 are dynamically started, hot-reloaded,
  * paused, and purged in {@link CamelConnectorEngine} via {@link RouteLifecycleService}.</p>
  */
 class ConnectorDatabaseLifecycleIT {
 
     private DataSource dataSource;
     private JdbcRouteConfigProvider routeConfigProvider;
+    private CredentialService credentialService;
     private JdbcEncryptedCredentialProvider credentialProvider;
     private TemplateRegistry templateRegistry;
     private CamelConnectorEngine engine;
@@ -78,7 +84,9 @@ class ConnectorDatabaseLifecycleIT {
         ObjectMapper mapper = new ObjectMapper();
         routeConfigProvider = new JdbcRouteConfigProvider(jdbc, mapper);
         AesGcmCipher cipher = new AesGcmCipher("integration-test-master-key-32b");
-        credentialProvider = new JdbcEncryptedCredentialProvider(jdbc, mapper, cipher);
+        CredentialRepository credRepo = new JdbcCredentialRepository(jdbc, mapper);
+        credentialService = new DefaultCredentialService(credRepo, cipher);
+        credentialProvider = new JdbcEncryptedCredentialProvider(credentialService);
 
         templateRegistry = new TemplateRegistry(null);
 
@@ -196,19 +204,21 @@ class ConnectorDatabaseLifecycleIT {
     @Test
     @DisplayName("Encrypted Credentials Vault: Route dynamically resolves DB-stored encrypted secret on activation")
     void activateRouteWithEncryptedDatabaseCredential() throws Exception {
-        // Save encrypted token in database credentials vault
-        credentialProvider.save(
+        // Save encrypted token in database credentials vault via domain service
+        credentialService.createCredential(
                 "tenant-finance",
                 "user-finance-admin",
-                "finance-slack-key",
-                CredentialCategory.CHANNEL,
-                "slack",
-                CredentialType.BEARER_TOKEN,
-                "https://hooks.slack.com/services/SEC/RET/URL",
-                Map.of(),
-                true,
-                "Encrypted Finance Slack Token",
-                null
+                new CreateCredentialRequest(
+                        "finance-slack-key",
+                        CredentialCategory.CHANNEL,
+                        "slack",
+                        CredentialType.BEARER_TOKEN,
+                        "https://hooks.slack.com/services/SEC/RET/URL",
+                        Map.of(),
+                        true,
+                        "Encrypted Finance Slack Token",
+                        null
+                )
         );
 
         // Define route with credentialRef pointing to DB credential name

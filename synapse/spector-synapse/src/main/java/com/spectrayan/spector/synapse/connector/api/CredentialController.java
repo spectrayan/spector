@@ -15,10 +15,8 @@ package com.spectrayan.spector.synapse.connector.api;
 import com.spectrayan.spector.synapse.connector.api.dto.CreateCredentialRequest;
 import com.spectrayan.spector.synapse.connector.api.dto.CredentialResponse;
 import com.spectrayan.spector.synapse.connector.api.dto.UpdateCredentialRequest;
-import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
 import com.spectrayan.spector.synapse.connector.model.CredentialRecord;
-import com.spectrayan.spector.synapse.connector.model.CredentialType;
-import com.spectrayan.spector.synapse.connector.repository.JdbcEncryptedCredentialProvider;
+import com.spectrayan.spector.synapse.connector.service.CredentialService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,11 +39,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
- * REST API for managing encrypted credentials, BYOK LLM keys, channel tokens,
- * database passwords, and enterprise KMS vault configurations.
+ * REST API presentation layer for managing encrypted credentials, BYOK keys,
+ * channel tokens, and enterprise vault configurations.
+ *
+ * <p>Delegates domain business logic, cryptographic operations, and persistence
+ * to {@link CredentialService}.</p>
  */
 @RestController
 @RequestMapping("/api/v1/credentials")
@@ -54,10 +54,10 @@ public class CredentialController {
 
     private static final Logger log = LoggerFactory.getLogger(CredentialController.class);
 
-    private final JdbcEncryptedCredentialProvider credentialProvider;
+    private final CredentialService credentialService;
 
-    public CredentialController(JdbcEncryptedCredentialProvider credentialProvider) {
-        this.credentialProvider = Objects.requireNonNull(credentialProvider, "credentialProvider must not be null");
+    public CredentialController(CredentialService credentialService) {
+        this.credentialService = Objects.requireNonNull(credentialService, "CredentialService must not be null");
     }
 
     @PostMapping
@@ -68,23 +68,9 @@ public class CredentialController {
             Authentication authentication) {
 
         String userId = authentication != null ? authentication.getName() : null;
-        log.info("[CredentialAPI] Creating credential '{}' for tenant '{}' (provider={}, category={})",
-                request.name(), tenantId, request.provider(), request.category());
+        log.info("[CredentialAPI] REST create credential '{}' for tenant '{}'", request.name(), tenantId);
 
-        CredentialRecord record = credentialProvider.save(
-                tenantId,
-                userId,
-                request.name(),
-                request.category(),
-                request.provider(),
-                request.credentialType() != null ? request.credentialType() : CredentialType.API_KEY,
-                request.secret(),
-                request.properties(),
-                request.isDefault(),
-                request.description(),
-                request.expiresAt()
-        );
-
+        CredentialRecord record = credentialService.createCredential(tenantId, userId, request);
         return CredentialResponse.fromRecord(record);
     }
 
@@ -93,14 +79,7 @@ public class CredentialController {
             @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
             @RequestParam(required = false) String userId) {
 
-        List<CredentialRecord> records;
-        if (userId != null && !userId.isBlank()) {
-            records = credentialProvider.findByUserId(tenantId, userId);
-        } else {
-            records = credentialProvider.findByTenantId(tenantId);
-        }
-
-        return records.stream()
+        return credentialService.listCredentials(tenantId, userId).stream()
                 .map(CredentialResponse::fromRecord)
                 .toList();
     }
@@ -110,7 +89,7 @@ public class CredentialController {
             @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
             @PathVariable String name) {
 
-        return credentialProvider.findByName(tenantId, name)
+        return credentialService.getCredential(tenantId, name)
                 .map(CredentialResponse::fromRecord)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -123,44 +102,11 @@ public class CredentialController {
             @RequestBody UpdateCredentialRequest request,
             Authentication authentication) {
 
-        Optional<CredentialRecord> existingOpt = credentialProvider.findByName(tenantId, name);
-        if (existingOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        CredentialRecord existing = existingOpt.get();
-        String userId = authentication != null ? authentication.getName() : existing.userId();
-
-        CredentialCategory category = request.category() != null ? request.category() : existing.category();
-        String provider = request.provider() != null ? request.provider() : existing.provider();
-        CredentialType type = request.credentialType() != null ? request.credentialType() : existing.credentialType();
-        Map<String, Object> props = request.properties() != null ? request.properties() : existing.properties();
-        boolean isDefault = request.isDefault() != null ? request.isDefault() : existing.isDefault();
-        String description = request.description() != null ? request.description() : existing.description();
-        var expiresAt = request.expiresAt() != null ? request.expiresAt() : existing.expiresAt();
-
-        // If secret is updated, use new secret; otherwise decrypt existing secret to preserve it
-        String secret = request.secret();
-        if (secret == null || secret.isBlank()) {
-            secret = credentialProvider.resolve(existing.name(), tenantId)
-                    .orElseThrow(() -> new IllegalStateException("Failed to decrypt existing secret for update"));
-        }
-
-        CredentialRecord updated = credentialProvider.save(
-                tenantId,
-                userId,
-                name,
-                category,
-                provider,
-                type,
-                secret,
-                props,
-                isDefault,
-                description,
-                expiresAt
-        );
-
-        return ResponseEntity.ok(CredentialResponse.fromRecord(updated));
+        String userId = authentication != null ? authentication.getName() : null;
+        return credentialService.updateCredential(tenantId, userId, name, request)
+                .map(CredentialResponse::fromRecord)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{name}")
@@ -169,7 +115,7 @@ public class CredentialController {
             @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
             @PathVariable String name) {
 
-        boolean deleted = credentialProvider.deleteByName(tenantId, name);
+        boolean deleted = credentialService.deleteCredential(tenantId, name);
         if (!deleted) {
             return ResponseEntity.notFound().build();
         }
@@ -181,29 +127,10 @@ public class CredentialController {
             @RequestHeader(value = "X-Tenant-ID", defaultValue = "default") String tenantId,
             @PathVariable String name) {
 
-        Optional<CredentialRecord> recordOpt = credentialProvider.findByName(tenantId, name);
-        if (recordOpt.isEmpty()) {
+        Map<String, Object> result = credentialService.testCredential(tenantId, name);
+        if ("NOT_FOUND".equals(result.get("status"))) {
             return ResponseEntity.notFound().build();
         }
-
-        CredentialRecord record = recordOpt.get();
-        Optional<String> secretOpt = credentialProvider.resolve(record.name(), tenantId);
-        if (secretOpt.isEmpty() || secretOpt.get().isBlank()) {
-            return ResponseEntity.ok(Map.of(
-                    "status", "FAILED",
-                    "name", record.name(),
-                    "provider", record.provider(),
-                    "message", "Secret resolution or decryption failed"
-            ));
-        }
-
-        return ResponseEntity.ok(Map.of(
-                "status", "SUCCESS",
-                "name", record.name(),
-                "provider", record.provider(),
-                "category", record.category().name(),
-                "maskedPreview", record.maskedPreview(),
-                "message", "Credential successfully decrypted and validated"
-        ));
+        return ResponseEntity.ok(result);
     }
 }

@@ -17,7 +17,10 @@ import com.spectrayan.spector.synapse.connector.api.dto.CreateCredentialRequest;
 import com.spectrayan.spector.synapse.connector.api.dto.UpdateCredentialRequest;
 import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
 import com.spectrayan.spector.synapse.connector.model.CredentialType;
-import com.spectrayan.spector.synapse.connector.repository.JdbcEncryptedCredentialProvider;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
+import com.spectrayan.spector.synapse.connector.repository.JdbcCredentialRepository;
+import com.spectrayan.spector.synapse.connector.service.CredentialService;
+import com.spectrayan.spector.synapse.connector.service.DefaultCredentialService;
 import com.spectrayan.spector.synapse.security.crypto.AesGcmCipher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -57,9 +60,10 @@ class CredentialControllerTest {
 
         JdbcClient jdbc = JdbcClient.create(dataSource);
         objectMapper = new ObjectMapper();
+        CredentialRepository repository = new JdbcCredentialRepository(jdbc, objectMapper);
         AesGcmCipher cipher = new AesGcmCipher("test-master-encryption-key-32b-long");
-        JdbcEncryptedCredentialProvider provider = new JdbcEncryptedCredentialProvider(jdbc, objectMapper, cipher);
-        CredentialController controller = new CredentialController(provider);
+        CredentialService service = new DefaultCredentialService(repository, cipher);
+        CredentialController controller = new CredentialController(service);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
