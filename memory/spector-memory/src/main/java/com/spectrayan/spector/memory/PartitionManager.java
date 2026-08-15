@@ -430,7 +430,7 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 for (int i = 0; i < current.size() - 1; i++) {
                     next.add(current.get(i)); // already frozen
                 }
-                next.add(oldActive.asFrozen()); // freeze prev active
+                next.add(oldActive.asFrozen(epochSecs)); // freeze prev active with next epoch bound
                 PartitionHandle newActive = new PartitionHandle(
                         nextSeq, newPartition, newRouter, newText, true, newBundle);
                 next.add(newActive);

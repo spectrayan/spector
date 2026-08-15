@@ -348,6 +348,14 @@ public record RecallOptions(
         }
 
         /**
+         * Sets the synaptic tag filter mask directly.
+         */
+        public Builder synapticTagMask(long mask) {
+            this.synapticTagMask = mask;
+            return this;
+        }
+
+        /**
          * Minimum importance threshold  --  memories below this are skipped.
          */
         public Builder minImportance(float minImportance) {

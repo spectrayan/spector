@@ -48,9 +48,9 @@ import com.spectrayan.spector.memory.cortex.MemorySpladeIndex.SpladeCandidate;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
+import com.spectrayan.spector.memory.pipeline.pruning.PartitionPruner;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
@@ -186,6 +186,9 @@ public final class RecallPipeline {
 
     //  Surprise & Dopamine (nullable) 
     private final com.spectrayan.spector.memory.dopamine.SurpriseDetector surpriseDetector;
+
+    //  Query-Time Partition Pruning (#447) 
+    private final PartitionPruner partitionPruner;
 
     //  Neurodivergent: Lateral feedback tracking 
     // Maps memoryId  ->  RetrievalMode for the most recent recall.
@@ -431,6 +434,7 @@ public final class RecallPipeline {
         this.recallHistory = recallHistory;
         this.mmrReranker = mmrReranker;
         this.surpriseDetector = surpriseDetector;
+        this.partitionPruner = PartitionPruner.defaultPruner();
 
         //  Phase Components Initialization 
         this.candidateGatherer = new RecallCandidateGatherer(index, bm25Index);
@@ -448,6 +452,7 @@ public final class RecallPipeline {
                 temporalKnowledgeGraph, entityDirectory, entityExtractor);
     }
 
+    public PartitionPruner partitionPruner() { return partitionPruner; }
     public com.spectrayan.spector.memory.dopamine.SurpriseDetector surpriseDetector() { return surpriseDetector; }
     public RecallCandidateGatherer candidateGatherer() { return candidateGatherer; }
     public CognitiveReranker cognitiveReranker() { return cognitiveReranker; }
@@ -973,7 +978,8 @@ public final class RecallPipeline {
     private List<Callable<List<CognitiveResult>>> buildScanTasks(
             float[] queryVector, RecallOptions options, long nowMs, MemoryType[] targetTypes) {
         List<Callable<List<CognitiveResult>>> tasks = new ArrayList<>();
-        scan(new ParallelScanEmitter(tasks, queryVector, options, nowMs, this::scoreStoreToList, semanticRecallStrategy), targetTypes);
+        scan(new ParallelScanEmitter(tasks, queryVector, options, nowMs, this::scoreStoreToList, semanticRecallStrategy),
+                targetTypes, options, nowMs);
         return tasks;
     }
 
@@ -986,8 +992,11 @@ public final class RecallPipeline {
      * <p><b>#443 (D4b):</b> one volatile read of the immutable partition snapshot at
      * recall start. Working memory is GLOBAL — scanned once (emitted first, to preserve
      * result ordering); the record tiers fan out per partition (D2) in snapshot order.</p>
+     *
+     * <p><b>#447:</b> query-time partition pruning evaluates {@link PartitionSummary}
+     * metadata before emitting scan tasks to bound fan-out cost sublinearly.</p>
      */
-    private void scan(ScanEmitter emitter, MemoryType[] targetTypes) {
+    private void scan(ScanEmitter emitter, MemoryType[] targetTypes, RecallOptions options, long nowMs) {
         List<PartitionHandle> snapshot = partitionRegistry.snapshot();
         CognitiveMemoryRouter active = partitionRegistry.activeRouter();
         boolean singlePartition = snapshot.size() == 1;
@@ -1002,9 +1011,12 @@ public final class RecallPipeline {
         // Working memory — GLOBAL, scanned once (baseOffset 0) via the active router.
         WORKING_SCAN.contribute(ctx, activeHandle, emitter);
 
-        // #443 (D2): record tiers fan out — one scan per partition segment per tier.
+        // #447: Query-time partition pruning before fan-out
+        List<PartitionHandle> candidatePartitions = partitionPruner.prune(snapshot, options, targetTypes, nowMs);
+
+        // #443 (D2): record tiers fan out — one scan per partition segment per tier across candidates.
         // Disjoint segments → zero contention. Snapshot order preserved.
-        for (PartitionHandle handle : snapshot) {
+        for (PartitionHandle handle : candidatePartitions) {
             for (TierScanStrategy strategy : PER_PARTITION_SCANS) {
                 strategy.contribute(ctx, handle, emitter);
             }
@@ -1028,7 +1040,8 @@ public final class RecallPipeline {
     private List<CognitiveResult> sequentialScan(float[] queryVector, RecallOptions options,
                                                    long nowMs, MemoryType[] targetTypes) {
         List<CognitiveResult> results = new ArrayList<>();
-        scan(new SequentialScanEmitter(results, queryVector, options, nowMs, this::scoreStoreToList, semanticRecallStrategy), targetTypes);
+        scan(new SequentialScanEmitter(results, queryVector, options, nowMs, this::scoreStoreToList, semanticRecallStrategy),
+                targetTypes, options, nowMs);
         return results;
     }
 
