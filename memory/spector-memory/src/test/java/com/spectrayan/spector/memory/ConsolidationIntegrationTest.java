@@ -105,7 +105,7 @@ class ConsolidationIntegrationTest {
     }
 
     @Test
-    void testContradictoryDuplicatesFlagged() throws Exception {
+    void testContradictoryDuplicatesFlagged_cadpDirectional() throws Exception {
         // Create duplicate vectors
         float[] vector = new float[DIMENSIONS];
         vector[5] = 1.0f;
@@ -120,27 +120,32 @@ class ConsolidationIntegrationTest {
         llmProvider.registerResponse(" Paris", "YES");
         llmProvider.registerResponse(" Lyon", "YES");
 
-        // Store in SEMANTIC tier
+        // Store in SEMANTIC tier — fact-a first (older), fact-b second (newer)
         memory.remember("fact-a", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "geography");
         memory.remember("fact-b", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "geography");
 
         // Run consolidation
         memory.consolidate();
 
-        // Verify that the original memories still exist, but they are flagged as contradicted
+        // CADP: fact-b is newer (stored second) → winner. fact-a is older → loser.
         CognitiveRecord recordA = memory.inspect("fact-a");
         CognitiveRecord recordB = memory.inspect("fact-b");
 
         assertThat(recordA).isNotNull();
         assertThat(recordB).isNotNull();
-        assertThat(recordA.isContradicted()).isTrue();
-        assertThat(recordB.isContradicted()).isTrue();
+        assertThat(recordA.isContradicted())
+                .as("Older memory (loser) should be flagged as contradicted")
+                .isTrue();
+        assertThat(recordB.isContradicted())
+                .as("Newer memory (winner/corrector) should NOT be flagged")
+                .isFalse();
 
-        // Standard recall should filter/gate them out
+        // Standard recall should return the winner (fact-b) and hide the loser (fact-a)
         List<CognitiveResult> standardRecall = memory.recall("capital of France", RecallOptions.builder().includeContradictions(false).build());
-        assertThat(standardRecall).noneMatch(r -> "fact-a".equals(r.id()) || "fact-b".equals(r.id()));
+        assertThat(standardRecall).noneMatch(r -> "fact-a".equals(r.id()));
+        assertThat(standardRecall).anyMatch(r -> "fact-b".equals(r.id()));
 
-        // Recall with includeContradictions(true) should return them
+        // Recall with includeContradictions(true) should return both
         List<CognitiveResult> recallWithContradictions = memory.recall("capital of France", RecallOptions.builder().includeContradictions(true).build());
         assertThat(recallWithContradictions).anyMatch(r -> "fact-a".equals(r.id()));
         assertThat(recallWithContradictions).anyMatch(r -> "fact-b".equals(r.id()));

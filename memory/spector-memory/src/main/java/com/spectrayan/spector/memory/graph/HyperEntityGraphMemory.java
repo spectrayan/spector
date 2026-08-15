@@ -1043,6 +1043,10 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     public static final int ROLE_CONTEXT = 3;
     /** Entity is an instrument or method. */
     public static final int ROLE_INSTRUMENT = 4;
+    /** Entity belongs to the correcting (winner) memory in a CONTRADICTS edge (CADP #507). */
+    public static final int ROLE_CORRECTOR = 5;
+    /** Entity belongs to the corrected (loser) memory in a CONTRADICTS edge (CADP #507). */
+    public static final int ROLE_CORRECTED = 6;
     /** Unspecified role. */
     public static final int ROLE_UNSPECIFIED = 0;
 
