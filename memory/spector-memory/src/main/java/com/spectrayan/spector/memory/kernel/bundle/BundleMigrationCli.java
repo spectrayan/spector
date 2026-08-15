@@ -73,6 +73,291 @@ public final class BundleMigrationCli {
     // ══════════════════════════════════════════════════════════════
 
     /**
+     * Migrates all V3 runtime state and partition stores under the given namespace/base path to V4 bundles.
+     *
+     * @param basePath   the root persistence path
+     * @param dimensions embedding vector dimensions
+     * @return aggregate migration result
+     */
+    public static MigrationResult migrateAllWithRuntime(Path basePath, int dimensions) {
+        MigrationResult runtimeResult = migrateRuntime(basePath, dimensions);
+        MigrationResult partitionsResult = migrateAll(basePath, dimensions);
+
+        int total = runtimeResult.totalPartitions() + partitionsResult.totalPartitions();
+        int migrated = runtimeResult.migratedPartitions() + partitionsResult.migratedPartitions();
+        int skipped = runtimeResult.skippedPartitions() + partitionsResult.skippedPartitions();
+
+        return new MigrationResult(
+                migrated > 0 ? MigrationResult.Status.MIGRATED : MigrationResult.Status.SKIPPED,
+                total, migrated, skipped, null);
+    }
+
+    /**
+     * Migrates V3 standalone runtime stores (working, coactivation, index, hebbian,
+     * temporal, entity directory, hypergraph, registries, bm25, checkpoint) into
+     * a unified V4 {@code runtime.bundle} file.
+     *
+     * @param basePath   the root persistence path (contains {@code runtime/} dir)
+     * @param dimensions embedding vector dimensions
+     * @return migration result for runtime state
+     */
+    public static MigrationResult migrateRuntime(Path basePath, int dimensions) {
+        Path runtimeDir = StorageLayout.runtimeDir(basePath);
+        if (!Files.isDirectory(runtimeDir)) {
+            log.info("BundleMigration: no runtime/ directory at {} — skipping", basePath);
+            return new MigrationResult(MigrationResult.Status.SKIPPED, 1, 0, 1, "No runtime/ directory");
+        }
+
+        Path runtimeBundleFile = StorageLayout.runtimeBundleFile(basePath);
+        if (Files.exists(runtimeBundleFile)) {
+            log.info("BundleMigration: runtime.bundle already exists at {} — skipping", runtimeDir);
+            return new MigrationResult(MigrationResult.Status.ALREADY_MIGRATED, 1, 0, 1, "runtime.bundle already present");
+        }
+
+        Path workingFile = StorageLayout.workingMem(basePath);
+        Path coactFile = StorageLayout.coactivationTracker(basePath);
+        Path indexFile = StorageLayout.indexMidxRuntime(basePath);
+        Path hebbianFile = StorageLayout.hebbianGraphRuntime(basePath);
+        Path temporalFile = StorageLayout.temporalChainRuntime(basePath);
+        Path tfactsFile = StorageLayout.temporalFactsRuntime(basePath);
+        Path edirFile = StorageLayout.entityDirectoryRuntime(basePath);
+        Path hyegFile = StorageLayout.hyperEntityGraphRuntime(basePath);
+        Path etypesFile = StorageLayout.entityTypesRuntime(basePath);
+        Path rtypesFile = StorageLayout.relationTypesRuntime(basePath);
+        Path bm25File = StorageLayout.bm25BidxRuntime(basePath);
+        Path ckptFile = StorageLayout.checkpointMeta(basePath);
+
+        boolean hasAny = Files.exists(workingFile) || Files.exists(coactFile) || Files.exists(indexFile)
+                || Files.exists(hebbianFile) || Files.exists(temporalFile) || Files.exists(tfactsFile)
+                || Files.exists(edirFile) || Files.exists(hyegFile) || Files.exists(etypesFile)
+                || Files.exists(rtypesFile) || Files.exists(bm25File) || Files.exists(ckptFile);
+
+        if (!hasAny) {
+            log.info("BundleMigration: no V3 runtime store files in {} — skipping", runtimeDir);
+            return new MigrationResult(MigrationResult.Status.SKIPPED, 1, 0, 1, "No V3 runtime store files found");
+        }
+
+        log.info("BundleMigration: migrating runtime directory {} (dim={})", runtimeDir, dimensions);
+
+        try (Arena readArena = Arena.ofConfined()) {
+            V3StoreInfo working = readV3Store(readArena, workingFile, "working");
+            V3StoreInfo coact = readV3Store(readArena, coactFile, "coactivation");
+            V3StoreInfo index = readV3Store(readArena, indexFile, "index");
+            V3StoreInfo hebbian = readV3Store(readArena, hebbianFile, "hebbian");
+            V3StoreInfo temporal = readV3Store(readArena, temporalFile, "temporal");
+            V3StoreInfo tfacts = readV3Store(readArena, tfactsFile, "temporal-facts");
+            V3StoreInfo edir = readV3Store(readArena, edirFile, "entity-directory");
+            V3StoreInfo hyeg = readV3Store(readArena, hyegFile, "hypergraph");
+            V3StoreInfo etypes = readV3Store(readArena, etypesFile, "entity-types");
+            V3StoreInfo rtypes = readV3Store(readArena, rtypesFile, "relation-types");
+            V3StoreInfo ckpt = readV3Store(readArena, ckptFile, "checkpoint");
+
+            CognitiveRecordLayout cogLayout = new CognitiveRecordLayout(dimensions);
+            int workingCap = Math.max(working.count, 1000);
+            int graphCap = Math.max(hebbian.count, 10000);
+            int temporalCap = Math.max(temporal.count, 10000);
+            int hyperCap = Math.max(edir.count, 1000);
+            int hyperEdgeCap = hyperCap * 2;
+            int pairCap = 10000;
+            int edgeCap = 20000;
+
+            List<RegionSizeSpec> specs = List.of(
+                    new RegionSizeSpec(
+                            RegionId.WORKING,
+                            MemoryHeader.HEADER_BYTES + (long) cogLayout.recordStride() * workingCap,
+                            workingCap,
+                            cogLayout.recordStride(),
+                            cogLayout.layoutId(),
+                            cogLayout.schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.COACTIVATION,
+                            coact.segment != null ? Math.max(64 + 8 + 32L * pairCap + 40L * edgeCap, coact.segment.byteSize()) : 64 + 8 + 32L * pairCap + 40L * edgeCap,
+                            pairCap,
+                            0,
+                            new com.spectrayan.spector.memory.kernel.layout.CoActivationLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.CoActivationLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.INDEX_MIDX,
+                            index.segment != null ? Math.max(64 + 10000L * 32, index.segment.byteSize()) : 64 + 10000L * 32,
+                            10000,
+                            new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().recordStride(),
+                            new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.IndexEntryLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.INDEX_IDPL,
+                            1024 * 1024L,
+                            1,
+                            1,
+                            0,
+                            1,
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.HEBBIAN,
+                            hebbian.segment != null ? Math.max(64 + 8 + 24L * graphCap + 12L * graphCap * 16, hebbian.segment.byteSize()) : 64 + 8 + 24L * graphCap + 12L * graphCap * 16,
+                            graphCap,
+                            0,
+                            new com.spectrayan.spector.memory.kernel.layout.HebbianLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.HebbianLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.TEMPORAL_CHAIN,
+                            temporal.segment != null ? Math.max(64 + 24L * temporalCap, temporal.segment.byteSize()) : 64 + 24L * temporalCap,
+                            temporalCap,
+                            24,
+                            new com.spectrayan.spector.memory.kernel.layout.TemporalLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.TemporalLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.TEMPORAL_FACTS,
+                            tfacts.segment != null ? Math.max(64 + 4L * 1024 * 1024, tfacts.segment.byteSize()) : 64 + 4L * 1024 * 1024,
+                            1,
+                            0,
+                            new com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.TemporalFactLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.ENTITY_DIRECTORY,
+                            edir.segment != null ? Math.max(64 + 16 + 64L * hyperCap, edir.segment.byteSize()) : 64 + 16 + 64L * hyperCap,
+                            hyperCap,
+                            64,
+                            new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.ENTITY_NAMES,
+                            64 + 16 + 8L * hyperCap * 16 + 32L * hyperCap,
+                            1,
+                            8,
+                            new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.EntityDirectoryLayout().schemaVersion(),
+                            true
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.HYPERGRAPH,
+                            hyeg.segment != null ? Math.max(64 + 16 + 48L * hyperEdgeCap + 128L * hyperEdgeCap, hyeg.segment.byteSize()) : 64 + 16 + 48L * hyperEdgeCap + 128L * hyperEdgeCap,
+                            hyperCap,
+                            48,
+                            new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.HyperEntityLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.ENTITY_TYPES,
+                            etypes.segment != null ? Math.max(64 + 1024 * 64L, etypes.segment.byteSize()) : 64 + 1024 * 64L,
+                            1024,
+                            0,
+                            new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.RELATION_TYPES,
+                            rtypes.segment != null ? Math.max(64 + 1024 * 64L, rtypes.segment.byteSize()) : 64 + 1024 * 64L,
+                            1024,
+                            0,
+                            new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().layoutId(),
+                            new com.spectrayan.spector.memory.kernel.layout.RegistryLayout().schemaVersion(),
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.INSULA,
+                            4096L,
+                            1,
+                            0,
+                            com.spectrayan.spector.memory.insula.InsularLayout.LAYOUT_ID,
+                            com.spectrayan.spector.memory.insula.InsularLayout.SCHEMA_VERSION,
+                            false
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.CHECKPOINT,
+                            128L * 1024,
+                            1,
+                            0,
+                            0x434B5054,
+                            1,
+                            true
+                    ),
+                    new RegionSizeSpec(
+                            RegionId.BM25,
+                            4L * 1024 * 1024,
+                            1,
+                            0,
+                            0x42494458,
+                            1,
+                            true
+                    )
+            );
+
+            RuntimeBundle bundle = RuntimeBundle.Init.mmap(runtimeBundleFile, specs);
+
+            copyRuntimeRegionData(working, bundle, RegionId.WORKING, "working");
+            copyRuntimeRegionData(coact, bundle, RegionId.COACTIVATION, "coactivation");
+            copyRuntimeRegionData(index, bundle, RegionId.INDEX_MIDX, "index");
+            copyRuntimeRegionData(hebbian, bundle, RegionId.HEBBIAN, "hebbian");
+            copyRuntimeRegionData(temporal, bundle, RegionId.TEMPORAL_CHAIN, "temporal");
+            copyRuntimeRegionData(tfacts, bundle, RegionId.TEMPORAL_FACTS, "temporal-facts");
+            copyRuntimeRegionData(edir, bundle, RegionId.ENTITY_DIRECTORY, "entity-directory");
+            copyRuntimeRegionData(hyeg, bundle, RegionId.HYPERGRAPH, "hypergraph");
+            copyRuntimeRegionData(etypes, bundle, RegionId.ENTITY_TYPES, "entity-types");
+            copyRuntimeRegionData(rtypes, bundle, RegionId.RELATION_TYPES, "relation-types");
+            copyRuntimeRegionData(ckpt, bundle, RegionId.CHECKPOINT, "checkpoint");
+
+            if (Files.exists(bm25File)) {
+                try {
+                    com.spectrayan.spector.index.BM25Index loaded = com.spectrayan.spector.index.BM25Index.load(bm25File);
+                    if (loaded != null) {
+                        MemorySegment bm25Slice = bundle.regionSegment(RegionId.BM25);
+                        loaded.saveToRegion(bm25Slice);
+                        log.info("BundleMigration: migrated BM25 index with {} docs", loaded.size());
+                    }
+                } catch (Exception e) {
+                    log.warn("BundleMigration: failed to load/migrate BM25 index: {}", e.getMessage());
+                }
+            }
+
+            bundle.close();
+
+            backupV3File(workingFile);
+            backupV3File(coactFile);
+            backupV3File(indexFile);
+            backupV3File(hebbianFile);
+            backupV3File(temporalFile);
+            backupV3File(tfactsFile);
+            backupV3File(edirFile);
+            backupV3File(hyegFile);
+            backupV3File(etypesFile);
+            backupV3File(rtypesFile);
+            backupV3File(bm25File);
+            backupV3File(ckptFile);
+
+            log.info("BundleMigration: ✓ runtime directory {} migrated to runtime.bundle", runtimeDir);
+            return new MigrationResult(MigrationResult.Status.MIGRATED, 1, 1, 0, null);
+
+        } catch (MigrationException e) {
+            try {
+                Files.deleteIfExists(runtimeBundleFile);
+            } catch (IOException ignored) {}
+            throw e;
+        } catch (Exception e) {
+            try {
+                Files.deleteIfExists(runtimeBundleFile);
+            } catch (IOException ignored) {}
+            throw new MigrationException("Runtime migration failed for " + basePath, e);
+        }
+    }
+
+    /**
      * Migrates all V3 partitions under the given namespace/base path to V4 bundles.
      *
      * @param basePath   the root persistence path (contains {@code partitions/} dir)
@@ -323,6 +608,30 @@ public final class BundleMigrationCli {
         // Bulk copy: header + all records
         MemorySegment.copy(source.segment, 0, targetSlice, 0, sourceSize);
         log.debug("BundleMigration: copied {} — {}KB into bundle region", name, sourceSize / 1024);
+    }
+
+    /**
+     * Copies V3 runtime store data into the corresponding V4 runtime bundle region.
+     */
+    private static void copyRuntimeRegionData(V3StoreInfo source, RuntimeBundle bundle,
+                                               RegionId regionId, String name) {
+        if (!source.exists()) {
+            log.debug("BundleMigration: skipping runtime {} — no source data", name);
+            return;
+        }
+
+        MemorySegment targetSlice = bundle.regionSegment(regionId);
+        long sourceSize = source.segment.byteSize();
+        long targetSize = targetSlice.byteSize();
+
+        if (sourceSize > targetSize) {
+            throw new MigrationException(String.format(
+                    "V3 runtime %s data (%dKB) exceeds V4 region capacity (%dKB)",
+                    name, sourceSize / 1024, targetSize / 1024));
+        }
+
+        MemorySegment.copy(source.segment, 0, targetSlice, 0, sourceSize);
+        log.debug("BundleMigration: copied runtime {} — {}KB into bundle region", name, sourceSize / 1024);
     }
 
     /**

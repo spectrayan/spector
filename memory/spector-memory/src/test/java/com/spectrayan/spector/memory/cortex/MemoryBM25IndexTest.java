@@ -183,4 +183,47 @@ class MemoryBM25IndexTest {
         List<BM25Candidate> results = bm25Index.search("auto-created partition", 10);
         assertThat(results).isNotEmpty();
     }
+
+    @Test
+    void persistToBundle_and_loadFromBundle_with_growth(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) {
+        java.nio.file.Path bundlePath = tempDir.resolve("runtime.bundle");
+        List<com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec> specs = List.of(
+                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.WORKING, 4096, 10, 64, 1, 1, false),
+                // Start with a small BM25 region to trigger growth
+                new com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25, 4096, 1, 0, 0x42494458, 1, true)
+        );
+
+        bm25Index.addPartition();
+        // Insert enough documents so serialized payload exceeds 4096 bytes
+        for (int i = 0; i < 200; i++) {
+            bm25Index.index(0, "doc-key-identifier-" + i,
+                    "This is an extensive document with unique keywords for indexing term_" + i +
+                    " and multiple repeated tokens to increase payload volume significantly in the posting list.");
+        }
+
+        try (var runtimeBundle = com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.mmap(bundlePath, specs)) {
+            com.spectrayan.spector.memory.kernel.bundle.BundleManager mgr =
+                    new com.spectrayan.spector.memory.kernel.bundle.BundleManager(runtimeBundle);
+
+            int written = bm25Index.persistToBundle(runtimeBundle, mgr);
+            assertThat(written).isGreaterThan(4096);
+
+            // Verify BM25 region grew
+            assertThat(runtimeBundle.regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25).byteSize())
+                    .isGreaterThan(4096);
+        }
+
+        // Reopen bundle and load BM25 index
+        try (var reopenedBundle = com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle.Init.open(bundlePath)) {
+            com.spectrayan.spector.index.BM25Index loaded = MemoryBM25Index.loadFromBundle(reopenedBundle);
+            assertThat(loaded).isNotNull();
+            assertThat(loaded.size()).isEqualTo(200);
+
+            var scored = loaded.search("term_105", 5);
+            assertThat(scored).isNotEmpty();
+            assertThat(scored[0].id()).isEqualTo("doc-key-identifier-105");
+        }
+    }
 }

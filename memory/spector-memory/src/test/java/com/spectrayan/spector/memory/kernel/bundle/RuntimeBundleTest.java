@@ -226,6 +226,76 @@ class RuntimeBundleTest {
         }
     }
 
+    // ── Compaction Tests ──
+
+    @Test
+    void mmapCompactionReclaimsDeadSpace(@TempDir Path tempDir) throws Exception {
+        Path bundlePath = tempDir.resolve("runtime.bundle");
+
+        try (RuntimeBundle bundle = RuntimeBundle.Init.mmap(bundlePath, testSpecs())) {
+            assertThat(bundle.hasDeadRegions()).isFalse();
+            assertThat(bundle.deadSpaceBytes()).isEqualTo(0L);
+            assertThat(bundle.fragmentationRatio()).isEqualTo(0f);
+
+            // Write test data to HEBBIAN and ENTITY_DIRECTORY
+            MemorySegment hebbianSlice = bundle.regionSegment(RegionId.HEBBIAN);
+            long now = System.currentTimeMillis();
+            MemoryHeader.write(hebbianSlice, 0, 1, MemoryShape.GRAPH, 1,
+                    200, 55, 32, LAYOUT_ID, now, now);
+            hebbianSlice.set(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES, 0x1234567890ABCDEFL);
+
+            MemorySegment edirSlice = bundle.regionSegment(RegionId.ENTITY_DIRECTORY);
+            MemoryHeader.write(edirSlice, 0, 1, MemoryShape.GRAPH, 1,
+                    100, 77, 64, LAYOUT_ID, now, now);
+
+            // Grow HEBBIAN twice to create substantial dead space
+            bundle.growRegion(RegionId.HEBBIAN);
+            bundle.growRegion(RegionId.HEBBIAN);
+
+            assertThat(bundle.hasDeadRegions()).isTrue();
+            assertThat(bundle.deadSpaceBytes()).isGreaterThan(0L);
+            assertThat(bundle.fragmentationRatio()).isGreaterThan(0f);
+
+            long sizeBeforeCompact = java.nio.file.Files.size(bundlePath);
+
+            // Run compaction
+            long reclaimed = bundle.compact();
+            assertThat(reclaimed).isGreaterThan(0L);
+
+            long sizeAfterCompact = java.nio.file.Files.size(bundlePath);
+            assertThat(sizeAfterCompact).isLessThan(sizeBeforeCompact);
+            assertThat(bundle.hasDeadRegions()).isFalse();
+            assertThat(bundle.deadSpaceBytes()).isEqualTo(0L);
+
+            // Verify live data integrity after compaction
+            MemorySegment hebbianCompacted = bundle.regionSegment(RegionId.HEBBIAN);
+            assertThat(MemoryHeader.isValid(hebbianCompacted, 0)).isTrue();
+            assertThat(MemoryHeader.readCount(hebbianCompacted, 0)).isEqualTo(55);
+            assertThat(hebbianCompacted.get(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES))
+                    .isEqualTo(0x1234567890ABCDEFL);
+
+            MemorySegment edirCompacted = bundle.regionSegment(RegionId.ENTITY_DIRECTORY);
+            assertThat(MemoryHeader.isValid(edirCompacted, 0)).isTrue();
+            assertThat(MemoryHeader.readCount(edirCompacted, 0)).isEqualTo(77);
+        }
+
+        // Reopen compacted bundle from disk and verify persistence
+        try (RuntimeBundle reopened = RuntimeBundle.Init.open(bundlePath)) {
+            assertThat(reopened.hasDeadRegions()).isFalse();
+            assertThat(reopened.directory().liveRegionCount()).isEqualTo(6);
+
+            MemorySegment hebbianReopened = reopened.regionSegment(RegionId.HEBBIAN);
+            assertThat(MemoryHeader.isValid(hebbianReopened, 0)).isTrue();
+            assertThat(MemoryHeader.readCount(hebbianReopened, 0)).isEqualTo(55);
+            assertThat(hebbianReopened.get(ValueLayout.JAVA_LONG, MemoryHeader.HEADER_BYTES))
+                    .isEqualTo(0x1234567890ABCDEFL);
+
+            MemorySegment edirReopened = reopened.regionSegment(RegionId.ENTITY_DIRECTORY);
+            assertThat(MemoryHeader.isValid(edirReopened, 0)).isTrue();
+            assertThat(MemoryHeader.readCount(edirReopened, 0)).isEqualTo(77);
+        }
+    }
+
     // ── BundleManager Tests ──
 
     @Test
@@ -238,8 +308,29 @@ class RuntimeBundleTest {
             assertThat(mgr.needsGrowth(RegionId.HEBBIAN)).isFalse();
 
             // growIfNeeded should return false (below threshold)
-            // Note: growRegion fails for heap bundles, so we just test the threshold logic
             assertThat(mgr.growIfNeeded(RegionId.HEBBIAN)).isFalse();
+            assertThat(mgr.fragmentationRatio()).isEqualTo(0f);
+            assertThat(mgr.deadSpaceBytes()).isEqualTo(0L);
+        }
+    }
+
+    @Test
+    void bundleManagerCompactionTriggersOnThreshold(@TempDir Path tempDir) {
+        Path bundlePath = tempDir.resolve("runtime.bundle");
+        try (RuntimeBundle bundle = RuntimeBundle.Init.mmap(bundlePath, testSpecs())) {
+            BundleManager mgr = new BundleManager(bundle, 0.80f);
+
+            // Initial state: not compacting needed
+            assertThat(mgr.compactIfNeeded(0.10f)).isFalse();
+
+            // Grow to generate dead space
+            mgr.growRegion(RegionId.HEBBIAN);
+            assertThat(mgr.fragmentationRatio()).isGreaterThan(0.05f);
+
+            // Trigger compaction via threshold
+            boolean compacted = mgr.compactIfNeeded(0.05f);
+            assertThat(compacted).isTrue();
+            assertThat(mgr.fragmentationRatio()).isEqualTo(0f);
         }
     }
 }

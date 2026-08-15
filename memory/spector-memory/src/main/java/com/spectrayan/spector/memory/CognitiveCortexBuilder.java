@@ -196,6 +196,20 @@ final class CognitiveCortexBuilder {
                 }
             }
             if (isNewRuntime) {
+                // Auto-detect V3 runtime files and attempt auto-migration
+                try {
+                    com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli.MigrationResult migrationResult =
+                            com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli.migrateRuntime(basePath, builder.dimensions);
+                    if (migrationResult.status() == com.spectrayan.spector.memory.kernel.bundle.BundleMigrationCli.MigrationResult.Status.MIGRATED) {
+                        log.info("Successfully auto-migrated V3 runtime files to runtime.bundle");
+                        runtimeBundle = RuntimeBundle.Init.open(runtimeBundleFile);
+                        isNewRuntime = false;
+                    }
+                } catch (Exception e) {
+                    log.warn("Auto-migration of V3 runtime files encountered an issue: {}", e.getMessage());
+                }
+            }
+            if (isNewRuntime) {
                 runtimeBundle = RuntimeBundle.Init.mmap(runtimeBundleFile, specs);
             }
 
