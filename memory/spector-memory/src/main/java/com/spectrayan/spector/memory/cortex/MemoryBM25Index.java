@@ -252,6 +252,75 @@ public final class MemoryBM25Index implements AutoCloseable {
         return partitions.get(partitionIndex);
     }
 
+    /**
+     * Persists the active BM25 index into a V4 {@link RuntimeBundle} with dynamic variable-slice growth.
+     *
+     * <p>If the serialized BM25 index payload exceeds the current {@link RegionId#BM25} region size,
+     * this method automatically grows the region via {@link RuntimeBundle#growRegion(RegionId)}
+     * and retries the save into the expanded slice.</p>
+     *
+     * @param runtimeBundle the runtime bundle containing the BM25 region
+     * @param bundleManager optional bundle manager for usage tracking (may be null)
+     * @return number of bytes written to the bundle region, or -1 on error
+     */
+    public int persistToBundle(com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle runtimeBundle,
+                               com.spectrayan.spector.memory.kernel.bundle.BundleManager bundleManager) {
+        if (runtimeBundle == null || partitions.isEmpty() || totalDocuments() == 0) {
+            return 0;
+        }
+
+        try {
+            java.lang.foreign.MemorySegment bm25Region = runtimeBundle.regionSegment(
+                    com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+            if (bm25Region == null) {
+                return -1;
+            }
+
+            int written = partition(0).saveToRegion(bm25Region);
+            if (written == -1) {
+                // Payload exceeds current capacity -> dynamically grow BM25 region
+                log.info("BM25 index exceeded region capacity; triggering dynamic region growth");
+                runtimeBundle.growRegion(com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+
+                // Fetch new expanded slice and retry write
+                java.lang.foreign.MemorySegment grownRegion = runtimeBundle.regionSegment(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+                written = partition(0).saveToRegion(grownRegion);
+            }
+
+            if (written > 0) {
+                runtimeBundle.updateRegionUsedSize(
+                        com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25, written);
+            }
+            return written;
+        } catch (Exception e) {
+            log.warn("Failed to persist BM25 index to runtime bundle: {}", e.getMessage(), e);
+            return -1;
+        }
+    }
+
+    /**
+     * Loads a BM25 index from a V4 {@link RuntimeBundle}.
+     *
+     * @param runtimeBundle the runtime bundle containing the BM25 region
+     * @return the loaded BM25Index, or null if no valid data is found
+     */
+    public static BM25Index loadFromBundle(com.spectrayan.spector.memory.kernel.bundle.RuntimeBundle runtimeBundle) {
+        if (runtimeBundle == null) {
+            return null;
+        }
+        try {
+            java.lang.foreign.MemorySegment bm25Region = runtimeBundle.regionSegment(
+                    com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
+            if (bm25Region != null) {
+                return BM25Index.loadFromRegion(bm25Region);
+            }
+        } catch (Exception e) {
+            log.debug("BM25 load from bundle region failed: {}", e.getMessage());
+        }
+        return null;
+    }
+
     @Override
     public void close() {
         for (BM25Index idx : partitions) {

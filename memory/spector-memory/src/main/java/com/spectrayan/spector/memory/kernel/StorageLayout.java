@@ -113,67 +113,131 @@ public final class StorageLayout {
     public static final String FILE_SERVER_CONFIG = "server.json";
 
     // ═══════════════════════════════════════════════════════════════
-    // Global Files (inside DIR_GLOBAL)
+    // Global Files (inside DIR_GLOBAL / DIR_RUNTIME) — V3 Legacy Standalone Files
     // ═══════════════════════════════════════════════════════════════
 
-    /** Working memory tier store (volatile, TTL-based). */
+    /**
+     * Working memory tier store (volatile, TTL-based).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.WORKING). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_WORKING = "working.mem";
 
-    /** Global co-activation frequency tracker. */
+    /**
+     * Global co-activation frequency tracker.
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.COACTIVATION). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_COACTIVATION = "coactivation.tracker";
 
-    /** Checkpoint metadata — WAL high-water mark for crash recovery. */
+    /**
+     * Checkpoint metadata — WAL high-water mark for crash recovery.
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.CHECKPOINT). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_CHECKPOINT_META = "checkpoint.meta";
 
     // ═══════════════════════════════════════════════════════════════
-    // Partition Files (inside each partition directory)
+    // Partition Files (inside each partition directory) — V3 Legacy Standalone Files
     // ═══════════════════════════════════════════════════════════════
 
-    /** Semantic tier — cognitive headers + quantized vectors. */
+    /**
+     * Semantic tier — cognitive headers + quantized vectors.
+     * @deprecated Consolidated into {@link #FILE_PARTITION_BUNDLE} (RegionId.SEMANTIC). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_SEMANTIC = "semantic.mem";
 
-    /** Episodic tier — episodic headers + vectors. */
+    /**
+     * Episodic tier — episodic headers + vectors.
+     * @deprecated Consolidated into {@link #FILE_PARTITION_BUNDLE} (RegionId.EPISODIC). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_EPISODIC = "episodic.mem";
 
-    /** Procedural tier — procedural skills + patterns. */
+    /**
+     * Procedural tier — procedural skills + patterns.
+     * @deprecated Consolidated into {@link #FILE_PARTITION_BUNDLE} (RegionId.PROCEDURAL). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_PROCEDURAL = "procedural.mem";
 
-    /** Raw text content for all tiers in this partition. */
+    /**
+     * Raw text content for all tiers in this partition.
+     * @deprecated Consolidated into {@link #FILE_PARTITION_BUNDLE} (RegionId.TEXT). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_TEXT = "text.dat";
 
-    /** Global memory index (id → location, source, tags). Stored in runtime/ (V3). */
+    /**
+     * Global memory index (id → location, source, tags). Stored in runtime/ (V3).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.INDEX_MIDX, INDEX_IDPL). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_INDEX = "index.midx";
 
-    /** Global Hebbian co-activation edges. Stored in runtime/ (V3). */
+    /**
+     * Global Hebbian co-activation edges. Stored in runtime/ (V3).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.HEBBIAN). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_HEBBIAN = "hebbian.graph";
 
-    /** Global temporal sequence links. Stored in runtime/ (V3). */
+    /**
+     * Global temporal sequence links. Stored in runtime/ (V3).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.TEMPORAL_CHAIN). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_TEMPORAL = "temporal.chain";
 
-    /** Temporal Knowledge Graph facts (bitemporal append-only log). Stored in runtime/ (V3). */
+    /**
+     * Temporal Knowledge Graph facts (bitemporal append-only log). Stored in runtime/ (V3).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.TEMPORAL_FACTS). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_TEMPORAL_FACTS = "temporal-facts.tfacts";
 
     /**
      * Legacy entity knowledge graph file name.
      * @deprecated Retained only for {@link com.spectrayan.spector.memory.graph.EntityGraphMigrationCli}
-     *             reads. New code must use {@link #FILE_ENTITY_DIRECTORY}.
+     *             reads. New code must use {@link #FILE_ENTITY_DIRECTORY} or {@link #FILE_RUNTIME_BUNDLE}.
      */
     @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_ENTITY = "entity.graph";
 
-    /** HyperEntityGraph binary file (hyperedge storage). Stored in runtime/ (V3). */
+    /**
+     * HyperEntityGraph binary file (hyperedge storage). Stored in runtime/ (V3).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.HYPERGRAPH). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_HYPERGRAPH = "hypergraph.hyeg";
 
-    /** Entity directory (identity + entity→memory adjacency) SMKM container. Stored in runtime/ (ADR-0003, #455). */
+    /**
+     * Entity directory (identity + entity→memory adjacency) SMKM container. Stored in runtime/ (ADR-0003, #455).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.ENTITY_DIRECTORY, ENTITY_NAMES). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_ENTITY_DIRECTORY = "entity-directory.edir";
 
-    /** BM25 inverted index binary file. Stored in runtime/ (V3). */
+    /**
+     * BM25 inverted index binary file. Stored in runtime/ (V3).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.BM25). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_BM25 = "bm25.bidx";
 
-    /** Entity type registry (String ↔ int mapping for entity types). Stored in runtime/ (V3). */
+    /**
+     * Entity type registry (String ↔ int mapping for entity types). Stored in runtime/ (V3).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.ENTITY_TYPES). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_ENTITY_TYPES = "entity-types.treg";
 
-    /** Relation type registry (String ↔ int mapping for relation types). Stored in runtime/ (V3). */
+    /**
+     * Relation type registry (String ↔ int mapping for relation types). Stored in runtime/ (V3).
+     * @deprecated Consolidated into {@link #FILE_RUNTIME_BUNDLE} (RegionId.RELATION_TYPES). Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static final String FILE_RELATION_TYPES = "relation-types.treg";
 
 
@@ -436,80 +500,128 @@ public final class StorageLayout {
         return snapshotsDir(basePath).resolve(namespaceId).resolve(snapshotId);
     }
 
-    // ── Runtime file resolvers (V3 — global structures in runtime/) ──
+    // ── Runtime file resolvers (V3 Legacy — global structures in runtime/) ──
 
     /** Resolves the manifest file path. */
     public static Path manifest(Path basePath) {
         return basePath.resolve(FILE_MANIFEST);
     }
 
-    /** Resolves the working memory file path (in runtime/). */
+    /**
+     * Resolves the working memory file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path workingMem(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_WORKING);
     }
 
-    /** Resolves the co-activation tracker file path (in runtime/). */
+    /**
+     * Resolves the co-activation tracker file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path coactivationTracker(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_COACTIVATION);
     }
 
-    /** Resolves the checkpoint metadata file path (in runtime/). */
+    /**
+     * Resolves the checkpoint metadata file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path checkpointMeta(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_CHECKPOINT_META);
     }
 
-    // ── Global structure resolvers (V3 — in runtime/, not partition/) ──
+    // ── Global structure resolvers (V3 Legacy — in runtime/, not partition/) ──
 
-    /** Resolves the index.midx file path (in runtime/). */
+    /**
+     * Resolves the index.midx file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path indexMidxRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_INDEX);
     }
 
-    /** Resolves the hebbian.graph file path (in runtime/). */
+    /**
+     * Resolves the hebbian.graph file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path hebbianGraphRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_HEBBIAN);
     }
 
-    /** Resolves the temporal.chain file path (in runtime/). */
+    /**
+     * Resolves the temporal.chain file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path temporalChainRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_TEMPORAL);
     }
 
-    /** Resolves the temporal-facts.tfacts file path (in runtime/). */
+    /**
+     * Resolves the temporal-facts.tfacts file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path temporalFactsRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_TEMPORAL_FACTS);
     }
 
     /**
      * Resolves the legacy entity.graph file path (in runtime/).
-     * @deprecated Retained only for migration CLI reads. Use {@link #entityDirectoryRuntime(Path)}.
+     * @deprecated Retained only for migration CLI reads. Use {@link #runtimeBundleFile(Path)}.
      */
     @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path entityGraphRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_ENTITY);
     }
 
-    /** Resolves the hypergraph.hyeg file path (in runtime/). */
+    /**
+     * Resolves the hypergraph.hyeg file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path hyperEntityGraphRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_HYPERGRAPH);
     }
 
-    /** Resolves the entity-directory.edir file path (in runtime/). */
+    /**
+     * Resolves the entity-directory.edir file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path entityDirectoryRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_ENTITY_DIRECTORY);
     }
 
-    /** Resolves the entity-types.treg file path (in runtime/). */
+    /**
+     * Resolves the entity-types.treg file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path entityTypesRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_ENTITY_TYPES);
     }
 
-    /** Resolves the relation-types.treg file path (in runtime/). */
+    /**
+     * Resolves the relation-types.treg file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path relationTypesRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_RELATION_TYPES);
     }
 
-    /** Resolves the bm25.bidx file path (in runtime/). */
+    /**
+     * Resolves the bm25.bidx file path (in runtime/).
+     * @deprecated Consolidated into {@link #runtimeBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path bm25BidxRuntime(Path basePath) {
         return runtimeDir(basePath).resolve(FILE_BM25);
     }
@@ -586,22 +698,38 @@ public final class StorageLayout {
         return partitionDir.resolve(fileName);
     }
 
-    /** Resolves the semantic.mem file within a partition. */
+    /**
+     * Resolves the semantic.mem file within a partition.
+     * @deprecated Consolidated into {@link #partitionBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path semanticMem(Path partitionDir) {
         return partitionDir.resolve(FILE_SEMANTIC);
     }
 
-    /** Resolves the episodic.mem file within a partition. */
+    /**
+     * Resolves the episodic.mem file within a partition.
+     * @deprecated Consolidated into {@link #partitionBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path episodicMem(Path partitionDir) {
         return partitionDir.resolve(FILE_EPISODIC);
     }
 
-    /** Resolves the procedural.mem file within a partition. */
+    /**
+     * Resolves the procedural.mem file within a partition.
+     * @deprecated Consolidated into {@link #partitionBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path proceduralMem(Path partitionDir) {
         return partitionDir.resolve(FILE_PROCEDURAL);
     }
 
-    /** Resolves the text.dat file within a partition. */
+    /**
+     * Resolves the text.dat file within a partition.
+     * @deprecated Consolidated into {@link #partitionBundleFile(Path)}. Target removal: 1.3.0.
+     */
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public static Path textDat(Path partitionDir) {
         return partitionDir.resolve(FILE_TEXT);
     }

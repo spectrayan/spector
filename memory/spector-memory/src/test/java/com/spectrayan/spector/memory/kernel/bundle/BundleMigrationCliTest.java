@@ -18,6 +18,7 @@ import com.spectrayan.spector.memory.cortex.SemanticRecordMemory;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
 import com.spectrayan.spector.memory.DataEncryptor;
 import com.spectrayan.spector.memory.kernel.MemoryHeader;
+import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -167,6 +168,88 @@ class BundleMigrationCliTest {
         // Both bundles should exist
         assertTrue(Files.exists(StorageLayout.partitionBundleFile(part0)));
         assertTrue(Files.exists(StorageLayout.partitionBundleFile(part1)));
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // (f) Runtime migration — migrateRuntime
+    // ──────────────────────────────────────────────────────────────
+
+    @Test
+    void migrateRuntime_withV3Files_createsBundleAndBackups() throws IOException {
+        Path runtimeDir = StorageLayout.runtimeDir(tempDir);
+        Files.createDirectories(runtimeDir);
+
+        // Create V3 working.mem with SMKM header
+        Path workingFile = StorageLayout.workingMem(tempDir);
+        try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            int stride = 128;
+            long fileSize = MemoryHeader.HEADER_BYTES + 100L * stride;
+            fc.write(java.nio.ByteBuffer.allocate(1), fileSize - 1);
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment seg = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
+                MemoryHeader.write(seg, 0, 1, MemoryShape.RECORD, 1, 100, 15, stride, 0x574F524B, 1000L, 2000L);
+            }
+        }
+
+        BundleMigrationCli.MigrationResult result =
+                BundleMigrationCli.migrateRuntime(tempDir, VEC_BYTES);
+
+        assertEquals(BundleMigrationCli.MigrationResult.Status.MIGRATED, result.status());
+        assertEquals(1, result.migratedPartitions());
+
+        Path runtimeBundleFile = StorageLayout.runtimeBundleFile(tempDir);
+        assertTrue(Files.exists(runtimeBundleFile), "runtime.bundle should exist");
+
+        // Verify working.mem.v3bak exists and working.mem was moved
+        assertTrue(Files.exists(Path.of(workingFile + ".v3bak")), "working.mem.v3bak should exist");
+        assertFalse(Files.exists(workingFile), "working.mem should have been moved");
+
+        // Verify runtime bundle can be opened and contains data
+        try (RuntimeBundle bundle = RuntimeBundle.Init.open(runtimeBundleFile)) {
+            MemorySegment workingSlice = bundle.regionSegment(RegionId.WORKING);
+            assertTrue(MemoryHeader.isValid(workingSlice, 0));
+            assertEquals(15, MemoryHeader.readCount(workingSlice, 0));
+        }
+    }
+
+    @Test
+    void migrateRuntime_alreadyMigrated_skips() throws IOException {
+        Path runtimeDir = StorageLayout.runtimeDir(tempDir);
+        Files.createDirectories(runtimeDir);
+
+        Path runtimeBundleFile = StorageLayout.runtimeBundleFile(tempDir);
+        Files.createFile(runtimeBundleFile);
+
+        BundleMigrationCli.MigrationResult result =
+                BundleMigrationCli.migrateRuntime(tempDir, VEC_BYTES);
+
+        assertEquals(BundleMigrationCli.MigrationResult.Status.ALREADY_MIGRATED, result.status());
+    }
+
+    @Test
+    void migrateAllWithRuntime_migratesBothRuntimeAndPartitions() throws IOException {
+        Path runtimeDir = StorageLayout.runtimeDir(tempDir);
+        Files.createDirectories(runtimeDir);
+
+        Path workingFile = StorageLayout.workingMem(tempDir);
+        try (FileChannel fc = FileChannel.open(workingFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            long fileSize = MemoryHeader.HEADER_BYTES + 64;
+            fc.write(java.nio.ByteBuffer.allocate(1), fileSize - 1);
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment seg = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize, arena);
+                MemoryHeader.write(seg, 0, 1, MemoryShape.RECORD, 1, 1, 1, 64, 0x574F524B, 1000L, 2000L);
+            }
+        }
+
+        Path part0 = createPartitionDir(0);
+        createV3StoreFiles(part0, 2);
+
+        BundleMigrationCli.MigrationResult result =
+                BundleMigrationCli.migrateAllWithRuntime(tempDir, VEC_BYTES);
+
+        assertEquals(BundleMigrationCli.MigrationResult.Status.MIGRATED, result.status());
+        assertTrue(Files.exists(StorageLayout.runtimeBundleFile(tempDir)));
+        assertTrue(Files.exists(StorageLayout.partitionBundleFile(part0)));
     }
 
     // ══════════════════════════════════════════════════════════════

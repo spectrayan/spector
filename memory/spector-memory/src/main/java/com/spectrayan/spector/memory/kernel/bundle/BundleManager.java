@@ -111,15 +111,46 @@ public final class BundleManager {
     }
 
     /**
-     * Reclaims dead space from previously relocated regions.
+     * Reclaims dead space from previously relocated regions by defragmenting
+     * the runtime bundle and truncating the bundle file on disk.
      *
-     * <p>Not yet implemented — future compaction support.
-     * Dead regions left behind by {@code growRegion()} waste disk space
-     * but don't affect correctness.</p>
+     * @return number of bytes reclaimed
      */
-    public void compact() {
-        log.warn("BundleManager.compact() not yet implemented — no-op");
-        // Future: rewrite bundle with only live regions, reclaiming dead space
+    public long compact() {
+        log.info("BundleManager: compacting runtime bundle");
+        return bundle.compact();
+    }
+
+    /**
+     * Compacts the bundle if its fragmentation ratio exceeds the specified threshold.
+     *
+     * @param fragmentationThreshold fragmentation ratio (0.0–1.0) above which compaction triggers
+     * @return true if compaction was performed
+     */
+    public boolean compactIfNeeded(float fragmentationThreshold) {
+        if (fragmentationRatio() >= fragmentationThreshold) {
+            compact();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns the fragmentation ratio (dead space / total file size) of the bundle.
+     *
+     * @return a value between 0.0 and 1.0
+     */
+    public float fragmentationRatio() {
+        return bundle.fragmentationRatio();
+    }
+
+    /**
+     * Returns the number of dead or uncompacted bytes in the bundle.
+     *
+     * @return dead space in bytes
+     */
+    public long deadSpaceBytes() {
+        return bundle.deadSpaceBytes();
     }
 
     /**

@@ -370,6 +370,190 @@ public final class RuntimeBundle implements AutoCloseable {
     }
 
     /**
+     * Updates the recorded used size for a specific region.
+     *
+     * @param regionId the region identifier
+     * @param usedSize the new used byte size
+     */
+    public void updateRegionUsedSize(RegionId regionId, long usedSize) {
+        long stamp = remapLock.writeLock();
+        try {
+            RegionEntry old = directory.findRegion(regionId);
+            if (old != null && old.usedSize() != usedSize) {
+                RegionEntry updated = old.withUsedSize(usedSize);
+                BundleDirectory newDir = directory.withUpdatedRegion(regionId, updated);
+                newDir.write(masterSegment);
+                this.directory = newDir;
+            }
+        } finally {
+            remapLock.unlockWrite(stamp);
+        }
+    }
+
+    /**
+     * Calculates the estimated dead space in bytes caused by region relocations and fragmentation.
+     *
+     * @return number of dead or uncompacted bytes in the bundle file
+     */
+    public long deadSpaceBytes() {
+        if (bundlePath == null) return 0L;
+        try {
+            long fileSize = Files.size(bundlePath);
+            long dataStart = BundleDirectory.dataStartOffset(directory.maxRegions());
+            long liveAllocated = 0;
+            for (RegionEntry entry : directory.liveRegions()) {
+                liveAllocated += entry.allocatedSize();
+            }
+            long liveRequired = BundleLayoutCalculator.alignToPage(dataStart + liveAllocated);
+            return Math.max(0L, fileSize - liveRequired);
+        } catch (IOException e) {
+            return 0L;
+        }
+    }
+
+    /**
+     * Returns the fragmentation ratio (dead space / total file size).
+     *
+     * @return a value between 0.0 and 1.0
+     */
+    public float fragmentationRatio() {
+        if (bundlePath == null) return 0f;
+        try {
+            long fileSize = Files.size(bundlePath);
+            if (fileSize == 0) return 0f;
+            long dead = deadSpaceBytes();
+            return (float) dead / fileSize;
+        } catch (IOException e) {
+            return 0f;
+        }
+    }
+
+    /**
+     * Checks if the bundle has dead regions or uncompacted space.
+     *
+     * @return true if dead space exists
+     */
+    public boolean hasDeadRegions() {
+        return deadSpaceBytes() > 0;
+    }
+
+    /**
+     * Compacts the bundle file by defragmenting all live regions into contiguous layout
+     * starting at {@code dataStartOffset}, eliminating dead space left by region relocations,
+     * and truncating the underlying file on disk.
+     *
+     * <p>Acquires an exclusive write lock, extracts live region payloads, unmaps the segment,
+     * rewrites and truncates the file, remaps with a fresh shared arena, and refreshes
+     * all cached region slices.</p>
+     *
+     * @return the number of bytes reclaimed, or 0 if no compaction was needed
+     * @throws UncheckedIOException if file I/O operations fail
+     */
+    public long compact() {
+        if (bundlePath == null) {
+            return 0L;
+        }
+
+        long stamp = remapLock.writeLock();
+        try {
+            long initialFileSize = Files.size(bundlePath);
+            List<RegionEntry> live = directory.liveRegions();
+            long dataStart = BundleDirectory.dataStartOffset(directory.maxRegions());
+
+            // Check if compaction is needed
+            long expectedOffset = dataStart;
+            boolean needsCompaction = false;
+            for (RegionEntry entry : live) {
+                long aligned = BundleLayoutCalculator.alignToPage(expectedOffset);
+                if (entry.offset() != aligned) {
+                    needsCompaction = true;
+                    break;
+                }
+                expectedOffset = aligned + entry.allocatedSize();
+            }
+            long expectedFileSize = BundleLayoutCalculator.alignToPage(expectedOffset);
+            if (!needsCompaction && expectedFileSize >= initialFileSize) {
+                log.debug("Runtime bundle already compact: {}", bundlePath);
+                return 0L;
+            }
+
+            // 1. Copy data of all live regions into memory buffers
+            List<byte[]> regionPayloads = new java.util.ArrayList<>(live.size());
+            List<RegionEntry> compactedEntries = new java.util.ArrayList<>(live.size());
+            long currentOffset = dataStart;
+
+            for (RegionEntry oldEntry : live) {
+                byte[] data = new byte[(int) oldEntry.allocatedSize()];
+                MemorySegment.copy(masterSegment, oldEntry.offset(),
+                        MemorySegment.ofArray(data), 0, oldEntry.allocatedSize());
+                regionPayloads.add(data);
+
+                long newOffset = BundleLayoutCalculator.alignToPage(currentOffset);
+                RegionEntry newEntry = new RegionEntry(
+                        oldEntry.regionId(),
+                        oldEntry.flags(),
+                        newOffset,
+                        oldEntry.allocatedSize(),
+                        oldEntry.usedSize(),
+                        oldEntry.capacity(),
+                        oldEntry.stride(),
+                        oldEntry.layoutId(),
+                        oldEntry.schemaVersion()
+                );
+                compactedEntries.add(newEntry);
+                currentOffset = newOffset + oldEntry.allocatedSize();
+            }
+
+            long newTotalFileSize = BundleLayoutCalculator.alignToPage(currentOffset);
+
+            // 2. Unmap old master segment
+            arena.close();
+            log.debug("Unmapped bundle for compaction: {}", bundlePath);
+
+            // 3. Rebuild bundle file contiguously
+            try (FileChannel fc = FileChannel.open(bundlePath,
+                    StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+
+                // Truncate to new compacted size
+                fc.truncate(newTotalFileSize);
+                fc.write(ByteBuffer.allocate(1), newTotalFileSize - 1);
+
+                // Create new shared arena and remap
+                Arena newArena = Arena.ofShared();
+                MemorySegment newMapped = fc.map(FileChannel.MapMode.READ_WRITE, 0, newTotalFileSize, newArena);
+
+                // Copy all region payloads to their new contiguous positions
+                for (int i = 0; i < compactedEntries.size(); i++) {
+                    RegionEntry entry = compactedEntries.get(i);
+                    byte[] payload = regionPayloads.get(i);
+                    MemorySegment.copy(MemorySegment.ofArray(payload), 0,
+                            newMapped, entry.offset(), payload.length);
+                }
+
+                // Create and write updated BundleDirectory
+                BundleDirectory newDir = new BundleDirectory(
+                        directory.bundleMagic(), directory.maxRegions(), compactedEntries);
+                newDir.write(newMapped);
+
+                // Update volatile references
+                this.arena = newArena;
+                this.masterSegment = newMapped;
+                this.directory = newDir;
+                this.regionSlices = buildSliceMap(newMapped, newDir);
+
+                long reclaimed = Math.max(0L, initialFileSize - newTotalFileSize);
+                log.info("Compacted runtime bundle: {} ({}KB → {}KB, reclaimed {}KB)",
+                        bundlePath, initialFileSize / 1024, newTotalFileSize / 1024, reclaimed / 1024);
+                return reclaimed;
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to compact runtime bundle " + bundlePath, e);
+        } finally {
+            remapLock.unlockWrite(stamp);
+        }
+    }
+
+    /**
      * Flushes the directory to the master segment and forces the segment to disk.
      */
     public void flush() {

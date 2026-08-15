@@ -69,20 +69,10 @@ final class RetrievalIndexBuilder {
 
             // V4 bundle path: try loading from BM25 region first
             BM25Index loadedBm25 = null;
-            boolean usedBundleRegion = false;
             if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                try {
-                    java.lang.foreign.MemorySegment bm25Region = cortex.runtimeBundle().regionSegment(
-                            com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
-                    if (bm25Region != null) {
-                        loadedBm25 = BM25Index.loadFromRegion(bm25Region);
-                        if (loadedBm25 != null) {
-                            usedBundleRegion = true;
-                            log.info("BM25 loaded from bundle region: {} docs", loadedBm25.size());
-                        }
-                    }
-                } catch (Exception e) {
-                    log.debug("BM25 bundle region load failed, falling back to file: {}", e.getMessage());
+                loadedBm25 = MemoryBM25Index.loadFromBundle(cortex.runtimeBundle());
+                if (loadedBm25 != null) {
+                    log.info("BM25 loaded from bundle region: {} docs", loadedBm25.size());
                 }
             }
 
@@ -115,20 +105,11 @@ final class RetrievalIndexBuilder {
                     bm25Index.rebuildPartition(0, allTexts);
                     log.info("Rebuilt BM25 index with {} documents from memory index", allTexts.size());
                     // Save to bundle region (V4) or file (V3 fallback)
-                    boolean savedToBundle = false;
+                    int written = -1;
                     if (cortex.useBundleMode() && cortex.runtimeBundle() != null) {
-                        try {
-                            java.lang.foreign.MemorySegment bm25Region = cortex.runtimeBundle().regionSegment(
-                                    com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
-                            if (bm25Region != null) {
-                                int written = bm25Index.partition(0).saveToRegion(bm25Region);
-                                savedToBundle = written > 0;
-                            }
-                        } catch (Exception e) {
-                            log.debug("BM25 bundle region save failed: {}", e.getMessage());
-                        }
+                        written = bm25Index.persistToBundle(cortex.runtimeBundle(), null);
                     }
-                    if (!savedToBundle) {
+                    if (written <= 0) {
                         java.nio.file.Path bm25Path = StorageLayout.bm25BidxRuntime(basePath);
                         bm25Index.partition(0).save(bm25Path);
                     }

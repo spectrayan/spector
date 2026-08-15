@@ -1537,20 +1537,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (persistenceMode == MemoryPersistenceMode.DISK
                 && partitionManager.activePartitionDir() != null
                 && bm25Index != null && bm25Index.totalDocuments() > 0) {
-            boolean savedToBundle = false;
+            int written = -1;
             if (runtimeBundle != null) {
-                try {
-                    java.lang.foreign.MemorySegment bm25Region = runtimeBundle.regionSegment(
-                            com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
-                    if (bm25Region != null) {
-                        int written = bm25Index.partition(0).saveToRegion(bm25Region);
-                        savedToBundle = written > 0;
-                    }
-                } catch (Exception e) {
-                    log.debug("BM25 bundle region save on close failed: {}", e.getMessage());
-                }
+                written = bm25Index.persistToBundle(runtimeBundle, null);
             }
-            if (!savedToBundle) {
+            if (written <= 0) {
                 try {
                     bm25Index.partition(0).save(
                             StorageLayout.bm25BidxRuntime(persistencePath));
@@ -1558,7 +1549,6 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     log.warn("Failed to save BM25 index on close", e);
                 }
             }
-
         }
 
         PersistenceManager.flushAndClose(
