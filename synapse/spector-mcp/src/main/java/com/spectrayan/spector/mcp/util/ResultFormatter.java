@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.core.simd.SimdCapability;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -28,11 +29,7 @@ import com.spectrayan.spector.memory.model.CognitiveResult;
  */
 public final class ResultFormatter {
 
-    /** Maximum content length before truncation in search result summaries. */
-    private static final int CONTENT_TRUNCATION_LIMIT = 500;
-
-    /** Truncation suffix appended when content exceeds the limit. */
-    private static final String TRUNCATION_SUFFIX = "...";
+    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
 
     private ResultFormatter() {} // static utility
 
@@ -48,22 +45,12 @@ public final class ResultFormatter {
             return "No results found.";
         }
 
-        var sb = new StringBuilder(1024);
-        sb.append("Found ").append(results.size()).append(" results:\n\n");
+        var model = Map.of(
+                "count", results.size(),
+                "results", results
+        );
 
-        for (CognitiveResult r : results) {
-            sb.append('[').append(r.id()).append("] (score: ");
-            appendScore(sb, r.score());
-            sb.append(')');
-
-            if (r.text() != null) {
-                sb.append('\n');
-                appendTruncated(sb, r.text(), CONTENT_TRUNCATION_LIMIT);
-            }
-            sb.append("\n\n");
-        }
-
-        return sb.toString();
+        return templateEngine.render("mcp/cognitive-results", model);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -100,33 +87,5 @@ public final class ResultFormatter {
      */
     public static String withTimingFooter(String text, String label, long elapsedMs) {
         return text + "\n[" + label + " completed in " + elapsedMs + "ms]";
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  Internal Helpers
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Appends a float score formatted to 4 decimal places.
-     */
-    private static void appendScore(StringBuilder sb, float score) {
-        int intPart = (int) score;
-        int fracPart = Math.round((score - intPart) * 10_000);
-        sb.append(intPart).append('.');
-        if (fracPart < 1000) sb.append('0');
-        if (fracPart < 100) sb.append('0');
-        if (fracPart < 10) sb.append('0');
-        sb.append(fracPart);
-    }
-
-    /**
-     * Appends content to a StringBuilder, truncating if longer than maxLength.
-     */
-    private static void appendTruncated(StringBuilder sb, String content, int maxLength) {
-        if (content.length() <= maxLength) {
-            sb.append(content);
-        } else {
-            sb.append(content, 0, maxLength).append(TRUNCATION_SUFFIX);
-        }
     }
 }

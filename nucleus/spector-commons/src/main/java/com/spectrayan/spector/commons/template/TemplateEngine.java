@@ -19,7 +19,7 @@ package com.spectrayan.spector.commons.template;
  * Universal interface for compiling and rendering structured text, Markdown, 
  * and prompt templates across all Spector modules.
  *
- * <p>Implementations must be thread-safe and provide sub-millisecond execution
+ * <p>Implementations are thread-safe and provide sub-millisecond execution
  * via compiled AST caching.</p>
  */
 public interface TemplateEngine {
@@ -52,17 +52,28 @@ public interface TemplateEngine {
     boolean hasTemplate(String templatePath);
 
     /**
-     * Creates a default standalone {@link HandlebarsTemplateEngine} instance 
+     * Returns the shared singleton {@link TemplateEngine} instance 
      * with classpath root {@code /templates} and suffix {@code .hbs}.
      *
-     * @return default configured template engine
+     * <p>This instance is thread-safe and reuses compiled AST caches across all callers.</p>
+     *
+     * @return default singleton template engine
      */
-    static TemplateEngine createDefault() {
-        return new HandlebarsTemplateEngine();
+    static TemplateEngine getDefault() {
+        return Holder.DEFAULT_INSTANCE;
     }
 
     /**
-     * Creates a {@link HandlebarsTemplateEngine} with a custom classpath prefix and suffix.
+     * Returns the default singleton {@link TemplateEngine} instance.
+     *
+     * @return default singleton template engine
+     */
+    static TemplateEngine createDefault() {
+        return Holder.DEFAULT_INSTANCE;
+    }
+
+    /**
+     * Creates a new {@link HandlebarsTemplateEngine} with a custom classpath prefix and suffix.
      *
      * @param prefix classpath resource prefix (e.g. {@code "/templates"})
      * @param suffix template file suffix (e.g. {@code ".hbs"} or {@code ".mustache"})
@@ -70,5 +81,13 @@ public interface TemplateEngine {
      */
     static TemplateEngine create(String prefix, String suffix) {
         return new HandlebarsTemplateEngine(prefix, suffix);
+    }
+
+    /**
+     * Lazy holder for the thread-safe singleton default engine.
+     */
+    final class Holder {
+        private static final TemplateEngine DEFAULT_INSTANCE = new HandlebarsTemplateEngine();
+        private Holder() {}
     }
 }

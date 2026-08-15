@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import com.spectrayan.spector.commons.security.SpectorScopes;
+import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.model.BigFiveTraits;
 import com.spectrayan.spector.memory.model.CommunicationStyle;
@@ -145,6 +146,8 @@ public final class MemorySalienceTool extends MemoryToolHandler {
         };
     }
 
+    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
+
     private McpSchema.CallToolResult handleGet(SpectorMemory memory) {
         SalienceProfile profile = memory.salienceProfile();
         if (profile == null || profile.isNeutral()) {
@@ -152,59 +155,32 @@ public final class MemorySalienceTool extends MemoryToolHandler {
                     + "Use 'set', 'add_interest', or 'set_persona' to configure.");
         }
 
-        var sb = new StringBuilder();
-        sb.append("🧠 Active Salience Profile\n\n");
+        record InterestEntry(String topic, String level, float multiplier) {}
 
-        if (!profile.interests().isEmpty()) {
-            sb.append("Interests:\n");
-            for (InterestDomain d : profile.interests()) {
-                sb.append("  • ").append(d.topic()).append(" → ").append(d.level())
-                        .append(" (").append(String.format("%.1f×", d.level().multiplier())).append(")\n");
-            }
-        }
+        List<InterestEntry> interestList = profile.interests().stream()
+                .map(d -> new InterestEntry(d.topic(), d.level().name(), d.level().multiplier()))
+                .toList();
+        List<InterestEntry> disinterestList = profile.disinterests().stream()
+                .map(d -> new InterestEntry(d.topic(), d.level().name(), d.level().multiplier()))
+                .toList();
 
-        if (!profile.disinterests().isEmpty()) {
-            sb.append("Disinterests:\n");
-            for (InterestDomain d : profile.disinterests()) {
-                sb.append("  • ").append(d.topic()).append(" → ").append(d.level())
-                        .append(" (").append(String.format("%.1f×", d.level().multiplier())).append(")\n");
-            }
-        }
+        var model = Map.<String, Object>ofEntries(
+                Map.entry("profile", profile),
+                Map.entry("hasInterests", !profile.interests().isEmpty()),
+                Map.entry("interestsCount", profile.interests().size()),
+                Map.entry("interests", interestList),
+                Map.entry("hasDisinterests", !profile.disinterests().isEmpty()),
+                Map.entry("disinterestsCount", profile.disinterests().size()),
+                Map.entry("disinterests", disinterestList),
+                Map.entry("hasIcnu", profile.hasIcnuOverride()),
+                Map.entry("icnu", profile.hasIcnuOverride() ? profile.icnuWeights() : ""),
+                Map.entry("hasPersona", profile.hasPersona()),
+                Map.entry("persona", profile.hasPersona() ? profile.persona() : ""),
+                Map.entry("personaHasBigFive", profile.hasPersona() && !profile.persona().bigFive().isNeutral()),
+                Map.entry("hasAgentRelevanceBoost", profile.hasAgentRelevanceBoost())
+        );
 
-        if (profile.hasIcnuOverride()) {
-            IcnuWeights w = profile.icnuWeights();
-            sb.append("\nICNU Weights: I=").append(w.interest())
-                    .append(" C=").append(w.challenge())
-                    .append(" N=").append(w.novelty())
-                    .append(" U=").append(w.urgency()).append("\n");
-        }
-
-        if (profile.hasPersona()) {
-            PersonaContext p = profile.persona();
-            sb.append("\nPersona:\n");
-            if (p.occupation() != null) sb.append("  Occupation: ").append(p.occupation()).append("\n");
-            if (!p.bigFive().isNeutral()) {
-                sb.append("  BigFive: O=").append(p.bigFive().openness())
-                        .append(" C=").append(p.bigFive().conscientiousness())
-                        .append(" E=").append(p.bigFive().extraversion())
-                        .append(" A=").append(p.bigFive().agreeableness())
-                        .append(" N=").append(p.bigFive().neuroticism()).append("\n");
-            }
-            sb.append("  Stress: ").append(p.stressResponse()).append("\n");
-            sb.append("  Embeddings: ").append(p.hasEmbeddings()).append("\n");
-        }
-
-        sb.append("\nConfig: flashbulb=").append(profile.flashbulbThreshold())
-                .append(", recency=").append(profile.recencyWeight())
-                .append(", simThreshold=").append(profile.similarityThreshold());
-
-        if (profile.hasAgentRelevanceBoost()) {
-            sb.append("\nAgent Relevance Boost: ")
-                    .append(String.format("%.2f×", profile.agentRelevanceBoost()))
-                    .append(" (expertise match active)");
-        }
-
-        return textResult(sb.toString());
+        return textResult(templateEngine.render("mcp/memory-salience-profile", model));
     }
 
     private McpSchema.CallToolResult handleSet(SpectorMemory memory, Map<String, Object> args) {
@@ -251,31 +227,24 @@ public final class MemorySalienceTool extends MemoryToolHandler {
                 ? memory.salienceProfile().agentRelevanceBoost() : 1.0f;
         float combinedBoost = topicBoost * selfBoost * agentBoost;
 
-        var sb = new StringBuilder();
-        sb.append("🔍 Salience Boost Preview\n\n");
-        sb.append("Text: \"").append(text.length() > 100 ? text.substring(0, 100) + "..." : text).append("\"\n\n");
-        sb.append("Topic Boost:          ").append(String.format("%.4f", topicBoost));
-        if (topicBoost > 1.0f) sb.append(" ⬆ (interest match)");
-        else if (topicBoost < 1.0f) sb.append(" ⬇ (disinterest match)");
-        else sb.append(" — (neutral)");
-        sb.append("\n");
+        String topicIndicator = topicBoost > 1.0f ? " ⬆ (interest match)"
+                : topicBoost < 1.0f ? " ⬇ (disinterest match)" : " — (neutral)";
+        String selfIndicator = selfBoost > 1.0f ? " ⬆ (persona match)"
+                : selfBoost < 1.0f ? " ⬇ (persona mismatch)" : " — (no persona)";
+        String agentIndicator = agentBoost > 1.0f ? " ⬆ (expertise match)" : " — (no agent boost)";
 
-        sb.append("Self-Relevance Boost: ").append(String.format("%.4f", selfBoost));
-        if (selfBoost > 1.0f) sb.append(" ⬆ (persona match)");
-        else if (selfBoost < 1.0f) sb.append(" ⬇ (persona mismatch)");
-        else sb.append(" — (no persona)");
-        sb.append("\n");
+        var model = Map.<String, Object>ofEntries(
+                Map.entry("text", text),
+                Map.entry("topicBoost", topicBoost),
+                Map.entry("topicIndicator", topicIndicator),
+                Map.entry("selfBoost", selfBoost),
+                Map.entry("selfIndicator", selfIndicator),
+                Map.entry("agentBoost", agentBoost),
+                Map.entry("agentIndicator", agentIndicator),
+                Map.entry("combinedBoost", combinedBoost)
+        );
 
-        sb.append("Agent Relevance:      ").append(String.format("%.4f", agentBoost));
-        if (agentBoost > 1.0f) sb.append(" ⬆ (expertise match)");
-        else sb.append(" — (no agent boost)");
-        sb.append("\n");
-
-        sb.append("Combined Boost:       ").append(String.format("%.4f", combinedBoost)).append("\n");
-        sb.append("\nThis memory's importance would be multiplied by ")
-                .append(String.format("%.2f×", combinedBoost)).append(" during ingestion.");
-
-        return textResult(sb.toString());
+        return textResult(templateEngine.render("mcp/memory-salience-boost", model));
     }
 
     private McpSchema.CallToolResult handleAddInterest(SpectorMemory memory,

@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
+import com.spectrayan.spector.commons.template.TemplateEngine;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -44,6 +45,8 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
  * <p>Maps to {@link SpectorMemory#browse(String...)}.</p>
  */
 public final class MemoryBrowseTool extends MemoryToolHandler {
+
+    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
 
     public MemoryBrowseTool(SpectorMemory memory) {
         super(memory);
@@ -90,30 +93,20 @@ public final class MemoryBrowseTool extends MemoryToolHandler {
                     + String.join(", ", filterTags) + "]");
         }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("🏷️ Found ").append(results.size())
-          .append(" memories matching tags: [").append(String.join(", ", filterTags)).append("]\n\n");
+        record BrowseEntry(int index, CognitiveRecord record, boolean hasTags) {}
 
+        List<BrowseEntry> entries = new java.util.ArrayList<>(results.size());
         for (int i = 0; i < results.size(); i++) {
             CognitiveRecord r = results.get(i);
-            sb.append("─── ").append(i + 1).append(". ").append(r.id()).append(" ───\n");
-            sb.append("📝 ").append(truncate(r.text(), 200)).append("\n");
-            sb.append("🏷️ Type: ").append(r.memoryType())
-              .append(" | Source: ").append(r.source()).append("\n");
-            sb.append(String.format("📊 Importance: %.2f | Valence: %d | Recalls: %d\n",
-                    r.importance(), r.valence(), r.totalRecallCount()));
-            if (r.tags() != null && r.tags().length > 0) {
-                sb.append("🔖 Tags: ").append(String.join(", ", r.tags())).append("\n");
-            }
-            sb.append("📅 Created: ").append(r.createdAt())
-              .append(String.format(" (%.1f days ago)\n\n", r.ageDays()));
+            entries.add(new BrowseEntry(i + 1, r, r.tags() != null && r.tags().length > 0));
         }
 
-        return textResult(sb.toString());
-    }
+        var model = Map.of(
+                "totalResults", results.size(),
+                "filterTags", List.of(filterTags),
+                "results", entries
+        );
 
-    private static String truncate(String text, int maxLen) {
-        if (text == null) return "";
-        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "…";
+        return textResult(templateEngine.render("mcp/memory-browse", model));
     }
 }

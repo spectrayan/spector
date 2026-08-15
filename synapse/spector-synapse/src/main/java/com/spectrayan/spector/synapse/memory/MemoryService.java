@@ -89,7 +89,7 @@ import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 public class MemoryService {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryService.class);
-    private static final ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     private final MemoryAccessObject mao;
     private final EventPublisher eventPublisher;

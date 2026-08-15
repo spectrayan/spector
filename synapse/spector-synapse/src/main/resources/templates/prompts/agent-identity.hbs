@@ -1,0 +1,13 @@
+{{#if hasIdentity}}
+== AGENT IDENTITY ==
+{{#if soul.name}}Name: {{soul.name}}
+{{/if}}{{#if soul.description}}Description: {{soul.description}}
+{{/if}}{{#if soul.purpose}}Purpose: {{soul.purpose}}
+{{/if}}{{#if soul.personality}}Personality: {{soul.personality}}
+{{/if}}{{#if soul.expertiseDomains}}Expertise: {{join soul.expertiseDomains ", "}}
+{{/if}}{{#if soul.coreValues}}Core Values: {{join soul.coreValues ", "}}
+{{/if}}{{#if soul.communicationStyle}}Communication Style: {{soul.communicationStyle}}
+{{/if}}{{#if soul.ethicalGuardrails}}Ethical Guardrails: {{join soul.ethicalGuardrails "; "}}
+{{/if}}{{#if soul.tools}}Available Tools: {{join soul.tools ", "}}
+{{/if}}
+{{/if}}

@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
+import com.spectrayan.spector.commons.template.TemplateEngine;
 
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.metamemory.MemoryInsight;
@@ -34,6 +35,8 @@ import io.modelcontextprotocol.spec.McpSchema;
  * memories about Kubernetes RBAC — let me ask you about that."</p>
  */
 public final class MemoryIntrospectTool extends MemoryToolHandler {
+
+    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
 
     public MemoryIntrospectTool(SpectorMemory memory) {
         super(memory);
@@ -66,23 +69,13 @@ public final class MemoryIntrospectTool extends MemoryToolHandler {
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
                                                        Map<String, Object> args) throws Exception {
         String topic = requireString(args, "topic");
-
         MemoryInsight insight = memory.introspect(topic);
 
-        var sb = new StringBuilder();
-        sb.append("🔍 Memory Introspection: '").append(topic).append("'\n");
-        sb.append("===============================\n\n");
+        var model = Map.of(
+                "topic", topic,
+                "insight", insight
+        );
 
-        sb.append("Known: ").append(insight.isKnown() ? "Yes" : "No").append("\n");
-        sb.append("Confidence: ").append(String.format("%.2f", insight.confidence())).append("\n");
-        sb.append("Total Memories: ").append(insight.totalMemories()).append("\n");
-        sb.append("Average Importance: ").append(String.format("%.2f", insight.avgImportance())).append("\n");
-        sb.append("Average Age (days): ").append(String.format("%.1f", insight.avgAgeDays())).append("\n");
-        sb.append("Staleness: ").append(String.format("%.2f", insight.staleness())).append("\n");
-        sb.append("Stale: ").append(insight.isStale() ? "⚠️ Yes — knowledge may be outdated" : "No").append("\n\n");
-
-        sb.append("Recommendation: ").append(insight.recommendation()).append("\n");
-
-        return textResult(sb.toString());
+        return textResult(templateEngine.render("mcp/memory-introspect", model));
     }
 }

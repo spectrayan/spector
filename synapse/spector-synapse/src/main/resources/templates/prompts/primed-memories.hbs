@@ -1,0 +1,8 @@
+{{#if hasMemories}}
+
+--- RELEVANT MEMORIES ---
+{{#each memories}}
+[{{type}} | Salience: {{formatDecimal salience "%.2f"}} | {{age}}] {{text}}
+{{/each}}
+--- END MEMORIES ---
+{{/if}}

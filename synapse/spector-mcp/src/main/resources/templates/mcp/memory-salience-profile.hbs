@@ -1,0 +1,37 @@
+📋 Salience Profile
+====================
+{{#if hasInterests}}
+
+Interests ({{interestsCount}}):
+{{#each interests}}
+  • {{topic}} ({{formatMult multiplier}})
+{{/each}}
+{{/if}}
+{{#if hasDisinterests}}
+
+Disinterests ({{disinterestsCount}}):
+{{#each disinterests}}
+  • {{topic}} ({{formatMult multiplier}})
+{{/each}}
+{{/if}}
+{{#if hasIcnu}}
+
+ICNU Weights: I={{icnu.interest}} C={{icnu.challenge}} N={{icnu.novelty}} U={{icnu.urgency}}
+{{/if}}
+{{#if hasPersona}}
+
+Persona:
+{{#if persona.occupation}}
+  Occupation: {{persona.occupation}}
+{{/if}}
+{{#if personaHasBigFive}}
+  BigFive: O={{persona.bigFive.openness}} C={{persona.bigFive.conscientiousness}} E={{persona.bigFive.extraversion}} A={{persona.bigFive.agreeableness}} N={{persona.bigFive.neuroticism}}
+{{/if}}
+  Stress: {{persona.stressResponse}}
+  Embeddings: {{persona.hasEmbeddings}}
+{{/if}}
+
+Config: flashbulb={{profile.flashbulbThreshold}}, recency={{profile.recencyWeight}}, simThreshold={{profile.similarityThreshold}}
+{{#if hasAgentRelevanceBoost}}
+Agent Relevance Boost: {{formatMult profile.agentRelevanceBoost}} (expertise match active)
+{{/if}}

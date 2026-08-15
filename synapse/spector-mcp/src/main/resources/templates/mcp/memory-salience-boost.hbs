@@ -1,0 +1,10 @@
+🔍 Salience Boost Preview
+
+Text: "{{truncate text 100}}"
+
+Topic Boost:          {{formatDecimal topicBoost "%.4f"}} {{topicIndicator}}
+Self-Relevance Boost: {{formatDecimal selfBoost "%.4f"}} {{selfIndicator}}
+Agent Relevance:      {{formatDecimal agentBoost "%.4f"}} {{agentIndicator}}
+Combined Boost:       {{formatDecimal combinedBoost "%.4f"}}
+
+This memory's importance would be multiplied by {{formatMult combinedBoost}} during ingestion.

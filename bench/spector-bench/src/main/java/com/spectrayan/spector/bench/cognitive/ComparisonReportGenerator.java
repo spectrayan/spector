@@ -15,16 +15,20 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import com.spectrayan.spector.commons.template.TemplateEngine;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Aggregates results from all benchmark runners into a unified comparison report.
@@ -53,10 +57,16 @@ public final class ComparisonReportGenerator {
 
     private final Path resultsDir;
     private final Path outputFile;
+    private final TemplateEngine templateEngine;
 
     public ComparisonReportGenerator(Path resultsDir, Path outputFile) {
+        this(resultsDir, outputFile, TemplateEngine.createDefault());
+    }
+
+    public ComparisonReportGenerator(Path resultsDir, Path outputFile, TemplateEngine templateEngine) {
         this.resultsDir = resultsDir;
         this.outputFile = outputFile;
+        this.templateEngine = Objects.requireNonNull(templateEngine, "templateEngine");
     }
 
     public static void main(String[] args) {
@@ -74,71 +84,39 @@ public final class ComparisonReportGenerator {
     public void run() {
         log.info("═══ Generating Comparison Report ═══");
 
-        StringBuilder report = new StringBuilder();
-        report.append("# Spector Core — Comprehensive Benchmark Report\n\n");
-        report.append("**Generated**: ").append(LocalDateTime.now()
-                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n\n");
-        report.append("---\n\n");
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
-        // Section 1: Executive Summary
-        report.append("## Executive Summary\n\n");
-        report.append("This report aggregates results from 5 benchmark dimensions:\n\n");
-        report.append("1. **Cognitive vs. Baseline** — Full pipeline vs. vector-only retrieval\n");
-        report.append("2. **Profile Sweep** — nDCG across all CognitiveProfile values\n");
-        report.append("3. **Retrieval Stack Matrix** — TextSearchMode comparison (HYBRID, VECTOR_ONLY, BM25, SPLADE, ColBERT)\n");
-        report.append("4. **Subsystem Ablation** — Contribution of each pipeline subsystem\n");
-        report.append("5. **Scale Performance** — Latency and throughput at 1K–20K memories\n\n");
-        report.append("---\n\n");
+        Map<String, Object> model = new HashMap<>();
+        model.put("generatedAt", now);
 
         // Section 2: Cognitive vs. Baseline
-        appendSectionFromFile(report, "## Cognitive vs. Baseline\n\n",
-                "benchmark-report.md", true);
+        model.put("cognitiveVsBaselineContent", readSectionFromFile("benchmark-report.md", true));
 
         // Section 3: Profile Sweep
-        appendSectionFromTsv(report, "## Profile Sweep Results\n\n",
-                "profile-sweep-matrix.tsv",
-                "The table below shows nDCG per query × profile combination. "
-                + "The best profile for each query is marked.\n\n");
+        model.put("profileSweepDescription",
+                "The table below shows nDCG per query × profile combination. The best profile for each query is marked.\n");
+        model.put("profileSweepTable", readSectionFromTsv("profile-sweep-matrix.tsv"));
 
         // Section 4: Retrieval Stack Matrix
-        appendSectionFromTsv(report, "## Retrieval Stack Matrix\n\n",
-                "retrieval-stack-matrix.tsv",
-                "Compares all TextSearchMode values for nDCG and latency.\n\n");
+        model.put("retrievalStackDescription",
+                "Compares all TextSearchMode values for nDCG and latency.\n");
+        model.put("retrievalStackTable", readSectionFromTsv("retrieval-stack-matrix.tsv"));
 
         // Section 5: Ablation Study
-        appendSectionFromTsv(report, "## Subsystem Ablation\n\n",
-                "ablation-results.tsv",
-                "Each row shows the effect of disabling one subsystem. "
-                + "Negative Δ means the subsystem contributed positively.\n\n");
+        model.put("ablationDescription",
+                "Each row shows the effect of disabling one subsystem. Negative Δ means the subsystem contributed positively.\n");
+        model.put("ablationTable", readSectionFromTsv("ablation-results.tsv"));
 
         // Section 6: Scale Performance
-        appendSectionFromTsv(report, "## Scale Performance\n\n",
-                "scale-performance.tsv",
-                "Latency and throughput at different corpus sizes and concurrency levels.\n\n");
+        model.put("scalePerformanceDescription",
+                "Latency and throughput at different corpus sizes and concurrency levels.\n");
+        model.put("scalePerformanceTable", readSectionFromTsv("scale-performance.tsv"));
 
-        // Section 7: Key Findings
-        report.append("## Key Findings\n\n");
-        report.append("### Salience Profile Impact\n\n");
-        report.append("- Topic boosting produces measurable nDCG improvement for domain-specific queries\n");
-        report.append("- PersonaContext self-reference provides bounded (±15%) but consistent re-ranking\n");
-        report.append("- Personality modifiers affect valence/arousal encoding within safe [0.85, 1.15] bounds\n\n");
-
-        report.append("### Retrieval Stack\n\n");
-        report.append("- HYBRID (BM25 + Vector) provides best general-purpose quality\n");
-        report.append("- VECTOR_ONLY works for purely semantic queries but misses keyword matches\n");
-        report.append("- KEYWORD_ONLY handles exact-term queries (error codes, names) better\n\n");
-
-        report.append("### Subsystem Contributions\n\n");
-        report.append("- Graph augmentation (Hebbian, Entity, Temporal) provides incremental recall improvement\n");
-        report.append("- Importance/decay scoring is the strongest contributor after vector similarity\n");
-        report.append("- Tag gating provides near-zero-cost candidate elimination\n\n");
-
-        report.append("---\n\n");
-        report.append("*Report generated by Spector Bench ComparisonReportGenerator*\n");
+        String renderedReport = templateEngine.render("reports/comparison-report", model);
 
         try {
             Files.createDirectories(outputFile.getParent());
-            Files.writeString(outputFile, report.toString());
+            Files.writeString(outputFile, renderedReport);
             log.info("Comparison report written to {}", outputFile);
         } catch (IOException e) {
             log.error("Failed to write report: {}", e.getMessage(), e);
@@ -146,52 +124,44 @@ public final class ComparisonReportGenerator {
     }
 
     /**
-     * Appends a section from a markdown file if it exists.
+     * Reads a section from a markdown file if it exists.
      */
-    private void appendSectionFromFile(StringBuilder report, String header,
-                                        String filename, boolean fullContent) {
+    private String readSectionFromFile(String filename, boolean fullContent) {
         Path file = resultsDir.resolve(filename);
-        report.append(header);
         if (Files.exists(file)) {
             try {
                 String content = Files.readString(file);
                 if (fullContent) {
-                    report.append(content).append("\n\n");
+                    return content + "\n";
                 } else {
-                    // Extract first section only
                     int endIdx = content.indexOf("\n## ", 10);
                     if (endIdx > 0) {
-                        report.append(content, 0, endIdx).append("\n\n");
+                        return content.substring(0, endIdx) + "\n";
                     } else {
-                        report.append(content).append("\n\n");
+                        return content + "\n";
                     }
                 }
             } catch (IOException e) {
-                report.append("*File could not be read: ").append(e.getMessage()).append("*\n\n");
+                return "*File could not be read: " + e.getMessage() + "*\n";
             }
         } else {
-            report.append("*No data available — run CognitiveBenchmarkHarness first.*\n\n");
+            return "*No data available — run CognitiveBenchmarkHarness first.*\n";
         }
     }
 
     /**
-     * Converts a TSV file to a markdown table and appends it.
+     * Converts a TSV file to a markdown table string.
      */
-    private void appendSectionFromTsv(StringBuilder report, String header,
-                                       String filename, String description) {
+    private String readSectionFromTsv(String filename) {
         Path file = resultsDir.resolve(filename);
-        report.append(header);
-        report.append(description);
-
         if (Files.exists(file)) {
             try {
                 List<String> lines = Files.readAllLines(file);
                 if (lines.isEmpty()) {
-                    report.append("*Empty results file.*\n\n");
-                    return;
+                    return "*Empty results file.*\n";
                 }
 
-                // Convert TSV to markdown table
+                var report = new StringBuilder();
                 for (int i = 0; i < lines.size(); i++) {
                     String[] cols = lines.get(i).split("\t");
                     report.append("| ");
@@ -200,7 +170,6 @@ public final class ComparisonReportGenerator {
                     }
                     report.append('\n');
 
-                    // Add separator after header
                     if (i == 0) {
                         report.append("| ");
                         for (int j = 0; j < cols.length; j++) {
@@ -209,12 +178,12 @@ public final class ComparisonReportGenerator {
                         report.append('\n');
                     }
                 }
-                report.append("\n\n");
+                return report.toString();
             } catch (IOException e) {
-                report.append("*File could not be read: ").append(e.getMessage()).append("*\n\n");
+                return "*File could not be read: " + e.getMessage() + "*\n";
             }
         } else {
-            report.append("*No data available — run the corresponding benchmark runner first.*\n\n");
+            return "*No data available — run the corresponding benchmark runner first.*\n";
         }
     }
 }

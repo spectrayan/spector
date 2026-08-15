@@ -1,0 +1,24 @@
+🧠 Spector Memory Status
+========================
+
+Total Memories: {{totalMemories}}
+
+Per-Tier Breakdown:
+  Working (Prefrontal Cortex):  {{workingCount}}
+  Episodic (Hippocampus):       {{episodicCount}}
+  Semantic (Neocortex):         {{semanticCount}}
+  Procedural (Basal Ganglia):   {{proceduralCount}}
+
+Subsystem Status:
+  WAL Events:          {{walSize}}
+  WAL High-Water Mark: {{walHighWaterMark}}
+  Suppressed Memories: {{suppressedCount}}
+  Pending Reminders:   {{pendingReminders}}
+
+Lateral Retrieval:
+  Enabled:    {{lateralEnabled}}
+  Threshold:  {{formatDecimal lateralThreshold "%.2f"}}
+  Samples:    {{lateralSampleSize}}
+  LUR (util): {{formatDecimal lateralUtilityRate "%.2f"}}
+  LSR (supp): {{formatDecimal lateralSuppressionRate "%.2f"}}
+  LHI (hall): {{formatDecimal lateralHallucinationIndex "%.2f"}}
