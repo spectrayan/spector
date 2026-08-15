@@ -45,6 +45,7 @@ public final class PartitionHandle implements AutoCloseable {
     private final TextAppendMemory text;
     private final boolean writable;
     private final PartitionBundle partitionBundle;
+    private final PartitionSummary summary;
 
     /**
      * Creates a new partition handle.
@@ -57,7 +58,7 @@ public final class PartitionHandle implements AutoCloseable {
      */
     public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
                            TextAppendMemory text, boolean writable) {
-        this(seq, dir, router, text, writable, null);
+        this(seq, dir, router, text, writable, null, null);
     }
 
     /**
@@ -72,12 +73,30 @@ public final class PartitionHandle implements AutoCloseable {
      */
     public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
                            TextAppendMemory text, boolean writable, PartitionBundle partitionBundle) {
+        this(seq, dir, router, text, writable, partitionBundle, null);
+    }
+
+    /**
+     * Creates a new partition handle with an associated bundle and summary metadata.
+     *
+     * @param seq             the partition sequence number (matches the {@code NNN_epoch} dir)
+     * @param dir             the partition directory (null in IN_MEMORY mode)
+     * @param router          the tier-store router for this partition
+     * @param text            the partition-scoped text store (null in IN_MEMORY mode)
+     * @param writable        {@code true} for the single active partition, {@code false} for frozen
+     * @param partitionBundle the partition bundle specification
+     * @param summary         the partition summary metadata (computed if null)
+     */
+    public PartitionHandle(int seq, Path dir, CognitiveMemoryRouter router,
+                           TextAppendMemory text, boolean writable, PartitionBundle partitionBundle,
+                           PartitionSummary summary) {
         this.seq = seq;
         this.dir = dir;
         this.router = router;
         this.text = text;
         this.writable = writable;
         this.partitionBundle = partitionBundle;
+        this.summary = summary != null ? summary : PartitionSummary.fromRouter(seq, dir, router, writable, null);
     }
 
     public int seq() {
@@ -104,9 +123,21 @@ public final class PartitionHandle implements AutoCloseable {
         return partitionBundle;
     }
 
+    public PartitionSummary summary() {
+        return summary;
+    }
+
     /** Returns a frozen (read-only) copy of this handle wrapping the same open stores. */
     public PartitionHandle asFrozen() {
-        return writable ? new PartitionHandle(seq, dir, router, text, false, partitionBundle) : this;
+        return asFrozen(null);
+    }
+
+    /** Returns a frozen (read-only) copy of this handle sealed with the next partition's epoch seconds. */
+    public PartitionHandle asFrozen(Long nextEpochSecs) {
+        return writable
+                ? new PartitionHandle(seq, dir, router, text, false, partitionBundle,
+                PartitionSummary.fromRouter(seq, dir, router, false, nextEpochSecs))
+                : this;
     }
 
     /**

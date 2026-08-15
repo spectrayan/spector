@@ -149,6 +149,8 @@ public class RecallCandidateGatherer {
                             valence = header.valence();
                             recallCount = (short) header.agentRecallCount();
                             long ts = header.timestampMs();
+                            if (options.minTimestamp() != null && ts < options.minTimestamp()) continue;
+                            if (options.maxTimestamp() != null && ts > options.maxTimestamp()) continue;
                             if (ts > 0) {
                                 ageDays = (float) ((nowMs - ts) / (double) (24 * 60 * 60 * 1000));
                             }
