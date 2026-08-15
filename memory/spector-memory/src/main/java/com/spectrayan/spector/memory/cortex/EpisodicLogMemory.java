@@ -272,6 +272,35 @@ public final class EpisodicLogMemory extends AbstractAppendMemory<EpisodicLogLay
     }
 
     /**
+     * Scans this episodic log from beginning to current cursor, collecting the relative offsets
+     * of all live, non-consolidated turns (#446).
+     *
+     * @return list of offsets (relative to dataOffset) of unconsolidated turns
+     */
+    public List<Long> unconsolidatedTurnOffsets() {
+        List<Long> offsets = new ArrayList<>();
+        long base = dataOffset();
+        long limit = base + count;
+        long current = base;
+
+        while (current + SynapticHeaderConstants.HEADER_BYTES <= limit) {
+            byte flags = segment().get(SynapticHeaderConstants.LAYOUT_FLAGS, current + SynapticHeaderConstants.OFFSET_FLAGS);
+            int bodyLength = segment().get(ValueLayout.JAVA_INT_UNALIGNED, current + 56);
+            if (bodyLength < 0 || current + SynapticHeaderConstants.HEADER_BYTES + bodyLength > limit) {
+                break; // corrupt or incomplete entry
+            }
+
+            if (!SynapticHeaderConstants.isTombstoned(flags) && !SynapticHeaderConstants.isConsolidated(flags)) {
+                offsets.add(current - base);
+            }
+
+            current += SynapticHeaderConstants.HEADER_BYTES + bodyLength;
+        }
+
+        return offsets;
+    }
+
+    /**
      * Returns the number of bytes available for new records.
      */
     public long remainingBytes() {

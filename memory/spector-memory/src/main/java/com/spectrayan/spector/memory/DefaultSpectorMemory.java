@@ -308,6 +308,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.namespaceId = builder.namespaceId;
         this.idGenerator = bundle.idGenerator();
         this.checkpointDaemon = bundle.checkpointDaemon();
+        if (this.checkpointDaemon != null) {
+            this.checkpointDaemon.setRouterSupplier(partitionManager::cognitiveRouter);
+        }
         this.daemonSupervisor = bundle.daemonSupervisor();
         this.bm25Index = bundle.bm25Index();
         this.chunker = builder.chunker;
@@ -920,7 +923,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public ReflectReport reflect() {
         acquireLease();
         try {
-            return reflectionOrchestrator.reflect(partitionManager.cognitiveRouter(), index, cognitiveTarget);
+            return reflectionOrchestrator.reflect(partitionManager, index, cognitiveTarget);
         } finally {
             releaseLease();
         }
@@ -931,7 +934,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         acquireLease();
         try {
             batchConsolidator.consolidate(
-                    partitionManager.cognitiveRouter(),
+                    partitionManager,
                     index,
                     quantizer,
                     entityDirectory,

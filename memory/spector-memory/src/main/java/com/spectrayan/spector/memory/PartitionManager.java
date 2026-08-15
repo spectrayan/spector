@@ -74,7 +74,7 @@ import java.time.Instant;
  * @see StorageLayout
  * @see PartitionHandle
  */
-final class PartitionManager implements PartitionRegistry, AutoCloseable {
+public final class PartitionManager implements PartitionRegistry, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(PartitionManager.class);
 

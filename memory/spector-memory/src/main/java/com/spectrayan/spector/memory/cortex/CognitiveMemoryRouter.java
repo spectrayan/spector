@@ -279,12 +279,12 @@ public final class CognitiveMemoryRouter implements AutoCloseable {
     public ProceduralRecordMemory procedural() { return proceduralStore; }
 
     /**
-     * Forces all persistent memory store segments to be written to disk.
+     * Forces all persistent, non-frozen memory store segments to be written to disk.
      * Used by {@code CheckpointDaemon} before recording a WAL checkpoint.
      */
     public void forceAll() {
         for (CognitiveRecordMemory store : stores.values()) {
-            if (store.isPersistent()) {
+            if (store.isPersistent() && !store.isFrozen()) {
                 store.force();
             }
         }

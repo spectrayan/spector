@@ -526,13 +526,16 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         graphSlotHighWater.set(Math.max(0, highWater));
     }
 
-    // NOTE (issue #443): this remains keyed on graphSlot (the former misnamed field), not
-    // the colocated partition. Re-pointing it at colocatedPartition is a consolidation
-    // follow-up (see ADR-0002 D5) and is intentionally out of scope for #443.
-    public Map<String, String> textsByPartition(int graphSlot) {
+    /**
+     * Returns a map of memory IDs to texts for all memories colocated in the given partition sequence.
+     *
+     * @param partitionSeq the partition sequence number
+     * @return map of id -> text for records in that partition
+     */
+    public Map<String, String> textsByPartition(int partitionSeq) {
         Map<String, String> result = new java.util.HashMap<>();
         for (Map.Entry<String, MemoryLocation> entry : locations.entrySet()) {
-            if (entry.getValue().graphSlot() == graphSlot) {
+            if (entry.getValue().colocatedPartition() == partitionSeq) {
                 String text = text(entry.getKey());
                 if (text != null && !text.isEmpty()) {
                     result.put(entry.getKey(), text);

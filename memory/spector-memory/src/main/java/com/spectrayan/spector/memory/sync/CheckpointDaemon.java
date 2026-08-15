@@ -91,6 +91,7 @@ public final class CheckpointDaemon {
     static final int CKPT_SIZE = 16;
 
     private final CognitiveMemoryRouter cognitiveRouter;
+    private volatile java.util.function.Supplier<CognitiveMemoryRouter> routerSupplier;
     private final MemoryWal wal;
     private final Path checkpointMetaPath;
     private final MemoryIndex index;   // nullable — only set for DISK mode
@@ -110,6 +111,13 @@ public final class CheckpointDaemon {
     // ── Event Bus (replaces CheckpointListener) ──
     private volatile EventBus<SpectorLifecycleEvent> eventBus;
     private volatile Map<String, String> eventContext = Map.of();
+
+    /**
+     * Sets the active router supplier to dynamically resolve active partition stores across rolls (#446).
+     */
+    public void setRouterSupplier(java.util.function.Supplier<CognitiveMemoryRouter> supplier) {
+        this.routerSupplier = supplier;
+    }
 
 
 
@@ -186,8 +194,11 @@ public final class CheckpointDaemon {
     public void checkpoint() {
         long start = System.nanoTime();
 
-        // Step 1: Force all persistent cognitive memory store segments
-        cognitiveRouter.forceAll();
+        // Step 1: Force all persistent active cognitive memory store segments (skipping frozen stores)
+        CognitiveMemoryRouter router = (routerSupplier != null) ? routerSupplier.get() : this.cognitiveRouter;
+        if (router != null) {
+            router.forceAll();
+        }
 
         // Step 2: Save MemoryIndex (ID→offset, text, tags, source)
         // This is critical for crash recovery — without it, tier store
