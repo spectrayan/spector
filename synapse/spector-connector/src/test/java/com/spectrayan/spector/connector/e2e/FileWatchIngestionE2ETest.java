@@ -11,7 +11,6 @@ package com.spectrayan.spector.connector.e2e;
 
 import com.spectrayan.spector.connector.core.CamelConnectorEngine;
 import com.spectrayan.spector.connector.model.RouteConfig;
-import com.spectrayan.spector.connector.sink.BatchIngestionRegistry;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
@@ -61,8 +60,6 @@ class FileWatchIngestionE2ETest {
 
     @BeforeEach
     void setUp() throws Exception {
-        BatchIngestionRegistry.clearAll();
-
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()
                 .dimensions(DIMS)

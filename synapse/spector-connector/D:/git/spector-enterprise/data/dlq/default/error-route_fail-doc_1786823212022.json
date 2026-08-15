@@ -1,8 +1,0 @@
-{
-  "tenantId": "default",
-  "routeId": "error-route",
-  "docId": "fail-doc",
-  "timestamp": "2026-08-15T19:46:52.022892957Z",
-  "errorMessage": "Model down",
-  "content": "will fail"
-}

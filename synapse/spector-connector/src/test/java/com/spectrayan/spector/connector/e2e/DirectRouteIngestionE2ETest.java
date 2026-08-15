@@ -11,7 +11,6 @@ package com.spectrayan.spector.connector.e2e;
 
 import com.spectrayan.spector.connector.core.CamelConnectorEngine;
 import com.spectrayan.spector.connector.model.RouteConfig;
-import com.spectrayan.spector.connector.sink.BatchIngestionRegistry;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
@@ -59,9 +58,6 @@ class DirectRouteIngestionE2ETest {
 
     @BeforeEach
     void setUp() throws Exception {
-        // 0. Reset static registries for test isolation
-        BatchIngestionRegistry.clearAll();
-
         // 1. Real SpectorMemory with stub embedder
         embeddingProvider = new StubEmbeddingProvider(DIMS);
         memory = DefaultSpectorMemory.builder()

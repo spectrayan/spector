@@ -1,8 +1,0 @@
-{
-  "tenantId": "default",
-  "routeId": "e2e-saga",
-  "docId": "chunk-3",
-  "timestamp": "2026-08-15T19:55:08.392498960Z",
-  "errorMessage": "Simulated embedding failure on call #4",
-  "content": "Chapter 4: Advanced recall patterns using Hebbian co-activation graphs."
-}

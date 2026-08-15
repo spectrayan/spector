@@ -16,10 +16,11 @@
 package com.spectrayan.spector.connector.sink;
 
 import com.spectrayan.spector.connector.model.ExecutionRecord;
+import com.spectrayan.spector.connector.spi.ChunkChangeDetector;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
+import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
-import com.spectrayan.spector.ingestion.IngestionTarget;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
@@ -34,16 +35,15 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Comprehensive tests for {@link SpectorIngestionSink}.
- *
- * <p>Tests cover: happy path, header resolution, empty content,
- * embedding failures, ingestion failures, null logger, and metrics.</p>
+ * Comprehensive unit tests for {@link SpectorIngestionSink}.
  */
 @ExtendWith(MockitoExtension.class)
 class SpectorIngestionSinkTest {
 
     @Mock private IngestionTarget target;
     @Mock private EmbeddingProvider embeddingProvider;
+    @Mock private ChunkChangeDetector chunkChangeDetector;
+
     private InMemoryExecutionLogger logger;
     private SpectorIngestionSink sink;
 
@@ -77,29 +77,21 @@ class SpectorIngestionSinkTest {
     }
 
     @Test
-    @DisplayName("Multi-Tenant Isolation: routes ingestion to tenant-specific memory workspace")
-    void multiTenantRouting() throws Exception {
-        // Create a tenant-aware sink with registry for this test
-        java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("spector-sink-test-");
-        var tenantRegistry = new TenantMemoryRegistry(tempDir, embeddingProvider, 384);
-        lenient().when(embeddingProvider.dimensions()).thenReturn(384);
-        var tenantSink = new SpectorIngestionSink(target, embeddingProvider, logger, null, tenantRegistry);
+    @DisplayName("Delta Upsert: skips embedding and ingestion if chunk is unchanged")
+    void deltaUpsertSkipsUnchanged() throws Exception {
+        SpectorIngestionSink deltaSink = new SpectorIngestionSink(target, embeddingProvider, logger, chunkChangeDetector);
 
-        Exchange exchange = mockExchange("doc-tenant", "Isolated data", "route-1", "tenant-a");
-        when(embeddingProvider.embed("Isolated data"))
-                .thenReturn(new EmbeddingResult(new float[384], 384, "test-model"));
+        Exchange exchange = mockExchange("doc-1", "Existing Content", "route-1", "default");
+        when(exchange.getIn().getHeader(SpectorIngestionSink.HEADER_PIPELINE_ID, String.class)).thenReturn("pipe-1");
+        when(exchange.getIn().getHeader(SpectorIngestionSink.HEADER_CHUNK_INDEX, Integer.class)).thenReturn(0);
+        when(chunkChangeDetector.hasChunkChanged("pipe-1", "doc-1", 0, "Existing Content")).thenReturn(false);
 
-        tenantSink.process(exchange);
+        deltaSink.process(exchange);
 
-        // Verify that it did NOT ingest into default target
+        verifyNoInteractions(embeddingProvider);
         verifyNoInteractions(target);
-
-        // Verify that a tenant-specific SpectorMemory was registered
-        var tenantMemory = tenantRegistry.getMemoryForTenant("tenant-a");
-        assertThat(tenantMemory).isNotNull();
-        assertThat(tenantSink.totalProcessed()).isEqualTo(1);
-
-        tenantRegistry.close();
+        assertThat(deltaSink.totalSkippedUnchanged()).isEqualTo(1);
+        assertThat(deltaSink.totalProcessed()).isZero();
     }
 
     // ─────────────── Header Resolution ───────────────
@@ -274,7 +266,6 @@ class SpectorIngestionSinkTest {
         when(message.getBody(String.class)).thenReturn(body);
         when(message.getHeader(SpectorIngestionSink.HEADER_ROUTE_ID, "unknown", String.class)).thenReturn(routeId);
         when(message.getHeader(SpectorIngestionSink.HEADER_TENANT_ID, "default", String.class)).thenReturn(tenantId);
-        // These may not be called if body is null/blank (early return), so mark lenient
         lenient().when(exchange.getExchangeId()).thenReturn("ex-" + docId);
         lenient().when(message.getHeader(SpectorIngestionSink.HEADER_DOC_ID, String.class)).thenReturn(docId);
         lenient().when(message.getHeader(SpectorIngestionSink.HEADER_COLLECTION, "default", String.class)).thenReturn("default");
@@ -307,4 +298,3 @@ class SpectorIngestionSinkTest {
         return exchange;
     }
 }
-

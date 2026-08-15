@@ -1,8 +1,0 @@
-{
-  "tenantId": "default",
-  "routeId": "e2e-saga",
-  "docId": "chunk-2",
-  "timestamp": "2026-08-15T19:53:36.518987930Z",
-  "errorMessage": "Simulated embedding failure on call #3",
-  "content": "Chapter 3: This chunk will trigger an embedding failure in the test."
-}
