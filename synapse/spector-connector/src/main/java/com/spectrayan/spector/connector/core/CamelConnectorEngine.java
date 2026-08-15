@@ -210,7 +210,7 @@ public class CamelConnectorEngine implements AutoCloseable {
                     try {
                         var mongoClient = com.mongodb.client.MongoClients.create(connectionUri);
                         camelContext.getRegistry().bind("mongoClient", mongoClient);
-                        log.info("[ConnectorEngine] Bound MongoClient dynamically for URI: {}", connectionUri);
+                        log.info("[ConnectorEngine] Bound MongoClient dynamically");
                     } catch (Exception e) {
                         log.error("[ConnectorEngine] Failed to register MongoClient dynamically", e);
                     }
