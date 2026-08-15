@@ -23,18 +23,16 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.MemoryType;
+import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -49,11 +47,11 @@ import java.util.function.Function;
  *
  * <p>Processes newly ingested semantic and procedural memories on a dedicated
  * single-thread virtual executor with a bounded task queue. Performs a gated
- * contradiction scan (tombstone → bloom filter → vector distance → LLM) and applies
+ * contradiction scan (tombstone &rarr; bloom filter &rarr; vector distance &rarr; LLM) and applies
  * CADP directional resolution (#507) immediately after ingestion, closing the
  * confusion window before the next batch consolidation cycle.</p>
  */
-public final class EagerConsolidator implements AutoCloseable {
+public final class EagerConsolidator extends AbstractConsolidator implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(EagerConsolidator.class);
 
@@ -67,7 +65,6 @@ public final class EagerConsolidator implements AutoCloseable {
     private final EntityDirectory entityDirectory;
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
-    private final ContradictionDetector contradictionDetector;
     private final Function<String, CognitiveRecord> inspectFunction;
     private final float distanceThreshold;
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -79,16 +76,17 @@ public final class EagerConsolidator implements AutoCloseable {
                              HyperEntityGraphMemory hyperEntityGraph,
                              TemporalKnowledgeGraph temporalKnowledgeGraph,
                              LlmProvider textGenerator,
+                             EmbeddingProvider embeddingProvider,
                              Function<String, CognitiveRecord> inspectFunction,
                              float distanceThreshold,
                              int queueCapacity) {
+        super(textGenerator, embeddingProvider);
         this.cognitiveRouter = Objects.requireNonNull(cognitiveRouter, "cognitiveRouter");
         this.index = Objects.requireNonNull(index, "index");
         this.quantizer = Objects.requireNonNull(quantizer, "quantizer");
         this.entityDirectory = entityDirectory;
         this.hyperEntityGraph = hyperEntityGraph;
         this.temporalKnowledgeGraph = temporalKnowledgeGraph;
-        this.contradictionDetector = new ContradictionDetector(textGenerator);
         this.inspectFunction = Objects.requireNonNull(inspectFunction, "inspectFunction");
         this.distanceThreshold = distanceThreshold;
         this.taskQueue = new LinkedBlockingQueue<>(Math.max(16, queueCapacity));
@@ -173,9 +171,10 @@ public final class EagerConsolidator implements AutoCloseable {
         for (int j = 0; j < recordCount; j++) {
             long offsetJ = baseOffset + (long) j * stride;
             if (offsetJ == recordA.byteOffset()) {
-                continue;
+                continue; // don't compare against itself
             }
 
+            // Phase 1: Gated checks (tombstone, contradicted)
             byte flagsJ = segment.get(SynapticHeaderConstants.LAYOUT_FLAGS, offsetJ + SynapticHeaderConstants.OFFSET_FLAGS);
             if (SynapticHeaderConstants.isTombstoned(flagsJ) || SynapticHeaderConstants.isContradicted(flagsJ)) {
                 continue;
@@ -186,7 +185,7 @@ public final class EagerConsolidator implements AutoCloseable {
                 continue;
             }
 
-            // Phase 3: Vector distance check
+            // Phase 2: Vector distance check
             float dist = SimilarityFunction.EUCLIDEAN.computeQuantizedFromSegment(
                     decodedVectorA, segment, layout.vectorOffset(offsetJ),
                     mins, scales, vecBytes);
@@ -197,87 +196,25 @@ public final class EagerConsolidator implements AutoCloseable {
                     continue;
                 }
 
-                // Phase 4: LLM contradiction check
-                boolean isContradictory = contradictionDetector.areContradictory(recordA.text(), recordB.text());
-                if (isContradictory) {
-                    log.info("EagerConsolidator: Detected contradiction between '{}' and '{}' (L2={})",
-                            recordA.id(), recordB.id(), dist);
+                log.info("EagerConsolidator: Detected candidate pair ['{}', '{}'] with L2={}",
+                        recordA.id(), recordB.id(), dist);
 
-                    // Phase 5: CADP Directional resolution (#507)
-                    long offsetA = recordA.byteOffset();
-                    long offsetB = recordB.byteOffset();
+                // Phase 3 & 4: Template evaluation & CADP resolution
+                boolean processed = evaluateAndResolvePair(
+                        recordA,
+                        recordB,
+                        store,
+                        quantizer,
+                        entityDirectory,
+                        hyperEntityGraph,
+                        temporalKnowledgeGraph,
+                        null,
+                        null,
+                        null,
+                        false // no merge in eager mode, CADP contradiction resolution only
+                );
 
-                    CognitiveRecord winner;
-                    CognitiveRecord loser;
-                    long offsetLoser;
-
-                    int cmp = Long.compare(recordA.timestampMs(), recordB.timestampMs());
-                    if (cmp == 0) {
-                        cmp = Float.compare(recordA.storageStrength(), recordB.storageStrength());
-                    }
-                    if (cmp == 0) {
-                        cmp = recordB.id().compareTo(recordA.id());
-                    }
-
-                    if (cmp >= 0) {
-                        winner = recordA; loser = recordB;
-                        offsetLoser = offsetB;
-                    } else {
-                        winner = recordB; loser = recordA;
-                        offsetLoser = offsetA;
-                    }
-
-                    layout.markContradicted(segment, offsetLoser);
-                    log.info("EagerConsolidator: CADP resolved — winner='{}' corrects loser='{}'",
-                            winner.id(), loser.id());
-
-                    // Hyperedge update
-                    int slotWinner = (int) ((winner.byteOffset() - (store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
-                    int slotLoser = (int) ((loser.byteOffset() - (store.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
-
-                    List<Integer> entitiesWinner = null;
-                    List<Integer> entitiesLoser = null;
-
-                    if (entityDirectory != null) {
-                        entitiesWinner = findEntitiesForSlot(slotWinner);
-                        entitiesLoser = findEntitiesForSlot(slotLoser);
-
-                        if (hyperEntityGraph != null && entitiesWinner != null && entitiesLoser != null) {
-                            for (int eW : entitiesWinner) {
-                                for (int eL : entitiesLoser) {
-                                    if (eW != eL) {
-                                        hyperEntityGraph.addHyperedge(
-                                                new int[]{eW, eL},
-                                                new int[]{HyperEntityGraphMemory.ROLE_CORRECTOR, HyperEntityGraphMemory.ROLE_CORRECTED},
-                                                HyperEntityGraphMemory.TYPE_CONTRADICTS,
-                                                1.0f, -1, System.currentTimeMillis());
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Bridge to TemporalKnowledgeGraph: Retract loser's facts (#527)
-                    if (temporalKnowledgeGraph != null && entitiesLoser != null) {
-                        for (int eL : entitiesLoser) {
-                            try {
-                                var facts = temporalKnowledgeGraph.factsAbout(eL).resolveAll();
-                                if (facts != null) {
-                                    for (var fact : facts) {
-                                        if (entitiesWinner == null || !entitiesWinner.contains(fact.objectEntityId())) {
-                                            temporalKnowledgeGraph.retractFact(fact.factId());
-                                            log.info("EagerConsolidator: Retracted temporal fact {} for corrected entity {}",
-                                                    fact.factId(), eL);
-                                        }
-                                    }
-                                }
-                            } catch (RuntimeException e) {
-                                log.debug("EagerConsolidator: Failed to retract temporal fact for entity {}: {}",
-                                        eL, e.getMessage());
-                            }
-                        }
-                    }
-
+                if (processed) {
                     // Once resolved, stop comparing recordA against other records in this pass
                     break;
                 }
@@ -285,19 +222,22 @@ public final class EagerConsolidator implements AutoCloseable {
         }
     }
 
-    private List<Integer> findEntitiesForSlot(int slot) {
-        if (entityDirectory == null) return null;
-        List<Integer> result = new ArrayList<>(2);
-        int ecnt = entityDirectory.entityCount();
-        for (int e = 0; e < ecnt; e++) {
-            int refCount = entityDirectory.memoryRefCount(e);
-            for (int r = 0; r < refCount; r++) {
-                if (entityDirectory.memoryRefAt(e, r) == slot) {
-                    result.add(e);
-                }
-            }
+    @Override
+    public void consolidate(
+            CognitiveMemoryRouter cognitiveRouter,
+            MemoryIndex index,
+            ScalarQuantizer quantizer,
+            EntityDirectory entityDirectory,
+            HyperEntityGraphMemory hyperEntityGraph,
+            TemporalKnowledgeGraph temporalKnowledgeGraph,
+            CognitiveIngestionTarget ingestionTarget,
+            MemoryWal wal,
+            Function<String, CognitiveRecord> inspectFunction) {
+        // Drains and synchronously processes all pending eager tasks
+        EagerConsolidationTask task;
+        while ((task = taskQueue.poll()) != null) {
+            processTask(task);
         }
-        return result.isEmpty() ? null : result;
     }
 
     @Override
@@ -305,7 +245,7 @@ public final class EagerConsolidator implements AutoCloseable {
         if (closed.compareAndSet(false, true)) {
             executor.shutdown();
             try {
-                if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
                     executor.shutdownNow();
                 }
             } catch (InterruptedException e) {

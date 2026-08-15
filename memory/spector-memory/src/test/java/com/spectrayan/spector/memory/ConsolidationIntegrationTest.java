@@ -122,6 +122,7 @@ class ConsolidationIntegrationTest {
 
         // Store in SEMANTIC tier — fact-a first (older), fact-b second (newer)
         memory.remember("fact-a", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "geography");
+        Thread.sleep(10);
         memory.remember("fact-b", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "geography");
 
         // Run consolidation

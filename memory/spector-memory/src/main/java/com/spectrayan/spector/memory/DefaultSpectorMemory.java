@@ -66,7 +66,7 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
-import com.spectrayan.spector.memory.consolidation.ConsolidationService;
+import com.spectrayan.spector.memory.consolidation.BatchConsolidator;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
@@ -183,7 +183,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ImportanceProvider importanceProvider;
     private final ReflectionOrchestrator reflectionOrchestrator;
     private final ReinforcementHandler reinforcementHandler;
-    private final ConsolidationService consolidationService;
+    private final BatchConsolidator batchConsolidator;
     private final com.spectrayan.spector.memory.consolidation.EagerConsolidator eagerConsolidator;
 
 
@@ -270,7 +270,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.importanceProvider = bundle.importanceProvider();
         this.reflectionOrchestrator = bundle.reflectionOrchestrator();
         this.reinforcementHandler = bundle.reinforcementHandler();
-        this.consolidationService = new ConsolidationService(builder.LlmProvider, this.embeddingProvider);
+        this.batchConsolidator = new BatchConsolidator(builder.LlmProvider, this.embeddingProvider);
         this.eagerConsolidator = new com.spectrayan.spector.memory.consolidation.EagerConsolidator(
                 bundle.partitionManager().cognitiveRouter(),
                 bundle.index(),
@@ -279,6 +279,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 bundle.hyperEntityGraph(),
                 bundle.temporalKnowledgeGraph(),
                 builder.LlmProvider,
+                this.embeddingProvider,
                 this::inspect,
                 builder.deduplicationRadius,
                 builder.eagerConsolidationQueueCapacity
@@ -929,7 +930,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public void consolidate() {
         acquireLease();
         try {
-            consolidationService.consolidate(
+            batchConsolidator.consolidate(
                     partitionManager.cognitiveRouter(),
                     index,
                     quantizer,
