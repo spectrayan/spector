@@ -59,21 +59,21 @@ public final class RecallPipelineBuilder {
         CognitiveMemoryRouter cognitiveRouter = cortex.cognitiveRouter();
         ScalarQuantizer quantizer = cortex.quantizer();
 
-        //  Semantic Recall Strategy + HNSW Rebuild 
+        // ── Semantic Recall Strategy + HNSW Rebuild (ADR-0009, #445) ──
         SemanticRecallStrategy semanticStrategy = null;
-        if (builder.semanticIndex != null && cognitiveRouter.semantic() != null) {
-            semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, cognitiveRouter.semantic(), index);
-            rebuildHnswIfNeeded(builder, cognitiveRouter, index, quantizer);
+        if (builder.semanticIndex != null) {
+            semanticStrategy = new SemanticRecallStrategy(builder.semanticIndex, partitionManager, index);
+            rebuildHnswIfNeeded(builder, partitionManager, index, quantizer);
         }
 
-        //  RecallHistory (Executive Dysfunction context buffer) 
+        // ── RecallHistory (Executive Dysfunction context buffer) ──
         RecallHistory recallHistory = new RecallHistory();
 
-        //  MMR Reranker 
+        // ── MMR Reranker ──
         com.spectrayan.spector.memory.pipeline.reranker.MmrReranker mmrReranker = 
             new com.spectrayan.spector.memory.pipeline.reranker.MmrReranker(index, partitionManager, quantizer.mins(), quantizer.scales());
 
-        //  Recall Pipeline 
+        // ── Recall Pipeline ──
         RecallPipeline recallPipeline = new RecallPipeline(
                 embeddingProvider, partitionManager, index,
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(), wal,
@@ -90,38 +90,54 @@ public final class RecallPipelineBuilder {
         return recallPipeline;
     }
 
-    private static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer) {
-        var semStore = cognitiveRouter.semantic();
-        int storeSize = semStore.size();
-        if (storeSize > 0 && builder.semanticIndex.size() == 0) {
-            log.info("Rebuilding HNSW index from {} persisted semantic records...", storeSize);
-            long startMs = System.currentTimeMillis();
+    private static void rebuildHnswIfNeeded(SpectorMemoryBuilder builder, PartitionManager partitionManager, MemoryIndex index, ScalarQuantizer quantizer) {
+        if (builder.semanticIndex == null || builder.semanticIndex.isReadOnly() || builder.semanticIndex.size() > 0) {
+            return;
+        }
+        var partitions = partitionManager.snapshot();
+        int totalRebuilt = 0;
+        long startMs = System.currentTimeMillis();
+
+        for (var handle : partitions) {
+            int partitionSeq = handle.seq();
+            var semStore = handle.router() != null ? handle.router().semantic() : null;
+            if (semStore == null || semStore.size() == 0) continue;
+
+            int storeSize = semStore.size();
             var seg = semStore.primarySegment();
             var recLayout = semStore.layout();
             int stride = recLayout.stride();
             int vecBytes = recLayout.quantizedVecBytes();
-            long baseOffset = semStore.filePath() != null
-                    ? com.spectrayan.spector.memory.cortex.AbstractCognitiveRecordMemory.METADATA_HEADER_BYTES : 0;
+            long baseOffset = semStore.dataOffset();
 
-            int rebuilt = 0;
             for (int i = 0; i < storeSize; i++) {
                 long recordOff = baseOffset + (long) i * stride;
-                byte[] quantized = new byte[vecBytes];
-                java.lang.foreign.MemorySegment.copy(
-                        seg, java.lang.foreign.ValueLayout.JAVA_BYTE,
-                        recLayout.vectorOffset(recordOff),
-                        java.lang.foreign.MemorySegment.ofArray(quantized),
-                        java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
+                byte flags = recLayout.readFlags(seg, recordOff);
+                if (com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants.isTombstoned(flags)) {
+                    continue;
+                }
 
-                float[] vector = quantizer.decode(quantized);
-                String id = index.findIdByOffset(MemoryType.SEMANTIC, recordOff);
-                if (id != null && !builder.semanticIndex.isReadOnly()) {
-                    builder.semanticIndex.add(id, i, vector);
-                    rebuilt++;
+                String id = index.findIdByOffset(partitionSeq, MemoryType.SEMANTIC, recordOff);
+                if (id != null) {
+                    byte[] quantized = new byte[vecBytes];
+                    java.lang.foreign.MemorySegment.copy(
+                            seg, java.lang.foreign.ValueLayout.JAVA_BYTE,
+                            recLayout.vectorOffset(recordOff),
+                            java.lang.foreign.MemorySegment.ofArray(quantized),
+                            java.lang.foreign.ValueLayout.JAVA_BYTE, 0, vecBytes);
+
+                    float[] vector = quantizer.decode(quantized);
+                    var loc = index.location(id);
+                    int graphSlot = (loc != null) ? loc.graphSlot() : i;
+                    builder.semanticIndex.add(id, graphSlot, vector);
+                    totalRebuilt++;
                 }
             }
+        }
+        if (totalRebuilt > 0) {
             long elapsed = System.currentTimeMillis() - startMs;
-            log.info("HNSW rebuild complete: {}/{} vectors added in {}ms", rebuilt, storeSize, elapsed);
+            log.info("HNSW multi-partition rebuild complete: {} vectors indexed across {} partitions in {}ms",
+                    totalRebuilt, partitions.size(), elapsed);
         }
     }
 }

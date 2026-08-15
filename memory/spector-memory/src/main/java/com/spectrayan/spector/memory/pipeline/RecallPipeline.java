@@ -1011,6 +1011,11 @@ public final class RecallPipeline {
         // Working memory — GLOBAL, scanned once (baseOffset 0) via the active router.
         WORKING_SCAN.contribute(ctx, activeHandle, emitter);
 
+        // #445: Global semantic HNSW scan — emitted ONCE when HNSW is available across all partitions
+        if (ctx.semanticHnswAvailable() && CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, ctx.targetTypes())) {
+            emitter.emitSemanticHnsw();
+        }
+
         // #447: Query-time partition pruning before fan-out
         List<PartitionHandle> candidatePartitions = partitionPruner.prune(snapshot, options, targetTypes, nowMs);
 

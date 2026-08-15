@@ -283,6 +283,11 @@ public class IndexRecordMemory extends AbstractRecordMemory<IndexEntryLayout> {
         return locations.get(id);
     }
 
+    /** Alias for {@link #locate(String)} (ADR-0009). */
+    public MemoryLocation location(String id) {
+        return locations.get(id);
+    }
+
     public String text(String id) {
         MemoryLocation loc = locations.get(id);
         if (loc != null && loc.hasTextPosition()) {

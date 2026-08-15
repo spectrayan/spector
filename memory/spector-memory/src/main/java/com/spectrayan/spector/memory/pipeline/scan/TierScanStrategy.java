@@ -58,19 +58,18 @@ public interface TierScanStrategy {
         }
     }
 
-    /** Semantic tier strategy. */
+    /** Semantic tier strategy (ADR-0009, #445). */
     final class SemanticTierScanStrategy implements TierScanStrategy {
         @Override public MemoryType tier() { return MemoryType.SEMANTIC; }
 
         @Override
         public void contribute(ScanContext ctx, PartitionHandle handle, ScanEmitter emitter) {
             if (!CognitiveMemoryRouter.shouldScan(MemoryType.SEMANTIC, ctx.targetTypes())) return;
-            CognitiveRecordMemory semantic = handle.router().semantic();
-            if (semantic == null || semantic.visibleCount() <= 0) return;
-            boolean useHnsw = handle.writable() && ctx.singlePartition() && ctx.semanticHnswAvailable();
-            if (useHnsw) {
-                emitter.emitSemanticHnsw();
-            } else {
+            // When HNSW is available, global semantic recall is emitted once by RecallPipeline.
+            // When unindexed (fallback), scan this partition's slab.
+            if (!ctx.semanticHnswAvailable()) {
+                CognitiveRecordMemory semantic = handle.router().semantic();
+                if (semantic == null || semantic.visibleCount() <= 0) return;
                 emitter.emitSlabScan(semantic::segment, semantic::visibleCount,
                         semantic.cognitiveLayout(), MemoryType.SEMANTIC,
                         semantic.dataOffset(), handle.seq());
