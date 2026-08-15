@@ -123,24 +123,49 @@ public final class ConsolidationService {
                 long offsetA = recordA.byteOffset();
                 long offsetB = recordB.byteOffset();
 
-                layout.markContradicted(segment, offsetA);
-                layout.markContradicted(segment, offsetB);
+                // ── CADP: Directional winner/loser determination (#507) ──
+                // Primary: newer memory wins. Secondary: higher storage strength.
+                // Tertiary: lower memory ID (lexicographic) for deterministic tiebreak.
+                CognitiveRecord winner;
+                CognitiveRecord loser;
+                long offsetLoser;
 
-                // Add CONTRADICTS relation as a 2-vertex typed hyperedge (ADR-0003 #459)
+                int cmp = Long.compare(recordA.timestampMs(), recordB.timestampMs());
+                if (cmp == 0) {
+                    cmp = Float.compare(recordA.storageStrength(), recordB.storageStrength());
+                }
+                if (cmp == 0) {
+                    cmp = pair.idB().compareTo(pair.idA()); // lower ID wins → A wins when B > A
+                }
+
+                if (cmp >= 0) {
+                    winner = recordA; loser = recordB;
+                    offsetLoser = offsetB;
+                } else {
+                    winner = recordB; loser = recordA;
+                    offsetLoser = offsetA;
+                }
+
+                // Only flag the loser (corrected memory)
+                layout.markContradicted(segment, offsetLoser);
+                log.info("Consolidation: CADP resolved — winner='{}' corrects loser='{}'",
+                        winner.id(), loser.id());
+
+                // Add directed CONTRADICTS hyperedge with CORRECTOR/CORRECTED roles (#507)
                 if (hyperEntityGraph != null) {
-                    int slotA = (int) ((offsetA - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
-                    int slotB = (int) ((offsetB - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
+                    int slotWinner = (int) ((winner.byteOffset() - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
+                    int slotLoser = (int) ((loser.byteOffset() - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
 
-                    List<Integer> entitiesA = memToEntities.get(slotA);
-                    List<Integer> entitiesB = memToEntities.get(slotB);
+                    List<Integer> entitiesWinner = memToEntities.get(slotWinner);
+                    List<Integer> entitiesLoser = memToEntities.get(slotLoser);
 
-                    if (entitiesA != null && entitiesB != null) {
-                        for (int eA : entitiesA) {
-                            for (int eB : entitiesB) {
-                                if (eA != eB) {
+                    if (entitiesWinner != null && entitiesLoser != null) {
+                        for (int eW : entitiesWinner) {
+                            for (int eL : entitiesLoser) {
+                                if (eW != eL) {
                                     hyperEntityGraph.addHyperedge(
-                                            new int[]{eA, eB},
-                                            new int[]{HyperEntityGraphMemory.ROLE_SUBJECT, HyperEntityGraphMemory.ROLE_CONTEXT},
+                                            new int[]{eW, eL},
+                                            new int[]{HyperEntityGraphMemory.ROLE_CORRECTOR, HyperEntityGraphMemory.ROLE_CORRECTED},
                                             1, // type id 1 = CONTRADICTS
                                             1.0f, -1, System.currentTimeMillis());
                                 }
@@ -151,6 +176,7 @@ public final class ConsolidationService {
 
                 processedIds.add(pair.idA());
                 processedIds.add(pair.idB());
+
 
             } else {
                 log.info("Consolidation: Merging duplicate memories '{}' and '{}'", pair.idA(), pair.idB());
