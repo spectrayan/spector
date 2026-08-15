@@ -109,6 +109,9 @@ public interface SpectorMemoryAdmin {
     /** Returns the cognitive graph facade for high-level graph queries. */
     CognitiveGraphFacade graph();
 
+    /** Returns the hyperentity graph memory. */
+    com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph();
+
     /**
      * Returns the entity identity directory — the name&harr;id index, per-entity type, and the
      * authoritative entity&rarr;memory adjacency (including single-entity memories). This is the

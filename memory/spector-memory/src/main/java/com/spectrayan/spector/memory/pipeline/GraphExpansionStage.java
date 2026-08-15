@@ -19,6 +19,7 @@ import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveResult;
@@ -344,6 +345,47 @@ final class GraphExpansionStage {
                                 memId, entityScore, null, MemoryType.SEMANTIC, "ENTITY", neighborSim);
                         graphCandidates.merge(memId, candidate,
                                 (a, b) -> a.score() >= b.score() ? a : b);
+                    }
+                }
+
+                // Traversal of CONTRADICTS hyperedges (#528)
+                // If this entity is part of a corrected relation, traverse to the corrector entity's memories
+                List<HyperEntityGraphMemory.HyperEdge> hyperedges = hyperEntityGraph.findHyperedgesForEntity(entityId);
+                if (hyperedges != null) {
+                    for (var edge : hyperedges) {
+                        if (edge.type() == HyperEntityGraphMemory.TYPE_CONTRADICTS && edge.vertices() != null) {
+                            boolean isCorrected = false;
+                            int correctorEntityId = -1;
+                            for (var v : edge.vertices()) {
+                                if (v.entityId() == entityId && v.roleId() == HyperEntityGraphMemory.ROLE_CORRECTED) {
+                                    isCorrected = true;
+                                }
+                                if (v.roleId() == HyperEntityGraphMemory.ROLE_CORRECTOR) {
+                                    correctorEntityId = v.entityId();
+                                }
+                            }
+                            if (isCorrected && correctorEntityId >= 0) {
+                                int refCount = entityDirectory.memoryRefCount(correctorEntityId);
+                                for (int r = 0; r < refCount; r++) {
+                                    int memIdx = entityDirectory.memoryRefAt(correctorEntityId, r);
+                                    if (memIdx >= 0) {
+                                        String memId = ((com.spectrayan.spector.memory.index.IndexRecordMemory) index).idAt(memIdx);
+                                        if (memId != null && !existingIds.contains(memId) && matchesFilters(memId, options)) {
+                                            float neighborSim = computeNeighborSimilarity(memId, queryVector);
+                                            float entityScore = neighborSim
+                                                    + allResults.getFirst().score()
+                                                      * graphScoringPolicy.entityHopAttenuation()
+                                                      * 1.2f;
+
+                                            CognitiveResult candidate = buildGraphCandidate(
+                                                    memId, entityScore, null, MemoryType.SEMANTIC, "CONTRADICTION_CORRECTOR", neighborSim);
+                                            graphCandidates.merge(memId, candidate,
+                                                    (a, b) -> a.score() >= b.score() ? a : b);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

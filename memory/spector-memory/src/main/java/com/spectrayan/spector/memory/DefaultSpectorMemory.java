@@ -66,7 +66,7 @@ import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphMemory;
 import com.spectrayan.spector.memory.hippocampus.CircadianPolicy;
 import com.spectrayan.spector.memory.hippocampus.ReflectDaemon;
-import com.spectrayan.spector.memory.consolidation.ConsolidationService;
+import com.spectrayan.spector.memory.consolidation.BatchConsolidator;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
 import com.spectrayan.spector.memory.inhibition.SuppressionSet;
@@ -183,7 +183,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ImportanceProvider importanceProvider;
     private final ReflectionOrchestrator reflectionOrchestrator;
     private final ReinforcementHandler reinforcementHandler;
-    private final ConsolidationService consolidationService;
+    private final BatchConsolidator batchConsolidator;
+    private final com.spectrayan.spector.memory.consolidation.EagerConsolidator eagerConsolidator;
 
 
     //  Biological Subsystems 
@@ -269,7 +270,20 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.importanceProvider = bundle.importanceProvider();
         this.reflectionOrchestrator = bundle.reflectionOrchestrator();
         this.reinforcementHandler = bundle.reinforcementHandler();
-        this.consolidationService = new ConsolidationService(builder.LlmProvider, this.embeddingProvider);
+        this.batchConsolidator = new BatchConsolidator(builder.LlmProvider, this.embeddingProvider);
+        this.eagerConsolidator = new com.spectrayan.spector.memory.consolidation.EagerConsolidator(
+                bundle.partitionManager().cognitiveRouter(),
+                bundle.index(),
+                bundle.quantizer(),
+                bundle.entityDirectory(),
+                bundle.hyperEntityGraph(),
+                bundle.temporalKnowledgeGraph(),
+                builder.LlmProvider,
+                this.embeddingProvider,
+                this::inspect,
+                builder.deduplicationRadius,
+                builder.eagerConsolidationQueueCapacity
+        );
 
         this.valenceTracker = bundle.valenceTracker();
         this.coActivationTracker = bundle.coActivationTracker();
@@ -385,6 +399,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
             }
             checkCircadianTrigger(type);
+            if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
+                eagerConsolidator.submit(id, type);
+            }
         } catch (RuntimeException e) {
             log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
             throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
@@ -454,6 +471,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
 
             checkCircadianTrigger(type);
+            if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
+                eagerConsolidator.submit(id, type);
+            }
         } catch (RuntimeException e) {
             log.error("Failed to remember '{}': {}", id, e.getMessage(), e);
             throw new SpectorServerException(ErrorCode.INGESTION_PIPELINE_FAILED, e, id);
@@ -910,12 +930,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public void consolidate() {
         acquireLease();
         try {
-            consolidationService.consolidate(
+            batchConsolidator.consolidate(
                     partitionManager.cognitiveRouter(),
                     index,
                     quantizer,
                     entityDirectory,
                     hyperEntityGraph,
+                    temporalKnowledgeGraph,
                     cognitiveTarget,
                     wal,
                     this::inspect
@@ -1363,6 +1384,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override public com.spectrayan.spector.memory.insula.InsularCortex insularCortex() { return insularCortex; }
     @Override public com.spectrayan.spector.index.VectorIndex semanticIndex() { return semanticIndex; }
     @Override public TemporalKnowledgeGraph temporalKnowledgeGraph() { return temporalKnowledgeGraph; }
+    @Override public HyperEntityGraphMemory hyperEntityGraph() { return hyperEntityGraph; }
 
     //  listAll implementations 
 
@@ -1518,6 +1540,22 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         // Stop daemon supervisor (stops all managed daemons)
         if (daemonSupervisor != null) {
             daemonSupervisor.close();
+        }
+
+        // Close consolidators
+        if (batchConsolidator != null) {
+            try {
+                batchConsolidator.close();
+            } catch (Exception e) {
+                log.warn("Failed to close BatchConsolidator on close", e);
+            }
+        }
+        if (eagerConsolidator != null) {
+            try {
+                eagerConsolidator.close();
+            } catch (Exception e) {
+                log.warn("Failed to close EagerConsolidator on close", e);
+            }
         }
 
         // Final checkpoint flush before closing storage
