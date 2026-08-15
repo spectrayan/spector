@@ -656,7 +656,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 var embedding = childEmbeddings.get(i);
 
                 if (!embedding.success()) {
-                    throw new RuntimeException("Embedding failed for chunk: " + embedding.error());
+                    throw new SpectorServerException(ErrorCode.EMBEDDING_REQUEST_FAILED,
+                            "Embedding failed for chunk: " + embedding.error());
                 }
 
                 // Extract content-specific tags from this chunk's text
@@ -1528,7 +1529,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 }
                 checkpointDaemon.checkpoint();
             } catch (Exception e) {
-                log.warn("Final checkpoint on close failed: {}", e.getMessage());
+                log.warn("Final checkpoint on close failed", e);
             }
         }
 
@@ -1554,21 +1555,10 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     bm25Index.partition(0).save(
                             StorageLayout.bm25BidxRuntime(persistencePath));
                 } catch (Exception e) {
-                    log.warn("Failed to save BM25 index on close: {}", e.getMessage());
+                    log.warn("Failed to save BM25 index on close", e);
                 }
             }
-            // V4 bundle: save to BM25 region
-            if (runtimeBundle != null) {
-                try {
-                    java.lang.foreign.MemorySegment bm25Region = runtimeBundle.regionSegment(
-                            com.spectrayan.spector.memory.kernel.bundle.RegionId.BM25);
-                    if (bm25Region != null) {
-                        bm25Index.partition(0).saveToRegion(bm25Region);
-                    }
-                } catch (Exception e) {
-                    log.debug("BM25 bundle region save on close failed: {}", e.getMessage());
-                }
-            }
+
         }
 
         PersistenceManager.flushAndClose(
@@ -1585,14 +1575,14 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             try {
                 insularCortex.close();
             } catch (Exception e) {
-                log.warn("Failed to close InsularCortex on close: {}", e.getMessage());
+                log.warn("Failed to close InsularCortex on close", e);
             }
         }
         if (runtimeBundle != null) {
             try {
                 runtimeBundle.close();
             } catch (Exception e) {
-                log.warn("Failed to close RuntimeBundle on close: {}", e.getMessage());
+                log.warn("Failed to close RuntimeBundle on close", e);
             }
         }
     }
