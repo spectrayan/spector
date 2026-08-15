@@ -36,10 +36,17 @@ import com.spectrayan.spector.memory.id.TsidGenerator;
  *
  * <p>Only the SHA-256 hex hash (64 lowercase hex chars) of a raw key is ever persisted; the raw
  * key value is returned to the caller exactly once at creation time and is not recoverable from
- * storage. Backed by the {@code api_keys} table created by Flyway {@code V2__multi_user_auth.sql}.</p>
+ * storage. Backed by the {@code api_keys} table created by Flyway {@code V3__multi_user_auth.sql}.</p>
  *
- * <p>All statements are parameterized. Raw key values are never logged.</p>
+ * <p><b>Deprecation Notice:</b> This store is deprecated in favor of the universal
+ * {@link com.spectrayan.spector.synapse.connector.repository.JdbcEncryptedCredentialProvider}
+ * backed by the {@code credentials} table, which provides AES-256-GCM envelope encryption,
+ * BYOK support, and multi-tenant credential isolation. Use {@code /api/v1/credentials}
+ * for all outbound secrets, channel tokens, and provider keys.</p>
+ *
+ * @deprecated since 0.1.0-alpha in favor of the universal {@code credentials} vault
  */
+@Deprecated(since = "0.1.0-alpha")
 @Repository
 public class ApiKeyStore {
 

@@ -18,13 +18,23 @@ import com.spectrayan.spector.connector.core.RouteLifecycleService;
 import com.spectrayan.spector.connector.model.RouteConfig;
 import com.spectrayan.spector.connector.model.RouteStatus;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
+import com.spectrayan.spector.connector.spi.CompositeCredentialProvider;
 import com.spectrayan.spector.connector.spi.CredentialProvider;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
 import com.spectrayan.spector.ingestion.IngestionTarget;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingResult;
+import com.spectrayan.spector.synapse.connector.api.dto.CreateCredentialRequest;
+import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
+import com.spectrayan.spector.synapse.connector.model.CredentialType;
+import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
+import com.spectrayan.spector.synapse.connector.repository.JdbcCredentialRepository;
+import com.spectrayan.spector.synapse.connector.repository.JdbcEncryptedCredentialProvider;
 import com.spectrayan.spector.synapse.connector.repository.JdbcRouteConfigProvider;
+import com.spectrayan.spector.synapse.connector.service.CredentialService;
+import com.spectrayan.spector.synapse.connector.service.DefaultCredentialService;
+import com.spectrayan.spector.synapse.security.crypto.AesGcmCipher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,16 +54,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * End-to-end integration test verifying the database-backed connector lifecycle.
+ * End-to-end integration test verifying the database-backed connector lifecycle and layered encrypted credentials vault.
  *
- * <p>Validates that route definitions persisted via {@link JdbcRouteConfigProvider} in H2
- * are dynamically started, hot-reloaded, paused, and purged in {@link CamelConnectorEngine}
- * via {@link RouteLifecycleService}.</p>
+ * <p>Validates that route definitions persisted via {@link JdbcRouteConfigProvider} and credentials
+ * managed by {@link CredentialService} in H2 are dynamically started, hot-reloaded,
+ * paused, and purged in {@link CamelConnectorEngine} via {@link RouteLifecycleService}.</p>
  */
 class ConnectorDatabaseLifecycleIT {
 
     private DataSource dataSource;
     private JdbcRouteConfigProvider routeConfigProvider;
+    private CredentialService credentialService;
+    private JdbcEncryptedCredentialProvider credentialProvider;
     private TemplateRegistry templateRegistry;
     private CamelConnectorEngine engine;
     private RouteLifecycleService lifecycleService;
@@ -64,12 +76,17 @@ class ConnectorDatabaseLifecycleIT {
         dataSource = new EmbeddedDatabaseBuilder()
                 .setType(EmbeddedDatabaseType.H2)
                 .addScript("classpath:db/migration/V4__connector_routes.sql")
+                .addScript("classpath:db/migration/V5__credentials.sql")
                 .generateUniqueName(true)
                 .build();
 
         JdbcClient jdbc = JdbcClient.create(dataSource);
         ObjectMapper mapper = new ObjectMapper();
         routeConfigProvider = new JdbcRouteConfigProvider(jdbc, mapper);
+        AesGcmCipher cipher = new AesGcmCipher("integration-test-master-key-32b");
+        CredentialRepository credRepo = new JdbcCredentialRepository(jdbc, mapper);
+        credentialService = new DefaultCredentialService(credRepo, cipher);
+        credentialProvider = new JdbcEncryptedCredentialProvider(credentialService);
 
         templateRegistry = new TemplateRegistry(null);
 
@@ -82,8 +99,8 @@ class ConnectorDatabaseLifecycleIT {
         engine = new CamelConnectorEngine(sink, routeConfigProvider, templateRegistry);
         engine.start();
 
-        CredentialProvider credentialProvider = Optional::ofNullable;
-        lifecycleService = new RouteLifecycleService(engine, templateRegistry, credentialProvider);
+        CompositeCredentialProvider compositeCreds = CompositeCredentialProvider.of(credentialProvider, CredentialProvider.fromEnvironment());
+        lifecycleService = new RouteLifecycleService(engine, templateRegistry, compositeCreds);
     }
 
     @AfterEach
@@ -182,5 +199,44 @@ class ConnectorDatabaseLifecycleIT {
 
         assertThat(deployed.status()).isEqualTo(RouteStatus.ACTIVE);
         assertThat(engine.activeRouteIds()).contains("prod-slack-notify");
+    }
+
+    @Test
+    @DisplayName("Encrypted Credentials Vault: Route dynamically resolves DB-stored encrypted secret on activation")
+    void activateRouteWithEncryptedDatabaseCredential() throws Exception {
+        // Save encrypted token in database credentials vault via domain service
+        credentialService.createCredential(
+                "tenant-finance",
+                "user-finance-admin",
+                new CreateCredentialRequest(
+                        "finance-slack-key",
+                        CredentialCategory.CHANNEL,
+                        "slack",
+                        CredentialType.BEARER_TOKEN,
+                        "https://hooks.slack.com/services/SEC/RET/URL",
+                        Map.of(),
+                        true,
+                        "Encrypted Finance Slack Token",
+                        null
+                )
+        );
+
+        // Define route with credentialRef pointing to DB credential name
+        RouteConfig slackRoute = RouteConfig.builder("finance-slack-secure", "Secure Slack", "slack-notify")
+                .tenantId("tenant-finance")
+                .connectorType("OUTBOUND_ACTION")
+                .credentialRef("tenant:finance-slack-key")
+                .properties(Map.of(
+                        "channel", "finance-alerts",
+                        "webhookUrl", "https://hooks.slack.com/services/SEC/RET/URL"
+                ))
+                .enabled(true)
+                .build();
+
+        routeConfigProvider.save(slackRoute);
+        RouteConfig deployed = lifecycleService.activateRoute(slackRoute);
+
+        assertThat(deployed.status()).isEqualTo(RouteStatus.ACTIVE);
+        assertThat(engine.activeRouteIds()).contains("finance-slack-secure");
     }
 }

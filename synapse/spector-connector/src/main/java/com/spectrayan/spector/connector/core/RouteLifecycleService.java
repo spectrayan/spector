@@ -184,11 +184,13 @@ public class RouteLifecycleService {
         Map<String, String> merged = new HashMap<>(config.properties());
         String credRef = config.credentialRef();
         if (credRef != null && !credRef.isBlank()) {
-            credentialProvider.resolve(credRef).ifPresent(secret -> {
+            credentialProvider.resolve(credRef, config.tenantId()).ifPresent(secret -> {
                 merged.putIfAbsent("apiKey", secret);
                 merged.putIfAbsent("token", secret);
                 merged.putIfAbsent("apiToken", secret);
                 merged.putIfAbsent("oauthToken", secret);
+                merged.putIfAbsent("password", secret);
+                merged.putIfAbsent("connectionString", secret);
             });
         }
         return merged;

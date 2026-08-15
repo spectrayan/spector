@@ -16,12 +16,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.connector.core.CamelConnectorEngine;
 import com.spectrayan.spector.connector.core.RouteLifecycleService;
 import com.spectrayan.spector.connector.sink.SpectorIngestionSink;
+import com.spectrayan.spector.connector.spi.CompositeCredentialProvider;
 import com.spectrayan.spector.connector.spi.CredentialProvider;
 import com.spectrayan.spector.connector.spi.InMemoryExecutionLogger;
 import com.spectrayan.spector.connector.spi.RouteConfigProvider;
 import com.spectrayan.spector.connector.template.TemplateRegistry;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.synapse.connector.repository.JdbcEncryptedCredentialProvider;
 import com.spectrayan.spector.synapse.connector.repository.JdbcRouteConfigProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +35,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Optional;
 
 /**
  * Spring Boot Auto-Configuration for the Spector Connector Subsystem.
@@ -64,8 +65,14 @@ public class ConnectorAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public CredentialProvider credentialProvider() {
-        return Optional::ofNullable;
+    public CredentialProvider credentialProvider(
+            org.springframework.beans.factory.ObjectProvider<JdbcEncryptedCredentialProvider> dbProvider) {
+        JdbcEncryptedCredentialProvider encrypted = dbProvider.getIfAvailable();
+        if (encrypted != null) {
+            log.info("[ConnectorAutoConfig] Initializing CompositeCredentialProvider with JdbcEncryptedCredentialProvider + Environment");
+            return CompositeCredentialProvider.of(encrypted, CredentialProvider.fromEnvironment());
+        }
+        return CredentialProvider.fromEnvironment();
     }
 
     @Bean
