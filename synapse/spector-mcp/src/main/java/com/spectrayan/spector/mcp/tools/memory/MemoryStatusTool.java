@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
+import com.spectrayan.spector.commons.template.TemplateEngine;
 
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -31,6 +32,8 @@ import io.modelcontextprotocol.spec.McpSchema;
  * MCP tool: {@code memory_status} — memory stats per tier.
  */
 public final class MemoryStatusTool extends MemoryToolHandler {
+
+    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
 
     public MemoryStatusTool(SpectorMemory memory) {
         super(memory);
@@ -59,35 +62,27 @@ public final class MemoryStatusTool extends MemoryToolHandler {
     @Override
     protected McpSchema.CallToolResult executeMemory(SpectorMemory memory,
                                                        Map<String, Object> args) {
-        var sb = new StringBuilder();
-        sb.append("🧠 Spector Memory Status\n");
-        sb.append("========================\n\n");
-
-        sb.append("Total Memories: ").append(memory.totalMemories()).append("\n\n");
-
-        sb.append("Per-Tier Breakdown:\n");
-        sb.append("  Working (Prefrontal Cortex):  ").append(memory.memoryCount(MemoryType.WORKING)).append("\n");
-        sb.append("  Episodic (Hippocampus):       ").append(memory.memoryCount(MemoryType.EPISODIC)).append("\n");
-        sb.append("  Semantic (Neocortex):         ").append(memory.memoryCount(MemoryType.SEMANTIC)).append("\n");
-        sb.append("  Procedural (Basal Ganglia):   ").append(memory.memoryCount(MemoryType.PROCEDURAL)).append("\n\n");
-
-        sb.append("Subsystem Status:\n");
-        sb.append("  WAL Events:          ").append(memory.admin().wal().size()).append("\n");
-        sb.append("  WAL High-Water Mark: ").append(memory.admin().wal().highWaterMark()).append("\n");
-        sb.append("  Suppressed Memories: ").append(memory.admin().suppression().size()).append("\n");
-        sb.append("  Pending Reminders:   ").append(memory.admin().prospective().pendingCount()).append("\n\n");
-
-        // Lateral evaluator metrics
         LateralEvaluator lateral = memory.admin().lateralEvaluator();
         LateralEvaluator.LateralMetrics metrics = lateral.metrics();
-        sb.append("Lateral Retrieval:\n");
-        sb.append("  Enabled:    ").append(lateral.isLateralEnabled()).append("\n");
-        sb.append("  Threshold:  ").append(String.format("%.2f", lateral.currentDistanceThreshold())).append("\n");
-        sb.append("  Samples:    ").append(metrics.sampleSize()).append("\n");
-        sb.append("  LUR (util): ").append(String.format("%.2f", metrics.utilityRate())).append("\n");
-        sb.append("  LSR (supp): ").append(String.format("%.2f", metrics.suppressionRate())).append("\n");
-        sb.append("  LHI (hall): ").append(String.format("%.2f", metrics.hallucinationIndex())).append("\n");
 
-        return textResult(sb.toString());
+        var model = Map.<String, Object>ofEntries(
+                Map.entry("totalMemories", memory.totalMemories()),
+                Map.entry("workingCount", memory.memoryCount(MemoryType.WORKING)),
+                Map.entry("episodicCount", memory.memoryCount(MemoryType.EPISODIC)),
+                Map.entry("semanticCount", memory.memoryCount(MemoryType.SEMANTIC)),
+                Map.entry("proceduralCount", memory.memoryCount(MemoryType.PROCEDURAL)),
+                Map.entry("walSize", memory.admin().wal().size()),
+                Map.entry("walHighWaterMark", memory.admin().wal().highWaterMark()),
+                Map.entry("suppressedCount", memory.admin().suppression().size()),
+                Map.entry("pendingReminders", memory.admin().prospective().pendingCount()),
+                Map.entry("lateralEnabled", lateral.isLateralEnabled()),
+                Map.entry("lateralThreshold", lateral.currentDistanceThreshold()),
+                Map.entry("lateralSampleSize", metrics.sampleSize()),
+                Map.entry("lateralUtilityRate", metrics.utilityRate()),
+                Map.entry("lateralSuppressionRate", metrics.suppressionRate()),
+                Map.entry("lateralHallucinationIndex", metrics.hallucinationIndex())
+        );
+
+        return textResult(templateEngine.render("mcp/memory-status", model));
     }
 }

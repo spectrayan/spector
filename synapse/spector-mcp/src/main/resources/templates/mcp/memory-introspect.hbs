@@ -1,0 +1,12 @@
+🔍 Memory Introspection: '{{topic}}'
+===============================
+
+Known: {{#if insight.isKnown}}Yes{{else}}No{{/if}}
+Confidence: {{formatDecimal insight.confidence "%.2f"}}
+Total Memories: {{insight.totalMemories}}
+Average Importance: {{formatDecimal insight.avgImportance "%.2f"}}
+Average Age (days): {{formatDecimal insight.avgAgeDays "%.1f"}}
+Staleness: {{formatDecimal insight.staleness "%.2f"}}
+Stale: {{#if insight.isStale}}⚠️ Yes — knowledge may be outdated{{else}}No{{/if}}
+
+Recommendation: {{insight.recommendation}}

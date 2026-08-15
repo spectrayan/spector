@@ -12,15 +12,16 @@
  */
 package com.spectrayan.spector.synapse.agent.service;
 
+import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.memory.model.AgentSoul;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Service for enriching system prompts with agent identity.
@@ -34,11 +35,16 @@ import java.nio.charset.StandardCharsets;
 public class IdentityPrimerService {
 
     private static final Logger log = LoggerFactory.getLogger(IdentityPrimerService.class);
-    private static final String DEFAULT_PROMPT =
-            "You are a cognitive assistant powered by the Spector Engine. "
-            + "You have access to tools for memory recall, file operations, and web search. "
-            + "Use memory_recall dynamically whenever pre-loaded context is missing or ambiguous. "
-            + "Use tools when needed to provide accurate, helpful responses.";
+    private final TemplateEngine templateEngine;
+
+    @Autowired
+    public IdentityPrimerService() {
+        this(TemplateEngine.getDefault());
+    }
+
+    public IdentityPrimerService(TemplateEngine templateEngine) {
+        this.templateEngine = templateEngine != null ? templateEngine : TemplateEngine.getDefault();
+    }
 
     /**
      * Builds the full system prompt from an agent soul.
@@ -50,86 +56,49 @@ public class IdentityPrimerService {
      * @return fully enriched system prompt
      */
     public String buildSystemPrompt(AgentSoul soul) {
-        if (soul == null) {
-            return loadTemplate();
-        }
+        Map<String, Object> model = new HashMap<>();
+        boolean hasIdentity = soul != null && !AgentSoul.NONE.equals(soul) && hasAnyIdentity(soul);
+        model.put("hasIdentity", hasIdentity);
+        model.put("soul", soul != null ? soul : Map.of());
+        model.put("agent_name", soul != null && soul.name() != null ? soul.name() : "Assistant");
+        model.put("primed_memories", ""); // Memories injected by ChatService
 
-        // Use the soul's system prompt or the default template
-        String basePrompt = soul.systemPrompt() != null && !soul.systemPrompt().isBlank()
-                ? soul.systemPrompt()
-                : loadTemplate();
-
+        // Also build agent block for legacy {{agent_identity}} placeholder support
         String agentBlock = buildAgentBlock(soul);
+        model.put("agent_identity", agentBlock);
 
-        return basePrompt
-                .replace("{{agent_identity}}", agentBlock)
-                .replace("{{agent_name}}", soul.name() != null ? soul.name() : "Assistant")
-                .replace("{{primed_memories}}", ""); // Memories injected by ChatService
+        if (soul != null && soul.systemPrompt() != null && !soul.systemPrompt().isBlank()) {
+            return templateEngine.renderInline(soul.systemPrompt(), model);
+        }
+
+        return templateEngine.render("prompts/companion-system", model);
+    }
+
+    private boolean hasAnyIdentity(AgentSoul soul) {
+        return soul != null && (
+                (soul.name() != null && !soul.name().isBlank())
+                || (soul.description() != null && !soul.description().isBlank())
+                || (soul.purpose() != null && !soul.purpose().isBlank())
+                || (soul.personality() != null && !soul.personality().isBlank())
+                || !soul.expertiseDomains().isEmpty()
+                || !soul.coreValues().isEmpty()
+                || (soul.communicationStyle() != null && !soul.communicationStyle().isBlank())
+                || !soul.ethicalGuardrails().isEmpty()
+                || !soul.tools().isEmpty()
+        );
     }
 
     /**
-     * Builds the agent identity block from the soul's cognitive fields.
+     * Builds the agent identity block from the soul's cognitive fields using Handlebars template.
      */
-    private String buildAgentBlock(AgentSoul soul) {
-        var sb = new StringBuilder();
-
-        if (soul.name() != null && !soul.name().isBlank()) {
-            sb.append("\n== AGENT IDENTITY ==\n");
-            sb.append("Name: ").append(soul.name()).append('\n');
+    public String buildAgentBlock(AgentSoul soul) {
+        if (!hasAnyIdentity(soul)) {
+            return "";
         }
-
-        if (soul.description() != null && !soul.description().isBlank()) {
-            sb.append("Description: ").append(soul.description()).append('\n');
-        }
-
-        if (soul.purpose() != null && !soul.purpose().isBlank()) {
-            sb.append("Purpose: ").append(soul.purpose()).append('\n');
-        }
-
-        if (soul.personality() != null && !soul.personality().isBlank()) {
-            sb.append("Personality: ").append(soul.personality()).append('\n');
-        }
-
-        if (!soul.expertiseDomains().isEmpty()) {
-            sb.append("Expertise: ").append(String.join(", ", soul.expertiseDomains())).append('\n');
-        }
-
-        if (!soul.coreValues().isEmpty()) {
-            sb.append("Core Values: ").append(String.join(", ", soul.coreValues())).append('\n');
-        }
-
-        if (soul.communicationStyle() != null && !soul.communicationStyle().isBlank()) {
-            sb.append("Communication Style: ").append(soul.communicationStyle()).append('\n');
-        }
-
-        if (!soul.ethicalGuardrails().isEmpty()) {
-            sb.append("Ethical Guardrails: ").append(String.join("; ", soul.ethicalGuardrails())).append('\n');
-        }
-
-        // Available tools
-        if (!soul.tools().isEmpty()) {
-            sb.append("Available Tools: ").append(String.join(", ", soul.tools())).append('\n');
-        }
-
-        return sb.toString();
-    }
-
-    /**
-     * Loads the system prompt template from the classpath.
-     */
-    private String loadTemplate() {
-        try (InputStream is = getClass().getResourceAsStream("/prompts/companion-system.txt")) {
-            if (is != null) {
-                return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-            }
-        } catch (IOException e) {
-            log.warn("Failed to load prompt template: {}", e.getMessage());
-        }
-        return DEFAULT_PROMPT;
-    }
-
-    private static String capitalize(String s) {
-        if (s == null || s.isEmpty()) return s;
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+        String block = templateEngine.render("prompts/agent-identity", Map.of(
+                "hasIdentity", true,
+                "soul", soul
+        ));
+        return "\n" + block.trim() + "\n";
     }
 }

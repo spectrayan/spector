@@ -1,0 +1,9 @@
+Found {{count}} results:
+
+{{#each results}}
+[{{id}}] (score: {{formatDecimal score "%.4f"}})
+{{#if text}}
+{{truncate text 500}}
+{{/if}}
+
+{{/each}}

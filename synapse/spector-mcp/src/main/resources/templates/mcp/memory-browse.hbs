@@ -1,0 +1,13 @@
+🏷️ Found {{totalResults}} memories matching tags: [{{join filterTags ", "}}]
+
+{{#each results}}
+─── {{index}}. {{record.id}} ───
+📝 {{truncate record.text 200}}
+🏷️ Type: {{record.memoryType}} | Source: {{record.source}}
+📊 Importance: {{formatDecimal record.importance "%.2f"}} | Valence: {{record.valence}} | Recalls: {{record.totalRecallCount}}
+{{#if hasTags}}
+🔖 Tags: {{join record.tags ", "}}
+{{/if}}
+📅 Created: {{record.createdAt}} ({{formatDecimal record.ageDays "%.1f"}} days ago)
+
+{{/each}}

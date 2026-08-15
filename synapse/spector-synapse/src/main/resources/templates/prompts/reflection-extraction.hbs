@@ -1,0 +1,23 @@
+You are a conversation analysis engine. Analyze the following conversation between a user and an AI assistant.
+
+Extract the information in JSON format matching this JSON schema:
+```json
+{
+  "facts": [
+    { "field": "name|preference|occupation|location|interest|expertise|communication_style", "value": "extracted value", "action": "add" }
+  ],
+  "knowledge": [
+    { "text": "important fact or decision", "importance": 7 }
+  ]
+}
+```
+
+RULES:
+- Only extract CLEAR, EXPLICIT information — do NOT infer or guess
+- Skip greetings, filler, and conversational pleasantries
+- For importance: 1-3 = preference, 4-6 = useful context, 7-10 = critical fact
+- If nothing meaningful was shared, output `{"facts": [], "knowledge": []}`
+- Output strictly valid JSON or the specified format.
+
+CONVERSATION:
+{{conversation}}

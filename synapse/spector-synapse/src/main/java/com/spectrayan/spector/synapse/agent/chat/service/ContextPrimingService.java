@@ -12,10 +12,15 @@
  */
 package com.spectrayan.spector.synapse.agent.chat.service;
 
+import com.spectrayan.spector.commons.template.TemplateEngine;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,14 +44,20 @@ public class ContextPrimingService {
 
     private static final Logger log = LoggerFactory.getLogger(ContextPrimingService.class);
     private final ChatMemoryPort chatMemoryPort;
+    private final TemplateEngine templateEngine;
 
+    @Autowired
     public ContextPrimingService(ChatMemoryPort chatMemoryPort) {
+        this(chatMemoryPort, TemplateEngine.getDefault());
+    }
+
+    public ContextPrimingService(ChatMemoryPort chatMemoryPort, TemplateEngine templateEngine) {
         this.chatMemoryPort = chatMemoryPort;
+        this.templateEngine = templateEngine != null ? templateEngine : TemplateEngine.getDefault();
     }
 
     /**
-     * Result of context priming — contains session history, cross-session
-     * memories, and the formatted context block for system prompt injection.
+     * Primed context containing session history and cross-session memories.
      */
     public record PrimedContext(
             List<Map<String, Object>> sessionMessages,
@@ -75,20 +86,27 @@ public class ContextPrimingService {
     }
 
     /**
-     * Formats recalled memories as a context block for system prompt injection.
+     * Formats recalled memories as a context block for system prompt injection using Handlebars template.
      */
-    private String formatBlock(List<ChatMemoryPort.PrimedMemory> memories) {
-        if (memories.isEmpty()) return "";
+    public String formatBlock(List<ChatMemoryPort.PrimedMemory> memories) {
+        if (memories == null || memories.isEmpty()) {
+            return "";
+        }
 
-        var sb = new StringBuilder("\n--- RELEVANT MEMORIES ---\n");
+        List<Map<String, Object>> formattedMemories = new ArrayList<>();
         for (var m : memories) {
             String typeStr = m.memoryType() != null ? m.memoryType() : "MEMORY";
             String ageStr = m.ageDescription() != null ? m.ageDescription() : "recent";
             float salience = m.salienceScore() > 0 ? m.salienceScore() : m.score();
-            sb.append(String.format("[%s | Salience: %.2f | %s] %s%n",
-                    typeStr, salience, ageStr, m.text()));
+            Map<String, Object> mem = new HashMap<>();
+            mem.put("type", typeStr);
+            mem.put("salience", salience);
+            mem.put("age", ageStr);
+            mem.put("text", m.text() != null ? m.text() : "");
+            formattedMemories.add(mem);
         }
-        sb.append("--- END MEMORIES ---\n");
-        return sb.toString();
+
+        String rendered = templateEngine.render("prompts/primed-memories", Map.of("memories", formattedMemories));
+        return "\n" + rendered.trim() + "\n";
     }
 }

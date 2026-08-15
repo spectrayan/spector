@@ -1,0 +1,10 @@
+You are a relevance scoring system. Rate each document's relevance to the query on a scale of 0.0 to 10.0. Respond ONLY with one score per line in the format: "N: SCORE" where N is the document number and SCORE is a decimal number.
+
+Query: {{query}}
+
+Documents:
+{{#each documents}}
+{{index}}. {{truncate text 500}}
+
+{{/each}}
+Scores:

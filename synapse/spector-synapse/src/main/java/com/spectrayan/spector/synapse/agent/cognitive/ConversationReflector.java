@@ -12,18 +12,17 @@
  */
 package com.spectrayan.spector.synapse.agent.cognitive;
 
+import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,18 +34,26 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Post-conversation reflection engine that analyzes conversation history
- * and automatically extracts user facts and knowledge artifacts.
+ * Autonomous background memory consolidation engine.
  *
  * <h3>Biological Analog</h3>
- * <p>Mirrors hippocampal replay during rest — the brain replays experiences
- * to consolidate them into long-term memory. The reflector replays the
- * conversation to extract and store important information.</p>
+ * <p>Mirrors hippocampal replay during sleep / offline periods — the brain
+ * replays waking experiences, extracts semantic meaning, and writes updates
+ * to long-term cortical storage. This reflector runs asynchronously after chat
+ * turns, analyzing conversation transcripts to extract user facts and knowledge
+ * worth remembering.</p>
  *
- * <h3>Execution</h3>
- * <p>Runs asynchronously after the main response is sent to the user.
- * Uses a lightweight LLM prompt to extract structured data, then
- * invokes the appropriate tools (memory_remember) to persist knowledge.</p>
+ * <h3>What It Extracts</h3>
+ * <ul>
+ *   <li><b>User facts:</b> name, preferences, occupation, location, interests</li>
+ *   <li><b>Knowledge items:</b> decisions made, important information shared</li>
+ * </ul>
+ *
+ * <h3>Storage</h3>
+ * <p>Extracted facts and knowledge are stored via the {@code memory_remember} tool
+ * to consolidate them into long-term memory. The reflector replays the
+ * conversation through an LLM with a structured extraction prompt, then
+ * executes the appropriate tool calls.</p>
  *
  * <h3>Thread Safety</h3>
  * <p>Thread-safe. Runs on virtual threads.</p>
@@ -65,8 +72,8 @@ public final class ConversationReflector {
     private final String ollamaBaseUrl;
     private final String reflectionModel;
     private final ToolRegistry toolRegistry;
-    private final String reflectionPromptTemplate;
     private final HttpClient httpClient;
+    private final TemplateEngine templateEngine;
 
     /**
      * @param ollamaBaseUrl   Ollama API base URL
@@ -76,10 +83,17 @@ public final class ConversationReflector {
     public ConversationReflector(String ollamaBaseUrl,
                                   String reflectionModel,
                                   ToolRegistry toolRegistry) {
+        this(ollamaBaseUrl, reflectionModel, toolRegistry, TemplateEngine.createDefault());
+    }
+
+    public ConversationReflector(String ollamaBaseUrl,
+                                  String reflectionModel,
+                                  ToolRegistry toolRegistry,
+                                  TemplateEngine templateEngine) {
         this.ollamaBaseUrl = Objects.requireNonNull(ollamaBaseUrl, "ollamaBaseUrl");
         this.reflectionModel = Objects.requireNonNull(reflectionModel, "reflectionModel");
         this.toolRegistry = Objects.requireNonNull(toolRegistry, "toolRegistry");
-        this.reflectionPromptTemplate = loadPromptTemplate();
+        this.templateEngine = Objects.requireNonNull(templateEngine, "templateEngine");
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -109,7 +123,10 @@ public final class ConversationReflector {
      */
     void reflect(List<Map<String, Object>> conversationMessages) {
         String conversationText = formatConversation(conversationMessages);
-        String prompt = reflectionPromptTemplate.replace("{{conversation}}", conversationText);
+        String prompt = templateEngine.render(
+                "prompts/reflection-extraction",
+                Map.of("conversation", conversationText)
+        );
 
         try {
             String extraction = callLlm(prompt);
@@ -223,17 +240,22 @@ public final class ConversationReflector {
                             }
                         }
                     }
-                    if (!facts.isEmpty()) return facts;
+                    return facts;
                 }
             } catch (Exception e) {
                 log.debug("[Reflector] JSON facts parsing fallback to regex: {}", e.getMessage());
             }
         }
 
+        // Fallback: Regex extraction
         List<Map<String, String>> facts = new ArrayList<>();
         Matcher m = FACT_PATTERN.matcher(text != null ? text : "");
         while (m.find()) {
-            facts.add(Map.of("field", m.group(1), "value", m.group(2).trim(), "action", m.group(3)));
+            facts.add(Map.of(
+                    "field", m.group(1),
+                    "value", m.group(2).trim(),
+                    "action", m.group(3)
+            ));
         }
         return facts;
     }
@@ -250,32 +272,34 @@ public final class ConversationReflector {
                         if (item instanceof Map<?, ?> rawMap) {
                             @SuppressWarnings("unchecked")
                             Map<String, Object> map = (Map<String, Object>) rawMap;
-                            Object textObj = map.get("text");
+                            Object txtObj = map.get("text");
                             Object impObj = map.get("importance");
-                            String itemText = textObj != null ? String.valueOf(textObj) : "";
-                            String impStr = impObj != null ? String.valueOf(impObj) : "5";
-                            if (!itemText.isBlank()) {
-                                var kMap = new HashMap<String, Object>();
-                                kMap.put("text", itemText);
-                                kMap.put("importance", impStr);
-                                knowledge.add(kMap);
+                            String kText = txtObj != null ? String.valueOf(txtObj) : "";
+                            int imp = 5;
+                            if (impObj instanceof Number n) {
+                                imp = n.intValue();
+                            } else if (impObj != null) {
+                                try { imp = Integer.parseInt(String.valueOf(impObj)); } catch (NumberFormatException ignored) {}
+                            }
+                            if (!kText.isBlank()) {
+                                knowledge.add(Map.of("text", kText, "importance", imp));
                             }
                         }
                     }
-                    if (!knowledge.isEmpty()) return knowledge;
+                    return knowledge;
                 }
             } catch (Exception e) {
                 log.debug("[Reflector] JSON knowledge parsing fallback to regex: {}", e.getMessage());
             }
         }
 
+        // Fallback: Regex extraction
         List<Map<String, Object>> knowledge = new ArrayList<>();
         Matcher m = KNOWLEDGE_PATTERN.matcher(text != null ? text : "");
         while (m.find()) {
-            var item = new HashMap<String, Object>();
-            item.put("text", m.group(1).trim());
-            item.put("importance", m.group(2));
-            knowledge.add(item);
+            String kText = m.group(1).trim();
+            int importance = Integer.parseInt(m.group(2));
+            knowledge.add(Map.of("text", kText, "importance", importance));
         }
         return knowledge;
     }
@@ -283,7 +307,7 @@ public final class ConversationReflector {
     private static String extractJsonSubstring(String text) {
         int start = text.indexOf('{');
         int end = text.lastIndexOf('}');
-        if (start >= 0 && end > start) {
+        if (start != -1 && end != -1 && end > start) {
             return text.substring(start, end + 1);
         }
         return text;
@@ -301,18 +325,5 @@ public final class ConversationReflector {
             sb.append(role.toUpperCase()).append(": ").append(content).append("\n\n");
         }
         return sb.toString();
-    }
-
-    private static String loadPromptTemplate() {
-        try (InputStream is = ConversationReflector.class.getResourceAsStream(
-                "/prompts/reflection-extraction.txt")) {
-            if (is != null) {
-                return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-            }
-        } catch (IOException e) {
-            LoggerFactory.getLogger(ConversationReflector.class)
-                    .warn("Failed to load reflection prompt: {}", e.getMessage());
-        }
-        return "Analyze the conversation and extract user facts and knowledge.\n{{conversation}}";
     }
 }

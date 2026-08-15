@@ -15,6 +15,9 @@
  */
 package com.spectrayan.spector.query.ranking;
 
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorServerException;
+import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.index.ScoredResult;
 import com.spectrayan.spector.storage.Document;
 import com.spectrayan.spector.storage.DocumentStore;
@@ -27,11 +30,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
-import com.spectrayan.spector.commons.error.SpectorServerException;
-import com.spectrayan.spector.commons.error.ErrorCode;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * LLM-powered re-ranker using a local Ollama server.
@@ -63,6 +66,7 @@ public class LlmReranker implements Reranker {
     private final String model;
     private final HttpClient httpClient;
     private final int maxCandidates; // max docs to send to LLM (cost control)
+    private final TemplateEngine templateEngine;
 
     /**
      * Creates an LLM re-ranker.
@@ -72,11 +76,16 @@ public class LlmReranker implements Reranker {
      * @param maxCandidates max candidates to include in the prompt
      */
     public LlmReranker(String ollamaBaseUrl, String model, int maxCandidates) {
+        this(ollamaBaseUrl, model, maxCandidates, TemplateEngine.createDefault());
+    }
+
+    public LlmReranker(String ollamaBaseUrl, String model, int maxCandidates, TemplateEngine templateEngine) {
         this.ollamaBaseUrl = ollamaBaseUrl.endsWith("/")
                 ? ollamaBaseUrl.substring(0, ollamaBaseUrl.length() - 1)
                 : ollamaBaseUrl;
         this.model = model;
         this.maxCandidates = maxCandidates;
+        this.templateEngine = Objects.requireNonNull(templateEngine, "templateEngine");
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_QUERY_RERANKER_CONNECT_TIMEOUT)
                 .build();
@@ -137,26 +146,19 @@ public class LlmReranker implements Reranker {
 
     private String buildPrompt(String query, ScoredResult[] candidates,
                                 DocumentStore docStore, int count) {
-        var sb = new StringBuilder(4096);
-        sb.append("You are a relevance scoring system. ")
-          .append("Rate each document's relevance to the query on a scale of 0.0 to 10.0. ")
-          .append("Respond ONLY with one score per line in the format: \"N: SCORE\" ")
-          .append("where N is the document number and SCORE is a decimal number.\n\n");
-
-        sb.append("Query: ").append(query).append("\n\n");
-        sb.append("Documents:\n");
-
+        List<Map<String, Object>> documents = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             String docText = getDocumentText(candidates[i], docStore);
-            // Truncate long documents
-            if (docText.length() > 500) {
-                docText = docText.substring(0, 500) + "...";
-            }
-            sb.append(i + 1).append(". ").append(docText).append("\n\n");
+            documents.add(Map.of(
+                    "index", i + 1,
+                    "text", docText
+            ));
         }
 
-        sb.append("Scores:");
-        return sb.toString();
+        return templateEngine.render(
+                "prompts/listwise-rerank",
+                Map.of("query", query, "documents", documents)
+        );
     }
 
     private String getDocumentText(ScoredResult result, DocumentStore docStore) {

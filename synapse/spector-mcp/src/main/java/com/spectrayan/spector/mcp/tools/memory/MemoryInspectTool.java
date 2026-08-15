@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import com.spectrayan.spector.commons.security.SpectorScopes;
+import com.spectrayan.spector.commons.template.TemplateEngine;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -36,6 +37,8 @@ import com.spectrayan.spector.memory.model.CognitiveRecord;
  * <p>Maps to {@link SpectorMemory#inspect(String)}.</p>
  */
 public final class MemoryInspectTool extends MemoryToolHandler {
+
+    private static final TemplateEngine templateEngine = TemplateEngine.createDefault();
 
     public MemoryInspectTool(SpectorMemory memory) {
         super(memory);
@@ -77,54 +80,19 @@ public final class MemoryInspectTool extends MemoryToolHandler {
             return errorResult("Memory '" + id + "' not found in the index.");
         }
 
-        // Build a rich, human-readable + machine-parseable response
-        StringBuilder sb = new StringBuilder();
-        sb.append("🔬 Cognitive X-Ray: '").append(id).append("'\n\n");
+        String valenceLabel = record.valence() > 0 ? "(positive)" : record.valence() < 0 ? "(negative)" : "(neutral)";
 
-        // ── Text ──
-        sb.append("📝 Text: ").append(record.text()).append("\n\n");
+        var model = Map.<String, Object>ofEntries(
+                Map.entry("id", id),
+                Map.entry("record", record),
+                Map.entry("hasTags", record.tags() != null && record.tags().length > 0),
+                Map.entry("valenceLabel", valenceLabel),
+                Map.entry("arousalUnsigned", Byte.toUnsignedInt(record.arousal())),
+                Map.entry("synapticTagsHex", Long.toHexString(record.synapticTags())),
+                Map.entry("vectorDimensions", record.hasVector() ? record.quantizedVector().length : 0),
+                Map.entry("rawJson", record.toJson())
+        );
 
-        // ── Identity ──
-        sb.append("🏷️ Type: ").append(record.memoryType()).append("\n");
-        sb.append("📦 Source: ").append(record.source()).append("\n");
-        if (record.tags() != null && record.tags().length > 0) {
-            sb.append("🔖 Tags: ").append(String.join(", ", record.tags())).append("\n");
-        }
-        sb.append("📅 Created: ").append(record.createdAt())
-          .append(String.format(" (%.1f days ago)\n", record.ageDays()));
-
-        // ── Cognitive Header ──
-        sb.append("\n── Cognitive Header (64B) ──\n");
-        sb.append(String.format("📊 Importance: %.4f / 10.0\n", record.importance()));
-        sb.append("🔁 Agent Recall Count: ").append(record.agentRecallCount()).append("\n");
-        sb.append("🤖 Auto Recall Count: ").append(record.spectorRecallCount()).append("\n");
-        sb.append("💪 Storage Strength: ").append(String.format("%.4f", record.storageStrength())).append("\n");
-        sb.append("😊 Valence: ").append(record.valence())
-          .append(record.valence() > 0 ? " (positive)" : record.valence() < 0 ? " (negative)" : " (neutral)")
-          .append("\n");
-        sb.append("⚡ Arousal: ").append(Byte.toUnsignedInt(record.arousal())).append(" / 255\n");
-        sb.append("🧲 Synaptic Tags: 0x").append(Long.toHexString(record.synapticTags())).append("\n");
-        sb.append("📐 Norm: ").append(String.format("%.6f", record.exactNorm())).append("\n");
-        sb.append("🎯 Centroid ID: ").append(record.centroidId()).append("\n");
-
-        // ── Flags ──
-        sb.append("\n── Flags ──\n");
-        sb.append("🪦 Tombstoned: ").append(record.isTombstoned()).append("\n");
-        sb.append("🔄 Consolidated: ").append(record.isConsolidated()).append("\n");
-        sb.append("📌 Pinned: ").append(record.isPinned()).append("\n");
-        sb.append("✅ Resolved: ").append(record.isResolved()).append("\n");
-
-        // ── Physical Location ──
-        sb.append("\n── Storage ──\n");
-        sb.append("📍 Partition: ").append(record.partitionIndex()).append("\n");
-        sb.append("📍 Byte Offset: ").append(record.byteOffset()).append("\n");
-        if (record.hasVector()) {
-            sb.append("📐 Vector: ").append(record.quantizedVector().length).append(" dimensions (INT8 quantized)\n");
-        }
-
-        // Append the raw JSON at the end for machine consumption
-        sb.append("\n── Raw JSON ──\n").append(record.toJson());
-
-        return textResult(sb.toString());
+        return textResult(templateEngine.render("mcp/memory-inspect", model));
     }
 }

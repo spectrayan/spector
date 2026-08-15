@@ -1,0 +1,37 @@
+🔬 Cognitive X-Ray: '{{id}}'
+
+📝 Text: {{record.text}}
+
+🏷️ Type: {{record.memoryType}}
+📦 Source: {{record.source}}
+{{#if hasTags}}
+🔖 Tags: {{join record.tags ", "}}
+{{/if}}
+📅 Created: {{record.createdAt}} ({{formatDecimal record.ageDays "%.1f"}} days ago)
+
+── Cognitive Header (64B) ──
+📊 Importance: {{formatDecimal record.importance "%.4f"}} / 10.0
+🔁 Agent Recall Count: {{record.agentRecallCount}}
+🤖 Auto Recall Count: {{record.spectorRecallCount}}
+💪 Storage Strength: {{formatDecimal record.storageStrength "%.4f"}}
+😊 Valence: {{record.valence}} {{valenceLabel}}
+⚡ Arousal: {{arousalUnsigned}} / 255
+🧲 Synaptic Tags: 0x{{synapticTagsHex}}
+📐 Norm: {{formatDecimal record.exactNorm "%.6f"}}
+🎯 Centroid ID: {{record.centroidId}}
+
+── Flags ──
+🪦 Tombstoned: {{record.isTombstoned}}
+🔄 Consolidated: {{record.isConsolidated}}
+📌 Pinned: {{record.isPinned}}
+✅ Resolved: {{record.isResolved}}
+
+── Storage ──
+📍 Partition: {{record.partitionIndex}}
+📍 Byte Offset: {{record.byteOffset}}
+{{#if record.hasVector}}
+📐 Vector: {{vectorDimensions}} dimensions (INT8 quantized)
+{{/if}}
+
+── Raw JSON ──
+{{rawJson}}

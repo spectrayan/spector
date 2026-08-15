@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.agent.cognitive;
 
+import com.spectrayan.spector.commons.template.TemplateEngine;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +68,7 @@ public final class ConversationSummarizer {
     private final int keepRecent;
     private final int maxTokens;
     private final HttpClient httpClient;
+    private final TemplateEngine templateEngine;
 
     /**
      * @param ollamaBaseUrl Ollama API base URL
@@ -83,6 +86,12 @@ public final class ConversationSummarizer {
      */
     public ConversationSummarizer(String ollamaBaseUrl, String model,
                                    int keepRecent, int maxTokens) {
+        this(ollamaBaseUrl, model, keepRecent, maxTokens, TemplateEngine.createDefault());
+    }
+
+    public ConversationSummarizer(String ollamaBaseUrl, String model,
+                                   int keepRecent, int maxTokens,
+                                   TemplateEngine templateEngine) {
         this.ollamaBaseUrl = Objects.requireNonNull(ollamaBaseUrl, "ollamaBaseUrl");
         this.model = Objects.requireNonNull(model, "model");
         this.keepRecent = keepRecent;
@@ -90,6 +99,7 @@ public final class ConversationSummarizer {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
+        this.templateEngine = Objects.requireNonNull(templateEngine, "templateEngine");
     }
 
     /**
@@ -130,12 +140,15 @@ public final class ConversationSummarizer {
             }
 
             // Build compacted list: summary system message + recent verbatim
+            String systemMessageContent = templateEngine.render(
+                    "prompts/summary-system-message",
+                    Map.of("summary", summary, "count", olderMessages.size())
+            );
+
             List<Map<String, Object>> compacted = new ArrayList<>(keepRecent + 1);
             compacted.add(Map.of(
                     "role", "system",
-                    "content", "## Previous Conversation Summary\n\n" + summary
-                            + "\n\n---\n*The above summarizes " + olderMessages.size()
-                            + " earlier messages. The conversation continues below.*"
+                    "content", systemMessageContent
             ));
             compacted.addAll(recentMessages);
 
@@ -167,18 +180,10 @@ public final class ConversationSummarizer {
             throws IOException, InterruptedException {
         String conversationText = formatConversation(messages);
 
-        String prompt = """
-                Summarize the following conversation concisely. Focus on:
-                1. Key facts shared by the user (name, preferences, decisions)
-                2. Important topics discussed and conclusions reached
-                3. Any action items or commitments made
-                4. The overall tone and direction of the conversation
-                
-                Keep the summary factual and under 300 words. Use bullet points.
-                Do NOT include greetings, pleasantries, or filler.
-                
-                CONVERSATION:
-                """ + conversationText;
+        String prompt = templateEngine.render(
+                "prompts/conversation-summary",
+                Map.of("conversation", conversationText)
+        );
 
         var requestBody = Map.of(
                 "model", model,

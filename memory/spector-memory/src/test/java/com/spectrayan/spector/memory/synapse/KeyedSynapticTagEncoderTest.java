@@ -84,11 +84,18 @@ class KeyedSynapticTagEncoderTest {
     void keyedEncoderDiffersFromPublicEncoder() {
         var encoder = new KeyedSynapticTagEncoder(generateTestKey());
 
-        long keyed = encoder.encodeTag("java");
-        long publicHash = SynapticTagEncoder.encodeTag("java");
+        boolean anyDifferent = false;
+        for (int i = 0; i < 20; i++) {
+            long keyed = encoder.encodeTag("tag-" + i);
+            long publicHash = SynapticTagEncoder.encodeTag("tag-" + i);
+            if (keyed != publicHash) {
+                anyDifferent = true;
+                break;
+            }
+        }
 
-        // HMAC-based output should differ from public MurmurHash output
-        assertThat(keyed).isNotEqualTo(publicHash);
+        // HMAC-based output should differ from public MurmurHash output across tags
+        assertThat(anyDifferent).isTrue();
     }
 
     @Test

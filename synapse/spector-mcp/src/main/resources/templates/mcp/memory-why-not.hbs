@@ -1,0 +1,24 @@
+🔍 Why-Not Analysis for memory '{{memoryId}}'
+Query: '{{query}}'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Reason: {{reason}}
+Exists: {{#if exists}}✅ Yes{{else}}❌ No{{/if}}
+Suppressed: {{#if suppressed}}⛔ Yes{{else}}✅ No{{/if}}
+{{#if hasScoreGap}}
+Score Gap: {{formatDecimal scoreGap "%.4f"}} (topK cutoff score)
+{{/if}}
+{{#if breakdown}}
+
+Score Breakdown:
+  similarity:      {{formatDecimal breakdown.similarity "%.4f"}}
+  imp×decay:       {{formatDecimal breakdown.importanceDecay "%.4f"}}
+  tag_boost:       {{formatMult breakdown.tagBoostFactor}}
+  habituation:     {{formatMult breakdown.habituationPenalty}}
+  graph_boost:     {{formatMult breakdown.graphBoost}}
+  valence_align:   {{formatMult breakdown.valenceAlignment}}
+  → final:         {{formatDecimal breakdown.finalScore "%.4f"}}
+  weakest factor:  {{breakdown.weakestMultiplier}}
+{{/if}}
+
+{{summary}}
