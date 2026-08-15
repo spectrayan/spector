@@ -167,6 +167,9 @@ public final class SpectorMemoryBuilder {
     long typeRegistrySize = SpectorPropertyConstants.DEFAULT_MEMORY_TYPE_REGISTRY_SIZE;
     long insulaSize = SpectorPropertyConstants.DEFAULT_MEMORY_INSULA_SIZE;
 
+    // Eager consolidation (#526)
+    int eagerConsolidationQueueCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY;
+
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // FACTORY
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
@@ -200,6 +203,7 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder typeRegistryCapacity(int c) { this.typeRegistryCapacity = c; return this; }
     public SpectorMemoryBuilder typeRegistrySize(long s) { this.typeRegistrySize = s; return this; }
     public SpectorMemoryBuilder insulaSize(long s) { this.insulaSize = s; return this; }
+    public SpectorMemoryBuilder eagerConsolidationQueueCapacity(int c) { this.eagerConsolidationQueueCapacity = c; return this; }
 
 
 

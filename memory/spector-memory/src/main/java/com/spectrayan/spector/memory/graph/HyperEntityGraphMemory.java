@@ -1031,6 +1031,9 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
      */
     public record HyperEdgeVertex(int entityId, int roleId) {}
 
+    /** Hyperedge type for contradiction relationships (#507, #528). */
+    public static final int TYPE_CONTRADICTS = 1;
+
     // ══════════════════════════════════════════════════════════════
     // ROLE CONSTANTS
     // ══════════════════════════════════════════════════════════════

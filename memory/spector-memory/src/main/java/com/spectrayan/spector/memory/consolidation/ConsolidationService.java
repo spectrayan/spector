@@ -28,6 +28,7 @@ import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.Cogniti
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.memory.sync.MemoryWal;
+import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,10 +60,21 @@ public final class ConsolidationService {
     }
 
     /**
-     * Executes the consolidation cycle across the semantic store.
+     * Executes the consolidation cycle across the semantic store (without TKG bridge).
      */
     public void consolidate(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer,
                             EntityDirectory entityDirectory, HyperEntityGraphMemory hyperEntityGraph,
+                            CognitiveIngestionTarget ingestionTarget,
+                            MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
+        consolidate(cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph, null, ingestionTarget, wal, inspectFunction);
+    }
+
+    /**
+     * Executes the consolidation cycle across the semantic store with TemporalKnowledgeGraph bridge (#527).
+     */
+    public void consolidate(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, ScalarQuantizer quantizer,
+                            EntityDirectory entityDirectory, HyperEntityGraphMemory hyperEntityGraph,
+                            TemporalKnowledgeGraph temporalKnowledgeGraph,
                             CognitiveIngestionTarget ingestionTarget,
                             MemoryWal wal, Function<String, CognitiveRecord> inspectFunction) {
         CognitiveRecordMemory semanticStore = cognitiveRouter.semantic();
@@ -151,14 +163,13 @@ public final class ConsolidationService {
                 log.info("Consolidation: CADP resolved — winner='{}' corrects loser='{}'",
                         winner.id(), loser.id());
 
-                // Add directed CONTRADICTS hyperedge with CORRECTOR/CORRECTED roles (#507)
+                // Add directed CONTRADICTS hyperedge with CORRECTOR/CORRECTED roles (#507, #528)
+                int slotWinner = (int) ((winner.byteOffset() - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
+                int slotLoser = (int) ((loser.byteOffset() - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
+                List<Integer> entitiesWinner = memToEntities.get(slotWinner);
+                List<Integer> entitiesLoser = memToEntities.get(slotLoser);
+
                 if (hyperEntityGraph != null) {
-                    int slotWinner = (int) ((winner.byteOffset() - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
-                    int slotLoser = (int) ((loser.byteOffset() - (semanticStore.isPersistent() ? CognitiveRecordMemory.METADATA_HEADER_BYTES : 0L)) / layout.stride());
-
-                    List<Integer> entitiesWinner = memToEntities.get(slotWinner);
-                    List<Integer> entitiesLoser = memToEntities.get(slotLoser);
-
                     if (entitiesWinner != null && entitiesLoser != null) {
                         for (int eW : entitiesWinner) {
                             for (int eL : entitiesLoser) {
@@ -166,10 +177,29 @@ public final class ConsolidationService {
                                     hyperEntityGraph.addHyperedge(
                                             new int[]{eW, eL},
                                             new int[]{HyperEntityGraphMemory.ROLE_CORRECTOR, HyperEntityGraphMemory.ROLE_CORRECTED},
-                                            1, // type id 1 = CONTRADICTS
+                                            HyperEntityGraphMemory.TYPE_CONTRADICTS,
                                             1.0f, -1, System.currentTimeMillis());
                                 }
                             }
+                        }
+                    }
+                }
+
+                // Bridge to TemporalKnowledgeGraph: Retract loser's facts (#527)
+                if (temporalKnowledgeGraph != null && entitiesLoser != null) {
+                    for (int eL : entitiesLoser) {
+                        try {
+                            var facts = temporalKnowledgeGraph.factsAbout(eL).resolveAll();
+                            if (facts != null) {
+                                for (var fact : facts) {
+                                    if (entitiesWinner == null || !entitiesWinner.contains(fact.objectEntityId())) {
+                                        temporalKnowledgeGraph.retractFact(fact.factId());
+                                        log.info("Consolidation: Retracted temporal fact {} for corrected entity {}", fact.factId(), eL);
+                                    }
+                                }
+                            }
+                        } catch (RuntimeException e) {
+                            log.debug("Consolidation: Failed to retract temporal fact for entity {}: {}", eL, e.getMessage());
                         }
                     }
                 }
