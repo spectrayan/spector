@@ -377,6 +377,9 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_SESSION_BUFFER_TTL_MS = "spector.memory.session.buffer-ttl-ms";
     public static final long DEFAULT_MEMORY_SESSION_BUFFER_TTL_MS = 5000L;
 
+    public static final String MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY = "spector.memory.eager-consolidation.queue-capacity";
+    public static final int DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY = 256;
+
     public static final String MEMORY_NAMESPACE_MAX_ID_LENGTH = "spector.memory.namespace.max-id-length";
     public static final int DEFAULT_MEMORY_NAMESPACE_MAX_ID_LENGTH = 63;
 
