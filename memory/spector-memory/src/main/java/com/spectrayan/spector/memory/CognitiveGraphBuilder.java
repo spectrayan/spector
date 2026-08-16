@@ -272,7 +272,7 @@ final class CognitiveGraphBuilder {
         //  Cognitive Graph Facade 
         CognitiveGraphFacade graphFacade = new CognitiveGraphFacade(
                 hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph,
-                temporalKnowledgeGraph, ontConfig, index);
+                temporalKnowledgeGraph, ontConfig, index, builder.cacheManager);
 
         return new CognitiveGraphs(
                 hebbianGraph, temporalChain, entityExtractor, entityDirectory,

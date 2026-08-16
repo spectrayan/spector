@@ -103,6 +103,12 @@
             <artifactId>spector-metrics</artifactId>
         </dependency>
 
+        <!-- ── Spector Commons (cache, concurrent, error SPI) ── -->
+        <dependency>
+            <groupId>com.spectrayan</groupId>
+            <artifactId>spector-commons</artifactId>
+        </dependency>
+
         <!-- ── Spector Memory (embedded cognitive memory) ── -->
         <dependency>
             <groupId>com.spectrayan</groupId>
@@ -169,10 +175,6 @@
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-config</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-commons</artifactId>
         </dependency>
     </dependencies>
 

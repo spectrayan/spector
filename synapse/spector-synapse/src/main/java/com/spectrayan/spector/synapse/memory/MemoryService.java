@@ -133,14 +133,9 @@ public class MemoryService {
     // Rolling similarity scores queue
     private final ConcurrentLinkedQueue<Double> similarityScores = new ConcurrentLinkedQueue<>();
 
-    // Caffeine stats caches (5s TTL)
-    private final Cache<String, MemoryStats> statsCache = Caffeine.newBuilder()
-            .expireAfterWrite(java.time.Duration.ofSeconds(5))
-            .build();
-
-    private final Cache<String, ScoringStats> scoringStatsCache = Caffeine.newBuilder()
-            .expireAfterWrite(java.time.Duration.ofSeconds(5))
-            .build();
+    // SpectorCache stats caches (managed by SpectorCacheManager / Spring Cache)
+    private final com.spectrayan.spector.commons.cache.SpectorCache statsCache;
+    private final com.spectrayan.spector.commons.cache.SpectorCache scoringStatsCache;
 
     @jakarta.annotation.PreDestroy
     void shutdown() {
@@ -158,23 +153,38 @@ public class MemoryService {
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
-        this(mao, eventPublisher, tsid, null, null, null);
+        this(mao, eventPublisher, tsid, null, null, null, null);
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid, JdbcClient jdbc) {
-        this(mao, eventPublisher, tsid, jdbc, null, null);
+        this(mao, eventPublisher, tsid, jdbc, null, null, null);
+    }
+
+    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
+                         JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
+                         UserMemoryRegistry userMemoryRegistry) {
+        this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, null);
     }
 
     @Autowired
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
                          JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
-                         UserMemoryRegistry userMemoryRegistry) {
+                         UserMemoryRegistry userMemoryRegistry,
+                         ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
         this.mao = mao;
         this.eventPublisher = eventPublisher;
         this.tsid = tsid;
         this.jdbc = jdbc;
         this.memoryProvider = memoryProvider;
         this.userMemoryRegistry = userMemoryRegistry;
+
+        com.spectrayan.spector.commons.cache.SpectorCacheManager cm = cacheManagerProvider != null
+                ? cacheManagerProvider.getIfAvailable() : null;
+        com.spectrayan.spector.commons.cache.SpectorCacheManager effectiveManager = cm != null
+                ? cm
+                : com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
+        this.statsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cache.MemoryCacheNames.MEMORY_STATS);
+        this.scoringStatsCache = effectiveManager.getCache(com.spectrayan.spector.memory.cache.MemoryCacheNames.SCORING_STATS);
     }
 
     /**
@@ -772,7 +782,7 @@ public class MemoryService {
 
     public MemoryStats getStats() {
         SpectorMemory resolved = resolveMemory();
-        return statsCache.get("current", key -> {
+        return statsCache.get("current", MemoryStats.class, () -> {
             if (!mao.isAvailable(resolved)) {
                 return new MemoryStats(0, Map.of(), 0, new IndexStats(0, 0, 0.95), ConsolidationStats.empty(), Map.of(), Map.of());
             }
@@ -903,7 +913,7 @@ public class MemoryService {
 
     public ScoringStats getScoringStats() {
         SpectorMemory resolved = resolveMemory();
-        return scoringStatsCache.get("current", key -> {
+        return scoringStatsCache.get("current", ScoringStats.class, () -> {
             if (!mao.isAvailable(resolved)) {
                 return new ScoringStats(0.80, 0.75, 1.0, 5.0, 0.0);
             }

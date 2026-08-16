@@ -86,6 +86,34 @@ public final class SynapseCacheConstants {
     public static final long MAX_SIZE_TOKEN_USAGE = 50_000;
 
     /**
+     * Cache for sampled graph neighborhood overviews for Graph Explorer.
+     */
+    public static final String CACHE_MEMORY_GRAPH_OVERVIEW = com.spectrayan.spector.memory.cache.MemoryCacheNames.GRAPH_OVERVIEW;
+    public static final Duration TTL_MEMORY_GRAPH_OVERVIEW = Duration.ofSeconds(5);
+    public static final long MAX_SIZE_MEMORY_GRAPH_OVERVIEW = 100;
+
+    /**
+     * Cache for entity and relationship topology statistics.
+     */
+    public static final String CACHE_MEMORY_TOPOLOGY_STATS = com.spectrayan.spector.memory.cache.MemoryCacheNames.TOPOLOGY_STATS;
+    public static final Duration TTL_MEMORY_TOPOLOGY_STATS = Duration.ofSeconds(5);
+    public static final long MAX_SIZE_MEMORY_TOPOLOGY_STATS = 10;
+
+    /**
+     * Cache for memory subsystem tier statistics.
+     */
+    public static final String CACHE_MEMORY_STATS = com.spectrayan.spector.memory.cache.MemoryCacheNames.MEMORY_STATS;
+    public static final Duration TTL_MEMORY_STATS = Duration.ofSeconds(5);
+    public static final long MAX_SIZE_MEMORY_STATS = 100;
+
+    /**
+     * Cache for cognitive scoring and salience profile calibration stats.
+     */
+    public static final String CACHE_MEMORY_SCORING_STATS = com.spectrayan.spector.memory.cache.MemoryCacheNames.SCORING_STATS;
+    public static final Duration TTL_MEMORY_SCORING_STATS = Duration.ofSeconds(5);
+    public static final long MAX_SIZE_MEMORY_SCORING_STATS = 100;
+
+    /**
      * All managed cache names in Synapse.
      */
     public static final String[] ALL_CACHES = {
@@ -97,6 +125,10 @@ public final class SynapseCacheConstants {
             CACHE_CONNECTOR_ROUTES,
             CACHE_COMPILED_SUBGRAPHS,
             CACHE_SQL_QUERIES,
-            CACHE_TOKEN_USAGE
+            CACHE_TOKEN_USAGE,
+            CACHE_MEMORY_GRAPH_OVERVIEW,
+            CACHE_MEMORY_TOPOLOGY_STATS,
+            CACHE_MEMORY_STATS,
+            CACHE_MEMORY_SCORING_STATS
     };
 }
