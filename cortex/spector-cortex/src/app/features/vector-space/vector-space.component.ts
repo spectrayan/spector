@@ -95,19 +95,25 @@ export class VectorSpaceComponent implements AfterViewInit, OnDestroy {
       this.updateNearestNeighborLines(qv);
     }
 
-    // Fallback: if no vector points from SSE, fetch from REST API
-    if (this.state.vectorPoints().length === 0) {
-      this.memoryService.getTable(0, 100, '', false).subscribe({
-        next: (resp) => {
-          if (this.state.vectorPoints().length > 0) return; // SSE arrived
-          if (resp.rows.length > 0) {
-            this.generatePointsFromRows(resp.rows);
-            this.buildPointCloud();
-          }
-        },
-        error: () => { /* Backend unreachable */ },
-      });
-    }
+    // Bootstrap real 3D PCA vector space projections from backend
+    this.memoryService.getVectorSpaceProjection().subscribe({
+      next: (resp) => {
+        if (resp.points && resp.points.length > 0) {
+          const points = resp.points.map((p) => ({
+            id: p.id,
+            position: [p.x, p.y, p.z] as [number, number, number],
+            tier: p.tier,
+            importance: p.importance,
+            label: p.label,
+          }));
+          this.state.vectorPoints.set(points);
+          this.buildPointCloud();
+        }
+      },
+      error: (err) => {
+        console.debug('Vector space projection fetch skipped/offline:', err);
+      },
+    });
 
     this.animate();
   }

@@ -27,6 +27,8 @@ export interface ExplorerNode {
 export interface ExplorerEdge {
   from: string;
   to: string;
+  fromNode?: ExplorerNode;
+  toNode?: ExplorerNode;
   type: string;
   weight: number;
   relation: string | null;

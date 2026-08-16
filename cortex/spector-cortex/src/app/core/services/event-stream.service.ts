@@ -16,6 +16,7 @@ import {
   GpuKernelEvent,
   ClusterTopologyEvent,
   EmbeddingProjectionEvent,
+  MetricsTickEvent,
   IngestionProgressEvent,
   IngestionCompletedEvent,
   AnyCortexEvent,
@@ -205,6 +206,9 @@ export class EventStreamService implements OnDestroy {
         break;
       case 'cortex.embedding.projection':
         this.state.pushEmbeddingProjection(event as EmbeddingProjectionEvent);
+        break;
+      case 'cortex.metrics.tick':
+        this.state.pushMetricsTick(event as MetricsTickEvent);
         break;
       case 'ingestion.progress':
         this.notificationService.onProgress(event as IngestionProgressEvent);

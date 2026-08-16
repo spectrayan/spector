@@ -25,6 +25,28 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
 
   private gridGroup: THREE.Group | null = null;
   private dustParticles: THREE.Points | null = null;
+  private starTextureCache = new Map<string, THREE.CanvasTexture>();
+  private edgeLabelTextureCache = new Map<string, THREE.CanvasTexture>();
+
+  private getOrCreateStarTexture(color: number, intensity: number): THREE.CanvasTexture {
+    const key = `${color}_${intensity}`;
+    let tex = this.starTextureCache.get(key);
+    if (!tex) {
+      tex = this.createStarTexture(color, intensity);
+      this.starTextureCache.set(key, tex);
+    }
+    return tex;
+  }
+
+  private getOrCreateEdgeLabelTexture(text: string, color: number): THREE.CanvasTexture {
+    const key = `${color}_${text}`;
+    let tex = this.edgeLabelTextureCache.get(key);
+    if (!tex) {
+      tex = this.createEdgeLabelTexture(text, color);
+      this.edgeLabelTextureCache.set(key, tex);
+    }
+    return tex;
+  }
 
   initScene(container: HTMLElement, camera: THREE.PerspectiveCamera): THREE.Scene {
     const scene = new THREE.Scene();
@@ -74,8 +96,8 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
 
       const size = 0.3 + importance * 0.6;
 
-      // Star core sprite
-      const starTex = this.createStarTexture(color, 1.0);
+      // Star core sprite (cached texture)
+      const starTex = this.getOrCreateStarTexture(color, 1.0);
       const starMat = new THREE.SpriteMaterial({
         map: starTex,
         transparent: true,
@@ -86,8 +108,8 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
       mesh.scale.set(warpIn ? 0 : size * 3, warpIn ? 0 : size * 3, 1);
       mesh.position.copy(pos);
 
-      // Outer glow halo sprite
-      const glowTex = this.createStarTexture(color, 0.3);
+      // Outer glow halo sprite (cached texture)
+      const glowTex = this.getOrCreateStarTexture(color, 0.3);
       const glowMat = new THREE.SpriteMaterial({
         map: glowTex,
         transparent: true,
@@ -156,8 +178,8 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
 
       const size = 0.3 + importance * 0.6;
 
-      // Star core sprite
-      const starTex = this.createStarTexture(color, 1.0);
+      // Star core sprite (cached texture)
+      const starTex = this.getOrCreateStarTexture(color, 1.0);
       const starMat = new THREE.SpriteMaterial({
         map: starTex,
         transparent: true,
@@ -168,8 +190,8 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
       mesh.scale.set(0, 0, 1); // warp-in from zero
       mesh.position.copy(pos);
 
-      // Outer glow halo
-      const glowTex = this.createStarTexture(color, 0.3);
+      // Outer glow halo (cached texture)
+      const glowTex = this.getOrCreateStarTexture(color, 0.3);
       const glowMat = new THREE.SpriteMaterial({
         map: glowTex,
         transparent: true,
@@ -252,6 +274,8 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
       newEdges.push({
         from: e.fromId,
         to: e.toId,
+        fromNode,
+        toNode,
         type: e.type,
         weight: e.weight,
         relation: e.relation,
@@ -322,9 +346,10 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
   }
 
   animateEdges(edges: ExplorerEdge[], nodes: ExplorerNode[], delta: number, showHebbian: boolean, showTemporal: boolean, showEntity: boolean, showLabels: boolean, orbitRadius: number, cameraPos: THREE.Vector3): void {
-    for (const edge of edges) {
-      const fromNode = nodes.find((n) => n.id === edge.from);
-      const toNode = nodes.find((n) => n.id === edge.to);
+    for (let i = 0; i < edges.length; i++) {
+      const edge = edges[i];
+      const fromNode = edge.fromNode;
+      const toNode = edge.toNode;
       if (fromNode && toNode) {
         const positions = edge.line.geometry.attributes['position'] as THREE.BufferAttribute;
         positions.setXYZ(0, fromNode.position.x, fromNode.position.y, fromNode.position.z);
@@ -393,8 +418,8 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
         continue;
       }
 
-      const fromNode = nodes.find(n => n.id === edge.from);
-      const toNode = nodes.find(n => n.id === edge.to);
+      const fromNode = edge.fromNode || nodes.find(n => n.id === edge.from);
+      const toNode = edge.toNode || nodes.find(n => n.id === edge.to);
       if (!fromNode || !toNode) continue;
 
       const pos = new THREE.Vector3();
@@ -473,6 +498,11 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
   }
 
   dispose(scene: THREE.Scene, nodes: ExplorerNode[], edges: ExplorerEdge[], particles: FiringParticle[]): void {
+    this.starTextureCache.forEach(t => t.dispose());
+    this.starTextureCache.clear();
+    this.edgeLabelTextureCache.forEach(t => t.dispose());
+    this.edgeLabelTextureCache.clear();
+
     // Dispose nodes
     for (const node of nodes) {
       scene.remove(node.mesh);
@@ -729,12 +759,7 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
     return sprite;
   }
 
-  private createEdgeLabel(
-    text: string,
-    from: THREE.Vector3,
-    to: THREE.Vector3,
-    color: number,
-  ): THREE.Sprite {
+  private createEdgeLabelTexture(text: string, color: number): THREE.CanvasTexture {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
     canvas.width = 256;
@@ -751,6 +776,16 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
+    return texture;
+  }
+
+  private createEdgeLabel(
+    text: string,
+    from: THREE.Vector3,
+    to: THREE.Vector3,
+    color: number,
+  ): THREE.Sprite {
+    const texture = this.getOrCreateEdgeLabelTexture(text, color);
     const material = new THREE.SpriteMaterial({
       map: texture,
       transparent: true,

@@ -168,6 +168,17 @@ export interface EmbeddingProjectionEvent extends CortexEvent {
   readonly queryProjection: [number, number, number] | null;
 }
 
+/**
+ * Live rolling ops/sec metrics tick event.
+ */
+export interface MetricsTickEvent extends CortexEvent {
+  readonly eventType: 'cortex.metrics.tick';
+  readonly recallRate: number;
+  readonly rememberRate: number;
+  readonly reinforceRate: number;
+  readonly forgetRate: number;
+}
+
 /** Union type for all cortex events */
 export type AnyCortexEvent =
   | QueryTraceEvent
@@ -179,6 +190,7 @@ export type AnyCortexEvent =
   | GpuKernelEvent
   | ClusterTopologyEvent
   | EmbeddingProjectionEvent
+  | MetricsTickEvent
   | IngestionProgressEvent
   | IngestionCompletedEvent;
 

@@ -3,6 +3,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { switchMap, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { ProjectedPointDto, MemoryDiagnosticEvent } from '../models/cortex-events';
+import { DecayPoint } from './cortex-state.service';
 
 /** A single memory row from the backend. */
 export interface MemoryRow {
@@ -579,5 +581,41 @@ export class MemoryTableService {
       this.sortDirection.set('desc');
     }
     this.loadPage();
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // TELEMETRY & VECTOR SPACE API METHODS
+  // ══════════════════════════════════════════════════════════════
+
+  /** Fetches real 3D PCA vector space embedding projection. */
+  getVectorSpaceProjection(): Observable<{ points: ProjectedPointDto[], totalCount: number, vectorDimension: number, explainedVariance: number[] }> {
+    return this.http.get<{ points: ProjectedPointDto[], totalCount: number, vectorDimension: number, explainedVariance: number[] }>(
+      `${this.API}/vector-space/projection`
+    );
+  }
+
+  /** Fetches memory diagnostic snapshot. */
+  getMemoryDiagnostics(): Observable<MemoryDiagnosticEvent> {
+    return this.http.get<MemoryDiagnosticEvent>(`${this.API}/diagnostics`);
+  }
+
+  /** Fetches calculated Ebbinghaus & LTP decay curve. */
+  getDecayCurve(): Observable<DecayPoint[]> {
+    return this.http.get<DecayPoint[]>(`${this.API}/diagnostics/decay`);
+  }
+
+  /** Fetches latest consolidation diff before/after snapshots. */
+  getConsolidationDiff(): Observable<Array<{ pre: any, post: any }>> {
+    return this.http.get<Array<{ pre: any, post: any }>>(`${this.API}/consolidation/diff`);
+  }
+
+  /** Fetches system hardware and SIMD capabilities. */
+  getHardwareInfo(): Observable<any> {
+    return this.http.get<any>(`${this.API}/hardware`);
+  }
+
+  /** Fetches live rolling ops/sec metrics history. */
+  getLiveMetrics(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API}/metrics/live`);
   }
 }

@@ -137,6 +137,9 @@ public class MemoryService {
     private final com.spectrayan.spector.commons.cache.SpectorCache statsCache;
     private final com.spectrayan.spector.commons.cache.SpectorCache scoringStatsCache;
 
+    private final VectorSpaceProjectionService projectionService;
+    private final com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService telemetryBroadcasterService;
+
     @jakarta.annotation.PreDestroy
     void shutdown() {
         log.info("[MemoryService] Shutting down virtual thread executor...");
@@ -153,30 +156,41 @@ public class MemoryService {
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid) {
-        this(mao, eventPublisher, tsid, null, null, null, null);
+        this(mao, eventPublisher, tsid, null, null, null, null, null, null);
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid, JdbcClient jdbc) {
-        this(mao, eventPublisher, tsid, jdbc, null, null, null);
+        this(mao, eventPublisher, tsid, jdbc, null, null, null, null, null);
     }
 
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
                          JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
                          UserMemoryRegistry userMemoryRegistry) {
-        this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, null);
+        this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, null, null, null);
+    }
+
+    public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
+                         JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
+                         UserMemoryRegistry userMemoryRegistry,
+                         ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        this(mao, eventPublisher, tsid, jdbc, memoryProvider, userMemoryRegistry, cacheManagerProvider, null, null);
     }
 
     @Autowired
     public MemoryService(MemoryAccessObject mao, EventPublisher eventPublisher, TsidGenerator tsid,
                          JdbcClient jdbc, ObjectProvider<SpectorMemory> memoryProvider,
                          UserMemoryRegistry userMemoryRegistry,
-                         ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+                         ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider,
+                         ObjectProvider<VectorSpaceProjectionService> projectionServiceProvider,
+                         ObjectProvider<com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService> telemetryBroadcasterServiceProvider) {
         this.mao = mao;
         this.eventPublisher = eventPublisher;
         this.tsid = tsid;
         this.jdbc = jdbc;
         this.memoryProvider = memoryProvider;
         this.userMemoryRegistry = userMemoryRegistry;
+        this.projectionService = projectionServiceProvider != null ? projectionServiceProvider.getIfAvailable() : null;
+        this.telemetryBroadcasterService = telemetryBroadcasterServiceProvider != null ? telemetryBroadcasterServiceProvider.getIfAvailable() : null;
 
         com.spectrayan.spector.commons.cache.SpectorCacheManager cm = cacheManagerProvider != null
                 ? cacheManagerProvider.getIfAvailable() : null;
@@ -966,6 +980,52 @@ public class MemoryService {
                 return new ScoringStats(0.80, 0.75, 1.0, 5.0, 0.0);
             }
         });
+    }
+
+    public VectorSpaceProjectionService.ProjectionResult getVectorSpaceProjection() {
+        SpectorMemory resolved = resolveMemory();
+        if (projectionService != null) {
+            return projectionService.project(resolved);
+        }
+        return new VectorSpaceProjectionService.ProjectionResult(java.util.Collections.emptyList(), 0, 0, new float[]{0, 0, 0});
+    }
+
+    public Map<String, Object> getDiagnostics() {
+        SpectorMemory resolved = resolveMemory();
+        if (telemetryBroadcasterService != null) {
+            return telemetryBroadcasterService.getCurrentDiagnostics(resolved);
+        }
+        return Map.of("totalMemories", resolved != null ? resolved.totalMemories() : 0);
+    }
+
+    public List<Map<String, Object>> getDecayCurve() {
+        SpectorMemory resolved = resolveMemory();
+        if (telemetryBroadcasterService != null) {
+            return telemetryBroadcasterService.getDecayCurve(resolved);
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    public List<Map<String, Object>> getConsolidationDiff() {
+        SpectorMemory resolved = resolveMemory();
+        if (telemetryBroadcasterService != null) {
+            return telemetryBroadcasterService.getConsolidationDiff(resolved);
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    public Map<String, Object> getHardwareInfo() {
+        if (telemetryBroadcasterService != null) {
+            return telemetryBroadcasterService.getHardwareInfo();
+        }
+        return Map.of("simdAccelerationActive", true);
+    }
+
+    public List<Map<String, Object>> getLiveMetricsHistory() {
+        if (telemetryBroadcasterService != null) {
+            return telemetryBroadcasterService.getLiveMetricsHistory();
+        }
+        return java.util.Collections.emptyList();
     }
 
     private static void requireId(String id) {

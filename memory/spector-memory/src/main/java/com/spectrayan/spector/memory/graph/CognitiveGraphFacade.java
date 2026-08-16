@@ -222,7 +222,18 @@ public final class CognitiveGraphFacade {
             // Entity edges
             collectEntityEdges(slotToId, allIdsSet, edges);
 
-            return new GraphNeighborhood(null, nodes, edges, null);
+            // Deduplicate edges to avoid rendering redundant lines in UI
+            List<GraphEdge> uniqueEdges = edges.stream().distinct().toList();
+
+            // Cap total edges in overview to keep WebGL rendering fluid (top 500 strongest edges)
+            if (uniqueEdges.size() > 500) {
+                uniqueEdges = uniqueEdges.stream()
+                        .sorted(java.util.Comparator.comparingDouble(GraphEdge::weight).reversed())
+                        .limit(500)
+                        .toList();
+            }
+
+            return new GraphNeighborhood(null, nodes, uniqueEdges, null);
         } catch (Exception e) {
             log.error("[CognitiveGraphFacade] Overview failed: {}", e.getMessage(), e);
             return GraphNeighborhood.empty("Overview failed: " + e.getMessage());
@@ -254,13 +265,15 @@ public final class CognitiveGraphFacade {
             var visitedIdsSet = new HashSet<String>();
             List<GraphEdge> edges = new ArrayList<>();
 
-            // Build slot-to-entity ID mapping for fast O(1) traversal lookups
+            // Build slot-to-entity ID mapping and id-to-name mapping for fast O(1) traversal lookups
             Map<Integer, List<Integer>> slotToEntities = new java.util.HashMap<>();
+            Map<Integer, String> idToName = new java.util.HashMap<>();
             if (hasIdentity()) {
-                for (int entityId : identityNameIndex().values()) {
-                    int[] mems = identityMemoriesForEntity(entityId);
+                for (var entry : identityNameIndex().entrySet()) {
+                    idToName.put(entry.getValue(), entry.getKey());
+                    int[] mems = identityMemoriesForEntity(entry.getValue());
                     for (int m : mems) {
-                        slotToEntities.computeIfAbsent(m, _ -> new ArrayList<>()).add(entityId);
+                        slotToEntities.computeIfAbsent(m, _ -> new ArrayList<>()).add(entry.getValue());
                     }
                 }
             }
@@ -271,9 +284,12 @@ public final class CognitiveGraphFacade {
             visitedIds.add(memoryId);
             visitedIdsSet.add(memoryId);
 
-            for (int d = 0; d < depth; d++) {
+            int maxNeighbors = 50;
+
+            for (int d = 0; d < depth && visitedIds.size() < maxNeighbors; d++) {
                 List<Integer> nextLevel = new ArrayList<>();
                 for (int slot : currentLevel) {
+                    if (visitedIds.size() >= maxNeighbors) break;
                     String currentId = slotToId.get(slot);
                     if (currentId == null) continue;
 
@@ -286,8 +302,8 @@ public final class CognitiveGraphFacade {
                             nextLevel, edges);
 
                     // Entity neighbors (shared entities & relationships)
-                    bfsEntityNeighbors(currentId, slot, slotToId, slotToEntities, visitedIds, visitedIdsSet,
-                            nextLevel, edges);
+                    bfsEntityNeighbors(currentId, slot, slotToId, slotToEntities, idToName,
+                            visitedIds, visitedIdsSet, nextLevel, edges, maxNeighbors);
                 }
                 if (nextLevel.isEmpty()) break;
                 currentLevel = nextLevel;
@@ -298,6 +314,12 @@ public final class CognitiveGraphFacade {
 
             // Deduplicate edges to avoid rendering redundant lines in UI
             List<GraphEdge> uniqueEdges = edges.stream().distinct().toList();
+            if (uniqueEdges.size() > 500) {
+                uniqueEdges = uniqueEdges.stream()
+                        .sorted(java.util.Comparator.comparingDouble(GraphEdge::weight).reversed())
+                        .limit(500)
+                        .toList();
+            }
 
             // Inspect and build nodes
             List<GraphNode> nodes = buildNodes(visitedIds, idToSlot, inspector);
@@ -539,6 +561,15 @@ public final class CognitiveGraphFacade {
                     if (facts == null || facts.isEmpty()) continue;
 
                     int[] subjectMems = identityMemoriesForEntity(subjectId);
+                    List<String> validSubjectMems = new ArrayList<>();
+                    for (int sm : subjectMems) {
+                        String fromMemId = slotToId.get(sm);
+                        if (fromMemId != null && validIds.contains(fromMemId)) {
+                            validSubjectMems.add(fromMemId);
+                        }
+                    }
+                    if (validSubjectMems.isEmpty()) continue;
+
                     for (var fact : facts) {
                         if (fact.isRetraction()) continue;
                         int objectId = fact.objectEntityId();
@@ -551,13 +582,18 @@ public final class CognitiveGraphFacade {
                         }
 
                         int[] objectMems = identityMemoriesForEntity(objectId);
-                        for (int sm : subjectMems) {
-                            String fromMemId = slotToId.get(sm);
-                            if (fromMemId == null || !validIds.contains(fromMemId)) continue;
-                            for (int om : objectMems) {
-                                if (sm == om) continue; // skip self-loops
-                                String toMemId = slotToId.get(om);
-                                if (toMemId == null || !validIds.contains(toMemId)) continue;
+                        List<String> validObjectMems = new ArrayList<>();
+                        for (int om : objectMems) {
+                            String toMemId = slotToId.get(om);
+                            if (toMemId != null && validIds.contains(toMemId)) {
+                                validObjectMems.add(toMemId);
+                            }
+                        }
+                        if (validObjectMems.isEmpty()) continue;
+
+                        for (String fromMemId : validSubjectMems) {
+                            for (String toMemId : validObjectMems) {
+                                if (fromMemId.equals(toMemId)) continue; // skip self-loops
 
                                 edges.add(new GraphEdge(
                                         fromMemId, toMemId, "ENTITY", predicateName,
@@ -569,31 +605,64 @@ public final class CognitiveGraphFacade {
                 }
             }
 
-            // 2. Entity co-occurrence / shared entity edges
+            // 2. Entity co-occurrence / shared entity edges (aggregated per memory pair)
+            record SharedEntity(String name, String type) {}
+            Map<String, List<SharedEntity>> pairToSharedEntities = new java.util.HashMap<>();
+            Map<String, String[]> pairToMemIds = new java.util.HashMap<>();
+
             for (Map.Entry<Integer, String> entry : idToName.entrySet()) {
                 int entityId = entry.getKey();
                 String entityName = entry.getValue();
+                if (entityName == null || entityName.isBlank()) continue;
                 String entityType = safeEntityType(entityId);
                 var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
-                for (int i = 0; i < hEdges.size(); i++) {
-                    for (int j = i + 1; j < hEdges.size(); j++) {
-                        int fm = hEdges.get(i).memoryIdx();
-                        int tm = hEdges.get(j).memoryIdx();
-                        if (fm == tm) continue;
-                        String fromMemId = slotToId.get(fm);
-                        String toMemId = slotToId.get(tm);
-                        if (fromMemId == null || !validIds.contains(fromMemId)) continue;
-                        if (toMemId == null || !validIds.contains(toMemId)) continue;
-
-                        String relationLabel = (entityType != null && !entityType.equals("UNKNOWN") && !entityType.equals("ENTITY"))
-                                ? entityType + ": " + entityName
-                                : entityName;
-
-                        edges.add(new GraphEdge(
-                                fromMemId, toMemId, "ENTITY", relationLabel,
-                                0.5, entityType, entityType));
+                List<String> validMemsForEntity = new ArrayList<>();
+                for (var he : hEdges) {
+                    String memId = slotToId.get(he.memoryIdx());
+                    if (memId != null && validIds.contains(memId) && !validMemsForEntity.contains(memId)) {
+                        validMemsForEntity.add(memId);
                     }
                 }
+
+                for (int i = 0; i < validMemsForEntity.size(); i++) {
+                    for (int j = i + 1; j < validMemsForEntity.size(); j++) {
+                        String m1 = validMemsForEntity.get(i);
+                        String m2 = validMemsForEntity.get(j);
+                        String from = m1.compareTo(m2) < 0 ? m1 : m2;
+                        String to = m1.compareTo(m2) < 0 ? m2 : m1;
+                        String pairKey = from + "::" + to;
+
+                        pairToSharedEntities.computeIfAbsent(pairKey, k -> new ArrayList<>())
+                                .add(new SharedEntity(entityName, entityType));
+                        pairToMemIds.putIfAbsent(pairKey, new String[]{from, to});
+                    }
+                }
+            }
+
+            for (Map.Entry<String, List<SharedEntity>> entry : pairToSharedEntities.entrySet()) {
+                List<SharedEntity> shared = entry.getValue();
+                if (shared.isEmpty()) continue;
+                String[] mems = pairToMemIds.get(entry.getKey());
+                if (mems == null) continue;
+
+                SharedEntity primary = shared.getFirst();
+                String primaryType = primary.type();
+                String relationLabel;
+                if (shared.size() == 1) {
+                    relationLabel = (primaryType != null && !primaryType.equals("UNKNOWN") && !primaryType.equals("ENTITY"))
+                            ? primaryType + ": " + primary.name()
+                            : primary.name();
+                } else {
+                    String formattedPrimary = (primaryType != null && !primaryType.equals("UNKNOWN") && !primaryType.equals("ENTITY"))
+                            ? primaryType + ": " + primary.name()
+                            : primary.name();
+                    relationLabel = formattedPrimary + " (+" + (shared.size() - 1) + " shared)";
+                }
+
+                double weight = Math.min(1.0, 0.4 + 0.05 * shared.size());
+                edges.add(new GraphEdge(
+                        mems[0], mems[1], "ENTITY", relationLabel,
+                        weight, primaryType, primaryType));
             }
         } catch (Exception e) {
             log.warn("Operation failed: Failed to collect entity edges", e);
@@ -661,19 +730,17 @@ public final class CognitiveGraphFacade {
 
     private void bfsEntityNeighbors(String currentId, int slot, Map<Integer, String> slotToId,
                                     Map<Integer, List<Integer>> slotToEntities,
+                                    Map<Integer, String> idToName,
                                     List<String> visitedIds, HashSet<String> visitedIdsSet,
-                                    List<Integer> nextLevel, List<GraphEdge> edges) {
+                                    List<Integer> nextLevel, List<GraphEdge> edges,
+                                    int maxNeighbors) {
         if (hyperEntityGraph == null) return;
         List<Integer> entities = slotToEntities.get(slot);
-        if (entities == null) return;
+        if (entities == null || entities.isEmpty()) return;
         try {
-            Map<Integer, String> idToName = new java.util.HashMap<>();
-            var nameIndex = identityNameIndex();
-            for (var entry : nameIndex.entrySet()) {
-                idToName.put(entry.getValue(), entry.getKey());
-            }
-
+            int addedForNode = 0;
             for (int entityId : entities) {
+                if (visitedIds.size() >= maxNeighbors || addedForNode >= 10) break;
                 String entityName = idToName.getOrDefault(entityId, "Entity");
                 String entityType = safeEntityType(entityId);
                 String relationLabel = (entityType != null && !entityType.equals("UNKNOWN") && !entityType.equals("ENTITY"))
@@ -681,7 +748,9 @@ public final class CognitiveGraphFacade {
                         : entityName;
 
                 var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
+                int countForEntity = 0;
                 for (var he : hEdges) {
+                    if (countForEntity >= 5 || visitedIds.size() >= maxNeighbors || addedForNode >= 10) break;
                     int targetSlot = he.memoryIdx();
                     if (targetSlot == slot || targetSlot < 0) continue;
                     String targetId = slotToId.get(targetSlot);
@@ -693,6 +762,8 @@ public final class CognitiveGraphFacade {
                             visitedIds.add(targetId);
                             visitedIdsSet.add(targetId);
                             nextLevel.add(targetSlot);
+                            addedForNode++;
+                            countForEntity++;
                         }
                     }
                 }
