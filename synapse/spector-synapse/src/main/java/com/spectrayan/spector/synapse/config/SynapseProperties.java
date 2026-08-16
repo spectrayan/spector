@@ -38,6 +38,7 @@ public class SynapseProperties extends SpectorConfigProperties {
     private String dataDir = "./spector-data";
     private CorsProperties cors = new CorsProperties();
     private AuthProperties auth = new AuthProperties();
+    private com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache = new com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties();
 
     public SynapseProperties() {}
 
@@ -72,6 +73,9 @@ public class SynapseProperties extends SpectorConfigProperties {
     public AuthProperties getAuth() { return auth; }
     public void setAuth(AuthProperties auth) { if (auth != null) this.auth = auth; }
 
+    public com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties getCache() { return cache; }
+    public void setCache(com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache) { if (cache != null) this.cache = cache; }
+
     // Record-style accessors for backward compatibility across existing call sites
     public int port() { return getPort(); }
     public String apiKey() { return getApiKey(); }
@@ -79,4 +83,5 @@ public class SynapseProperties extends SpectorConfigProperties {
     public MemoryProperties memory() { return getMemory(); }
     public CorsProperties cors() { return getCors(); }
     public AuthProperties auth() { return getAuth(); }
+    public com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache() { return getCache(); }
 }

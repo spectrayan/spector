@@ -13,49 +13,102 @@
 package com.spectrayan.spector.synapse.config.cache;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import org.springframework.cache.CacheManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.cache.autoconfigure.CacheManagerCustomizer;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCache;
-import org.springframework.cache.support.SimpleCacheManager;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants.*;
-
 /**
- * Spring Cache configuration for Spector Synapse backed by high-performance Caffeine caches.
+ * Spring Cache configuration for Spector Synapse.
+ *
+ * <p>Enables Spring Boot Cache abstraction driven by {@code spector.cache.*} and {@code spring.cache.*}
+ * properties, allowing seamless switching between cache providers (e.g. {@code caffeine}, {@code redis},
+ * {@code simple}) without code modifications. Applies a non-blocking {@link CacheErrorHandler}
+ * so cache failures log warnings without disrupting the primary application flows.</p>
  */
 @Configuration
 @EnableCaching
-public class CacheConfig {
+@EnableConfigurationProperties(SynapseCacheProperties.class)
+public class CacheConfig implements CachingConfigurer {
 
-    @Bean
-    public CacheManager cacheManager() {
-        SimpleCacheManager cacheManager = new SimpleCacheManager();
-        List<CaffeineCache> caches = new ArrayList<>();
+    private static final Logger log = LoggerFactory.getLogger(CacheConfig.class);
 
-        caches.add(buildCache(CACHE_JTI_BLOCKLIST, TTL_JTI_BLOCKLIST.toSeconds(), MAX_SIZE_JTI_BLOCKLIST));
-        caches.add(buildCache(CACHE_USER_ACCOUNTS, TTL_USER_ACCOUNTS.toSeconds(), MAX_SIZE_USER_ACCOUNTS));
-        caches.add(buildCache(CACHE_DECRYPTED_SECRETS, TTL_DECRYPTED_SECRETS.toSeconds(), MAX_SIZE_DECRYPTED_SECRETS));
-        caches.add(buildCache(CACHE_CREDENTIAL_RECORDS, TTL_CREDENTIAL_RECORDS.toSeconds(), MAX_SIZE_CREDENTIAL_RECORDS));
-        caches.add(buildCache(CACHE_SCOPED_CONFIGS, TTL_SCOPED_CONFIGS.toSeconds(), MAX_SIZE_SCOPED_CONFIGS));
-        caches.add(buildCache(CACHE_CONNECTOR_ROUTES, TTL_CONNECTOR_ROUTES.toSeconds(), MAX_SIZE_CONNECTOR_ROUTES));
-        caches.add(buildCache(CACHE_COMPILED_SUBGRAPHS, TTL_COMPILED_SUBGRAPHS.toSeconds(), MAX_SIZE_COMPILED_SUBGRAPHS));
-        caches.add(buildCache(CACHE_SQL_QUERIES, TTL_SQL_QUERIES.toSeconds(), MAX_SIZE_SQL_QUERIES));
+    private final SynapseCacheProperties cacheProperties;
 
-        cacheManager.setCaches(caches);
-        cacheManager.initializeCaches();
-        return cacheManager;
+    public CacheConfig(SynapseCacheProperties cacheProperties) {
+        this.cacheProperties = cacheProperties != null ? cacheProperties : new SynapseCacheProperties();
     }
 
-    private CaffeineCache buildCache(String name, long ttlSeconds, long maxSize) {
-        return new CaffeineCache(name, Caffeine.newBuilder()
-                .expireAfterWrite(java.time.Duration.ofSeconds(ttlSeconds))
-                .maximumSize(maxSize)
-                .recordStats()
-                .build());
+    public CacheConfig() {
+        this(new SynapseCacheProperties());
+    }
+
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new LoggingCacheErrorHandler();
+    }
+
+    /**
+     * Customizes {@link CaffeineCacheManager} with per-cache TTL and capacity specs
+     * from {@link SynapseCacheProperties} when Caffeine is configured.
+     */
+    @Bean
+    @ConditionalOnClass(CaffeineCacheManager.class)
+    public CacheManagerCustomizer<CaffeineCacheManager> caffeineCacheManagerCustomizer() {
+        return cacheManager -> {
+            cacheManager.setCaffeine(Caffeine.newBuilder().recordStats());
+            for (String cacheName : SynapseCacheConstants.ALL_CACHES) {
+                cacheManager.registerCustomCache(cacheName, Caffeine.newBuilder()
+                        .expireAfterWrite(cacheProperties.getTtl(cacheName))
+                        .maximumSize(cacheProperties.getMaxSize(cacheName))
+                        .recordStats()
+                        .build());
+            }
+        };
+    }
+
+    /**
+     * Non-blocking CacheErrorHandler that logs warnings on cache failures
+     * (get, put, evict, clear) to avoid failing business transactions or database mutations.
+     */
+    public static class LoggingCacheErrorHandler implements CacheErrorHandler {
+
+        private static final Logger log = LoggerFactory.getLogger(LoggingCacheErrorHandler.class);
+
+        @Override
+        public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
+            log.warn("[CacheErrorHandler] Cache get failed for cache='{}', key='{}' (falling back to database): {}",
+                    cacheName(cache), key, exception.getMessage());
+        }
+
+        @Override
+        public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
+            log.warn("[CacheErrorHandler] Cache put failed for cache='{}', key='{}': {}",
+                    cacheName(cache), key, exception.getMessage());
+        }
+
+        @Override
+        public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
+            log.warn("[CacheErrorHandler] Cache evict failed for cache='{}', key='{}': {}",
+                    cacheName(cache), key, exception.getMessage());
+        }
+
+        @Override
+        public void handleCacheClearError(RuntimeException exception, Cache cache) {
+            log.warn("[CacheErrorHandler] Cache clear failed for cache='{}': {}",
+                    cacheName(cache), exception.getMessage());
+        }
+
+        private String cacheName(Cache cache) {
+            return cache != null ? cache.getName() : "unknown";
+        }
     }
 }

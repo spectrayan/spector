@@ -34,6 +34,13 @@ spector:
   cors:
     allowed-origins: ${SPECTOR_CORS_ORIGINS:http://localhost:4200}
 
+  # ── Caching Configuration (spector.cache.*) ──
+  cache:
+    enabled: ${SPECTOR_CACHE_ENABLED:true}
+    type: ${SPECTOR_CACHE_TYPE:caffeine}
+    default-ttl: ${SPECTOR_CACHE_DEFAULT_TTL:10m}
+    default-max-size: ${SPECTOR_CACHE_DEFAULT_MAX_SIZE:1000}
+
   # ── Multi-User Authentication (spector.auth.*) ──
   # Off by default: preserves the legacy single shared memory + shared-key ROLE_API behavior.
   # Secrets are injected from the environment via ${env:VAR} placeholders and are NEVER
@@ -119,6 +126,19 @@ spring:
       enabled: false
   jmx:
     enabled: false
+  cache:
+    type: ${SPRING_CACHE_TYPE:${spector.cache.type}}
+    cache-names:
+      - jti-blocklist
+      - user-accounts
+      - decrypted-secrets
+      - credential-records
+      - scoped-configs
+      - connector-routes
+      - compiled-agent-graphs
+      - sql-queries
+    caffeine:
+      spec: ${SPRING_CACHE_CAFFEINE_SPEC:maximumSize=10000,expireAfterWrite=600s,recordStats}
   datasource:
     url: jdbc:h2:file:${spector.data-dir}/db/synapse;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
     username: sa
