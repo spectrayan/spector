@@ -32,6 +32,8 @@ import com.spectrayan.spector.synapse.memory.MemoryDto.StoreResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.SuppressRequest;
 import com.spectrayan.spector.synapse.memory.MemoryDto.MemoryStats;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ScoringStats;
+import com.spectrayan.spector.synapse.memory.MemoryDto.EnrichmentStatusResponse;
+import com.spectrayan.spector.synapse.memory.MemoryDto.EnrichmentTriggerResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.TopologyStatsResponse;
 import com.spectrayan.spector.synapse.memory.MemoryDto.VacuumRequest;
 import org.slf4j.Logger;
@@ -223,6 +225,44 @@ public class MemoryController {
     @GetMapping("/topology-stats")
     public ResponseEntity<TopologyStatsResponse> getTopologyStats() {
         return ResponseEntity.ok(memoryService.getTopologyStats());
+    }
+
+    /**
+     * Trigger asynchronous offline graph enrichment in the background.
+     *
+     * <p>{@code POST /api/v1/memory/enrich-graph?limit=50}</p>
+     */
+    @PostMapping("/enrich-graph")
+    public ResponseEntity<EnrichmentTriggerResponse> enrichGraph(
+            @RequestParam(defaultValue = "50") int limit) {
+        memoryService.enrichGraph(limit);
+        return ResponseEntity.accepted().body(new EnrichmentTriggerResponse(
+                "ACCEPTED", "Graph enrichment triggered in background", limit));
+    }
+
+    /**
+     * Trigger full re-extraction of entities and relationships for ALL memories,
+     * replacing existing graph data. Use after ontology changes, prompt updates,
+     * or LLM upgrades.
+     *
+     * <p>{@code POST /api/v1/memory/reextract-graph?limit=50}</p>
+     */
+    @PostMapping("/reextract-graph")
+    public ResponseEntity<EnrichmentTriggerResponse> reextractGraph(
+            @RequestParam(defaultValue = "50") int limit) {
+        memoryService.reextractGraph(limit);
+        return ResponseEntity.accepted().body(new EnrichmentTriggerResponse(
+                "ACCEPTED", "Full graph re-extraction triggered in background", limit));
+    }
+
+    /**
+     * Returns real-time status and telemetry for the offline graph enrichment daemon.
+     *
+     * <p>{@code GET /api/v1/memory/enrich-graph/status}</p>
+     */
+    @GetMapping("/enrich-graph/status")
+    public ResponseEntity<EnrichmentStatusResponse> getEnrichmentStatus() {
+        return ResponseEntity.ok(memoryService.getEnrichmentStatus());
     }
 
     /**

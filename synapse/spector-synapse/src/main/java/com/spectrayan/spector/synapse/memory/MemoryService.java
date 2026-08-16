@@ -278,7 +278,7 @@ public class MemoryService {
                         "timestamp", Instant.now().toEpochMilli()
                 ));
                  long t0 = System.currentTimeMillis();
-                 mao.remember(memory, finalId, request.text(), tier, source, finalHints, tags);
+                 mao.remember(memory, finalId, request.text(), tier, source, finalHints, tags, request.timestampMs());
                  long elapsed = System.currentTimeMillis() - t0;
                  rememberCount.incrementAndGet();
                  totalLatencyMs.addAndGet(elapsed);
@@ -625,6 +625,31 @@ public class MemoryService {
         String tier = request != null ? request.effectiveTier() : "SEMANTIC";
         log.info("[MemoryService] Triggering vacuum for tier={}", tier);
         return mao.vacuum(resolveMemory(), tier);
+    }
+
+    /**
+     * Trigger asynchronous graph enrichment batch.
+     */
+    public CompletableFuture<Integer> enrichGraph(int limit) {
+        int effectiveLimit = limit > 0 ? limit : 50;
+        log.info("[MemoryService] Triggering async graph enrichment batch (limit={})", effectiveLimit);
+        return mao.triggerGraphEnrichment(resolveMemory(), effectiveLimit);
+    }
+
+    /**
+     * Trigger asynchronous offline graph re-extraction batch.
+     */
+    public CompletableFuture<Integer> reextractGraph(int limit) {
+        int effectiveLimit = limit > 0 ? limit : 50;
+        log.info("[MemoryService] Triggering async graph re-extraction batch (limit={})", effectiveLimit);
+        return mao.triggerGraphReextraction(resolveMemory(), effectiveLimit);
+    }
+
+    /**
+     * Returns the current status of the graph enrichment daemon.
+     */
+    public MemoryDto.EnrichmentStatusResponse getEnrichmentStatus() {
+        return mao.getEnrichmentStatus(resolveMemory());
     }
 
     /**

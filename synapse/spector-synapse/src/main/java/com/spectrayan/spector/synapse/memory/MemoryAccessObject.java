@@ -17,6 +17,8 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,21 +89,36 @@ public class MemoryAccessObject {
     }
 
     /**
-     * Store/remember a memory synchronously.
+     * Store/remember a memory synchronously with optional timestamp override.
      */
-    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source, IngestionHints hints, String[] tags) {
+    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source, IngestionHints hints, String[] tags, Long timestampMs) {
         if (!isAvailable(memory)) {
             log.warn("[MemoryAccessObject] Stub mode: remember ignored (id={})", id);
             return id;
         }
         try {
-            memory.remember(id, text, type, source, (IngestionHints) hints, tags);
+            if (timestampMs != null && timestampMs > 0) {
+                com.spectrayan.spector.memory.model.IngestionContext ctx = com.spectrayan.spector.memory.model.IngestionContext.builder()
+                        .hints(hints)
+                        .overrideTimestampMs(timestampMs)
+                        .build();
+                memory.remember(id, text, type, source, ctx, tags);
+            } else {
+                memory.remember(id, text, type, source, (IngestionHints) hints, tags);
+            }
             log.debug("[MemoryAccessObject] Remembered memory: id={}", id);
             return id;
         } catch (Exception e) {
             log.error("[MemoryAccessObject] Remember failed: {}", e.getMessage(), e);
             throw new IllegalStateException("Memory store failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Backward-compatible overload without timestamp override.
+     */
+    public String remember(SpectorMemory memory, String id, String text, MemoryType type, MemorySource source, IngestionHints hints, String[] tags) {
+        return remember(memory, id, text, type, source, hints, tags, null);
     }
 
     /**
@@ -498,6 +515,7 @@ public class MemoryAccessObject {
                         n.importance(), n.valence(), n.timestampMs(), n.entityNames()))
                 .toList();
         var edges = neighborhood.edges().stream()
+                .filter(e -> !e.sourceId().equals(e.targetId()))
                 .map(e -> new MemoryDto.GraphEdgeDto(
                         e.sourceId(), e.targetId(), e.type(), e.relationType(),
                         e.weight(), e.sourceEntityType(), e.targetEntityType()))
@@ -597,5 +615,63 @@ public class MemoryAccessObject {
 
         log.info("[MemoryAccessObject] Rescore completed: {} memories rescored, {} errors", rescored, errors);
         return rescored;
+    }
+
+    /**
+     * Triggers asynchronous graph enrichment for unenriched memories in the background.
+     */
+    public CompletableFuture<Integer> triggerGraphEnrichment(SpectorMemory memory, int limit) {
+        if (!isAvailable(memory)) {
+            return CompletableFuture.completedFuture(0);
+        }
+        var enricher = memory.admin().graphEnricher();
+        if (enricher == null) {
+            return CompletableFuture.completedFuture(0);
+        }
+        return CompletableFuture.supplyAsync(
+                () -> enricher.enrichBatch(limit),
+                Executors.newVirtualThreadPerTaskExecutor()
+        );
+    }
+
+    /**
+     * Triggers asynchronous graph re-extraction for memories in the background.
+     */
+    public CompletableFuture<Integer> triggerGraphReextraction(SpectorMemory memory, int limit) {
+        if (!isAvailable(memory)) {
+            return CompletableFuture.completedFuture(0);
+        }
+        var enricher = memory.admin().graphEnricher();
+        if (enricher == null) {
+            return CompletableFuture.completedFuture(0);
+        }
+        return CompletableFuture.supplyAsync(
+                () -> enricher.reextractBatch(limit),
+                Executors.newVirtualThreadPerTaskExecutor()
+        );
+    }
+
+    /**
+     * Returns the current status of the offline graph enrichment daemon.
+     */
+    public MemoryDto.EnrichmentStatusResponse getEnrichmentStatus(SpectorMemory memory) {
+        if (!isAvailable(memory)) {
+            return MemoryDto.EnrichmentStatusResponse.disabled();
+        }
+        var enricher = memory.admin().graphEnricher();
+        if (enricher == null) {
+            return MemoryDto.EnrichmentStatusResponse.disabled();
+        }
+        var stats = enricher.stats();
+        return new MemoryDto.EnrichmentStatusResponse(
+                stats.totalMemories(),
+                stats.enrichedMemories(),
+                stats.pendingMemories(),
+                stats.totalEntitiesAdded(),
+                stats.totalRelationsAdded(),
+                stats.inProgress(),
+                stats.lastRunDurationMs(),
+                stats.lastError()
+        );
     }
 }

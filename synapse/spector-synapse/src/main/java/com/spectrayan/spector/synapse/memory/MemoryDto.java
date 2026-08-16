@@ -74,8 +74,15 @@ public final class MemoryDto {
             @JsonProperty("challenge") Float challenge,
             @JsonProperty("urgency") Float urgency,
             @JsonProperty("valence") Integer valence,
-            @JsonProperty("arousal") Integer arousal
+            @JsonProperty("arousal") Integer arousal,
+            @JsonProperty("timestampMs") Long timestampMs
     ) {
+        /** Backward-compatible 10-param constructor. */
+        public RememberRequest(String id, String text, String tier, String source, String tags,
+                               Float interest, Float challenge, Float urgency, Integer valence, Integer arousal) {
+            this(id, text, tier, source, tags, interest, challenge, urgency, valence, arousal, null);
+        }
+
         /** Returns the tier or default {@code SEMANTIC}. */
         public String effectiveTier() {
             return tier != null && !tier.isBlank() ? tier.toUpperCase() : "SEMANTIC";
@@ -86,10 +93,13 @@ public final class MemoryDto {
             return source != null && !source.isBlank() ? source.toUpperCase() : "OBSERVED";
         }
 
-        /** Returns tags as array, splitting on commas. */
+        /** Returns tags as array, splitting on commas with trimmed whitespace. */
         public String[] tagsArray() {
             if (tags == null || tags.isBlank()) return new String[0];
-            return tags.split(",");
+            return java.util.Arrays.stream(tags.split(","))
+                    .map(String::strip)
+                    .filter(s -> !s.isEmpty())
+                    .toArray(String[]::new);
         }
 
         /** Returns true if any ICNU/emotional hint was provided. */
@@ -678,5 +688,32 @@ public final class MemoryDto {
             @JsonProperty("dimension") int dimension,
             @JsonProperty("values") List<Float> values
     ) {}
+
+    /**
+     * Response when triggering asynchronous graph enrichment.
+     */
+    public record EnrichmentTriggerResponse(
+            @JsonProperty("status") String status,
+            @JsonProperty("message") String message,
+            @JsonProperty("limit") int limit
+    ) {}
+
+    /**
+     * Real-time status and telemetry for the offline graph enrichment daemon.
+     */
+    public record EnrichmentStatusResponse(
+            @JsonProperty("totalMemories") int totalMemories,
+            @JsonProperty("enrichedMemories") int enrichedMemories,
+            @JsonProperty("pendingMemories") int pendingMemories,
+            @JsonProperty("totalEntitiesAdded") int totalEntitiesAdded,
+            @JsonProperty("totalRelationsAdded") int totalRelationsAdded,
+            @JsonProperty("inProgress") boolean inProgress,
+            @JsonProperty("lastRunDurationMs") long lastRunDurationMs,
+            @JsonProperty("lastError") String lastError
+    ) {
+        public static EnrichmentStatusResponse disabled() {
+            return new EnrichmentStatusResponse(0, 0, 0, 0, 0, false, 0, "Graph enricher daemon is not available");
+        }
+    }
 }
 
