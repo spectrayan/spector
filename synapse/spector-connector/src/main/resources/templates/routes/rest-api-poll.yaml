@@ -12,9 +12,18 @@
         defaultValue: "300000"
       - name: collection
         defaultValue: "default"
+      - name: throttleRequests
+        defaultValue: "100"
+      - name: throttlePeriodMs
+        defaultValue: "60000"
     from:
       uri: "timer:{{routeId}}?period={{pollIntervalMs}}"
       steps:
+        - throttle:
+            expression:
+              simple: "{{throttleRequests}}"
+            timePeriodMillis: "{{throttlePeriodMs}}"
+            asyncDelayed: true
         - setHeader:
             name: spector-trace-id
             simple: "${exchangeId}"

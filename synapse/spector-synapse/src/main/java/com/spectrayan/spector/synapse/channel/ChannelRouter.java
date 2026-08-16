@@ -16,6 +16,11 @@ import com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.AgentChatResponse;
 import com.spectrayan.spector.synapse.agent.chat.service.ChatService;
 import com.spectrayan.spector.synapse.channel.model.ChannelType;
 import com.spectrayan.spector.synapse.channel.model.UnifiedMessage;
+import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.ratelimit.RateLimitStateStore;
+import io.github.bucket4j.Bandwidth;
+import io.github.bucket4j.Bucket;
+import io.github.bucket4j.Refill;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +28,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,11 +51,17 @@ public class ChannelRouter {
 
     private final Map<String, ChannelAdapter> adapters = new ConcurrentHashMap<>();
     private final ObjectProvider<ChatService> chatServiceProvider;
+    private final ObjectProvider<SynapseProperties> propertiesProvider;
+    private final ObjectProvider<RateLimitStateStore> stateStoreProvider;
 
     @Autowired
     public ChannelRouter(List<ChannelAdapter> adapterList,
-                         ObjectProvider<ChatService> chatServiceProvider) {
+                         ObjectProvider<ChatService> chatServiceProvider,
+                         ObjectProvider<SynapseProperties> propertiesProvider,
+                         ObjectProvider<RateLimitStateStore> stateStoreProvider) {
         this.chatServiceProvider = chatServiceProvider;
+        this.propertiesProvider = propertiesProvider;
+        this.stateStoreProvider = stateStoreProvider;
         if (adapterList != null) {
             for (ChannelAdapter adapter : adapterList) {
                 register(adapter);
@@ -59,17 +71,22 @@ public class ChannelRouter {
                 adapters.size(), adapters.keySet());
     }
 
+    public ChannelRouter(List<ChannelAdapter> adapterList,
+                         ObjectProvider<ChatService> chatServiceProvider) {
+        this(adapterList, chatServiceProvider, null, null);
+    }
+
     public ChannelRouter(List<ChannelAdapter> adapterList, ChatService chatService) {
         this(adapterList, new ObjectProvider<>() {
             @Override public ChatService getObject() { return chatService; }
             @Override public ChatService getIfAvailable() { return chatService; }
             @Override public ChatService getIfUnique() { return chatService; }
             @Override public ChatService getObject(Object... args) { return chatService; }
-        });
+        }, null, null);
     }
 
     public ChannelRouter(List<ChannelAdapter> adapterList) {
-        this(adapterList, (ObjectProvider<ChatService>) null);
+        this(adapterList, (ObjectProvider<ChatService>) null, null, null);
     }
 
     public void register(ChannelAdapter adapter) {
@@ -121,6 +138,29 @@ public class ChannelRouter {
 
     public UnifiedMessage routeInboundAndProcess(String channelId, Object nativeMessage) {
         UnifiedMessage inbound = routeInbound(channelId, nativeMessage);
+
+        // Inbound Anti-flood rate limiting per sender
+        if (propertiesProvider != null && stateStoreProvider != null) {
+            SynapseProperties props = propertiesProvider.getIfAvailable();
+            RateLimitStateStore store = stateStoreProvider.getIfAvailable();
+            if (props != null && props.getRateLimit() != null && props.getRateLimit().getChannels().isEnabled() && store != null) {
+                var chanCfg = props.getRateLimit().getChannels();
+                String sender = (inbound.senderId() != null && !inbound.senderId().isBlank()) ? inbound.senderId() : "unknown";
+                String bucketKey = "chan:" + normalizeKey(channelId) + ":" + sender;
+                Bandwidth bandwidth = Bandwidth.classic(
+                        chanCfg.getInboundUserBurst(),
+                        Refill.greedy(chanCfg.getInboundUserRpm(), Duration.ofMinutes(1))
+                );
+                Bucket bucket = store.resolveBucket(bucketKey, bandwidth);
+                if (!bucket.tryConsume(1)) {
+                    log.warn("[ChannelRouter] Inbound rate limit exceeded for channel='{}' sender='{}'", channelId, sender);
+                    UnifiedMessage throttledReply = UnifiedMessage.reply(inbound,
+                            "⚠️ Rate limit exceeded. You are sending messages faster than allowed. Please wait a moment.");
+                    routeOutbound(throttledReply);
+                    return throttledReply;
+                }
+            }
+        }
 
         ChatService chatService = chatServiceProvider != null ? chatServiceProvider.getIfAvailable() : null;
         if (chatService == null) {

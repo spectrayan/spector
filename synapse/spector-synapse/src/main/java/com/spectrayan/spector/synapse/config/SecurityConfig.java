@@ -38,6 +38,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.AuthProperties.Pbkdf2Properties;
+import com.spectrayan.spector.synapse.ratelimit.RateLimitFilter;
 import com.spectrayan.spector.synapse.security.ApiKeyAuthenticationFilter;
 import com.spectrayan.spector.synapse.security.FailClosedAccessDeniedHandler;
 import com.spectrayan.spector.synapse.security.FailClosedAuthenticationEntryPoint;
@@ -176,6 +177,37 @@ public class SecurityConfig {
             HttpSecurity http,
             ApiKeyAuthenticationFilter apiKeyFilter,
             SynapseProperties properties,
+            ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider,
+            ObjectProvider<RateLimitFilter> rateLimitFilterProvider)
+            throws Exception {
+        RateLimitFilter rateLimitFilter = rateLimitFilterProvider != null ? rateLimitFilterProvider.getIfAvailable() : null;
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, properties, jwtResolverProvider);
+    }
+
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            ApiKeyAuthenticationFilter apiKeyFilter,
+            SynapseProperties properties,
+            ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
+            throws Exception {
+        return buildFilterChain(http, apiKeyFilter, null, properties, jwtResolverProvider);
+    }
+
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            ApiKeyAuthenticationFilter apiKeyFilter,
+            RateLimitFilter rateLimitFilter,
+            SynapseProperties properties,
+            ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
+            throws Exception {
+        return buildFilterChain(http, apiKeyFilter, rateLimitFilter, properties, jwtResolverProvider);
+    }
+
+    private SecurityFilterChain buildFilterChain(
+            HttpSecurity http,
+            ApiKeyAuthenticationFilter apiKeyFilter,
+            RateLimitFilter rateLimitFilter,
+            SynapseProperties properties,
             ObjectProvider<AuthenticationManagerResolver<HttpServletRequest>> jwtResolverProvider)
             throws Exception {
 
@@ -238,6 +270,9 @@ public class SecurityConfig {
         }
 
         http.addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class);
+        if (rateLimitFilter != null) {
+            http.addFilterBefore(rateLimitFilter, ApiKeyAuthenticationFilter.class);
+        }
 
         return http.build();
     }
