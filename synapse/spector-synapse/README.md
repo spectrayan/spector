@@ -69,8 +69,18 @@ docker compose -f docker-compose.synapse.yml up --build
 | **Connector SPI** | Template-based data connector registration |
 | **Provider Registry** | LLM provider management with health checks |
 | **Plugin SPI** | Runtime plugin loading and lifecycle |
+| **Rate Limiting Engine** | Inbound/outbound multi-tier token bucket limiting (Bucket4j + Caffeine/Redis) |
 | **MCP Endpoint** | Model Context Protocol tool discovery & invocation |
 | **Memory Bridge** | Bidirectional integration with Spector Memory |
+
+## Rate Limiting & Resilience
+
+Spector Synapse features an enterprise-grade, four-pillar rate limiting engine:
+- **Inbound REST/MCP/SSE Throttling**: Multi-tier token bucket filtering (`anonymous`, `standard`, `premium`, `system`) with RFC 7807 429 errors and `X-RateLimit-*` headers.
+- **Outbound LLM Rate Limiting**: Dual-dimension RPM and TPM token estimation with concurrency semaphores and exponential backoff jitter.
+- **Messaging Channel Anti-Flood**: Per-channel per-sender token bucket throttling for Slack, Discord, Telegram, etc.
+- **Apache Camel Connector Throttling**: Configurable throttle EIP for external ingestion routes.
+- **Actuator & Management**: `/actuator/ratelimits` endpoint for observability and runtime token bucket resetting.
 
 ## Contributing
 
