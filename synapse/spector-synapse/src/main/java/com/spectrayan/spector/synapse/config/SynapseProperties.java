@@ -15,6 +15,7 @@ package com.spectrayan.spector.synapse.config;
 import com.spectrayan.spector.config.properties.AuthProperties;
 import com.spectrayan.spector.config.properties.CorsProperties;
 import com.spectrayan.spector.config.properties.MemoryProperties;
+import com.spectrayan.spector.config.properties.RateLimitProperties;
 import com.spectrayan.spector.spring.autoconfigure.SpectorConfigProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
@@ -27,7 +28,7 @@ import org.springframework.context.annotation.Primary;
  * configurations with zero field duplication.</p>
  *
  * <p>Adds Synapse server application settings: {@code port}, {@code apiKey},
- * {@code dataDir}, {@code cors}, and {@code auth}.</p>
+ * {@code dataDir}, {@code cors}, {@code auth}, and {@code rateLimit}.</p>
  */
 @Primary
 @ConfigurationProperties(prefix = "spector")
@@ -38,6 +39,7 @@ public class SynapseProperties extends SpectorConfigProperties {
     private String dataDir = "./spector-data";
     private CorsProperties cors = new CorsProperties();
     private AuthProperties auth = new AuthProperties();
+    private RateLimitProperties rateLimit = new RateLimitProperties();
     private com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache = new com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties();
 
     public SynapseProperties() {}
@@ -73,6 +75,9 @@ public class SynapseProperties extends SpectorConfigProperties {
     public AuthProperties getAuth() { return auth; }
     public void setAuth(AuthProperties auth) { if (auth != null) this.auth = auth; }
 
+    public RateLimitProperties getRateLimit() { return rateLimit; }
+    public void setRateLimit(RateLimitProperties rateLimit) { if (rateLimit != null) this.rateLimit = rateLimit; }
+
     public com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties getCache() { return cache; }
     public void setCache(com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache) { if (cache != null) this.cache = cache; }
 
@@ -83,5 +88,6 @@ public class SynapseProperties extends SpectorConfigProperties {
     public MemoryProperties memory() { return getMemory(); }
     public CorsProperties cors() { return getCors(); }
     public AuthProperties auth() { return getAuth(); }
+    public RateLimitProperties rateLimit() { return getRateLimit(); }
     public com.spectrayan.spector.synapse.config.cache.SynapseCacheProperties cache() { return getCache(); }
 }

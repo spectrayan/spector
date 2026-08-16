@@ -149,6 +149,8 @@
         <picocli.version>4.7.6</picocli.version>
         <handlebars.version>4.4.0</handlebars.version>
         <camel.version>4.11.0</camel.version>
+        <bucket4j.version>8.10.1</bucket4j.version>
+        <caffeine.version>3.2.0</caffeine.version>
 
         <!-- Test dependency versions -->
         <junit.version>6.1.2</junit.version>
@@ -385,6 +387,18 @@
                 <groupId>com.github.jknack</groupId>
                 <artifactId>handlebars</artifactId>
                 <version>${handlebars.version}</version>
+            </dependency>
+
+            <!-- ── Bucket4j (Rate Limiting) & Caffeine (High Performance Cache) ── -->
+            <dependency>
+                <groupId>com.bucket4j</groupId>
+                <artifactId>bucket4j-core</artifactId>
+                <version>${bucket4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.ben-manes.caffeine</groupId>
+                <artifactId>caffeine</artifactId>
+                <version>${caffeine.version}</version>
             </dependency>
 
             <!-- ── Logging ── -->
