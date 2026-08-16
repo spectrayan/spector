@@ -27,20 +27,17 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;
 
 /**
  * JDBC-backed store for refresh tokens.
  *
  * <p>Backs the {@code refresh_tokens} table introduced by the
  * {@code V2__multi_user_auth.sql} Flyway migration
- * ({@code token_id, user_id, token_hash, expires_at, revoked}).</p>
- *
- * <p>Only the SHA-256 hex hash (64 lowercase hex characters) of a token is
- * persisted. The raw token is generated with a {@link SecureRandom} and
- * returned to the caller exactly once at creation time; it is never stored and
- * never logged, so a database leak cannot expose usable credentials
- * (Requirements 15.2, 15.5, 15.6). A token is only honoured while it is both
- * non-revoked and non-expired.</p>
+ * ({@code token_id, user_id, token_hash, expires_at, revoked}). The raw token
+ * is returned to the caller on creation and never stored; only its SHA-256
+ * hex hash is persisted (Requirement 14.2). Lookups match on the hash
+ * of the presented token.</p>
  */
 @Repository
 public class RefreshTokenStore {
@@ -54,10 +51,17 @@ public class RefreshTokenStore {
 
     private final JdbcClient jdbc;
     private final TsidGenerator tsid;
+    private final SqlQueryLoader sqlLoader;
 
-    public RefreshTokenStore(JdbcClient jdbc, TsidGenerator tsid) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public RefreshTokenStore(JdbcClient jdbc, TsidGenerator tsid, SqlQueryLoader sqlLoader) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
         this.tsid = Objects.requireNonNull(tsid, "tsid");
+        this.sqlLoader = sqlLoader != null ? sqlLoader : new SqlQueryLoader();
+    }
+
+    public RefreshTokenStore(JdbcClient jdbc, TsidGenerator tsid) {
+        this(jdbc, tsid, new SqlQueryLoader());
     }
 
     /**
@@ -78,15 +82,17 @@ public class RefreshTokenStore {
         String tokenHash = sha256Hex(rawToken);
         String tokenId = tsid.generate();
 
-        jdbc.sql("""
-                        INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at, revoked)
-                        VALUES (:tokenId, :userId, :tokenHash, :expiresAt, FALSE)
-                        """)
-                .param("tokenId", tokenId)
-                .param("userId", userId)
-                .param("tokenHash", tokenHash)
-                .param("expiresAt", java.sql.Timestamp.from(expiresAt))
-                .update();
+        try {
+            jdbc.sql(sqlLoader.load("auth/insert-refresh-token"))
+                    .param("tokenId", tokenId)
+                    .param("userId", userId)
+                    .param("tokenHash", tokenHash)
+                    .param("expiresAt", java.sql.Timestamp.from(expiresAt))
+                    .update();
+        } catch (org.springframework.dao.DataAccessException e) {
+            log.error("[Auth] Failed to insert refresh token for user {}", userId, e);
+            throw new com.spectrayan.spector.synapse.error.SynapseDatabaseException("createRefreshToken", "refresh_tokens", e);
+        }
 
         log.debug("[Auth] Issued refresh token {} for user {}", tokenId, userId);
         return rawToken;
@@ -104,20 +110,19 @@ public class RefreshTokenStore {
         if (sha256HexHash == null || sha256HexHash.isBlank()) {
             return Optional.empty();
         }
-        return jdbc.sql("""
-                        SELECT token_id, user_id, expires_at
-                        FROM refresh_tokens
-                        WHERE token_hash = :tokenHash
-                          AND revoked = FALSE
-                          AND expires_at > :now
-                        """)
-                .param("tokenHash", sha256HexHash)
-                .param("now", java.sql.Timestamp.from(Instant.now()))
-                .query((rs, rowNum) -> new RefreshTokenRow(
-                        rs.getString("token_id"),
-                        rs.getString("user_id"),
-                        rs.getTimestamp("expires_at").toInstant()))
-                .optional();
+        try {
+            return jdbc.sql(sqlLoader.load("auth/find-active-refresh-token"))
+                    .param("tokenHash", sha256HexHash)
+                    .param("now", java.sql.Timestamp.from(Instant.now()))
+                    .query((rs, rowNum) -> new RefreshTokenRow(
+                            rs.getString("token_id"),
+                            rs.getString("user_id"),
+                            rs.getTimestamp("expires_at").toInstant()))
+                    .optional();
+        } catch (org.springframework.dao.DataAccessException e) {
+            log.error("[Auth] Failed to query active refresh token", e);
+            throw new com.spectrayan.spector.synapse.error.SynapseDatabaseException("findActiveRefreshToken", "refresh_tokens", e);
+        }
     }
 
     /**
@@ -131,10 +136,15 @@ public class RefreshTokenStore {
         if (tokenId == null || tokenId.isBlank()) {
             return false;
         }
-        int rows = jdbc.sql("UPDATE refresh_tokens SET revoked = TRUE WHERE token_id = :tokenId AND revoked = FALSE")
-                .param("tokenId", tokenId)
-                .update();
-        return rows > 0;
+        try {
+            int rows = jdbc.sql(sqlLoader.load("auth/revoke-refresh-token-by-id"))
+                    .param("tokenId", tokenId)
+                    .update();
+            return rows > 0;
+        } catch (org.springframework.dao.DataAccessException e) {
+            log.error("[Auth] Failed to revoke refresh token by id {}", tokenId, e);
+            throw new com.spectrayan.spector.synapse.error.SynapseDatabaseException("revokeRefreshTokenById", "refresh_tokens", e);
+        }
     }
 
     /**
@@ -148,10 +158,15 @@ public class RefreshTokenStore {
         if (sha256HexHash == null || sha256HexHash.isBlank()) {
             return false;
         }
-        int rows = jdbc.sql("UPDATE refresh_tokens SET revoked = TRUE WHERE token_hash = :tokenHash AND revoked = FALSE")
-                .param("tokenHash", sha256HexHash)
-                .update();
-        return rows > 0;
+        try {
+            int rows = jdbc.sql(sqlLoader.load("auth/revoke-refresh-token-by-hash"))
+                    .param("tokenHash", sha256HexHash)
+                    .update();
+            return rows > 0;
+        } catch (org.springframework.dao.DataAccessException e) {
+            log.error("[Auth] Failed to revoke refresh token by hash", e);
+            throw new com.spectrayan.spector.synapse.error.SynapseDatabaseException("revokeRefreshTokenByHash", "refresh_tokens", e);
+        }
     }
 
     /**

@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.synapse.connector.service;
 
+import com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants;
 import com.spectrayan.spector.synapse.connector.api.dto.CreateCredentialRequest;
 import com.spectrayan.spector.synapse.connector.api.dto.UpdateCredentialRequest;
 import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
@@ -21,6 +22,8 @@ import com.spectrayan.spector.synapse.connector.repository.CredentialRepository;
 import com.spectrayan.spector.synapse.security.crypto.AesGcmCipher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -29,7 +32,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Default implementation of {@link CredentialService} providing encryption orchestration,
@@ -39,16 +41,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DefaultCredentialService implements CredentialService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultCredentialService.class);
-    private static final long CACHE_TTL_MS = 60_000; // 1 minute
 
     private final CredentialRepository repository;
     private final AesGcmCipher cipher;
-
-    private final Map<String, CacheEntry> secretCache = new ConcurrentHashMap<>();
-
-    private record CacheEntry(String secret, long timestamp) {
-        boolean isValid() { return System.currentTimeMillis() - timestamp < CACHE_TTL_MS; }
-    }
 
     public DefaultCredentialService(CredentialRepository repository, AesGcmCipher cipher) {
         this.repository = Objects.requireNonNull(repository, "CredentialRepository must not be null");
@@ -56,15 +51,13 @@ public class DefaultCredentialService implements CredentialService {
     }
 
     @Override
+    @CacheEvict(value = SynapseCacheConstants.CACHE_DECRYPTED_SECRETS, allEntries = true)
     public CredentialRecord createCredential(String tenantId, String userId, CreateCredentialRequest request) {
         Objects.requireNonNull(request, "CreateCredentialRequest must not be null");
         String effectiveTenant = tenantId != null && !tenantId.isBlank() ? tenantId : "default";
         String normalizedName = request.name().trim().toLowerCase();
         String normalizedProvider = request.provider().trim().toLowerCase();
         CredentialType type = request.credentialType() != null ? request.credentialType() : CredentialType.API_KEY;
-
-        // Invalidate cache
-        secretCache.remove(cacheKey(effectiveTenant, normalizedName));
 
         // Manage default flag
         if (request.isDefault()) {
@@ -98,6 +91,7 @@ public class DefaultCredentialService implements CredentialService {
     }
 
     @Override
+    @CacheEvict(value = SynapseCacheConstants.CACHE_DECRYPTED_SECRETS, allEntries = true)
     public Optional<CredentialRecord> updateCredential(String tenantId, String userId, String name, UpdateCredentialRequest request) {
         Objects.requireNonNull(name, "name must not be null");
         Objects.requireNonNull(request, "UpdateCredentialRequest must not be null");
@@ -118,9 +112,6 @@ public class DefaultCredentialService implements CredentialService {
         boolean isDefault = request.isDefault() != null ? request.isDefault() : existing.isDefault();
         String description = request.description() != null ? request.description() : existing.description();
         Instant expiresAt = request.expiresAt() != null ? request.expiresAt() : existing.expiresAt();
-
-        // Invalidate cache
-        secretCache.remove(cacheKey(effectiveTenant, normalizedName));
 
         if (isDefault && !existing.isDefault()) {
             repository.clearDefault(effectiveTenant, provider);
@@ -178,14 +169,15 @@ public class DefaultCredentialService implements CredentialService {
     }
 
     @Override
+    @CacheEvict(value = SynapseCacheConstants.CACHE_DECRYPTED_SECRETS, allEntries = true)
     public boolean deleteCredential(String tenantId, String name) {
         String effectiveTenant = tenantId != null ? tenantId : "default";
         String normalizedName = name.trim().toLowerCase();
-        secretCache.remove(cacheKey(effectiveTenant, normalizedName));
         return repository.deleteByName(effectiveTenant, normalizedName);
     }
 
     @Override
+    @Cacheable(value = SynapseCacheConstants.CACHE_DECRYPTED_SECRETS, key = "#tenantId + ':' + #credentialRef.toLowerCase()")
     public Optional<String> resolveSecret(String credentialRef, String tenantId) {
         if (credentialRef == null || credentialRef.isBlank()) {
             return Optional.empty();
@@ -212,12 +204,6 @@ public class DefaultCredentialService implements CredentialService {
         }
 
         String normalizedName = parsedName.toLowerCase();
-        String cKey = cacheKey(effectiveTenant, normalizedName);
-
-        CacheEntry cached = secretCache.get(cKey);
-        if (cached != null && cached.isValid()) {
-            return Optional.of(cached.secret());
-        }
 
         Optional<CredentialRecord> recordOpt = repository.findByName(effectiveTenant, normalizedName);
         if (recordOpt.isEmpty()) {
@@ -231,7 +217,6 @@ public class DefaultCredentialService implements CredentialService {
         CredentialRecord record = recordOpt.get();
         try {
             String decrypted = cipher.decrypt(record.ciphertext(), record.iv(), effectiveTenant);
-            secretCache.put(cKey, new CacheEntry(decrypted, System.currentTimeMillis()));
             repository.updateLastUsedAt(record.credentialId(), Instant.now());
             return Optional.of(decrypted);
         } catch (Exception e) {
@@ -268,9 +253,5 @@ public class DefaultCredentialService implements CredentialService {
                 "maskedPreview", record.maskedPreview(),
                 "message", "Credential successfully decrypted and validated"
         );
-    }
-
-    private String cacheKey(String tenantId, String name) {
-        return tenantId + ":" + name;
     }
 }

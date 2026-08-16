@@ -16,8 +16,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.connector.model.RouteConfig;
 import com.spectrayan.spector.connector.spi.RouteConfigProvider;
+import com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants;
+import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;
+import com.spectrayan.spector.synapse.error.SynapseDatabaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -44,28 +50,28 @@ public class JdbcRouteConfigProvider implements RouteConfigProvider {
 
     private final JdbcClient jdbc;
     private final ObjectMapper mapper;
+    private final SqlQueryLoader sqlLoader;
 
-    public JdbcRouteConfigProvider(JdbcClient jdbc, ObjectMapper mapper) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public JdbcRouteConfigProvider(JdbcClient jdbc, ObjectMapper mapper, SqlQueryLoader sqlLoader) {
         this.jdbc = Objects.requireNonNull(jdbc, "JdbcClient must not be null");
         this.mapper = Objects.requireNonNull(mapper, "ObjectMapper must not be null");
+        this.sqlLoader = sqlLoader != null ? sqlLoader : new SqlQueryLoader();
+    }
+
+    public JdbcRouteConfigProvider(JdbcClient jdbc, ObjectMapper mapper) {
+        this(jdbc, mapper, new SqlQueryLoader());
     }
 
     @Override
+    @CacheEvict(value = SynapseCacheConstants.CACHE_CONNECTOR_ROUTES, allEntries = true)
     public void save(RouteConfig config) {
         Objects.requireNonNull(config, "RouteConfig must not be null");
         try {
             String json = mapper.writeValueAsString(config.properties());
             Instant now = Instant.now();
 
-            jdbc.sql("""
-                    MERGE INTO connector_routes (
-                        route_id, tenant_id, name, template_id, connector_type,
-                        source, schedule, enabled, parameters_json, created_at, updated_at
-                    ) KEY (route_id) VALUES (
-                        :routeId, :tenantId, :name, :templateId, :connectorType,
-                        :source, :schedule, :enabled, :json, :createdAt, :updatedAt
-                    )
-                    """)
+            jdbc.sql(sqlLoader.load("routes/merge-route"))
                     .param("routeId", config.id())
                     .param("tenantId", config.tenantId() != null ? config.tenantId() : "default")
                     .param("name", config.name() != null ? config.name() : config.id())
@@ -81,36 +87,36 @@ public class JdbcRouteConfigProvider implements RouteConfigProvider {
 
             log.info("[JdbcRouteConfigProvider] Saved route '{}' (template={}, enabled={}, tenant={})",
                     config.id(), config.templateId(), config.enabled(), config.tenantId());
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
             log.error("[JdbcRouteConfigProvider] Failed to save route '{}'", config.id(), e);
-            throw new RuntimeException("Failed to save RouteConfig for route: " + config.id(), e);
+            throw new SynapseDatabaseException("saveRoute", "connector_routes", e);
+        } catch (Exception e) {
+            log.error("[JdbcRouteConfigProvider] Failed to serialize or save route '{}'", config.id(), e);
+            throw new SynapseDatabaseException("saveRoute", "connector_routes", e);
         }
     }
 
     @Override
+    @CacheEvict(value = SynapseCacheConstants.CACHE_CONNECTOR_ROUTES, allEntries = true)
     public void delete(String routeId) {
         if (routeId == null || routeId.isBlank()) return;
         try {
-            int rows = jdbc.sql("DELETE FROM connector_routes WHERE route_id = :routeId")
+            int rows = jdbc.sql(sqlLoader.load("routes/delete-by-id"))
                     .param("routeId", routeId)
                     .update();
             log.info("[JdbcRouteConfigProvider] Deleted route '{}' (rows affected: {})", routeId, rows);
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
             log.error("[JdbcRouteConfigProvider] Failed to delete route '{}'", routeId, e);
-            throw new RuntimeException("Failed to delete RouteConfig: " + routeId, e);
+            throw new SynapseDatabaseException("deleteRoute", "connector_routes", e);
         }
     }
 
     @Override
+    @Cacheable(value = SynapseCacheConstants.CACHE_CONNECTOR_ROUTES, key = "#routeId")
     public Optional<RouteConfig> findById(String routeId) {
         if (routeId == null || routeId.isBlank()) return Optional.empty();
         try {
-            return jdbc.sql("""
-                    SELECT route_id, tenant_id, name, template_id, connector_type,
-                           source, schedule, enabled, parameters_json, created_at, updated_at, last_executed_at
-                    FROM connector_routes
-                    WHERE route_id = :routeId
-                    """)
+            return jdbc.sql(sqlLoader.load("routes/find-by-id"))
                     .param("routeId", routeId)
                     .query(this::mapRow)
                     .optional();
@@ -124,13 +130,7 @@ public class JdbcRouteConfigProvider implements RouteConfigProvider {
     public List<RouteConfig> findByTenantId(String tenantId) {
         String effectiveTenant = tenantId != null ? tenantId : "default";
         try {
-            return jdbc.sql("""
-                    SELECT route_id, tenant_id, name, template_id, connector_type,
-                           source, schedule, enabled, parameters_json, created_at, updated_at, last_executed_at
-                    FROM connector_routes
-                    WHERE tenant_id = :tenantId
-                    ORDER BY route_id
-                    """)
+            return jdbc.sql(sqlLoader.load("routes/find-by-tenant"))
                     .param("tenantId", effectiveTenant)
                     .query(this::mapRow)
                     .list();
@@ -143,13 +143,7 @@ public class JdbcRouteConfigProvider implements RouteConfigProvider {
     @Override
     public List<RouteConfig> findAllEnabled() {
         try {
-            return jdbc.sql("""
-                    SELECT route_id, tenant_id, name, template_id, connector_type,
-                           source, schedule, enabled, parameters_json, created_at, updated_at, last_executed_at
-                    FROM connector_routes
-                    WHERE enabled = TRUE
-                    ORDER BY route_id
-                    """)
+            return jdbc.sql(sqlLoader.load("routes/find-all-enabled"))
                     .query(this::mapRow)
                     .list();
         } catch (Exception e) {
@@ -161,12 +155,7 @@ public class JdbcRouteConfigProvider implements RouteConfigProvider {
     @Override
     public List<RouteConfig> findAll() {
         try {
-            return jdbc.sql("""
-                    SELECT route_id, tenant_id, name, template_id, connector_type,
-                           source, schedule, enabled, parameters_json, created_at, updated_at, last_executed_at
-                    FROM connector_routes
-                    ORDER BY route_id
-                    """)
+            return jdbc.sql(sqlLoader.load("routes/find-all"))
                     .query(this::mapRow)
                     .list();
         } catch (Exception e) {

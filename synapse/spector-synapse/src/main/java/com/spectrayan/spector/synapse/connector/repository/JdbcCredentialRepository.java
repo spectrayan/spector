@@ -14,11 +14,17 @@ package com.spectrayan.spector.synapse.connector.repository;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants;
+import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;
 import com.spectrayan.spector.synapse.connector.model.CredentialCategory;
 import com.spectrayan.spector.synapse.connector.model.CredentialRecord;
 import com.spectrayan.spector.synapse.connector.model.CredentialType;
+import com.spectrayan.spector.synapse.error.SynapseDatabaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -43,13 +49,21 @@ public class JdbcCredentialRepository implements CredentialRepository {
 
     private final JdbcClient jdbc;
     private final ObjectMapper mapper;
+    private final SqlQueryLoader sqlLoader;
 
-    public JdbcCredentialRepository(JdbcClient jdbc, ObjectMapper mapper) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public JdbcCredentialRepository(JdbcClient jdbc, ObjectMapper mapper, SqlQueryLoader sqlLoader) {
         this.jdbc = Objects.requireNonNull(jdbc, "JdbcClient must not be null");
         this.mapper = Objects.requireNonNull(mapper, "ObjectMapper must not be null");
+        this.sqlLoader = sqlLoader != null ? sqlLoader : new SqlQueryLoader();
+    }
+
+    public JdbcCredentialRepository(JdbcClient jdbc, ObjectMapper mapper) {
+        this(jdbc, mapper, new SqlQueryLoader());
     }
 
     @Override
+    @CacheEvict(value = SynapseCacheConstants.CACHE_CREDENTIAL_RECORDS, allEntries = true)
     public CredentialRecord save(CredentialRecord record) {
         Objects.requireNonNull(record, "record must not be null");
 
@@ -62,53 +76,43 @@ public class JdbcCredentialRepository implements CredentialRepository {
             }
         }
 
-        jdbc.sql("""
-                MERGE INTO credentials (
-                    credential_id, tenant_id, user_id, name, category, provider, credential_type,
-                    ciphertext, iv, auth_tag, masked_preview, properties_json, is_default,
-                    description, version, created_at, updated_at, expires_at
-                ) KEY (tenant_id, name) VALUES (
-                    :credentialId, :tenantId, :userId, :name, :category, :provider, :credentialType,
-                    :ciphertext, :iv, :authTag, :maskedPreview, :propertiesJson, :isDefault,
-                    :description, :version, :createdAt, :updatedAt, :expiresAt
-                )
-                """)
-                .param("credentialId", record.credentialId())
-                .param("tenantId", record.tenantId())
-                .param("userId", record.userId())
-                .param("name", record.name())
-                .param("category", record.category().name())
-                .param("provider", record.provider())
-                .param("credentialType", record.credentialType().name())
-                .param("ciphertext", record.ciphertext())
-                .param("iv", record.iv())
-                .param("authTag", record.authTag())
-                .param("maskedPreview", record.maskedPreview())
-                .param("propertiesJson", propertiesJson)
-                .param("isDefault", record.isDefault())
-                .param("description", record.description())
-                .param("version", record.version())
-                .param("createdAt", Timestamp.from(record.createdAt()))
-                .param("updatedAt", Timestamp.from(record.updatedAt()))
-                .param("expiresAt", record.expiresAt() != null ? Timestamp.from(record.expiresAt()) : null)
-                .update();
+        try {
+            jdbc.sql(sqlLoader.load("credentials/merge-credential"))
+                    .param("credentialId", record.credentialId())
+                    .param("tenantId", record.tenantId())
+                    .param("userId", record.userId())
+                    .param("name", record.name())
+                    .param("category", record.category().name())
+                    .param("provider", record.provider())
+                    .param("credentialType", record.credentialType().name())
+                    .param("ciphertext", record.ciphertext())
+                    .param("iv", record.iv())
+                    .param("authTag", record.authTag())
+                    .param("maskedPreview", record.maskedPreview())
+                    .param("propertiesJson", propertiesJson)
+                    .param("isDefault", record.isDefault())
+                    .param("description", record.description())
+                    .param("version", record.version())
+                    .param("createdAt", Timestamp.from(record.createdAt()))
+                    .param("updatedAt", Timestamp.from(record.updatedAt()))
+                    .param("expiresAt", record.expiresAt() != null ? Timestamp.from(record.expiresAt()) : null)
+                    .update();
+        } catch (DataAccessException e) {
+            log.error("[JdbcCredRepo] Failed to save credential '{}' for tenant '{}'", record.name(), record.tenantId(), e);
+            throw new SynapseDatabaseException("saveCredential", "credentials", e);
+        }
 
         return findByName(record.tenantId(), record.name()).orElse(record);
     }
 
     @Override
+    @Cacheable(value = SynapseCacheConstants.CACHE_CREDENTIAL_RECORDS, key = "#tenantId + ':' + #name.toLowerCase()")
     public Optional<CredentialRecord> findByName(String tenantId, String name) {
         if (name == null || name.isBlank()) return Optional.empty();
         String effectiveTenant = tenantId != null ? tenantId : "default";
 
         try {
-            return jdbc.sql("""
-                    SELECT credential_id, tenant_id, user_id, name, category, provider, credential_type,
-                           ciphertext, iv, auth_tag, masked_preview, properties_json, is_default,
-                           description, version, created_at, updated_at, expires_at, last_used_at
-                    FROM credentials
-                    WHERE tenant_id = :tenantId AND name = :name
-                    """)
+            return jdbc.sql(sqlLoader.load("credentials/find-by-name"))
                     .param("tenantId", effectiveTenant)
                     .param("name", name.trim().toLowerCase())
                     .query(this::mapRow)
@@ -125,13 +129,7 @@ public class JdbcCredentialRepository implements CredentialRepository {
         String effectiveTenant = tenantId != null ? tenantId : "default";
 
         try {
-            return jdbc.sql("""
-                    SELECT credential_id, tenant_id, user_id, name, category, provider, credential_type,
-                           ciphertext, iv, auth_tag, masked_preview, properties_json, is_default,
-                           description, version, created_at, updated_at, expires_at, last_used_at
-                    FROM credentials
-                    WHERE tenant_id = :tenantId AND provider = :provider AND is_default = TRUE
-                    """)
+            return jdbc.sql(sqlLoader.load("credentials/find-default-by-provider"))
                     .param("tenantId", effectiveTenant)
                     .param("provider", provider.trim().toLowerCase())
                     .query(this::mapRow)
@@ -146,14 +144,7 @@ public class JdbcCredentialRepository implements CredentialRepository {
     public List<CredentialRecord> findByTenantId(String tenantId) {
         String effectiveTenant = tenantId != null ? tenantId : "default";
         try {
-            return jdbc.sql("""
-                    SELECT credential_id, tenant_id, user_id, name, category, provider, credential_type,
-                           ciphertext, iv, auth_tag, masked_preview, properties_json, is_default,
-                           description, version, created_at, updated_at, expires_at, last_used_at
-                    FROM credentials
-                    WHERE tenant_id = :tenantId
-                    ORDER BY provider, name
-                    """)
+            return jdbc.sql(sqlLoader.load("credentials/find-by-tenant"))
                     .param("tenantId", effectiveTenant)
                     .query(this::mapRow)
                     .list();
@@ -169,14 +160,7 @@ public class JdbcCredentialRepository implements CredentialRepository {
         if (userId == null || userId.isBlank()) return List.of();
 
         try {
-            return jdbc.sql("""
-                    SELECT credential_id, tenant_id, user_id, name, category, provider, credential_type,
-                           ciphertext, iv, auth_tag, masked_preview, properties_json, is_default,
-                           description, version, created_at, updated_at, expires_at, last_used_at
-                    FROM credentials
-                    WHERE tenant_id = :tenantId AND user_id = :userId
-                    ORDER BY provider, name
-                    """)
+            return jdbc.sql(sqlLoader.load("credentials/find-by-user"))
                     .param("tenantId", effectiveTenant)
                     .param("userId", userId)
                     .query(this::mapRow)
@@ -188,31 +172,42 @@ public class JdbcCredentialRepository implements CredentialRepository {
     }
 
     @Override
+    @CacheEvict(value = SynapseCacheConstants.CACHE_CREDENTIAL_RECORDS, allEntries = true)
     public void clearDefault(String tenantId, String provider) {
         String effectiveTenant = tenantId != null ? tenantId : "default";
-        jdbc.sql("UPDATE credentials SET is_default = FALSE WHERE tenant_id = :tenantId AND provider = :provider")
-                .param("tenantId", effectiveTenant)
-                .param("provider", provider.trim().toLowerCase())
-                .update();
+        try {
+            jdbc.sql(sqlLoader.load("credentials/clear-default"))
+                    .param("tenantId", effectiveTenant)
+                    .param("provider", provider.trim().toLowerCase())
+                    .update();
+        } catch (DataAccessException e) {
+            log.error("[JdbcCredRepo] Failed to clear default for provider '{}'", provider, e);
+            throw new SynapseDatabaseException("clearDefaultCredential", "credentials", e);
+        }
     }
 
     @Override
+    @CacheEvict(value = SynapseCacheConstants.CACHE_CREDENTIAL_RECORDS, allEntries = true)
     public boolean deleteByName(String tenantId, String name) {
         if (name == null || name.isBlank()) return false;
         String effectiveTenant = tenantId != null ? tenantId : "default";
 
-        int rows = jdbc.sql("DELETE FROM credentials WHERE tenant_id = :tenantId AND name = :name")
-                .param("tenantId", effectiveTenant)
-                .param("name", name.trim().toLowerCase())
-                .update();
-
-        return rows > 0;
+        try {
+            int rows = jdbc.sql(sqlLoader.load("credentials/delete-by-name"))
+                    .param("tenantId", effectiveTenant)
+                    .param("name", name.trim().toLowerCase())
+                    .update();
+            return rows > 0;
+        } catch (DataAccessException e) {
+            log.error("[JdbcCredRepo] Failed to delete credential '{}' for tenant '{}'", name, effectiveTenant, e);
+            throw new SynapseDatabaseException("deleteCredentialByName", "credentials", e);
+        }
     }
 
     @Override
     public void updateLastUsedAt(String credentialId, Instant timestamp) {
         try {
-            jdbc.sql("UPDATE credentials SET last_used_at = :now WHERE credential_id = :id")
+            jdbc.sql(sqlLoader.load("credentials/update-last-used"))
                     .param("now", Timestamp.from(timestamp != null ? timestamp : Instant.now()))
                     .param("id", credentialId)
                     .update();

@@ -14,17 +14,23 @@ package com.spectrayan.spector.synapse.config.repository;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants;
 import com.spectrayan.spector.synapse.config.model.ConfigCategory;
 import com.spectrayan.spector.synapse.config.model.ScopedConfig;
-
+import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;
+import com.spectrayan.spector.synapse.error.SynapseDatabaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -38,15 +44,23 @@ public class ConfigRepository {
 
     private final JdbcClient jdbc;
     private final ObjectMapper mapper;
+    private final SqlQueryLoader sqlLoader;
 
-    public ConfigRepository(JdbcClient jdbc, ObjectMapper mapper) {
-        this.jdbc = jdbc;
-        this.mapper = mapper;
+    @org.springframework.beans.factory.annotation.Autowired
+    public ConfigRepository(JdbcClient jdbc, ObjectMapper mapper, SqlQueryLoader sqlLoader) {
+        this.jdbc = Objects.requireNonNull(jdbc, "JdbcClient must not be null");
+        this.mapper = Objects.requireNonNull(mapper, "ObjectMapper must not be null");
+        this.sqlLoader = sqlLoader != null ? sqlLoader : new SqlQueryLoader();
     }
 
+    public ConfigRepository(JdbcClient jdbc, ObjectMapper mapper) {
+        this(jdbc, mapper, new SqlQueryLoader());
+    }
+
+    @Cacheable(value = SynapseCacheConstants.CACHE_SCOPED_CONFIGS, key = "#scope + ':' + #category.key()")
     public Optional<ScopedConfig> get(String scope, ConfigCategory category) {
         try {
-            return jdbc.sql("SELECT config_json, updated_at, updated_by FROM scoped_config WHERE scope = :scope AND category = :category")
+            return jdbc.sql(sqlLoader.load("config/find-scoped-config"))
                     .param("scope", scope)
                     .param("category", category.key())
                     .query((rs, rowNum) -> {
@@ -74,54 +88,71 @@ public class ConfigRepository {
     /**
      * Saves (upserts) a scoped config.
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_SCOPED_CONFIGS, allEntries = true)
     public void save(ScopedConfig config) {
         try {
             String json = mapper.writeValueAsString(config.values());
 
-            jdbc.sql("MERGE INTO scoped_config (scope, category, config_json, updated_at, updated_by) KEY (scope, category) VALUES (:scope, :category, :json, :updatedAt, :updatedBy)")
+            jdbc.sql(sqlLoader.load("config/merge-scoped-config"))
                     .param("scope", config.scope())
                     .param("category", config.category().key())
                     .param("json", json)
                     .param("updatedAt", java.sql.Timestamp.from(Instant.now()))
                     .param("updatedBy", config.updatedBy())
                     .update();
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
             log.error("Failed to save config for scope={}, category={}: {}",
                     config.scope(), config.category().key(), e.getMessage());
-            throw new RuntimeException("Config save failed", e);
+            throw new SynapseDatabaseException("saveScopedConfig", "scoped_config", e);
+        } catch (Exception e) {
+            log.error("Failed to serialize config for scope={}, category={}: {}",
+                    config.scope(), config.category().key(), e.getMessage());
+            throw new SynapseDatabaseException("saveScopedConfig", "scoped_config", e);
         }
     }
 
     /**
      * Deletes a scoped config override.
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_SCOPED_CONFIGS, allEntries = true)
     public boolean delete(String scope, ConfigCategory category) {
-        int rows = jdbc.sql("DELETE FROM scoped_config WHERE scope = :scope AND category = :category")
-                .param("scope", scope)
-                .param("category", category.key())
-                .update();
-        return rows > 0;
+        try {
+            int rows = jdbc.sql(sqlLoader.load("config/delete-scoped-config"))
+                    .param("scope", scope)
+                    .param("category", category.key())
+                    .update();
+            return rows > 0;
+        } catch (DataAccessException e) {
+            log.error("Failed to delete config for scope={}, category={}: {}",
+                    scope, category.key(), e.getMessage());
+            throw new SynapseDatabaseException("deleteScopedConfig", "scoped_config", e);
+        }
     }
 
     /**
      * Lists all configs for a given category across all scopes.
      */
     public List<ScopedConfig> findByCategory(ConfigCategory category) {
-        return jdbc.sql("SELECT scope, config_json, updated_at, updated_by FROM scoped_config WHERE category = :category ORDER BY scope")
-                .param("category", category.key())
-                .query((rs, rowNum) -> {
-                    try {
-                        Map<String, Object> values = mapper.readValue(
-                                rs.getString("config_json"), MAP_TYPE);
-                        return new ScopedConfig(
-                                rs.getString("scope"), category, values,
-                                rs.getTimestamp("updated_at") != null
-                                        ? rs.getTimestamp("updated_at").toInstant() : Instant.now(),
-                                rs.getString("updated_by"));
-                    } catch (Exception e) {
-                        return null;
-                    }
-                })
-                .list();
+        try {
+            return jdbc.sql(sqlLoader.load("config/find-by-category"))
+                    .param("category", category.key())
+                    .query((rs, rowNum) -> {
+                        try {
+                            Map<String, Object> values = mapper.readValue(
+                                    rs.getString("config_json"), MAP_TYPE);
+                            return new ScopedConfig(
+                                    rs.getString("scope"), category, values,
+                                    rs.getTimestamp("updated_at") != null
+                                            ? rs.getTimestamp("updated_at").toInstant() : Instant.now(),
+                                    rs.getString("updated_by"));
+                        } catch (Exception e) {
+                            return null;
+                        }
+                    })
+                    .list();
+        } catch (DataAccessException e) {
+            log.error("Failed to list configs for category={}", category.key(), e);
+            throw new SynapseDatabaseException("findConfigsByCategory", "scoped_config", e);
+        }
     }
 }
