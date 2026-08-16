@@ -13,11 +13,17 @@
 package com.spectrayan.spector.synapse.bridge;
 
 import com.spectrayan.spector.synapse.agent.graph.spec.LlmSpec;
+import com.spectrayan.spector.synapse.bridge.structured.JsonSchemaGenerator;
+import com.spectrayan.spector.synapse.bridge.structured.StructuredOutputException;
+import com.spectrayan.spector.synapse.bridge.structured.StructuredOutputParser;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.ChatRequestParameters;
+import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
@@ -311,6 +317,165 @@ public class LlmBridge {
             throw new LlmBridgeException("LLM generation failed for model '"
                     + spec.model() + "': " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Generate structured JSON output conforming to a JSON schema.
+     *
+     * @param userMessage the prompt or payload to process
+     * @param jsonSchema  the expected JSON schema string
+     * @return validated JSON string
+     */
+    public String generateStructured(String userMessage, String jsonSchema) {
+        return generateStructured(null, userMessage, jsonSchema, 2);
+    }
+
+    public String generateStructured(String userMessage, String jsonSchema, int maxRetries) {
+        return generateStructured(null, userMessage, jsonSchema, maxRetries);
+    }
+
+    /**
+     * Generate structured JSON output with a system prompt and JSON schema.
+     *
+     * @param systemPrompt system instructions
+     * @param userMessage  the prompt or payload to process
+     * @param jsonSchema   the expected JSON schema string
+     * @return validated JSON string
+     */
+    public String generateStructured(String systemPrompt, String userMessage, String jsonSchema) {
+        return generateStructured(systemPrompt, userMessage, jsonSchema, 2);
+    }
+
+    /**
+     * Generate structured JSON output conforming to a target Java class/record schema.
+     *
+     * @param userMessage the prompt or payload to process
+     * @param targetClass target Java class or record
+     * @param <T>         target type
+     * @return strongly-typed instance of T
+     */
+    public <T> T generateStructured(String userMessage, Class<T> targetClass) {
+        return generateStructured(null, userMessage, targetClass, 2);
+    }
+
+    public <T> T generateStructured(String userMessage, Class<T> targetClass, int maxRetries) {
+        return generateStructured(null, userMessage, targetClass, maxRetries);
+    }
+
+    /**
+     * Generate structured JSON output with a system prompt conforming to a target Java class/record schema.
+     *
+     * @param systemPrompt system instructions
+     * @param userMessage  the prompt or payload to process
+     * @param targetClass  target Java class or record
+     * @param <T>          target type
+     * @return strongly-typed instance of T
+     */
+    public <T> T generateStructured(String systemPrompt, String userMessage, Class<T> targetClass) {
+        return generateStructured(systemPrompt, userMessage, targetClass, 2);
+    }
+
+    /**
+     * Generate structured JSON output with retry mechanism and return typed object.
+     *
+     * @param systemPrompt system instructions (optional)
+     * @param userMessage  the prompt or payload
+     * @param targetClass  target Java class or record
+     * @param maxRetries   maximum self-healing retries on validation failure
+     * @param <T>          target type
+     * @return strongly-typed instance of T
+     */
+    public <T> T generateStructured(String systemPrompt, String userMessage, Class<T> targetClass, int maxRetries) {
+        String schema = JsonSchemaGenerator.generateSchemaJson(targetClass, true);
+        String rawJson = generateStructured(systemPrompt, userMessage, schema, maxRetries);
+        return StructuredOutputParser.parseObject(rawJson, targetClass);
+    }
+
+    /**
+     * Generate structured JSON string with self-healing feedback retry loop.
+     *
+     * @param systemPrompt system instructions (optional)
+     * @param userMessage  the prompt or payload
+     * @param jsonSchema   the expected JSON schema string
+     * @param maxRetries   maximum self-healing retries on validation failure
+     * @return validated JSON string
+     */
+    public String generateStructured(String systemPrompt, String userMessage, String jsonSchema, int maxRetries) {
+        String effectiveSystemPrompt = buildStructuredSystemPrompt(systemPrompt, jsonSchema);
+        String currentUserPrompt = userMessage;
+
+        Exception lastException = null;
+        for (int attempt = 0; attempt <= Math.max(0, maxRetries); attempt++) {
+            try {
+                ChatRequestParameters params = ChatRequestParameters.builder()
+                        .responseFormat(ResponseFormat.JSON)
+                        .temperature(0.1)
+                        .build();
+
+                ChatRequest chatRequest = ChatRequest.builder()
+                        .messages(
+                                effectiveSystemPrompt != null && !effectiveSystemPrompt.isBlank()
+                                        ? List.of(SystemMessage.from(effectiveSystemPrompt), UserMessage.from(currentUserPrompt))
+                                        : List.of(UserMessage.from(currentUserPrompt))
+                        )
+                        .parameters(params)
+                        .build();
+
+                ChatResponse response = chatModel().chat(chatRequest);
+                String text = response.aiMessage() != null && response.aiMessage().text() != null
+                        ? response.aiMessage().text() : "";
+
+                if (tokenUsageTracker != null) {
+                    int inTokens = (response.tokenUsage() != null && response.tokenUsage().inputTokenCount() != null)
+                            ? response.tokenUsage().inputTokenCount()
+                            : ((effectiveSystemPrompt != null ? effectiveSystemPrompt.length() : 0) + currentUserPrompt.length()) / 4;
+                    int outTokens = (response.tokenUsage() != null && response.tokenUsage().outputTokenCount() != null)
+                            ? response.tokenUsage().outputTokenCount()
+                            : text.length() / 4;
+                    tokenUsageTracker.record(com.spectrayan.spector.synapse.provider.usage.TokenUsageEvent.ofGeneration(
+                            com.spectrayan.spector.synapse.provider.usage.TokenUsageCategory.SYSTEM,
+                            "default",
+                            modelName(),
+                            null,
+                            null,
+                            Math.max(1, inTokens),
+                            Math.max(1, outTokens)
+                    ));
+                }
+
+                StructuredOutputParser.parseJsonNode(text);
+                return StructuredOutputParser.extractJsonString(text);
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("[LlmBridge] Structured output parsing failed (attempt {} of {}): {}",
+                        attempt + 1, maxRetries + 1, e.getMessage());
+
+                if (attempt < maxRetries) {
+                    currentUserPrompt = userMessage + "\n\n"
+                            + "[CORRECTION REQUIRED]: Your previous response could not be parsed as valid JSON: "
+                            + e.getMessage() + "\n"
+                            + "Please provide strictly valid JSON conforming to the schema.";
+                }
+            }
+        }
+
+        throw new StructuredOutputException(
+                "Structured generation failed after " + (maxRetries + 1) + " attempts: "
+                        + (lastException != null ? lastException.getMessage() : "Unknown error"),
+                null, jsonSchema, lastException);
+    }
+
+    private String buildStructuredSystemPrompt(String systemPrompt, String jsonSchema) {
+        StringBuilder sb = new StringBuilder();
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            sb.append(systemPrompt).append("\n\n");
+        }
+        sb.append("You MUST respond ONLY with valid JSON conforming to the following JSON schema:\n");
+        if (jsonSchema != null && !jsonSchema.isBlank()) {
+            sb.append(jsonSchema).append("\n");
+        }
+        sb.append("Do NOT wrap in explanatory markdown or conversational preambles.");
+        return sb.toString();
     }
 
     /** Get the configured model name. */
