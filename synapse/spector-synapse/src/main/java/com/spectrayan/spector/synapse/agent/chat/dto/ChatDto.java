@@ -59,6 +59,19 @@ public final class ChatDto {
     }
 
     /**
+     * Token consumption metadata for a chat turn.
+     */
+    public record TokenUsageDto(
+            long inputTokens,
+            long outputTokens,
+            long totalTokens
+    ) {
+        public static TokenUsageDto of(long inputTokens, long outputTokens) {
+            return new TokenUsageDto(inputTokens, outputTokens, inputTokens + outputTokens);
+        }
+    }
+
+    /**
      * Agent chat response — consumed by Cortex UI AgentChatComponent.
      */
     public record AgentChatResponse(
@@ -72,8 +85,25 @@ public final class ChatDto {
             int primedMemories,
             List<TraceEvent> trace,
             List<Map<String, Object>> pendingToolCalls,
-            List<String> sources
-    ) {}
+            List<String> sources,
+            TokenUsageDto tokenUsage
+    ) {
+        public AgentChatResponse(
+                String response,
+                String sessionId,
+                boolean isNewSession,
+                String model,
+                String status,
+                long latency,
+                long durationMs,
+                int primedMemories,
+                List<TraceEvent> trace,
+                List<Map<String, Object>> pendingToolCalls,
+                List<String> sources
+        ) {
+            this(response, sessionId, isNewSession, model, status, latency, durationMs, primedMemories, trace, pendingToolCalls, sources, null);
+        }
+    }
 
     /**
      * A trace event emitted during agentic execution.

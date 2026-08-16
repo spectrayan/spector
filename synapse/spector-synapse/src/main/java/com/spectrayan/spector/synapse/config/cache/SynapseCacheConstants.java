@@ -79,6 +79,13 @@ public final class SynapseCacheConstants {
     public static final long MAX_SIZE_SQL_QUERIES = 500;
 
     /**
+     * Cache for token usage aggregations partitioned by user, model, session, and global stats.
+     */
+    public static final String CACHE_TOKEN_USAGE = "token-usage";
+    public static final Duration TTL_TOKEN_USAGE = Duration.ofDays(7);
+    public static final long MAX_SIZE_TOKEN_USAGE = 50_000;
+
+    /**
      * All managed cache names in Synapse.
      */
     public static final String[] ALL_CACHES = {
@@ -89,6 +96,7 @@ public final class SynapseCacheConstants {
             CACHE_SCOPED_CONFIGS,
             CACHE_CONNECTOR_ROUTES,
             CACHE_COMPILED_SUBGRAPHS,
-            CACHE_SQL_QUERIES
+            CACHE_SQL_QUERIES,
+            CACHE_TOKEN_USAGE
     };
 }

@@ -50,6 +50,15 @@ public record EmbeddingResult(
         return vector.length;
     }
 
+    /**
+     * Checks if a valid token count is present in this result.
+     *
+     * @return true if token count is non-negative
+     */
+    public boolean hasTokenCount() {
+        return tokenCount >= 0;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

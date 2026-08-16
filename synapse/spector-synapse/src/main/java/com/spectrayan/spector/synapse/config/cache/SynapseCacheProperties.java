@@ -50,6 +50,7 @@ public class SynapseCacheProperties {
         specs.put(SynapseCacheConstants.CACHE_CONNECTOR_ROUTES, new CacheSpec(Duration.ofMinutes(15), 1_000));
         specs.put(SynapseCacheConstants.CACHE_COMPILED_SUBGRAPHS, new CacheSpec(Duration.ofHours(1), 500));
         specs.put(SynapseCacheConstants.CACHE_SQL_QUERIES, new CacheSpec(Duration.ofHours(24), 500));
+        specs.put(SynapseCacheConstants.CACHE_TOKEN_USAGE, new CacheSpec(Duration.ofDays(7), 50_000));
     }
 
     public boolean isEnabled() {

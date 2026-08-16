@@ -98,10 +98,11 @@ public final class HabituationPenalty {
      * @return habituation multiplier (1.0 = first time, decreasing for repeats)
      */
     public float recordAndComputePenalty(String memoryId) {
-        int timesReturned = returnCounts
-                .computeIfAbsent(memoryId, k -> new AtomicInteger(0))
-                .incrementAndGet();
-        return computePenalty(timesReturned);
+        AtomicInteger count = returnCounts.get(memoryId);
+        if (count != null) {
+            return computePenalty(count.incrementAndGet());
+        }
+        return computePenalty(returnCounts.computeIfAbsent(memoryId, k -> new AtomicInteger(0)).incrementAndGet());
     }
 
     /**

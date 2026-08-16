@@ -90,6 +90,7 @@ public class ChatService {
     /** Lazily initialized cognitive engines. */
     private final ConversationSummarizer summarizer;
     private final ConversationReflector reflector;
+    private final com.spectrayan.spector.synapse.provider.usage.TokenUsageTracker tokenUsageTracker;
 
     public ChatService(ChatMemoryPort chatMemoryPort,
                        ContextPrimingService contextPrimingService,
@@ -98,12 +99,27 @@ public class ChatService {
                        AgenticChatGraph agenticChatGraph,
                        TsidGenerator tsid,
                        SynapseProperties props) {
+        this(chatMemoryPort, contextPrimingService, identityPrimerService, toolRegistry,
+                agenticChatGraph, tsid, props, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ChatService(ChatMemoryPort chatMemoryPort,
+                       ContextPrimingService contextPrimingService,
+                       IdentityPrimerService identityPrimerService,
+                       ToolRegistry toolRegistry,
+                       AgenticChatGraph agenticChatGraph,
+                       TsidGenerator tsid,
+                       SynapseProperties props,
+                       @org.springframework.beans.factory.annotation.Autowired(required = false)
+                       com.spectrayan.spector.synapse.provider.usage.TokenUsageTracker tokenUsageTracker) {
         this.chatMemoryPort = Objects.requireNonNull(chatMemoryPort);
         this.contextPrimingService = Objects.requireNonNull(contextPrimingService);
         this.identityPrimerService = Objects.requireNonNull(identityPrimerService);
         this.toolRegistry = Objects.requireNonNull(toolRegistry);
         this.agenticChatGraph = Objects.requireNonNull(agenticChatGraph);
         this.tsid = Objects.requireNonNull(tsid);
+        this.tokenUsageTracker = tokenUsageTracker;
         var genProps = props.getProvider().getGeneration();
         this.ollamaBaseUrl = genProps.baseUrl();
 
@@ -278,7 +294,24 @@ public class ChatService {
             reflector.reflectAsync(conversationMessages);
         }
 
-        // ── Step 8: Build typed response ──
+        // ── Step 8: Calculate token usage & record telemetry ──
+        long inTokens = Math.max(1, (message != null ? message.length() / 4 : 0) + (enrichedPrompt != null ? enrichedPrompt.length() / 4 : 0));
+        long outTokens = Math.max(1, finalResponse.length() / 4);
+        var tokenUsageDto = com.spectrayan.spector.synapse.agent.chat.dto.ChatDto.TokenUsageDto.of(inTokens, outTokens);
+
+        if (tokenUsageTracker != null && !hasErrorTrace) {
+            tokenUsageTracker.record(com.spectrayan.spector.synapse.provider.usage.TokenUsageEvent.ofGeneration(
+                    com.spectrayan.spector.synapse.provider.usage.TokenUsageCategory.CHAT,
+                    "default",
+                    model != null ? model : DEFAULT_MODEL,
+                    soul != null ? soul.id() : null,
+                    resolvedSessionId,
+                    inTokens,
+                    outTokens
+            ));
+        }
+
+        // ── Step 9: Build typed response ──
         long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
         String status = hasErrorTrace ? "ERROR" : "DONE";
 
@@ -293,7 +326,8 @@ public class ChatService {
                 primedContext.crossSessionMemories().size(),
                 traceEvents,
                 null,
-                List.of()
+                List.of(),
+                tokenUsageDto
         );
     }
 

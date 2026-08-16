@@ -31,4 +31,22 @@ public record LlmResponse(
         Objects.requireNonNull(text, "text must not be null");
         Objects.requireNonNull(modelName, "modelName must not be null");
     }
+
+    /**
+     * Calculates the total tokens consumed (input + output).
+     *
+     * @return sum of input and output tokens
+     */
+    public int totalTokens() {
+        return inputTokens + outputTokens;
+    }
+
+    /**
+     * Checks if token usage metrics are present in this response.
+     *
+     * @return true if either input or output tokens is greater than zero
+     */
+    public boolean hasTokenUsage() {
+        return inputTokens > 0 || outputTokens > 0;
+    }
 }
