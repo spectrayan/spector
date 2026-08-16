@@ -71,6 +71,33 @@ public interface LlmProvider {
     }
 
     /**
+     * Executes a structured generation request enforcing a JSON schema.
+     *
+     * @param prompt     simple string prompt
+     * @param jsonSchema predefined JSON schema or description
+     * @return generated JSON string response matching schema
+     */
+    default String generateStructured(String prompt, String jsonSchema) {
+        var request = new LlmRequest(List.of(ChatMessage.user(prompt)), jsonSchema);
+        var response = generate(request, GenerationOptions.DEFAULT);
+        return response.text();
+    }
+
+    /**
+     * Executes a structured generation request enforcing a JSON schema with custom options.
+     *
+     * @param prompt     simple string prompt
+     * @param jsonSchema predefined JSON schema or description
+     * @param options    generation options
+     * @return generated JSON string response matching schema
+     */
+    default String generateStructured(String prompt, String jsonSchema, GenerationOptions options) {
+        var request = new LlmRequest(List.of(ChatMessage.user(prompt)), jsonSchema);
+        var response = generate(request, options);
+        return response.text();
+    }
+
+    /**
      * Custom exception thrown when text generation fails.
      */
     class GenerationException extends RuntimeException {

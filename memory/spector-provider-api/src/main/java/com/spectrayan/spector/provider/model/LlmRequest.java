@@ -37,7 +37,23 @@ public record LlmRequest(
         return new LlmRequest(List.of(ChatMessage.user(prompt)), null);
     }
 
+    public static LlmRequest fromPrompt(String prompt, String responseJsonSchema) {
+        return new LlmRequest(List.of(ChatMessage.user(prompt)), responseJsonSchema);
+    }
+
     public static LlmRequest fromMessages(List<ChatMessage> messages) {
         return new LlmRequest(messages, null);
+    }
+
+    public static LlmRequest fromMessages(List<ChatMessage> messages, String responseJsonSchema) {
+        return new LlmRequest(messages, responseJsonSchema);
+    }
+
+    public LlmRequest withJsonSchema(String jsonSchema) {
+        return new LlmRequest(this.messages, jsonSchema);
+    }
+
+    public boolean hasJsonSchema() {
+        return responseJsonSchema != null && !responseJsonSchema.isBlank();
     }
 }
