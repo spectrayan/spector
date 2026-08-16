@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -288,6 +289,7 @@ public final class CognitiveGraphFacade {
             Map<String, int[]> entityTypeAgg = new LinkedHashMap<>();
             Map<String, int[]> relationTypeAgg = new LinkedHashMap<>();
 
+            // 1. Aggregate entity types from EntityDirectory
             for (var entry : nameIndex.entrySet()) {
                 int entityId = entry.getValue();
                 String entityType = safeEntityType(entityId);
@@ -296,14 +298,51 @@ public final class CognitiveGraphFacade {
                 eStats[0]++; // node count
                 var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
                 eStats[2] += hEdges.size(); // memory refs
-
                 eStats[1] += hEdges.size();
-                for (var he : hEdges) {
-                    String relType = "HYPEREDGE";
-                    var rStats = relationTypeAgg.computeIfAbsent(relType, _ -> new int[3]);
-                    rStats[0]++; // edge count
-                    rStats[1] += he.vertices().size(); // from + to node
-                    rStats[2]++; // memory refs
+            }
+
+            // 2. Aggregate relation types from Temporal Knowledge Graph predicates
+            if (temporalKnowledgeGraph != null && temporalKnowledgeGraph.predicateRegistry() != null) {
+                var predRegistry = temporalKnowledgeGraph.predicateRegistry();
+                for (var predEntry : predRegistry.entries().entrySet()) {
+                    String predName = predEntry.getKey();
+                    int predId = predEntry.getValue();
+                    int factCount = 0;
+                    Set<Integer> subjectNodes = new HashSet<>();
+                    Set<Integer> objectNodes = new HashSet<>();
+                    for (int entityId : nameIndex.values()) {
+                        var facts = temporalKnowledgeGraph.readFactsForEntity(entityId);
+                        if (facts == null) continue;
+                        for (var f : facts) {
+                            if (f.predicateId() == predId && !f.isRetraction()) {
+                                factCount++;
+                                subjectNodes.add(f.subjectEntityId());
+                                objectNodes.add(f.objectEntityId());
+                            }
+                        }
+                    }
+                    if (factCount > 0) {
+                        var rStats = relationTypeAgg.computeIfAbsent(predName, _ -> new int[3]);
+                        rStats[0] += factCount; // edge count
+                        rStats[1] += subjectNodes.size() + objectNodes.size(); // distinct nodes
+                        rStats[2] += factCount; // memory refs
+                    }
+                }
+            }
+
+            // 3. If no TKG relations exist, aggregate shared entity categories
+            if (relationTypeAgg.isEmpty()) {
+                for (var entry : nameIndex.entrySet()) {
+                    int entityId = entry.getValue();
+                    String entityType = safeEntityType(entityId);
+                    var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
+                    if (!hEdges.isEmpty()) {
+                        String relType = entityType != null && !entityType.equals("UNKNOWN") ? entityType : "SHARED_ENTITY";
+                        var rStats = relationTypeAgg.computeIfAbsent(relType, _ -> new int[3]);
+                        rStats[0] += hEdges.size();
+                        rStats[1] += 1;
+                        rStats[2] += hEdges.size();
+                    }
                 }
             }
 
@@ -442,20 +481,71 @@ public final class CognitiveGraphFacade {
         if (hyperEntityGraph == null || !hasIdentity()) return;
         try {
             var nameIndex = identityNameIndex();
+            Map<Integer, String> idToName = new java.util.HashMap<>();
+            for (var entry : nameIndex.entrySet()) {
+                idToName.put(entry.getValue(), entry.getKey());
+            }
+
+            // 1. Structured relational edges from Temporal Knowledge Graph (facts)
+            if (temporalKnowledgeGraph != null && temporalKnowledgeGraph.predicateRegistry() != null) {
+                var predRegistry = temporalKnowledgeGraph.predicateRegistry();
+                for (var entry : nameIndex.entrySet()) {
+                    int subjectId = entry.getValue();
+                    String subjectType = safeEntityType(subjectId);
+                    var facts = temporalKnowledgeGraph.readFactsForEntity(subjectId);
+                    if (facts == null || facts.isEmpty()) continue;
+
+                    int[] subjectMems = identityMemoriesForEntity(subjectId);
+                    for (var fact : facts) {
+                        if (fact.isRetraction()) continue;
+                        int objectId = fact.objectEntityId();
+                        String objectType = safeEntityType(objectId);
+                        String predicateName = predRegistry.nameOf((int) fact.predicateId());
+                        if (predicateName == null || predicateName.isBlank()) {
+                            predicateName = "RELATED_TO";
+                        }
+
+                        int[] objectMems = identityMemoriesForEntity(objectId);
+                        for (int sm : subjectMems) {
+                            String fromMemId = slotToId.get(sm);
+                            if (fromMemId == null || !validIds.contains(fromMemId)) continue;
+                            for (int om : objectMems) {
+                                if (sm == om) continue; // skip self-loops
+                                String toMemId = slotToId.get(om);
+                                if (toMemId == null || !validIds.contains(toMemId)) continue;
+
+                                edges.add(new GraphEdge(
+                                        fromMemId, toMemId, "ENTITY", predicateName,
+                                        fact.confidence() > 0 ? (double) fact.confidence() : 0.8,
+                                        subjectType, objectType));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Entity co-occurrence / shared entity edges
             for (var entry : nameIndex.entrySet()) {
                 int entityId = entry.getValue();
+                String entityName = entry.getKey();
                 String entityType = safeEntityType(entityId);
                 var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
                 for (int i = 0; i < hEdges.size(); i++) {
                     for (int j = i + 1; j < hEdges.size(); j++) {
                         int fm = hEdges.get(i).memoryIdx();
                         int tm = hEdges.get(j).memoryIdx();
+                        if (fm == tm) continue;
                         String fromMemId = slotToId.get(fm);
                         String toMemId = slotToId.get(tm);
                         if (fromMemId == null || !validIds.contains(fromMemId)) continue;
                         if (toMemId == null || !validIds.contains(toMemId)) continue;
+
+                        String relationLabel = (entityType != null && !entityType.equals("UNKNOWN") && !entityType.equals("ENTITY"))
+                                ? entityType + ": " + entityName
+                                : entityName;
+
                         edges.add(new GraphEdge(
-                                fromMemId, toMemId, "ENTITY", "SHARED_ENTITY",
+                                fromMemId, toMemId, "ENTITY", relationLabel,
                                 0.5, entityType, entityType));
                     }
                 }
@@ -532,8 +622,19 @@ public final class CognitiveGraphFacade {
         List<Integer> entities = slotToEntities.get(slot);
         if (entities == null) return;
         try {
+            Map<Integer, String> idToName = new java.util.HashMap<>();
+            var nameIndex = identityNameIndex();
+            for (var entry : nameIndex.entrySet()) {
+                idToName.put(entry.getValue(), entry.getKey());
+            }
+
             for (int entityId : entities) {
+                String entityName = idToName.getOrDefault(entityId, "Entity");
                 String entityType = safeEntityType(entityId);
+                String relationLabel = (entityType != null && !entityType.equals("UNKNOWN") && !entityType.equals("ENTITY"))
+                        ? entityType + ": " + entityName
+                        : entityName;
+
                 var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
                 for (var he : hEdges) {
                     int targetSlot = he.memoryIdx();
@@ -541,7 +642,7 @@ public final class CognitiveGraphFacade {
                     String targetId = slotToId.get(targetSlot);
                     if (targetId != null) {
                         edges.add(new GraphEdge(
-                                currentId, targetId, "ENTITY", "SHARED_ENTITY",
+                                currentId, targetId, "ENTITY", relationLabel,
                                 0.5, entityType, entityType));
                         if (!visitedIdsSet.contains(targetId)) {
                             visitedIds.add(targetId);

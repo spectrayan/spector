@@ -610,6 +610,79 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     }
 
     /**
+     * Returns true if any entity references the given memory index.
+     *
+     * @param memoryIdx the monotonic graphSlot of the memory
+     * @return true if at least one entity is linked to this memory
+     */
+    public boolean hasMemoryRef(int memoryIdx) {
+        if (memoryIdx < 0 || entityCount == 0) return false;
+        long stamp = lock.readLock();
+        try {
+            for (int i = 0; i < entityCount; i++) {
+                long entOffset = (long) i * ENTITY_NODE_BYTES;
+                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+                if (adjOff < 0 || adjCnt <= 0) continue;
+                for (int r = 0; r < adjCnt; r++) {
+                    int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
+                            (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
+                    if (refMem == memoryIdx) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    /**
+     * Removes all references to the specified memory slot from all entities.
+     *
+     * @param memorySlot the memory index to unlink
+     * @return the number of entity-to-memory links removed
+     */
+    public int unlinkMemory(int memorySlot) {
+        if (memorySlot < 0 || entityCount == 0) return 0;
+        int removedCount = 0;
+        long stamp = lock.writeLock();
+        try {
+            for (int e = 0; e < entityCount; e++) {
+                long entOffset = (long) e * ENTITY_NODE_BYTES;
+                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+                if (adjOff < 0 || adjCnt <= 0) continue;
+
+                int newCount = 0;
+                for (int i = 0; i < adjCnt; i++) {
+                    long srcOff = (long) (adjOff + i) * ADJ_ENTRY_BYTES;
+                    int memIdx = adjacencySegment.get(ValueLayout.JAVA_INT, srcOff + ADJ_OFF_MEM_IDX);
+
+                    if (memIdx == memorySlot) {
+                        removedCount++;
+                    } else {
+                        if (newCount < i) {
+                            long dstOff = (long) (adjOff + newCount) * ADJ_ENTRY_BYTES;
+                            float weight = adjacencySegment.get(ValueLayout.JAVA_FLOAT, srcOff + ADJ_OFF_WEIGHT);
+                            adjacencySegment.set(ValueLayout.JAVA_INT, dstOff + ADJ_OFF_MEM_IDX, memIdx);
+                            adjacencySegment.set(ValueLayout.JAVA_FLOAT, dstOff + ADJ_OFF_WEIGHT, weight);
+                        }
+                        newCount++;
+                    }
+                }
+                if (newCount != adjCnt) {
+                    entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT, newCount);
+                }
+            }
+            return removedCount;
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    /**
      * Returns the ACT-R fan-effect attenuation factor {@code 1/sqrt(refCount)} for an entity.
      * Reproduces {@link EntityGraphMemory#fanFactor(int)} exactly (degree-derived) so expansion
      * scoring is unchanged.
