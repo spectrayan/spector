@@ -154,9 +154,11 @@ export class BrainViewStrategy implements GraphViewStrategy {
     const newEdges: ExplorerEdge[] = [];
     if (!this.scene) return newEdges;
     
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    
     for (const edge of apiEdges) {
-      const fromNode = nodes.find(n => n.id === edge.fromId);
-      const toNode = nodes.find(n => n.id === edge.toId);
+      const fromNode = nodeMap.get(edge.fromId);
+      const toNode = nodeMap.get(edge.toId);
       
       if (fromNode && toNode) {
         const { tube, curve } = createDendriteCurve(fromNode.position, toNode.position, edge.type, edge.weight || 1);
@@ -190,6 +192,8 @@ export class BrainViewStrategy implements GraphViewStrategy {
         const explorerEdge: ExplorerEdge = {
           from: edge.fromId,
           to: edge.toId,
+          fromNode,
+          toNode,
           type: edge.type,
           weight: edge.weight || 1,
           relation: edge.relation || null,
@@ -340,8 +344,8 @@ export class BrainViewStrategy implements GraphViewStrategy {
       if (edge.type === 'TEMPORAL' && showTemporal) isVisible = true;
       if (edge.type === 'ENTITY' && showEntity) isVisible = true;
       
-      const fromNode = nodes.find(n => n.id === edge.from);
-      const toNode = nodes.find(n => n.id === edge.to);
+      const fromNode = edge.fromNode;
+      const toNode = edge.toNode;
       
       if (fromNode && toNode && (!fromNode.visible || !toNode.visible)) {
         isVisible = false;

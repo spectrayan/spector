@@ -16,6 +16,7 @@ import {
   ClusterNodeInfo,
   ClusterTopologyEvent,
   EmbeddingProjectionEvent,
+  MetricsTickEvent,
 } from '../models/cortex-events';
 import { CognitiveProfile, ConnectionStatus } from '../models/memory-types';
 
@@ -254,6 +255,17 @@ export class CortexStateService {
       const max = this.limits().maxMetricsHistory;
       if (history.length >= max) history.shift();
       return [...history, point];
+    });
+  }
+
+  pushMetricsTick(event: MetricsTickEvent): void {
+    this.pushMetrics({
+      timestamp: event.timestamp || Date.now(),
+      recallRate: event.recallRate,
+      rememberRate: event.rememberRate,
+      reinforceRate: event.reinforceRate,
+      forgetRate: event.forgetRate,
+      avgLatencyMs: 0,
     });
   }
 

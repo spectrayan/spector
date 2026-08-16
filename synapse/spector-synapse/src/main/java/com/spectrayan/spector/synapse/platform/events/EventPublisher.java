@@ -80,6 +80,18 @@ public class EventPublisher {
     }
 
     /**
+     * Publishes a cortex telemetry event (diagnostic, trace, simd, pulse, etc.) to the 'cortex' topic.
+     */
+    public void cortexEvent(String eventType, Object data) {
+        try {
+            emitter.emit("cortex", eventType, data);
+            log.trace("📡 SSE cortex event: type={}", eventType);
+        } catch (Exception e) {
+            log.trace("Failed to emit cortex event (possibly no subscribers): {}", e.getMessage());
+        }
+    }
+
+    /**
      * Broadcasts to all connected topics.
      */
     public void broadcast(String eventName, Object data) {

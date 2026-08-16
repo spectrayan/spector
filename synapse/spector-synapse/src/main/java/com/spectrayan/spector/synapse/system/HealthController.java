@@ -97,4 +97,9 @@ public class HealthController {
                 )
         );
     }
+
+    @GetMapping("/hardware")
+    public Map<String, Object> hardware() {
+        return memoryService.getHardwareInfo();
+    }
 }

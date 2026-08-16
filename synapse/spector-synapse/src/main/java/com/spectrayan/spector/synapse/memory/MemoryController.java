@@ -285,6 +285,66 @@ public class MemoryController {
         return ResponseEntity.ok(memoryService.getScoringStats());
     }
 
+    /**
+     * Returns real 3D PCA vector space embedding projection.
+     *
+     * <p>{@code GET /api/v1/memory/vector-space/projection}</p>
+     */
+    @GetMapping("/vector-space/projection")
+    public ResponseEntity<VectorSpaceProjectionService.ProjectionResult> getVectorSpaceProjection() {
+        return ResponseEntity.ok(memoryService.getVectorSpaceProjection());
+    }
+
+    /**
+     * Returns real memory diagnostics snapshot (tier counts, graph statistics, memory allocations).
+     *
+     * <p>{@code GET /api/v1/memory/diagnostics}</p>
+     */
+    @GetMapping("/diagnostics")
+    public ResponseEntity<Map<String, Object>> getDiagnostics() {
+        return ResponseEntity.ok(memoryService.getDiagnostics());
+    }
+
+    /**
+     * Returns the Ebbinghaus forgetting & LTP retention curve for the active decay configuration.
+     *
+     * <p>{@code GET /api/v1/memory/diagnostics/decay}</p>
+     */
+    @GetMapping("/diagnostics/decay")
+    public ResponseEntity<List<Map<String, Object>>> getDecayCurve() {
+        return ResponseEntity.ok(memoryService.getDecayCurve());
+    }
+
+    /**
+     * Returns the latest consolidation snapshot diff.
+     *
+     * <p>{@code GET /api/v1/memory/consolidation/diff}</p>
+     */
+    @GetMapping("/consolidation/diff")
+    public ResponseEntity<List<Map<String, Object>>> getConsolidationDiff() {
+        return ResponseEntity.ok(memoryService.getConsolidationDiff());
+    }
+
+    /**
+     * Returns system SIMD Vector API and hardware capabilities.
+     *
+     * <p>{@code GET /api/v1/memory/hardware}</p>
+     */
+    @GetMapping("/hardware")
+    public ResponseEntity<Map<String, Object>> getHardware() {
+        return ResponseEntity.ok(memoryService.getHardwareInfo());
+    }
+
+    /**
+     * Returns recent live rolling ops/sec metrics history.
+     *
+     * <p>{@code GET /api/v1/memory/metrics/live}</p>
+     */
+    @GetMapping("/metrics/live")
+    public ResponseEntity<List<Map<String, Object>>> getLiveMetrics() {
+        return ResponseEntity.ok(memoryService.getLiveMetricsHistory());
+    }
+
     // ══════════════════════════════════════════════════════════════
     // COGNITIVE OPERATIONS — per-memory
     // ══════════════════════════════════════════════════════════════

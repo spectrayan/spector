@@ -39,9 +39,13 @@ public class ObservabilityController {
     private static final Logger log = LoggerFactory.getLogger(ObservabilityController.class);
 
     private final ObjectProvider<SpectorMemory> memoryProvider;
+    private final ObjectProvider<com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService> broadcasterProvider;
 
-    public ObservabilityController(ObjectProvider<SpectorMemory> memoryProvider) {
+    public ObservabilityController(
+            ObjectProvider<SpectorMemory> memoryProvider,
+            ObjectProvider<com.spectrayan.spector.synapse.platform.events.TelemetryBroadcasterService> broadcasterProvider) {
         this.memoryProvider = memoryProvider;
+        this.broadcasterProvider = broadcasterProvider;
         log.info("ObservabilityController initialized");
     }
 
@@ -73,6 +77,18 @@ public class ObservabilityController {
         stats.put("tierDistribution", tierCounts);
 
         return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Returns recent rolling ops/sec metrics for live time-series charts.
+     */
+    @GetMapping("/metrics/live")
+    public ResponseEntity<List<Map<String, Object>>> liveMetrics() {
+        var broadcaster = broadcasterProvider.getIfAvailable();
+        if (broadcaster == null) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        return ResponseEntity.ok(broadcaster.getLiveMetricsHistory());
     }
 
     /**
