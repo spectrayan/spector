@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.synapse.ratelimit;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.config.properties.RateLimitProperties;
 import com.spectrayan.spector.config.properties.RateLimitProperties.EndpointPolicy;
 import com.spectrayan.spector.config.properties.RateLimitProperties.TierPolicy;
@@ -34,7 +35,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -48,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final SynapseProperties properties;
     private final RateLimitStateStore stateStore;
@@ -120,15 +124,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
             response.setHeader("X-RateLimit-Reset", String.valueOf(resetSeconds));
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-            String errorJson = String.format(
-                    "{\"type\":\"urn:spector:error:rate-limit-exceeded\",\"title\":\"Too Many Requests\",\"status\":429,\"detail\":\"Rate limit exceeded for %s. Please retry after %d seconds.\",\"instance\":\"%s\",\"retryAfterSeconds\":%d}",
-                    escapeJson(key.type().name().toLowerCase() + ":" + key.value()),
-                    retryAfterSeconds,
-                    escapeJson(path),
+            Map<String, Object> errorBody = new LinkedHashMap<>();
+            errorBody.put("type", "urn:spector:error:rate-limit-exceeded");
+            errorBody.put("title", "Too Many Requests");
+            errorBody.put("status", 429);
+            errorBody.put("detail", String.format(
+                    "Rate limit exceeded for %s. Please retry after %d seconds.",
+                    key.type().name().toLowerCase() + ":" + key.value(),
                     retryAfterSeconds
-            );
+            ));
+            errorBody.put("instance", path);
+            errorBody.put("retryAfterSeconds", retryAfterSeconds);
 
-            response.getWriter().write(errorJson);
+            response.getWriter().write(OBJECT_MAPPER.writeValueAsString(errorBody));
         }
     }
 
@@ -185,8 +193,4 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return "global";
     }
 
-    private String escapeJson(String raw) {
-        if (raw == null) return "";
-        return raw.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }
