@@ -6,9 +6,18 @@
       - name: webhookPath
       - name: collection
         defaultValue: "default"
+      - name: throttleRequests
+        defaultValue: "100"
+      - name: throttlePeriodMs
+        defaultValue: "60000"
     from:
       uri: "netty-http:http://0.0.0.0:8765{{webhookPath}}"
       steps:
+        - throttle:
+            expression:
+              simple: "{{throttleRequests}}"
+            timePeriodMillis: "{{throttlePeriodMs}}"
+            asyncDelayed: true
         - setHeader:
             name: spector-trace-id
             simple: "${exchangeId}"
