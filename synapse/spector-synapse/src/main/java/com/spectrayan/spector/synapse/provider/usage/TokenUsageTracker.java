@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Service for recording, aggregating, and retrieving LLM and embedding token usage.
@@ -48,6 +49,9 @@ public class TokenUsageTracker {
     private final Set<String> knownUsers = ConcurrentHashMap.newKeySet();
     private final Set<String> knownModels = ConcurrentHashMap.newKeySet();
     private final Set<String> knownSessions = ConcurrentHashMap.newKeySet();
+
+    // Per-key locks avoiding synchronized blocks or string monitor synchronization (Loom virtual thread safe)
+    private final ConcurrentHashMap<String, ReentrantLock> keyLocks = new ConcurrentHashMap<>();
 
     // In-memory fallback if Spring cache manager is null or missing cache bean in test contexts
     private final Map<String, TokenUsageStats> fallbackCache = new ConcurrentHashMap<>();
@@ -202,6 +206,7 @@ public class TokenUsageTracker {
         knownModels.clear();
         knownSessions.clear();
         fallbackCache.clear();
+        keyLocks.clear();
 
         Cache cache = resolveCache();
         if (cache != null) {
@@ -226,10 +231,14 @@ public class TokenUsageTracker {
     private void updateBucket(String key, TokenUsageEvent event) {
         Cache cache = resolveCache();
         if (cache != null) {
-            synchronized (key.intern()) {
+            ReentrantLock lock = keyLocks.computeIfAbsent(key, k -> new ReentrantLock());
+            lock.lock();
+            try {
                 TokenUsageStats existing = cache.get(key, TokenUsageStats.class);
                 TokenUsageStats updated = (existing != null ? existing : TokenUsageStats.empty()).accumulate(event);
                 cache.put(key, updated);
+            } finally {
+                lock.unlock();
             }
         } else {
             fallbackCache.compute(key, (k, existing) ->
