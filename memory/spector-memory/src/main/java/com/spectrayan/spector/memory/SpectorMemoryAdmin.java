@@ -125,6 +125,11 @@ public interface SpectorMemoryAdmin {
      */
     com.spectrayan.spector.memory.insula.InsularCortex insularCortex();
 
+    /**
+     * Returns the background graph enrichment daemon (may be null if disabled).
+     */
+    com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon graphEnricher();
+
     // ══════════════════════════════════════════════════════════════
     // OPERATIONAL
     // ══════════════════════════════════════════════════════════════

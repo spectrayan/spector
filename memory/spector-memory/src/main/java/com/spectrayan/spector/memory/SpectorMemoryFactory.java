@@ -103,6 +103,7 @@ public final class SpectorMemoryFactory {
             CognitiveGraphFacade graphFacade,
             MemoryIdGenerator idGenerator,
             CheckpointDaemon checkpointDaemon,
+            com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon graphEnrichmentDaemon,
             DaemonSupervisor daemonSupervisor,
             MemoryBM25Index bm25Index,
             AttachmentProcessor attachmentProcessor,
@@ -254,7 +255,7 @@ public final class SpectorMemoryFactory {
                 bio.introspector(), bio.lateralEvaluator(), wal, graphs.hebbianGraph(), graphs.temporalChain(),
                 graphs.temporalKnowledgeGraph(),
                 graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
-                daemons.checkpointDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
+                daemons.checkpointDaemon(), daemons.graphEnrichmentDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex()
         );

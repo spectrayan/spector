@@ -19,16 +19,14 @@ import com.spectrayan.spector.memory.kernel.StorageLayout;
 import com.spectrayan.spector.memory.sync.CheckpointDaemon;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 
+import com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon;
+import com.spectrayan.spector.memory.graph.NoOpEntityExtractor;
+
 import java.nio.file.Path;
 
 /**
- * Assembles the background checkpoint daemon and its {@link DaemonSupervisor}
- * (DISK mode only, when a checkpoint interval is configured).
- *
- * <p>Extracted verbatim from {@code SpectorMemoryFactory.assemble} as part of the
- * #437 god-class decomposition. The daemon wiring, index save path resolution and
- * scheduling policy are unchanged. Both fields are {@code null} when checkpointing
- * is not enabled, exactly as before.</p>
+ * Assembles the background checkpoint and graph enrichment daemons and their {@link DaemonSupervisor}
+ * (DISK mode only, when daemons are configured).
  *
  * @since 1.1.0
  */
@@ -36,9 +34,10 @@ final class DaemonSupervisorBuilder {
 
     private DaemonSupervisorBuilder() {}
 
-    /** Immutable holder for the checkpoint daemon and its supervisor (both may be null). */
+    /** Immutable holder for the checkpoint daemon, graph enrichment daemon, and supervisor. */
     record DaemonBundle(
             CheckpointDaemon checkpointDaemon,
+            GraphEnrichmentDaemon graphEnrichmentDaemon,
             DaemonSupervisor daemonSupervisor
     ) {}
 
@@ -54,35 +53,63 @@ final class DaemonSupervisorBuilder {
         Path basePath = cortex.basePath();
         Path resolvedPartitionDir = cortex.resolvedPartitionDir();
 
+        //  Graph Enrichment Daemon
+        GraphEnrichmentDaemon graphEnrichmentDaemon;
+        if (graphs.entityExtractor() != null
+                && !(graphs.entityExtractor() instanceof NoOpEntityExtractor)
+                && graphs.entityDirectory() != null) {
+            graphEnrichmentDaemon = new GraphEnrichmentDaemon(
+                    index,
+                    graphs.entityExtractor(),
+                    graphs.entityDirectory(),
+                    graphs.hyperEntityGraph(),
+                    graphs.temporalKnowledgeGraph());
+        } else {
+            graphEnrichmentDaemon = null;
+        }
+
         //  Daemon Supervisor + Checkpoint Daemon  (DISK mode only)
         CheckpointDaemon checkpointDaemon;
         DaemonSupervisor daemonSupervisor;
-        if (isDisk && basePath != null && builder.checkpointIntervalSeconds > 0) {
-            Path indexSavePath = resolvedPartitionDir != null
-                    ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX)
-                    : StorageLayout.indexMidxRuntime(basePath);
-            java.lang.foreign.MemorySegment ckptSlice = cortex.useBundleMode() && cortex.runtimeBundle() != null
-                    ? cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT)
-                    : null;
-            checkpointDaemon = new CheckpointDaemon(
-                    cortex.cognitiveRouter(), wal,
-                    StorageLayout.checkpointMeta(basePath),
-                    index, indexSavePath,
-                    graphs.hebbianGraph(), graphs.temporalChain(),
-                    graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
-                    graphs.temporalKnowledgeGraph(),
-                    resolvedPartitionDir, basePath, ckptSlice);
+        if (isDisk && basePath != null) {
             daemonSupervisor = new DaemonSupervisor("memory");
-            daemonSupervisor.schedule(
-                    "checkpoint",
-                    checkpointDaemon::checkpoint,
-                    java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds),
-                    DaemonPolicy.CRITICAL);
+
+            if (builder.checkpointIntervalSeconds > 0) {
+                Path indexSavePath = resolvedPartitionDir != null
+                        ? resolvedPartitionDir.resolve(StorageLayout.FILE_INDEX)
+                        : StorageLayout.indexMidxRuntime(basePath);
+                java.lang.foreign.MemorySegment ckptSlice = cortex.useBundleMode() && cortex.runtimeBundle() != null
+                        ? cortex.runtimeBundle().regionSegment(com.spectrayan.spector.memory.kernel.bundle.RegionId.CHECKPOINT)
+                        : null;
+                checkpointDaemon = new CheckpointDaemon(
+                        cortex.cognitiveRouter(), wal,
+                        StorageLayout.checkpointMeta(basePath),
+                        index, indexSavePath,
+                        graphs.hebbianGraph(), graphs.temporalChain(),
+                        graphs.entityDirectory(), graphs.hyperEntityGraph(), bio.coActivationTracker(),
+                        graphs.temporalKnowledgeGraph(),
+                        resolvedPartitionDir, basePath, ckptSlice);
+                daemonSupervisor.schedule(
+                        "checkpoint",
+                        checkpointDaemon::checkpoint,
+                        java.time.Duration.ofSeconds(builder.checkpointIntervalSeconds),
+                        DaemonPolicy.CRITICAL);
+            } else {
+                checkpointDaemon = null;
+            }
+
+            if (graphEnrichmentDaemon != null) {
+                daemonSupervisor.schedule(
+                        "graph-enricher",
+                        graphEnrichmentDaemon::enrichPending,
+                        java.time.Duration.ofSeconds(30),
+                        DaemonPolicy.DEFAULT);
+            }
         } else {
             checkpointDaemon = null;
             daemonSupervisor = null;
         }
 
-        return new DaemonBundle(checkpointDaemon, daemonSupervisor);
+        return new DaemonBundle(checkpointDaemon, graphEnrichmentDaemon, daemonSupervisor);
     }
 }
