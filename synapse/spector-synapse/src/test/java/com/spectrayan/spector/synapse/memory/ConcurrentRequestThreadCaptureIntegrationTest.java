@@ -106,7 +106,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         MemoryAccessObject mao = mock(MemoryAccessObject.class);
         when(mao.isAvailable(any())).thenReturn(true);
         // Async write completes immediately; capture happens on the request thread before dispatch.
-        when(mao.remember(any(), any(), any(), any(), any(), any(), any()))
+        when(mao.remember(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> inv.getArgument(1));
 
         UserMemoryRegistry registry = buildRegistry(true);
@@ -138,13 +138,13 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
 
         // Each user's write is routed to that user's own instance (Req 10.4) — waiting for the async task.
         verify(mao, timeout(5_000)).remember(same(memA), eq(idA), eq("user A content"),
-                any(), any(), any(), any());
+                any(), any(), any(), any(), any());
         verify(mao, timeout(5_000)).remember(same(memB), eq(idB), eq("user B content"),
-                any(), any(), any(), any());
+                any(), any(), any(), any(), any());
 
         // No write ever crosses into another user's instance (Req 10.4).
-        verify(mao, never()).remember(same(memB), eq(idA), any(), any(), any(), any(), any());
-        verify(mao, never()).remember(same(memA), eq(idB), any(), any(), any(), any(), any());
+        verify(mao, never()).remember(same(memB), eq(idA), any(), any(), any(), any(), any(), any());
+        verify(mao, never()).remember(same(memA), eq(idB), any(), any(), any(), any(), any(), any());
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -162,7 +162,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         CountDownLatch entered = new CountDownLatch(1);
         MemoryAccessObject mao = mock(MemoryAccessObject.class);
         when(mao.isAvailable(any())).thenReturn(true);
-        when(mao.remember(any(), any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
+        when(mao.remember(any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(inv -> {
             entered.countDown();
             proceed.await(5, TimeUnit.SECONDS);
             return inv.getArgument(1);
@@ -183,7 +183,7 @@ class ConcurrentRequestThreadCaptureIntegrationTest {
         proceed.countDown();
 
         verify(mao, timeout(5_000)).remember(same(memA), eq("MEM0000000AAA"),
-                eq("captured on request thread"), any(), any(), any(), any());
+                eq("captured on request thread"), any(), any(), any(), any(), any());
     }
 
     // ══════════════════════════════════════════════════════════════
