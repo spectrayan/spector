@@ -23,13 +23,15 @@ spector:
       batch-size: 32
     generation:
       type: ollama
-      model: ${SPECTOR_OLLAMA_MODEL:qwen3.5:latest}
+      model: ${SPECTOR_OLLAMA_MODEL:llama3.2:latest}
       base-url: ${SPECTOR_OLLAMA_BASE_URL:http://host.docker.internal:11434}
 
   memory:
     enabled: true
     persistence-mode: DISK
     persistence-path: /data/memory
+    bundle-mode: true
+    insula-size: 2097152
     dimensions: 1024
     capacity: 10000
     nodes-per-partition: 10000

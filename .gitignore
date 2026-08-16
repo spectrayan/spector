@@ -84,3 +84,4 @@ datasets/
 # ──────────── Backups ────────────
 backups/
 spector-data-backup.tar.gz
+/exports/memories_export_full.json
