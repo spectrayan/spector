@@ -193,6 +193,8 @@ export class BrainViewStrategy implements GraphViewStrategy {
           type: edge.type,
           weight: edge.weight || 1,
           relation: edge.relation || null,
+          fromEntityType: edge.fromEntityType,
+          toEntityType: edge.toEntityType,
           line: tube as any,
           labelSprite: labelSprite,
           weightSprite: weightSprite

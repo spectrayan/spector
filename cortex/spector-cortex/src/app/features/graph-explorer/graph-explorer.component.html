@@ -501,6 +501,16 @@
                 <span class="metric-value relation-tag">{{ edge.relation }}</span>
               </div>
             }
+            @if (edge.fromEntityType || edge.toEntityType) {
+              <div class="node-metric">
+                <span class="metric-label">Entity Types</span>
+                <span class="metric-value">
+                  <span class="stats-item-badge entity-badge" style="font-size: 9px; padding: 2px 6px;">{{ edge.fromEntityType || 'ENTITY' }}</span>
+                  <span style="color: var(--mat-sys-outline); margin: 0 4px;">→</span>
+                  <span class="stats-item-badge entity-badge" style="font-size: 9px; padding: 2px 6px;">{{ edge.toEntityType || 'ENTITY' }}</span>
+                </span>
+              </div>
+            }
             <div class="node-metric">
               <span class="metric-label">Weight</span>
               <span class="metric-value">{{ edge.weight.toFixed(2) }}</span>
