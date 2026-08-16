@@ -51,20 +51,28 @@ public class LlmBridge {
     private final SynapseProperties props;
     private final ProviderRegistry providerRegistry;
     private final com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService;
+    private final com.spectrayan.spector.synapse.provider.usage.TokenUsageTracker tokenUsageTracker;
     private final ConcurrentHashMap<String, ChatModel> chatModels = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, StreamingChatModel> streamingModels = new ConcurrentHashMap<>();
 
     public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry) {
-        this(props, providerRegistry, null);
+        this(props, providerRegistry, null, null);
+    }
+
+    public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry,
+                     com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService) {
+        this(props, providerRegistry, configResolutionService, null);
     }
 
     @Autowired
     public LlmBridge(SynapseProperties props, ProviderRegistry providerRegistry,
-                     com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService) {
+                     com.spectrayan.spector.synapse.config.service.ConfigResolutionService configResolutionService,
+                     @Autowired(required = false) com.spectrayan.spector.synapse.provider.usage.TokenUsageTracker tokenUsageTracker) {
         this.props = props;
         this.providerRegistry = providerRegistry;
         this.configResolutionService = configResolutionService;
-        log.info("[LlmBridge] Configured with ProviderRegistry, ConfigResolutionService, and Ollama fallback");
+        this.tokenUsageTracker = tokenUsageTracker;
+        log.info("[LlmBridge] Configured with ProviderRegistry, ConfigResolutionService, TokenUsageTracker, and Ollama fallback");
     }
 
     /**
@@ -253,6 +261,25 @@ public class LlmBridge {
             );
             String text = response.aiMessage().text();
             log.debug("[LlmBridge] Generated {} chars with system prompt", text.length());
+
+            if (tokenUsageTracker != null) {
+                int inTokens = (response.tokenUsage() != null && response.tokenUsage().inputTokenCount() != null)
+                        ? response.tokenUsage().inputTokenCount()
+                        : ((systemPrompt != null ? systemPrompt.length() : 0) + (userMessage != null ? userMessage.length() : 0)) / 4;
+                int outTokens = (response.tokenUsage() != null && response.tokenUsage().outputTokenCount() != null)
+                        ? response.tokenUsage().outputTokenCount()
+                        : text.length() / 4;
+                tokenUsageTracker.record(com.spectrayan.spector.synapse.provider.usage.TokenUsageEvent.ofGeneration(
+                        com.spectrayan.spector.synapse.provider.usage.TokenUsageCategory.SYSTEM,
+                        "default",
+                        modelName(),
+                        null,
+                        null,
+                        Math.max(1, inTokens),
+                        Math.max(1, outTokens)
+                ));
+            }
+
             return text;
         } catch (Exception e) {
             log.error("[LlmBridge] Generation with system prompt failed: {}", e.getMessage(), e);
