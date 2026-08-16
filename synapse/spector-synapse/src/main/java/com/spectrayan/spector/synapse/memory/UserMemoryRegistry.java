@@ -20,6 +20,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -92,6 +93,8 @@ public final class UserMemoryRegistry implements AutoCloseable {
     private final ObjectProvider<LlmProvider> textGenProvider;
     private final ObjectProvider<SalienceProfileProvider> salienceProvider;
     private final ObjectProvider<ObjectMapper> objectMapperProvider;
+    private final ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider;
+    private final ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider;
 
     /** Maximum number of concurrently-cached per-user instances (LRU cap). */
     private final int maxInstances;
@@ -111,6 +114,20 @@ public final class UserMemoryRegistry implements AutoCloseable {
             ObjectProvider<LlmProvider> textGenProvider,
             ObjectProvider<SalienceProfileProvider> salienceProvider,
             ObjectProvider<ObjectMapper> objectMapperProvider,
+            int maxInstances) {
+        this(sharedProvider, synapseProps, embedderProvider, textGenProvider, salienceProvider, objectMapperProvider, null, null, maxInstances);
+    }
+
+    @Autowired
+    public UserMemoryRegistry(
+            ObjectProvider<SpectorMemory> sharedProvider,
+            SynapseProperties synapseProps,
+            ObjectProvider<EmbeddingProvider> embedderProvider,
+            ObjectProvider<LlmProvider> textGenProvider,
+            ObjectProvider<SalienceProfileProvider> salienceProvider,
+            ObjectProvider<ObjectMapper> objectMapperProvider,
+            ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider,
+            ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider,
             @Value("${spector.auth.memory.max-instances:512}") int maxInstances) {
         this.sharedProvider = sharedProvider;
         this.synapseProps = synapseProps;
@@ -118,6 +135,8 @@ public final class UserMemoryRegistry implements AutoCloseable {
         this.textGenProvider = textGenProvider;
         this.salienceProvider = salienceProvider;
         this.objectMapperProvider = objectMapperProvider;
+        this.cacheManagerProvider = cacheManagerProvider;
+        this.encryptorProvider = encryptorProvider;
         this.maxInstances = Math.max(1, maxInstances);
         log.info("[UserMemoryRegistry] initialized: authEnabled={}, maxInstances={}",
                 synapseProps.auth().enabled(), this.maxInstances);
@@ -308,6 +327,29 @@ public final class UserMemoryRegistry implements AutoCloseable {
             builder.tokenEmbeddingProvider(new DenseDerivedTokenProvider(embedder));
         }
 
+        // Configure per-user namespaced and encrypted SpectorCacheManager
+        org.springframework.cache.CacheManager springCacheManager = cacheManagerProvider != null
+                ? cacheManagerProvider.getIfAvailable() : null;
+        com.spectrayan.spector.memory.DataEncryptor encryptor = encryptorProvider != null
+                ? encryptorProvider.getIfAvailable(() -> com.spectrayan.spector.memory.DataEncryptor.NOOP)
+                : com.spectrayan.spector.memory.DataEncryptor.NOOP;
+        ObjectMapper mapper = objectMapperProvider != null
+                ? objectMapperProvider.getIfAvailable(ObjectMapper::new) : new ObjectMapper();
+
+        if (springCacheManager != null) {
+            var cacheBuilder = com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter.builder(springCacheManager)
+                    .keyGenerator(com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator.forNamespace(userId))
+                    .errorHandler(com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler.LOGGING);
+            if (encryptor != null && encryptor.isEnabled()) {
+                cacheBuilder.serializer(new com.spectrayan.spector.spring.cache.EncryptingJsonCacheSerializer(mapper, encryptor));
+            }
+            builder.cacheManager(cacheBuilder.build());
+        } else {
+            builder.cacheManager(com.spectrayan.spector.commons.cache.SpectorCacheManager.builder()
+                    .keyGenerator(com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator.forNamespace(userId))
+                    .build());
+        }
+
         SpectorMemory built = builder.build();
         log.info("[UserMemoryRegistry] built per-user memory instance (dims={}, persistenceMode={})",
                 memory.getDimensions(), memory.getPersistenceMode());
@@ -315,19 +357,16 @@ public final class UserMemoryRegistry implements AutoCloseable {
         // Load saved salience profile from the INSULA region on startup
         try {
             java.util.Optional<byte[]> bytes = built.admin().insularCortex().get();
-            if (bytes.isPresent() && objectMapperProvider != null) {
-                ObjectMapper mapper = objectMapperProvider.getIfAvailable();
-                if (mapper != null) {
-                    InsulaSelfModel model = mapper.readValue(bytes.get(), InsulaSelfModel.class);
-                    if (model != null && model.salience() != null) {
-                        built.setSalienceProfile(model.salience());
-                        log.info("[UserMemoryRegistry] Restored salience profile from INSULA for user/agent {}", userId);
-                    }
-                    if (model != null && model.soul() != null) {
-                        built.setSoulVersion(model.soul().soulVersion());
-                        log.info("[UserMemoryRegistry] Restored soul version {} from INSULA for user/agent {}",
-                                model.soul().soulVersion(), userId);
-                    }
+            if (bytes.isPresent() && mapper != null) {
+                InsulaSelfModel model = mapper.readValue(bytes.get(), InsulaSelfModel.class);
+                if (model != null && model.salience() != null) {
+                    built.setSalienceProfile(model.salience());
+                    log.info("[UserMemoryRegistry] Restored salience profile from INSULA for user/agent {}", userId);
+                }
+                if (model != null && model.soul() != null) {
+                    built.setSoulVersion(model.soul().soulVersion());
+                    log.info("[UserMemoryRegistry] Restored soul version {} from INSULA for user/agent {}",
+                            model.soul().soulVersion(), userId);
                 }
             }
         } catch (Exception e) {

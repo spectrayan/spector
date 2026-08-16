@@ -12,6 +12,10 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.commons.cache.SpectorCache;
+import com.spectrayan.spector.commons.cache.SpectorCacheManager;
+import com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager;
+import com.spectrayan.spector.memory.cache.MemoryCacheNames;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
@@ -63,15 +67,12 @@ public final class CognitiveGraphFacade {
     private final OntologyConfig ontologyConfig;
     private final MemoryIndex index;
 
-    // TODO: Redesign to delegate to Spring Cache at the Synapse layer so all caching is managed by Spring Boot's swappable cache abstraction
-    private volatile CachedResponse<GraphNeighborhood> cachedOverview;
-    private volatile CachedResponse<TopologyStats> cachedTopologyStats;
-
-    public record CachedResponse<T>(T response, long timestamp, int maxNodes) {}
+    private final SpectorCache overviewCache;
+    private final SpectorCache topologyCache;
 
     public void invalidateCache() {
-        cachedOverview = null;
-        cachedTopologyStats = null;
+        overviewCache.clear();
+        topologyCache.clear();
     }
 
     /**
@@ -82,7 +83,7 @@ public final class CognitiveGraphFacade {
                                 TemporalChainMemory temporalChain,
                                 HyperEntityGraphMemory hyperEntityGraph,
                                 MemoryIndex index) {
-        this(hebbianGraph, temporalChain, null, hyperEntityGraph, null, null, index);
+        this(hebbianGraph, temporalChain, null, hyperEntityGraph, null, null, index, null);
     }
 
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
@@ -90,7 +91,7 @@ public final class CognitiveGraphFacade {
                                 EntityDirectory entityDirectory,
                                 HyperEntityGraphMemory hyperEntityGraph,
                                 MemoryIndex index) {
-        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, null, null, index);
+        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, null, null, index, null);
     }
 
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
@@ -99,7 +100,7 @@ public final class CognitiveGraphFacade {
                                 HyperEntityGraphMemory hyperEntityGraph,
                                 TemporalKnowledgeGraph temporalKnowledgeGraph,
                                 MemoryIndex index) {
-        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, null, index);
+        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, null, index, null);
     }
 
     public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
@@ -109,6 +110,17 @@ public final class CognitiveGraphFacade {
                                 TemporalKnowledgeGraph temporalKnowledgeGraph,
                                 OntologyConfig ontologyConfig,
                                 MemoryIndex index) {
+        this(hebbianGraph, temporalChain, entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, ontologyConfig, index, null);
+    }
+
+    public CognitiveGraphFacade(HebbianGraphBase hebbianGraph,
+                                TemporalChainMemory temporalChain,
+                                EntityDirectory entityDirectory,
+                                HyperEntityGraphMemory hyperEntityGraph,
+                                TemporalKnowledgeGraph temporalKnowledgeGraph,
+                                OntologyConfig ontologyConfig,
+                                MemoryIndex index,
+                                SpectorCacheManager cacheManager) {
         this.hebbianGraph = hebbianGraph;
         this.temporalChain = temporalChain;
         this.entityDirectory = entityDirectory;
@@ -116,6 +128,12 @@ public final class CognitiveGraphFacade {
         this.temporalKnowledgeGraph = temporalKnowledgeGraph;
         this.ontologyConfig = ontologyConfig != null ? ontologyConfig : OntologyConfig.defaultInstance();
         this.index = index;
+
+        SpectorCacheManager effectiveManager = cacheManager != null
+                ? cacheManager
+                : TtlConcurrentMapCacheManager.defaultManager();
+        this.overviewCache = effectiveManager.getCache(MemoryCacheNames.GRAPH_OVERVIEW);
+        this.topologyCache = effectiveManager.getCache(MemoryCacheNames.TOPOLOGY_STATS);
     }
 
     // ── Identity read helpers: route to the directory when present (ADR-0003 #455). ──
@@ -174,13 +192,8 @@ public final class CognitiveGraphFacade {
      * @return the graph neighborhood, or empty if no memories exist
      */
     public GraphNeighborhood overview(int maxNodes, Function<String, CognitiveRecord> inspector) {
-        var cache = cachedOverview;
-        if (cache != null && cache.maxNodes() == maxNodes && (System.currentTimeMillis() - cache.timestamp() < 5000)) {
-            return cache.response();
-        }
-        GraphNeighborhood result = computeOverview(maxNodes, inspector);
-        cachedOverview = new CachedResponse<>(result, System.currentTimeMillis(), maxNodes);
-        return result;
+        String key = "overview:" + maxNodes;
+        return overviewCache.get(key, GraphNeighborhood.class, () -> computeOverview(maxNodes, inspector));
     }
 
     private GraphNeighborhood computeOverview(int maxNodes, Function<String, CognitiveRecord> inspector) {
@@ -303,13 +316,7 @@ public final class CognitiveGraphFacade {
      * @return topology stats, or empty if entity graph is not configured
      */
     public TopologyStats topologyStats() {
-        var cache = cachedTopologyStats;
-        if (cache != null && (System.currentTimeMillis() - cache.timestamp() < 5000)) {
-            return cache.response();
-        }
-        TopologyStats result = computeTopologyStats();
-        cachedTopologyStats = new CachedResponse<>(result, System.currentTimeMillis(), 0);
-        return result;
+        return topologyCache.get("current", TopologyStats.class, this::computeTopologyStats);
     }
 
     private TopologyStats computeTopologyStats() {

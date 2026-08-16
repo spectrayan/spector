@@ -51,6 +51,10 @@ public class SynapseCacheProperties {
         specs.put(SynapseCacheConstants.CACHE_COMPILED_SUBGRAPHS, new CacheSpec(Duration.ofHours(1), 500));
         specs.put(SynapseCacheConstants.CACHE_SQL_QUERIES, new CacheSpec(Duration.ofHours(24), 500));
         specs.put(SynapseCacheConstants.CACHE_TOKEN_USAGE, new CacheSpec(Duration.ofDays(7), 50_000));
+        specs.put(SynapseCacheConstants.CACHE_MEMORY_GRAPH_OVERVIEW, new CacheSpec(Duration.ofSeconds(5), 100));
+        specs.put(SynapseCacheConstants.CACHE_MEMORY_TOPOLOGY_STATS, new CacheSpec(Duration.ofSeconds(5), 10));
+        specs.put(SynapseCacheConstants.CACHE_MEMORY_STATS, new CacheSpec(Duration.ofSeconds(5), 100));
+        specs.put(SynapseCacheConstants.CACHE_MEMORY_SCORING_STATS, new CacheSpec(Duration.ofSeconds(5), 100));
     }
 
     public boolean isEnabled() {

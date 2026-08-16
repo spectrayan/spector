@@ -52,6 +52,14 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 
+import com.spectrayan.spector.commons.cache.SpectorCacheErrorHandler;
+import com.spectrayan.spector.commons.cache.SpectorCacheKeyGenerator;
+import com.spectrayan.spector.commons.cache.SpectorCacheManager;
+import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.spring.cache.EncryptingJsonCacheSerializer;
+import com.spectrayan.spector.spring.cache.SpringSpectorCacheManagerAdapter;
+import org.springframework.cache.CacheManager;
+
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import com.spectrayan.spector.commons.error.SpectorInternalException;
@@ -75,6 +83,34 @@ public class SpectorAutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(SpectorAutoConfiguration.class);
 
     /**
+     * Creates the {@link SpectorCacheManager} bean backed by Spring's {@link CacheManager}
+     * when a Spring CacheManager is present.
+     */
+    @Bean
+    @ConditionalOnBean(CacheManager.class)
+    @ConditionalOnMissingBean(SpectorCacheManager.class)
+    SpectorCacheManager spectorCacheManager(
+            CacheManager springCacheManager,
+            ObjectProvider<com.fasterxml.jackson.databind.ObjectMapper> mapperProvider,
+            ObjectProvider<DataEncryptor> encryptorProvider) {
+
+        DataEncryptor encryptor = encryptorProvider.getIfAvailable(() -> DataEncryptor.NOOP);
+        var mapper = mapperProvider.getIfAvailable(com.fasterxml.jackson.databind.ObjectMapper::new);
+
+        var builder = SpringSpectorCacheManagerAdapter.builder(springCacheManager)
+                .keyGenerator(SpectorCacheKeyGenerator.forNamespace("default"))
+                .errorHandler(SpectorCacheErrorHandler.LOGGING);
+
+        if (encryptor != null && encryptor.isEnabled()) {
+            builder.serializer(new EncryptingJsonCacheSerializer(mapper, encryptor));
+        }
+
+        log.info("SpectorCacheManager auto-configured with Spring CacheManager delegate (encryption={})",
+                encryptor != null && encryptor.isEnabled());
+        return builder.build();
+    }
+
+    /**
      * Creates the {@link SpectorMemory} bean when memory is enabled (default: true).
      */
     @Bean
@@ -84,7 +120,8 @@ public class SpectorAutoConfiguration {
                                  ObjectProvider<EmbeddingProvider> embedderProvider,
                                  ObjectProvider<LlmProvider> textGenProvider,
                                  ObjectProvider<MeterRegistry> registryProvider,
-                                 ObjectProvider<SalienceProfileProvider> salienceProvider) {
+                                 ObjectProvider<SalienceProfileProvider> salienceProvider,
+                                 ObjectProvider<SpectorCacheManager> cacheManagerProvider) {
 
         var memoryProps = props.getMemory();
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
@@ -140,6 +177,11 @@ public class SpectorAutoConfiguration {
         if (memoryProps.isColbertEnabled()) {
             builder.tokenEmbeddingProvider(
                     new DenseDerivedTokenProvider(embedder));
+        }
+
+        SpectorCacheManager cacheManager = cacheManagerProvider.getIfAvailable();
+        if (cacheManager != null) {
+            builder.cacheManager(cacheManager);
         }
 
         SpectorMemory raw = builder.build();

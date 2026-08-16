@@ -157,6 +157,9 @@ public final class SpectorMemoryBuilder {
     List<SensoryExtractor> sensoryExtractors = List.of();
     AssetStore assetStore;
 
+    // ── Cache Manager SPI ──
+    com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager;
+
     // Configurable capacities/sizes for runtime bundle regions
     int coactivationPairCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_PAIR_CAPACITY;
     int coactivationEdgeCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_COACTIVATION_EDGE_CAPACITY;
@@ -450,6 +453,19 @@ public final class SpectorMemoryBuilder {
 
     public SpectorMemoryBuilder namespaceId(String namespaceId) {
         this.namespaceId = namespaceId;
+        return this;
+    }
+
+    /**
+     * Injects the {@link com.spectrayan.spector.commons.cache.SpectorCacheManager} for managing query, topology, and graph caches.
+     *
+     * <p>When null (default), a standalone in-memory cache manager is automatically configured.</p>
+     *
+     * @param cacheManager cache manager instance (or null for default standalone)
+     * @return this builder
+     */
+    public SpectorMemoryBuilder cacheManager(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        this.cacheManager = cacheManager;
         return this;
     }
 
