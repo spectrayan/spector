@@ -100,7 +100,7 @@ class InsularCortexTest {
     @Test
     void putThrowsWhenPayloadExceedsCapacity() {
         try (InsularCortex insula = InsularCortex.heap()) {
-            byte[] hugePayload = new byte[64 * 1024]; // entire segment size
+            byte[] hugePayload = new byte[1024 * 1024]; // entire segment size
             assertThatThrownBy(() -> insula.put(hugePayload))
                     .isInstanceOf(SpectorMemoryException.class)
                     .hasMessageContaining("exceeds allocated capacity");

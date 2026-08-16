@@ -47,6 +47,12 @@ public final class GraphEnrichmentDaemon {
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
 
+    private volatile CognitiveGraphFacade graphFacade;
+
+    public void setGraphFacade(CognitiveGraphFacade graphFacade) {
+        this.graphFacade = graphFacade;
+    }
+
     private final AtomicBoolean inProgress = new AtomicBoolean(false);
     private final AtomicInteger totalEntitiesAdded = new AtomicInteger(0);
     private final AtomicInteger totalRelationsAdded = new AtomicInteger(0);
@@ -91,7 +97,7 @@ public final class GraphEnrichmentDaemon {
                 var loc = index.locate(id);
                 if (loc != null) {
                     int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
-                    if (entityDirectory.hasMemoryRef(slot)) {
+                    if (entityDirectory.hasMemoryRefOptimistic(slot)) {
                         enriched++;
                     }
                 }
@@ -144,7 +150,7 @@ public final class GraphEnrichmentDaemon {
                 var loc = index.locate(id);
                 if (loc == null) continue;
                 int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
-                if (!entityDirectory.hasMemoryRef(slot)) {
+                if (!entityDirectory.hasMemoryRefOptimistic(slot)) {
                     candidateIds.add(id);
                     if (candidateIds.size() >= effectiveLimit) {
                         break;
@@ -184,6 +190,10 @@ public final class GraphEnrichmentDaemon {
         } finally {
             lastRunDurationMs.set((System.nanoTime() - startNs) / 1_000_000L);
             inProgress.set(false);
+        }
+
+        if (enrichedCount > 0 && graphFacade != null) {
+            graphFacade.invalidateCache();
         }
 
         log.info("[GraphEnricher] Completed enrichment batch: {} memories enriched in {}ms",
@@ -298,6 +308,10 @@ public final class GraphEnrichmentDaemon {
         } finally {
             lastRunDurationMs.set((System.nanoTime() - startNs) / 1_000_000L);
             reextractInProgress.set(false);
+        }
+
+        if (reextractedCount > 0 && graphFacade != null) {
+            graphFacade.invalidateCache();
         }
 
         log.info("[GraphEnricher] Completed re-extraction batch: {} memories re-extracted in {}ms",

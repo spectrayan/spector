@@ -63,6 +63,17 @@ public final class CognitiveGraphFacade {
     private final OntologyConfig ontologyConfig;
     private final MemoryIndex index;
 
+    // TODO: Redesign to delegate to Spring Cache at the Synapse layer so all caching is managed by Spring Boot's swappable cache abstraction
+    private volatile CachedResponse<GraphNeighborhood> cachedOverview;
+    private volatile CachedResponse<TopologyStats> cachedTopologyStats;
+
+    public record CachedResponse<T>(T response, long timestamp, int maxNodes) {}
+
+    public void invalidateCache() {
+        cachedOverview = null;
+        cachedTopologyStats = null;
+    }
+
     /**
      * Legacy constructor (no {@link EntityDirectory}) — identity reads fall back to the binary
      * {@code entityGraph}. Retained for callers/tests predating the hypergraph graduation.
@@ -163,6 +174,16 @@ public final class CognitiveGraphFacade {
      * @return the graph neighborhood, or empty if no memories exist
      */
     public GraphNeighborhood overview(int maxNodes, Function<String, CognitiveRecord> inspector) {
+        var cache = cachedOverview;
+        if (cache != null && cache.maxNodes() == maxNodes && (System.currentTimeMillis() - cache.timestamp() < 5000)) {
+            return cache.response();
+        }
+        GraphNeighborhood result = computeOverview(maxNodes, inspector);
+        cachedOverview = new CachedResponse<>(result, System.currentTimeMillis(), maxNodes);
+        return result;
+    }
+
+    private GraphNeighborhood computeOverview(int maxNodes, Function<String, CognitiveRecord> inspector) {
         try {
             List<String> allIds = new java.util.ArrayList<>(index.orderedIds());
             java.util.Collections.reverse(allIds);
@@ -282,6 +303,16 @@ public final class CognitiveGraphFacade {
      * @return topology stats, or empty if entity graph is not configured
      */
     public TopologyStats topologyStats() {
+        var cache = cachedTopologyStats;
+        if (cache != null && (System.currentTimeMillis() - cache.timestamp() < 5000)) {
+            return cache.response();
+        }
+        TopologyStats result = computeTopologyStats();
+        cachedTopologyStats = new CachedResponse<>(result, System.currentTimeMillis(), 0);
+        return result;
+    }
+
+    private TopologyStats computeTopologyStats() {
         if (hyperEntityGraph == null || !hasIdentity()) return TopologyStats.empty();
         try {
             var nameIndex = identityNameIndex();
@@ -480,17 +511,22 @@ public final class CognitiveGraphFacade {
                                     HashSet<String> validIds, List<GraphEdge> edges) {
         if (hyperEntityGraph == null || !hasIdentity()) return;
         try {
-            var nameIndex = identityNameIndex();
+            Set<Integer> validEntityIds = new HashSet<>();
+            for (Map.Entry<Integer, String> entry : slotToId.entrySet()) {
+                if (validIds.contains(entry.getValue())) {
+                    validEntityIds.addAll(entityDirectory.entitiesForMemory(entry.getKey()).keySet());
+                }
+            }
+
             Map<Integer, String> idToName = new java.util.HashMap<>();
-            for (var entry : nameIndex.entrySet()) {
-                idToName.put(entry.getValue(), entry.getKey());
+            for (int entityId : validEntityIds) {
+                idToName.put(entityId, entityDirectory.entityName(entityId));
             }
 
             // 1. Structured relational edges from Temporal Knowledge Graph (facts)
             if (temporalKnowledgeGraph != null && temporalKnowledgeGraph.predicateRegistry() != null) {
                 var predRegistry = temporalKnowledgeGraph.predicateRegistry();
-                for (var entry : nameIndex.entrySet()) {
-                    int subjectId = entry.getValue();
+                for (int subjectId : validEntityIds) {
                     String subjectType = safeEntityType(subjectId);
                     var facts = temporalKnowledgeGraph.readFactsForEntity(subjectId);
                     if (facts == null || facts.isEmpty()) continue;
@@ -499,6 +535,8 @@ public final class CognitiveGraphFacade {
                     for (var fact : facts) {
                         if (fact.isRetraction()) continue;
                         int objectId = fact.objectEntityId();
+                        if (!validEntityIds.contains(objectId)) continue;
+
                         String objectType = safeEntityType(objectId);
                         String predicateName = predRegistry.nameOf((int) fact.predicateId());
                         if (predicateName == null || predicateName.isBlank()) {
@@ -525,9 +563,9 @@ public final class CognitiveGraphFacade {
             }
 
             // 2. Entity co-occurrence / shared entity edges
-            for (var entry : nameIndex.entrySet()) {
-                int entityId = entry.getValue();
-                String entityName = entry.getKey();
+            for (Map.Entry<Integer, String> entry : idToName.entrySet()) {
+                int entityId = entry.getKey();
+                String entityName = entry.getValue();
                 String entityType = safeEntityType(entityId);
                 var hEdges = hyperEntityGraph.findHyperedgesForEntity(entityId);
                 for (int i = 0; i < hEdges.size(); i++) {
@@ -660,18 +698,7 @@ public final class CognitiveGraphFacade {
     private List<String> entityNamesForMemory(int slot) {
         if (!hasIdentity() || slot < 0) return List.of();
         try {
-            List<String> names = new ArrayList<>();
-            var nameIndex = identityNameIndex();
-            for (var entry : nameIndex.entrySet()) {
-                int[] mems = identityMemoriesForEntity(entry.getValue());
-                for (int m : mems) {
-                    if (m == slot) {
-                        names.add(entry.getKey());
-                        break;
-                    }
-                }
-            }
-            return names;
+            return new ArrayList<>(entityDirectory.entitiesForMemory(slot).values());
         } catch (Exception e) {
             return List.of();
         }

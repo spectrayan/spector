@@ -238,6 +238,11 @@ public final class SpectorMemoryFactory {
         DaemonSupervisorBuilder.DaemonBundle daemons = DaemonSupervisorBuilder.build(
                 builder, cortex, bio, graphs, index, wal);
 
+        // Wire the graph facade into the enrichment daemon for cache invalidation
+        if (daemons.graphEnrichmentDaemon() != null && graphs.graphFacade() != null) {
+            daemons.graphEnrichmentDaemon().setGraphFacade(graphs.graphFacade());
+        }
+
         //  Multimodal Attachment Processor 
         AttachmentProcessor attachmentProcessor;
         if (!builder.sensoryExtractors.isEmpty()) {
