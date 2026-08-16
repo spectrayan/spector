@@ -16,39 +16,65 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.time.Duration;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class CacheConfigAndControllerTest {
 
+    private SynapseCacheProperties cacheProperties;
     private CacheConfig cacheConfig;
-    private CacheManager cacheManager;
+    private CaffeineCacheManager cacheManager;
     private CacheController cacheController;
 
     @BeforeEach
     void setUp() {
-        cacheConfig = new CacheConfig();
-        cacheManager = cacheConfig.cacheManager();
+        cacheProperties = new SynapseCacheProperties();
+        cacheConfig = new CacheConfig(cacheProperties);
+        cacheManager = new CaffeineCacheManager(SynapseCacheConstants.ALL_CACHES);
+        cacheConfig.caffeineCacheManagerCustomizer().customize(cacheManager);
         cacheController = new CacheController(cacheManager);
     }
 
     @Test
-    @DisplayName("CacheManager initializes all predefined Synapse caches with Caffeine specs")
-    void cacheManagerInitializesAllCaches() {
-        assertThat(cacheManager.getCacheNames()).contains(
-                SynapseCacheConstants.CACHE_JTI_BLOCKLIST,
-                SynapseCacheConstants.CACHE_USER_ACCOUNTS,
-                SynapseCacheConstants.CACHE_DECRYPTED_SECRETS,
-                SynapseCacheConstants.CACHE_CREDENTIAL_RECORDS,
-                SynapseCacheConstants.CACHE_SCOPED_CONFIGS,
-                SynapseCacheConstants.CACHE_CONNECTOR_ROUTES,
-                SynapseCacheConstants.CACHE_SQL_QUERIES
-        );
+    @DisplayName("SynapseCacheProperties binds defaults and resolves custom cache specs")
+    void cachePropertiesDefaultsAndOverrides() {
+        assertThat(cacheProperties.isEnabled()).isTrue();
+        assertThat(cacheProperties.getType()).isEqualTo("caffeine");
+        assertThat(cacheProperties.getTtl(SynapseCacheConstants.CACHE_DECRYPTED_SECRETS)).isEqualTo(Duration.ofMinutes(1));
+        assertThat(cacheProperties.getMaxSize(SynapseCacheConstants.CACHE_JTI_BLOCKLIST)).isEqualTo(50_000);
+
+        // Test custom override
+        cacheProperties.getSpecs().put("custom-cache", new SynapseCacheProperties.CacheSpec(Duration.ofMinutes(45), 250));
+        assertThat(cacheProperties.getTtl("custom-cache")).isEqualTo(Duration.ofMinutes(45));
+        assertThat(cacheProperties.getMaxSize("custom-cache")).isEqualTo(250);
+
+        // Fallback for unconfigured cache
+        assertThat(cacheProperties.getTtl("unknown-cache")).isEqualTo(Duration.ofMinutes(10));
+        assertThat(cacheProperties.getMaxSize("unknown-cache")).isEqualTo(1000);
+    }
+
+    @Test
+    @DisplayName("LoggingCacheErrorHandler swallows and logs cache errors non-destructively")
+    void cacheErrorHandlerHandlesErrorsGracefully() {
+        CacheErrorHandler errorHandler = cacheConfig.errorHandler();
+        assertThat(errorHandler).isInstanceOf(CacheConfig.LoggingCacheErrorHandler.class);
+
+        Cache cache = cacheManager.getCache(SynapseCacheConstants.CACHE_USER_ACCOUNTS);
+        RuntimeException ex = new RuntimeException("Simulated Redis timeout");
+
+        assertDoesNotThrow(() -> errorHandler.handleCacheGetError(ex, cache, "testKey"));
+        assertDoesNotThrow(() -> errorHandler.handleCachePutError(ex, cache, "testKey", "testVal"));
+        assertDoesNotThrow(() -> errorHandler.handleCacheEvictError(ex, cache, "testKey"));
+        assertDoesNotThrow(() -> errorHandler.handleCacheClearError(ex, cache));
+        assertDoesNotThrow(() -> errorHandler.handleCacheGetError(ex, null, "testKey"));
     }
 
     @Test
