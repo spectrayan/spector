@@ -15,7 +15,10 @@ package com.spectrayan.spector.synapse.config;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
+import jakarta.servlet.http.HttpServlet;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,29 +29,41 @@ import com.spectrayan.spector.synapse.memory.UserMemoryRegistry;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.mcp.tools.SpectorToolRegistry;
 import com.spectrayan.spector.memory.SpectorMemory;
-import org.springframework.beans.factory.ObjectProvider;
-import java.util.function.Supplier;
 
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
+import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpStatelessServerFeatures;
 import io.modelcontextprotocol.server.McpStatelessSyncServer;
+import io.modelcontextprotocol.server.McpSyncServer;
+import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.server.transport.HttpServletStatelessServerTransport;
+import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
- * Exposes the official Model Context Protocol (MCP) server over stateless HTTP.
+ * Universal Multi-Transport Model Context Protocol (MCP) server configuration.
  *
- * <p>Uses {@link HttpServletStatelessServerTransport} which handles each request
- * independently — no sessions, no SSE streaming, no persistent connections.
- * Each POST to {@code /mcp} receives a direct JSON response and closes.</p>
+ * <p>Exposes all official MCP transport protocols simultaneously to support any
+ * external AI agent, IDE, or client runtime without workarounds:</p>
+ * <ul>
+ *   <li><strong>SSE (Server-Sent Events)</strong>: {@code /mcp/sse} (downstream event stream)
+ *       and {@code /mcp/message} (upstream JSON-RPC message receiver) for Antigravity remote,
+ *       Cursor remote, and Claude Desktop remote.</li>
+ *   <li><strong>Streamable HTTP</strong>: {@code /mcp/stream} for modern streamable HTTP clients.</li>
+ *   <li><strong>Stateless HTTP</strong>: {@code /mcp} and {@code /mcp/stateless} for serverless,
+ *       microservices, and CLI bridges (e.g. {@code mcp-remote}).</li>
+ * </ul>
  *
- * <p>This is ideal for IDE integrations (Antigravity, Cursor, etc.) that only need
- * tool discovery and invocation without server-initiated notifications.</p>
+ * <p>Multi-tenant caller isolation is enforced uniformly across all transports via
+ * {@link McpRequestMemory}.</p>
  */
 @Configuration
 public class McpServerConfig {
+
+    private static final String SERVER_NAME = "spector";
+    private static final String SERVER_VERSION = "1.0.0";
 
     @Bean
     public McpJsonMapper mcpJsonMapper() {
@@ -58,19 +73,23 @@ public class McpServerConfig {
                         .build());
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // 1. STATELESS HTTP TRANSPORT: /mcp and /mcp/stateless
+    // ─────────────────────────────────────────────────────────────
+
     @Bean
-    public HttpServletStatelessServerTransport mcpTransport(McpJsonMapper jsonMapper) {
+    public HttpServletStatelessServerTransport mcpStatelessTransport(McpJsonMapper jsonMapper) {
         return HttpServletStatelessServerTransport.builder()
                 .jsonMapper(jsonMapper)
                 .build();
     }
 
     @Bean
-    public ServletRegistrationBean<HttpServletStatelessServerTransport> mcpServletRegistrationBean(
+    public ServletRegistrationBean<HttpServletStatelessServerTransport> mcpStatelessServletRegistration(
             HttpServletStatelessServerTransport transport) {
         ServletRegistrationBean<HttpServletStatelessServerTransport> registration =
                 new ServletRegistrationBean<>(transport);
-        registration.addUrlMappings("/mcp");
+        registration.addUrlMappings("/mcp", "/mcp/stateless");
         registration.setLoadOnStartup(1);
         return registration;
     }
@@ -80,15 +99,115 @@ public class McpServerConfig {
                                                       ToolRegistry toolRegistry,
                                                       UserMemoryRegistry userMemoryRegistry,
                                                       SynapseProperties synapseProperties) {
-
         boolean authEnabled = synapseProperties.auth().enabled();
+        List<McpStatelessServerFeatures.SyncToolSpecification> toolSpecs =
+                buildStatelessToolSpecs(toolRegistry, userMemoryRegistry, authEnabled);
 
-        // Dynamically translate local McpToolHandler beans to official MCP SDK ToolSpecifications.
-        // Each tool executes synchronously on the servlet request thread, so we resolve the caller's
-        // per-user memory (via UserMemoryRegistry) on that same thread and bind it for the duration
-        // of the invocation. The tool routes exclusively to the authenticated user's namespace;
-        // client-supplied namespace/workspace_id/agent_id hints never widen scope to another user.
-        List<McpStatelessServerFeatures.SyncToolSpecification> toolSpecs = toolRegistry.all().values().stream()
+        return McpServer.sync(transport)
+                .serverInfo(SERVER_NAME, SERVER_VERSION)
+                .capabilities(McpSchema.ServerCapabilities.builder()
+                        .tools(true)
+                        .resources(false, false)
+                        .prompts(false)
+                        .build())
+                .tools(toolSpecs)
+                .build();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2. SSE TRANSPORT: /mcp/sse (stream) & /mcp/message (messages)
+    // ─────────────────────────────────────────────────────────────
+
+    @Bean
+    public HttpServletSseServerTransportProvider mcpSseTransportProvider(McpJsonMapper jsonMapper) {
+        return HttpServletSseServerTransportProvider.builder()
+                .jsonMapper(jsonMapper)
+                .sseEndpoint("/mcp/sse")
+                .messageEndpoint("/mcp/message")
+                .build();
+    }
+
+    @Bean
+    public ServletRegistrationBean<HttpServlet> mcpSseServletRegistration(
+            HttpServletSseServerTransportProvider transportProvider) {
+        ServletRegistrationBean<HttpServlet> registration =
+                new ServletRegistrationBean<>(transportProvider);
+        registration.addUrlMappings("/mcp/sse", "/mcp/message");
+        registration.setAsyncSupported(true);
+        registration.setLoadOnStartup(1);
+        return registration;
+    }
+
+    @Bean
+    public McpSyncServer mcpSseServer(HttpServletSseServerTransportProvider transportProvider,
+                                      ToolRegistry toolRegistry,
+                                      UserMemoryRegistry userMemoryRegistry,
+                                      SynapseProperties synapseProperties) {
+        boolean authEnabled = synapseProperties.auth().enabled();
+        List<McpServerFeatures.SyncToolSpecification> toolSpecs =
+                buildSyncToolSpecs(toolRegistry, userMemoryRegistry, authEnabled);
+
+        return McpServer.sync(transportProvider)
+                .serverInfo(SERVER_NAME, SERVER_VERSION)
+                .capabilities(McpSchema.ServerCapabilities.builder()
+                        .tools(true)
+                        .resources(false, false)
+                        .prompts(false)
+                        .build())
+                .tools(toolSpecs)
+                .build();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 3. STREAMABLE HTTP TRANSPORT: /mcp/stream
+    // ─────────────────────────────────────────────────────────────
+
+    @Bean
+    public HttpServletStreamableServerTransportProvider mcpStreamableTransportProvider(McpJsonMapper jsonMapper) {
+        return HttpServletStreamableServerTransportProvider.builder()
+                .jsonMapper(jsonMapper)
+                .mcpEndpoint("/mcp/stream")
+                .build();
+    }
+
+    @Bean
+    public ServletRegistrationBean<HttpServlet> mcpStreamableServletRegistration(
+            HttpServletStreamableServerTransportProvider transportProvider) {
+        ServletRegistrationBean<HttpServlet> registration =
+                new ServletRegistrationBean<>(transportProvider);
+        registration.addUrlMappings("/mcp/stream");
+        registration.setAsyncSupported(true);
+        registration.setLoadOnStartup(1);
+        return registration;
+    }
+
+    @Bean
+    public McpSyncServer mcpStreamableServer(HttpServletStreamableServerTransportProvider transportProvider,
+                                             ToolRegistry toolRegistry,
+                                             UserMemoryRegistry userMemoryRegistry,
+                                             SynapseProperties synapseProperties) {
+        boolean authEnabled = synapseProperties.auth().enabled();
+        List<McpServerFeatures.SyncToolSpecification> toolSpecs =
+                buildSyncToolSpecs(toolRegistry, userMemoryRegistry, authEnabled);
+
+        return McpServer.sync(transportProvider)
+                .serverInfo(SERVER_NAME, SERVER_VERSION)
+                .capabilities(McpSchema.ServerCapabilities.builder()
+                        .tools(true)
+                        .resources(false, false)
+                        .prompts(false)
+                        .build())
+                .tools(toolSpecs)
+                .build();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // TOOL SPECIFICATION BUILDERS & MEMORY BINDING
+    // ─────────────────────────────────────────────────────────────
+
+    private static List<McpStatelessServerFeatures.SyncToolSpecification> buildStatelessToolSpecs(
+            ToolRegistry toolRegistry, UserMemoryRegistry userMemoryRegistry, boolean authEnabled) {
+        return toolRegistry.all().values().stream()
                 .map(mcpTool -> {
                     var tool = McpSchema.Tool.builder(mcpTool.name())
                             .description(mcpTool.description())
@@ -97,9 +216,6 @@ public class McpServerConfig {
 
                     return new McpStatelessServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
                         Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
-
-                        // Resolve + bind the caller's memory on the servlet request thread. Denies
-                        // (auth-required / resolution-failed) fail closed without touching memory.
                         Optional<McpRequestMemory.DenyReason> deny =
                                 McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled);
                         if (deny.isPresent()) {
@@ -115,16 +231,34 @@ public class McpServerConfig {
                     });
                 })
                 .toList();
+    }
 
-        return McpServer.sync(transport)
-                .serverInfo("spector", "1.0.0")
-                .capabilities(McpSchema.ServerCapabilities.builder()
-                        .tools(true)
-                        .resources(false, false)
-                        .prompts(false)
-                        .build())
-                .tools(toolSpecs)
-                .build();
+    private static List<McpServerFeatures.SyncToolSpecification> buildSyncToolSpecs(
+            ToolRegistry toolRegistry, UserMemoryRegistry userMemoryRegistry, boolean authEnabled) {
+        return toolRegistry.all().values().stream()
+                .map(mcpTool -> {
+                    var tool = McpSchema.Tool.builder(mcpTool.name())
+                            .description(mcpTool.description())
+                            .inputSchema(mcpTool.inputSchema())
+                            .build();
+
+                    return new McpServerFeatures.SyncToolSpecification(tool, (exchange, request) -> {
+                        Map<String, Object> args = request.arguments() != null ? request.arguments() : Map.of();
+                        Optional<McpRequestMemory.DenyReason> deny =
+                                McpRequestMemory.bindForCurrentRequest(userMemoryRegistry, authEnabled);
+                        if (deny.isPresent()) {
+                            return toolError(McpRequestMemory.message(deny.get()));
+                        }
+                        try {
+                            return mcpTool.execute(null, args);
+                        } catch (Exception e) {
+                            return toolError(e.getMessage());
+                        } finally {
+                            McpRequestMemory.clear();
+                        }
+                    });
+                })
+                .toList();
     }
 
     /** Builds an MCP tool error result carrying the given message. */
@@ -140,6 +274,6 @@ public class McpServerConfig {
             SpectorMemory perUser = McpRequestMemory.current();
             return perUser != null ? perUser : sharedMemory.getIfAvailable();
         };
-        return SpectorToolRegistry.handlers("1.0.0", resolver);
+        return SpectorToolRegistry.handlers(SERVER_VERSION, resolver);
     }
 }

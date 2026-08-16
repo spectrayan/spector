@@ -81,7 +81,7 @@ public final class InsularCortex implements Memory<InsularLayout>, AutoCloseable
      */
     public static InsularCortex heap() {
         Arena arena = Arena.ofShared();
-        MemorySegment heapSeg = arena.allocate(64 * 1024, 4096);
+        MemorySegment heapSeg = arena.allocate(1024 * 1024, 4096);
         long now = System.currentTimeMillis();
         MemoryHeader.write(heapSeg, 0L, InsularLayout.SCHEMA_VERSION, MemoryShape.INSULAR, 0,
                 1, 0, 0, InsularLayout.LAYOUT_ID, now, now);

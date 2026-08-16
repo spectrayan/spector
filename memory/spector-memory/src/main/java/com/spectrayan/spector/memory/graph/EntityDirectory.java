@@ -128,6 +128,9 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
     /** On-heap name→entityId index for O(1) lookup (case-insensitive). */
     private final ConcurrentHashMap<String, Integer> nameIndex = new ConcurrentHashMap<>();
 
+    /** Reverse lookup from memory slot to entity IDs. */
+    private final ConcurrentHashMap<Integer, Set<Integer>> memoryToEntities = new ConcurrentHashMap<>();
+
     private final boolean fileBacked;
     private final MemorySegment headerSegment;
     private final Path mmapFilePath;
@@ -248,6 +251,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
 
         log.info("EntityDirectory initialized (bundle): entities={}/{}, adjCap={}",
                 entityCount, entityCapacity, adjSegmentCapacity);
+        rebuildReverseIndex();
     }
 
     /**
@@ -274,6 +278,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         log.info("EntityDirectory initialized ({}): entities={}/{}, adjCap={}, file={}",
                 init.persistent ? "mmap" : "heap", entityCount, entityCapacity, adjSegmentCapacity,
                 mmapFilePath != null ? mmapFilePath.getFileName() : "<heap>");
+        rebuildReverseIndex();
     }
 
     /** Immutable bundle of everything the delegating constructor needs. */
@@ -500,6 +505,8 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
         adjacencySegment.set(ValueLayout.JAVA_INT, entryOff + ADJ_OFF_MEM_IDX, memoryIdx);
         adjacencySegment.set(ValueLayout.JAVA_FLOAT, entryOff + ADJ_OFF_WEIGHT, initialWeight);
         entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT, adjCnt + 1);
+
+        memoryToEntities.computeIfAbsent(memoryIdx, k -> ConcurrentHashMap.newKeySet()).add(entityId);
     }
 
     /**
@@ -606,6 +613,153 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                     (long) (adjOff + refIndex) * ADJ_ENTRY_BYTES + ADJ_OFF_WEIGHT);
         } finally {
             lock.unlockRead(stamp);
+        }
+    }
+
+    /**
+     * Returns true if any entity references the given memory index.
+     *
+     * @param memoryIdx the monotonic graphSlot of the memory
+     * @return true if at least one entity is linked to this memory
+     */
+    public boolean hasMemoryRef(int memoryIdx) {
+        if (memoryIdx < 0 || entityCount == 0) return false;
+        long stamp = lock.readLock();
+        try {
+            for (int i = 0; i < entityCount; i++) {
+                long entOffset = (long) i * ENTITY_NODE_BYTES;
+                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+                if (adjOff < 0 || adjCnt <= 0) continue;
+                for (int r = 0; r < adjCnt; r++) {
+                    int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
+                            (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
+                    if (refMem == memoryIdx) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    public boolean hasMemoryRefOptimistic(int memoryIdx) {
+        if (memoryIdx < 0 || entityCount == 0) return false;
+        long stamp = lock.tryOptimisticRead();
+        boolean found = false;
+        
+        Set<Integer> entities = memoryToEntities.get(memoryIdx);
+        if (entities != null && !entities.isEmpty()) {
+            found = true;
+        } else {
+            for (int i = 0; i < entityCount; i++) {
+                long entOffset = (long) i * ENTITY_NODE_BYTES;
+                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+                if (adjOff < 0 || adjCnt <= 0) continue;
+                for (int r = 0; r < adjCnt; r++) {
+                    int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
+                            (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
+                    if (refMem == memoryIdx) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+        }
+        if (lock.validate(stamp)) {
+            return found;
+        }
+        return hasMemoryRef(memoryIdx);
+    }
+
+    /**
+     * Returns all entity names for a memory slot in a single readLock acquisition.
+     * Uses the reverse index for O(1) lookup.
+     */
+    public Map<Integer, String> entitiesForMemory(int memorySlot) {
+        if (memorySlot < 0 || entityCount == 0) return Map.of();
+        Set<Integer> entities = memoryToEntities.get(memorySlot);
+        if (entities == null || entities.isEmpty()) return Map.of();
+        
+        long stamp = lock.readLock();
+        try {
+            Map<Integer, String> result = new java.util.HashMap<>();
+            for (int e : entities) {
+                result.put(e, entityName(e));
+            }
+            return result;
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    /**
+     * Removes all references to the specified memory slot from all entities.
+     *
+     * @param memorySlot the memory index to unlink
+     * @return the number of entity-to-memory links removed
+     */
+    public int unlinkMemory(int memorySlot) {
+        if (memorySlot < 0 || entityCount == 0) return 0;
+        
+        // 1. Read phase: use the reverse index to find affected entities (no write lock needed)
+        Set<Integer> affected = memoryToEntities.remove(memorySlot);
+        if (affected == null || affected.isEmpty()) return 0;
+        
+        int removedCount = 0;
+        // 2. Short write phase: compact only the affected adjacency entries
+        long stamp = lock.writeLock();
+        try {
+            for (int e : affected) {
+                if (e < 0 || e >= entityCount) continue;
+                long entOffset = (long) e * ENTITY_NODE_BYTES;
+                int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+                int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+                if (adjOff < 0 || adjCnt <= 0) continue;
+
+                int newCount = 0;
+                for (int i = 0; i < adjCnt; i++) {
+                    long srcOff = (long) (adjOff + i) * ADJ_ENTRY_BYTES;
+                    int memIdx = adjacencySegment.get(ValueLayout.JAVA_INT, srcOff + ADJ_OFF_MEM_IDX);
+
+                    if (memIdx == memorySlot) {
+                        removedCount++;
+                    } else {
+                        if (newCount < i) {
+                            long dstOff = (long) (adjOff + newCount) * ADJ_ENTRY_BYTES;
+                            float weight = adjacencySegment.get(ValueLayout.JAVA_FLOAT, srcOff + ADJ_OFF_WEIGHT);
+                            adjacencySegment.set(ValueLayout.JAVA_INT, dstOff + ADJ_OFF_MEM_IDX, memIdx);
+                            adjacencySegment.set(ValueLayout.JAVA_FLOAT, dstOff + ADJ_OFF_WEIGHT, weight);
+                        }
+                        newCount++;
+                    }
+                }
+                if (newCount != adjCnt) {
+                    entitySegment.set(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT, newCount);
+                }
+            }
+            return removedCount;
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    private void rebuildReverseIndex() {
+        memoryToEntities.clear();
+        for (int i = 0; i < entityCount; i++) {
+            long entOffset = (long) i * ENTITY_NODE_BYTES;
+            int adjOff = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_OFFSET);
+            int adjCnt = entitySegment.get(ValueLayout.JAVA_INT, entOffset + ENT_OFF_ADJ_COUNT);
+            if (adjOff < 0 || adjCnt <= 0) continue;
+            for (int r = 0; r < adjCnt; r++) {
+                int refMem = adjacencySegment.get(ValueLayout.JAVA_INT,
+                        (long) (adjOff + r) * ADJ_ENTRY_BYTES + ADJ_OFF_MEM_IDX);
+                memoryToEntities.computeIfAbsent(refMem, k -> ConcurrentHashMap.newKeySet()).add(i);
+            }
         }
     }
 

@@ -70,8 +70,53 @@ docker compose -f docker-compose.synapse.yml up --build
 | **Provider Registry** | LLM provider management with health checks |
 | **Plugin SPI** | Runtime plugin loading and lifecycle |
 | **Rate Limiting Engine** | Inbound/outbound multi-tier token bucket limiting (Bucket4j + Caffeine/Redis) |
-| **MCP Endpoint** | Model Context Protocol tool discovery & invocation |
+| **MCP Multi-Transport** | Universal Model Context Protocol endpoints (SSE, Streamable HTTP, Stateless HTTP, REST) |
 | **Memory Bridge** | Bidirectional integration with Spector Memory |
+
+## Universal Model Context Protocol (MCP) Transports
+
+Spector Synapse exposes all official MCP transport protocols simultaneously on port `7070` with multi-tenant memory isolation:
+
+| Transport | Endpoint | Use Case | Client Example |
+|:---|:---|:---|:---|
+| **SSE (Server-Sent Events)** | `GET /mcp/sse`<br>`POST /mcp/message` | Remote IDEs & AI Agents | Antigravity remote (`serverUrl`), Claude Desktop remote |
+| **Streamable HTTP** | `POST /mcp/stream` | Modern bidirectional streaming agents | Cursor 0.45+, MCP Streamable HTTP clients |
+| **Stateless HTTP** | `POST /mcp`<br>`POST /mcp/stateless` | Serverless, microservices, CLI bridges | `mcp-remote` stdio bridge, cloud functions |
+| **REST (MCP-Lite)** | `GET /api/v1/mcp/tools`<br>`POST /api/v1/mcp/tools/{name}/call` | Cortex UI, Web dashboards, curl | Custom HTTP integrations, Web apps |
+
+### Client Configuration Examples
+
+#### Antigravity / Cursor Remote (SSE)
+```json
+{
+  "mcpServers": {
+    "spector": {
+      "serverUrl": "http://localhost:7070/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer spector-dev-key"
+      }
+    }
+  }
+}
+```
+
+#### Antigravity CLI / Stdio Bridge
+```json
+{
+  "mcpServers": {
+    "spector": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:7070/mcp",
+        "--header",
+        "Authorization: Bearer spector-dev-key"
+      ]
+    }
+  }
+}
+```
 
 ## Rate Limiting & Resilience
 

@@ -223,8 +223,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     //  Circadian trigger counter 
     private final AtomicInteger episodicIngestCount = new AtomicInteger(0);
 
-    //  Automatic Checkpointing 
+    //  Automatic Checkpointing & Graph Enrichment
     private final CheckpointDaemon checkpointDaemon;
+    private final com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon graphEnrichmentDaemon;
     private final DaemonSupervisor daemonSupervisor;
 
     //  Shutdown Hook (auto-registered for DISK mode) 
@@ -311,6 +312,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         if (this.checkpointDaemon != null) {
             this.checkpointDaemon.setRouterSupplier(partitionManager::cognitiveRouter);
         }
+        this.graphEnrichmentDaemon = bundle.graphEnrichmentDaemon();
         this.daemonSupervisor = bundle.daemonSupervisor();
         this.bm25Index = bundle.bm25Index();
         this.chunker = builder.chunker;
@@ -1418,6 +1420,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             }
         }
         return List.copyOf(results);
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.graph.GraphEnrichmentDaemon graphEnricher() {
+        return graphEnrichmentDaemon;
     }
 
     /** Returns the namespace manager (null if IN_MEMORY mode). */

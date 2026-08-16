@@ -303,7 +303,7 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
      * @param entityId the subject entity ID
      * @return list of temporal facts (may include retracted facts)
      */
-    List<TemporalFact> readFactsForEntity(int entityId) {
+    public List<TemporalFact> readFactsForEntity(int entityId) {
         List<Long> offsets = subjectIndex.offsetsFor(entityId);
         List<TemporalFact> facts = new ArrayList<>(offsets.size());
         for (long offset : offsets) {

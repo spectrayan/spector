@@ -30,6 +30,8 @@ export interface ExplorerEdge {
   type: string;
   weight: number;
   relation: string | null;
+  fromEntityType?: string;
+  toEntityType?: string;
   line: THREE.Line;
   labelSprite?: THREE.Sprite;
   weightSprite?: THREE.Sprite;

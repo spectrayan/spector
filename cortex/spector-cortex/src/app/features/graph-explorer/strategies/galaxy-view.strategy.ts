@@ -255,6 +255,8 @@ export class GalaxyViewStrategy implements GraphViewStrategy {
         type: e.type,
         weight: e.weight,
         relation: e.relation,
+        fromEntityType: e.fromEntityType,
+        toEntityType: e.toEntityType,
         line,
         labelSprite,
         weightSprite,

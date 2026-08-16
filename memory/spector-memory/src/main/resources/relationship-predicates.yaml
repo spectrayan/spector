@@ -156,3 +156,301 @@ relationship_predicates:
     aliases: [ASSOCIATED_TO, CONNECTED_TO]
   OTHER:
     inverse: OTHER
+
+  # ── Governance & Compliance ──
+  COMPLIES_WITH:
+    inverse: COMPLIANCE_TARGET_OF
+    aliases: [CONFORMS_TO, ADHERES_TO, SATISFIES]
+  COMPLIANCE_TARGET_OF:
+    inverse: COMPLIES_WITH
+  GOVERNS:
+    inverse: GOVERNED_BY
+    aliases: [REGULATES, CONTROLS, OVERSEES]
+  GOVERNED_BY:
+    inverse: GOVERNS
+    aliases: [REGULATED_BY, CONTROLLED_BY]
+  AUDITS:
+    inverse: AUDITED_BY
+    aliases: [INSPECTS, EVALUATES, ASSESSES]
+  AUDITED_BY:
+    inverse: AUDITS
+    aliases: [INSPECTED_BY, ASSESSED_BY]
+  CERTIFIES:
+    inverse: CERTIFIED_BY
+    aliases: [ACCREDITS, VALIDATES_CERT, ATTESTS]
+  CERTIFIED_BY:
+    inverse: CERTIFIES
+    aliases: [ACCREDITED_BY, ATTESTED_BY]
+  ENFORCES:
+    inverse: ENFORCED_BY
+    aliases: [MANDATES, REQUIRES_COMPLIANCE]
+  ENFORCED_BY:
+    inverse: ENFORCES
+    aliases: [MANDATED_BY]
+
+  # ── Data Lineage ──
+  DERIVED_FROM:
+    inverse: SOURCE_OF
+    aliases: [COMPUTED_FROM, EXTRACTED_FROM, ORIGINATED_FROM]
+  SOURCE_OF:
+    inverse: DERIVED_FROM
+    aliases: [PRODUCES_DATA, GENERATES_DATA]
+  TRANSFORMS:
+    inverse: TRANSFORMED_BY
+    aliases: [CONVERTS, PROCESSES_DATA, MAPS_TO]
+  TRANSFORMED_BY:
+    inverse: TRANSFORMS
+    aliases: [CONVERTED_BY, PROCESSED_BY]
+  FEEDS:
+    inverse: FED_BY
+    aliases: [STREAMS_TO, PIPES_TO, SENDS_DATA_TO]
+  FED_BY:
+    inverse: FEEDS
+    aliases: [RECEIVES_DATA_FROM, STREAMED_FROM]
+  AGGREGATES:
+    inverse: AGGREGATED_BY
+    aliases: [SUMMARIZES, COMBINES, COLLECTS]
+  AGGREGATED_BY:
+    inverse: AGGREGATES
+    aliases: [SUMMARIZED_BY, COLLECTED_BY]
+  VALIDATES:
+    inverse: VALIDATED_BY
+    aliases: [VERIFIES, CHECKS, CONFIRMS]
+  VALIDATED_BY:
+    inverse: VALIDATES
+    aliases: [VERIFIED_BY, CONFIRMED_BY]
+
+  # ── Knowledge & Learning ──
+  TEACHES:
+    inverse: TAUGHT_BY
+    aliases: [INSTRUCTS, TRAINS, EDUCATES]
+  TAUGHT_BY:
+    inverse: TEACHES
+    aliases: [INSTRUCTED_BY, TRAINED_BY]
+  LEARNS:
+    inverse: LEARNED_FROM
+    aliases: [STUDIES, ACQUIRES_KNOWLEDGE]
+  LEARNED_FROM:
+    inverse: LEARNS
+    aliases: [STUDIED_FROM, KNOWLEDGE_SOURCE]
+  MENTORS:
+    inverse: MENTORED_BY
+    aliases: [COACHES, GUIDES, ADVISES]
+  MENTORED_BY:
+    inverse: MENTORS
+    aliases: [COACHED_BY, GUIDED_BY, ADVISED_BY]
+  REFERENCES:
+    inverse: REFERENCED_BY
+    aliases: [CITES, QUOTES, LINKS_TO_REF]
+  REFERENCED_BY:
+    inverse: REFERENCES
+    aliases: [CITED_BY, QUOTED_BY]
+
+  # ── Communication & Workflow ──
+  NOTIFIES:
+    inverse: NOTIFIED_BY
+    aliases: [ALERTS, INFORMS, SIGNALS]
+  NOTIFIED_BY:
+    inverse: NOTIFIES
+    aliases: [ALERTED_BY, INFORMED_BY]
+  APPROVES:
+    inverse: APPROVED_BY
+    aliases: [ACCEPTS, SIGNS_OFF, ENDORSES, SANCTIONS]
+  APPROVED_BY:
+    inverse: APPROVES
+    aliases: [ACCEPTED_BY, ENDORSED_BY, SANCTIONED_BY]
+  REVIEWS:
+    inverse: REVIEWED_BY
+    aliases: [EXAMINES, CRITIQUES, EVALUATES_WORK]
+  REVIEWED_BY:
+    inverse: REVIEWS
+    aliases: [EXAMINED_BY, CRITIQUED_BY]
+  REQUESTS:
+    inverse: REQUESTED_BY
+    aliases: [ASKS_FOR, SOLICITS, DEMANDS]
+  REQUESTED_BY:
+    inverse: REQUESTS
+    aliases: [ASKED_BY, SOLICITED_BY]
+  ASSIGNS:
+    inverse: ASSIGNED_BY
+    aliases: [DELEGATES, ALLOCATES, DISPATCHES]
+  ASSIGNED_BY:
+    inverse: ASSIGNS
+    aliases: [DELEGATED_BY, ALLOCATED_BY]
+  ASSIGNED_TO:
+    inverse: ASSIGNEE_OF
+    aliases: [TASKED_TO, DELEGATED_TO, ALLOCATED_TO]
+  ASSIGNEE_OF:
+    inverse: ASSIGNED_TO
+
+  # ── Financial ──
+  FUNDS:
+    inverse: FUNDED_BY
+    aliases: [FINANCES, SPONSORS, BANKROLLS, INVESTS_IN]
+  FUNDED_BY:
+    inverse: FUNDS
+    aliases: [FINANCED_BY, SPONSORED_BY, BACKED_BY]
+  COSTS:
+    inverse: COST_OF
+    aliases: [PRICED_AT, VALUED_AT, CHARGES]
+  COST_OF:
+    inverse: COSTS
+  INVOICES:
+    inverse: INVOICED_BY
+    aliases: [BILLS, CHARGES_FOR]
+  INVOICED_BY:
+    inverse: INVOICES
+    aliases: [BILLED_BY]
+
+  # ── Security ──
+  EXPLOITS:
+    inverse: EXPLOITED_BY
+    aliases: [ATTACKS, COMPROMISES, ABUSES]
+  EXPLOITED_BY:
+    inverse: EXPLOITS
+    aliases: [ATTACKED_BY, COMPROMISED_BY]
+  AUTHENTICATES:
+    inverse: AUTHENTICATED_BY
+    aliases: [VERIFIES_IDENTITY, IDENTIFIES]
+  AUTHENTICATED_BY:
+    inverse: AUTHENTICATES
+    aliases: [IDENTITY_VERIFIED_BY]
+  AUTHORIZES:
+    inverse: AUTHORIZED_BY
+    aliases: [PERMITS, GRANTS_ACCESS, ALLOWS]
+  AUTHORIZED_BY:
+    inverse: AUTHORIZES
+    aliases: [PERMITTED_BY, ACCESS_GRANTED_BY]
+  ENCRYPTS:
+    inverse: ENCRYPTED_BY
+    aliases: [SECURES, PROTECTS_DATA, CIPHERS]
+  ENCRYPTED_BY:
+    inverse: ENCRYPTS
+    aliases: [SECURED_BY, PROTECTED_BY]
+
+  # ── Spatial & Deployment ──
+  DEPLOYED_TO:
+    inverse: DEPLOYMENT_SOURCE_OF
+    aliases: [INSTALLED_ON, PROVISIONED_TO, SHIPPED_TO]
+  DEPLOYMENT_SOURCE_OF:
+    inverse: DEPLOYED_TO
+  ROUTES_TO:
+    inverse: ROUTED_FROM
+    aliases: [FORWARDS_TO, DIRECTS_TO, PROXIES_TO]
+  ROUTED_FROM:
+    inverse: ROUTES_TO
+    aliases: [FORWARDED_FROM, DIRECTED_FROM]
+  SCALES:
+    inverse: SCALED_BY
+    aliases: [AUTOSCALES, EXPANDS, GROWS]
+  SCALED_BY:
+    inverse: SCALES
+    aliases: [EXPANDED_BY]
+  REPLICATES:
+    inverse: REPLICATED_FROM
+    aliases: [COPIES, MIRRORS, CLONES]
+  REPLICATED_FROM:
+    inverse: REPLICATES
+    aliases: [COPIED_FROM, MIRRORED_FROM, CLONED_FROM]
+  MIGRATED_TO:
+    inverse: MIGRATED_FROM
+    aliases: [MOVED_TO, PORTED_TO, TRANSFERRED_TO]
+  MIGRATED_FROM:
+    inverse: MIGRATED_TO
+    aliases: [MOVED_FROM, PORTED_FROM]
+
+  # ── Versioning & Evolution ──
+  EXTENDS:
+    inverse: EXTENDED_BY
+    aliases: [AUGMENTS, ENHANCES, BUILDS_UPON]
+  EXTENDED_BY:
+    inverse: EXTENDS
+    aliases: [AUGMENTED_BY, ENHANCED_BY]
+  INHERITS_FROM:
+    inverse: INHERITED_BY
+    aliases: [SUBCLASSES, DERIVES_FROM_OOP]
+  INHERITED_BY:
+    inverse: INHERITS_FROM
+    aliases: [SUBCLASSED_BY]
+  FORKS:
+    inverse: FORKED_FROM
+    aliases: [BRANCHES_FROM, DIVERGES_FROM]
+  FORKED_FROM:
+    inverse: FORKS
+    aliases: [BRANCHED_FROM]
+  MERGES:
+    inverse: MERGED_INTO
+    aliases: [COMBINES_WITH, INTEGRATES_WITH]
+  MERGED_INTO:
+    inverse: MERGES
+    aliases: [COMBINED_INTO, INTEGRATED_INTO]
+  REVERTS:
+    inverse: REVERTED_BY
+    aliases: [ROLLS_BACK, UNDOES, REVERSES]
+  REVERTED_BY:
+    inverse: REVERTS
+    aliases: [ROLLED_BACK_BY, UNDONE_BY]
+  PATCHES:
+    inverse: PATCHED_BY
+    aliases: [HOTFIXES, BUGFIXES]
+  PATCHED_BY:
+    inverse: PATCHES
+    aliases: [HOTFIXED_BY]
+
+  # ── Impact & Risk ──
+  AFFECTS:
+    inverse: AFFECTED_BY
+    aliases: [IMPACTS_ON, INFLUENCES, MODIFIES]
+  AFFECTED_BY:
+    inverse: AFFECTS
+    aliases: [IMPACTED_BY, INFLUENCED_BY]
+  RISKS:
+    inverse: RISKED_BY
+    aliases: [ENDANGERS, THREATENS, JEOPARDIZES]
+  RISKED_BY:
+    inverse: RISKS
+    aliases: [ENDANGERED_BY, THREATENED_BY]
+  ENABLES:
+    inverse: ENABLED_BY
+    aliases: [EMPOWERS, FACILITATES, MAKES_POSSIBLE]
+  ENABLED_BY:
+    inverse: ENABLES
+    aliases: [EMPOWERED_BY, FACILITATED_BY]
+  BLOCKS:
+    inverse: BLOCKED_BY
+    aliases: [OBSTRUCTS, IMPEDES, HALTS]
+  BLOCKED_BY:
+    inverse: BLOCKS
+    aliases: [OBSTRUCTED_BY, IMPEDED_BY]
+  DEGRADES:
+    inverse: DEGRADED_BY
+    aliases: [WORSENS, DIMINISHES, DETERIORATES]
+  DEGRADED_BY:
+    inverse: DEGRADES
+    aliases: [WORSENED_BY, DIMINISHED_BY]
+
+  # ── Healthcare ──
+  DIAGNOSES:
+    inverse: DIAGNOSED_BY
+    aliases: [IDENTIFIES_CONDITION, DETECTS]
+  DIAGNOSED_BY:
+    inverse: DIAGNOSES
+    aliases: [CONDITION_IDENTIFIED_BY]
+  TREATS:
+    inverse: TREATED_BY
+    aliases: [MANAGES_CONDITION, ADDRESSES, REMEDIATES]
+  TREATED_BY:
+    inverse: TREATS
+    aliases: [MANAGED_BY_TREATMENT, REMEDIATED_BY]
+  PRESCRIBES:
+    inverse: PRESCRIBED_BY
+    aliases: [RECOMMENDS_TREATMENT, ORDERS]
+  PRESCRIBED_BY:
+    inverse: PRESCRIBES
+    aliases: [RECOMMENDED_BY_TREATMENT]
+  MONITORS:
+    inverse: MONITORED_BY
+    aliases: [OBSERVES, TRACKS, WATCHES, SURVEYS]
+  MONITORED_BY:
+    inverse: MONITORS
+    aliases: [OBSERVED_BY, TRACKED_BY]

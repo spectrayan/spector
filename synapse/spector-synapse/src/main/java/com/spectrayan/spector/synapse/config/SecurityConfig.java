@@ -216,7 +216,7 @@ public class SecurityConfig {
         http
                 .cors(cors -> {})  // Enable CORS — delegates to WebMvcConfigurer bean
                 // Stateless REST and MCP API endpoints use header-based tokens (JWT/API-key) and omit CSRF cookies
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**", "/mcp", "/actuator/**"))
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**", "/mcp", "/mcp/**", "/actuator/**"))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
@@ -246,7 +246,7 @@ public class SecurityConfig {
                         .requestMatchers("/*.js", "/*.css", "/*.ico", "/*.png").permitAll()
                         // Protected surfaces require a non-anonymous Authentication (Requirement 6.1).
                         .requestMatchers("/api/**").authenticated()
-                        .requestMatchers("/mcp").authenticated()
+                        .requestMatchers("/mcp", "/mcp/**").authenticated()
                         .anyRequest().authenticated();
             });
 
