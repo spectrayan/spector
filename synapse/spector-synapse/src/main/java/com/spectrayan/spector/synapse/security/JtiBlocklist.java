@@ -17,8 +17,15 @@ import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+
+import com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants;
+import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;
+import com.spectrayan.spector.synapse.error.SynapseDatabaseException;
 
 /**
  * JDBC-backed blocklist of revoked JWT identifiers ({@code jti}).
@@ -36,9 +43,16 @@ public class JtiBlocklist {
     private static final Logger log = LoggerFactory.getLogger(JtiBlocklist.class);
 
     private final JdbcClient jdbc;
+    private final SqlQueryLoader sqlLoader;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public JtiBlocklist(JdbcClient jdbc, SqlQueryLoader sqlLoader) {
+        this.jdbc = Objects.requireNonNull(jdbc, "jdbc must not be null");
+        this.sqlLoader = Objects.requireNonNull(sqlLoader, "sqlLoader must not be null");
+    }
 
     public JtiBlocklist(JdbcClient jdbc) {
-        this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
+        this(jdbc, new SqlQueryLoader());
     }
 
     /**
@@ -49,15 +63,21 @@ public class JtiBlocklist {
      * @param jti       the JWT identifier to block (never {@code null}/blank)
      * @param expiresAt when the original token expires; may be {@code null}
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_JTI_BLOCKLIST, key = "#jti")
     public void add(String jti, Instant expiresAt) {
         if (jti == null || jti.isBlank()) {
             throw new IllegalArgumentException("jti must not be null or blank");
         }
-        jdbc.sql("MERGE INTO jti_blocklist (jti, expires_at) KEY (jti) VALUES (:jti, :expiresAt)")
-                .param("jti", jti)
-                .param("expiresAt", expiresAt != null ? java.sql.Timestamp.from(expiresAt) : null)
-                .update();
-        log.debug("[Auth] Blocked jti {}", jti);
+        try {
+            jdbc.sql(sqlLoader.load("auth/merge-jti"))
+                    .param("jti", jti)
+                    .param("expiresAt", expiresAt != null ? java.sql.Timestamp.from(expiresAt) : null)
+                    .update();
+            log.debug("[Auth] Blocked jti {}", jti);
+        } catch (DataAccessException e) {
+            log.error("[Auth] Failed to block jti {}", jti, e);
+            throw new SynapseDatabaseException("blockJti", "jti_blocklist", e);
+        }
     }
 
     /**
@@ -67,14 +87,21 @@ public class JtiBlocklist {
      * @return {@code true} when the {@code jti} is blocked; {@code false} when
      *         it is absent or the argument is {@code null}/blank
      */
+    @Cacheable(value = SynapseCacheConstants.CACHE_JTI_BLOCKLIST, key = "#jti", unless = "#result == false")
     public boolean isBlocked(String jti) {
         if (jti == null || jti.isBlank()) {
             return false;
         }
-        int count = jdbc.sql("SELECT COUNT(*) FROM jti_blocklist WHERE jti = :jti")
-                .param("jti", jti)
-                .query(Integer.class)
-                .single();
-        return count > 0;
+        try {
+            int count = jdbc.sql(sqlLoader.load("auth/is-jti-blocked"))
+                    .param("jti", jti)
+                    .query(Integer.class)
+                    .single();
+            return count > 0;
+        } catch (DataAccessException e) {
+            log.error("[Auth] Failed to query jti blocklist for {}", jti, e);
+            throw new SynapseDatabaseException("isBlocked", "jti_blocklist", e);
+        }
     }
 }
+

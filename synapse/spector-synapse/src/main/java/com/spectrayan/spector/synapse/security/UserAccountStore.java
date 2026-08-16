@@ -14,10 +14,16 @@ package com.spectrayan.spector.synapse.security;
 
 import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.synapse.config.SynapseProperties;
+import com.spectrayan.spector.synapse.config.cache.SynapseCacheConstants;
+import com.spectrayan.spector.synapse.config.sql.SqlQueryLoader;
+import com.spectrayan.spector.synapse.error.SynapseDatabaseException;
 import com.spectrayan.spector.config.properties.AuthProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -64,18 +70,26 @@ public class UserAccountStore {
     private final JdbcClient jdbc;
     private final Pbkdf2PasswordEncoder encoder;
     private final AuthProperties auth;
+    private final SqlQueryLoader sqlLoader;
 
     /**
      * Creates the store.
      *
-     * @param jdbc    Spring {@link JdbcClient} bound to the H2 datasource
-     * @param encoder shared PBKDF2 password encoder (see {@code SecurityConfig})
-     * @param props   bound {@code spector.*} configuration (supplies lockout thresholds)
+     * @param jdbc      Spring {@link JdbcClient} bound to the H2 datasource
+     * @param encoder   shared PBKDF2 password encoder (see {@code SecurityConfig})
+     * @param props     bound {@code spector.*} configuration (supplies lockout thresholds)
+     * @param sqlLoader externalized SQL query loader
      */
-    public UserAccountStore(JdbcClient jdbc, Pbkdf2PasswordEncoder encoder, SynapseProperties props) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public UserAccountStore(JdbcClient jdbc, Pbkdf2PasswordEncoder encoder, SynapseProperties props, SqlQueryLoader sqlLoader) {
         this.jdbc = jdbc;
         this.encoder = encoder;
         this.auth = props.auth();
+        this.sqlLoader = sqlLoader != null ? sqlLoader : new SqlQueryLoader();
+    }
+
+    public UserAccountStore(JdbcClient jdbc, Pbkdf2PasswordEncoder encoder, SynapseProperties props) {
+        this(jdbc, encoder, props, new SqlQueryLoader());
     }
 
     /**
@@ -96,6 +110,7 @@ public class UserAccountStore {
      * @return the generated {@code user_id} (13-char TSID)
      * @throws DuplicateUsernameException if the username already exists (case-insensitive)
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, allEntries = true)
     public String createUser(String username, String plainPassword, String email,
                              String displayName, Set<String> roles, Set<String> scopes,
                              boolean mustChangePassword) {
@@ -114,13 +129,7 @@ public class UserAccountStore {
         Instant now = Instant.now();
 
         try {
-            jdbc.sql("""
-                            INSERT INTO users (user_id, username, password_hash, email, display_name,
-                                               roles, scopes, must_change_password, active,
-                                               failed_login_count, created_at, updated_at)
-                            VALUES (:userId, :username, :passwordHash, :email, :displayName,
-                                    :roles, :scopes, :mustChange, TRUE, 0, :now, :now)
-                            """)
+            jdbc.sql(sqlLoader.load("users/insert-user"))
                     .param("userId", userId)
                     .param("username", username)
                     .param("passwordHash", passwordHash)
@@ -134,6 +143,9 @@ public class UserAccountStore {
         } catch (org.springframework.dao.DuplicateKeyException e) {
             // Race with a concurrent create under the DB-level UNIQUE(username) constraint.
             throw new DuplicateUsernameException(username);
+        } catch (DataAccessException e) {
+            log.error("Failed to insert user {}", username, e);
+            throw new SynapseDatabaseException("createUser", "users", e);
         }
 
         log.info("Created user id={} (roles={})", userId, roles);
@@ -149,24 +161,26 @@ public class UserAccountStore {
      * @return {@code true} when the current password matched and the hash was updated;
      *         {@code false} when the user does not exist or {@code oldPw} did not match
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, allEntries = true)
     public boolean changePassword(String username, String oldPw, String newPw) {
         Optional<UserRow> row = findByUsername(username);
         if (row.isEmpty() || !encoder.matches(oldPw, row.get().passwordHash())) {
             return false;
         }
-        int rows = jdbc.sql("""
-                        UPDATE users SET password_hash = :hash, must_change_password = FALSE,
-                               updated_at = :now
-                        WHERE user_id = :userId
-                        """)
-                .param("hash", encoder.encode(newPw))
-                .param("now", Instant.now())
-                .param("userId", row.get().userId())
-                .update();
-        if (rows > 0) {
-            log.info("Password changed for user id={}", row.get().userId());
+        try {
+            int rows = jdbc.sql(sqlLoader.load("users/update-password"))
+                    .param("hash", encoder.encode(newPw))
+                    .param("now", Instant.now())
+                    .param("userId", row.get().userId())
+                    .update();
+            if (rows > 0) {
+                log.info("Password changed for user id={}", row.get().userId());
+            }
+            return rows > 0;
+        } catch (DataAccessException e) {
+            log.error("Failed to update password for user {}", username, e);
+            throw new SynapseDatabaseException("changePassword", "users", e);
         }
-        return rows > 0;
     }
 
     /**
@@ -177,20 +191,22 @@ public class UserAccountStore {
      * @param newPw  new password to hash and store
      * @return {@code true} when a row was updated
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, allEntries = true)
     public boolean forceResetPassword(String userId, String newPw) {
-        int rows = jdbc.sql("""
-                        UPDATE users SET password_hash = :hash, must_change_password = FALSE,
-                               failed_login_count = 0, locked_until = NULL, updated_at = :now
-                        WHERE user_id = :userId
-                        """)
-                .param("hash", encoder.encode(newPw))
-                .param("now", Instant.now())
-                .param("userId", userId)
-                .update();
-        if (rows > 0) {
-            log.info("Force-reset password for user id={}", userId);
+        try {
+            int rows = jdbc.sql(sqlLoader.load("users/force-reset-password"))
+                    .param("hash", encoder.encode(newPw))
+                    .param("now", Instant.now())
+                    .param("userId", userId)
+                    .update();
+            if (rows > 0) {
+                log.info("Force-reset password for user id={}", userId);
+            }
+            return rows > 0;
+        } catch (DataAccessException e) {
+            log.error("Failed to force-reset password for user id={}", userId, e);
+            throw new SynapseDatabaseException("forceResetPassword", "users", e);
         }
-        return rows > 0;
     }
 
     /**
@@ -199,19 +215,20 @@ public class UserAccountStore {
      * @param username login handle
      * @return the matching {@link UserRow}, or empty when none exists
      */
+    @Cacheable(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, key = "#username.toLowerCase()")
     public Optional<UserRow> findByUsername(String username) {
         if (username == null) {
             return Optional.empty();
         }
-        return jdbc.sql("""
-                        SELECT user_id, username, password_hash, email, display_name, roles, scopes,
-                               must_change_password, active, failed_login_count, locked_until,
-                               last_login_at, created_at, updated_at
-                        FROM users WHERE LOWER(username) = LOWER(:username)
-                        """)
-                .param("username", username)
-                .query(UserAccountStore::mapRow)
-                .optional();
+        try {
+            return jdbc.sql(sqlLoader.load("users/find-by-username"))
+                    .param("username", username)
+                    .query(UserAccountStore::mapRow)
+                    .optional();
+        } catch (DataAccessException e) {
+            log.error("Failed to find user by username {}", username, e);
+            throw new SynapseDatabaseException("findByUsername", "users", e);
+        }
     }
 
     /**
@@ -224,15 +241,15 @@ public class UserAccountStore {
         if (userId == null) {
             return Optional.empty();
         }
-        return jdbc.sql("""
-                        SELECT user_id, username, password_hash, email, display_name, roles, scopes,
-                               must_change_password, active, failed_login_count, locked_until,
-                               last_login_at, created_at, updated_at
-                        FROM users WHERE user_id = :userId
-                        """)
-                .param("userId", userId)
-                .query(UserAccountStore::mapRow)
-                .optional();
+        try {
+            return jdbc.sql(sqlLoader.load("users/find-by-id"))
+                    .param("userId", userId)
+                    .query(UserAccountStore::mapRow)
+                    .optional();
+        } catch (DataAccessException e) {
+            log.error("Failed to find user by id {}", userId, e);
+            throw new SynapseDatabaseException("findByUserId", "users", e);
+        }
     }
 
     /**
@@ -241,14 +258,14 @@ public class UserAccountStore {
      * @return every persisted user (active and inactive)
      */
     public List<UserRow> listUsers() {
-        return jdbc.sql("""
-                        SELECT user_id, username, password_hash, email, display_name, roles, scopes,
-                               must_change_password, active, failed_login_count, locked_until,
-                               last_login_at, created_at, updated_at
-                        FROM users ORDER BY username
-                        """)
-                .query(UserAccountStore::mapRow)
-                .list();
+        try {
+            return jdbc.sql(sqlLoader.load("users/list-users"))
+                    .query(UserAccountStore::mapRow)
+                    .list();
+        } catch (DataAccessException e) {
+            log.error("Failed to list users", e);
+            throw new SynapseDatabaseException("listUsers", "users", e);
+        }
     }
 
     /**
@@ -257,15 +274,21 @@ public class UserAccountStore {
      * @param userId 13-char TSID of the target user
      * @return {@code true} when a row was updated
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, allEntries = true)
     public boolean deactivateUser(String userId) {
-        int rows = jdbc.sql("UPDATE users SET active = FALSE, updated_at = :now WHERE user_id = :userId")
-                .param("now", Instant.now())
-                .param("userId", userId)
-                .update();
-        if (rows > 0) {
-            log.info("Deactivated user id={}", userId);
+        try {
+            int rows = jdbc.sql(sqlLoader.load("users/deactivate-user"))
+                    .param("now", Instant.now())
+                    .param("userId", userId)
+                    .update();
+            if (rows > 0) {
+                log.info("Deactivated user id={}", userId);
+            }
+            return rows > 0;
+        } catch (DataAccessException e) {
+            log.error("Failed to deactivate user id={}", userId, e);
+            throw new SynapseDatabaseException("deactivateUser", "users", e);
         }
-        return rows > 0;
     }
 
     /**
@@ -283,6 +306,7 @@ public class UserAccountStore {
      * @param displayName replacement display name, or {@code null} to leave unchanged
      * @return the updated {@link UserRow}, or empty when the target user does not exist
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, allEntries = true)
     public Optional<UserRow> updateAccount(String userId, Boolean active, Set<String> roles,
                                            Set<String> scopes, String displayName) {
         Optional<UserRow> existing = findByUserId(userId);
@@ -295,20 +319,21 @@ public class UserAccountStore {
         Set<String> newScopes = scopes != null ? scopes : row.scopes();
         String newDisplayName = displayName != null ? displayName : row.displayName();
 
-        jdbc.sql("""
-                        UPDATE users SET active = :active, roles = :roles, scopes = :scopes,
-                               display_name = :displayName, updated_at = :now
-                        WHERE user_id = :userId
-                        """)
-                .param("active", newActive)
-                .param("roles", toCsv(newRoles))
-                .param("scopes", toCsv(newScopes))
-                .param("displayName", newDisplayName)
-                .param("now", Instant.now())
-                .param("userId", userId)
-                .update();
-        log.info("Updated account for user id={}", userId);
-        return findByUserId(userId);
+        try {
+            jdbc.sql(sqlLoader.load("users/update-account"))
+                    .param("active", newActive)
+                    .param("roles", toCsv(newRoles))
+                    .param("scopes", toCsv(newScopes))
+                    .param("displayName", newDisplayName)
+                    .param("now", Instant.now())
+                    .param("userId", userId)
+                    .update();
+            log.info("Updated account for user id={}", userId);
+            return findByUserId(userId);
+        } catch (DataAccessException e) {
+            log.error("Failed to update account for user id={}", userId, e);
+            throw new SynapseDatabaseException("updateAccount", "users", e);
+        }
     }
 
     /**
@@ -344,6 +369,7 @@ public class UserAccountStore {
      *
      * @param userId 13-char TSID of the target user
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, allEntries = true)
     public void recordFailure(String userId) {
         Optional<UserRow> current = findByUserId(userId);
         if (current.isEmpty()) {
@@ -355,29 +381,27 @@ public class UserAccountStore {
             return;
         }
         int newCount = current.get().failedLoginCount() + 1;
-        if (newCount >= auth.lockout().maxAttempts()) {
-            Instant lockUntil = now.plus(Duration.ofMinutes(auth.lockout().minutes()));
-            jdbc.sql("""
-                            UPDATE users SET failed_login_count = :count, locked_until = :lockUntil,
-                                   updated_at = :now
-                            WHERE user_id = :userId
-                            """)
-                    .param("count", newCount)
-                    .param("lockUntil", lockUntil)
-                    .param("now", now)
-                    .param("userId", userId)
-                    .update();
-            log.warn("Account locked for user id={} until {} after {} failed attempts",
-                    userId, lockUntil, newCount);
-        } else {
-            jdbc.sql("""
-                            UPDATE users SET failed_login_count = :count, updated_at = :now
-                            WHERE user_id = :userId
-                            """)
-                    .param("count", newCount)
-                    .param("now", now)
-                    .param("userId", userId)
-                    .update();
+        try {
+            if (newCount >= auth.lockout().maxAttempts()) {
+                Instant lockUntil = now.plus(Duration.ofMinutes(auth.lockout().minutes()));
+                jdbc.sql(sqlLoader.load("users/record-failure-lock"))
+                        .param("count", newCount)
+                        .param("lockUntil", lockUntil)
+                        .param("now", now)
+                        .param("userId", userId)
+                        .update();
+                log.warn("Account locked for user id={} until {} after {} failed attempts",
+                        userId, lockUntil, newCount);
+            } else {
+                jdbc.sql(sqlLoader.load("users/record-failure-count"))
+                        .param("count", newCount)
+                        .param("now", now)
+                        .param("userId", userId)
+                        .update();
+            }
+        } catch (DataAccessException e) {
+            log.error("Failed to record failure for user id={}", userId, e);
+            throw new SynapseDatabaseException("recordFailure", "users", e);
         }
     }
 
@@ -387,26 +411,33 @@ public class UserAccountStore {
      *
      * @param userId 13-char TSID of the target user
      */
+    @CacheEvict(value = SynapseCacheConstants.CACHE_USER_ACCOUNTS, allEntries = true)
     public void recordSuccess(String userId) {
         Instant now = Instant.now();
-        jdbc.sql("""
-                        UPDATE users SET failed_login_count = 0, locked_until = NULL,
-                               last_login_at = :now, updated_at = :now
-                        WHERE user_id = :userId
-                        """)
-                .param("now", now)
-                .param("userId", userId)
-                .update();
+        try {
+            jdbc.sql(sqlLoader.load("users/record-success"))
+                    .param("now", now)
+                    .param("userId", userId)
+                    .update();
+        } catch (DataAccessException e) {
+            log.error("Failed to record success for user id={}", userId, e);
+            throw new SynapseDatabaseException("recordSuccess", "users", e);
+        }
     }
 
     // ── Internal helpers ──
 
     private boolean usernameExists(String username) {
-        Integer count = jdbc.sql("SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(:username)")
-                .param("username", username)
-                .query(Integer.class)
-                .single();
-        return count != null && count > 0;
+        try {
+            Integer count = jdbc.sql(sqlLoader.load("users/username-exists"))
+                    .param("username", username)
+                    .query(Integer.class)
+                    .single();
+            return count != null && count > 0;
+        } catch (DataAccessException e) {
+            log.error("Failed to check if username exists: {}", username, e);
+            throw new SynapseDatabaseException("usernameExists", "users", e);
+        }
     }
 
     /**

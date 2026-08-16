@@ -14,6 +14,10 @@ package com.spectrayan.spector.synapse.config;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorException;
+import com.spectrayan.spector.synapse.error.SynapseConflictException;
+import com.spectrayan.spector.synapse.error.SynapseDatabaseException;
+import com.spectrayan.spector.synapse.error.SynapseException;
+import com.spectrayan.spector.synapse.error.SynapseNotFoundException;
 import com.spectrayan.spector.synapse.memory.MemoryDto.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +36,51 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(SynapseNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSynapseNotFound(SynapseNotFoundException ex) {
+        log.warn("[SynapseNotFoundException] [{}] status=404 message={}", ex.codeId(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.codeId(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(SynapseConflictException.class)
+    public ResponseEntity<ErrorResponse> handleSynapseConflict(SynapseConflictException ex) {
+        log.warn("[SynapseConflictException] [{}] status=409 message={}", ex.codeId(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.codeId(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(SynapseDatabaseException.class)
+    public ResponseEntity<ErrorResponse> handleSynapseDatabase(SynapseDatabaseException ex) {
+        log.error("[SynapseDatabaseException] [{}] operation={} entity={} error={}",
+                ex.codeId(), ex.operation(), ex.entityName(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), ex.codeId(), "Database operation failed: " + ex.operation()));
+    }
+
+    @ExceptionHandler(SynapseException.class)
+    public ResponseEntity<ErrorResponse> handleSynapseException(SynapseException ex) {
+        ErrorCode code = ex.errorCode();
+        HttpStatus status = switch (code.category()) {
+            case VALIDATION -> HttpStatus.BAD_REQUEST;
+            case CONFIG -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case CONNECTOR -> (code == ErrorCode.CONNECTOR_ROUTE_NOT_FOUND ||
+                               code == ErrorCode.CONNECTOR_TEMPLATE_NOT_FOUND)
+                    ? HttpStatus.NOT_FOUND
+                    : HttpStatus.BAD_REQUEST;
+            case INGESTION -> HttpStatus.BAD_REQUEST;
+            case SERVER -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+        log.warn("[SynapseException] [{}] status={} message={}", code.id(), status.value(), ex.getMessage());
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ErrorResponse(status.value(), code.id(), ex.getMessage()));
+    }
 
     @ExceptionHandler(SpectorException.class)
     public ResponseEntity<ErrorResponse> handleSpectorException(SpectorException ex) {

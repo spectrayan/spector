@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.synapse.security;
 
+import com.spectrayan.spector.synapse.error.SynapseConflictException;
+
 /**
  * Thrown when a user creation request specifies a {@code username} that already exists under
  * case-insensitive comparison (Requirement 16.4).
@@ -20,7 +22,7 @@ package com.spectrayan.spector.synapse.security;
  * generic so it can back a uniform {@code 409 Conflict} response without leaking additional
  * account detail.</p>
  */
-public class DuplicateUsernameException extends RuntimeException {
+public class DuplicateUsernameException extends SynapseConflictException {
 
     private final transient String username;
 
@@ -30,7 +32,7 @@ public class DuplicateUsernameException extends RuntimeException {
      * @param username the username that is already in use
      */
     public DuplicateUsernameException(String username) {
-        super("username already in use");
+        super("username", username);
         this.username = username;
     }
 
@@ -43,3 +45,4 @@ public class DuplicateUsernameException extends RuntimeException {
         return username;
     }
 }
+
