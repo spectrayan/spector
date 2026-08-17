@@ -121,7 +121,9 @@ public class SpectorAutoConfiguration {
                                  ObjectProvider<LlmProvider> textGenProvider,
                                  ObjectProvider<MeterRegistry> registryProvider,
                                  ObjectProvider<SalienceProfileProvider> salienceProvider,
-                                 ObjectProvider<SpectorCacheManager> cacheManagerProvider) {
+                                 ObjectProvider<SpectorCacheManager> cacheManagerProvider,
+                                 ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
+                                 ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider) {
 
         var memoryProps = props.getMemory();
         EmbeddingProvider embedder = embedderProvider.getIfAvailable();
@@ -184,6 +186,13 @@ public class SpectorAutoConfiguration {
             builder.cacheManager(cacheManager);
         }
 
+        io.micrometer.observation.ObservationRegistry obsRegistry = observationRegistryProvider.getIfAvailable();
+        com.spectrayan.spector.config.ObservabilityConfig obsConfig = observabilityConfigProvider.getIfAvailable();
+
+        if (obsRegistry != null && obsConfig != null) {
+            builder.observationHook(new com.spectrayan.spector.metrics.observation.MicrometerMemoryObservationHook(obsRegistry, obsConfig));
+        }
+
         SpectorMemory raw = builder.build();
         log.info("SpectorMemory auto-configured: dims={}, persistence={}, path={}, entity={}, SPLADE={}, ColBERT={}, salience={}",
                 memoryProps.getDimensions(), memoryProps.getPersistenceMode(),
@@ -195,7 +204,11 @@ public class SpectorAutoConfiguration {
         if (registry != null && props.getMetrics().isEnabled()) {
             SpectorMetrics.init(registry);
             log.info("Spector metrics enabled via Spring MeterRegistry");
-            return new MeteredSpectorMemory(raw, registry);
+            new com.spectrayan.spector.metrics.observation.SpectorMemoryGauges(raw).bindTo(registry);
+        }
+
+        if (obsRegistry != null && obsConfig != null) {
+            return new com.spectrayan.spector.metrics.ObservedSpectorMemory(raw, obsRegistry, obsConfig);
         }
 
         return raw;
