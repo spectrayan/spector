@@ -64,6 +64,9 @@ public class MemoryProperties implements Serializable {
     private ConsolidationProperties consolidation = new ConsolidationProperties();
     private LlmProperties llm = new LlmProperties();
 
+    private int entityExtractionParallelism = DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM;
+    private int entityExtractionQueueCapacity = DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY;
+
     public MemoryProperties() {}
 
     public MemoryProperties(int maxMemories, int dimensions) {
@@ -235,4 +238,12 @@ public class MemoryProperties implements Serializable {
     public long getInsulaSize() { return insulaSize; }
     public void setInsulaSize(long insulaSize) { this.insulaSize = insulaSize; }
     public long insulaSize() { return insulaSize; }
+
+    public int getEntityExtractionParallelism() { return entityExtractionParallelism; }
+    public void setEntityExtractionParallelism(int entityExtractionParallelism) { this.entityExtractionParallelism = entityExtractionParallelism; }
+    public int entityExtractionParallelism() { return entityExtractionParallelism; }
+
+    public int getEntityExtractionQueueCapacity() { return entityExtractionQueueCapacity; }
+    public void setEntityExtractionQueueCapacity(int entityExtractionQueueCapacity) { this.entityExtractionQueueCapacity = entityExtractionQueueCapacity; }
+    public int entityExtractionQueueCapacity() { return entityExtractionQueueCapacity; }
 }

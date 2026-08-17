@@ -410,6 +410,12 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_ENTITY_SHADOW_MODE = "spector.memory.entity.shadow-mode";
     public static final boolean DEFAULT_MEMORY_ENTITY_SHADOW_MODE = true;
 
+    public static final String MEMORY_ENTITY_EXTRACTION_PARALLELISM = "spector.memory.entity-extraction.parallelism";
+    public static final int DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM = 1;
+
+    public static final String MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY = "spector.memory.entity-extraction.queue-capacity";
+    public static final int DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY = 1000;
+
     public static final String MEMORY_EDGE_IMPORTANCE = "spector.memory.edge-importance";
     public static final String DEFAULT_MEMORY_EDGE_IMPORTANCE = "DEFAULT";
 
