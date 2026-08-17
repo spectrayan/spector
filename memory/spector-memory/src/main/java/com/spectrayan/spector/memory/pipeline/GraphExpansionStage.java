@@ -71,7 +71,7 @@ import java.util.Set;
  * @see RecallPipeline
  * @see GraphScoringPolicy
  */
-final class GraphExpansionStage {
+public final class GraphExpansionStage {
 
     private static final Logger log = LoggerFactory.getLogger(GraphExpansionStage.class);
 
@@ -136,7 +136,7 @@ final class GraphExpansionStage {
      * @param queryVector  the embedded query vector
      * @param options      recall options (for expansion threshold, entity hints)
      */
-    void expand(List<CognitiveResult> allResults, float[] queryVector, RecallOptions options) {
+    public void expand(List<CognitiveResult> allResults, float[] queryVector, RecallOptions options) {
         boolean cognitiveScoring = options.scoringMode() != ScoringMode.SIMILARITY;
         boolean hasSubsystems = hebbianGraph != null || temporalChain != null
                 || (entityDirectory != null && (entityExtractor != null && entityExtractor.isAvailable()
