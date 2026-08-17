@@ -32,9 +32,10 @@ import com.spectrayan.spector.memory.id.MemoryIdGenerator;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.pipeline.TagExtractor;
+import com.spectrayan.spector.memory.pipeline.GraphScoringPolicy;
 import com.spectrayan.spector.memory.synapse.TwoFactorConfig;
+import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -95,6 +96,7 @@ public final class SpectorMemoryBuilder {
     int pinnedQuota = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_PINNED_QUOTA;
     TagExtractor tagExtractor;
     CognitiveProfileConfig profileConfig = CognitiveProfileConfig.allEnabled();
+    MemoryObservationHook hook;
 
     // ─── 3-Layer Cognitive Graph configuration ───
     int hebbianGraphCapacity = 0;
@@ -299,6 +301,16 @@ public final class SpectorMemoryBuilder {
 
     /** Graph scoring policy  --  configurable weights for cognitive graph steps (default: GraphScoringPolicy.DEFAULT). */
     public SpectorMemoryBuilder graphScoringPolicy(GraphScoringPolicy policy) { this.graphScoringPolicy = policy; return this; }
+
+    /**
+     * Sets the observation hook for pipeline telemetry.
+     * @param hook the observation hook (defaults to NOOP)
+     * @return this builder
+     */
+    public SpectorMemoryBuilder observationHook(MemoryObservationHook hook) {
+        this.hook = hook;
+        return this;
+    }
 
     /** Temporal chain retention in days  --  links older than this are pruned during reflect() (default: 7). */
     public SpectorMemoryBuilder temporalRetentionDays(int days) { this.temporalRetentionDays = days; return this; }

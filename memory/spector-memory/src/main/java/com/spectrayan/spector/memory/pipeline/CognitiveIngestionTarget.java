@@ -34,6 +34,8 @@ import com.spectrayan.spector.memory.model.*;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.commons.observation.MemoryObservationHook;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.*;
 import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
@@ -129,6 +131,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
     //  Partition rolling callback (nullable) 
     private volatile Runnable partitionRollCallback;
+
+    //  Observability hook (defaults to zero-overhead NOOP)
+    private volatile MemoryObservationHook hook = MemoryObservationHook.NOOP;
 
     public CognitiveIngestionTarget(ScalarQuantizer quantizer,
                                      SurpriseDetector surpriseDetector,
@@ -300,6 +305,16 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         this.partitionRollCallback = callback;
     }
 
+    /**
+     * Injects the observation hook for unified observability.
+     */
+    public void setObservationHook(MemoryObservationHook hook) {
+        this.hook = hook != null ? hook : MemoryObservationHook.NOOP;
+        if (this.asyncEntityExtractionQueue != null) {
+            this.asyncEntityExtractionQueue.setObservationHook(this.hook);
+        }
+    }
+
     public ScalarQuantizer quantizer() {
         return quantizer;
     }
@@ -381,7 +396,7 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     public void ingest(String id, String text, float[] vector) {
         // Step 1b: Auto-extract synaptic tags + emotional context from content
         long tagStartNs = System.nanoTime();
-        TagExtractionResult extraction = tagExtractor.extractWithContext(id, text);
+        TagExtractionResult extraction = hook.observe(TAG_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () -> tagExtractor.extractWithContext(id, text));
         String[] tags = extraction.tags();
         long tagMs = (System.nanoTime() - tagStartNs) / 1_000_000;
 
@@ -523,10 +538,14 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Step 9d: Entity extraction and graph population (asynchronous / non-blocking)
         if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {
-            asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid);
+            hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () ->
+                asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid)
+            );
         } else {
-            List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
-            postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
+            hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () -> {
+                List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+                postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
+            });
         }
 
         log.debug("Ingested '{}' as {} (importance={}, {} tags, graphSlot={}, source={})",
@@ -777,14 +796,20 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
 
         // Step 9d: Entity extraction and graph population
         if (context.hasEntities()) {
-            postIngestSync.syncPreExtractedEntities(context.entities(), memoryIdx, id);
-            postIngestSync.syncTemporalFacts(context.entities(), memoryIdx, id, header.timestampMs() / 1000);
+            hook.observe(GRAPH_SYNC, java.util.Map.of(TAG_MEMORY_ID, id), () -> {
+                postIngestSync.syncPreExtractedEntities(context.entities(), memoryIdx, id);
+                postIngestSync.syncTemporalFacts(context.entities(), memoryIdx, id, header.timestampMs() / 1000);
+            });
         } else if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {
             String nsid = com.spectrayan.spector.commons.concurrent.MemoryScope.namespaceId();
-            asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid);
+            hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () ->
+                asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid)
+            );
         } else {
-            List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
-            postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
+            hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, id), () -> {
+                List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+                postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
+            });
         }
 
         log.debug("Ingested '{}' as {} with IngestionContext (importance={}, {} tags, entities={}, hebbianEdges={}, temporalLinks={})",

@@ -96,6 +96,13 @@ import java.util.function.Supplier;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 
 import com.spectrayan.spector.commons.concurrent.NativeOsMemory;
+import com.spectrayan.spector.commons.observation.MemoryObservationHook;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.EMBEDDING;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.VECTOR_SEARCH;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.SCORING;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.GRAPH_EXPANSION;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.TAG_SEARCH_MODE;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.TAG_INDEX_TYPE;
 
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingResult;
@@ -154,6 +161,7 @@ public final class RecallPipeline {
     private final GraphScoringPolicy graphScoringPolicy;
     private final GraphExpansionStage graphExpansionStage;
     private final com.spectrayan.spector.memory.pipeline.graph.TemporalFactWeavingStage temporalFactWeavingStage;
+    private final MemoryObservationHook hook;
 
     private final List<RecallListener> listeners = new ArrayList<>();
 
@@ -379,7 +387,7 @@ public final class RecallPipeline {
                 prospectiveScheduler, wal, calibrationMins, calibrationScales,
                 semanticRecallStrategy, coActivationTracker, hebbianGraph, temporalChain,
                 entityDirectory, hyperEntityGraph, temporalKnowledgeGraph, entityExtractor, graphScoringPolicy,
-                bm25Index, spladeIndex, spladeProvider, colbertReranker, recallHistory, mmrReranker, null);
+                bm25Index, spladeIndex, spladeProvider, colbertReranker, recallHistory, mmrReranker, null, null);
     }
 
     /**
@@ -409,7 +417,8 @@ public final class RecallPipeline {
                            ColBERTReranker colbertReranker,
                            RecallHistory recallHistory,
                            com.spectrayan.spector.memory.pipeline.reranker.MmrReranker mmrReranker,
-                           com.spectrayan.spector.memory.dopamine.SurpriseDetector surpriseDetector) {
+                           com.spectrayan.spector.memory.dopamine.SurpriseDetector surpriseDetector,
+                           MemoryObservationHook hook) {
         this.embeddingProvider = embeddingProvider;
         this.partitionRegistry = partitionRegistry;
         this.index = index;
@@ -435,12 +444,13 @@ public final class RecallPipeline {
         this.mmrReranker = mmrReranker;
         this.surpriseDetector = surpriseDetector;
         this.partitionPruner = PartitionPruner.defaultPruner();
+        this.hook = hook != null ? hook : MemoryObservationHook.NOOP;
 
         //  Phase Components Initialization 
         this.candidateGatherer = new RecallCandidateGatherer(index, bm25Index);
         this.cognitiveReranker = new CognitiveReranker(colbertReranker);
         this.graphExpander = new GraphExpander(hebbianGraph, temporalChain);
-        this.salienceScorer = new SalienceAndHabituationScorer(suppressionSet, habituationPenalty);
+        this.salienceScorer = new SalienceAndHabituationScorer(suppressionSet, habituationPenalty, this.hook);
 
         //  Delegate graph expansion to focused stage class 
         this.graphExpansionStage = new GraphExpansionStage(
@@ -490,7 +500,9 @@ public final class RecallPipeline {
      */
     private void applyCognitiveScoring(List<CognitiveResult> allResults,
                                        RecallOptions options, long nowMs) {
-        salienceScorer.applyCognitiveScoring(allResults, options, nowMs, coActivationTracker, graphScoringPolicy);
+        hook.observe(SCORING, Map.of(TAG_SEARCH_MODE, options.scoringMode().name()), () -> {
+            salienceScorer.applyCognitiveScoring(allResults, options, nowMs, coActivationTracker, graphScoringPolicy);
+        });
     }
 
     /**
@@ -520,24 +532,26 @@ public final class RecallPipeline {
 
     private boolean runTierScan(List<CognitiveResult> allResults, float[] queryVector,
                                 RecallOptions options, long nowMs, MemoryType[] targetTypes) {
-        List<Callable<List<CognitiveResult>>> scanTasks = buildScanTasks(
-                queryVector, options, nowMs, targetTypes);
-        if (!scanTasks.isEmpty()) {
-            try {
-                List<List<CognitiveResult>> tierResults = ConcurrentTasks.forkJoinAll(scanTasks);
-                for (List<CognitiveResult> tier : tierResults) {
-                    allResults.addAll(tier);
+        return hook.observe(VECTOR_SEARCH, Map.of(TAG_INDEX_TYPE, "vector"), () -> {
+            List<Callable<List<CognitiveResult>>> scanTasks = buildScanTasks(
+                    queryVector, options, nowMs, targetTypes);
+            if (!scanTasks.isEmpty()) {
+                try {
+                    List<List<CognitiveResult>> tierResults = ConcurrentTasks.forkJoinAll(scanTasks);
+                    for (List<CognitiveResult> tier : tierResults) {
+                        allResults.addAll(tier);
+                    }
+                } catch (ConcurrentExecutionException e) {
+                    log.error("Parallel tier scan failed: {}", e.getMessage(), e);
+                    allResults.addAll(sequentialScan(queryVector, options, nowMs, targetTypes));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Recall interrupted during parallel scan");
+                    return false;
                 }
-            } catch (ConcurrentExecutionException e) {
-                log.error("Parallel tier scan failed: {}", e.getMessage(), e);
-                allResults.addAll(sequentialScan(queryVector, options, nowMs, targetTypes));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("Recall interrupted during parallel scan");
-                return false;
             }
-        }
-        return true;
+            return true;
+        });
     }
 
     /**
@@ -577,7 +591,9 @@ public final class RecallPipeline {
         applyCognitiveScoring(allResults, options, nowMs);
 
         // Graph expansion
-        graphExpansionStage.expand(allResults, queryVector, options);
+        try (var _obs = hook.start(GRAPH_EXPANSION, Map.of())) {
+            graphExpansionStage.expand(allResults, queryVector, options);
+        } catch (RuntimeException e) { throw e; } catch (Exception e) { throw new RuntimeException(e); }
         temporalFactWeavingStage.weave(allResults, queryVector, options);
 
         // Filter suppressed memories (inhibition)  --  always active
@@ -649,7 +665,7 @@ public final class RecallPipeline {
         }
 
         // Step 1: Embed query
-        float[] queryVector = embeddingProvider.embed(queryText).vector();
+        float[] queryVector = hook.observe(EMBEDDING, Map.of(), () -> embeddingProvider.embed(queryText).vector());
 
         long nowMs = System.currentTimeMillis();
         List<CognitiveResult> allResults = new ArrayList<>();
@@ -670,7 +686,9 @@ public final class RecallPipeline {
         applyCognitiveScoring(allResults, options, nowMs);
 
         // Steps 5c-5e: Graph expansion (delegated to GraphExpansionStage)
-        graphExpansionStage.expand(allResults, queryVector, options);
+        try (var _obs = hook.start(GRAPH_EXPANSION, Map.of())) {
+            graphExpansionStage.expand(allResults, queryVector, options);
+        } catch (RuntimeException e) { throw e; } catch (Exception e) { throw new RuntimeException(e); }
         temporalFactWeavingStage.weave(allResults, queryVector, options);
 
         // Sort vector candidates by cognitive score descending before RRF rank assignment

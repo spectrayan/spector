@@ -30,8 +30,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.spectrayan.spector.commons.observation.MemoryObservationHook;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.SCORING_HABITUATION;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.SCORING_STDP;
 
 /**
  * Computes novelty scores, habituation decay penalties, emotional valence/arousal
@@ -43,11 +48,17 @@ public class SalienceAndHabituationScorer {
 
     private final SuppressionSet suppressionSet;
     private final HabituationPenalty habituationPenalty;
+    private final MemoryObservationHook hook;
     private final Map<String, Long> satiationCache = new ConcurrentHashMap<>(16);
 
-    public SalienceAndHabituationScorer(SuppressionSet suppressionSet, HabituationPenalty habituationPenalty) {
+    public SalienceAndHabituationScorer(SuppressionSet suppressionSet, HabituationPenalty habituationPenalty, MemoryObservationHook hook) {
         this.suppressionSet = suppressionSet;
         this.habituationPenalty = habituationPenalty;
+        this.hook = hook != null ? hook : MemoryObservationHook.NOOP;
+    }
+
+    public SalienceAndHabituationScorer(SuppressionSet suppressionSet, HabituationPenalty habituationPenalty) {
+        this(suppressionSet, habituationPenalty, MemoryObservationHook.NOOP);
     }
 
     public SuppressionSet suppressionSet() {
@@ -85,69 +96,73 @@ public class SalienceAndHabituationScorer {
         if (options.scoringMode() == ScoringMode.SIMILARITY) return;
 
         // Habituation penalty + inhibition of return + semantic satiation
-        for (int i = 0; i < allResults.size(); i++) {
-            CognitiveResult r = allResults.get(i);
-            float habPenalty = (options.recallMode() == RecallMode.LEARN)
-                    ? habituationPenalty.recordAndComputePenalty(r.id())
-                    : habituationPenalty.currentPenalty(r.id());
-            float iorPenalty = habituationPenalty.computeInhibitionOfReturn(r.id(), nowMs);
-            float combinedPenalty = Math.min(habPenalty, iorPenalty); // stronger suppression wins
-
-            // Semantic Satiation: 0.5x penalty for results in the hot LRU cache
-            if (satiationCache.containsKey(r.id())) {
-                combinedPenalty *= SATIATION_PENALTY;
-            }
-
-            if (combinedPenalty < 1.0f) {
-                float newScore = r.score() * combinedPenalty;
-                ScoreBreakdown bd = r.breakdown() != null
-                        ? new ScoreBreakdown(
-                                r.breakdown().similarity(),
-                                r.breakdown().importanceDecay(),
-                                r.breakdown().tagBoostFactor(),
-                                combinedPenalty,
-                                r.breakdown().graphBoost(),
-                                r.breakdown().valenceAlignment(),
-                                newScore)
-                        : null;
-                allResults.set(i, new CognitiveResult(
-                        r.id(), r.text(), newScore, r.importance(), r.ageDays(),
-                        r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                        r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                        r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
-            }
-        }
-
-        // STDP causal boost — cross-boost results whose tags are causally linked.
-        if (coActivationTracker != null && allResults.size() >= 2) {
-            Set<String> contextTagSet = new HashSet<>();
-            int contextLimit = Math.min(3, allResults.size());
-            for (int cl = 0; cl < contextLimit; cl++) {
-                String[] ctxTags = allResults.get(cl).synapticTags();
-                if (ctxTags != null) {
-                    for (String t : ctxTags) contextTagSet.add(t);
+        hook.observe(SCORING_HABITUATION, Map.of(), () -> {
+            for (int i = 0; i < allResults.size(); i++) {
+                CognitiveResult r = allResults.get(i);
+                float habPenalty = (options.recallMode() == RecallMode.LEARN)
+                        ? habituationPenalty.recordAndComputePenalty(r.id())
+                        : habituationPenalty.currentPenalty(r.id());
+                float iorPenalty = habituationPenalty.computeInhibitionOfReturn(r.id(), nowMs);
+                float combinedPenalty = Math.min(habPenalty, iorPenalty); // stronger suppression wins
+    
+                // Semantic Satiation: 0.5x penalty for results in the hot LRU cache
+                if (satiationCache.containsKey(r.id())) {
+                    combinedPenalty *= SATIATION_PENALTY;
+                }
+    
+                if (combinedPenalty < 1.0f) {
+                    float newScore = r.score() * combinedPenalty;
+                    ScoreBreakdown bd = r.breakdown() != null
+                            ? new ScoreBreakdown(
+                                    r.breakdown().similarity(),
+                                    r.breakdown().importanceDecay(),
+                                    r.breakdown().tagBoostFactor(),
+                                    combinedPenalty,
+                                    r.breakdown().graphBoost(),
+                                    r.breakdown().valenceAlignment(),
+                                    newScore)
+                            : null;
+                    allResults.set(i, new CognitiveResult(
+                            r.id(), r.text(), newScore, r.importance(), r.ageDays(),
+                            r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
+                            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
+                            r.retrievalMode(), bd, r.trace(), r.sourceModality(), r.metadata()));
                 }
             }
+        });
 
-            if (!contextTagSet.isEmpty()) {
-                List<String> contextTags = new ArrayList<>(contextTagSet);
-                float weight = graphScoringPolicy != null ? graphScoringPolicy.causalBoostWeight() : 0.1f;
-                for (int i = 0; i < allResults.size(); i++) {
-                    CognitiveResult r = allResults.get(i);
-                    if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
-
-                    float predictive = coActivationTracker.getPredictiveStrength(
-                            contextTags, r.synapticTags());
-                    if (predictive > 0) {
-                        float boostedScore = r.score() * (1.0f + predictive * weight);
-                        allResults.set(i, new CognitiveResult(
-                                r.id(), r.text(), boostedScore, r.importance(), r.ageDays(),
-                                r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
-                                r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
-                                r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+        // STDP causal boost — cross-boost results whose tags are causally linked.
+        hook.observe(SCORING_STDP, Map.of(), () -> {
+            if (coActivationTracker != null && allResults.size() >= 2) {
+                Set<String> contextTagSet = new HashSet<>();
+                int contextLimit = Math.min(3, allResults.size());
+                for (int cl = 0; cl < contextLimit; cl++) {
+                    String[] ctxTags = allResults.get(cl).synapticTags();
+                    if (ctxTags != null) {
+                        for (String t : ctxTags) contextTagSet.add(t);
+                    }
+                }
+    
+                if (!contextTagSet.isEmpty()) {
+                    List<String> contextTags = new ArrayList<>(contextTagSet);
+                    float weight = graphScoringPolicy != null ? graphScoringPolicy.causalBoostWeight() : 0.1f;
+                    for (int i = 0; i < allResults.size(); i++) {
+                        CognitiveResult r = allResults.get(i);
+                        if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
+    
+                        float predictive = coActivationTracker.getPredictiveStrength(
+                                contextTags, r.synapticTags());
+                        if (predictive > 0) {
+                            float boostedScore = r.score() * (1.0f + predictive * weight);
+                            allResults.set(i, new CognitiveResult(
+                                    r.id(), r.text(), boostedScore, r.importance(), r.ageDays(),
+                                    r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
+                                    r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
+                                    r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+                        }
                     }
                 }
             }
-        }
+        });
     }
 }

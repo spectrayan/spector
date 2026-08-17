@@ -82,7 +82,7 @@ public final class RecallPipelineBuilder {
                 graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.temporalKnowledgeGraph(), graphs.entityExtractor(),
                 builder.graphScoringPolicy, retrieval.bm25Index(),
                 retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider, retrieval.colbertReranker(),
-                recallHistory, mmrReranker, bio.surpriseDetector());
+                recallHistory, mmrReranker, bio.surpriseDetector(), builder.hook);
 
         recallPipeline.addListener(new LtpReconsolidationListener(index, partitionManager, wal));
         recallPipeline.addListener(new HebbianCoActivationListener(bio.coActivationTracker()));

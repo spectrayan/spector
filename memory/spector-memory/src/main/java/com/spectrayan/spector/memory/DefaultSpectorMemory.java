@@ -24,6 +24,7 @@ import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.memory.session.SessionWriteBuffer;
+import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentExecutionException;
@@ -260,6 +261,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final EpisodicSessionIndex episodicSessionIndex;
     private final EpisodicLogMemory episodicLogStore;
 
+    private final MemoryObservationHook hook;
+
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
         this.cognitiveTarget = bundle.cognitiveTarget();
@@ -324,6 +327,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.semanticIndex = builder.semanticIndex;
         this.runtimeBundle = bundle.runtimeBundle();
         this.insularCortex = bundle.insularCortex();
+        this.hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
 
         //  JVM Shutdown Hook  (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
