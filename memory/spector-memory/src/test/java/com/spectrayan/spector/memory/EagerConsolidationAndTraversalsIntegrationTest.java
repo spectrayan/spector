@@ -118,7 +118,7 @@ class EagerConsolidationAndTraversalsIntegrationTest {
     }
 
     @Test
-    void testTemporalBridge_retractsTemporalFactsOnContradiction() {
+    void testTemporalBridge_retractsTemporalFactsOnContradiction() throws Exception {
         float[] vector = new float[DIMENSIONS];
         vector[4] = 1.0f;
 
@@ -142,15 +142,29 @@ class EagerConsolidationAndTraversalsIntegrationTest {
         assertThat(activeBefore).hasSize(1);
         assertThat(activeBefore.get(0).factId()).isEqualTo(factId);
 
-        // Store contradictory memories
+        // Store contradictory memories (loc-2 is strictly newer)
         memory.remember("loc-1", textA, MemoryType.SEMANTIC, MemorySource.OBSERVED, "location");
+        Thread.sleep(20);
         memory.remember("loc-2", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "location");
 
-        // Run consolidation
-        memory.consolidate();
+        // Await async eager consolidation or trigger consolidation
+        long deadline = System.currentTimeMillis() + 3000;
+        while (System.currentTimeMillis() < deadline) {
+            CognitiveRecord r1 = memory.inspect("loc-1");
+            if (r1 != null && r1.isContradicted()) {
+                break;
+            }
+            Thread.sleep(50);
+        }
+
+        // Run batch consolidation fallback if not already resolved by eager consolidator
+        CognitiveRecord record1 = memory.inspect("loc-1");
+        if (record1 == null || !record1.isContradicted()) {
+            memory.consolidate();
+            record1 = memory.inspect("loc-1");
+        }
 
         // Check that CADP resolved
-        CognitiveRecord record1 = memory.inspect("loc-1");
         CognitiveRecord record2 = memory.inspect("loc-2");
         assertThat(record1.isContradicted()).isTrue();
         assertThat(record2.isContradicted()).isFalse();
