@@ -15,14 +15,22 @@
  */
 package com.spectrayan.spector.commons.pathway;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.function.Predicate;
 
 /**
  * A relay that conditionally executes its delegate based on a predicate gate.
  *
+ * <p>When the gate is a {@link Specification}, the {@linkplain Specification#unsatisfiedReason
+ * unsatisfied reason} is logged at {@code DEBUG} level when the gate inhibits execution.</p>
+ *
  * @param <S> the type of the signal
  */
 public final class GatedRelay<S> implements SynapticRelay<S> {
+
+    private static final Logger log = LoggerFactory.getLogger(GatedRelay.class);
 
     private final String name;
     private final Predicate<S> gate;
@@ -32,7 +40,8 @@ public final class GatedRelay<S> implements SynapticRelay<S> {
      * Constructs a new GatedRelay.
      *
      * @param name     the name of the relay
-     * @param gate     the predicate condition to evaluate
+     * @param gate     the predicate condition to evaluate; may be a {@link Specification}
+     *                 for enhanced diagnostics
      * @param delegate the relay to execute if the gate evaluates to true
      */
     public GatedRelay(final String name, final Predicate<S> gate, final SynapticRelay<S> delegate) {
@@ -45,6 +54,9 @@ public final class GatedRelay<S> implements SynapticRelay<S> {
     public boolean transmit(final S signal) throws Exception {
         if (gate.test(signal)) {
             return delegate.transmit(signal);
+        }
+        if (log.isDebugEnabled() && gate instanceof Specification<S> spec) {
+            log.debug("Relay '{}' gated off: {}", name, spec.unsatisfiedReason(signal));
         }
         return true;
     }
