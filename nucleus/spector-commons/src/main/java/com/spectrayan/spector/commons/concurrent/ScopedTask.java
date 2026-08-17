@@ -20,7 +20,8 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 /**
  * Generic task wrapper carrying an arbitrary payload alongside Java 25 {@link MemoryScope}
- * session and namespace context, submission timestamp, and execution priority.
+ * session and namespace context, distributed trace context (W3C traceparent), submission
+ * timestamp, and execution priority.
  *
  * @param <T> payload type
  */
@@ -30,8 +31,19 @@ public record ScopedTask<T>(
         String sessionId,
         String namespaceId,
         TaskPriority priority,
-        long submittedAtMs
+        long submittedAtMs,
+        String traceContext
 ) implements Comparable<ScopedTask<T>> {
+
+    public ScopedTask(
+            String taskId,
+            T payload,
+            String sessionId,
+            String namespaceId,
+            TaskPriority priority,
+            long submittedAtMs) {
+        this(taskId, payload, sessionId, namespaceId, priority, submittedAtMs, null);
+    }
 
     public ScopedTask {
         if (taskId == null || taskId.isBlank()) {
@@ -55,7 +67,8 @@ public record ScopedTask<T>(
                 MemoryScope.sessionId(),
                 MemoryScope.namespaceId(),
                 TaskPriority.NORMAL,
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                null
         );
     }
 
@@ -69,12 +82,13 @@ public record ScopedTask<T>(
                 MemoryScope.sessionId(),
                 MemoryScope.namespaceId(),
                 priority,
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                null
         );
     }
 
     /**
-     * Explicit constructor helper specifying all session and namespace context.
+     * Explicit constructor helper specifying session, namespace, and priority context.
      */
     public static <T> ScopedTask<T> of(String taskId, T payload, String sessionId,
                                        String namespaceId, TaskPriority priority) {
@@ -84,7 +98,24 @@ public record ScopedTask<T>(
                 sessionId,
                 namespaceId,
                 priority != null ? priority : TaskPriority.NORMAL,
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                null
+        );
+    }
+
+    /**
+     * Explicit constructor helper specifying session, namespace, priority, and trace context.
+     */
+    public static <T> ScopedTask<T> of(String taskId, T payload, String sessionId,
+                                       String namespaceId, TaskPriority priority, String traceContext) {
+        return new ScopedTask<>(
+                taskId,
+                payload,
+                sessionId,
+                namespaceId,
+                priority != null ? priority : TaskPriority.NORMAL,
+                System.currentTimeMillis(),
+                traceContext
         );
     }
 
