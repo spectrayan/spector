@@ -16,48 +16,30 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.VectorOps;
 import com.spectrayan.spector.index.VectorIndex;
 import com.spectrayan.spector.ingestion.IngestionTarget;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.model.SourceModality;
-import com.spectrayan.spector.memory.cortex.MemorySource;
-import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
-import com.spectrayan.spector.memory.cortex.WorkingRecordMemory;
+import com.spectrayan.spector.memory.DataEncryptor;
+import com.spectrayan.spector.memory.ImportanceProvider;
+import com.spectrayan.spector.memory.cortex.*;
 import com.spectrayan.spector.memory.dopamine.FlashbulbPolicy;
 import com.spectrayan.spector.memory.dopamine.SurpriseDetector;
+import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
+import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
 import com.spectrayan.spector.memory.hebbian.HebbianGraphBase;
 import com.spectrayan.spector.memory.index.MemoryIndex;
-import com.spectrayan.spector.memory.index.IndexRecordMemory.MemoryLocation;
-import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
-import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
-import com.spectrayan.spector.memory.DataEncryptor;
-import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.model.*;
+import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
+import com.spectrayan.spector.memory.neurodivergent.IngestionHints;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
+import com.spectrayan.spector.memory.sync.MemoryWal;
 import com.spectrayan.spector.memory.temporal.TemporalChainMemory;
-import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
-import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
-import com.spectrayan.spector.memory.cortex.TextAppendMemory;
-
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
-import com.spectrayan.spector.provider.embedding.SparseEmbeddingResult;
-
-import com.spectrayan.spector.memory.error.SpectorEntityGraphException;
-import com.spectrayan.spector.memory.error.SpectorHebbianException;
-import com.spectrayan.spector.memory.error.SpectorMemoryTierFullException;
-import com.spectrayan.spector.memory.error.SpectorTemporalChainException;
-import com.spectrayan.spector.memory.model.SalienceProfile;
-import com.spectrayan.spector.memory.ImportanceProvider;
-import com.spectrayan.spector.memory.model.ImportanceContext;
-import com.spectrayan.spector.memory.model.ImportanceResult;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -142,6 +124,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
     //  Post-ingest index synchronization stage 
     private final PostIngestSync postIngestSync;
 
+    //  Asynchronous entity extraction queue (non-blocking ingestion)
+    private final AsyncEntityExtractionQueue asyncEntityExtractionQueue;
+
     //  Partition rolling callback (nullable) 
     private volatile Runnable partitionRollCallback;
 
@@ -175,12 +160,10 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 hebbianGraph, temporalChain, entityExtractor,
                 entityDirectory, hyperEntityGraph, temporalKnowledgeGraph,
                 bm25Index, textDataStore, activePartitionIndex,
-                spladeIndex, spladeProvider, DataEncryptor.NOOP, importanceProvider, sessionRegistry);
+                spladeIndex, spladeProvider, DataEncryptor.NOOP, importanceProvider, sessionRegistry,
+                1, 1000);
     }
 
-    /**
-     * Full constructor with data encryption support.
-     */
     public CognitiveIngestionTarget(ScalarQuantizer quantizer,
                                      SurpriseDetector surpriseDetector,
                                      FlashbulbPolicy flashbulbPolicy,
@@ -206,6 +189,46 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                                      DataEncryptor encryptor,
                                      ImportanceProvider importanceProvider,
                                      com.spectrayan.spector.memory.session.SessionRegistry sessionRegistry) {
+        this(quantizer, surpriseDetector, flashbulbPolicy, cognitiveRouter,
+                index, wal, workingStore, icnuWeights, semanticIndex,
+                tagExtractor, normalizeAtIngest,
+                hebbianGraph, temporalChain, entityExtractor,
+                entityDirectory, hyperEntityGraph, temporalKnowledgeGraph,
+                bm25Index, textDataStore, activePartitionIndex,
+                spladeIndex, spladeProvider, encryptor, importanceProvider, sessionRegistry,
+                1, 1000);
+    }
+
+    /**
+     * Full constructor with data encryption and async entity extraction configuration support.
+     */
+    public CognitiveIngestionTarget(ScalarQuantizer quantizer,
+                                     SurpriseDetector surpriseDetector,
+                                     FlashbulbPolicy flashbulbPolicy,
+                                     CognitiveMemoryRouter cognitiveRouter,
+                                     MemoryIndex index,
+                                     MemoryWal wal,
+                                     WorkingRecordMemory workingStore,
+                                     IcnuWeights icnuWeights,
+                                     VectorIndex semanticIndex,
+                                     TagExtractor tagExtractor,
+                                     boolean normalizeAtIngest,
+                                     HebbianGraphBase hebbianGraph,
+                                     TemporalChainMemory temporalChain,
+                                     EntityExtractor entityExtractor,
+                                     EntityDirectory entityDirectory,
+                                     HyperEntityGraphMemory hyperEntityGraph,
+                                     com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph temporalKnowledgeGraph,
+                                     MemoryBM25Index bm25Index,
+                                     TextAppendMemory textDataStore,
+                                     int activePartitionIndex,
+                                     MemorySpladeIndex spladeIndex,
+                                     SparseEmbeddingProvider spladeProvider,
+                                     DataEncryptor encryptor,
+                                     ImportanceProvider importanceProvider,
+                                     com.spectrayan.spector.memory.session.SessionRegistry sessionRegistry,
+                                     int entityExtractionParallelism,
+                                     int entityExtractionQueueCapacity) {
         this.quantizer = quantizer;
         this.surpriseDetector = surpriseDetector;
         this.flashbulbPolicy = flashbulbPolicy;
@@ -237,6 +260,9 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
                 hebbianGraph, temporalChain, entityExtractor, entityDirectory,
                 bm25Index, textDataStore, activePartitionIndex,
                 spladeIndex, spladeProvider, this.encryptor, hyperEntityGraph, temporalKnowledgeGraph);
+        this.asyncEntityExtractionQueue = new AsyncEntityExtractionQueue(
+                entityExtractor, this.postIngestSync,
+                entityExtractionParallelism, entityExtractionQueueCapacity);
     }
 
     /**
@@ -490,13 +516,18 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         // index.size()-1 which is non-monotonic (shrinks on forget, causing reuse).
         int memoryIdx = graphSlot;
         String tsid = com.spectrayan.spector.commons.concurrent.MemoryScope.sessionId();
+        String nsid = com.spectrayan.spector.commons.concurrent.MemoryScope.namespaceId();
         int sessionIntId = sessionRegistry != null ? sessionRegistry.resolve(tsid) : 0;
         int previousIdx = lastIngestedMemoryIdx.getAndSet(memoryIdx);
         postIngestSync.syncGraphEdges(memoryIdx, previousIdx, sessionIntId);
 
-        // Step 9d: Entity extraction and graph population
-        List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
-        postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
+        // Step 9d: Entity extraction and graph population (asynchronous / non-blocking)
+        if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {
+            asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid);
+        } else {
+            List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+            postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
+        }
 
         log.debug("Ingested '{}' as {} (importance={}, {} tags, graphSlot={}, source={})",
                 id, type, importance, tags.length, graphSlot, source);
@@ -745,14 +776,16 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
         }
 
         // Step 9d: Entity extraction and graph population
-        List<ExtractedEntity> extractedEntities;
         if (context.hasEntities()) {
             postIngestSync.syncPreExtractedEntities(context.entities(), memoryIdx, id);
-            extractedEntities = context.entities();
+            postIngestSync.syncTemporalFacts(context.entities(), memoryIdx, id, header.timestampMs() / 1000);
+        } else if (asyncEntityExtractionQueue != null && entityExtractor != null && entityExtractor.isAvailable()) {
+            String nsid = com.spectrayan.spector.commons.concurrent.MemoryScope.namespaceId();
+            asyncEntityExtractionQueue.submit(id, text, memoryIdx, header.timestampMs() / 1000, tsid, nsid);
         } else {
-            extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+            List<ExtractedEntity> extractedEntities = postIngestSync.syncEntityExtraction(id, text, memoryIdx);
+            postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
         }
-        postIngestSync.syncTemporalFacts(extractedEntities, memoryIdx, id, header.timestampMs() / 1000);
 
         log.debug("Ingested '{}' as {} with IngestionContext (importance={}, {} tags, entities={}, hebbianEdges={}, temporalLinks={})",
                 id, type, importance, tags.length,
@@ -857,5 +890,18 @@ public final class CognitiveIngestionTarget implements IngestionTarget {
             beta = cogProfile.beta();
         }
         return SynapticHeaderConstants.quantizeWeight(beta);
+    }
+
+    /**
+     * Returns the asynchronous entity extraction queue.
+     */
+    public AsyncEntityExtractionQueue asyncEntityExtractionQueue() {
+        return asyncEntityExtractionQueue;
+    }
+
+    public void close() {
+        if (asyncEntityExtractionQueue != null) {
+            asyncEntityExtractionQueue.close();
+        }
     }
 }

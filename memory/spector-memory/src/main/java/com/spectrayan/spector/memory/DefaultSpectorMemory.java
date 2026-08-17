@@ -685,8 +685,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             "Embedding failed for chunk: " + embedding.error());
                 }
 
-                // Extract content-specific tags from this chunk's text
-                String[] contentTags = chunkTagExtractor.extract(chunk.chunkId(), chunk.text());
+                // Extract content-specific tags from this chunk's text (skip LLM extraction if caller tags provided)
+                String[] contentTags;
+                if (provenanceTags != null && provenanceTags.length > 0) {
+                    contentTags = new String[0];
+                } else {
+                    contentTags = chunkTagExtractor.extract(chunk.chunkId(), chunk.text());
+                }
 
                 // Merge provenance + per-chunk content tags (deduplicated)
                 var mergedSet = new java.util.LinkedHashSet<String>();
@@ -1565,6 +1570,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 eagerConsolidator.close();
             } catch (Exception e) {
                 log.warn("Failed to close EagerConsolidator on close", e);
+            }
+        }
+
+        // Close ingestion target (stops async entity extraction queue)
+        if (cognitiveTarget != null) {
+            try {
+                cognitiveTarget.close();
+            } catch (Exception e) {
+                log.warn("Failed to close CognitiveIngestionTarget on close", e);
             }
         }
 

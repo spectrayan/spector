@@ -144,6 +144,10 @@ public final class SpectorMemoryBuilder {
     //  Embedding pipeline batch size 
     int embedBatchSize = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_PROVIDER_EMBEDDING_BATCH_SIZE;
 
+    //  Asynchronous entity extraction queue configuration
+    int entityExtractionParallelism = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM;
+    int entityExtractionQueueCapacity = com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY;
+
     //  Salience profile provider (enterprise SPI) 
     SalienceProfileProvider salienceProfileProvider;
 
@@ -466,6 +470,30 @@ public final class SpectorMemoryBuilder {
      */
     public SpectorMemoryBuilder cacheManager(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
         this.cacheManager = cacheManager;
+        return this;
+    }
+
+    /**
+     * Sets the number of virtual threads processing the asynchronous entity extraction queue.
+     *
+     * <p>Default: 1 (sequential FIFO execution to prevent Ollama/LLM congestion).</p>
+     *
+     * @param parallelism number of worker threads (must be >= 1)
+     * @return this builder
+     */
+    public SpectorMemoryBuilder entityExtractionParallelism(int parallelism) {
+        this.entityExtractionParallelism = Math.max(1, parallelism);
+        return this;
+    }
+
+    /**
+     * Sets the bounded capacity of the asynchronous entity extraction queue.
+     *
+     * @param capacity maximum tasks in queue (must be >= 16)
+     * @return this builder
+     */
+    public SpectorMemoryBuilder entityExtractionQueueCapacity(int capacity) {
+        this.entityExtractionQueueCapacity = Math.max(16, capacity);
         return this;
     }
 

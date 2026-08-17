@@ -306,11 +306,29 @@ final class GraphExpansionStage {
         if (!options.entityHints().isEmpty()) {
             queryEntities = options.entityHints();
         }
-        // Priority 2: Live EntityExtractor SPI
+        // Priority 2: Fast zero-LLM directory lookup from top seed candidate's indexed slot
+        else if (entityDirectory != null && index != null && !allResults.isEmpty()) {
+            CognitiveResult topResult = allResults.getFirst();
+            MemoryIndex.MemoryLocation loc = index.locate(topResult.id());
+            if (loc != null) {
+                int slot = loc.graphSlot() >= 0 ? loc.graphSlot() : (int) (loc.offset() / 164);
+                List<Integer> seedEntityIds = com.spectrayan.spector.memory.consolidation.CadpContradictionResolver
+                        .findEntitiesForSlot(entityDirectory, slot);
+                if (seedEntityIds != null && !seedEntityIds.isEmpty()) {
+                    queryEntities = new java.util.ArrayList<>(seedEntityIds.size());
+                    for (int eid : seedEntityIds) {
+                        String name = entityDirectory.entityName(eid);
+                        String type = entityDirectory.entityType(eid);
+                        if (name != null) {
+                            queryEntities.add(new ExtractedEntity(name, type != null ? type : "UNKNOWN", List.of()));
+                        }
+                    }
+                }
+            }
+        }
+        // Priority 3: Fallback to live EntityExtractor SPI only if no directory entities found
         else if (entityExtractor != null && entityExtractor.isAvailable()) {
             try {
-                // We don't have the query text here — extract from first result
-                // This is a compromise vs. passing queryText through the stage
                 queryEntities = entityExtractor.extract("query", allResults.getFirst().text());
             } catch (RuntimeException e) {
                 SpectorEntityGraphException ex = new SpectorEntityGraphException("entity extraction", e);

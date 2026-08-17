@@ -449,7 +449,7 @@ public final class RecallPipeline {
                 calibrationMins, calibrationScales);
         
         this.temporalFactWeavingStage = new com.spectrayan.spector.memory.pipeline.graph.TemporalFactWeavingStage(
-                temporalKnowledgeGraph, entityDirectory, entityExtractor);
+                temporalKnowledgeGraph, entityDirectory, entityExtractor, index);
     }
 
     public PartitionPruner partitionPruner() { return partitionPruner; }
