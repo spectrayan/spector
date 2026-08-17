@@ -10,6 +10,7 @@ This directory houses the core algorithmic components of the Spector cognitive m
 * **[`spector-index`](/memory/spector-index)**: Core nearest-neighbor search indexes (HNSW, flat array brute force) and custom distance metrics.
 * **[`spector-ingestion`](/memory/spector-ingestion)**: Chunking strategies, semantic metadata extraction, and ingestion pipelines.
 * **[`spector-memory`](/memory/spector-memory)**: The biological cognitive memory engine. Implements the 4-tier memory architecture (episodic, semantic, procedural, Hebbian graph) off-heap via Project Panama.
+* **[`spector-metrics`](/memory/spector-metrics)**: Micrometer-based telemetry, Prometheus metrics, and distributed tracing decorators for the cognitive memory engine and ingestion pipelines.
 * **[`spector-query`](/memory/spector-query)**: Retrieval pipelines, hybrid search scoring, and importance/salience score fusions.
 * **[`spector-rag`](/memory/spector-rag)**: Retrieval-Augmented Generation workflows and LLM orchestration.
 
