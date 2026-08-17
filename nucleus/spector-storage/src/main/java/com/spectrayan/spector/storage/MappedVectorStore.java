@@ -261,7 +261,7 @@ public class MappedVectorStore implements VectorStore {
     public void warmup() {
         if (segment.isMapped()) {
             warmupFuture = com.spectrayan.spector.commons.concurrent.ConcurrentTasks
-                    .virtualExecutor().submit(() -> {
+                    .submit(() -> {
                 long start = System.nanoTime();
                 try {
                     if (closed) return; // store closed before warmup started

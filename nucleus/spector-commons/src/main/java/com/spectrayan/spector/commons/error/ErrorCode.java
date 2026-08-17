@@ -392,6 +392,22 @@ public enum ErrorCode {
     GRPC_TRANSPORT_FAILED     (500_007, ErrorCategory.SERVER,
             "gRPC transport error: {}"),
 
+    /** Task queue reached maximum capacity and rejected submission under REJECT_FAST policy. */
+    TASK_QUEUE_FULL           (500_008, ErrorCategory.SERVER,
+            "Task queue '{}' full ({}/{}) - rejected task '{}'"),
+
+    /** Asynchronous task execution failed inside worker loop after retries. */
+    TASK_EXECUTION_FAILED     (500_009, ErrorCategory.SERVER,
+            "Task '{}' failed in queue '{}': {}"),
+
+    /** Task queue is closed or shutting down. */
+    TASK_QUEUE_CLOSED         (500_010, ErrorCategory.SERVER,
+            "Task queue '{}' is closed - cannot accept task '{}'"),
+
+    /** Task queue worker was interrupted during shutdown drain or poll. */
+    TASK_QUEUE_INTERRUPTED    (500_011, ErrorCategory.SERVER,
+            "Task queue '{}' worker interrupted: {}"),
+
     // ══════════════════════════════════════════════════════════════════════
     // CLIENT (SPE-510-xxx)
     // ══════════════════════════════════════════════════════════════════════

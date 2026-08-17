@@ -166,18 +166,71 @@ public final class ConcurrentTasks {
 
 
     /**
-     * Returns the shared virtual-thread-per-task executor.
+     * Returns the shared {@link java.util.concurrent.Executor} for virtual threads.
      *
-     * <p>Use this when you need a {@link java.util.concurrent.CompletableFuture} handle
-     * (e.g., {@code CompletableFuture.runAsync(task, ConcurrentTasks.virtualExecutor())}).
-     * For truly fire-and-forget work, prefer {@link #fireAndForget(Runnable)}.</p>
-     *
-     * <p>This executor is long-lived and shared across all callers. Do <b>not</b> close it.</p>
+     * <p>Note: Returns {@link java.util.concurrent.Executor} (not {@link ExecutorService})
+     * to prevent static analysis resource-leak warnings and to prevent external callers
+     * from accidentally closing the shared JVM executor.</p>
      *
      * @return the shared virtual thread executor
      */
-    public static ExecutorService virtualExecutor() {
+    public static java.util.concurrent.Executor virtualExecutor() {
         return FIRE_FORGET_EXECUTOR;
+    }
+
+    /**
+     * Submits a runnable task to the shared virtual thread executor.
+     *
+     * @param task the work to execute
+     * @return a Future representing pending completion
+     */
+    public static Future<?> submit(Runnable task) {
+        return FIRE_FORGET_EXECUTOR.submit(task);
+    }
+
+    /**
+     * Submits a value-returning task to the shared virtual thread executor.
+     *
+     * @param task the work to execute
+     * @param <T>  result type
+     * @return a Future representing pending completion
+     */
+    public static <T> Future<T> submit(Callable<T> task) {
+        return FIRE_FORGET_EXECUTOR.submit(task);
+    }
+
+    /**
+     * Creates a named {@link java.util.concurrent.ThreadFactory} for queue-specific virtual threads.
+     *
+     * @param prefix name prefix (e.g. "entity-extraction" -> "spector-tq-entity-extraction-0")
+     * @return a virtual thread factory
+     */
+    public static java.util.concurrent.ThreadFactory namedVirtualThreadFactory(String prefix) {
+        return Thread.ofVirtual().name("spector-tq-" + prefix + "-", 0).factory();
+    }
+
+    /**
+     * Gracefully shuts down the global virtual thread executor, waiting up to the specified timeout.
+     *
+     * @param timeout maximum time to wait for completion
+     * @return true if terminated cleanly, false if timeout elapsed
+     */
+    public static boolean shutdown(Duration timeout) {
+        FIRE_FORGET_EXECUTOR.shutdown();
+        try {
+            return FIRE_FORGET_EXECUTOR.awaitTermination(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            FIRE_FORGET_EXECUTOR.shutdownNow();
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
+     * Emergency termination of the global virtual thread executor.
+     */
+    public static void shutdownNow() {
+        FIRE_FORGET_EXECUTOR.shutdownNow();
     }
 
     /**
