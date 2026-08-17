@@ -60,7 +60,8 @@ final class CognitiveIngestionTargetBuilder {
                 retrieval.bm25Index(), retrieval.textDataStore(), activePartitionIndex,
                 retrieval.memorySpladeIndex(), builder.SparseEmbeddingProvider,
                 builder.dataEncryptor, importanceProvider,
-                new com.spectrayan.spector.memory.session.SessionRegistry());
+                new com.spectrayan.spector.memory.session.SessionRegistry(),
+                builder.entityExtractionParallelism, builder.entityExtractionQueueCapacity);
 
         //  Wire Salience Profile Provider 
         if (builder.salienceProfileProvider != null) {

@@ -22,6 +22,7 @@ import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
+import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -55,7 +56,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
 
     private static final Logger log = LoggerFactory.getLogger(EagerConsolidator.class);
 
-    public record EagerConsolidationTask(String memoryId, MemoryType type) {}
+    public record EagerConsolidationTask(String memoryId, MemoryType type, String sessionId) {}
 
     private final BlockingQueue<EagerConsolidationTask> taskQueue;
     private final ExecutorService executor;
@@ -111,7 +112,8 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             return false;
         }
 
-        boolean accepted = taskQueue.offer(new EagerConsolidationTask(memoryId, type));
+        String sessionId = MemoryScope.sessionId();
+        boolean accepted = taskQueue.offer(new EagerConsolidationTask(memoryId, type, sessionId));
         if (!accepted) {
             log.debug("Eager consolidation queue full ({}) — task for '{}' skipped; batch consolidation will catch it",
                     taskQueue.size(), memoryId);
@@ -124,7 +126,12 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             try {
                 EagerConsolidationTask task = taskQueue.poll(500, TimeUnit.MILLISECONDS);
                 if (task != null) {
-                    processTask(task);
+                    Runnable worker = () -> processTask(task);
+                    if (task.sessionId() != null && !task.sessionId().isBlank()) {
+                        ScopedValue.where(MemoryScope.SESSION_ID, task.sessionId()).run(worker);
+                    } else {
+                        worker.run();
+                    }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
