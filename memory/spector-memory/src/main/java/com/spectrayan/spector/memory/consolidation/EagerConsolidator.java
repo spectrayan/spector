@@ -12,6 +12,8 @@
  */
 package com.spectrayan.spector.memory.consolidation;
 
+import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -22,7 +24,6 @@ import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
-import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.sync.MemoryWal;
@@ -36,30 +37,27 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
- * Asynchronous eager consolidation coordinator (#526).
+ * Eager single-memory contradiction consolidator.
  *
- * <p>Processes newly ingested semantic and procedural memories on a dedicated
- * single-thread virtual executor with a bounded task queue. Performs a gated
- * contradiction scan (tombstone &rarr; bloom filter &rarr; vector distance &rarr; LLM) and applies
- * CADP directional resolution (#507) immediately after ingestion, closing the
- * confusion window before the next batch consolidation cycle.</p>
+ * <p>Ingests a memory and evaluates it against existing memories immediately
+ * using a centralized virtual thread managed by {@link ConcurrentTasks#virtualExecutor()}
+ * and a bounded task queue. Performs a gated contradiction scan (tombstone &rarr; bloom
+ * filter &rarr; vector distance &rarr; LLM) and applies CADP directional resolution (#507)
+ * immediately after ingestion, closing the confusion window before the next batch consolidation cycle.</p>
  */
 public final class EagerConsolidator extends AbstractConsolidator implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(EagerConsolidator.class);
 
-    public record EagerConsolidationTask(String memoryId, MemoryType type, String sessionId) {}
+    public record EagerConsolidationTask(String memoryId, MemoryType type, String sessionId, String namespaceId) {}
 
     private final BlockingQueue<EagerConsolidationTask> taskQueue;
-    private final ExecutorService executor;
     private final CognitiveMemoryRouter cognitiveRouter;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
@@ -92,9 +90,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
         this.distanceThreshold = distanceThreshold;
         this.taskQueue = new LinkedBlockingQueue<>(Math.max(16, queueCapacity));
 
-        this.executor = Executors.newSingleThreadExecutor(
-                Thread.ofVirtual().name("spector-eager-consolidator-", 0).factory());
-        this.executor.submit(this::processLoop);
+        ConcurrentTasks.virtualExecutor().submit(this::processLoop);
     }
 
     /**
@@ -113,7 +109,8 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
         }
 
         String sessionId = MemoryScope.sessionId();
-        boolean accepted = taskQueue.offer(new EagerConsolidationTask(memoryId, type, sessionId));
+        String namespaceId = MemoryScope.namespaceId();
+        boolean accepted = taskQueue.offer(new EagerConsolidationTask(memoryId, type, sessionId, namespaceId));
         if (!accepted) {
             log.debug("Eager consolidation queue full ({}) — task for '{}' skipped; batch consolidation will catch it",
                     taskQueue.size(), memoryId);
@@ -127,11 +124,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
                 EagerConsolidationTask task = taskQueue.poll(500, TimeUnit.MILLISECONDS);
                 if (task != null) {
                     Runnable worker = () -> processTask(task);
-                    if (task.sessionId() != null && !task.sessionId().isBlank()) {
-                        ScopedValue.where(MemoryScope.SESSION_ID, task.sessionId()).run(worker);
-                    } else {
-                        worker.run();
-                    }
+                    MemoryScope.runWithScope(task.sessionId(), task.namespaceId(), worker);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -250,14 +243,14 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            executor.shutdown();
-            try {
-                if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
-                    executor.shutdownNow();
+            long deadline = System.currentTimeMillis() + 2000;
+            while (!taskQueue.isEmpty() && System.currentTimeMillis() < deadline) {
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
-            } catch (InterruptedException e) {
-                executor.shutdownNow();
-                Thread.currentThread().interrupt();
             }
         }
     }

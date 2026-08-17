@@ -147,6 +147,25 @@ public final class ConcurrentTasks {
     }
 
     /**
+     * Submits a task for asynchronous execution on a virtual thread with bound
+     * {@link MemoryScope} session and namespace contexts.
+     *
+     * @param sessionId   scoped session ID (nullable)
+     * @param namespaceId scoped namespace ID (nullable)
+     * @param task        the work to execute asynchronously
+     */
+    public static void fireAndForget(String sessionId, String namespaceId, Runnable task) {
+        FIRE_FORGET_EXECUTOR.submit(() -> {
+            try {
+                MemoryScope.runWithScope(sessionId, namespaceId, task);
+            } catch (Exception e) {
+                log.log(System.Logger.Level.WARNING, "Scoped fire-and-forget task failed: " + e.getMessage(), e);
+            }
+        });
+    }
+
+
+    /**
      * Returns the shared virtual-thread-per-task executor.
      *
      * <p>Use this when you need a {@link java.util.concurrent.CompletableFuture} handle

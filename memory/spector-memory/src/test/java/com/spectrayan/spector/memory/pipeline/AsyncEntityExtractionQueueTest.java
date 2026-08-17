@@ -57,7 +57,7 @@ class AsyncEntityExtractionQueueTest {
 
         try (var queue = new AsyncEntityExtractionQueue(entityExtractor, postIngestSync, 1, 100)) {
             boolean accepted = queue.submit("mem-1", "Alice is a software engineer.",
-                    42, 1700000000L, "session-abc");
+                    42, 1700000000L, "session-abc", "ns-tenant-1");
 
             assertThat(accepted).isTrue();
 
@@ -73,25 +73,28 @@ class AsyncEntityExtractionQueueTest {
     }
 
     @Test
-    @DisplayName("Propagates MemoryScope.SESSION_ID into the executing virtual thread")
+    @DisplayName("Propagates MemoryScope.SESSION_ID and NAMESPACE_ID into the executing virtual thread")
     void testMemoryScopePropagation() throws Exception {
         when(entityExtractor.isAvailable()).thenReturn(true);
 
         AtomicReference<String> capturedSessionId = new AtomicReference<>();
+        AtomicReference<String> capturedNamespaceId = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
         when(entityExtractor.extract(anyString(), anyString())).thenAnswer(invocation -> {
             capturedSessionId.set(MemoryScope.sessionId());
+            capturedNamespaceId.set(MemoryScope.namespaceId());
             latch.countDown();
             return List.of(new ExtractedEntity("Bob", "PERSON", List.of()));
         });
 
         try (var queue = new AsyncEntityExtractionQueue(entityExtractor, postIngestSync, 1, 100)) {
-            queue.submit("mem-2", "Bob works with Alice.", 10, 1700000000L, "scoped-session-999");
+            queue.submit("mem-2", "Bob works with Alice.", 10, 1700000000L, "scoped-session-999", "scoped-ns-888");
 
             boolean completed = latch.await(3, TimeUnit.SECONDS);
             assertThat(completed).isTrue();
             assertThat(capturedSessionId.get()).isEqualTo("scoped-session-999");
+            assertThat(capturedNamespaceId.get()).isEqualTo("scoped-ns-888");
         }
     }
 
@@ -103,7 +106,7 @@ class AsyncEntityExtractionQueueTest {
         try (var queue = new AsyncEntityExtractionQueue(entityExtractor, postIngestSync, 1, 100)) {
             boolean accepted = queue.submit("mem-3", "Some text", 1, 1700000000L, null);
             assertThat(accepted).isFalse();
-            assertThat(queue.queueSize()).isEqualTo(0);
+            assertThat(queue.stats().queueSize()).isEqualTo(0);
         }
     }
 

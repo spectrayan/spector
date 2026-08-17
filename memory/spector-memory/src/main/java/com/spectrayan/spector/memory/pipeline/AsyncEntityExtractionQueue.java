@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
+import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
@@ -21,8 +22,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,13 +33,14 @@ import java.util.concurrent.atomic.AtomicLong;
  * <h3>Architecture</h3>
  * <p>Ingesting a memory must never block the client on slow LLM text-generation calls (~15s–25s).
  * {@code AsyncEntityExtractionQueue} decouples entity extraction from the ingestion critical path,
- * buffering tasks in a bounded FIFO queue and processing them via a supervised pool of virtual
- * threads with configurable parallelism (defaulting to 1 for sequential execution to prevent
- * Ollama/LLM concurrency congestion).</p>
+ * buffering tasks in a bounded FIFO queue and processing them via centralized virtual threads
+ * managed by {@link ConcurrentTasks#virtualExecutor()} with configurable parallelism (defaulting
+ * to 1 for sequential execution to prevent Ollama/LLM concurrency congestion).</p>
  *
  * <h3>Scoped Context Propagation</h3>
- * <p>Captures {@link MemoryScope#SESSION_ID} at submission time and re-binds it via {@link ScopedValue}
- * in the executing virtual thread, ensuring session identity and temporal link contexts are preserved.</p>
+ * <p>Captures {@link MemoryScope#SESSION_ID} and {@link MemoryScope#NAMESPACE_ID} at submission
+ * time and re-binds them via {@link MemoryScope#runWithScope} in the executing virtual thread,
+ * ensuring session identity and namespace isolation contexts are preserved end-to-end.</p>
  */
 public final class AsyncEntityExtractionQueue implements AutoCloseable {
 
@@ -51,7 +51,8 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
             String text,
             int memoryIdx,
             long timestampSeconds,
-            String sessionId
+            String sessionId,
+            String namespaceId
     ) {}
 
     public record QueueStats(
@@ -71,7 +72,6 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
     private final int parallelism;
     private final EntityExtractor entityExtractor;
     private final PostIngestSync postIngestSync;
-    private final ExecutorService executor;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private final AtomicLong totalSubmitted = new AtomicLong(0);
@@ -91,31 +91,27 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
         this.queueCapacity = Math.max(16, queueCapacity);
         this.queue = new LinkedBlockingQueue<>(this.queueCapacity);
 
-        this.executor = Executors.newFixedThreadPool(
-                this.parallelism,
-                Thread.ofVirtual().name("spector-entity-extractor-", 0).factory()
-        );
-
         for (int i = 0; i < this.parallelism; i++) {
-            this.executor.submit(this::processLoop);
+            ConcurrentTasks.virtualExecutor().submit(this::processLoop);
         }
 
-        log.info("[AsyncEntityExtractionQueue] Initialized with parallelism={}, capacity={}",
+        log.info("[AsyncEntityExtractionQueue] Initialized via ConcurrentTasks with parallelism={}, capacity={}",
                 this.parallelism, this.queueCapacity);
     }
 
     /**
-     * Submits a memory for asynchronous entity extraction.
+     * Submits a memory for asynchronous entity extraction with session and namespace contexts.
      *
      * @param memoryId         memory ID
      * @param text             raw text content
      * @param memoryIdx        graph slot / memory index
      * @param timestampSeconds epoch timestamp in seconds
      * @param sessionId        scoped session ID (nullable)
+     * @param namespaceId      scoped namespace ID (nullable)
      * @return true if accepted, false if dropped or closed
      */
     public boolean submit(String memoryId, String text, int memoryIdx,
-                          long timestampSeconds, String sessionId) {
+                          long timestampSeconds, String sessionId, String namespaceId) {
         if (closed.get() || memoryId == null || text == null) {
             return false;
         }
@@ -123,8 +119,15 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
             return false;
         }
 
+        String effectiveSessionId = (sessionId != null && !sessionId.isBlank())
+                ? sessionId
+                : MemoryScope.sessionId();
+        String effectiveNamespaceId = (namespaceId != null && !namespaceId.isBlank())
+                ? namespaceId
+                : MemoryScope.namespaceId();
+
         EntityExtractionTask task = new EntityExtractionTask(
-                memoryId, text, memoryIdx, timestampSeconds, sessionId);
+                memoryId, text, memoryIdx, timestampSeconds, effectiveSessionId, effectiveNamespaceId);
         boolean accepted = queue.offer(task);
         if (accepted) {
             totalSubmitted.incrementAndGet();
@@ -136,17 +139,21 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
         return accepted;
     }
 
+    /**
+     * Backward-compatible overload submitting with scoped session ID.
+     */
+    public boolean submit(String memoryId, String text, int memoryIdx,
+                          long timestampSeconds, String sessionId) {
+        return submit(memoryId, text, memoryIdx, timestampSeconds, sessionId, MemoryScope.namespaceId());
+    }
+
     private void processLoop() {
         while (!closed.get() && !Thread.currentThread().isInterrupted()) {
             try {
                 EntityExtractionTask task = queue.poll(500, TimeUnit.MILLISECONDS);
                 if (task != null) {
                     Runnable worker = () -> processTask(task);
-                    if (task.sessionId() != null && !task.sessionId().isBlank()) {
-                        ScopedValue.where(MemoryScope.SESSION_ID, task.sessionId()).run(worker);
-                    } else {
-                        worker.run();
-                    }
+                    MemoryScope.runWithScope(task.sessionId(), task.namespaceId(), worker);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -203,23 +210,22 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
         );
     }
 
-    public int queueSize() {
-        return queue.size();
-    }
-
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            executor.shutdown();
-            try {
-                if (!executor.awaitTermination(3, TimeUnit.SECONDS)) {
-                    executor.shutdownNow();
+            log.info("[AsyncEntityExtractionQueue] Closing extraction queue, draining remaining {} tasks...",
+                    queue.size());
+            long deadline = System.currentTimeMillis() + 5000;
+            while (!queue.isEmpty() && System.currentTimeMillis() < deadline) {
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
-            } catch (InterruptedException e) {
-                executor.shutdownNow();
-                Thread.currentThread().interrupt();
             }
-            log.info("[AsyncEntityExtractionQueue] Shutdown complete (remaining queue size: {})", queue.size());
+            log.info("[AsyncEntityExtractionQueue] Closed. Drained stats: processed={}, failed={}, remaining={}",
+                    totalProcessed.get(), totalFailed.get(), queue.size());
         }
     }
 }
