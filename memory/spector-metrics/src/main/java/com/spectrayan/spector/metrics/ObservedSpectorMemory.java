@@ -17,6 +17,7 @@ package com.spectrayan.spector.metrics;
 
 import com.spectrayan.spector.commons.chunker.ChunkConfig;
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.config.ObservabilityConfig;
 import com.spectrayan.spector.memory.SpectorMemory;
 import com.spectrayan.spector.memory.SpectorMemoryAdmin;
 import com.spectrayan.spector.memory.cortex.MemorySource;
@@ -41,6 +42,7 @@ import com.spectrayan.spector.memory.session.EpisodicSessionIndex;
 import com.spectrayan.spector.memory.temporal.TemporalFact;
 import com.spectrayan.spector.metrics.observation.DefaultSpectorObservationConvention;
 import com.spectrayan.spector.metrics.observation.MemoryObservationContext;
+import com.spectrayan.spector.metrics.observation.ObservableComponent;
 import com.spectrayan.spector.metrics.observation.SpectorObservationConvention;
 import com.spectrayan.spector.metrics.observation.SpectorObservationDocumentation;
 import io.micrometer.observation.Observation;
@@ -48,7 +50,9 @@ import io.micrometer.observation.ObservationRegistry;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -60,18 +64,19 @@ import java.util.function.Supplier;
  * simultaneously produces Micrometer metrics (timers, counters, histograms) and OpenTelemetry /
  * W3C Trace Context distributed trace spans (Trace ID, Span ID, parent-child span hierarchies).</p>
  */
-public class ObservedSpectorMemory implements SpectorMemory {
+public class ObservedSpectorMemory extends ObservableComponent implements SpectorMemory {
 
     private final SpectorMemory delegate;
     private final ObservationRegistry registry;
     private final SpectorObservationConvention convention;
 
-    public ObservedSpectorMemory(SpectorMemory delegate, ObservationRegistry registry) {
-        this(delegate, registry, DefaultSpectorObservationConvention.INSTANCE);
+    public ObservedSpectorMemory(SpectorMemory delegate, ObservationRegistry registry, ObservabilityConfig config) {
+        this(delegate, registry, config, DefaultSpectorObservationConvention.INSTANCE);
     }
 
-    public ObservedSpectorMemory(SpectorMemory delegate, ObservationRegistry registry,
+    public ObservedSpectorMemory(SpectorMemory delegate, ObservationRegistry registry, ObservabilityConfig config,
                                  SpectorObservationConvention convention) {
+        super(registry, config);
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.convention = convention != null ? convention : DefaultSpectorObservationConvention.INSTANCE;
@@ -85,66 +90,21 @@ public class ObservedSpectorMemory implements SpectorMemory {
         return registry;
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // --------------------------------------------------------------
     // OBSERVATION HELPER METHODS
-    // ══════════════════════════════════════════════════════════════
+    // --------------------------------------------------------------
 
-    private void observeRunnable(SpectorObservationDocumentation doc, String tier, String memoryId,
-                                 String query, Runnable action) {
-        MemoryObservationContext context = new MemoryObservationContext(doc.getName())
-                .setTier(tier)
-                .setMemoryId(memoryId)
-                .setQuery(query)
-                .setSessionId(MemoryScope.sessionId())
-                .setNamespace(MemoryScope.namespaceId());
-
-        Observation observation = Observation.createNotStarted(doc.getName(), () -> context, registry)
-                .observationConvention(convention)
-                .start();
-
-        try (Observation.Scope ignored = observation.openScope()) {
-            action.run();
-            context.setStatus("SUCCESS");
-        } catch (Throwable t) {
-            context.setStatus("ERROR");
-            context.setError(t);
-            observation.error(t);
-            throw t;
-        } finally {
-            observation.stop();
-        }
+    private Map<String, String> createTags(String tier, String memoryId, String query) {
+        Map<String, String> tags = new HashMap<>();
+        if (tier != null) tags.put("tier", tier);
+        if (memoryId != null) tags.put("memory_id", memoryId);
+        if (query != null) tags.put("query", query);
+        return tags;
     }
 
-    private <T> T observeSupplier(SpectorObservationDocumentation doc, String tier, String memoryId,
-                                  String query, Supplier<T> supplier) {
-        MemoryObservationContext context = new MemoryObservationContext(doc.getName())
-                .setTier(tier)
-                .setMemoryId(memoryId)
-                .setQuery(query)
-                .setSessionId(MemoryScope.sessionId())
-                .setNamespace(MemoryScope.namespaceId());
-
-        Observation observation = Observation.createNotStarted(doc.getName(), () -> context, registry)
-                .observationConvention(convention)
-                .start();
-
-        try (Observation.Scope ignored = observation.openScope()) {
-            T result = supplier.get();
-            context.setStatus("SUCCESS");
-            return result;
-        } catch (Throwable t) {
-            context.setStatus("ERROR");
-            context.setError(t);
-            observation.error(t);
-            throw t;
-        } finally {
-            observation.stop();
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════
+    // --------------------------------------------------------------
     // INGESTION TARGET
-    // ══════════════════════════════════════════════════════════════
+    // --------------------------------------------------------------
 
     @Override
     public CognitiveIngestionTarget target() {
@@ -156,102 +116,102 @@ public class ObservedSpectorMemory implements SpectorMemory {
         return delegate.namespaceId();
     }
 
-    // ══════════════════════════════════════════════════════════════
+    // --------------------------------------------------------------
     // CORE API (OBSERVED)
-    // ══════════════════════════════════════════════════════════════
+    // --------------------------------------------------------------
 
     @Override
     public void remember(String id, String text, MemoryType type, MemorySource source, String... tags) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_REMEMBER,
-                type != null ? type.name() : null, id, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, id, null),
                 () -> delegate.remember(id, text, type, source, tags));
     }
 
     @Override
     public void remember(String id, String text, MemoryType type, MemorySource source,
                          IngestionHints hints, String... tags) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_REMEMBER,
-                type != null ? type.name() : null, id, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, id, null),
                 () -> delegate.remember(id, text, type, source, hints, tags));
     }
 
     @Override
     public void remember(String id, String text, MemoryType type, String... tags) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_REMEMBER,
-                type != null ? type.name() : null, id, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, id, null),
                 () -> delegate.remember(id, text, type, tags));
     }
 
     @Override
     public void remember(String id, String text, MemoryType type, MemorySource source,
                          IngestionContext context, String... tags) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_REMEMBER,
-                type != null ? type.name() : null, id, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, id, null),
                 () -> delegate.remember(id, text, type, source, context, tags));
     }
 
     @Override
     public String remember(String text, MemoryType type, MemorySource source, String... tags) {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_REMEMBER,
-                type != null ? type.name() : null, null, null,
+        return withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, null, null),
                 () -> delegate.remember(text, type, source, tags));
     }
 
     @Override
     public String remember(String text, MemoryType type, MemorySource source,
                            IngestionHints hints, String... tags) {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_REMEMBER,
-                type != null ? type.name() : null, null, null,
+        return withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, null, null),
                 () -> delegate.remember(text, type, source, hints, tags));
     }
 
     @Override
     public String remember(String text, MemoryType type, MemorySource source,
                            IngestionContext context, String... tags) {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_REMEMBER,
-                type != null ? type.name() : null, null, null,
+        return withObservation(SpectorObservationDocumentation.MEMORY_REMEMBER,
+                createTags(type != null ? type.name() : null, null, null),
                 () -> delegate.remember(text, type, source, context, tags));
     }
 
     @Override
     public List<CognitiveResult> recall(String queryText, RecallOptions options) {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_RECALL,
-                null, null, queryText,
+        return withObservation(SpectorObservationDocumentation.MEMORY_RECALL,
+                createTags(null, null, queryText),
                 () -> delegate.recall(queryText, options));
     }
 
     @Override
     public List<CognitiveResult> recall(String queryText, CognitiveProfile profile) {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_RECALL,
-                null, null, queryText,
+        return withObservation(SpectorObservationDocumentation.MEMORY_RECALL,
+                createTags(null, null, queryText),
                 () -> delegate.recall(queryText, profile));
     }
 
     @Override
     public List<CognitiveResult> recall(String queryText) {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_RECALL,
-                null, null, queryText,
+        return withObservation(SpectorObservationDocumentation.MEMORY_RECALL,
+                createTags(null, null, queryText),
                 () -> delegate.recall(queryText));
     }
 
     @Override
     public void forget(String id) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_FORGET,
-                null, id, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_FORGET,
+                createTags(null, id, null),
                 () -> delegate.forget(id));
     }
 
     @Override
     public ReflectReport reflect() {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_CONSOLIDATE,
-                null, null, null,
+        return withObservation(SpectorObservationDocumentation.MEMORY_CONSOLIDATE,
+                createTags(null, null, null),
                 delegate::reflect);
     }
 
     @Override
     public void consolidate() {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_CONSOLIDATE,
-                null, null, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_CONSOLIDATE,
+                createTags(null, null, null),
                 delegate::consolidate);
     }
 
@@ -267,29 +227,29 @@ public class ObservedSpectorMemory implements SpectorMemory {
 
     @Override
     public void reinforce(String memoryId, byte valence) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_REINFORCE,
-                null, memoryId, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_REINFORCE,
+                createTags(null, memoryId, null),
                 () -> delegate.reinforce(memoryId, valence));
     }
 
     @Override
     public void reinforce(String memoryId, byte valence, IngestionHints updatedHints) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_REINFORCE,
-                null, memoryId, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_REINFORCE,
+                createTags(null, memoryId, null),
                 () -> delegate.reinforce(memoryId, valence, updatedHints));
     }
 
     @Override
     public void suppress(String memoryId, String reason) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_FORGET,
-                null, memoryId, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_FORGET,
+                createTags(null, memoryId, null),
                 () -> delegate.suppress(memoryId, reason));
     }
 
     @Override
     public void suppress(String memoryId) {
-        observeRunnable(SpectorObservationDocumentation.MEMORY_FORGET,
-                null, memoryId, null,
+        withObservation(SpectorObservationDocumentation.MEMORY_FORGET,
+                createTags(null, memoryId, null),
                 () -> delegate.suppress(memoryId));
     }
 
@@ -310,15 +270,15 @@ public class ObservedSpectorMemory implements SpectorMemory {
 
     @Override
     public MemoryInsight introspect(String topic) {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_RECALL,
-                null, null, topic,
+        return withObservation(SpectorObservationDocumentation.MEMORY_RECALL,
+                createTags(null, null, topic),
                 () -> delegate.introspect(topic));
     }
 
     @Override
     public WhyNotExplanation whyNot(String memoryId, String query, RecallOptions options) {
-        return observeSupplier(SpectorObservationDocumentation.MEMORY_RECALL,
-                null, memoryId, query,
+        return withObservation(SpectorObservationDocumentation.MEMORY_RECALL,
+                createTags(null, memoryId, query),
                 () -> delegate.whyNot(memoryId, query, options));
     }
 

@@ -21,6 +21,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.config.ObservabilityConfig;
 import com.spectrayan.spector.metrics.observation.MicrometerMemoryObservationHook;
 import io.micrometer.observation.tck.TestObservationRegistry;
 import io.micrometer.observation.tck.TestObservationRegistryAssert;
@@ -54,7 +55,7 @@ class ObservedSpectorMemoryTest {
     @BeforeEach
     void setUp() {
         registry = TestObservationRegistry.create();
-        memory = new ObservedSpectorMemory(delegate, registry);
+        memory = new ObservedSpectorMemory(delegate, registry, ObservabilityConfig.DEFAULT);
     }
 
     @Test
@@ -133,9 +134,9 @@ class ObservedSpectorMemoryTest {
     @Test
     @DisplayName("MicrometerMemoryObservationHook bridges zero-dependency SPI to ObservationRegistry")
     void testMemoryObservationHookAdapter() throws Exception {
-        var hook = new MicrometerMemoryObservationHook(registry);
+        var hook = new MicrometerMemoryObservationHook(registry, ObservabilityConfig.DEFAULT);
 
-        try (var handle = hook.start("spector.pipeline.chunk", Map.of(
+        try (var handle = hook.start(com.spectrayan.spector.commons.observation.MemoryObservationHook.CHUNKING, Map.of(
                 "tier", "EPISODIC",
                 "namespace", "ns-42",
                 "custom_key", "custom_val"
@@ -144,7 +145,7 @@ class ObservedSpectorMemoryTest {
         }
 
         TestObservationRegistryAssert.assertThat(registry)
-                .hasObservationWithNameEqualTo("spector.pipeline.chunk")
+                .hasObservationWithNameEqualTo("chunking")
                 .that()
                 .hasLowCardinalityKeyValue("spector.tier", "EPISODIC")
                 .hasLowCardinalityKeyValue("spector.namespace", "ns-42")
