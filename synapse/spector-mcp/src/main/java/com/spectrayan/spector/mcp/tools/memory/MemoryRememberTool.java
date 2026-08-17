@@ -185,15 +185,6 @@ public final class MemoryRememberTool extends MemoryToolHandler {
 
         IngestionContext context = ctxBuilder.build();
 
-        // Compute importance estimate (read-only) to show what was assigned
-        com.spectrayan.spector.memory.model.ImportanceResult estimate = null;
-        try {
-            estimate = memory.estimateImportance(text, hints);
-        } catch (Exception e) {
-            // Non-fatal: importance display is best-effort
-            log.warn("[MemoryRememberTool] Importance estimation failed: {}", e.getMessage());
-        }
-
         // Ingest: auto-generate ID if not provided
         boolean autoId = id.isEmpty();
         if (autoId) {
@@ -208,6 +199,12 @@ public final class MemoryRememberTool extends MemoryToolHandler {
             memory.remember(id, text, type, source, context, tags);
         }
 
+        // Retrieve stored cognitive record for importance feedback (zero extra embedding calls)
+        com.spectrayan.spector.memory.model.CognitiveRecord storedRecord = null;
+        try {
+            storedRecord = memory.inspect(id);
+        } catch (Exception ignored) {}
+
         StringBuilder sb = new StringBuilder();
         sb.append("✅ Stored ").append(type).append(" memory '").append(id).append("'");
         if (autoId) sb.append(" (auto-generated TSID)");
@@ -221,16 +218,11 @@ public final class MemoryRememberTool extends MemoryToolHandler {
             if (arousal != 0) sb.append(" | arousal=").append(arousal);
         }
 
-        // Show computed importance feedback
-        if (estimate != null) {
-            sb.append(String.format("\n📈 Importance: %.2f / 10.0", estimate.importance()));
-            sb.append(String.format(" (novelty=%.2f, z=%.2f)", estimate.breakdown().noveltyScore(), estimate.breakdown().noveltyZScore()));
-            if (estimate.isFlashbulb()) {
-                sb.append(" ⚡ FLASHBULB");
-            }
-            if (estimate.breakdown().nearestMemoryId() != null) {
-                sb.append(String.format("\n🔗 Nearest: '%s' (dist=%.4f)",
-                        estimate.breakdown().nearestMemoryId(), estimate.breakdown().nearestDistance()));
+        // Show computed importance feedback from stored record
+        if (storedRecord != null) {
+            sb.append(String.format("\n📈 Importance: %.2f / 10.0", storedRecord.importance()));
+            if (storedRecord.isPinned()) {
+                sb.append(" ⚡ FLASHBULB (Pinned)");
             }
         }
 
