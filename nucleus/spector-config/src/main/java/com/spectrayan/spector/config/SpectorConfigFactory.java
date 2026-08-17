@@ -145,6 +145,31 @@ public final class SpectorConfigFactory {
         properties.setEntityExtractionParallelism(props.getInt(MEMORY_ENTITY_EXTRACTION_PARALLELISM, DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM));
         properties.setEntityExtractionQueueCapacity(props.getInt(MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY, DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY));
 
+        var taskQueue = properties.getTaskQueue();
+        taskQueue.setPollTimeoutMs(props.getLong(MEMORY_TASKQUEUE_POLL_TIMEOUT_MS, DEFAULT_MEMORY_TASKQUEUE_POLL_TIMEOUT_MS));
+        taskQueue.setDrainTimeoutMs(props.getLong(MEMORY_TASKQUEUE_DRAIN_TIMEOUT_MS, DEFAULT_MEMORY_TASKQUEUE_DRAIN_TIMEOUT_MS));
+        taskQueue.setMaxRetries(props.getInt(MEMORY_TASKQUEUE_MAX_RETRIES, DEFAULT_MEMORY_TASKQUEUE_MAX_RETRIES));
+        taskQueue.setRetryBackoffMs(props.getLong(MEMORY_TASKQUEUE_RETRY_BACKOFF_MS, DEFAULT_MEMORY_TASKQUEUE_RETRY_BACKOFF_MS));
+        taskQueue.setBackpressurePolicy(props.getString(MEMORY_TASKQUEUE_BACKPRESSURE_POLICY, DEFAULT_MEMORY_TASKQUEUE_BACKPRESSURE_POLICY));
+
+        var eeQueue = properties.getEntityExtractionTaskQueue();
+        eeQueue.setParallelism(props.getInt(MEMORY_ENTITY_EXTRACTION_PARALLELISM, DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM));
+        eeQueue.setCapacity(props.getInt(MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY, DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY));
+        eeQueue.setPollTimeoutMs(taskQueue.getPollTimeoutMs());
+        eeQueue.setDrainTimeoutMs(taskQueue.getDrainTimeoutMs());
+        eeQueue.setMaxRetries(taskQueue.getMaxRetries());
+        eeQueue.setRetryBackoffMs(taskQueue.getRetryBackoffMs());
+        eeQueue.setBackpressurePolicy(taskQueue.getBackpressurePolicy());
+
+        var consolQueue = properties.getConsolidationTaskQueue();
+        consolQueue.setParallelism(props.getInt(MEMORY_CONSOLIDATION_PARALLELISM, DEFAULT_MEMORY_CONSOLIDATION_PARALLELISM));
+        consolQueue.setCapacity(props.getInt(MEMORY_CONSOLIDATION_QUEUE_CAPACITY, DEFAULT_MEMORY_CONSOLIDATION_QUEUE_CAPACITY));
+        consolQueue.setPollTimeoutMs(taskQueue.getPollTimeoutMs());
+        consolQueue.setDrainTimeoutMs(taskQueue.getDrainTimeoutMs());
+        consolQueue.setMaxRetries(taskQueue.getMaxRetries());
+        consolQueue.setRetryBackoffMs(taskQueue.getRetryBackoffMs());
+        consolQueue.setBackpressurePolicy(taskQueue.getBackpressurePolicy());
+
         var llm = new LlmProperties(
                 props.getFloat(MEMORY_LLM_TEMPERATURE, DEFAULT_MEMORY_LLM_TEMPERATURE),
                 props.getInt(MEMORY_LLM_MAX_TOKENS, DEFAULT_MEMORY_LLM_MAX_TOKENS),

@@ -64,6 +64,10 @@ public class MemoryProperties implements Serializable {
     private ConsolidationProperties consolidation = new ConsolidationProperties();
     private LlmProperties llm = new LlmProperties();
 
+    private TaskQueueProperties taskQueue = new TaskQueueProperties();
+    private TaskQueueProperties entityExtractionTaskQueue = new TaskQueueProperties();
+    private TaskQueueProperties consolidationTaskQueue = new TaskQueueProperties();
+
     private int entityExtractionParallelism = DEFAULT_MEMORY_ENTITY_EXTRACTION_PARALLELISM;
     private int entityExtractionQueueCapacity = DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY;
 
@@ -98,13 +102,21 @@ public class MemoryProperties implements Serializable {
     }
 
     public String getPersistencePath() { return persistencePath; }
-    public void setPersistencePath(String persistencePath) { this.persistencePath = persistencePath; }
+    public void setPersistencePath(String persistencePath) {
+        if (persistencePath != null && !persistencePath.isBlank()) {
+            this.persistencePath = persistencePath;
+        }
+    }
 
     public int getDimensions() { return dimensions; }
-    public void setDimensions(int dimensions) { this.dimensions = dimensions; }
+    public void setDimensions(int dimensions) {
+        if (dimensions > 0) this.dimensions = dimensions;
+    }
 
     public int getCapacity() { return capacity; }
-    public void setCapacity(int capacity) { this.capacity = capacity; }
+    public void setCapacity(int capacity) {
+        if (capacity > 0) this.capacity = capacity;
+    }
 
     public int getNodesPerPartition() { return nodesPerPartition; }
     public void setNodesPerPartition(int nodesPerPartition) {
@@ -149,7 +161,9 @@ public class MemoryProperties implements Serializable {
 
     public String getTagExtractorModel() { return tagExtractorModel; }
     public void setTagExtractorModel(String tagExtractorModel) {
-        if (tagExtractorModel != null) this.tagExtractorModel = tagExtractorModel;
+        if (tagExtractorModel != null && !tagExtractorModel.isBlank()) {
+            this.tagExtractorModel = tagExtractorModel;
+        }
     }
 
     public TextSearchMode getTextSearchMode() { return textSearchMode; }
@@ -186,6 +200,24 @@ public class MemoryProperties implements Serializable {
     public void setLlm(LlmProperties llm) {
         if (llm != null) this.llm = llm;
     }
+
+    public TaskQueueProperties getTaskQueue() { return taskQueue; }
+    public void setTaskQueue(TaskQueueProperties taskQueue) {
+        if (taskQueue != null) this.taskQueue = taskQueue;
+    }
+    public TaskQueueProperties taskQueue() { return getTaskQueue(); }
+
+    public TaskQueueProperties getEntityExtractionTaskQueue() { return entityExtractionTaskQueue; }
+    public void setEntityExtractionTaskQueue(TaskQueueProperties entityExtractionTaskQueue) {
+        if (entityExtractionTaskQueue != null) this.entityExtractionTaskQueue = entityExtractionTaskQueue;
+    }
+    public TaskQueueProperties entityExtractionTaskQueue() { return getEntityExtractionTaskQueue(); }
+
+    public TaskQueueProperties getConsolidationTaskQueue() { return consolidationTaskQueue; }
+    public void setConsolidationTaskQueue(TaskQueueProperties consolidationTaskQueue) {
+        if (consolidationTaskQueue != null) this.consolidationTaskQueue = consolidationTaskQueue;
+    }
+    public TaskQueueProperties consolidationTaskQueue() { return getConsolidationTaskQueue(); }
 
     public boolean enabled() { return isEnabled(); }
     public int maxMemories() { return getMaxMemories(); }
@@ -239,11 +271,11 @@ public class MemoryProperties implements Serializable {
     public void setInsulaSize(long insulaSize) { this.insulaSize = insulaSize; }
     public long insulaSize() { return insulaSize; }
 
-    public int getEntityExtractionParallelism() { return entityExtractionParallelism; }
-    public void setEntityExtractionParallelism(int entityExtractionParallelism) { this.entityExtractionParallelism = entityExtractionParallelism; }
-    public int entityExtractionParallelism() { return entityExtractionParallelism; }
+    public int getEntityExtractionParallelism() { return entityExtractionTaskQueue.getParallelism(); }
+    public void setEntityExtractionParallelism(int entityExtractionParallelism) { this.entityExtractionTaskQueue.setParallelism(entityExtractionParallelism); }
+    public int entityExtractionParallelism() { return getEntityExtractionParallelism(); }
 
-    public int getEntityExtractionQueueCapacity() { return entityExtractionQueueCapacity; }
-    public void setEntityExtractionQueueCapacity(int entityExtractionQueueCapacity) { this.entityExtractionQueueCapacity = entityExtractionQueueCapacity; }
-    public int entityExtractionQueueCapacity() { return entityExtractionQueueCapacity; }
+    public int getEntityExtractionQueueCapacity() { return entityExtractionTaskQueue.getCapacity(); }
+    public void setEntityExtractionQueueCapacity(int entityExtractionQueueCapacity) { this.entityExtractionTaskQueue.setCapacity(entityExtractionQueueCapacity); }
+    public int entityExtractionQueueCapacity() { return getEntityExtractionQueueCapacity(); }
 }
