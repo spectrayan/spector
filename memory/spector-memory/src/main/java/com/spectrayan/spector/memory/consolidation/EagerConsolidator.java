@@ -12,8 +12,11 @@
  */
 package com.spectrayan.spector.memory.consolidation;
 
-import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.commons.concurrent.ScopedTask;
+import com.spectrayan.spector.commons.concurrent.SpectorTaskQueue;
+import com.spectrayan.spector.commons.concurrent.TaskPriority;
+import com.spectrayan.spector.commons.concurrent.TaskQueueConfig;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
@@ -36,28 +39,22 @@ import org.slf4j.LoggerFactory;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.Objects;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
- * Eager single-memory contradiction consolidator.
- *
- * <p>Ingests a memory and evaluates it against existing memories immediately
- * using a centralized virtual thread managed by {@link ConcurrentTasks#virtualExecutor()}
- * and a bounded task queue. Performs a gated contradiction scan (tombstone &rarr; bloom
- * filter &rarr; vector distance &rarr; LLM) and applies CADP directional resolution (#507)
- * immediately after ingestion, closing the confusion window before the next batch consolidation cycle.</p>
+ * Supervised asynchronous consolidator wrapping {@link SpectorTaskQueue} for immediate CADP
+ * contradiction evaluation upon memory ingestion.
  */
 public final class EagerConsolidator extends AbstractConsolidator implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(EagerConsolidator.class);
 
-    public record EagerConsolidationTask(String memoryId, MemoryType type, String sessionId, String namespaceId) {}
+    public record EagerConsolidationPayload(
+            String memoryId,
+            MemoryType type
+    ) {}
 
-    private final BlockingQueue<EagerConsolidationTask> taskQueue;
+    private final SpectorTaskQueue<EagerConsolidationPayload> taskQueue;
     private final CognitiveMemoryRouter cognitiveRouter;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
@@ -66,7 +63,6 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
     private final Function<String, CognitiveRecord> inspectFunction;
     private final float distanceThreshold;
-    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public EagerConsolidator(CognitiveMemoryRouter cognitiveRouter,
                              MemoryIndex index,
@@ -79,6 +75,22 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
                              Function<String, CognitiveRecord> inspectFunction,
                              float distanceThreshold,
                              int queueCapacity) {
+        this(cognitiveRouter, index, quantizer, entityDirectory, hyperEntityGraph,
+                temporalKnowledgeGraph, textGenerator, embeddingProvider, inspectFunction,
+                distanceThreshold, TaskQueueConfig.of(queueCapacity, 1));
+    }
+
+    public EagerConsolidator(CognitiveMemoryRouter cognitiveRouter,
+                             MemoryIndex index,
+                             ScalarQuantizer quantizer,
+                             EntityDirectory entityDirectory,
+                             HyperEntityGraphMemory hyperEntityGraph,
+                             TemporalKnowledgeGraph temporalKnowledgeGraph,
+                             LlmProvider textGenerator,
+                             EmbeddingProvider embeddingProvider,
+                             Function<String, CognitiveRecord> inspectFunction,
+                             float distanceThreshold,
+                             TaskQueueConfig config) {
         super(textGenerator, embeddingProvider);
         this.cognitiveRouter = Objects.requireNonNull(cognitiveRouter, "cognitiveRouter");
         this.index = Objects.requireNonNull(index, "index");
@@ -88,9 +100,11 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
         this.temporalKnowledgeGraph = temporalKnowledgeGraph;
         this.inspectFunction = Objects.requireNonNull(inspectFunction, "inspectFunction");
         this.distanceThreshold = distanceThreshold;
-        this.taskQueue = new LinkedBlockingQueue<>(Math.max(16, queueCapacity));
-
-        ConcurrentTasks.virtualExecutor().submit(this::processLoop);
+        this.taskQueue = new SpectorTaskQueue<>(
+                "eager-consolidation",
+                config != null ? config : TaskQueueConfig.ofDefaults(),
+                this::processTask
+        );
     }
 
     /**
@@ -101,7 +115,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
      * @return true if accepted, false if the queue is full or closed
      */
     public boolean submit(String memoryId, MemoryType type) {
-        if (closed.get() || memoryId == null || type == null) {
+        if (memoryId == null || type == null) {
             return false;
         }
         if (type != MemoryType.SEMANTIC && type != MemoryType.PROCEDURAL) {
@@ -110,35 +124,18 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
 
         String sessionId = MemoryScope.sessionId();
         String namespaceId = MemoryScope.namespaceId();
-        boolean accepted = taskQueue.offer(new EagerConsolidationTask(memoryId, type, sessionId, namespaceId));
-        if (!accepted) {
-            log.debug("Eager consolidation queue full ({}) — task for '{}' skipped; batch consolidation will catch it",
-                    taskQueue.size(), memoryId);
-        }
-        return accepted;
+        EagerConsolidationPayload payload = new EagerConsolidationPayload(memoryId, type);
+        ScopedTask<EagerConsolidationPayload> task = ScopedTask.of(
+                memoryId, payload, sessionId, namespaceId, TaskPriority.NORMAL);
+
+        return taskQueue.submit(task);
     }
 
-    private void processLoop() {
-        while (!closed.get() && !Thread.currentThread().isInterrupted()) {
-            try {
-                EagerConsolidationTask task = taskQueue.poll(500, TimeUnit.MILLISECONDS);
-                if (task != null) {
-                    Runnable worker = () -> processTask(task);
-                    MemoryScope.runWithScope(task.sessionId(), task.namespaceId(), worker);
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            } catch (Exception e) {
-                log.warn("Eager consolidation task error: {}", e.getMessage(), e);
-            }
-        }
-    }
-
-    private void processTask(EagerConsolidationTask task) {
+    private void processTask(ScopedTask<EagerConsolidationPayload> task) {
+        EagerConsolidationPayload payload = task.payload();
         CognitiveRecordMemory store;
         try {
-            store = cognitiveRouter.get(task.type());
+            store = cognitiveRouter.get(payload.type());
         } catch (RuntimeException e) {
             return;
         }
@@ -146,7 +143,7 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             return;
         }
 
-        CognitiveRecord recordA = inspectFunction.apply(task.memoryId());
+        CognitiveRecord recordA = inspectFunction.apply(payload.memoryId());
         if (recordA == null || recordA.isTombstoned() || recordA.isContradicted()) {
             return;
         }
@@ -233,25 +230,15 @@ public final class EagerConsolidator extends AbstractConsolidator implements Aut
             CognitiveIngestionTarget ingestionTarget,
             MemoryWal wal,
             Function<String, CognitiveRecord> inspectFunction) {
-        // Drains and synchronously processes all pending eager tasks
-        EagerConsolidationTask task;
-        while ((task = taskQueue.poll()) != null) {
-            processTask(task);
-        }
+        // Queue is drained automatically by SpectorTaskQueue on close
+    }
+
+    public SpectorTaskQueue<EagerConsolidationPayload> taskQueue() {
+        return taskQueue;
     }
 
     @Override
     public void close() {
-        if (closed.compareAndSet(false, true)) {
-            long deadline = System.currentTimeMillis() + 2000;
-            while (!taskQueue.isEmpty() && System.currentTimeMillis() < deadline) {
-                try {
-                    Thread.sleep(50);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        }
+        taskQueue.close();
     }
 }
