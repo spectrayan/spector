@@ -19,8 +19,12 @@ import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 
+import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.config.ObservabilityConfig;
+
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Micrometer Observation adapter implementing {@link MemoryObservationHook}.
@@ -32,19 +36,36 @@ public final class MicrometerMemoryObservationHook implements MemoryObservationH
 
     private final ObservationRegistry registry;
     private final SpectorObservationConvention convention;
+    private final ObservabilityConfig config;
+    private final Set<String> enabledObservations;
 
-    public MicrometerMemoryObservationHook(ObservationRegistry registry) {
-        this(registry, DefaultSpectorObservationConvention.INSTANCE);
+    public MicrometerMemoryObservationHook(ObservationRegistry registry, ObservabilityConfig config) {
+        this(registry, DefaultSpectorObservationConvention.INSTANCE, config);
     }
 
-    public MicrometerMemoryObservationHook(ObservationRegistry registry, SpectorObservationConvention convention) {
+    public MicrometerMemoryObservationHook(ObservationRegistry registry, SpectorObservationConvention convention, ObservabilityConfig config) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.convention = convention != null ? convention : DefaultSpectorObservationConvention.INSTANCE;
+        this.config = config != null ? config : ObservabilityConfig.DEFAULT;
+        this.enabledObservations = this.config.computeEnabledObservationSet();
     }
 
     @Override
     public AutoCloseable start(String name, Map<String, String> tags) {
-        MemoryObservationContext context = new MemoryObservationContext(name);
+        String fullName = name;
+        String currentParent = ObservableComponent.currentParent();
+        if (currentParent != null) {
+            fullName = currentParent + "." + name;
+        }
+
+        if (!enabledObservations.contains(name)) {
+            return () -> {}; // No-op if disabled
+        }
+
+        MemoryObservationContext context = new MemoryObservationContext(fullName);
+        context.setNamespace(MemoryScope.namespaceId());
+        context.setSessionId(MemoryScope.sessionId());
+
         if (tags != null) {
             for (var entry : tags.entrySet()) {
                 String k = entry.getKey();
@@ -68,7 +89,7 @@ public final class MicrometerMemoryObservationHook implements MemoryObservationH
         }
 
         Observation observation = Observation.createNotStarted(
-                name != null ? name : "spector.memory.operation",
+                fullName != null ? fullName : "spector.memory.operation",
                 () -> context,
                 registry
         ).observationConvention(convention).start();
@@ -82,5 +103,34 @@ public final class MicrometerMemoryObservationHook implements MemoryObservationH
                 observation.stop();
             }
         };
+    }
+    
+    @Override
+    public <T> T observe(String name, Map<String, String> tags, java.util.function.Supplier<T> action) {
+        String fullName = name;
+        String currentParent = ObservableComponent.currentParent();
+        if (currentParent != null) {
+            fullName = currentParent + "." + name;
+        }
+
+        if (!enabledObservations.contains(name)) {
+            return action.get();
+        }
+
+        try (AutoCloseable c = start(name, tags)) {
+            final String fName = fullName;
+            return ScopedValue.where(ObservableComponent.PARENT_OBSERVATION, fName).call(action::get);
+        } catch (Exception e) {
+            if (e instanceof RuntimeException re) throw re;
+            throw new RuntimeException(e);
+        }
+    }
+    
+    @Override
+    public void observe(String name, Map<String, String> tags, Runnable action) {
+        observe(name, tags, () -> {
+            action.run();
+            return null;
+        });
     }
 }

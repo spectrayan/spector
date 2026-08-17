@@ -196,6 +196,290 @@ public enum SpectorObservationDocumentation implements ObservationDocumentation 
         public String getPrefix() {
             return "spector.taskqueue";
         }
+    },
+
+    /**
+     * Embedding pipeline observation.
+     */
+    PIPELINE_EMBEDDING {
+        @Override
+        public String getName() {
+            return "spector.pipeline.embedding";
+        }
+
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+
+        @Override
+        public String getPrefix() {
+            return "spector.pipeline";
+        }
+    },
+
+    /**
+     * LLM pipeline observation.
+     */
+    PIPELINE_LLM {
+        @Override
+        public String getName() {
+            return "spector.pipeline.llm";
+        }
+
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+
+        @Override
+        public String getPrefix() {
+            return "spector.pipeline";
+        }
+    },
+    RECALL_VECTOR_SEARCH {
+        @Override
+        public String getName() {
+            return "spector.recall.vector_search";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.recall";
+        }
+    },
+    RECALL_BM25_SEARCH {
+        @Override
+        public String getName() {
+            return "spector.recall.bm25_search";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.recall";
+        }
+    },
+    RECALL_SCORING {
+        @Override
+        public String getName() {
+            return "spector.recall.scoring";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.recall";
+        }
+    },
+    RECALL_GRAPH_EXPANSION {
+        @Override
+        public String getName() {
+            return "spector.recall.graph_expansion";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.recall";
+        }
+    },
+    RECALL_CONTRADICTION {
+        @Override
+        public String getName() {
+            return "spector.recall.contradiction";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.recall";
+        }
+    },
+    REMEMBER_TAG_EXTRACTION {
+        @Override
+        public String getName() {
+            return "spector.remember.tag_extraction";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.remember";
+        }
+    },
+    REMEMBER_CHUNKING {
+        @Override
+        public String getName() {
+            return "spector.remember.chunking";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.remember";
+        }
+    },
+    REMEMBER_ENTITY_EXTRACTION {
+        @Override
+        public String getName() {
+            return "spector.remember.entity_extraction";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.remember";
+        }
+    },
+    REMEMBER_GRAPH_SYNC {
+        @Override
+        public String getName() {
+            return "spector.remember.graph_sync";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.remember";
+        }
+    },
+    SCORING_COGNITIVE {
+        @Override
+        public String getName() {
+            return "spector.scoring.cognitive";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.scoring";
+        }
+    },
+    SCORING_HABITUATION {
+        @Override
+        public String getName() {
+            return "spector.scoring.habituation";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.scoring";
+        }
+    },
+    SCORING_STDP {
+        @Override
+        public String getName() {
+            return "spector.scoring.stdp";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.scoring";
+        }
+    },
+    SCORING_HEBBIAN {
+        @Override
+        public String getName() {
+            return "spector.scoring.hebbian";
+        }
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+        @Override
+        public String getPrefix() {
+            return "spector.scoring";
+        }
     };
 
     public enum LowCardinalityKeys implements KeyName {

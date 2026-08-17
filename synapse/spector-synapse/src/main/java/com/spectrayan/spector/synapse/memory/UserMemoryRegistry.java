@@ -95,6 +95,8 @@ public final class UserMemoryRegistry implements AutoCloseable {
     private final ObjectProvider<ObjectMapper> objectMapperProvider;
     private final ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider;
     private final ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider;
+    private final ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider;
+    private final ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider;
 
     /** Maximum number of concurrently-cached per-user instances (LRU cap). */
     private final int maxInstances;
@@ -115,7 +117,7 @@ public final class UserMemoryRegistry implements AutoCloseable {
             ObjectProvider<SalienceProfileProvider> salienceProvider,
             ObjectProvider<ObjectMapper> objectMapperProvider,
             int maxInstances) {
-        this(sharedProvider, synapseProps, embedderProvider, textGenProvider, salienceProvider, objectMapperProvider, null, null, maxInstances);
+        this(sharedProvider, synapseProps, embedderProvider, textGenProvider, salienceProvider, objectMapperProvider, null, null, null, null, maxInstances);
     }
 
     @Autowired
@@ -128,6 +130,8 @@ public final class UserMemoryRegistry implements AutoCloseable {
             ObjectProvider<ObjectMapper> objectMapperProvider,
             ObjectProvider<org.springframework.cache.CacheManager> cacheManagerProvider,
             ObjectProvider<com.spectrayan.spector.memory.DataEncryptor> encryptorProvider,
+            ObjectProvider<io.micrometer.observation.ObservationRegistry> observationRegistryProvider,
+            ObjectProvider<com.spectrayan.spector.config.ObservabilityConfig> observabilityConfigProvider,
             @Value("${spector.auth.memory.max-instances:512}") int maxInstances) {
         this.sharedProvider = sharedProvider;
         this.synapseProps = synapseProps;
@@ -137,6 +141,8 @@ public final class UserMemoryRegistry implements AutoCloseable {
         this.objectMapperProvider = objectMapperProvider;
         this.cacheManagerProvider = cacheManagerProvider;
         this.encryptorProvider = encryptorProvider;
+        this.observationRegistryProvider = observationRegistryProvider;
+        this.observabilityConfigProvider = observabilityConfigProvider;
         this.maxInstances = Math.max(1, maxInstances);
         log.info("[UserMemoryRegistry] initialized: authEnabled={}, maxInstances={}",
                 synapseProps.auth().enabled(), this.maxInstances);
@@ -350,7 +356,19 @@ public final class UserMemoryRegistry implements AutoCloseable {
                     .build());
         }
 
+        io.micrometer.observation.ObservationRegistry obsRegistry = observationRegistryProvider != null ? observationRegistryProvider.getIfAvailable() : null;
+        com.spectrayan.spector.config.ObservabilityConfig obsConfig = observabilityConfigProvider != null ? observabilityConfigProvider.getIfAvailable() : null;
+
+        if (obsRegistry != null && obsConfig != null) {
+            builder.observationHook(new com.spectrayan.spector.metrics.observation.MicrometerMemoryObservationHook(obsRegistry, obsConfig));
+        }
+
         SpectorMemory built = builder.build();
+
+        if (obsRegistry != null && obsConfig != null) {
+            built = new com.spectrayan.spector.metrics.ObservedSpectorMemory(built, obsRegistry, obsConfig);
+        }
+
         log.info("[UserMemoryRegistry] built per-user memory instance (dims={}, persistenceMode={})",
                 memory.getDimensions(), memory.getPersistenceMode());
 

@@ -18,6 +18,8 @@ import com.spectrayan.spector.commons.concurrent.SpectorTaskQueue;
 import com.spectrayan.spector.commons.concurrent.TaskPriority;
 import com.spectrayan.spector.commons.concurrent.TaskQueueConfig;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
+import com.spectrayan.spector.commons.observation.MemoryObservationHook;
+import static com.spectrayan.spector.commons.observation.MemoryObservationHook.*;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +69,11 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
     private final EntityExtractor entityExtractor;
     private final PostIngestSync postIngestSync;
     private final AtomicLong totalEntitiesExtracted = new AtomicLong(0);
+    private volatile MemoryObservationHook hook = MemoryObservationHook.NOOP;
+
+    public void setObservationHook(MemoryObservationHook hook) {
+        this.hook = hook != null ? hook : MemoryObservationHook.NOOP;
+    }
 
     public AsyncEntityExtractionQueue(
             EntityExtractor entityExtractor,
@@ -143,10 +150,14 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
 
         EntityPayload payload = task.payload();
         long start = System.currentTimeMillis();
-        List<ExtractedEntity> entities = entityExtractor.extract(payload.memoryId(), payload.text());
+        List<ExtractedEntity> entities = hook.observe(ENTITY_EXTRACTION, java.util.Map.of(TAG_MEMORY_ID, payload.memoryId()), () ->
+            entityExtractor.extract(payload.memoryId(), payload.text())
+        );
         if (entities != null && !entities.isEmpty()) {
-            postIngestSync.syncPreExtractedEntities(entities, payload.memoryIdx(), payload.memoryId());
-            postIngestSync.syncTemporalFacts(entities, payload.memoryIdx(), payload.memoryId(), payload.timestampSeconds());
+            hook.observe(GRAPH_SYNC, java.util.Map.of(TAG_MEMORY_ID, payload.memoryId()), () -> {
+                postIngestSync.syncPreExtractedEntities(entities, payload.memoryIdx(), payload.memoryId());
+                postIngestSync.syncTemporalFacts(entities, payload.memoryIdx(), payload.memoryId(), payload.timestampSeconds());
+            });
             totalEntitiesExtracted.addAndGet(entities.size());
         }
 

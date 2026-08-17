@@ -56,6 +56,14 @@ class SpectorAutoConfigurationTest {
         MeterRegistry meterRegistry() {
             return new SimpleMeterRegistry();
         }
+        @Bean
+        io.micrometer.observation.ObservationRegistry observationRegistry() {
+            return io.micrometer.observation.ObservationRegistry.create();
+        }
+        @Bean
+        com.spectrayan.spector.config.ObservabilityConfig observabilityConfig() {
+            return com.spectrayan.spector.config.ObservabilityConfig.DEFAULT;
+        }
     }
     @Configuration
     static class TestWrapSpringAIAutoConfiguration{
@@ -86,7 +94,7 @@ class SpectorAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasSingleBean(SpectorMemory.class);
                     SpectorMemory memory = context.getBean(SpectorMemory.class);
-                    assertThat(memory).isInstanceOf(MeteredSpectorMemory.class);
+                    assertThat(memory).isInstanceOf(com.spectrayan.spector.metrics.ObservedSpectorMemory.class);
                 });
     }
 

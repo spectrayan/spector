@@ -72,7 +72,10 @@ import java.util.concurrent.CompletableFuture;
  * </table>
  *
  * @see SpectorMemory
+ * @see ObservedSpectorMemory
+ * @see com.spectrayan.spector.metrics.observation.SpectorMemoryGauges
  */
+@Deprecated(forRemoval = true)
 public class MeteredSpectorMemory implements SpectorMemory {
 
     public static final String METRIC_RECALL_DURATION = "spector.memory.recall.duration";
@@ -467,3 +470,4 @@ public class MeteredSpectorMemory implements SpectorMemory {
         return new long[]{0L, 0L};
     }
 }
+
