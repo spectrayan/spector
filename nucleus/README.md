@@ -9,7 +9,6 @@ This directory contains the core foundation modules of the Spector headless engi
 * **[`spector-config`](/nucleus/spector-config)**: Wires runtime configurations via the `SpectorConfigFactory` (parses `spector.yml` and environment variables).
 * **[`spector-core`](/nucleus/spector-core)**: Low-level primitive vector operations, SIMD math bounds, and JDK Project Panama FFM off-heap layout contracts.
 * **[`spector-events`](/nucleus/spector-events)**: Internal pub/sub event pipeline that coordinates async notifications (e.g. consolidation signals).
-* **[`spector-metrics`](/nucleus/spector-metrics)**: Micrometer-based telemetry and performance metrics trackers for retrieval latency.
 * **[`spector-storage`](/nucleus/spector-storage)**: Off-heap byte allocation, memory block management, and the Write-Ahead Log (WAL) persistence engine.
 * **[`spector-test-support`](/nucleus/spector-test-support)**: Common test harnesses and mocks used for testing memory and search components.
 

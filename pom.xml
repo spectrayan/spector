@@ -74,7 +74,6 @@
         <module>nucleus/spector-config</module>
         <module>nucleus/spector-storage</module>
         <module>nucleus/spector-events</module>
-        <module>nucleus/spector-metrics</module>
         <module>nucleus/spector-test-support</module>
 
         <!-- ── Memory: Cognitive engine (flagship) ── -->
@@ -86,6 +85,7 @@
         <module>memory/spector-ingestion</module>
         <module>memory/spector-memory</module>
         <module>memory/spector-inspect</module>
+        <module>memory/spector-metrics</module>
 
         <!-- ── Synapse: Nervous system — API, agents, wiring ── -->
         <module>synapse/spector-runtime</module>
@@ -133,6 +133,8 @@
         <commons-beanutils.version>1.11.0</commons-beanutils.version>
         <snakeyaml.version>2.3</snakeyaml.version>
         <micrometer.version>1.17.0</micrometer.version>
+        <micrometer-tracing.version>1.5.0</micrometer-tracing.version>
+        <context-propagation.version>1.1.2</context-propagation.version>
         <armeria.version>1.39.1</armeria.version>
         <langchain4j.version>1.18.0</langchain4j.version>
         <spring-boot.version>4.1.0</spring-boot.version>
@@ -321,11 +323,38 @@
                 <version>${revision}</version>
             </dependency>
 
-            <!-- ── Micrometer (Observability) ── -->
+            <!-- ── Micrometer (Observability & Distributed Tracing) ── -->
             <dependency>
                 <groupId>io.micrometer</groupId>
                 <artifactId>micrometer-core</artifactId>
                 <version>${micrometer.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-observation</artifactId>
+                <version>${micrometer.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-observation-test</artifactId>
+                <version>${micrometer.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>context-propagation</artifactId>
+                <version>${context-propagation.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-tracing</artifactId>
+                <version>${micrometer-tracing.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-tracing-test</artifactId>
+                <version>${micrometer-tracing.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>io.micrometer</groupId>

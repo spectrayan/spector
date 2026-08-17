@@ -131,12 +131,17 @@ class AsyncEntityExtractionQueueTest {
             throw new RuntimeException("LLM timeout");
         });
 
-        try (var queue = new AsyncEntityExtractionQueue(entityExtractor, postIngestSync, 1, 100)) {
+        com.spectrayan.spector.commons.concurrent.TaskQueueConfig config =
+                new com.spectrayan.spector.commons.concurrent.TaskQueueConfig(
+                        100, 1, 100, 1000, 0, 0,
+                        com.spectrayan.spector.commons.concurrent.BackpressurePolicy.REJECT_FAST);
+
+        try (var queue = new AsyncEntityExtractionQueue(entityExtractor, postIngestSync, config)) {
             queue.submit("mem-err", "Err text", 5, 1700000000L, null);
 
             boolean completed = latch.await(3, TimeUnit.SECONDS);
             assertThat(completed).isTrue();
-            Thread.sleep(50);
+            Thread.sleep(100);
             assertThat(queue.stats().totalFailed()).isGreaterThanOrEqualTo(1);
         }
     }

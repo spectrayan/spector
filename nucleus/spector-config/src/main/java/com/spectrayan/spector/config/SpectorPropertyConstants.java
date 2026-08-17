@@ -416,6 +416,27 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY = "spector.memory.entity-extraction.queue-capacity";
     public static final int DEFAULT_MEMORY_ENTITY_EXTRACTION_QUEUE_CAPACITY = 1000;
 
+    public static final String MEMORY_TASKQUEUE_POLL_TIMEOUT_MS = "spector.memory.taskqueue.poll-timeout-ms";
+    public static final long DEFAULT_MEMORY_TASKQUEUE_POLL_TIMEOUT_MS = 500L;
+
+    public static final String MEMORY_TASKQUEUE_DRAIN_TIMEOUT_MS = "spector.memory.taskqueue.drain-timeout-ms";
+    public static final long DEFAULT_MEMORY_TASKQUEUE_DRAIN_TIMEOUT_MS = 5000L;
+
+    public static final String MEMORY_TASKQUEUE_MAX_RETRIES = "spector.memory.taskqueue.max-retries";
+    public static final int DEFAULT_MEMORY_TASKQUEUE_MAX_RETRIES = 2;
+
+    public static final String MEMORY_TASKQUEUE_RETRY_BACKOFF_MS = "spector.memory.taskqueue.retry-backoff-ms";
+    public static final long DEFAULT_MEMORY_TASKQUEUE_RETRY_BACKOFF_MS = 500L;
+
+    public static final String MEMORY_TASKQUEUE_BACKPRESSURE_POLICY = "spector.memory.taskqueue.backpressure-policy";
+    public static final String DEFAULT_MEMORY_TASKQUEUE_BACKPRESSURE_POLICY = "REJECT_FAST";
+
+    public static final String MEMORY_CONSOLIDATION_PARALLELISM = "spector.memory.consolidation.parallelism";
+    public static final int DEFAULT_MEMORY_CONSOLIDATION_PARALLELISM = 1;
+
+    public static final String MEMORY_CONSOLIDATION_QUEUE_CAPACITY = "spector.memory.consolidation.queue-capacity";
+    public static final int DEFAULT_MEMORY_CONSOLIDATION_QUEUE_CAPACITY = 1000;
+
     public static final String MEMORY_EDGE_IMPORTANCE = "spector.memory.edge-importance";
     public static final String DEFAULT_MEMORY_EDGE_IMPORTANCE = "DEFAULT";
 

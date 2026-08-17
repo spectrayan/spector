@@ -12,8 +12,11 @@
  */
 package com.spectrayan.spector.memory.pipeline;
 
-import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
 import com.spectrayan.spector.commons.concurrent.MemoryScope;
+import com.spectrayan.spector.commons.concurrent.ScopedTask;
+import com.spectrayan.spector.commons.concurrent.SpectorTaskQueue;
+import com.spectrayan.spector.commons.concurrent.TaskPriority;
+import com.spectrayan.spector.commons.concurrent.TaskQueueConfig;
 import com.spectrayan.spector.memory.graph.EntityExtractor;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import org.slf4j.Logger;
@@ -21,38 +24,31 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Supervised asynchronous entity and relationship extraction queue.
+ * Supervised asynchronous entity and relationship extraction queue wrapping {@link SpectorTaskQueue}.
  *
  * <h3>Architecture</h3>
  * <p>Ingesting a memory must never block the client on slow LLM text-generation calls (~15s–25s).
  * {@code AsyncEntityExtractionQueue} decouples entity extraction from the ingestion critical path,
- * buffering tasks in a bounded FIFO queue and processing them via centralized virtual threads
- * managed by {@link ConcurrentTasks#virtualExecutor()} with configurable parallelism (defaulting
- * to 1 for sequential execution to prevent Ollama/LLM concurrency congestion).</p>
+ * buffering tasks in a generic {@link SpectorTaskQueue} and processing them via centralized virtual
+ * threads with configurable parallelism, automatic transient retries, and scoped context propagation.</p>
  *
  * <h3>Scoped Context Propagation</h3>
  * <p>Captures {@link MemoryScope#SESSION_ID} and {@link MemoryScope#NAMESPACE_ID} at submission
- * time and re-binds them via {@link MemoryScope#runWithScope} in the executing virtual thread,
- * ensuring session identity and namespace isolation contexts are preserved end-to-end.</p>
+ * time and restores them in the executing virtual thread worker, ensuring session identity
+ * and namespace isolation contexts are preserved end-to-end.</p>
  */
 public final class AsyncEntityExtractionQueue implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncEntityExtractionQueue.class);
 
-    public record EntityExtractionTask(
+    public record EntityPayload(
             String memoryId,
             String text,
             int memoryIdx,
-            long timestampSeconds,
-            String sessionId,
-            String namespaceId
+            long timestampSeconds
     ) {}
 
     public record QueueStats(
@@ -67,36 +63,35 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
             boolean isRunning
     ) {}
 
-    private final BlockingQueue<EntityExtractionTask> queue;
-    private final int queueCapacity;
-    private final int parallelism;
+    private final SpectorTaskQueue<EntityPayload> taskQueue;
     private final EntityExtractor entityExtractor;
     private final PostIngestSync postIngestSync;
-    private final AtomicBoolean closed = new AtomicBoolean(false);
-
-    private final AtomicLong totalSubmitted = new AtomicLong(0);
-    private final AtomicLong totalProcessed = new AtomicLong(0);
-    private final AtomicLong totalFailed = new AtomicLong(0);
     private final AtomicLong totalEntitiesExtracted = new AtomicLong(0);
-    private final AtomicLong totalProcessingDurationMs = new AtomicLong(0);
 
     public AsyncEntityExtractionQueue(
             EntityExtractor entityExtractor,
             PostIngestSync postIngestSync,
             int parallelism,
             int queueCapacity) {
+        this(entityExtractor, postIngestSync, TaskQueueConfig.of(queueCapacity, parallelism));
+    }
+
+    public AsyncEntityExtractionQueue(
+            EntityExtractor entityExtractor,
+            PostIngestSync postIngestSync,
+            TaskQueueConfig config) {
         this.entityExtractor = entityExtractor;
         this.postIngestSync = Objects.requireNonNull(postIngestSync, "postIngestSync");
-        this.parallelism = Math.max(1, parallelism);
-        this.queueCapacity = Math.max(16, queueCapacity);
-        this.queue = new LinkedBlockingQueue<>(this.queueCapacity);
+        this.taskQueue = new SpectorTaskQueue<>(
+                "entity-extraction",
+                config != null ? config : TaskQueueConfig.ofDefaults(),
+                this::processTask
+        );
 
-        for (int i = 0; i < this.parallelism; i++) {
-            ConcurrentTasks.virtualExecutor().submit(this::processLoop);
-        }
-
-        log.info("[AsyncEntityExtractionQueue] Initialized via ConcurrentTasks with parallelism={}, capacity={}",
-                this.parallelism, this.queueCapacity);
+        log.info("[AsyncEntityExtractionQueue] Initialized SpectorTaskQueue: parallelism={}, capacity={}, retries={}",
+                this.taskQueue.metrics().parallelism(),
+                this.taskQueue.metrics().capacity(),
+                config != null ? config.maxRetries() : TaskQueueConfig.DEFAULT_MAX_RETRIES);
     }
 
     /**
@@ -112,7 +107,7 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
      */
     public boolean submit(String memoryId, String text, int memoryIdx,
                           long timestampSeconds, String sessionId, String namespaceId) {
-        if (closed.get() || memoryId == null || text == null) {
+        if (memoryId == null || text == null) {
             return false;
         }
         if (entityExtractor == null || !entityExtractor.isAvailable()) {
@@ -126,17 +121,11 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
                 ? namespaceId
                 : MemoryScope.namespaceId();
 
-        EntityExtractionTask task = new EntityExtractionTask(
-                memoryId, text, memoryIdx, timestampSeconds, effectiveSessionId, effectiveNamespaceId);
-        boolean accepted = queue.offer(task);
-        if (accepted) {
-            totalSubmitted.incrementAndGet();
-        } else {
-            totalFailed.incrementAndGet();
-            log.warn("[AsyncEntityExtractionQueue] Queue full ({}/{}) - dropped task for '{}'",
-                    queue.size(), queueCapacity, memoryId);
-        }
-        return accepted;
+        EntityPayload payload = new EntityPayload(memoryId, text, memoryIdx, timestampSeconds);
+        ScopedTask<EntityPayload> task = ScopedTask.of(
+                memoryId, payload, effectiveSessionId, effectiveNamespaceId, TaskPriority.NORMAL);
+
+        return taskQueue.submit(task);
     }
 
     /**
@@ -147,85 +136,52 @@ public final class AsyncEntityExtractionQueue implements AutoCloseable {
         return submit(memoryId, text, memoryIdx, timestampSeconds, sessionId, MemoryScope.namespaceId());
     }
 
-    private void processLoop() {
-        while (!closed.get() && !Thread.currentThread().isInterrupted()) {
-            try {
-                EntityExtractionTask task = queue.poll(500, TimeUnit.MILLISECONDS);
-                if (task != null) {
-                    Runnable worker = () -> processTask(task);
-                    MemoryScope.runWithScope(task.sessionId(), task.namespaceId(), worker);
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            } catch (Exception e) {
-                log.warn("[AsyncEntityExtractionQueue] Worker loop error: {}", e.getMessage(), e);
-            }
-        }
-    }
-
-    private void processTask(EntityExtractionTask task) {
+    private void processTask(ScopedTask<EntityPayload> task) throws Exception {
         if (entityExtractor == null || !entityExtractor.isAvailable()) {
             return;
         }
 
+        EntityPayload payload = task.payload();
         long start = System.currentTimeMillis();
-        try {
-            List<ExtractedEntity> entities = entityExtractor.extract(task.memoryId(), task.text());
-            if (entities != null && !entities.isEmpty()) {
-                postIngestSync.syncPreExtractedEntities(entities, task.memoryIdx(), task.memoryId());
-                postIngestSync.syncTemporalFacts(entities, task.memoryIdx(), task.memoryId(), task.timestampSeconds());
-                totalEntitiesExtracted.addAndGet(entities.size());
-            }
-
-            long elapsed = System.currentTimeMillis() - start;
-            totalProcessingDurationMs.addAndGet(elapsed);
-            totalProcessed.incrementAndGet();
-
-            log.debug("[AsyncEntityExtractionQueue] Extracted {} entities for '{}' in {} ms (queueDepth={})",
-                    entities != null ? entities.size() : 0, task.memoryId(), elapsed, queue.size());
-        } catch (Exception e) {
-            totalFailed.incrementAndGet();
-            log.warn("[AsyncEntityExtractionQueue] Extraction failed for '{}': {}",
-                    task.memoryId(), e.getMessage(), e);
+        List<ExtractedEntity> entities = entityExtractor.extract(payload.memoryId(), payload.text());
+        if (entities != null && !entities.isEmpty()) {
+            postIngestSync.syncPreExtractedEntities(entities, payload.memoryIdx(), payload.memoryId());
+            postIngestSync.syncTemporalFacts(entities, payload.memoryIdx(), payload.memoryId(), payload.timestampSeconds());
+            totalEntitiesExtracted.addAndGet(entities.size());
         }
+
+        long duration = System.currentTimeMillis() - start;
+        log.debug("[AsyncEntityExtractionQueue] Extracted {} entities for '{}' in {} ms (queueDepth={})",
+                entities != null ? entities.size() : 0, payload.memoryId(), duration, taskQueue.size());
     }
 
     /**
-     * Returns current telemetry and stats for the extraction queue.
+     * Returns an immutable snapshot of queue operational statistics.
      */
     public QueueStats stats() {
-        long processed = totalProcessed.get();
-        long avgLatency = processed > 0 ? (totalProcessingDurationMs.get() / processed) : 0;
+        var m = taskQueue.metrics();
         return new QueueStats(
-                queue.size(),
-                queueCapacity,
-                parallelism,
-                totalSubmitted.get(),
-                processed,
-                totalFailed.get(),
+                m.size(),
+                m.capacity(),
+                m.parallelism(),
+                m.submitted(),
+                m.processed(),
+                m.failed(),
                 totalEntitiesExtracted.get(),
-                avgLatency,
-                !closed.get()
+                m.avgLatencyMs(),
+                m.isRunning()
         );
+    }
+
+    /**
+     * Returns the underlying generic task queue.
+     */
+    public SpectorTaskQueue<EntityPayload> taskQueue() {
+        return taskQueue;
     }
 
     @Override
     public void close() {
-        if (closed.compareAndSet(false, true)) {
-            log.info("[AsyncEntityExtractionQueue] Closing extraction queue, draining remaining {} tasks...",
-                    queue.size());
-            long deadline = System.currentTimeMillis() + 5000;
-            while (!queue.isEmpty() && System.currentTimeMillis() < deadline) {
-                try {
-                    Thread.sleep(50);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-            log.info("[AsyncEntityExtractionQueue] Closed. Drained stats: processed={}, failed={}, remaining={}",
-                    totalProcessed.get(), totalFailed.get(), queue.size());
-        }
+        taskQueue.close();
     }
 }

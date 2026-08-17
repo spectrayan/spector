@@ -12,7 +12,7 @@
 /nucleus/spector-config/ @spectrayan/ai-engineering
 /nucleus/spector-storage/ @spectrayan/ai-engineering
 /nucleus/spector-events/ @spectrayan/ai-engineering
-/nucleus/spector-metrics/ @spectrayan/ai-engineering
+/memory/spector-metrics/ @spectrayan/ai-engineering
 /nucleus/spector-test-support/ @spectrayan/ai-engineering
 
 # Memory (Intelligence)
