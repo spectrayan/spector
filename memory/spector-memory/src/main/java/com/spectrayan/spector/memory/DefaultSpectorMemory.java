@@ -176,6 +176,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final CognitiveIngestionTarget cognitiveTarget;
     private final EmbeddingProvider embeddingProvider;
     private final RecallPipeline recallPipeline;
+    private final RecallPathway recallPathway;       // #561 relay-based engine (nullable)
+    private final boolean usePathwayEngine;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
 
@@ -268,6 +270,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.cognitiveTarget = bundle.cognitiveTarget();
         this.embeddingProvider = bundle.embeddingProvider();
         this.recallPipeline = bundle.recallPipeline();
+        this.recallPathway = bundle.recallPathway();
+        this.usePathwayEngine = builder.usePathwayEngine && bundle.recallPathway() != null;
         this.index = bundle.index();
         this.quantizer = bundle.quantizer();
         this.partitionManager = bundle.partitionManager();
@@ -878,7 +882,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         .autoProfile(true)
                         .build();
             }
-            List<CognitiveResult> storeResults = recallPipeline.recall(queryText, options);
+            List<CognitiveResult> storeResults = usePathwayEngine
+                    ? recallPathway.recall(queryText, options)
+                    : recallPipeline.recall(queryText, options);
             String sessionId = MemoryScope.sessionId();
             if (sessionId != null) {
                 SessionWriteBuffer buffer = sessionBuffers.get(sessionId);
