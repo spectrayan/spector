@@ -141,6 +141,7 @@ public final class RememberPathway implements AutoCloseable {
         );
 
         this.pathway = RememberPathwayFactory.create(
+                builder.interceptor,
                 dedupGuardRelay,
                 tagTransductionRelay,
                 surpriseRelay,
@@ -294,8 +295,15 @@ public final class RememberPathway implements AutoCloseable {
         private int entityExtractionParallelism = 1;
         private int entityExtractionQueueCapacity = 1000;
         private boolean normalizeAtIngest = true;
+        private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RememberSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RememberSignal>> interceptor;
 
         public Builder() {}
+
+        public Builder interceptor(
+                final java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RememberSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RememberSignal>> interceptor) {
+            this.interceptor = interceptor;
+            return this;
+        }
 
         public Builder cortex(final CognitiveCortexBuilder.CortexFoundation cortex) {
             this.cortex = cortex;

@@ -14,6 +14,7 @@ package com.spectrayan.spector.memory.remember.relay;
 
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ErrorPolicy;
+import com.spectrayan.spector.commons.pathway.SynapticRelay;
 import com.spectrayan.spector.memory.pathway.RelayNames;
 
 /**
@@ -41,8 +42,36 @@ public final class RememberPathwayFactory {
             final CorticalWriteTransactionRelay corticalWriteRelay,
             final SynapticGraphLinkingRelay graphLinkingRelay,
             final KnowledgeGraphEnrichmentRelay kgEnrichmentRelay) {
+        return create(null, dedupGuardRelay, tagTransductionRelay, surpriseRelay,
+                corticalWriteRelay, graphLinkingRelay, kgEnrichmentRelay);
+    }
 
-        return CognitivePathway.<RememberSignal>pathway("remember")
+    /**
+     * Creates the remember cognitive pathway with an interceptor/decorator.
+     *
+     * @param interceptor          optional interceptor/decorator function
+     * @param dedupGuardRelay      the deduplication guard relay
+     * @param tagTransductionRelay the synaptic tag transduction relay
+     * @param surpriseRelay        the dopaminergic surprise and novelty relay
+     * @param corticalWriteRelay   the transactional cortical write and index sync relay
+     * @param graphLinkingRelay    the associative graph and temporal chain linking relay
+     * @param kgEnrichmentRelay    the knowledge graph and entity enrichment relay
+     * @return the constructed remember pathway
+     */
+    public static CognitivePathway<RememberSignal> create(
+            final java.util.function.Function<SynapticRelay<RememberSignal>, SynapticRelay<RememberSignal>> interceptor,
+            final DedupGuardRelay dedupGuardRelay,
+            final SynapticTagTransductionRelay tagTransductionRelay,
+            final DopaminergicSurpriseRelay surpriseRelay,
+            final CorticalWriteTransactionRelay corticalWriteRelay,
+            final SynapticGraphLinkingRelay graphLinkingRelay,
+            final KnowledgeGraphEnrichmentRelay kgEnrichmentRelay) {
+
+        final var builder = CognitivePathway.<RememberSignal>pathway("remember");
+        if (interceptor != null) {
+            builder.withInterceptor(interceptor);
+        }
+        return builder
                 .relay(RelayNames.DEDUP_GUARD, dedupGuardRelay, ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.TAG_TRANSDUCTION, tagTransductionRelay, ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.DOPAMINERGIC_SURPRISE, surpriseRelay, ErrorPolicy.FAIL_FAST)

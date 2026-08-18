@@ -39,6 +39,7 @@ public final class RecallSignal implements DivergentCapable<RecallSignal> {
     private final List<CognitiveResult> candidates = new ArrayList<>();
     private boolean textSearchExecuted = false;
     private boolean rrfFused = false;
+    private float effectiveTemperature = 1.0f;
 
     // Output
     private List<CognitiveResult> finalizedResults = Collections.emptyList();
@@ -192,6 +193,24 @@ public final class RecallSignal implements DivergentCapable<RecallSignal> {
      */
     public void setRrfFused(final boolean rrfFused) {
         this.rrfFused = rrfFused;
+    }
+
+    /**
+     * Returns the effective temperature applied during softmax modulation.
+     *
+     * @return the effective temperature
+     */
+    public float effectiveTemperature() {
+        return effectiveTemperature;
+    }
+
+    /**
+     * Sets the effective temperature applied during softmax modulation.
+     *
+     * @param effectiveTemperature the effective temperature
+     */
+    public void setEffectiveTemperature(final float effectiveTemperature) {
+        this.effectiveTemperature = effectiveTemperature;
     }
 
     /**

@@ -54,6 +54,7 @@ public final class TemperatureSoftmaxRelay implements SynapticRelay<RecallSignal
         List<CognitiveResult> allResults = signal.candidates();
 
         final float effectiveTemp = computeEffectiveTemperature(signal.queryVector(), options);
+        signal.setEffectiveTemperature(effectiveTemp);
         if (Math.abs(effectiveTemp - 1.0f) >= 1e-4f) {
             TemperatureSoftmax.applySoftmaxTemperature(allResults, effectiveTemp);
             allResults.sort(Comparator.comparing(CognitiveResult::score).reversed());

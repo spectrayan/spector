@@ -168,6 +168,7 @@ public final class RecallPathway {
                 RelayNames.CONSOLIDATION, s -> {});
 
         this.pathway = RecallPathwayFactory.create(
+                builder.interceptor,
                 transductionRelay, prospectiveRelay, vectorSearchRelay, scoringRelay,
                 graphExpansionRelay, bm25SearchRelay, rrfRescoreRelay, sortAndTruncateRelay,
                 cognitiveRerankRelay, mmrDiversityRelay, temperatureSoftmaxRelay, consolidationRelay);
@@ -433,8 +434,15 @@ public final class RecallPathway {
         private SparseEmbeddingProvider sparseEmbeddingProvider;
         private MemoryObservationHook hook;
         private com.spectrayan.spector.index.VectorIndex semanticIndex;
+        private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>> interceptor;
 
         public Builder() {}
+
+        public Builder interceptor(
+                final java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>> interceptor) {
+            this.interceptor = interceptor;
+            return this;
+        }
 
         public Builder embeddingProvider(final EmbeddingProvider embeddingProvider) {
             this.embeddingProvider = embeddingProvider;
