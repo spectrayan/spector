@@ -121,7 +121,7 @@ public final class RememberSignal {
 
     public String id() { return id; }
     public String text() { return text; }
-    public float[] vector() { return vector; }
+    public float[] vector() { return normalizedVector != null ? normalizedVector : vector; }
     public MemoryType type() { return type; }
     public MemorySource source() { return source; }
     public IngestionHints hints() { return hints; }

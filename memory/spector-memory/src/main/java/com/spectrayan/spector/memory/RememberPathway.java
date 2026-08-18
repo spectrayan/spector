@@ -114,7 +114,8 @@ public final class RememberPathway implements AutoCloseable {
         final DedupGuardRelay dedupGuardRelay = new DedupGuardRelay(builder.index);
         final SynapticTagTransductionRelay tagTransductionRelay = new SynapticTagTransductionRelay(
                 this.tagExtractor,
-                builder.dataEncryptor
+                builder.dataEncryptor,
+                builder.normalizeAtIngest
         );
         final DopaminergicSurpriseRelay surpriseRelay = new DopaminergicSurpriseRelay(
                 surpriseDetector,

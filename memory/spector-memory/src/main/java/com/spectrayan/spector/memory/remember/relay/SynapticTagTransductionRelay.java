@@ -25,16 +25,29 @@ public final class SynapticTagTransductionRelay implements SynapticRelay<Remembe
 
     private final TagExtractor tagExtractor;
     private final DataEncryptor encryptor;
+    private final boolean normalizeAtIngest;
 
     public SynapticTagTransductionRelay(
             final TagExtractor tagExtractor,
             final DataEncryptor encryptor) {
+        this(tagExtractor, encryptor, true);
+    }
+
+    public SynapticTagTransductionRelay(
+            final TagExtractor tagExtractor,
+            final DataEncryptor encryptor,
+            final boolean normalizeAtIngest) {
         this.tagExtractor = tagExtractor;
         this.encryptor = encryptor != null ? encryptor : DataEncryptor.NOOP;
+        this.normalizeAtIngest = normalizeAtIngest;
     }
 
     @Override
     public boolean transmit(final RememberSignal signal) {
+        if (normalizeAtIngest && signal.vector() != null) {
+            signal.normalizedVector(l2Normalize(signal.vector()));
+        }
+
         String[] tags = signal.tags();
         if ((tags == null || tags.length == 0) && tagExtractor != null) {
             tags = tagExtractor.extract(signal.id(), signal.text());
@@ -44,6 +57,18 @@ public final class SynapticTagTransductionRelay implements SynapticRelay<Remembe
         final long synapticTags = encodeTags(tags != null ? tags : new String[0]);
         signal.synapticTags(synapticTags);
         return true;
+    }
+
+    private static float[] l2Normalize(final float[] v) {
+        float norm = com.spectrayan.spector.core.similarity.VectorOps.magnitude(v);
+        if (norm == 0f || Math.abs(norm - 1.0f) < 1e-6f) {
+            return v;
+        }
+        final float[] copy = new float[v.length];
+        for (int i = 0; i < v.length; i++) {
+            copy[i] = v[i] / norm;
+        }
+        return copy;
     }
 
     @Override
