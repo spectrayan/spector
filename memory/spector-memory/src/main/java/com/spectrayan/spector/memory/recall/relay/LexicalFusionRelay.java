@@ -69,6 +69,9 @@ public final class LexicalFusionRelay implements SynapticRelay<RecallSignal> {
     public boolean transmit(final RecallSignal signal) {
         boolean rrfFused = false;
 
+        // Sort vector candidates by cognitive score descending before RRF rank assignment
+        signal.candidates().sort(java.util.Comparator.comparing(com.spectrayan.spector.memory.model.CognitiveResult::score).reversed());
+
         // BM25 Text Search
         if (bm25Index != null && signal.options().enableTextSearch()
                 && signal.options().textSearchMode() != TextSearchMode.VECTOR_ONLY) {

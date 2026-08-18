@@ -645,7 +645,7 @@ public final class RecallPipeline {
             }
 
             for (CognitiveResult r : allResults) {
-                satiationCache.put(r.id(), nowMs);
+                salienceScorer.satiationCache().put(r.id(), nowMs);
             }
         }
 
@@ -873,21 +873,21 @@ public final class RecallPipeline {
             long nowForSatiation = System.currentTimeMillis();
             for (CognitiveResult r : allResults) {
                 if (r.id() != null) {
-                    satiationCache.put(r.id(), nowForSatiation);
+                    salienceScorer.satiationCache().put(r.id(), nowForSatiation);
                 }
             }
             // Evict oldest entries when cache exceeds bound
-            while (satiationCache.size() > SATIATION_CACHE_SIZE) {
+            while (salienceScorer.satiationCache().size() > SATIATION_CACHE_SIZE) {
                 String oldest = null;
                 long oldestTs = Long.MAX_VALUE;
-                for (var e : satiationCache.entrySet()) {
+                for (var e : salienceScorer.satiationCache().entrySet()) {
                     if (e.getValue() < oldestTs) {
                         oldestTs = e.getValue();
                         oldest = e.getKey();
                     }
                 }
                 if (oldest != null) {
-                    satiationCache.remove(oldest, oldestTs);
+                    salienceScorer.satiationCache().remove(oldest, oldestTs);
                 } else {
                     break;
                 }

@@ -102,9 +102,9 @@ public final class RecallPathway {
     private final PartitionRegistry partitionRegistry;
     private final float[] calibrationMins;
     private final float[] calibrationScales;
+    private final SalienceAndHabituationScorer salienceScorer;
 
     private final List<RecallListener> listeners = new CopyOnWriteArrayList<>();
-    private final ConcurrentHashMap<String, Long> satiationCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, RetrievalMode> recentRetrievalModes = new ConcurrentHashMap<>();
 
     private volatile RecallOptions lastRecallOptions;
@@ -127,7 +127,7 @@ public final class RecallPathway {
 
         this.transductionRelay = new QueryTransductionRelay(builder.embeddingProvider);
 
-        final SalienceAndHabituationScorer salienceScorer = new SalienceAndHabituationScorer(
+        this.salienceScorer = new SalienceAndHabituationScorer(
                 builder.bio.suppressionSet(), builder.bio.habituationPenalty(), hook);
 
         final SemanticRecallStrategy semanticStrategy = builder.semanticIndex != null
@@ -212,10 +212,7 @@ public final class RecallPathway {
 
         final RecallSignal signal = RecallSignal.forTextQuery(queryText, opts);
         
-        // 5. Transduce text to vector
-        transductionRelay.transmit(signal);
-        
-        // 6. Execute pathway
+        // Execute pathway
         pathway.conduct(signal);
         
         final List<CognitiveResult> allResults = new ArrayList<>(signal.candidates());
@@ -466,20 +463,20 @@ public final class RecallPathway {
 
             for (final CognitiveResult r : allResults) {
                 if (r.id() != null) {
-                    satiationCache.put(r.id(), nowMs);
+                    salienceScorer.satiationCache().put(r.id(), nowMs);
                 }
             }
-            while (satiationCache.size() > SATIATION_CACHE_SIZE) {
+            while (salienceScorer.satiationCache().size() > SATIATION_CACHE_SIZE) {
                 String oldest = null;
                 long oldestTs = Long.MAX_VALUE;
-                for (final var e : satiationCache.entrySet()) {
+                for (final var e : salienceScorer.satiationCache().entrySet()) {
                     if (e.getValue() < oldestTs) {
                         oldestTs = e.getValue();
                         oldest = e.getKey();
                     }
                 }
                 if (oldest != null) {
-                    satiationCache.remove(oldest, oldestTs);
+                    salienceScorer.satiationCache().remove(oldest, oldestTs);
                 } else {
                     break;
                 }
@@ -586,10 +583,12 @@ public final class RecallPathway {
             }
         }
 
+        final MemorySource source = id != null ? index.source(id) : MemorySource.OBSERVED;
+
         return new CognitiveResult(
                 id != null ? id : "unknown-" + sr.index(),
                 resultText, sr.score(), header.importance(), ageDays,
-                header.agentRecallCount(), header.valence(), type, MemorySource.OBSERVED, tags,
+                header.agentRecallCount(), header.valence(), type, source, tags,
                 rawDecay, ltpDecay, mode, breakdown, null, modality, metadata);
     }
 
