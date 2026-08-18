@@ -13,6 +13,8 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.commons.concurrent.ConcurrentTasks;
+import com.spectrayan.spector.commons.error.ErrorCode;
+import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.commons.observation.MemoryObservationHook;
 import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.pathway.ConsolidationRelay;
@@ -20,10 +22,14 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.PartitionRegistry;
 import com.spectrayan.spector.memory.cortex.SemanticRecallStrategy;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
+import com.spectrayan.spector.memory.hebbian.CoActivationRecordMemory;
 import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
+import com.spectrayan.spector.memory.sync.ReplaySnapshot;
+import com.spectrayan.spector.memory.sync.WalReplayer;
+import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -67,7 +73,9 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -85,6 +93,9 @@ public final class RecallPathway {
     private final CognitivePathway<RecallSignal> pathway;
     private final QueryTransductionRelay transductionRelay;
 
+    private final EmbeddingProvider embeddingProvider;
+    private final MemoryWal wal;
+    private final CoActivationRecordMemory coActivationTracker;
     private final HabituationPenalty habituationPenalty;
     private final RecallHistory recallHistory;
     private final MemoryIndex index;
@@ -99,6 +110,9 @@ public final class RecallPathway {
     private volatile RecallOptions lastRecallOptions;
 
     private RecallPathway(final Builder builder, final RecallHistory recallHistory, final MmrReranker mmrReranker) {
+        this.embeddingProvider = builder.embeddingProvider;
+        this.wal = builder.wal;
+        this.coActivationTracker = builder.bio != null ? builder.bio.coActivationTracker() : null;
         this.habituationPenalty = builder.bio.habituationPenalty();
         this.recallHistory = recallHistory;
         this.index = builder.index;
@@ -188,12 +202,10 @@ public final class RecallPathway {
         final RecallOptions opts = options == null ? RecallOptions.DEFAULT : options;
         
         if (opts.recallMode() == RecallMode.REPLAY) {
-            // TODO: implement replay routing
-            return List.of();
+            return replayRecall(queryText, opts);
         }
         if (opts.scoringMode() == ScoringMode.ASSOCIATIVE && recallHistory != null) {
-            // TODO: implement associative recall routing
-            return List.of();
+            return recallAssociative(queryText, opts);
         }
 
         this.lastRecallOptions = opts;
@@ -230,8 +242,6 @@ public final class RecallPathway {
                 }
             }
         }
-        
-        // TODO: Record trace
         
         return allResults;
     }
@@ -281,9 +291,156 @@ public final class RecallPathway {
             }
         }
         
-        // TODO: Record trace
-        
         return allResults;
+    }
+
+    private List<CognitiveResult> replayRecall(final String queryText, final RecallOptions options) {
+        if (options.replayTimestamp() == null) {
+            throw new SpectorValidationException(
+                    ErrorCode.ARGUMENT_NULL,
+                    "replayTimestamp is required for RecallMode.REPLAY");
+        }
+
+        log.info("REPLAY recall: query='{}', target={}, maxEvents={}",
+                queryText, options.replayTimestamp(), options.maxReplayEvents());
+
+        final float[] queryVector = embeddingProvider.embed(queryText).vector();
+        final int quantizedVecBytes = queryVector.length; // INT8 = 1 byte per dimension
+        final long nowMs = options.replayTimestamp().toEpochMilli();
+
+        try (final ReplaySnapshot snapshot = WalReplayer.replay(
+                wal, options.replayTimestamp(), options.maxReplayEvents(), quantizedVecBytes)) {
+
+            if (snapshot.memoryCount() == 0) {
+                log.info("REPLAY recall: no memories at target timestamp {}", options.replayTimestamp());
+                return List.of();
+            }
+
+            final List<CognitiveResult> results = new ArrayList<>();
+            final CognitiveRecordLayout layout = new CognitiveRecordLayout(quantizedVecBytes);
+
+            for (final String memId : snapshot.index().allIds()) {
+                final var loc = snapshot.index().locate(memId);
+                if (loc == null) continue;
+
+                final long offset = loc.offset();
+                final MemorySegment seg = snapshot.arena().allocate(0);
+
+                try {
+                    final String text = snapshot.index().text(memId);
+                    final MemorySource source = snapshot.index().source(memId);
+                    final String[] memTags = snapshot.index().tags(memId);
+
+                    final float importance = 0.5f;
+                    final byte valence = 0;
+                    final float ageDays = (float) ((nowMs - layout.readTimestamp(seg, offset))
+                            / (double) (24 * 60 * 60 * 1000));
+
+                    final java.util.Map<String, String> rMeta = snapshot.index().metadata(memId);
+                    final SourceModality rModality = rMeta != null
+                            ? SourceModality.fromName(rMeta.get(SourceModality.METADATA_KEY))
+                            : SourceModality.TEXT;
+                    results.add(new CognitiveResult(
+                            memId, text, importance, importance,
+                            Math.max(0, ageDays),
+                            (short) 0, valence, MemoryType.SEMANTIC, source,
+                            memTags, 1.0f, 1.0f, CognitiveResult.RetrievalMode.STANDARD, null, null,
+                            rModality, rMeta));
+
+                } catch (final RuntimeException e) {
+                    log.debug("REPLAY: skipping memory '{}': {}", memId, e.getMessage());
+                }
+            }
+
+            results.sort(Comparator.comparing(CognitiveResult::score).reversed());
+            if (results.size() > options.topK()) {
+                return new ArrayList<>(results.subList(0, options.topK()));
+            }
+
+            log.info("REPLAY recall: returned {} results from {} reconstructed memories at {}",
+                    results.size(), snapshot.memoryCount(), options.replayTimestamp());
+
+            return results;
+        }
+    }
+
+    private List<CognitiveResult> recallAssociative(final String queryText, final RecallOptions options) {
+        final Map<String, Float> contextTags = recallHistory.weightedRecentTags(20, 0.85f);
+
+        if (contextTags.isEmpty()) {
+            log.debug("Associative recall: cold start (no history), falling back to COGNITIVE");
+            final RecallOptions fallback = RecallOptions.builder()
+                    .topK(options.topK())
+                    .profile(options.profile())
+                    .scoringMode(ScoringMode.COGNITIVE)
+                    .recallMode(options.recallMode())
+                    .build();
+            return recall(queryText, fallback);
+        }
+
+        log.debug("Associative recall: {} context tags from history", contextTags.size());
+
+        final Map<String, Float> predictedTags = new LinkedHashMap<>();
+        if (coActivationTracker != null) {
+            for (final Map.Entry<String, Float> ctxEntry : contextTags.entrySet()) {
+                final String ctxTag = ctxEntry.getKey();
+                final float recencyWeight = ctxEntry.getValue();
+                final List<String> associated = coActivationTracker.getAssociatedTags(ctxTag, 5);
+                for (final String predTag : associated) {
+                    predictedTags.merge(predTag, recencyWeight, Float::sum);
+                }
+            }
+        }
+
+        final List<String> topPredicted = predictedTags.entrySet().stream()
+                .sorted(Map.Entry.<String, Float>comparingByValue().reversed())
+                .limit(10)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        final RecallOptions.Builder cogBuilder = RecallOptions.builder()
+                .topK(options.topK() * 2)
+                .profile(options.profile())
+                .scoringMode(ScoringMode.COGNITIVE)
+                .recallMode(options.recallMode());
+
+        if (!topPredicted.isEmpty()) {
+            cogBuilder.synapticFilter(topPredicted.toArray(new String[0]));
+        }
+
+        final List<CognitiveResult> associativeResults = new ArrayList<>(recall(queryText, cogBuilder.build()));
+
+        if (coActivationTracker != null && !contextTags.isEmpty()) {
+            final List<String> contextTagList = new ArrayList<>(contextTags.keySet());
+            for (int i = 0; i < associativeResults.size(); i++) {
+                final CognitiveResult r = associativeResults.get(i);
+                if (r.synapticTags() == null || r.synapticTags().length == 0) continue;
+
+                final float predictive = coActivationTracker.getPredictiveStrength(
+                        contextTagList, r.synapticTags());
+                if (predictive > 0) {
+                    final float boosted = r.score() * (1.0f + predictive * 0.5f);
+                    associativeResults.set(i, new CognitiveResult(
+                            r.id(), r.text(), boosted, r.importance(), r.ageDays(),
+                            r.agentRecallCount(), r.valence(), r.memoryType(), r.source(),
+                            r.synapticTags(), r.decayFactor(), r.ltpAdjustedDecay(),
+                            r.retrievalMode(), r.breakdown(), r.trace(), r.sourceModality(), r.metadata()));
+                }
+            }
+        }
+
+        associativeResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
+        List<CognitiveResult> finalResults = associativeResults;
+        if (finalResults.size() > options.topK()) {
+            finalResults = new ArrayList<>(finalResults.subList(0, options.topK()));
+        }
+
+        for (final CognitiveResult r : finalResults) {
+            if (r.synapticTags() != null && r.synapticTags().length > 0) {
+                recallHistory.record(r.synapticTags());
+            }
+        }
+        return finalResults;
     }
 
     private void applySessionBookkeeping(final List<CognitiveResult> allResults, final RecallOptions opts) {
@@ -331,8 +488,26 @@ public final class RecallPathway {
     }
 
     private void writeProfileOrdinalToResults(final List<CognitiveResult> results, final RecallOptions options) {
-        // Copied from RecallPipeline.writeProfileOrdinalToResults behavior if available.
-        // It's a method on RecallPipeline that writes the ordinal to results, but for now we'll stub it.
+        final CognitiveProfile profile = options.profile();
+        if (profile == null || results.isEmpty()) return;
+
+        final byte profileOrdinal = (byte) profile.ordinal();
+        for (final CognitiveResult result : results) {
+            if (result.id() == null) continue;
+            try {
+                final var loc = index.locate(result.id());
+                if (loc == null) continue;
+                final MemorySegment segment = partitionRegistry.routerFor(loc.colocatedPartition())
+                        .segmentFor(loc.type());
+                if (segment != null) {
+                    segment.set(java.lang.foreign.ValueLayout.JAVA_BYTE,
+                            loc.offset() + SynapticHeaderConstants.OFFSET_LAST_RECALL_PROFILE,
+                            profileOrdinal);
+                }
+            } catch (final RuntimeException e) {
+                log.trace("Failed to write profile ordinal for '{}': {}", result.id(), e.getMessage());
+            }
+        }
     }
 
     /**

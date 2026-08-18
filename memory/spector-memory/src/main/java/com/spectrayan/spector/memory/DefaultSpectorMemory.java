@@ -884,13 +884,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 CognitiveProfile suggested = null;
                 if (profileAdaptor != null) {
                     // Extract context tags from the query text
-                    String[] tags = cognitiveTarget.tagExtractor() != null
-                            ? cognitiveTarget.tagExtractor().extract("query", queryText)
+                    var tagExtractor = (usePathwayEngine && rememberPathway != null)
+                            ? rememberPathway.tagExtractor()
+                            : cognitiveTarget.tagExtractor();
+                    String[] tags = tagExtractor != null
+                            ? tagExtractor.extract("query", queryText)
                             : new String[0];
                     suggested = profileAdaptor.suggest(tags);
                 }
                 if (suggested == null) {
-                    SalienceProfile sp = cognitiveTarget.salienceProfile();
+                    SalienceProfile sp = salienceProfile();
                     if (sp != null) {
                         suggested = sp.defaultProfile();
                     }
@@ -1386,13 +1389,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     @Override
     public SalienceProfile salienceProfile() {
+        if (usePathwayEngine && rememberPathway != null) {
+            return rememberPathway.salienceProfile();
+        }
         return cognitiveTarget.salienceProfile();
     }
 
     @Override
     public float computeTopicBoost(String text) {
         if (text == null || text.isBlank()) return 1.0f;
-        SalienceProfile profile = cognitiveTarget.salienceProfile();
+        SalienceProfile profile = salienceProfile();
         if (profile == null || !profile.hasInterests()) return 1.0f;
 
         float[] embedding = embeddingProvider.embed(text).vector();
@@ -1402,7 +1408,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public float computeSelfRelevanceBoost(String text) {
         if (text == null || text.isBlank()) return 1.0f;
-        SalienceProfile profile = cognitiveTarget.salienceProfile();
+        SalienceProfile profile = salienceProfile();
         if (profile == null || !profile.hasPersona()) return 1.0f;
 
         float[] embedding = embeddingProvider.embed(text).vector();
