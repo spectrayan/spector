@@ -15,6 +15,18 @@
  */
 
 /**
- * Provides the Cognitive Pathway and Synaptic Circuit Engine core interfaces and classes.
+ * Provides the Cognitive Pathway and Synaptic Circuit Engine core interfaces, resilience primitives,
+ * and execution diagnostics.
+ *
+ * <p>Key components:</p>
+ * <ul>
+ *   <li>{@link com.spectrayan.spector.commons.pathway.SynapticRelay} — Atomic single-responsibility processing stage.</li>
+ *   <li>{@link com.spectrayan.spector.commons.pathway.CognitivePathway} — Sequential conductor with error policies ({@link com.spectrayan.spector.commons.pathway.ErrorPolicy#FAIL_FAST}, {@link com.spectrayan.spector.commons.pathway.ErrorPolicy#DEGRADE_GRACEFULLY}) and domain exception preservation.</li>
+ *   <li>{@link com.spectrayan.spector.commons.pathway.GatedRelay} — Conditional execution based on {@link com.spectrayan.spector.commons.pathway.Specification} or predicates.</li>
+ *   <li>{@link com.spectrayan.spector.commons.pathway.DivergentRelay} — Parallel multi-branch execution with per-branch error policies and fork/merge semantics.</li>
+ *   <li>{@link com.spectrayan.spector.commons.pathway.CircuitBreakerRelay} — Non-blocking adaptive circuit breaker with cooldown recovery for protecting external/downstream endpoints.</li>
+ *   <li>{@link com.spectrayan.spector.commons.pathway.ConsolidationRelay} — Asynchronous fire-and-forget background worker.</li>
+ *   <li>{@link com.spectrayan.spector.commons.pathway.TraceableSignal} &amp; {@link com.spectrayan.spector.commons.pathway.RelayTrace} — Zero-overhead step-by-step diagnostic execution tracing.</li>
+ * </ul>
  */
 package com.spectrayan.spector.commons.pathway;

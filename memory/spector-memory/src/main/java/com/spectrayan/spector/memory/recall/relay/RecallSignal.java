@@ -13,6 +13,8 @@
 package com.spectrayan.spector.memory.recall.relay;
 
 import com.spectrayan.spector.commons.pathway.DivergentCapable;
+import com.spectrayan.spector.commons.pathway.RelayTrace;
+import com.spectrayan.spector.commons.pathway.TraceableSignal;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 
@@ -25,9 +27,10 @@ import java.util.Objects;
  * Signal carrying the state of a recall operation through the memory pipeline.
  *
  * <p>This signal implements {@link DivergentCapable} to support parallel forks for 
- * operations like hybrid text/vector search, merging the candidates back together.</p>
+ * operations like hybrid text/vector search, and {@link TraceableSignal} to capture
+ * fine-grained relay execution diagnostics.</p>
  */
-public final class RecallSignal implements DivergentCapable<RecallSignal> {
+public final class RecallSignal implements DivergentCapable<RecallSignal>, TraceableSignal {
 
     // Immutable inputs
     private final String rawQuery;
@@ -40,6 +43,7 @@ public final class RecallSignal implements DivergentCapable<RecallSignal> {
     private boolean textSearchExecuted = false;
     private boolean rrfFused = false;
     private float effectiveTemperature = 1.0f;
+    private final List<RelayTrace> traces = Collections.synchronizedList(new ArrayList<>());
 
     // Output
     private List<CognitiveResult> finalizedResults = Collections.emptyList();
@@ -76,13 +80,54 @@ public final class RecallSignal implements DivergentCapable<RecallSignal> {
 
     @Override
     public RecallSignal fork() {
-        return new RecallSignal(rawQuery, queryVector, options, timestampMs);
+        final RecallSignal fork = new RecallSignal(rawQuery, queryVector, options, timestampMs);
+        fork.candidates.addAll(this.candidates);
+        fork.textSearchExecuted = this.textSearchExecuted;
+        fork.rrfFused = this.rrfFused;
+        fork.effectiveTemperature = this.effectiveTemperature;
+        synchronized (this.traces) {
+            fork.traces.addAll(this.traces);
+        }
+        return fork;
     }
 
     @Override
     public void merge(final List<RecallSignal> forks) {
+        this.candidates.clear();
         for (final RecallSignal fork : forks) {
             this.candidates.addAll(fork.candidates);
+            if (fork.textSearchExecuted) {
+                this.textSearchExecuted = true;
+            }
+            if (fork.rrfFused) {
+                this.rrfFused = true;
+            }
+            synchronized (fork.traces) {
+                for (final RelayTrace trace : fork.traces) {
+                    if (!this.traces.contains(trace)) {
+                        this.traces.add(trace);
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public boolean isTraceEnabled() {
+        return options.enableTrace();
+    }
+
+    @Override
+    public void recordTrace(final RelayTrace trace) {
+        if (trace != null) {
+            traces.add(trace);
+        }
+    }
+
+    @Override
+    public List<RelayTrace> traces() {
+        synchronized (traces) {
+            return List.copyOf(traces);
         }
     }
 
