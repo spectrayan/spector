@@ -106,7 +106,10 @@ public final class RecallPathwayFactory {
                 .gated(RelayNames.BM25_SEARCH, RecallGates.TEXT_SEARCH_ENABLED, bm25SearchRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .gated(RelayNames.RRF_RESCORE, RecallGates.RRF_FUSED, rrfRescoreRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.SORT_TRUNCATE, sortAndTruncateRelay)
-                .gated(RelayNames.COLBERT_RERANK, RecallGates.RERANK_CONFIGURED, cognitiveRerankRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
+                .circuitBreaker(RelayNames.COLBERT_RERANK,
+                        new com.spectrayan.spector.commons.pathway.GatedRelay<>(
+                                RelayNames.COLBERT_RERANK, RecallGates.RERANK_CONFIGURED, cognitiveRerankRelay),
+                        5, 30_000L, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .gated(RelayNames.MMR_RERANK, RecallGates.MMR_ENABLED, mmrDiversityRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.TEMPERATURE, temperatureSoftmaxRelay)
                 .relay(RelayNames.CONSOLIDATION, consolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
