@@ -88,7 +88,7 @@ public final class GraphExpansionStage {
     private final float[] calibrationMins;
     private final float[] calibrationScales;
 
-    GraphExpansionStage(HebbianGraphBase hebbianGraph,
+    public GraphExpansionStage(HebbianGraphBase hebbianGraph,
                         TemporalChainMemory temporalChain,
                         EntityDirectory entityDirectory,
                         com.spectrayan.spector.memory.graph.HyperEntityGraphMemory hyperEntityGraph,
