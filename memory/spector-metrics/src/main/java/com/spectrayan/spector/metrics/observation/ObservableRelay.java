@@ -75,6 +75,7 @@ public final class ObservableRelay<S> extends ObservableComponent implements Syn
         } catch (Exception e) {
             observation.error(e);
             context.setStatus("ERROR");
+            context.addCustomTag("error", e.getClass().getSimpleName());
             if (e instanceof RuntimeException re) throw re;
             throw new RuntimeException(e);
         } finally {
