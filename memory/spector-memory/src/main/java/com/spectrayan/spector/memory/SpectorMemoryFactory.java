@@ -79,8 +79,10 @@ public final class SpectorMemoryFactory {
 
     public record SubsystemBundle(
             CognitiveIngestionTarget cognitiveTarget,
+            RememberPathway rememberPathway,
             EmbeddingProvider embeddingProvider,
             RecallPipeline recallPipeline,
+            RecallPathway recallPathway,
             MemoryIndex index,
             ScalarQuantizer quantizer,
             PartitionManager partitionManager,
@@ -218,6 +220,56 @@ public final class SpectorMemoryFactory {
         RecallPipeline recallPipeline = RecallPipelineBuilder.build(
                 builder, embeddingProvider, cortex, bio, graphs, retrieval, index, partitionManager, wal);
 
+        //  Recall Pathway (#561 — relay-based engine, opt-in via usePathwayEngine) 
+        RecallPathway recallPathway = null;
+        RememberPathway rememberPathway = null;
+        if (builder.usePathwayEngine) {
+            recallPathway = new RecallPathway.Builder()
+                    .embeddingProvider(embeddingProvider)
+                    .cortex(cortex)
+                    .bio(bio)
+                    .graphs(graphs)
+                    .retrieval(retrieval)
+                    .index(index)
+                    .partitionManager(partitionManager)
+                    .wal(wal)
+                    .graphScoringPolicy(builder.graphScoringPolicy)
+                    .sparseEmbeddingProvider(builder.SparseEmbeddingProvider)
+                    .hook(builder.hook)
+                    .semanticIndex(builder.semanticIndex)
+                    .build();
+
+            rememberPathway = new RememberPathway.Builder()
+                    .cortex(cortex)
+                    .bio(bio)
+                    .graphs(graphs)
+                    .retrieval(retrieval)
+                    .index(index)
+                    .wal(wal)
+                    .activePartitionIndex(activePartitionIndex)
+                    .importanceProvider(importanceProvider)
+                    .tagExtractor(builder.tagExtractor)
+                    .semanticIndex(builder.semanticIndex)
+                    .sparseEmbeddingProvider(builder.SparseEmbeddingProvider)
+                    .dataEncryptor(builder.dataEncryptor)
+                    .entityExtractionParallelism(builder.entityExtractionParallelism)
+                    .entityExtractionQueueCapacity(builder.entityExtractionQueueCapacity)
+                    .normalizeAtIngest(true)
+                    .build();
+
+            if (builder.salienceProfileProvider != null) {
+                SalienceProfile effective = builder.salienceProfileProvider.effectiveProfile();
+                if (effective != null && !effective.isNeutral()) {
+                    rememberPathway.setSalienceProfile(effective);
+                }
+            }
+
+            partitionManager.setRememberPathway(rememberPathway);
+            rememberPathway.setPartitionRollCallback(partitionManager::rollPartition);
+
+            log.info("Cognitive Pathway Engine enabled — recall and remember use relay-based pathways");
+        }
+
         //  Extracted Components 
         ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
                 bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
@@ -253,7 +305,7 @@ public final class SpectorMemoryFactory {
         }
 
         return new SubsystemBundle(
-                cognitiveTarget, embeddingProvider, recallPipeline, index, cortex.quantizer(),
+                cognitiveTarget, rememberPathway, embeddingProvider, recallPipeline, recallPathway, index, cortex.quantizer(),
                 partitionManager, importanceProvider, reflectionOrchestrator,
                 reinforcementHandler, bio.valenceTracker(), bio.coActivationTracker(),
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),

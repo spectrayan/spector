@@ -68,7 +68,7 @@ import java.util.Map;
  * The session tracking ({@code lastIngestedMemoryIdx}, {@code currentSessionId})
  * remains in {@link CognitiveIngestionTarget} since it is cross-invocation state.</p>
  */
-final class PostIngestSync {
+public final class PostIngestSync {
 
     private static final Logger log = LoggerFactory.getLogger(PostIngestSync.class);
 
@@ -91,7 +91,7 @@ final class PostIngestSync {
     private final HyperEntityGraphMemory hyperEntityGraph;
     private final TemporalKnowledgeGraph temporalKnowledgeGraph;
 
-    PostIngestSync(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, MemoryWal wal,
+    public PostIngestSync(CognitiveMemoryRouter cognitiveRouter, MemoryIndex index, MemoryWal wal,
                    VectorIndex semanticIndex,
                    HebbianGraphBase hebbianGraph, TemporalChainMemory temporalChain,
                    EntityExtractor entityExtractor, EntityDirectory entityDirectory,
@@ -121,24 +121,24 @@ final class PostIngestSync {
     }
 
     /** Called when the cognitive memory router is swapped after a partition roll. */
-    void updateCognitiveRouter(CognitiveMemoryRouter newRouter) {
+    public void updateCognitiveRouter(CognitiveMemoryRouter newRouter) {
         this.cognitiveRouter = newRouter;
     }
 
     /** Called when the partition-scoped {@code text.dat} is rolled (#443, D3b). */
-    void updateTextDataStore(TextAppendMemory newText) {
+    public void updateTextDataStore(TextAppendMemory newText) {
         this.textDataStore = newText;
     }
 
     /** Called when the active partition sequence changes on roll (#443). */
-    void updateActivePartitionSeq(int seq) {
+    public void updateActivePartitionSeq(int seq) {
         this.activePartitionSeq = seq;
     }
 
     /**
      * Parameters for post-ingest synchronization.
      */
-    record SyncParams(
+    public record SyncParams(
             String id,
             String text,
             float[] vector,
@@ -149,7 +149,7 @@ final class PostIngestSync {
             long offset,
             Map<String, String> metadata
     ) {
-        SyncParams(String id, String text, float[] vector, byte[] quantized,
+        public SyncParams(String id, String text, float[] vector, byte[] quantized,
                    MemoryType type, String[] tags, MemorySource source, long offset) {
             this(id, text, vector, quantized, type, tags, source, offset, null);
         }
@@ -164,7 +164,7 @@ final class PostIngestSync {
      * @param params sync parameters
      * @return the monotonic global graph slot assigned to this memory
      */
-    int syncIndexes(SyncParams params) {
+    public int syncIndexes(SyncParams params) {
         boolean isParentChunk = params.metadata() != null && "parent".equals(params.metadata().get("chunk_role"));
 
         int storeIndex = -1;
@@ -240,7 +240,7 @@ final class PostIngestSync {
      * @param previousIdx the index of the previously ingested memory (-1 if none)
      * @param sessionId   the current session ID
      */
-    void syncGraphEdges(int memoryIdx, int previousIdx, int sessionId) {
+    public void syncGraphEdges(int memoryIdx, int previousIdx, int sessionId) {
         // Step 9b: Hebbian edge strengthening
         if (hebbianGraph != null && previousIdx >= 0 && previousIdx != memoryIdx) {
             try {
@@ -270,7 +270,7 @@ final class PostIngestSync {
      * @param memoryIdx memory index for entity -> memory linking
      * @return list of extracted entities
      */
-    List<ExtractedEntity> syncEntityExtraction(String id, String text, int memoryIdx) {
+    public List<ExtractedEntity> syncEntityExtraction(String id, String text, int memoryIdx) {
         if (entityExtractor != null && entityDirectory != null && entityExtractor.isAvailable()) {
             try {
                 List<ExtractedEntity> entities = entityExtractor.extract(id, text);
@@ -295,7 +295,7 @@ final class PostIngestSync {
      * @param memoryIdx memory index for entity -> memory linking
      * @param id        memory ID (for logging)
      */
-    void syncPreExtractedEntities(List<ExtractedEntity> entities, int memoryIdx, String id) {
+    public void syncPreExtractedEntities(List<ExtractedEntity> entities, int memoryIdx, String id) {
         if (entityDirectory == null) return;
         try {
             populateEntities(entities, memoryIdx, id);
@@ -307,7 +307,7 @@ final class PostIngestSync {
     /**
      * Applies pre-computed Hebbian edge hints from IngestionContext.
      */
-    void syncHebbianEdgeHints(int memoryIdx, String id,
+    public void syncHebbianEdgeHints(int memoryIdx, String id,
                               List<com.spectrayan.spector.memory.model.IngestionContext.HebbianEdgeHint> edges) {
         if (hebbianGraph == null) return;
         for (var edgeHint : edges) {
@@ -329,7 +329,7 @@ final class PostIngestSync {
     /**
      * Applies pre-computed temporal link hints from IngestionContext.
      */
-    void syncTemporalLinkHints(int memoryIdx, String id,
+    public void syncTemporalLinkHints(int memoryIdx, String id,
                                List<com.spectrayan.spector.memory.model.IngestionContext.TemporalLinkHint> links) {
         if (temporalChain == null) return;
         for (var linkHint : links) {
@@ -348,7 +348,7 @@ final class PostIngestSync {
         }
     }
 
-    void syncTemporalFacts(List<ExtractedEntity> entities, int memoryIdx, String memoryId, long ingestEpochSec) {
+    public void syncTemporalFacts(List<ExtractedEntity> entities, int memoryIdx, String memoryId, long ingestEpochSec) {
         if (temporalKnowledgeGraph == null || entities == null || entities.isEmpty()) return;
         
         for (ExtractedEntity entity : entities) {

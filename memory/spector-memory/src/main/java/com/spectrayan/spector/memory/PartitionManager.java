@@ -89,6 +89,11 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
     private final CognitiveIngestionTarget cognitiveTarget;
     private final DataEncryptor encryptor;
     private final boolean useBundleMode;
+    private volatile RememberPathway rememberPathway;
+
+    public void setRememberPathway(final RememberPathway rememberPathway) {
+        this.rememberPathway = rememberPathway;
+    }
 
     /** Copy-on-write registry: immutable list, last element = active. Never null. */
     private volatile List<PartitionHandle> registry;
@@ -440,6 +445,11 @@ public final class PartitionManager implements PartitionRegistry, AutoCloseable 
                 cognitiveTarget.updateCognitiveRouter(newRouter);
                 cognitiveTarget.updateTextDataStore(newText);
                 cognitiveTarget.updateActivePartitionSeq(nextSeq);
+                if (rememberPathway != null) {
+                    rememberPathway.updateCognitiveRouter(newRouter);
+                    rememberPathway.updateTextDataStore(newText);
+                    rememberPathway.updateActivePartitionSeq(nextSeq);
+                }
                 // Keep the index's active-partition seq in sync for reverse-key resolution.
                 index.setActivePartitionSeq(nextSeq);
 

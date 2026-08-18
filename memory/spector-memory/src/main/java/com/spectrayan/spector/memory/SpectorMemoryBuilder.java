@@ -179,6 +179,9 @@ public final class SpectorMemoryBuilder {
     // Eager consolidation (#526)
     int eagerConsolidationQueueCapacity = SpectorPropertyConstants.DEFAULT_MEMORY_EAGER_CONSOLIDATION_QUEUE_CAPACITY;
 
+    // Cognitive Pathway Engine (#561) — opt-in relay-based recall pathway
+    boolean usePathwayEngine = false;
+
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // FACTORY
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
@@ -213,6 +216,8 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder typeRegistrySize(long s) { this.typeRegistrySize = s; return this; }
     public SpectorMemoryBuilder insulaSize(long s) { this.insulaSize = s; return this; }
     public SpectorMemoryBuilder eagerConsolidationQueueCapacity(int c) { this.eagerConsolidationQueueCapacity = c; return this; }
+    /** Enable the relay-based Cognitive Pathway Engine for recall (#561). */
+    public SpectorMemoryBuilder usePathwayEngine(boolean enable) { this.usePathwayEngine = enable; return this; }
 
 
 

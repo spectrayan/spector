@@ -142,7 +142,11 @@ import com.spectrayan.spector.index.ColBERTReranker.RerankResult;
  *       {@link CognitiveScorer}</li>
  *   <li><b>Observer</b>: Post-recall hooks via {@link RecallListener}</li>
  * </ul>
+ *
+ * @deprecated Superceded by {@link com.spectrayan.spector.memory.RecallPathway} as part of the
+ *             Cognitive Pathway Engine redesign (#561). Will be removed in a future major release.
  */
+@Deprecated(since = "0.2.0-alpha", forRemoval = false)
 public final class RecallPipeline {
 
     private static final Logger log = LoggerFactory.getLogger(RecallPipeline.class);

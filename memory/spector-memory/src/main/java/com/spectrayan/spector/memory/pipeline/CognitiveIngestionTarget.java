@@ -77,7 +77,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <h3>Thread Safety</h3>
  * <p>Stateless except for the subsystems it references (all thread-safe).
  * Multiple Virtual Threads can call {@link #ingest} concurrently.</p>
+ *
+ * @deprecated Superceded by {@link com.spectrayan.spector.memory.RememberPathway} as part of the
+ *             Cognitive Pathway Engine redesign (#561). Will be removed in a future major release.
  */
+@Deprecated(since = "0.2.0-alpha", forRemoval = false)
 public final class CognitiveIngestionTarget implements IngestionTarget {
 
     private static final Logger log = LoggerFactory.getLogger(CognitiveIngestionTarget.class);

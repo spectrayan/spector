@@ -172,10 +172,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
 
     private static final Logger log = LoggerFactory.getLogger(DefaultSpectorMemory.class);
 
-    //  Core Subsystems (FaÃ§ade composition) 
+    //  Core Subsystems (Façade composition) 
     private final CognitiveIngestionTarget cognitiveTarget;
+    private final RememberPathway rememberPathway;   // #561 relay-based remember engine (nullable)
     private final EmbeddingProvider embeddingProvider;
     private final RecallPipeline recallPipeline;
+    private final RecallPathway recallPathway;       // #561 relay-based engine (nullable)
+    private final boolean usePathwayEngine;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
 
@@ -266,8 +269,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     DefaultSpectorMemory(SpectorMemoryBuilder builder) {
         var bundle = SpectorMemoryFactory.assemble(builder);
         this.cognitiveTarget = bundle.cognitiveTarget();
+        this.rememberPathway = bundle.rememberPathway();
         this.embeddingProvider = bundle.embeddingProvider();
         this.recallPipeline = bundle.recallPipeline();
+        this.recallPathway = bundle.recallPathway();
+        this.usePathwayEngine = builder.usePathwayEngine && (bundle.recallPathway() != null || bundle.rememberPathway() != null);
         this.index = bundle.index();
         this.quantizer = bundle.quantizer();
         this.partitionManager = bundle.partitionManager();
@@ -405,7 +411,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     sessionBuffers.computeIfAbsent(sessionId, k -> new SessionWriteBuffer())
                             .add(id, text, vector, type, System.currentTimeMillis());
                 }
-                cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
+                if (usePathwayEngine && rememberPathway != null) {
+                    rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, hints);
+                } else {
+                    cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, hints);
+                }
             }
             checkCircadianTrigger(type);
             if (eagerConsolidator != null && (type == MemoryType.SEMANTIC || type == MemoryType.PROCEDURAL)) {
@@ -471,7 +481,11 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     }
                 }
                 float[] vector = embeddingProvider.embed(text).vector();
-                cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, context);
+                if (usePathwayEngine && rememberPathway != null) {
+                    rememberPathway.ingestCognitive(id, text, vector, type, finalTags, source, context);
+                } else {
+                    cognitiveTarget.ingestCognitive(id, text, vector, type, finalTags, source, context);
+                }
             }
 
             // Process attachments if present in context metadata
@@ -674,8 +688,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 IngestionContext parentContext = IngestionContext.builder()
                         .metadata(chunk.metadata())
                         .build();
-                cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
-                        dummyVector, type, provenanceTags, source, parentContext);
+                if (usePathwayEngine && rememberPathway != null) {
+                    rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
+                            dummyVector, type, provenanceTags, source, parentContext);
+                } else {
+                    cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
+                            dummyVector, type, provenanceTags, source, parentContext);
+                }
                 ingestedChunkIds.add(chunk.chunkId());
             }
 
@@ -722,8 +741,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                             .build();
                 }
 
-                cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
-                        embedding.embedding(), type, chunkTags, source, childContext);
+                if (usePathwayEngine && rememberPathway != null) {
+                    rememberPathway.ingestCognitive(chunk.chunkId(), chunk.text(),
+                            embedding.embedding(), type, chunkTags, source, childContext);
+                } else {
+                    cognitiveTarget.ingestCognitive(chunk.chunkId(), chunk.text(),
+                            embedding.embedding(), type, chunkTags, source, childContext);
+                }
                 ingestedChunkIds.add(chunk.chunkId());
             }
 
@@ -793,8 +817,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         .build();
 
                 float[] vector = embeddingProvider.embed(result.text()).vector();
-                cognitiveTarget.ingestCognitive(
-                        result.chunkId(), result.text(), vector, type, tags, source, subContext);
+                if (usePathwayEngine && rememberPathway != null) {
+                    rememberPathway.ingestCognitive(
+                            result.chunkId(), result.text(), vector, type, tags, source, subContext);
+                } else {
+                    cognitiveTarget.ingestCognitive(
+                            result.chunkId(), result.text(), vector, type, tags, source, subContext);
+                }
                 ingested++;
             } catch (RuntimeException e) {
                 log.warn("[Attachment] Failed to ingest chunk '{}': {}", result.chunkId(), e.getMessage());
@@ -855,13 +884,16 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 CognitiveProfile suggested = null;
                 if (profileAdaptor != null) {
                     // Extract context tags from the query text
-                    String[] tags = cognitiveTarget.tagExtractor() != null
-                            ? cognitiveTarget.tagExtractor().extract("query", queryText)
+                    var tagExtractor = (usePathwayEngine && rememberPathway != null)
+                            ? rememberPathway.tagExtractor()
+                            : cognitiveTarget.tagExtractor();
+                    String[] tags = tagExtractor != null
+                            ? tagExtractor.extract("query", queryText)
                             : new String[0];
                     suggested = profileAdaptor.suggest(tags);
                 }
                 if (suggested == null) {
-                    SalienceProfile sp = cognitiveTarget.salienceProfile();
+                    SalienceProfile sp = salienceProfile();
                     if (sp != null) {
                         suggested = sp.defaultProfile();
                     }
@@ -878,7 +910,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                         .autoProfile(true)
                         .build();
             }
-            List<CognitiveResult> storeResults = recallPipeline.recall(queryText, options);
+            List<CognitiveResult> storeResults = usePathwayEngine
+                    ? recallPathway.recall(queryText, options)
+                    : recallPipeline.recall(queryText, options);
             String sessionId = MemoryScope.sessionId();
             if (sessionId != null) {
                 SessionWriteBuffer buffer = sessionBuffers.get(sessionId);
@@ -1335,6 +1369,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void setSalienceProfile(SalienceProfile profile) {
         cognitiveTarget.setSalienceProfile(profile);
+        if (rememberPathway != null) {
+            rememberPathway.setSalienceProfile(profile);
+        }
         log.info("Salience profile updated: interests={}, disinterests={}, persona={}, icnuOverride={}",
                 profile != null ? profile.interests().size() : 0,
                 profile != null ? profile.disinterests().size() : 0,
@@ -1345,17 +1382,23 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public void setSoulVersion(short version) {
         cognitiveTarget.setSoulVersion(version);
+        if (rememberPathway != null) {
+            rememberPathway.setSoulVersion(version);
+        }
     }
 
     @Override
     public SalienceProfile salienceProfile() {
+        if (usePathwayEngine && rememberPathway != null) {
+            return rememberPathway.salienceProfile();
+        }
         return cognitiveTarget.salienceProfile();
     }
 
     @Override
     public float computeTopicBoost(String text) {
         if (text == null || text.isBlank()) return 1.0f;
-        SalienceProfile profile = cognitiveTarget.salienceProfile();
+        SalienceProfile profile = salienceProfile();
         if (profile == null || !profile.hasInterests()) return 1.0f;
 
         float[] embedding = embeddingProvider.embed(text).vector();
@@ -1365,7 +1408,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public float computeSelfRelevanceBoost(String text) {
         if (text == null || text.isBlank()) return 1.0f;
-        SalienceProfile profile = cognitiveTarget.salienceProfile();
+        SalienceProfile profile = salienceProfile();
         if (profile == null || !profile.hasPersona()) return 1.0f;
 
         float[] embedding = embeddingProvider.embed(text).vector();
@@ -1583,6 +1626,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 cognitiveTarget.close();
             } catch (Exception e) {
                 log.warn("Failed to close CognitiveIngestionTarget on close", e);
+            }
+        }
+        if (rememberPathway != null) {
+            try {
+                rememberPathway.close();
+            } catch (Exception e) {
+                log.warn("Failed to close RememberPathway on close", e);
             }
         }
 
