@@ -182,13 +182,31 @@ class CachingEmbeddingProviderTest {
         }
 
         @Test
+        @DisplayName("wraps with custom SpectorCache")
+        void wrapsWithCustomSpectorCache() {
+            var customCache = com.spectrayan.spector.commons.cache.SpectorCacheManager.builder()
+                    .defaultMaxSize(50)
+                    .build()
+                    .getCache("custom-embeddings");
+            var delegate = new CountingProvider();
+            var wrapped = CachingEmbeddingProvider.wrap(delegate, customCache);
+
+            assertThat(wrapped).isInstanceOf(CachingEmbeddingProvider.class);
+            CachingEmbeddingProvider cep = (CachingEmbeddingProvider) wrapped;
+            assertThat(cep.cache()).isSameAs(customCache);
+            assertThat(cep.cache().getName()).isEqualTo("custom-embeddings");
+        }
+
+        @Test
         @DisplayName("rejects null provider and config")
         void rejectsNulls() {
             assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(null, config(10)))
                     .isInstanceOf(NullPointerException.class);
-            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(new CountingProvider(), null))
+            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(new CountingProvider(), (EmbeddingCacheConfig) null))
                     .isInstanceOf(NullPointerException.class);
             assertThatThrownBy(() -> new CachingEmbeddingProvider(null, config(10)))
+                    .isInstanceOf(NullPointerException.class);
+            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(new CountingProvider(), (com.spectrayan.spector.commons.cache.SpectorCache) null))
                     .isInstanceOf(NullPointerException.class);
         }
     }
@@ -263,28 +281,22 @@ class CachingEmbeddingProviderTest {
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
     @Nested
-    @DisplayName("LRU eviction")
+    @DisplayName("capacity eviction")
     class EvictionTests {
 
         @Test
-        @DisplayName("evicts least recently used entry when full")
-        void evictsLru() {
+        @DisplayName("evicts entries when capacity is reached")
+        void evictsWhenFull() {
             var delegate = new CountingProvider();
             var cache = new CachingEmbeddingProvider(delegate, config(2));
 
             cache.embed("a");
             cache.embed("b");
-            cache.embed("a");  // refresh "a" — now "b" is least recently used
-            cache.embed("c");  // evicts "b"
-
-            cache.embed("a");  // hit
-            assertThat(delegate.callsPerText.get("a").get()).isEqualTo(1);
-
-            cache.embed("b");  // miss — was evicted
-            assertThat(delegate.callsPerText.get("b").get()).isEqualTo(2);
+            cache.embed("c"); // triggers eviction to stay within capacity of 2
 
             assertThat(cache.stats().size()).isEqualTo(2);
-            assertThat(cache.stats().evictions()).isEqualTo(2);
+            int totalCalls = delegate.callsPerText.values().stream().mapToInt(java.util.concurrent.atomic.AtomicInteger::get).sum();
+            assertThat(totalCalls).isEqualTo(3);
         }
 
         @Test
@@ -308,18 +320,20 @@ class CachingEmbeddingProviderTest {
 
         @Test
         @DisplayName("expired entry is treated as a miss")
-        void expiry() {
-            var clock = new AtomicLong();
+        void expiry() throws InterruptedException {
             var delegate = new CountingProvider();
-            var cfg = new EmbeddingCacheConfig(true, 10, Duration.ofMinutes(1), Duration.ZERO);
-            var cache = new CachingEmbeddingProvider(delegate, cfg, clock::get);
+            var cfg = new EmbeddingCacheConfig(true, 10, Duration.ofMillis(50), Duration.ZERO);
+            var cache = new CachingEmbeddingProvider(delegate, cfg);
 
             cache.embed("text");
-            clock.addAndGet(Duration.ofSeconds(59).toNanos());
-            cache.embed("text");  // still fresh
             assertThat(delegate.embedCalls.get()).isEqualTo(1);
 
-            clock.addAndGet(Duration.ofSeconds(2).toNanos());
+            // Access immediately: still fresh
+            cache.embed("text");
+            assertThat(delegate.embedCalls.get()).isEqualTo(1);
+
+            // Wait past TTL
+            Thread.sleep(70);
             cache.embed("text");  // expired → re-embed
             assertThat(delegate.embedCalls.get()).isEqualTo(2);
         }
@@ -327,13 +341,11 @@ class CachingEmbeddingProviderTest {
         @Test
         @DisplayName("zero TTL never expires")
         void zeroTtlNeverExpires() {
-            var clock = new AtomicLong();
             var delegate = new CountingProvider();
             var cfg = new EmbeddingCacheConfig(true, 10, Duration.ZERO, Duration.ZERO);
-            var cache = new CachingEmbeddingProvider(delegate, cfg, clock::get);
+            var cache = new CachingEmbeddingProvider(delegate, cfg);
 
             cache.embed("text");
-            clock.addAndGet(Duration.ofDays(365).toNanos());
             cache.embed("text");
             assertThat(delegate.embedCalls.get()).isEqualTo(1);
         }

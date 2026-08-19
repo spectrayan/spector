@@ -29,7 +29,9 @@ public record EmbeddingResult(
         float[] vector,
         int tokenCount,
         String model
-) {
+) implements java.io.Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     public EmbeddingResult {
         Objects.requireNonNull(vector, "vector must not be null");
