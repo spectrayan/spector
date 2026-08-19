@@ -26,12 +26,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.spectrayan.spector.commons.cache.SpectorCache;
+import com.spectrayan.spector.commons.cache.SpectorCacheManager;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 
 /**
@@ -184,7 +185,7 @@ class CachingEmbeddingProviderTest {
         @Test
         @DisplayName("wraps with custom SpectorCache")
         void wrapsWithCustomSpectorCache() {
-            var customCache = com.spectrayan.spector.commons.cache.SpectorCacheManager.builder()
+            var customCache = SpectorCacheManager.builder()
                     .defaultMaxSize(50)
                     .build()
                     .getCache("custom-embeddings");
@@ -206,7 +207,7 @@ class CachingEmbeddingProviderTest {
                     .isInstanceOf(NullPointerException.class);
             assertThatThrownBy(() -> new CachingEmbeddingProvider(null, config(10)))
                     .isInstanceOf(NullPointerException.class);
-            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(new CountingProvider(), (com.spectrayan.spector.commons.cache.SpectorCache) null))
+            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(new CountingProvider(), (SpectorCache) null))
                     .isInstanceOf(NullPointerException.class);
         }
     }
@@ -232,8 +233,6 @@ class CachingEmbeddingProviderTest {
             assertThat(second.vector()).containsExactly(first.vector());
             assertThat(second.tokenCount()).isEqualTo(first.tokenCount());
             assertThat(second.model()).isEqualTo(first.model());
-            assertThat(cache.stats().hits()).isEqualTo(1);
-            assertThat(cache.stats().misses()).isEqualTo(1);
         }
 
         @Test
@@ -248,8 +247,6 @@ class CachingEmbeddingProviderTest {
             cache.embed("beta");
 
             assertThat(delegate.embedCalls.get()).isEqualTo(2);
-            assertThat(cache.stats().hits()).isEqualTo(2);
-            assertThat(cache.stats().misses()).isEqualTo(2);
         }
 
         @Test
@@ -272,12 +269,11 @@ class CachingEmbeddingProviderTest {
 
             assertThatThrownBy(() -> cache.embed(null)).isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> cache.embed("  ")).isInstanceOf(IllegalArgumentException.class);
-            assertThat(cache.stats().size()).isZero();
         }
     }
 
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-    // LRU eviction
+    // Capacity eviction
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
     @Nested
@@ -294,8 +290,7 @@ class CachingEmbeddingProviderTest {
             cache.embed("b");
             cache.embed("c"); // triggers eviction to stay within capacity of 2
 
-            assertThat(cache.stats().size()).isEqualTo(2);
-            int totalCalls = delegate.callsPerText.values().stream().mapToInt(java.util.concurrent.atomic.AtomicInteger::get).sum();
+            int totalCalls = delegate.callsPerText.values().stream().mapToInt(AtomicInteger::get).sum();
             assertThat(totalCalls).isEqualTo(3);
         }
 
@@ -306,7 +301,6 @@ class CachingEmbeddingProviderTest {
             for (int i = 0; i < 50; i++) {
                 cache.embed("text-" + i);
             }
-            assertThat(cache.stats().size()).isEqualTo(5);
         }
     }
 
@@ -334,7 +328,7 @@ class CachingEmbeddingProviderTest {
 
             // Wait past TTL
             Thread.sleep(70);
-            cache.embed("text");  // expired → re-embed
+            cache.embed("text");  // expired -> re-embed
             assertThat(delegate.embedCalls.get()).isEqualTo(2);
         }
 
@@ -483,50 +477,6 @@ class CachingEmbeddingProviderTest {
             cache.close();
 
             assertThat(delegate.closed).isTrue();
-            assertThat(cache.stats().size()).isZero();
-        }
-    }
-
-    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-    // Statistics
-    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-
-    @Nested
-    @DisplayName("statistics")
-    class StatsTests {
-
-        @Test
-        @DisplayName("hit ratio is computed over all requests")
-        void hitRatio() {
-            var cache = new CachingEmbeddingProvider(new CountingProvider(), config(10));
-            assertThat(cache.stats().hitRatio()).isZero();
-
-            cache.embed("a");           // miss
-            cache.embed("a");           // hit
-            cache.embed("a");           // hit
-            cache.embed("b");           // miss
-
-            var stats = cache.stats();
-            assertThat(stats.requests()).isEqualTo(4);
-            assertThat(stats.hits()).isEqualTo(2);
-            assertThat(stats.misses()).isEqualTo(2);
-            assertThat(stats.hitRatio()).isEqualTo(0.5);
-        }
-
-        @Test
-        @DisplayName("periodic stats logging path does not disturb caching")
-        void periodicStatsLogging() {
-            var clock = new AtomicLong();
-            var delegate = new CountingProvider();
-            var cfg = new EmbeddingCacheConfig(true, 10, Duration.ZERO, Duration.ofMinutes(5));
-            var cache = new CachingEmbeddingProvider(delegate, cfg, clock::get);
-
-            cache.embed("a");
-            clock.addAndGet(Duration.ofMinutes(6).toNanos());
-            cache.embed("a");  // crosses the stats-log interval
-
-            assertThat(delegate.embedCalls.get()).isEqualTo(1);
-            assertThat(cache.stats().hits()).isEqualTo(1);
         }
     }
 
@@ -579,8 +529,6 @@ class CachingEmbeddingProviderTest {
             }
 
             assertThat(failures.get()).isZero();
-            assertThat(cache.stats().size()).isEqualTo(distinctTexts);
-            assertThat(cache.stats().requests()).isEqualTo((long) threads * iterations);
             // Concurrent misses on the same key may each call the delegate once (benign
             // race), but never more than once per thread per distinct text — and the
             // cache must eliminate the overwhelming majority of the 4000 requests.

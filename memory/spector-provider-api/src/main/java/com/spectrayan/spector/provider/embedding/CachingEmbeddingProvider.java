@@ -17,9 +17,6 @@ package com.spectrayan.spector.provider.embedding;
 
 import com.spectrayan.spector.commons.cache.SpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
-import com.spectrayan.spector.commons.cache.TtlConcurrentMapCache;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -31,9 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.function.LongSupplier;
 
 /**
  * Decorator that caches embedding results of any {@link EmbeddingProvider} using
@@ -49,8 +43,6 @@ import java.util.function.LongSupplier;
  *   <li><b>Key</b> — SHA-256 hash of the input text (keeps memory low and safe across all cache providers)</li>
  *   <li><b>Cache Backend</b> — delegates to {@link SpectorCache}, seamlessly supporting standalone in-memory,
  *       Caffeine, and distributed Redis caches</li>
- *   <li><b>Statistics</b> — hits/misses counted and logged at INFO every
- *       {@link EmbeddingCacheConfig#statsLogInterval()}</li>
  * </ul>
  *
  * <p>Cached vectors are defensively copied on store and on every hit, so callers
@@ -58,60 +50,20 @@ import java.util.function.LongSupplier;
  */
 public final class CachingEmbeddingProvider implements EmbeddingProvider {
 
-    private static final Logger log = LoggerFactory.getLogger(CachingEmbeddingProvider.class);
-
     public static final String DEFAULT_CACHE_NAME = "spector-embeddings";
 
     private final EmbeddingProvider delegate;
     private final SpectorCache cache;
-    private final EmbeddingCacheConfig config;
-    private final LongSupplier nanoClock;
-    private final LongAdder hits = new LongAdder();
-    private final LongAdder misses = new LongAdder();
-    private final LongAdder evictions = new LongAdder();
-    private final AtomicLong lastStatsLogNanos;
 
     /**
-     * Cache statistics snapshot.
-     *
-     * @param hits      number of requests served from the cache
-     * @param misses    number of requests delegated to the wrapped provider
-     * @param evictions number of entries evicted by policy (when supported)
-     * @param size      current number of cached entries (when supported)
-     */
-    public record CacheStats(long hits, long misses, long evictions, int size) {
-
-        /** Total number of cache lookups. */
-        public long requests() {
-            return hits + misses;
-        }
-
-        /** Fraction of lookups served from the cache (0.0 when no requests yet). */
-        public double hitRatio() {
-            long total = requests();
-            return total == 0 ? 0.0 : (double) hits / total;
-        }
-    }
-
-    /**
-     * Constructs a caching decorator with a specific {@link SpectorCache} and default cache configuration.
+     * Constructs a caching decorator with a specific {@link SpectorCache}.
      *
      * @param delegate the underlying provider
      * @param cache    the cache SPI instance
      */
     public CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCache cache) {
-        this(delegate, cache, EmbeddingCacheConfig.DEFAULT, System::nanoTime);
-    }
-
-    /**
-     * Constructs a caching decorator with a specific {@link SpectorCache} and custom cache configuration.
-     *
-     * @param delegate the underlying provider
-     * @param cache    the cache SPI instance
-     * @param config   cache configuration
-     */
-    public CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCache cache, EmbeddingCacheConfig config) {
-        this(delegate, cache, config, System::nanoTime);
+        this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
+        this.cache = Objects.requireNonNull(cache, "cache must not be null");
     }
 
     /**
@@ -123,27 +75,8 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
     public CachingEmbeddingProvider(EmbeddingProvider delegate, EmbeddingCacheConfig config) {
         this(
                 Objects.requireNonNull(delegate, "delegate must not be null"),
-                createDefaultCache(Objects.requireNonNull(config, "config must not be null")),
-                config,
-                System::nanoTime
+                createDefaultCache(Objects.requireNonNull(config, "config must not be null"))
         );
-    }
-
-    CachingEmbeddingProvider(EmbeddingProvider delegate, EmbeddingCacheConfig config, LongSupplier nanoClock) {
-        this(
-                Objects.requireNonNull(delegate, "delegate must not be null"),
-                createDefaultCache(Objects.requireNonNull(config, "config must not be null")),
-                config,
-                nanoClock
-        );
-    }
-
-    CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCache cache, EmbeddingCacheConfig config, LongSupplier nanoClock) {
-        this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
-        this.cache = Objects.requireNonNull(cache, "cache must not be null");
-        this.config = Objects.requireNonNull(config, "config must not be null");
-        this.nanoClock = Objects.requireNonNull(nanoClock, "nanoClock must not be null");
-        this.lastStatsLogNanos = new AtomicLong(nanoClock.getAsLong());
     }
 
     private static SpectorCache createDefaultCache(EmbeddingCacheConfig config) {
@@ -181,25 +114,12 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
      * @return the caching decorator, or {@code provider} itself if already wrapped
      */
     public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCache cache) {
-        return wrap(provider, cache, EmbeddingCacheConfig.DEFAULT);
-    }
-
-    /**
-     * Wraps a provider with caching using an explicit {@link SpectorCache} and configuration.
-     *
-     * @param provider the provider to wrap
-     * @param cache    the cache SPI instance
-     * @param config   cache configuration
-     * @return the caching decorator, or {@code provider} itself when caching is off
-     */
-    public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCache cache, EmbeddingCacheConfig config) {
         Objects.requireNonNull(provider, "provider must not be null");
         Objects.requireNonNull(cache, "cache must not be null");
-        Objects.requireNonNull(config, "config must not be null");
-        if (!config.enabled() || provider instanceof CachingEmbeddingProvider) {
+        if (provider instanceof CachingEmbeddingProvider) {
             return provider;
         }
-        return new CachingEmbeddingProvider(provider, cache, config);
+        return new CachingEmbeddingProvider(provider, cache);
     }
 
     @Override
@@ -210,15 +130,11 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
         String key = cacheKey(text);
         Optional<EmbeddingResult> cached = cache.get(key, EmbeddingResult.class);
         if (cached.isPresent()) {
-            hits.increment();
-            maybeLogStats();
             EmbeddingResult res = cached.get();
             return new EmbeddingResult(res.vector().clone(), res.tokenCount(), res.model());
         }
         EmbeddingResult result = delegate.embed(text);
         cache.put(key, new EmbeddingResult(result.vector().clone(), result.tokenCount(), result.model()));
-        misses.increment();
-        maybeLogStats();
         return result;
     }
 
@@ -243,14 +159,12 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
             if (cached.isPresent()) {
                 EmbeddingResult res = cached.get();
                 results[i] = new EmbeddingResult(res.vector().clone(), res.tokenCount(), res.model());
-                hits.increment();
             } else {
                 List<Integer> positions = pending.computeIfAbsent(key, k -> {
                     pendingTexts.add(text);
                     return new ArrayList<>();
                 });
                 positions.add(i);
-                misses.increment();
             }
         }
 
@@ -271,7 +185,6 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
             }
         }
 
-        maybeLogStats();
         return List.of(results);
     }
 
@@ -304,30 +217,6 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
     /** Returns the underlying cache instance. */
     public SpectorCache cache() {
         return cache;
-    }
-
-    /** Returns a snapshot of the cache statistics. */
-    public CacheStats stats() {
-        int size = 0;
-        if (cache instanceof TtlConcurrentMapCache ttlCache) {
-            size = ttlCache.size();
-        }
-        return new CacheStats(hits.sum(), misses.sum(), evictions.sum(), size);
-    }
-
-    private void maybeLogStats() {
-        long intervalNanos = config.statsLogInterval().toNanos();
-        if (intervalNanos <= 0) {
-            return;
-        }
-        long now = nanoClock.getAsLong();
-        long last = lastStatsLogNanos.get();
-        if (now - last >= intervalNanos && lastStatsLogNanos.compareAndSet(last, now)) {
-            CacheStats stats = stats();
-            log.info("[EmbeddingCache] model={}, cache={}, hits={}, misses={}, hitRatio={}%",
-                    delegate.modelName(), cache.getName(), stats.hits(), stats.misses(),
-                    String.format("%.1f", stats.hitRatio() * 100.0));
-        }
     }
 
     private static String cacheKey(String text) {
