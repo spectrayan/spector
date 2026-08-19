@@ -17,8 +17,12 @@ package com.spectrayan.spector.spring.autoconfigure;
 
 import com.spectrayan.spector.client.SpectorClient;
 import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.metrics.MeteredSpectorMemory;
+import com.spectrayan.spector.provider.ProviderRegistry;
+import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
+import com.spectrayan.spector.provider.generation.LlmProvider;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -282,5 +286,46 @@ class SpectorAutoConfigurationTest {
         });
     }
 
+    @Test
+    void shouldAutoConfigureProviderRegistry() {
+        contextRunner.run(context -> {
+            assertThat(context).hasSingleBean(ProviderRegistry.class);
+        });
+    }
 
+    @Test
+    void shouldAutoConfigureTsidGenerator() {
+        contextRunner.run(context -> {
+            assertThat(context).hasSingleBean(TsidGenerator.class);
+        });
+    }
+
+    @Test
+    void shouldAutoConfigureLlmProvider() {
+        contextRunner.run(context -> {
+            assertThat(context).hasSingleBean(LlmProvider.class);
+        });
+    }
+
+    @Test
+    void shouldWrapEmbeddingProviderWithCachingByDefault() {
+        contextRunner.withPropertyValues("spector.provider.embedding.type=Ollama")
+                .run(context -> {
+                    assertThat(context).hasBean("ollamaEmbeddingProvider");
+                    EmbeddingProvider provider = context.getBean("ollamaEmbeddingProvider", EmbeddingProvider.class);
+                    assertThat(provider).isInstanceOf(CachingEmbeddingProvider.class);
+                });
+    }
+
+    @Test
+    void shouldNotWrapEmbeddingProviderWhenCacheDisabled() {
+        contextRunner.withPropertyValues(
+                "spector.provider.embedding.type=Ollama",
+                "spector.provider.embedding.cache.enabled=false"
+        ).run(context -> {
+            assertThat(context).hasBean("ollamaEmbeddingProvider");
+            EmbeddingProvider provider = context.getBean("ollamaEmbeddingProvider", EmbeddingProvider.class);
+            assertThat(provider).isNotInstanceOf(CachingEmbeddingProvider.class);
+        });
+    }
 }
