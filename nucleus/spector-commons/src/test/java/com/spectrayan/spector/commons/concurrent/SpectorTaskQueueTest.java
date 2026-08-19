@@ -71,24 +71,36 @@ class SpectorTaskQueueTest {
     @DisplayName("Prioritizes HIGH priority tasks over NORMAL priority tasks")
     void testPriorityOrdering() throws Exception {
         List<String> executionOrder = Collections.synchronizedList(new ArrayList<>());
-        CountDownLatch startGate = new CountDownLatch(1);
+        CountDownLatch blockerStarted = new CountDownLatch(1);
+        CountDownLatch unblockGate = new CountDownLatch(1);
         CountDownLatch finishGate = new CountDownLatch(3);
 
         TaskQueueConfig config = new TaskQueueConfig(100, 1, 100, 2000, 0, 0, BackpressurePolicy.REJECT_FAST);
         try (var queue = new SpectorTaskQueue<String>("test-priority-queue", config, task -> {
-            startGate.await();
+            if ("blocker".equals(task.payload())) {
+                blockerStarted.countDown();
+                try {
+                    unblockGate.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return;
+            }
             executionOrder.add(task.payload());
             finishGate.countDown();
         })) {
-            // First submit normal task 1
+            // First submit blocker to keep worker 1 occupied
+            queue.submit(ScopedTask.of("blocker", "blocker", "s", "n", TaskPriority.LOW));
+            boolean started = blockerStarted.await(3, TimeUnit.SECONDS);
+            assertThat(started).isTrue();
+
+            // Now submit tasks while worker is blocked
             queue.submit(ScopedTask.of("task-low", "low", "s", "n", TaskPriority.LOW));
-            // Submit normal task 2
             queue.submit(ScopedTask.of("task-normal", "normal", "s", "n", TaskPriority.NORMAL));
-            // Submit high task 3
             queue.submit(ScopedTask.of("task-high", "high", "s", "n", TaskPriority.HIGH));
 
-            // Release workers
-            startGate.countDown();
+            // Release worker
+            unblockGate.countDown();
             boolean done = finishGate.await(3, TimeUnit.SECONDS);
             assertThat(done).isTrue();
 

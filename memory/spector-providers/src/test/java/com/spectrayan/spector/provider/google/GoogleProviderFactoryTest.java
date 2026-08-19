@@ -18,6 +18,7 @@ package com.spectrayan.spector.provider.google;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.spectrayan.spector.provider.ProviderConfig;
+import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
@@ -46,7 +47,9 @@ import java.util.Optional;
  */
 class GoogleProviderFactoryTest {
 
-    private final GoogleProviderFactory factory = new GoogleProviderFactory();
+    private final GoogleProviderFactory factory = new GoogleProviderFactory(
+            com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager()
+    );
 
     // Test metadata
     @Nested
@@ -195,7 +198,7 @@ class GoogleProviderFactoryTest {
             Optional<EmbeddingProvider> provider = factory.createEmbeddingProvider(config);
 
             assertThat(provider).isPresent();
-            assertThat(provider.get()).isInstanceOf(LangChain4jEmbeddingAdapter.class);
+            assertThat(provider.get()).isInstanceOf(CachingEmbeddingProvider.class);
             assertThat(provider.get().modelName()).isEqualTo("text-embedding-004");
         }
 
@@ -205,9 +208,23 @@ class GoogleProviderFactoryTest {
                     "google", "google", "text-embedding-004", "test-api-key",
                     "", 768, Map.of());
 
-            var adapter = (LangChain4jEmbeddingAdapter) factory.createEmbeddingProvider(config).orElseThrow();
+            var cachingProvider = (CachingEmbeddingProvider) factory.createEmbeddingProvider(config).orElseThrow();
+            var adapter = (LangChain4jEmbeddingAdapter) cachingProvider.delegate();
 
             assertThat(adapter.delegate()).isInstanceOf(GoogleAiEmbeddingModel.class);
+        }
+
+        @Test
+        void createsRawProviderWhenCacheManagerNotProvided() {
+            var rawFactory = new GoogleProviderFactory();
+            ProviderConfig config = new ProviderConfig(
+                    "google", "google", "text-embedding-004", "test-api-key",
+                    "", 768, Map.of());
+
+            EmbeddingProvider provider = rawFactory.createEmbeddingProvider(config).orElseThrow();
+
+            assertThat(provider).isInstanceOf(LangChain4jEmbeddingAdapter.class);
+            assertThat(provider.modelName()).isEqualTo("text-embedding-004");
         }
 
         // Test if configured dimensions are used

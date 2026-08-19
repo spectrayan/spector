@@ -16,7 +16,10 @@
 package com.spectrayan.spector.spring.autoconfigure;
 
 import com.spectrayan.spector.client.SpectorClient;
+import com.spectrayan.spector.provider.DefaultProviderRegistry;
+import com.spectrayan.spector.provider.DelegatingLlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
+import com.spectrayan.spector.provider.ProviderRegistry;
 import com.spectrayan.spector.provider.anthropic.AnthropicProviderFactory;
 import com.spectrayan.spector.provider.azure.AzureOpenAiProviderFactory;
 import com.spectrayan.spector.provider.bedrock.BedrockProviderFactory;
@@ -28,6 +31,7 @@ import com.spectrayan.spector.provider.embedding.generic.DenseDerivedTokenProvid
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.memory.DefaultSpectorMemory;
 import com.spectrayan.spector.memory.graph.EntityExtractionMode;
+import com.spectrayan.spector.memory.id.TsidGenerator;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.SalienceProfileProvider;
 import com.spectrayan.spector.memory.SpectorMemory;
@@ -38,9 +42,12 @@ import com.spectrayan.spector.provider.google.GoogleProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
 import com.spectrayan.spector.provider.mistral.MistralProviderFactory;
 import com.spectrayan.spector.provider.ollama.OllamaEmbeddingProvider;
+import com.spectrayan.spector.provider.ollama.OllamaProviderFactory;
 import com.spectrayan.spector.provider.openai.OpenAiProviderFactory;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import io.micrometer.core.instrument.MeterRegistry;
+
+import java.time.Duration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,6 +115,12 @@ public class SpectorAutoConfiguration {
         log.info("SpectorCacheManager auto-configured with Spring CacheManager delegate (encryption={})",
                 encryptor != null && encryptor.isEnabled());
         return builder.build();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(SpectorCacheManager.class)
+    SpectorCacheManager defaultSpectorCacheManager() {
+        return com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
     }
 
     /**
@@ -272,24 +285,66 @@ public class SpectorAutoConfiguration {
     @Bean(name = "openAiEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "OpenAi", matchIfMissing = false)
-    EmbeddingProvider spectorOpenAIEmbeddingProvider(SpectorConfigProperties props) {
-        OpenAiProviderFactory openAiProviderFactory = new OpenAiProviderFactory();
+    EmbeddingProvider spectorOpenAIEmbeddingProvider(SpectorConfigProperties props,
+                                                     ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        OpenAiProviderFactory openAiProviderFactory = new OpenAiProviderFactory(cacheManagerProvider.getIfAvailable());
         return openAiProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ProviderRegistry.class)
+    public ProviderRegistry providerRegistry() {
+        return new DefaultProviderRegistry();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TsidGenerator.class)
+    public TsidGenerator tsidGenerator() {
+        return new TsidGenerator();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(LlmProvider.class)
+    public LlmProvider llmProvider(ProviderRegistry providerRegistry, SpectorConfigProperties props) {
+        try {
+            var genProps = props.getProvider().getGeneration();
+            String type = genProps.getType();
+            if (type == null || type.isBlank() || "ollama".equalsIgnoreCase(type)) {
+                Duration timeout = Duration.ofSeconds(300);
+                if (genProps.getProperties() != null && genProps.getProperties().containsKey("timeout")) {
+                    try {
+                        timeout = Duration.ofSeconds(Long.parseLong(genProps.getProperties().get("timeout")));
+                    } catch (NumberFormatException ignored) {}
+                }
+                var llm = new com.spectrayan.spector.provider.ollama.OllamaLlmProvider(
+                        genProps.getModel(), genProps.getBaseUrl(), timeout);
+                providerRegistry.registerGeneration("ollama", llm);
+                log.info("[Spector] Registered default Ollama text generation provider: model={}, baseUrl={}",
+                        genProps.getModel(), genProps.getBaseUrl());
+            }
+        } catch (Exception e) {
+            log.warn("[Spector] Failed to register default text generation provider: {}", e.getMessage());
+        }
+        return new DelegatingLlmProvider(providerRegistry);
     }
 
     @Bean(name = "ollamaEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Ollama", matchIfMissing = false)
-    EmbeddingProvider spectorOllamaEmbeddingProvider(SpectorConfigProperties props) {
-        return new OllamaEmbeddingProvider(generateEmbeddingConfig(props));
+    EmbeddingProvider spectorOllamaEmbeddingProvider(SpectorConfigProperties props,
+                                                     ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        OllamaProviderFactory factory = new OllamaProviderFactory(cacheManagerProvider.getIfAvailable());
+        return factory.createEmbeddingProvider(generateProviderConfig(props))
+                .orElseThrow(() -> new IllegalStateException("Failed to create Ollama embedding provider"));
     }
 
     @Bean(name = "anthropicEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Anthropic", matchIfMissing = false)
-    EmbeddingProvider antrhopicEmbeddingProvider(SpectorConfigProperties props) {
-        AnthropicProviderFactory anthropicProviderFactory = new AnthropicProviderFactory();
+    EmbeddingProvider antrhopicEmbeddingProvider(SpectorConfigProperties props,
+                                                 ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        AnthropicProviderFactory anthropicProviderFactory = new AnthropicProviderFactory(cacheManagerProvider.getIfAvailable());
         return anthropicProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
@@ -297,8 +352,9 @@ public class SpectorAutoConfiguration {
     @Bean(name = "azureOpenAiEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "AzureOpenAi", matchIfMissing = false)
-    EmbeddingProvider spectorAzureOpenAiEmbeddingProvider(SpectorConfigProperties props) {
-        AzureOpenAiProviderFactory azureOpenAiProviderFactory = new AzureOpenAiProviderFactory();
+    EmbeddingProvider spectorAzureOpenAiEmbeddingProvider(SpectorConfigProperties props,
+                                                          ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        AzureOpenAiProviderFactory azureOpenAiProviderFactory = new AzureOpenAiProviderFactory(cacheManagerProvider.getIfAvailable());
         return azureOpenAiProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
@@ -306,8 +362,9 @@ public class SpectorAutoConfiguration {
     @Bean(name = "bedrockEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Bedrock", matchIfMissing = false)
-    EmbeddingProvider spectorBedrockEmbeddingProvider(SpectorConfigProperties props) {
-        BedrockProviderFactory bedrockProviderFactory = new BedrockProviderFactory();
+    EmbeddingProvider spectorBedrockEmbeddingProvider(SpectorConfigProperties props,
+                                                      ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        BedrockProviderFactory bedrockProviderFactory = new BedrockProviderFactory(cacheManagerProvider.getIfAvailable());
         return bedrockProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
@@ -315,8 +372,9 @@ public class SpectorAutoConfiguration {
     @Bean(name = "googleEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Google", matchIfMissing = false)
-    EmbeddingProvider spectorGoogleEmbeddingProvider(SpectorConfigProperties props) {
-        GoogleProviderFactory googleProviderFactory = new GoogleProviderFactory();
+    EmbeddingProvider spectorGoogleEmbeddingProvider(SpectorConfigProperties props,
+                                                     ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        GoogleProviderFactory googleProviderFactory = new GoogleProviderFactory(cacheManagerProvider.getIfAvailable());
         return googleProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
@@ -324,8 +382,9 @@ public class SpectorAutoConfiguration {
     @Bean(name = "mistralEmbeddingProvider")
     @ConditionalOnMissingBean(EmbeddingProvider.class)
     @ConditionalOnProperty(prefix = "spector.provider.embedding", name = "type", havingValue = "Mistral", matchIfMissing = false)
-    EmbeddingProvider spectorMistralEmbeddingProvider(SpectorConfigProperties props) {
-        MistralProviderFactory mistralProviderFactory = new MistralProviderFactory();
+    EmbeddingProvider spectorMistralEmbeddingProvider(SpectorConfigProperties props,
+                                                      ObjectProvider<com.spectrayan.spector.commons.cache.SpectorCacheManager> cacheManagerProvider) {
+        MistralProviderFactory mistralProviderFactory = new MistralProviderFactory(cacheManagerProvider.getIfAvailable());
         return mistralProviderFactory.createEmbeddingProvider(generateProviderConfig(props))
                 .orElseThrow(RuntimeException::new);
     }
@@ -449,6 +508,15 @@ public class SpectorAutoConfiguration {
      */
     ProviderConfig generateProviderConfig(SpectorConfigProperties props){
         var embedding = props.getProvider().getEmbedding();
+        java.util.Map<String, String> properties = new java.util.HashMap<>(embedding.getProperties());
+        properties.put("cache.enabled", String.valueOf(embedding.isCacheEnabled()));
+        properties.put("cache.max-size", String.valueOf(embedding.getCacheMaxSize()));
+        if (embedding.getCacheTtl() != null) {
+            properties.put("cache.ttl-seconds", String.valueOf(embedding.getCacheTtl().toSeconds()));
+        }
+        if (embedding.getCacheStatsLogInterval() != null) {
+            properties.put("cache.stats-log-interval-seconds", String.valueOf(embedding.getCacheStatsLogInterval().toSeconds()));
+        }
         return new ProviderConfig(
                 embedding.getType(),
                 embedding.getType(),
@@ -456,7 +524,7 @@ public class SpectorAutoConfiguration {
                 embedding.getApiKey(),
                 embedding.getBaseUrl(),
                 embedding.getDimensions(),
-                embedding.getProperties()
+                properties
         );
     }
 

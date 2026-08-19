@@ -15,10 +15,10 @@
  */
 package com.spectrayan.spector.provider.google;
 
+import com.spectrayan.spector.provider.AbstractProviderFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
-import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
@@ -46,7 +46,15 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code topP} — nucleus sampling probability (optional)</li>
  * </ul>
  */
-public class GoogleProviderFactory implements ProviderFactory {
+public class GoogleProviderFactory extends AbstractProviderFactory {
+
+    public GoogleProviderFactory() {
+        super();
+    }
+
+    public GoogleProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
 
     @Override public String name() { return "google"; }
     @Override public String displayName() { return "Google Gemini"; }
@@ -54,7 +62,7 @@ public class GoogleProviderFactory implements ProviderFactory {
     @Override public boolean supportsGeneration() { return true; }
 
     @Override
-    public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
+    protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
         var builder = GoogleAiEmbeddingModel.builder()
                 .apiKey(config.apiKey())

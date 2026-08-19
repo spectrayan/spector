@@ -15,10 +15,10 @@
  */
 package com.spectrayan.spector.provider.anthropic;
 
+import com.spectrayan.spector.provider.AbstractProviderFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
-import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
 
@@ -45,17 +45,20 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code topP} — nucleus sampling probability (optional)</li>
  * </ul>
  */
-public class AnthropicProviderFactory implements ProviderFactory {
+public class AnthropicProviderFactory extends AbstractProviderFactory {
+
+    public AnthropicProviderFactory() {
+        super();
+    }
+
+    public AnthropicProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
 
     @Override public String name() { return "anthropic"; }
     @Override public String displayName() { return "Anthropic Claude"; }
     @Override public boolean supportsEmbedding() { return false; }
     @Override public boolean supportsGeneration() { return true; }
-
-    @Override
-    public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
-        return Optional.empty(); // Anthropic does not offer an embedding API
-    }
 
     @Override
     public Optional<LlmProvider> createGenerationProvider(ProviderConfig config) {
