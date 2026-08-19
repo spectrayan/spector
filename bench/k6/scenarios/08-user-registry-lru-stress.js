@@ -16,6 +16,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { randomInt } from 'k6/crypto';
 import { ENV, PATHS } from '../config/environments.js';
 import { MULTI_USER_THRESHOLDS } from '../config/thresholds.js';
 import { getHeaders } from '../utils/auth.js';
@@ -34,7 +35,7 @@ export const options = {
 export default function () {
     // Generate high-cardinality user & session IDs to force UserMemoryRegistry cache churn & LRU eviction
     const syntheticUserId = `tenant-user-${Math.floor(Math.random() * 200)}`;
-    const syntheticSessionId = `session-${Math.floor(Math.random() * 1000)}`;
+    const syntheticSessionId = `session-${randomInt(1000)}`;
 
     const headers = getHeaders(null, syntheticSessionId, syntheticUserId);
 
