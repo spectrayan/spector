@@ -34,7 +34,7 @@ export const options = {
 
 export default function () {
     // Generate high-cardinality user & session IDs to force UserMemoryRegistry cache churn & LRU eviction
-    const syntheticUserId = `tenant-user-${Math.floor(Math.random() * 200)}`;
+    const syntheticUserId = `tenant-user-${randomInt(200)}`;
     const syntheticSessionId = `session-${randomInt(1000)}`;
 
     const headers = getHeaders(null, syntheticSessionId, syntheticUserId);
