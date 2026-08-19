@@ -23,7 +23,10 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Contradiction-Aware Detection with Directional Resolution (CADP) Engine.
@@ -142,8 +145,8 @@ public final class CadpContradictionResolver {
             slotLoser = memorySlot(loser, store, store.cognitiveLayout());
         }
 
-        List<Integer> entitiesWinner = findEntitiesForSlot(entityDirectory, slotWinner);
-        List<Integer> entitiesLoser = findEntitiesForSlot(entityDirectory, slotLoser);
+        List<Integer> entitiesWinner = findEntitiesForRecord(entityDirectory, winner, slotWinner);
+        List<Integer> entitiesLoser = findEntitiesForRecord(entityDirectory, loser, slotLoser);
 
         // 3. Add TYPE_CONTRADICTS hyperedge with ROLE_CORRECTOR and ROLE_CORRECTED (#507, #528)
         if (hyperEntityGraph != null && entitiesWinner != null && entitiesLoser != null) {
@@ -204,21 +207,41 @@ public final class CadpContradictionResolver {
     }
 
     /**
-     * Looks up entity IDs associated with a specific memory slot in the {@link EntityDirectory}.
+     * Looks up entity IDs associated with a specific memory record in the {@link EntityDirectory}.
+     * Combines memory slot index references with entity name recognition against record text.
      */
-    public static List<Integer> findEntitiesForSlot(EntityDirectory entityDirectory, int slot) {
-        if (entityDirectory == null || slot < 0) return null;
-        List<Integer> entities = new ArrayList<>(2);
-        int ecnt = entityDirectory.entityCount();
-        for (int e = 0; e < ecnt; e++) {
-            int refCount = entityDirectory.memoryRefCount(e);
-            for (int r = 0; r < refCount; r++) {
-                if (entityDirectory.memoryRefAt(e, r) == slot) {
-                    entities.add(e);
-                    break;
+    public static List<Integer> findEntitiesForRecord(EntityDirectory entityDirectory, CognitiveRecord record, int slot) {
+        if (entityDirectory == null) return null;
+        Set<Integer> entities = new HashSet<>();
+        if (slot >= 0) {
+            int ecnt = entityDirectory.entityCount();
+            for (int e = 0; e < ecnt; e++) {
+                int refCount = entityDirectory.memoryRefCount(e);
+                for (int r = 0; r < refCount; r++) {
+                    if (entityDirectory.memoryRefAt(e, r) == slot) {
+                        entities.add(e);
+                        break;
+                    }
                 }
             }
         }
-        return entities.isEmpty() ? null : entities;
+        if (record != null && record.text() != null && !record.text().isBlank()) {
+            String lowerText = record.text().toLowerCase(Locale.ROOT);
+            int ecnt = entityDirectory.entityCount();
+            for (int e = 0; e < ecnt; e++) {
+                String name = entityDirectory.entityName(e);
+                if (name != null && !name.isBlank() && lowerText.contains(name.toLowerCase(Locale.ROOT))) {
+                    entities.add(e);
+                }
+            }
+        }
+        return entities.isEmpty() ? null : new ArrayList<>(entities);
+    }
+
+    /**
+     * Looks up entity IDs associated with a specific memory slot in the {@link EntityDirectory}.
+     */
+    public static List<Integer> findEntitiesForSlot(EntityDirectory entityDirectory, int slot) {
+        return findEntitiesForRecord(entityDirectory, null, slot);
     }
 }
