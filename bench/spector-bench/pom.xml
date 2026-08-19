@@ -18,6 +18,9 @@
     <properties>
         <spector.module.name>com.spectrayan.spector.bench</spector.module.name>
         <exec.mainClass>com.spectrayan.spector.bench.IndustryBenchmark</exec.mainClass>
+        <datasetDir></datasetDir>
+        <outputDir></outputDir>
+        <spector.pathway.enabled>false</spector.pathway.enabled>
         <skipBenchTests>true</skipBenchTests>
         <!-- Benchmarks are not business logic — skip coverage enforcement -->
         <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
@@ -112,6 +115,9 @@
                         <argument>jdk.incubator.vector</argument>
                         <argument>-Xmx28g</argument>
                         <argument>-Dlogback.configurationFile=logback-bench.xml</argument>
+                        <argument>-DdatasetDir=${datasetDir}</argument>
+                        <argument>-DoutputDir=${outputDir}</argument>
+                        <argument>-Dspector.pathway.enabled=${spector.pathway.enabled}</argument>
                         <argument>-classpath</argument>
                         <classpath/>
                         <argument>${exec.mainClass}</argument>

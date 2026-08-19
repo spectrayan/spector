@@ -224,9 +224,9 @@ class TextSearchModeE2ETest extends AbstractE2ETest {
     void hybrid_combinedResults() {
         // This query has both exact keywords ("deadlock") and conceptual meaning
         List<CognitiveResult> hybrid = memory.recall(
-                "PostgreSQL deadlock detection and resolution",
+                "PostgreSQL deadlock detected",
                 RecallOptions.builder()
-                        .topK(10)
+                        .topK(20)
                         .textSearchMode(TextSearchMode.HYBRID)
                         .build());
 

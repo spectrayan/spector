@@ -122,7 +122,10 @@ public final class CognitiveBenchmarkHarness {
      * @param args CLI arguments: datasetDir, outputDir, [regressionThreshold], [topK], [profile]
      */
     public static void main(String[] args) {
-        if (args.length < 2) {
+        String datasetPath = args.length >= 1 && !args[0].isBlank() ? args[0] : System.getProperty("datasetDir");
+        String outputPath = args.length >= 2 && !args[1].isBlank() ? args[1] : System.getProperty("outputDir");
+
+        if (datasetPath == null || datasetPath.isBlank() || outputPath == null || outputPath.isBlank()) {
             System.err.println("Usage: CognitiveBenchmarkHarness <datasetDir> <outputDir> "
                     + "[regressionThreshold] [topK] [profile]");
             System.err.println("  profile: NONE (no profile), BALANCED, DEBUGGING, etc. "
@@ -131,25 +134,28 @@ public final class CognitiveBenchmarkHarness {
             return;
         }
 
-        Path datasetDir = Path.of(args[0]);
-        Path outputDir = Path.of(args[1]);
+        Path datasetDir = Path.of(datasetPath);
+        Path outputDir = Path.of(outputPath);
 
         Double regressionThreshold = null;
-        if (args.length >= 3 && !args[2].isBlank()) {
-            double parsed = Double.parseDouble(args[2]);
+        String regStr = args.length >= 3 && !args[2].isBlank() ? args[2] : System.getProperty("regressionThreshold");
+        if (regStr != null && !regStr.isBlank()) {
+            double parsed = Double.parseDouble(regStr);
             if (parsed > 0) {
                 regressionThreshold = parsed;
             }
         }
 
         int topK = 10;
-        if (args.length >= 4 && !args[3].isBlank()) {
-            topK = Integer.parseInt(args[3]);
+        String topKStr = args.length >= 4 && !args[3].isBlank() ? args[3] : System.getProperty("topK");
+        if (topKStr != null && !topKStr.isBlank()) {
+            topK = Integer.parseInt(topKStr);
         }
 
         String profileOverride = null;
-        if (args.length >= 5 && !args[4].isBlank()) {
-            profileOverride = args[4].toUpperCase();
+        String profStr = args.length >= 5 && !args[4].isBlank() ? args[4] : System.getProperty("profile");
+        if (profStr != null && !profStr.isBlank()) {
+            profileOverride = profStr.toUpperCase();
         }
 
         CognitiveBenchmarkHarness harness = new CognitiveBenchmarkHarness(
