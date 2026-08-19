@@ -141,4 +141,54 @@ public record ProviderConfig(
     public boolean hasBaseUrl() {
         return baseUrl != null && !baseUrl.isBlank();
     }
+
+    /**
+     * Extracts an {@link com.spectrayan.spector.provider.embedding.EmbeddingCacheConfig} from this configuration's properties.
+     *
+     * <p>Supported properties:</p>
+     * <ul>
+     *   <li>{@code cache.enabled} or {@code cacheEnabled} (default: {@code true})</li>
+     *   <li>{@code cache.max-size} or {@code cacheMaxSize} (default: {@code 1000})</li>
+     *   <li>{@code cache.ttl-seconds} or {@code cacheTtlSeconds} (default: {@code 3600})</li>
+     *   <li>{@code cache.stats-log-interval-seconds} or {@code cacheStatsLogIntervalSeconds} (default: {@code 300})</li>
+     * </ul>
+     *
+     * @return embedding cache configuration
+     */
+    public com.spectrayan.spector.provider.embedding.EmbeddingCacheConfig embeddingCacheConfig() {
+        boolean enabled = property("cache.enabled")
+                .or(() -> property("cacheEnabled"))
+                .map(Boolean::parseBoolean)
+                .orElse(true);
+        if (!enabled) {
+            return com.spectrayan.spector.provider.embedding.EmbeddingCacheConfig.disabled();
+        }
+        int maxSize = property("cache.max-size")
+                .or(() -> property("cacheMaxSize"))
+                .flatMap(s -> {
+                    try { return Optional.of(Integer.parseInt(s)); }
+                    catch (NumberFormatException e) { return Optional.empty(); }
+                })
+                .orElse(1000);
+        long ttlSeconds = property("cache.ttl-seconds")
+                .or(() -> property("cacheTtlSeconds"))
+                .flatMap(s -> {
+                    try { return Optional.of(Long.parseLong(s)); }
+                    catch (NumberFormatException e) { return Optional.empty(); }
+                })
+                .orElse(3600L);
+        long statsIntervalSeconds = property("cache.stats-log-interval-seconds")
+                .or(() -> property("cacheStatsLogIntervalSeconds"))
+                .flatMap(s -> {
+                    try { return Optional.of(Long.parseLong(s)); }
+                    catch (NumberFormatException e) { return Optional.empty(); }
+                })
+                .orElse(300L);
+        return new com.spectrayan.spector.provider.embedding.EmbeddingCacheConfig(
+                true,
+                maxSize,
+                java.time.Duration.ofSeconds(ttlSeconds),
+                java.time.Duration.ofSeconds(statsIntervalSeconds)
+        );
+    }
 }
