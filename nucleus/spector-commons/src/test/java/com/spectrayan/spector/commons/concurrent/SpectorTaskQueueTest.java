@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @DisplayName("SpectorTaskQueue")
 class SpectorTaskQueueTest {
@@ -56,10 +57,13 @@ class SpectorTaskQueueTest {
             assertThat(seenNamespace.get()).isEqualTo("ns-456");
             assertThat(seenPayload.get()).isEqualTo("hello-world");
 
-            var metrics = queue.metrics();
-            assertThat(metrics.submitted()).isEqualTo(1);
-            assertThat(metrics.processed()).isEqualTo(1);
-            assertThat(metrics.failed()).isEqualTo(0);
+            await().atMost(3, TimeUnit.SECONDS)
+                    .untilAsserted(() -> {
+                        var metrics = queue.metrics();
+                        assertThat(metrics.submitted()).isEqualTo(1);
+                        assertThat(metrics.processed()).isEqualTo(1);
+                        assertThat(metrics.failed()).isEqualTo(0);
+                    });
         }
     }
 
@@ -114,10 +118,13 @@ class SpectorTaskQueueTest {
             assertThat(done).isTrue();
             assertThat(attempts.get()).isEqualTo(3);
 
-            var metrics = queue.metrics();
-            assertThat(metrics.retried()).isEqualTo(2);
-            assertThat(metrics.processed()).isEqualTo(1);
-            assertThat(metrics.failed()).isEqualTo(0);
+            await().atMost(3, TimeUnit.SECONDS)
+                    .untilAsserted(() -> {
+                        var metrics = queue.metrics();
+                        assertThat(metrics.retried()).isEqualTo(2);
+                        assertThat(metrics.processed()).isEqualTo(1);
+                        assertThat(metrics.failed()).isEqualTo(0);
+                    });
         }
     }
 
@@ -147,8 +154,11 @@ class SpectorTaskQueueTest {
             boolean accepted = queue.submit("task-overflow", "item");
             assertThat(accepted).isFalse();
 
-            var metrics = queue.metrics();
-            assertThat(metrics.failed()).isGreaterThanOrEqualTo(1);
+            await().atMost(3, TimeUnit.SECONDS)
+                    .untilAsserted(() -> {
+                        var metrics = queue.metrics();
+                        assertThat(metrics.failed()).isGreaterThanOrEqualTo(1);
+                    });
         } finally {
             blocker.countDown();
         }

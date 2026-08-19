@@ -27,6 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @DisplayName("TaskQueueMetricsBinder")
 class TaskQueueMetricsBinderTest {
@@ -47,28 +48,30 @@ class TaskQueueMetricsBinderTest {
             boolean done = latch.await(3, TimeUnit.SECONDS);
             assertThat(done).isTrue();
 
-            var sizeGauge = registry.find("spector.taskqueue.size").tag("queue", "test-metered-queue").gauge();
-            assertThat(sizeGauge).isNotNull();
+            await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
+                var sizeGauge = registry.find("spector.taskqueue.size").tag("queue", "test-metered-queue").gauge();
+                assertThat(sizeGauge).isNotNull();
 
-            var capacityGauge = registry.find("spector.taskqueue.capacity").tag("queue", "test-metered-queue").gauge();
-            assertThat(capacityGauge).isNotNull();
-            assertThat(capacityGauge.value()).isEqualTo(50.0);
+                var capacityGauge = registry.find("spector.taskqueue.capacity").tag("queue", "test-metered-queue").gauge();
+                assertThat(capacityGauge).isNotNull();
+                assertThat(capacityGauge.value()).isEqualTo(50.0);
 
-            var parallelismGauge = registry.find("spector.taskqueue.parallelism").tag("queue", "test-metered-queue").gauge();
-            assertThat(parallelismGauge).isNotNull();
-            assertThat(parallelismGauge.value()).isEqualTo(1.0);
+                var parallelismGauge = registry.find("spector.taskqueue.parallelism").tag("queue", "test-metered-queue").gauge();
+                assertThat(parallelismGauge).isNotNull();
+                assertThat(parallelismGauge.value()).isEqualTo(1.0);
 
-            var submittedCounter = registry.find("spector.taskqueue.submitted").tag("queue", "test-metered-queue").functionCounter();
-            assertThat(submittedCounter).isNotNull();
-            assertThat(submittedCounter.count()).isEqualTo(2.0);
+                var submittedCounter = registry.find("spector.taskqueue.submitted").tag("queue", "test-metered-queue").functionCounter();
+                assertThat(submittedCounter).isNotNull();
+                assertThat(submittedCounter.count()).isEqualTo(2.0);
 
-            var processedCounter = registry.find("spector.taskqueue.processed").tag("queue", "test-metered-queue").functionCounter();
-            assertThat(processedCounter).isNotNull();
-            assertThat(processedCounter.count()).isEqualTo(2.0);
+                var processedCounter = registry.find("spector.taskqueue.processed").tag("queue", "test-metered-queue").functionCounter();
+                assertThat(processedCounter).isNotNull();
+                assertThat(processedCounter.count()).isEqualTo(2.0);
 
-            var runningGauge = registry.find("spector.taskqueue.running").tag("queue", "test-metered-queue").gauge();
-            assertThat(runningGauge).isNotNull();
-            assertThat(runningGauge.value()).isEqualTo(1.0);
+                var runningGauge = registry.find("spector.taskqueue.running").tag("queue", "test-metered-queue").gauge();
+                assertThat(runningGauge).isNotNull();
+                assertThat(runningGauge.value()).isEqualTo(1.0);
+            });
         }
     }
 }

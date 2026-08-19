@@ -17,6 +17,11 @@
             name: spector-trace-id
             simple: "${exchangeId}"
         - setHeader:
+            name: CamelHttpMethod
+            constant: "GET"
+        - to:
+            uri: "{{instanceUrl}}/services/data/v58.0/query?q={{soqlQuery}}"
+        - setHeader:
             name: spector-route-id
             constant: "{{routeId}}"
         - setHeader:

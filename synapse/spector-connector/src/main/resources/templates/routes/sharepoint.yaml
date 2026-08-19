@@ -4,6 +4,8 @@
       - name: tenantId
       - name: routeId
       - name: siteId
+      - name: graphApiUrl
+        defaultValue: "https://graph.microsoft.com/v1.0"
       - name: pollIntervalMs
         defaultValue: "3600000"
       - name: collection
@@ -14,6 +16,8 @@
         - setHeader:
             name: spector-trace-id
             simple: "${exchangeId}"
+        - to:
+            uri: "{{graphApiUrl}}/sites/{{siteId}}/drive/root/children"
         - setHeader:
             name: spector-route-id
             constant: "{{routeId}}"

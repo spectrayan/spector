@@ -191,6 +191,60 @@ class FileWatchIngestionE2ETest {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    //  File Watch: Markdown / Confluence / Wiki Docs Ingestion
+    // ═══════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("E2E: file-watch ingests wiki-style markdown documents and agent performs semantic recall")
+    void markdownWikiDocIngestionAndRecall() throws Exception {
+        RouteConfig config = RouteConfig.builder("e2e-wiki-docs", "E2E Wiki Docs", "file-watch")
+                .tenantId("spectrayan-org")
+                .properties(Map.of(
+                        "path", watchDir.toString(),
+                        "pattern", ".*\\.md",
+                        "recursive", "false",
+                        "collection", "architecture-docs"
+                ))
+                .enabled(true)
+                .build();
+        engine.deployRoute(config);
+
+        // Ingest realistic Confluence / Wiki documentation pages
+        writeFile("spector-architecture-overview.md",
+                "# Spector Architecture Overview\n\n" +
+                "Spector is a biological cognitive memory engine providing 4 memory tiers: " +
+                "Working Memory (volatile scratchpad), Episodic Memory (temporal sessions), " +
+                "Semantic Memory (permanent knowledge graph), and Procedural Memory (tool definitions). " +
+                "It uses HNSW for approximate nearest neighbor search and BM25 for keyword scoring.");
+
+        writeFile("camel-connector-integration.md",
+                "# Apache Camel Ingestion Subsystem\n\n" +
+                "The Synapse connector engine integrates Apache Camel routes with SpectorIngestionSink. " +
+                "Supported sources include Kafka, S3, JDBC databases, Slack, and local file watching. " +
+                "All incoming exchanges undergo PII scrubbing, delta change detection, and vector embedding.");
+
+        // Wait for Camel to ingest both markdown docs
+        await().atMost(15, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> assertThat(sink.totalProcessed()).isGreaterThanOrEqualTo(2));
+
+        assertThat(sink.totalErrors()).isZero();
+
+        // Verify Agent cognitive recall pulls precise wiki knowledge
+        var memoryResults = memory.recall("biological cognitive 4 memory tiers HNSW BM25");
+        assertThat(memoryResults).isNotEmpty();
+        assertThat(memoryResults)
+                .extracting(r -> r.text())
+                .anyMatch(text -> text.contains("Working Memory") && text.contains("Semantic Memory"));
+
+        var connectorResults = memory.recall("Apache Camel SpectorIngestionSink PII scrubbing");
+        assertThat(connectorResults).isNotEmpty();
+        assertThat(connectorResults)
+                .extracting(r -> r.text())
+                .anyMatch(text -> text.contains("SpectorIngestionSink") && text.contains("PII scrubbing"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     //  Helpers
     // ═══════════════════════════════════════════════════════════════
 

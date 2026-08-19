@@ -187,6 +187,7 @@ class ConnectorDatabaseLifecycleIT {
         RouteConfig slackRoute = RouteConfig.builder("prod-slack-notify", "Slack Alerts", "slack-notify")
                 .tenantId("default")
                 .connectorType("OUTBOUND_ACTION")
+                .credentialRef("env:SLACK_WEBHOOK_URL")
                 .properties(Map.of(
                         "channel", "general-alerts",
                         "webhookUrl", "https://hooks.slack.com/services/T00/B00/X00"
