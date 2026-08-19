@@ -7,6 +7,8 @@
       - name: spaceKey
       - name: username
       - name: apiToken
+      - name: scheme
+        defaultValue: "https"
       - name: pollIntervalMs
         defaultValue: "3600000"
       - name: collection
@@ -21,7 +23,7 @@
             name: CamelHttpMethod
             constant: "GET"
         - to:
-            uri: "https://{{host}}/wiki/rest/api/content?spaceKey={{spaceKey}}&expand=body.storage"
+            uri: "{{scheme}}://{{host}}/wiki/rest/api/content?spaceKey={{spaceKey}}&expand=body.storage"
         - split:
             jsonpath: "$.results[*]"
         - setHeader:

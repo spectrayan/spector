@@ -8,6 +8,8 @@
         defaultValue: "main"
       - name: oauthToken
         defaultValue: ""
+      - name: apiBaseUrl
+        defaultValue: "https://api.github.com"
       - name: pollIntervalMs
         defaultValue: "3600000"
       - name: collection
@@ -25,7 +27,7 @@
             name: Authorization
             simple: "token {{oauthToken}}"
         - to:
-            uri: "https://api.github.com/repos/{{repo}}/commits?sha={{branch}}"
+            uri: "{{apiBaseUrl}}/repos/{{repo}}/commits?sha={{branch}}"
         - split:
             jsonpath: "$.[*]"
         - setHeader:

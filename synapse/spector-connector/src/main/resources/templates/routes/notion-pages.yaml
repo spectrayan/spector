@@ -6,6 +6,8 @@
       - name: databaseId
       - name: apiKey
         defaultValue: ""
+      - name: apiBaseUrl
+        defaultValue: "https://api.notion.com"
       - name: pollIntervalMs
         defaultValue: "3600000"
       - name: collection
@@ -26,7 +28,7 @@
             name: Notion-Version
             constant: "2022-06-28"
         - to:
-            uri: "https://api.notion.com/v1/databases/{{databaseId}}/query"
+            uri: "{{apiBaseUrl}}/v1/databases/{{databaseId}}/query"
         - split:
             jsonpath: "$.results[*]"
         - setHeader:

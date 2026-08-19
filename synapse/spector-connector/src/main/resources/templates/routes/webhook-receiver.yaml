@@ -4,6 +4,10 @@
       - name: tenantId
       - name: routeId
       - name: webhookPath
+      - name: host
+        defaultValue: "0.0.0.0"
+      - name: port
+        defaultValue: "8765"
       - name: collection
         defaultValue: "default"
       - name: throttleRequests
@@ -11,7 +15,7 @@
       - name: throttlePeriodMs
         defaultValue: "60000"
     from:
-      uri: "netty-http:http://0.0.0.0:8765{{webhookPath}}"
+      uri: "netty-http:http://{{host}}:{{port}}{{webhookPath}}"
       steps:
         - throttle:
             expression:

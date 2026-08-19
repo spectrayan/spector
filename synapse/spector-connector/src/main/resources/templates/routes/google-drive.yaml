@@ -4,6 +4,8 @@
       - name: tenantId
       - name: routeId
       - name: folderId
+      - name: driveApiUrl
+        defaultValue: "https://www.googleapis.com/drive/v3"
       - name: pollIntervalMs
         defaultValue: "3600000"
       - name: collection
@@ -14,6 +16,8 @@
         - setHeader:
             name: spector-trace-id
             simple: "${exchangeId}"
+        - to:
+            uri: "{{driveApiUrl}}/files?q=%27{{folderId}}%27+in+parents"
         - setHeader:
             name: spector-route-id
             constant: "{{routeId}}"
