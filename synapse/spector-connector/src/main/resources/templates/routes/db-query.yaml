@@ -6,6 +6,10 @@
       - name: query
       - name: jdbcUrl
         defaultValue: ""
+      - name: username
+        defaultValue: ""
+      - name: password
+        defaultValue: ""
       - name: pollIntervalMs
         defaultValue: "600000"
       - name: collection
@@ -20,6 +24,8 @@
             constant: "{{query}}"
         - to:
             uri: "jdbc:dataSource"
+        - split:
+            simple: "${body}"
         - setHeader:
             name: spector-route-id
             constant: "{{routeId}}"
@@ -31,10 +37,10 @@
             constant: "{{collection}}"
         - setHeader:
             name: spector-doc-id
-            simple: "db-{{routeId}}-${date:now:yyyyMMddHHmmss}"
+            simple: "db-{{routeId}}-row-${header.CamelSplitIndex}-${date:now:yyyyMMddHHmmss}"
         - convertBodyTo:
             type: "java.lang.String"
         - process:
             ref: "spectorIngestionSink"
         - log:
-            message: "DB query for route {{routeId}} completed"
+            message: "DB query row ${header.CamelSplitIndex} for route {{routeId}} ingested"
