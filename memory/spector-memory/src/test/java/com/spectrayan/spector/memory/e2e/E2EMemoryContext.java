@@ -154,6 +154,7 @@ public final class E2EMemoryContext {
 
         // Build the memory system with all subsystems enabled
         memory = DefaultSpectorMemory.builder()
+                .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "false"))))
                 .dimensions(dims)
                 .embeddingProvider(embeddingProvider)
                 .SparseEmbeddingProvider(sparseProvider)

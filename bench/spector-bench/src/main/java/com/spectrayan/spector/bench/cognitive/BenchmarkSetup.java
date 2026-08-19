@@ -184,6 +184,7 @@ public final class BenchmarkSetup implements AutoCloseable {
 
         com.spectrayan.spector.memory.SpectorMemoryBuilder builder = DefaultSpectorMemory.builder()
                 .bundleMode(true)
+                .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "false"))))
                 .dimensions(embedder.dimensions())
                 .embeddingProvider(embedder)
                 .workingCapacity(Math.max(50, corpusSize / 10))
