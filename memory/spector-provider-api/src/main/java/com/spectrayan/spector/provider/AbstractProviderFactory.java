@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.provider;
 
+import com.spectrayan.spector.commons.cache.SpectorCacheManager;
 import com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
@@ -23,7 +24,8 @@ import java.util.Optional;
 
 /**
  * Base implementation of {@link ProviderFactory} that automatically applies cross-cutting
- * concerns such as {@link CachingEmbeddingProvider} decoration for all embedding providers.
+ * concerns such as {@link CachingEmbeddingProvider} decoration when a {@link SpectorCacheManager}
+ * is provided and caching is enabled.
  *
  * <p>Uses the Template Method pattern: concrete subclasses implement
  * {@link #createRawEmbeddingProvider(ProviderConfig)} and/or
@@ -34,13 +36,28 @@ import java.util.Optional;
  */
 public abstract class AbstractProviderFactory implements ProviderFactory {
 
+    protected final SpectorCacheManager cacheManager;
+
+    protected AbstractProviderFactory() {
+        this(null);
+    }
+
+    protected AbstractProviderFactory(SpectorCacheManager cacheManager) {
+        this.cacheManager = cacheManager;
+    }
+
     @Override
     public final Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
         if (!supportsEmbedding()) {
             return Optional.empty();
         }
         return createRawEmbeddingProvider(config)
-                .map(raw -> CachingEmbeddingProvider.wrap(raw, config.embeddingCacheConfig()));
+                .map(raw -> {
+                    if (cacheManager != null && config.embeddingCacheConfig().enabled()) {
+                        return CachingEmbeddingProvider.wrap(raw, cacheManager);
+                    }
+                    return raw;
+                });
     }
 
     /**

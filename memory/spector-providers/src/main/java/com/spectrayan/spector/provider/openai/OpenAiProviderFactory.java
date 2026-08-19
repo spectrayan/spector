@@ -48,6 +48,14 @@ import com.spectrayan.spector.commons.ParseUtils;
  */
 public class OpenAiProviderFactory extends AbstractProviderFactory {
 
+    public OpenAiProviderFactory() {
+        super();
+    }
+
+    public OpenAiProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
+
     @Override
     public String name() {
         return "openai";

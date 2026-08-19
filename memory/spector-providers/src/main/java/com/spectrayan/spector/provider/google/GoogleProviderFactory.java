@@ -48,6 +48,14 @@ import com.spectrayan.spector.commons.ParseUtils;
  */
 public class GoogleProviderFactory extends AbstractProviderFactory {
 
+    public GoogleProviderFactory() {
+        super();
+    }
+
+    public GoogleProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
+
     @Override public String name() { return "google"; }
     @Override public String displayName() { return "Google Gemini"; }
     @Override public boolean supportsEmbedding() { return true; }

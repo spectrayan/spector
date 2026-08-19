@@ -15,6 +15,7 @@
  */
 package com.spectrayan.spector.provider.embedding;
 
+import com.spectrayan.spector.commons.cache.NoOpSpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
 
@@ -67,43 +68,25 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
     }
 
     /**
-     * Constructs a caching decorator using a standalone JDK {@link SpectorCache} built from {@link EmbeddingCacheConfig}.
+     * Constructs a caching decorator obtaining the default embedding cache from a {@link SpectorCacheManager}.
      *
-     * @param delegate the underlying provider
-     * @param config   cache configuration
+     * @param delegate     the underlying provider
+     * @param cacheManager the cache manager instance
      */
-    public CachingEmbeddingProvider(EmbeddingProvider delegate, EmbeddingCacheConfig config) {
-        this(
-                Objects.requireNonNull(delegate, "delegate must not be null"),
-                createDefaultCache(Objects.requireNonNull(config, "config must not be null"))
-        );
-    }
-
-    private static SpectorCache createDefaultCache(EmbeddingCacheConfig config) {
-        return SpectorCacheManager.builder()
-                .defaultTtl(config.ttl())
-                .defaultMaxSize(config.maxSize())
-                .build()
-                .getCache(DEFAULT_CACHE_NAME);
+    public CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCacheManager cacheManager) {
+        this(delegate, Objects.requireNonNull(cacheManager, "cacheManager must not be null").getCache(DEFAULT_CACHE_NAME));
     }
 
     /**
-     * Wraps a provider with caching if the config enables it.
+     * Constructs a caching decorator obtaining a named cache from a {@link SpectorCacheManager}.
      *
-     * <p>Returns the provider unchanged when caching is disabled or the provider
-     * is already a {@code CachingEmbeddingProvider} (no double-wrapping).</p>
-     *
-     * @param provider the provider to wrap
-     * @param config   cache configuration
-     * @return the caching decorator, or {@code provider} itself when caching is off
+     * @param delegate     the underlying provider
+     * @param cacheManager the cache manager instance
+     * @param cacheName    name of the cache
      */
-    public static EmbeddingProvider wrap(EmbeddingProvider provider, EmbeddingCacheConfig config) {
-        Objects.requireNonNull(provider, "provider must not be null");
-        Objects.requireNonNull(config, "config must not be null");
-        if (!config.enabled() || provider instanceof CachingEmbeddingProvider) {
-            return provider;
-        }
-        return new CachingEmbeddingProvider(provider, config);
+    public CachingEmbeddingProvider(EmbeddingProvider delegate, SpectorCacheManager cacheManager, String cacheName) {
+        this(delegate, Objects.requireNonNull(cacheManager, "cacheManager must not be null")
+                .getCache(Objects.requireNonNull(cacheName, "cacheName must not be null")));
     }
 
     /**
@@ -111,15 +94,43 @@ public final class CachingEmbeddingProvider implements EmbeddingProvider {
      *
      * @param provider the provider to wrap
      * @param cache    the cache SPI instance
-     * @return the caching decorator, or {@code provider} itself if already wrapped
+     * @return the caching decorator, or {@code provider} itself if already wrapped or cache is null/noop
      */
     public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCache cache) {
         Objects.requireNonNull(provider, "provider must not be null");
-        Objects.requireNonNull(cache, "cache must not be null");
-        if (provider instanceof CachingEmbeddingProvider) {
+        if (cache == null || cache instanceof NoOpSpectorCache || provider instanceof CachingEmbeddingProvider) {
             return provider;
         }
         return new CachingEmbeddingProvider(provider, cache);
+    }
+
+    /**
+     * Wraps a provider with caching using the default embedding cache from a {@link SpectorCacheManager}.
+     *
+     * @param provider     the provider to wrap
+     * @param cacheManager the cache manager instance
+     * @return the caching decorator, or {@code provider} itself if already wrapped or manager is null
+     */
+    public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCacheManager cacheManager) {
+        if (cacheManager == null || provider instanceof CachingEmbeddingProvider) {
+            return provider;
+        }
+        return wrap(provider, cacheManager.getCache(DEFAULT_CACHE_NAME));
+    }
+
+    /**
+     * Wraps a provider with caching using a named cache from a {@link SpectorCacheManager}.
+     *
+     * @param provider     the provider to wrap
+     * @param cacheManager the cache manager instance
+     * @param cacheName    name of the cache
+     * @return the caching decorator, or {@code provider} itself if already wrapped or manager is null
+     */
+    public static EmbeddingProvider wrap(EmbeddingProvider provider, SpectorCacheManager cacheManager, String cacheName) {
+        if (cacheManager == null || provider instanceof CachingEmbeddingProvider) {
+            return provider;
+        }
+        return wrap(provider, cacheManager.getCache(cacheName));
     }
 
     @Override

@@ -41,6 +41,14 @@ public class BedrockProviderFactory extends AbstractProviderFactory {
 
     private static final Logger log = LoggerFactory.getLogger(BedrockProviderFactory.class);
 
+    public BedrockProviderFactory() {
+        super();
+    }
+
+    public BedrockProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
+
     @Override public String name() { return "bedrock"; }
     @Override public String displayName() { return "AWS Bedrock"; }
     @Override public boolean supportsEmbedding() { return false; }

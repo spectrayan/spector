@@ -33,10 +33,10 @@ import org.junit.jupiter.api.Test;
 
 import com.spectrayan.spector.commons.cache.SpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
-import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager;
 
 /**
- * Tests for {@link CachingEmbeddingProvider} and {@link EmbeddingCacheConfig}.
+ * Tests for {@link CachingEmbeddingProvider}.
  */
 @DisplayName("Caching Embedding Provider")
 class CachingEmbeddingProviderTest {
@@ -89,64 +89,17 @@ class CachingEmbeddingProviderTest {
         }
     }
 
-    private static EmbeddingCacheConfig config(int maxSize) {
-        return new EmbeddingCacheConfig(true, maxSize, Duration.ZERO, Duration.ZERO);
+    private static SpectorCacheManager createCacheManager(int maxSize) {
+        return SpectorCacheManager.builder()
+                .defaultMaxSize(maxSize)
+                .build();
     }
 
-    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-    // EmbeddingCacheConfig
-    // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-
-    @Nested
-    @DisplayName("EmbeddingCacheConfig")
-    class ConfigTests {
-
-        @Test
-        @DisplayName("defaults: enabled, 1000 entries, 1h TTL, 5m stats interval")
-        void defaults() {
-            var cfg = EmbeddingCacheConfig.DEFAULT;
-            assertThat(cfg.enabled()).isTrue();
-            assertThat(cfg.maxSize()).isEqualTo(1000);
-            assertThat(cfg.ttl()).isEqualTo(Duration.ofMinutes(60));
-            assertThat(cfg.statsLogInterval()).isEqualTo(Duration.ofMinutes(5));
-            assertThat(cfg.ttlEnabled()).isTrue();
-        }
-
-        @Test
-        @DisplayName("disabled() factory")
-        void disabledFactory() {
-            var cfg = EmbeddingCacheConfig.disabled();
-            assertThat(cfg.enabled()).isFalse();
-            assertThat(cfg.ttlEnabled()).isFalse();
-        }
-
-        @Test
-        @DisplayName("zero TTL disables expiry")
-        void zeroTtl() {
-            var cfg = new EmbeddingCacheConfig(true, 10, Duration.ZERO, Duration.ZERO);
-            assertThat(cfg.ttlEnabled()).isFalse();
-        }
-
-        @Test
-        @DisplayName("rejects non-positive maxSize")
-        void rejectsNonPositiveMaxSize() {
-            assertThatThrownBy(() -> new EmbeddingCacheConfig(true, 0, Duration.ZERO, Duration.ZERO))
-                    .isInstanceOf(SpectorValidationException.class);
-        }
-
-        @Test
-        @DisplayName("rejects negative TTL")
-        void rejectsNegativeTtl() {
-            assertThatThrownBy(() -> new EmbeddingCacheConfig(true, 10, Duration.ofSeconds(-1), Duration.ZERO))
-                    .isInstanceOf(SpectorValidationException.class);
-        }
-
-        @Test
-        @DisplayName("rejects null TTL")
-        void rejectsNullTtl() {
-            assertThatThrownBy(() -> new EmbeddingCacheConfig(true, 10, null, Duration.ZERO))
-                    .isInstanceOf(NullPointerException.class);
-        }
+    private static SpectorCacheManager createCacheManager(int maxSize, Duration ttl) {
+        return SpectorCacheManager.builder()
+                .defaultMaxSize(maxSize)
+                .defaultTtl(ttl)
+                .build();
     }
 
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -158,37 +111,36 @@ class CachingEmbeddingProviderTest {
     class WrapTests {
 
         @Test
-        @DisplayName("returns decorator when enabled")
-        void wrapsWhenEnabled() {
+        @DisplayName("returns decorator when wrapping SpectorCacheManager")
+        void wrapsWithCacheManager() {
             var delegate = new CountingProvider();
-            var wrapped = CachingEmbeddingProvider.wrap(delegate, config(10));
+            var cm = createCacheManager(10);
+            var wrapped = CachingEmbeddingProvider.wrap(delegate, cm);
             assertThat(wrapped).isInstanceOf(CachingEmbeddingProvider.class);
             assertThat(((CachingEmbeddingProvider) wrapped).delegate()).isSameAs(delegate);
         }
 
         @Test
-        @DisplayName("returns provider unchanged when disabled")
-        void passthroughWhenDisabled() {
+        @DisplayName("returns provider unchanged when cache manager is null")
+        void passthroughWhenNullManager() {
             var delegate = new CountingProvider();
-            var wrapped = CachingEmbeddingProvider.wrap(delegate, EmbeddingCacheConfig.disabled());
+            var wrapped = CachingEmbeddingProvider.wrap(delegate, (SpectorCacheManager) null);
             assertThat(wrapped).isSameAs(delegate);
         }
 
         @Test
         @DisplayName("does not double-wrap")
         void noDoubleWrap() {
-            var once = CachingEmbeddingProvider.wrap(new CountingProvider(), config(10));
-            var twice = CachingEmbeddingProvider.wrap(once, config(10));
+            var cm = createCacheManager(10);
+            var once = CachingEmbeddingProvider.wrap(new CountingProvider(), cm);
+            var twice = CachingEmbeddingProvider.wrap(once, cm);
             assertThat(twice).isSameAs(once);
         }
 
         @Test
-        @DisplayName("wraps with custom SpectorCache")
+        @DisplayName("wraps with explicit SpectorCache")
         void wrapsWithCustomSpectorCache() {
-            var customCache = SpectorCacheManager.builder()
-                    .defaultMaxSize(50)
-                    .build()
-                    .getCache("custom-embeddings");
+            var customCache = createCacheManager(50).getCache("custom-embeddings");
             var delegate = new CountingProvider();
             var wrapped = CachingEmbeddingProvider.wrap(delegate, customCache);
 
@@ -199,15 +151,12 @@ class CachingEmbeddingProviderTest {
         }
 
         @Test
-        @DisplayName("rejects null provider and config")
-        void rejectsNulls() {
-            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(null, config(10)))
+        @DisplayName("rejects null delegate provider")
+        void rejectsNullProvider() {
+            var cm = createCacheManager(10);
+            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(null, cm.getCache("test")))
                     .isInstanceOf(NullPointerException.class);
-            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(new CountingProvider(), (EmbeddingCacheConfig) null))
-                    .isInstanceOf(NullPointerException.class);
-            assertThatThrownBy(() -> new CachingEmbeddingProvider(null, config(10)))
-                    .isInstanceOf(NullPointerException.class);
-            assertThatThrownBy(() -> CachingEmbeddingProvider.wrap(new CountingProvider(), (SpectorCache) null))
+            assertThatThrownBy(() -> new CachingEmbeddingProvider(null, cm))
                     .isInstanceOf(NullPointerException.class);
         }
     }
@@ -224,7 +173,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("cache miss delegates and stores; hit skips the delegate")
         void missThenHit() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(10));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(10));
 
             var first = cache.embed("hello");
             var second = cache.embed("hello");
@@ -239,7 +188,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("different texts are cached independently")
         void distinctTexts() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(10));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(10));
 
             cache.embed("alpha");
             cache.embed("beta");
@@ -252,7 +201,7 @@ class CachingEmbeddingProviderTest {
         @Test
         @DisplayName("mutating a returned vector does not corrupt the cache")
         void defensiveCopies() {
-            var cache = new CachingEmbeddingProvider(new CountingProvider(), config(10));
+            var cache = new CachingEmbeddingProvider(new CountingProvider(), createCacheManager(10));
 
             var first = cache.embed("text");
             first.vector()[0] = 999f;
@@ -265,7 +214,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("delegate failures propagate and are not cached")
         void delegateFailurePropagates() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(10));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(10));
 
             assertThatThrownBy(() -> cache.embed(null)).isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> cache.embed("  ")).isInstanceOf(IllegalArgumentException.class);
@@ -284,7 +233,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("evicts entries when capacity is reached")
         void evictsWhenFull() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(2));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(2));
 
             cache.embed("a");
             cache.embed("b");
@@ -297,7 +246,7 @@ class CachingEmbeddingProviderTest {
         @Test
         @DisplayName("size never exceeds maxSize")
         void boundedSize() {
-            var cache = new CachingEmbeddingProvider(new CountingProvider(), config(5));
+            var cache = new CachingEmbeddingProvider(new CountingProvider(), createCacheManager(5));
             for (int i = 0; i < 50; i++) {
                 cache.embed("text-" + i);
             }
@@ -316,8 +265,8 @@ class CachingEmbeddingProviderTest {
         @DisplayName("expired entry is treated as a miss")
         void expiry() throws InterruptedException {
             var delegate = new CountingProvider();
-            var cfg = new EmbeddingCacheConfig(true, 10, Duration.ofMillis(50), Duration.ZERO);
-            var cache = new CachingEmbeddingProvider(delegate, cfg);
+            var cm = createCacheManager(10, Duration.ofMillis(50));
+            var cache = new CachingEmbeddingProvider(delegate, cm);
 
             cache.embed("text");
             assertThat(delegate.embedCalls.get()).isEqualTo(1);
@@ -336,8 +285,8 @@ class CachingEmbeddingProviderTest {
         @DisplayName("zero TTL never expires")
         void zeroTtlNeverExpires() {
             var delegate = new CountingProvider();
-            var cfg = new EmbeddingCacheConfig(true, 10, Duration.ZERO, Duration.ZERO);
-            var cache = new CachingEmbeddingProvider(delegate, cfg);
+            var cm = createCacheManager(10, Duration.ZERO);
+            var cache = new CachingEmbeddingProvider(delegate, cm);
 
             cache.embed("text");
             cache.embed("text");
@@ -357,7 +306,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("only uncached texts are delegated")
         void partialHit() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(10));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(10));
 
             cache.embed("a");
             cache.embed("b");
@@ -377,7 +326,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("fully cached batch makes no delegate call")
         void fullHit() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(10));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(10));
 
             cache.embedBatch(List.of("a", "b"));
             int callsBefore = delegate.embedCalls.get();
@@ -394,7 +343,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("duplicate texts within a batch are embedded once")
         void duplicatesInBatch() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(10));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(10));
 
             var results = cache.embedBatch(List.of("same", "same", "same"));
 
@@ -407,7 +356,7 @@ class CachingEmbeddingProviderTest {
         @Test
         @DisplayName("duplicate positions in a batch never share a vector reference")
         void duplicatesDoNotShareVectorReference() {
-            var cache = new CachingEmbeddingProvider(new CountingProvider(), config(10));
+            var cache = new CachingEmbeddingProvider(new CountingProvider(), createCacheManager(10));
 
             var results = cache.embedBatch(List.of("same", "same", "same"));
 
@@ -419,7 +368,7 @@ class CachingEmbeddingProviderTest {
         @Test
         @DisplayName("null element falls through to delegate validation")
         void nullElementDelegates() {
-            var cache = new CachingEmbeddingProvider(new CountingProvider(), config(10));
+            var cache = new CachingEmbeddingProvider(new CountingProvider(), createCacheManager(10));
             var texts = java.util.Arrays.asList("a", null);
             assertThatThrownBy(() -> cache.embedBatch(texts))
                     .isInstanceOf(IllegalArgumentException.class);
@@ -434,7 +383,7 @@ class CachingEmbeddingProviderTest {
                     return List.of();
                 }
             };
-            var cache = new CachingEmbeddingProvider(broken, config(10));
+            var cache = new CachingEmbeddingProvider(broken, createCacheManager(10));
             assertThatThrownBy(() -> cache.embedBatch(List.of("a", "b")))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("2 texts");
@@ -444,7 +393,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("empty batch returns empty list without delegation")
         void emptyBatch() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(10));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(10));
             assertThat(cache.embedBatch(List.of())).isEmpty();
             assertThat(delegate.batchCalls.get()).isZero();
         }
@@ -461,7 +410,7 @@ class CachingEmbeddingProviderTest {
         @Test
         @DisplayName("dimensions, modelName, maxTokens delegate")
         void metadataDelegates() {
-            var cache = new CachingEmbeddingProvider(new CountingProvider(), config(10));
+            var cache = new CachingEmbeddingProvider(new CountingProvider(), createCacheManager(10));
             assertThat(cache.dimensions()).isEqualTo(2);
             assertThat(cache.modelName()).isEqualTo("counting-model");
             assertThat(cache.maxTokens()).isEqualTo(8192);
@@ -471,7 +420,7 @@ class CachingEmbeddingProviderTest {
         @DisplayName("close clears the cache and closes the delegate")
         void closePropagates() {
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(10));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(10));
             cache.embed("text");
 
             cache.close();
@@ -497,7 +446,7 @@ class CachingEmbeddingProviderTest {
             int maxSize = 32;
 
             var delegate = new CountingProvider();
-            var cache = new CachingEmbeddingProvider(delegate, config(maxSize));
+            var cache = new CachingEmbeddingProvider(delegate, createCacheManager(maxSize));
             var pool = Executors.newFixedThreadPool(threads);
             var start = new CountDownLatch(1);
             var failures = new AtomicInteger();
@@ -529,9 +478,6 @@ class CachingEmbeddingProviderTest {
             }
 
             assertThat(failures.get()).isZero();
-            // Concurrent misses on the same key may each call the delegate once (benign
-            // race), but never more than once per thread per distinct text — and the
-            // cache must eliminate the overwhelming majority of the 4000 requests.
             assertThat(delegate.embedCalls.get()).isLessThanOrEqualTo(threads * distinctTexts);
         }
     }

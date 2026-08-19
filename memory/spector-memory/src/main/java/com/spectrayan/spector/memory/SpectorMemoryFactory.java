@@ -126,7 +126,14 @@ public final class SpectorMemoryFactory {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL,
                     "embeddingProvider is required");
         }
-        EmbeddingProvider embeddingProvider = builder.embeddingProvider;
+        com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager = builder.cacheManager != null
+                ? builder.cacheManager
+                : com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
+
+        EmbeddingProvider embeddingProvider = com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider.wrap(
+                builder.embeddingProvider,
+                cacheManager
+        );
         ParallelEmbeddingPipeline parallelPipeline = new ParallelEmbeddingPipeline(embeddingProvider);
         EmbedConfig embedConfig = new EmbedConfig(builder.embedBatchSize, 3);
 

@@ -48,6 +48,14 @@ import com.spectrayan.spector.commons.ParseUtils;
  */
 public class MistralProviderFactory extends AbstractProviderFactory {
 
+    public MistralProviderFactory() {
+        super();
+    }
+
+    public MistralProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
+
     @Override public String name() { return "mistral"; }
     @Override public String displayName() { return "Mistral AI"; }
     @Override public boolean supportsEmbedding() { return true; }

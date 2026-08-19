@@ -47,7 +47,9 @@ import java.util.Optional;
  */
 class GoogleProviderFactoryTest {
 
-    private final GoogleProviderFactory factory = new GoogleProviderFactory();
+    private final GoogleProviderFactory factory = new GoogleProviderFactory(
+            com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager()
+    );
 
     // Test metadata
     @Nested
@@ -213,12 +215,13 @@ class GoogleProviderFactoryTest {
         }
 
         @Test
-        void createsRawProviderWhenCacheDisabled() {
+        void createsRawProviderWhenCacheManagerNotProvided() {
+            var rawFactory = new GoogleProviderFactory();
             ProviderConfig config = new ProviderConfig(
                     "google", "google", "text-embedding-004", "test-api-key",
-                    "", 768, Map.of("cache.enabled", "false"));
+                    "", 768, Map.of());
 
-            EmbeddingProvider provider = factory.createEmbeddingProvider(config).orElseThrow();
+            EmbeddingProvider provider = rawFactory.createEmbeddingProvider(config).orElseThrow();
 
             assertThat(provider).isInstanceOf(LangChain4jEmbeddingAdapter.class);
             assertThat(provider.modelName()).isEqualTo("text-embedding-004");

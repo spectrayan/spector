@@ -40,12 +40,18 @@ public final class MemoryCacheNames {
     public static final String SCORING_STATS = "memory-scoring-stats";
 
     /**
+     * Cache for text embeddings computed during ingestion and recall.
+     */
+    public static final String EMBEDDINGS = "spector-embeddings";
+
+    /**
      * All managed cache names in the memory engine.
      */
     public static final String[] ALL = {
             GRAPH_OVERVIEW,
             TOPOLOGY_STATS,
             MEMORY_STATS,
-            SCORING_STATS
+            SCORING_STATS,
+            EMBEDDINGS
     };
 }

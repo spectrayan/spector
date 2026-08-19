@@ -47,6 +47,14 @@ import com.spectrayan.spector.commons.ParseUtils;
  */
 public class AnthropicProviderFactory extends AbstractProviderFactory {
 
+    public AnthropicProviderFactory() {
+        super();
+    }
+
+    public AnthropicProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
+
     @Override public String name() { return "anthropic"; }
     @Override public String displayName() { return "Anthropic Claude"; }
     @Override public boolean supportsEmbedding() { return false; }

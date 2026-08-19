@@ -187,18 +187,12 @@ public final class SpectorRuntime implements AutoCloseable {
                                       LlmProvider textGenProvider) {
         SpectorMode mode = SpectorConfigFactory.mode(props);
 
-        // Wrap the embedder with the LRU cache (no-op when disabled or already wrapped)
+        // Set up the shared cache manager
         var embedDefaultsForCache = SpectorConfigFactory.embeddingProperties(props);
-        var embeddingCacheConfig = embedDefaultsForCache.cacheEnabled()
-                ? new EmbeddingCacheConfig(true,
-                        embedDefaultsForCache.cacheMaxSize(),
-                        embedDefaultsForCache.cacheTtl(),
-                        embedDefaultsForCache.cacheStatsLogInterval())
-                : EmbeddingCacheConfig.disabled();
-        embedder = CachingEmbeddingProvider.wrap(embedder, embeddingCacheConfig);
-        if (embeddingCacheConfig.enabled()) {
-            log.info("[Runtime] Embedding cache: enabled (maxSize={}, ttl={})",
-                    embeddingCacheConfig.maxSize(), embeddingCacheConfig.ttl());
+        com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager = com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager.defaultManager();
+        if (embedDefaultsForCache.cacheEnabled()) {
+            embedder = CachingEmbeddingProvider.wrap(embedder, cacheManager);
+            log.info("[Runtime] Embedding cache: enabled");
         } else {
             log.info("[Runtime] Embedding cache: disabled");
         }
@@ -234,6 +228,7 @@ public final class SpectorRuntime implements AutoCloseable {
             var memoryBuilder = DefaultSpectorMemory.builder()
                     .dimensions(memoryConfig.dimensions())
                     .embeddingProvider(embedder)
+                    .cacheManager(cacheManager)
                     .persistenceMode(MemoryPersistenceMode.valueOf(memoryConfig.persistenceMode().name()))
                     .persistence(persistencePath)
                     .semanticCapacity(memoryConfig.capacity())  // from spector.memory.capacity config

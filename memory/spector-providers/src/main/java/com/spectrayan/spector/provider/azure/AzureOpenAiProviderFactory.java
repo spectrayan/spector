@@ -52,6 +52,14 @@ import com.spectrayan.spector.commons.ParseUtils;
  */
 public class AzureOpenAiProviderFactory extends AbstractProviderFactory {
 
+    public AzureOpenAiProviderFactory() {
+        super();
+    }
+
+    public AzureOpenAiProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
+
     @Override public String name() { return "azure-openai"; }
     @Override public String displayName() { return "Azure OpenAI"; }
     @Override public boolean supportsEmbedding() { return true; }

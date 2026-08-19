@@ -45,6 +45,14 @@ public class OllamaProviderFactory extends AbstractProviderFactory {
     /** Default Ollama base URL. */
     private static final String DEFAULT_BASE_URL = EmbeddingConfig.OLLAMA_DEFAULT.baseUrl();
 
+    public OllamaProviderFactory() {
+        super();
+    }
+
+    public OllamaProviderFactory(com.spectrayan.spector.commons.cache.SpectorCacheManager cacheManager) {
+        super(cacheManager);
+    }
+
     @Override
     public String name() {
         return "ollama";
