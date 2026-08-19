@@ -35,17 +35,16 @@ export function generateMemoryPayload(prefix = 'k6') {
 
     const tier = tiers[Math.floor(Math.random() * tiers.length)];
     const source = sources[Math.floor(Math.random() * sources.length)];
-    const tags = [
-        tagOptions[Math.floor(Math.random() * tagOptions.length)],
-        tagOptions[Math.floor(Math.random() * tagOptions.length)],
-    ];
+    const tag1 = tagOptions[Math.floor(Math.random() * tagOptions.length)];
+    const tag2 = tagOptions[Math.floor(Math.random() * tagOptions.length)];
+    const tagsString = `${tag1},${tag2}`;
 
     return {
         id: id,
         text: `Synthetic benchmark memory ${id}: Auto-generated statement for load testing virtual threads and off-heap store ${randomString(16)}.`,
         tier: tier,
         source: source,
-        tags: Array.from(new Set(tags)),
+        tags: tagsString,
         interest: Math.random(),
         challenge: Math.random(),
         urgency: Math.random(),

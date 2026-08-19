@@ -35,12 +35,12 @@ export default function () {
     let res = http.get(`${ENV.BASE_URL}${PATHS.HEALTH}`, { headers });
     check(res, { 'Health check is 200': (r) => r.status === 200 });
 
-    // 2. Synchronous store
+    // 2. Synchronous store (uses List<String> tags)
     res = http.post(
         `${ENV.BASE_URL}${PATHS.MEMORY_STORE}`,
         JSON.stringify({
             text: testMemory.text,
-            tags: testMemory.tags,
+            tags: ['smoke', 'sync-test'],
         }),
         { headers }
     );
@@ -51,7 +51,7 @@ export default function () {
         createdId = body.id;
     }
 
-    // 3. Asynchronous remember
+    // 3. Asynchronous remember (uses comma-separated tags string)
     res = http.post(
         `${ENV.BASE_URL}${PATHS.MEMORY_REMEMBER}`,
         JSON.stringify(testMemory),

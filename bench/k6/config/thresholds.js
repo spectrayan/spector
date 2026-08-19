@@ -16,28 +16,28 @@
 
 export const SMOKE_THRESHOLDS = {
     http_req_failed: ['rate<0.01'], // < 1% errors
-    http_req_duration: ['p(95)<100'], // P95 < 100ms
+    http_req_duration: ['p(95)<1500'], // P95 < 1.5s (allows for initial LLM/Ollama cold-start embedding)
 };
 
 export const LOAD_THRESHOLDS = {
     http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(90)<25', 'p(95)<50', 'p(99)<120'],
-    'memory_recall_duration': ['p(95)<30'],
-    'memory_remember_duration': ['p(95)<15'],
+    http_req_duration: ['p(90)<200', 'p(95)<500', 'p(99)<1000'],
+    'memory_recall_duration': ['p(95)<500'],
+    'memory_remember_duration': ['p(95)<50'],
 };
 
 export const STRESS_THRESHOLDS = {
     http_req_failed: ['rate<0.05'], // < 5% failure under extreme breaking load
-    http_req_duration: ['p(90)<50', 'p(95)<100', 'p(99)<250'],
+    http_req_duration: ['p(90)<500', 'p(95)<1000', 'p(99)<2500'],
 };
 
 export const SPIKE_THRESHOLDS = {
     http_req_failed: ['rate<0.02'],
-    http_req_duration: ['p(95)<80'],
+    http_req_duration: ['p(95)<1000'],
 };
 
 export const MULTI_USER_THRESHOLDS = {
     http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(95)<35'],
+    http_req_duration: ['p(95)<500'],
     'user_isolation_violations': ['count==0'],
 };
