@@ -15,11 +15,11 @@
  */
 package com.spectrayan.spector.provider.ollama;
 
+import com.spectrayan.spector.provider.AbstractProviderFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingConfig;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
-import com.spectrayan.spector.provider.ProviderFactory;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -40,7 +40,7 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code batchSize} — batch size for embedding requests (default: 32)</li>
  * </ul>
  */
-public class OllamaProviderFactory implements ProviderFactory {
+public class OllamaProviderFactory extends AbstractProviderFactory {
 
     /** Default Ollama base URL. */
     private static final String DEFAULT_BASE_URL = EmbeddingConfig.OLLAMA_DEFAULT.baseUrl();
@@ -66,7 +66,7 @@ public class OllamaProviderFactory implements ProviderFactory {
     }
 
     @Override
-    public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
+    protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         String baseUrl = config.hasBaseUrl() ? config.baseUrl() : DEFAULT_BASE_URL;
         int timeout = ParseUtils.parseInteger(config.property("timeout").orElse(null)).orElse(30);
         int maxConcurrent = ParseUtils.parseInteger(config.property("maxConcurrent").orElse(null)).orElse(0);

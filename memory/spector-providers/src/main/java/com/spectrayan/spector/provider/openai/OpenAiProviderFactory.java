@@ -15,10 +15,10 @@
  */
 package com.spectrayan.spector.provider.openai;
 
+import com.spectrayan.spector.provider.AbstractProviderFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
-import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
@@ -46,7 +46,7 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code maxTokens} — maximum output tokens (optional)</li>
  * </ul>
  */
-public class OpenAiProviderFactory implements ProviderFactory {
+public class OpenAiProviderFactory extends AbstractProviderFactory {
 
     @Override
     public String name() {
@@ -69,7 +69,7 @@ public class OpenAiProviderFactory implements ProviderFactory {
     }
 
     @Override
-    public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
+    protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
         var builder = OpenAiEmbeddingModel.builder()
                 .apiKey(config.apiKey())

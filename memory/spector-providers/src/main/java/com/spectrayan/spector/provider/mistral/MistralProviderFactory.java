@@ -15,10 +15,10 @@
  */
 package com.spectrayan.spector.provider.mistral;
 
+import com.spectrayan.spector.provider.AbstractProviderFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
-import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
@@ -35,8 +35,8 @@ import com.spectrayan.spector.commons.ParseUtils;
 /**
  * Factory for creating Mistral AI embedding and generation providers.
  *
- * <p>Supports Mistral models for both embedding (mistral-embed) and
- * generation (mistral-large-latest, mistral-small-latest, etc.).</p>
+ * <p>Supports Mistral models: mistral-embed, mistral-small-latest,
+ * mistral-medium-latest, mistral-large-latest, open-mistral-7b, etc.</p>
  *
  * <h3>Configuration Properties</h3>
  * <ul>
@@ -46,7 +46,7 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code topP} — nucleus sampling probability (optional)</li>
  * </ul>
  */
-public class MistralProviderFactory implements ProviderFactory {
+public class MistralProviderFactory extends AbstractProviderFactory {
 
     @Override public String name() { return "mistral"; }
     @Override public String displayName() { return "Mistral AI"; }
@@ -54,7 +54,7 @@ public class MistralProviderFactory implements ProviderFactory {
     @Override public boolean supportsGeneration() { return true; }
 
     @Override
-    public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
+    protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
         var builder = MistralAiEmbeddingModel.builder()
                 .apiKey(config.apiKey())

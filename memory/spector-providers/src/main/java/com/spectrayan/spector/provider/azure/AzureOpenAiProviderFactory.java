@@ -15,10 +15,10 @@
  */
 package com.spectrayan.spector.provider.azure;
 
+import com.spectrayan.spector.provider.AbstractProviderFactory;
 import com.spectrayan.spector.provider.embedding.EmbeddingProvider;
 import com.spectrayan.spector.provider.generation.LlmProvider;
 import com.spectrayan.spector.provider.ProviderConfig;
-import com.spectrayan.spector.provider.ProviderFactory;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jEmbeddingAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jGenerationAdapter;
 import com.spectrayan.spector.provider.langchain4j.LangChain4jHelper;
@@ -50,7 +50,7 @@ import com.spectrayan.spector.commons.ParseUtils;
  *   <li>{@code maxTokens} — maximum output tokens (optional)</li>
  * </ul>
  */
-public class AzureOpenAiProviderFactory implements ProviderFactory {
+public class AzureOpenAiProviderFactory extends AbstractProviderFactory {
 
     @Override public String name() { return "azure-openai"; }
     @Override public String displayName() { return "Azure OpenAI"; }
@@ -58,7 +58,7 @@ public class AzureOpenAiProviderFactory implements ProviderFactory {
     @Override public boolean supportsGeneration() { return true; }
 
     @Override
-    public Optional<EmbeddingProvider> createEmbeddingProvider(ProviderConfig config) {
+    protected Optional<EmbeddingProvider> createRawEmbeddingProvider(ProviderConfig config) {
         String deploymentName = config.property("deploymentName", config.model());
         long timeoutSeconds = ParseUtils.parseLongOrDefault(config.property("timeout").orElse(null), 30L);
 
