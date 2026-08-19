@@ -57,7 +57,11 @@ public class EmbeddingProviderConfig {
                 .withTimeout(java.time.Duration.ofSeconds(300));
         log.info("[EmbeddingProvider] Configured Ollama embedding: model={}, baseUrl={}, timeout=300s",
                 embedProps.model(), embedProps.baseUrl());
-        return new OllamaEmbeddingProvider(config);
+        var rawProvider = new OllamaEmbeddingProvider(config);
+        return com.spectrayan.spector.provider.embedding.CachingEmbeddingProvider.wrap(
+                rawProvider,
+                com.spectrayan.spector.provider.embedding.EmbeddingCacheConfig.DEFAULT
+        );
     }
 
     @Bean
