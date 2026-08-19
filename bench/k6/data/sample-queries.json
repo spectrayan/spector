@@ -1,0 +1,32 @@
+[
+  {
+    "query": "what theme does user like?",
+    "topK": 5,
+    "tags": ["preferences"]
+  },
+  {
+    "query": "how to build the project on java 25?",
+    "topK": 3,
+    "tags": ["build"]
+  },
+  {
+    "query": "kubernetes deployment manifests location",
+    "topK": 5,
+    "tags": ["k8s", "deploy"]
+  },
+  {
+    "query": "who leads the distributed consensus module?",
+    "topK": 5,
+    "tags": ["team"]
+  },
+  {
+    "query": "what was decided about camel integration in the meeting?",
+    "topK": 10,
+    "tags": ["camel"]
+  },
+  {
+    "query": "flyway migration directory",
+    "topK": 3,
+    "tags": ["database"]
+  }
+]

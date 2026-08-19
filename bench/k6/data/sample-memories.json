@@ -1,0 +1,50 @@
+[
+  {
+    "text": "User prefers dark mode in all IDE configurations and UI platforms.",
+    "tier": "SEMANTIC",
+    "source": "USER_STATED",
+    "tags": ["ui", "preferences", "theme"]
+  },
+  {
+    "text": "The project repository is located at /opt/spectrayan/core-infra with Apache 2.0 license.",
+    "tier": "SEMANTIC",
+    "source": "OBSERVED",
+    "tags": ["repo", "infra", "license"]
+  },
+  {
+    "text": "To execute the build on Java 25, run mvn clean install -DskipTests=false.",
+    "tier": "PROCEDURAL",
+    "source": "DOCUMENTATION",
+    "tags": ["build", "maven", "java25"]
+  },
+  {
+    "text": "In the previous meeting, Bharat approved the proposal to integrate Camel with Spector Memory.",
+    "tier": "EPISODIC",
+    "source": "CONVERSATION",
+    "tags": ["meeting", "camel", "decision"]
+  },
+  {
+    "text": "Deployment to Kubernetes requires applying manifests under k8s/production/overlays/synapse.",
+    "tier": "PROCEDURAL",
+    "source": "DOCUMENTATION",
+    "tags": ["k8s", "deploy", "synapse"]
+  },
+  {
+    "text": "Alice is the lead engineer for the distributed consensus module.",
+    "tier": "SEMANTIC",
+    "source": "OBSERVED",
+    "tags": ["team", "alice", "consensus"]
+  },
+  {
+    "text": "Performance testing guidelines require running k6 scripts with at least 50 virtual users.",
+    "tier": "PROCEDURAL",
+    "source": "DOCUMENTATION",
+    "tags": ["testing", "k6", "performance"]
+  },
+  {
+    "text": "Database migrations are managed via Flyway scripts stored in src/main/resources/db/migration.",
+    "tier": "SEMANTIC",
+    "source": "DOCUMENTATION",
+    "tags": ["database", "flyway", "migration"]
+  }
+]

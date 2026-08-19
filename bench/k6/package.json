@@ -1,0 +1,17 @@
+{
+  "name": "@spectrayan/spector-k6-benchmarks",
+  "version": "0.1.0-alpha",
+  "description": "Grafana k6 API Performance, Load, Stress, and Multi-User Benchmarking Suite for Spector Synapse",
+  "scripts": {
+    "test:smoke": "k6 run scenarios/01-smoke-test.js",
+    "test:load": "k6 run scenarios/02-load-test.js",
+    "test:stress": "k6 run scenarios/03-stress-test.js",
+    "test:spike": "k6 run scenarios/04-spike-test.js",
+    "test:soak": "k6 run scenarios/05-soak-test.js",
+    "test:mixed": "k6 run scenarios/06-mixed-workload.js",
+    "test:isolation": "k6 run scenarios/07-multi-user-isolation.js",
+    "test:lru": "k6 run scenarios/08-user-registry-lru-stress.js"
+  },
+  "author": "Spectrayan OSS",
+  "license": "Apache-2.0"
+}

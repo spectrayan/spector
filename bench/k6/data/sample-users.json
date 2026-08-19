@@ -1,0 +1,12 @@
+[
+  { "username": "k6_user_01", "password": "Password123!", "role": "USER", "tenant": "engineering" },
+  { "username": "k6_user_02", "password": "Password123!", "role": "USER", "tenant": "product" },
+  { "username": "k6_user_03", "password": "Password123!", "role": "USER", "tenant": "operations" },
+  { "username": "k6_user_04", "password": "Password123!", "role": "USER", "tenant": "security" },
+  { "username": "k6_user_05", "password": "Password123!", "role": "USER", "tenant": "research" },
+  { "username": "k6_user_06", "password": "Password123!", "role": "USER", "tenant": "engineering" },
+  { "username": "k6_user_07", "password": "Password123!", "role": "USER", "tenant": "product" },
+  { "username": "k6_user_08", "password": "Password123!", "role": "USER", "tenant": "operations" },
+  { "username": "k6_user_09", "password": "Password123!", "role": "USER", "tenant": "security" },
+  { "username": "k6_user_10", "password": "Password123!", "role": "USER", "tenant": "research" }
+]
