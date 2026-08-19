@@ -39,10 +39,7 @@ public class EmbeddingProperties implements Serializable {
     private int maxRetries = DEFAULT_PROVIDER_EMBEDDING_MAX_RETRIES;
     private int maxConcurrent = DEFAULT_PROVIDER_EMBEDDING_MAX_CONCURRENT;
     private Duration timeout = DEFAULT_PROVIDER_EMBEDDING_TIMEOUT;
-    private boolean cacheEnabled = DEFAULT_PROVIDER_EMBEDDING_CACHE_ENABLED;
-    private int cacheMaxSize = DEFAULT_PROVIDER_EMBEDDING_CACHE_MAX_SIZE;
-    private Duration cacheTtl = DEFAULT_PROVIDER_EMBEDDING_CACHE_TTL;
-    private Duration cacheStatsLogInterval = DEFAULT_PROVIDER_EMBEDDING_CACHE_STATS_LOG_INTERVAL;
+    private CacheProperties cache = new CacheProperties();
     private Map<String, String> properties = Map.of();
 
     public EmbeddingProperties() {}
@@ -90,27 +87,47 @@ public class EmbeddingProperties implements Serializable {
         if (timeout != null && !timeout.isZero() && !timeout.isNegative()) this.timeout = timeout;
     }
 
-    public boolean isCacheEnabled() { return cacheEnabled; }
-    public void setCacheEnabled(boolean cacheEnabled) { this.cacheEnabled = cacheEnabled; }
+    public CacheProperties getCache() { return cache; }
+    public void setCache(CacheProperties cache) { if (cache != null) this.cache = cache; }
 
-    public int getCacheMaxSize() { return cacheMaxSize; }
-    public void setCacheMaxSize(int cacheMaxSize) {
-        if (cacheMaxSize > 0) this.cacheMaxSize = cacheMaxSize;
-    }
+    public boolean isCacheEnabled() { return cache.isEnabled(); }
+    public void setCacheEnabled(boolean cacheEnabled) { this.cache.setEnabled(cacheEnabled); }
 
-    public Duration getCacheTtl() { return cacheTtl; }
-    public void setCacheTtl(Duration cacheTtl) {
-        if (cacheTtl != null) this.cacheTtl = cacheTtl;
-    }
+    public int getCacheMaxSize() { return cache.getMaxSize(); }
+    public void setCacheMaxSize(int cacheMaxSize) { this.cache.setMaxSize(cacheMaxSize); }
 
-    public Duration getCacheStatsLogInterval() { return cacheStatsLogInterval; }
-    public void setCacheStatsLogInterval(Duration cacheStatsLogInterval) {
-        if (cacheStatsLogInterval != null) this.cacheStatsLogInterval = cacheStatsLogInterval;
-    }
+    public Duration getCacheTtl() { return cache.getTtl(); }
+    public void setCacheTtl(Duration cacheTtl) { this.cache.setTtl(cacheTtl); }
+
+    public Duration getCacheStatsLogInterval() { return cache.getStatsLogInterval(); }
+    public void setCacheStatsLogInterval(Duration cacheStatsLogInterval) { this.cache.setStatsLogInterval(cacheStatsLogInterval); }
 
     public Map<String, String> getProperties() { return properties; }
     public void setProperties(Map<String, String> properties) {
         if (properties != null) this.properties = properties;
+    }
+
+    public static class CacheProperties implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private boolean enabled = DEFAULT_PROVIDER_EMBEDDING_CACHE_ENABLED;
+        private int maxSize = DEFAULT_PROVIDER_EMBEDDING_CACHE_MAX_SIZE;
+        private Duration ttl = DEFAULT_PROVIDER_EMBEDDING_CACHE_TTL;
+        private Duration statsLogInterval = DEFAULT_PROVIDER_EMBEDDING_CACHE_STATS_LOG_INTERVAL;
+
+        public CacheProperties() {}
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public int getMaxSize() { return maxSize; }
+        public void setMaxSize(int maxSize) { if (maxSize > 0) this.maxSize = maxSize; }
+
+        public Duration getTtl() { return ttl; }
+        public void setTtl(Duration ttl) { if (ttl != null) this.ttl = ttl; }
+
+        public Duration getStatsLogInterval() { return statsLogInterval; }
+        public void setStatsLogInterval(Duration statsLogInterval) { if (statsLogInterval != null) this.statsLogInterval = statsLogInterval; }
     }
 
     public String type() { return getType(); }
