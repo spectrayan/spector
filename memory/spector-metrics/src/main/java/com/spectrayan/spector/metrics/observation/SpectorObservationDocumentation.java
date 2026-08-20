@@ -124,6 +124,31 @@ public enum SpectorObservationDocumentation implements ObservationDocumentation 
     },
 
     /**
+     * Sleep consolidation (reflection) observation for {@code reflect()} operations.
+     */
+    MEMORY_REFLECT {
+        @Override
+        public String getName() {
+            return "spector.memory.reflect";
+        }
+
+        @Override
+        public KeyName[] getLowCardinalityKeyNames() {
+            return LowCardinalityKeys.values();
+        }
+
+        @Override
+        public KeyName[] getHighCardinalityKeyNames() {
+            return HighCardinalityKeys.values();
+        }
+
+        @Override
+        public String getPrefix() {
+            return "spector.memory";
+        }
+    },
+
+    /**
      * Consolidation observation for {@code consolidate()} phases.
      */
     MEMORY_CONSOLIDATE {

@@ -110,6 +110,7 @@ public final class ReflectPathway implements AutoCloseable {
         this.entityCosineThreshold = builder.entityCosineThreshold;
 
         this.pathway = ReflectPathwayFactory.create(
+                builder.interceptor,
                 new SynapticPruningRelay(),
                 new EpisodicLogConsolidationRelay(),
                 new SoulDriftRefusionRelay(),
@@ -244,6 +245,13 @@ public final class ReflectPathway implements AutoCloseable {
         public Builder entityResolutionEnabled(boolean enabled) { this.entityResolutionEnabled = enabled; return this; }
         public Builder entityShadowMode(boolean shadow) { this.entityShadowMode = shadow; return this; }
         public Builder entityCosineThreshold(float threshold) { this.entityCosineThreshold = threshold; return this; }
+        private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>> interceptor;
+
+        public Builder interceptor(
+                final java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>> interceptor) {
+            this.interceptor = interceptor;
+            return this;
+        }
 
         public ReflectPathway build() {
             return new ReflectPathway(this);
