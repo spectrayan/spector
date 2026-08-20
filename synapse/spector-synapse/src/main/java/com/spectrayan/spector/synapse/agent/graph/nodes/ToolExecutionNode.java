@@ -14,6 +14,8 @@ package com.spectrayan.spector.synapse.agent.graph.nodes;
 
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
+import com.spectrayan.spector.synapse.agent.approval.model.ApprovalExecutionResult;
+import com.spectrayan.spector.synapse.agent.approval.service.AgentApprovalService;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -33,11 +35,8 @@ import java.util.Objects;
  * TOOLS node — executes registered agent tools and appends results to state.
  *
  * <p>Reads pending tool calls from the {@code tool_calls} channel,
- * executes each via the {@link ToolRegistry}, and writes results to
- * {@code tool_results} and {@code context} (appender channels).</p>
- *
- * <p>Uses the OSS {@link ToolRegistry} (Spring component with auto-discovery)
- * instead of the enterprise's raw Map-based registry.</p>
+ * enforces write-tool approval through {@link AgentApprovalService}, executes approved tools via the
+ * {@link ToolRegistry}, and writes results to {@code tool_results} and {@code context} (appender channels).</p>
  */
 public final class ToolExecutionNode implements NodeAction<CognitiveState> {
 
@@ -45,9 +44,15 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final ToolRegistry toolRegistry;
+    private final AgentApprovalService approvalService;
 
     public ToolExecutionNode(ToolRegistry toolRegistry) {
+        this(toolRegistry, null);
+    }
+
+    public ToolExecutionNode(ToolRegistry toolRegistry, AgentApprovalService approvalService) {
         this.toolRegistry = Objects.requireNonNull(toolRegistry, "toolRegistry");
+        this.approvalService = approvalService;
     }
 
     @Override
@@ -82,21 +87,35 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                     args = Map.of();
                 }
 
-                io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(null, args);
-                StringBuilder sb = new StringBuilder();
-                if (toolResult != null && toolResult.content() != null) {
-                    for (var content : toolResult.content()) {
-                        if (content instanceof io.modelcontextprotocol.spec.McpSchema.TextContent textContent) {
-                            sb.append(textContent.text());
-                        }
-                    }
-                }
-                String result = sb.toString();
-                log.debug("[ToolExecutionNode] {}({}) → {}", toolName, args,
-                        result.length() > 100 ? result.substring(0, 100) + "..." : result);
+                String result;
+                if (approvalService != null && approvalService.isApprovalRequired(tool)) {
+                    ApprovalExecutionResult gateResult = approvalService.evaluateAndExecute(
+                            tool,
+                            args,
+                            null,
+                            null,
+                            effectiveArgs -> executeToolInternal(tool, effectiveArgs)
+                    );
 
-                results.add(String.format("[Tool: %s] %s", toolName, result));
-                contextEntries.add(String.format("[tool_result | %s] %s", toolName, result));
+                    if (gateResult instanceof ApprovalExecutionResult.Success success) {
+                        result = success.output();
+                        log.debug("[ToolExecutionNode] {}(approved) → {}", toolName,
+                                result.length() > 100 ? result.substring(0, 100) + "..." : result);
+                        results.add(String.format("[Tool: %s] %s", toolName, result));
+                        contextEntries.add(String.format("[tool_result | %s] %s", toolName, result));
+                    } else if (gateResult instanceof ApprovalExecutionResult.Denied denied) {
+                        result = denied.reason();
+                        log.warn("[ToolExecutionNode] {}(denied) → {}", toolName, result);
+                        results.add(String.format("[Tool: %s] [DENIED] %s", toolName, result));
+                        contextEntries.add(String.format("[tool_result | %s | DENIED] %s", toolName, result));
+                    }
+                } else {
+                    result = executeToolInternal(tool, args);
+                    log.debug("[ToolExecutionNode] {}({}) → {}", toolName, args,
+                            result.length() > 100 ? result.substring(0, 100) + "..." : result);
+                    results.add(String.format("[Tool: %s] %s", toolName, result));
+                    contextEntries.add(String.format("[tool_result | %s] %s", toolName, result));
+                }
 
             } catch (Exception e) {
                 String error = String.format("Tool execution failed: %s — %s", callSpec, e.getMessage());
@@ -109,5 +128,18 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                 "tool_results", results,
                 "context", contextEntries
         );
+    }
+
+    private static String executeToolInternal(McpToolHandler tool, Map<String, Object> args) throws Exception {
+        io.modelcontextprotocol.spec.McpSchema.CallToolResult toolResult = tool.execute(null, args);
+        StringBuilder sb = new StringBuilder();
+        if (toolResult != null && toolResult.content() != null) {
+            for (var content : toolResult.content()) {
+                if (content instanceof io.modelcontextprotocol.spec.McpSchema.TextContent textContent) {
+                    sb.append(textContent.text());
+                }
+            }
+        }
+        return sb.toString();
     }
 }

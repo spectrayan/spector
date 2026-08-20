@@ -33,11 +33,23 @@ public class EventPublisher {
     }
 
     /**
+     * Publishes an agent event (e.g. approval required, approval resolved, reasoning cycle) to the 'agent' topic.
+     */
+    public void agentEvent(String eventType, Object data) {
+        try {
+            emitter.emit(SseEventConstants.TOPIC_AGENT, eventType, data);
+            log.debug("📡 SSE agent event: type={}", eventType);
+        } catch (Exception e) {
+            log.debug("Failed to emit agent event (possibly no subscribers): {}", e.getMessage());
+        }
+    }
+
+    /**
      * Publishes a memory event (created, recalled, consolidated, decayed).
      */
     public void memoryEvent(String eventType, String memoryId, String details) {
         try {
-            emitter.emit("memory", eventType,
+            emitter.emit(SseEventConstants.TOPIC_MEMORY, eventType,
                     java.util.Map.of("memoryId", memoryId, "type", eventType, "details", details));
             log.debug("📡 SSE memory event: type={}, id={}", eventType, memoryId);
         } catch (Exception e) {
@@ -50,7 +62,7 @@ public class EventPublisher {
      */
     public void chatEvent(String eventType, Object data) {
         try {
-            emitter.emit("chat", eventType, data);
+            emitter.emit(SseEventConstants.TOPIC_CHAT, eventType, data);
         } catch (Exception e) {
             log.debug("Failed to emit chat event (possibly no subscribers): {}", e.getMessage());
         }
@@ -61,7 +73,7 @@ public class EventPublisher {
      */
     public void systemEvent(String eventType, Object data) {
         try {
-            emitter.emit("system", eventType, data);
+            emitter.emit(SseEventConstants.TOPIC_SYSTEM, eventType, data);
         } catch (Exception e) {
             log.debug("Failed to emit system event (possibly no subscribers): {}", e.getMessage());
         }
@@ -72,7 +84,7 @@ public class EventPublisher {
      */
     public void connectorEvent(String connectorId, String status) {
         try {
-            emitter.emit("connectors", "status",
+            emitter.emit(SseEventConstants.TOPIC_CONNECTORS, SseEventConstants.EVENT_CONNECTOR_STATUS,
                     java.util.Map.of("connectorId", connectorId, "status", status));
         } catch (Exception e) {
             log.debug("Failed to emit connector event (possibly no subscribers): {}", e.getMessage());
@@ -84,7 +96,7 @@ public class EventPublisher {
      */
     public void cortexEvent(String eventType, Object data) {
         try {
-            emitter.emit("cortex", eventType, data);
+            emitter.emit(SseEventConstants.TOPIC_CORTEX, eventType, data);
             log.trace("📡 SSE cortex event: type={}", eventType);
         } catch (Exception e) {
             log.trace("Failed to emit cortex event (possibly no subscribers): {}", e.getMessage());
