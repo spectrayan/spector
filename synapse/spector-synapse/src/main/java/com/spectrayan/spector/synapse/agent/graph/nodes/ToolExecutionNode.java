@@ -14,8 +14,8 @@ package com.spectrayan.spector.synapse.agent.graph.nodes;
 
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
-import com.spectrayan.spector.synapse.agent.approval.ApprovalGate;
-import com.spectrayan.spector.synapse.agent.approval.ApprovalGate.ApprovalExecutionResult;
+import com.spectrayan.spector.synapse.agent.approval.model.ApprovalExecutionResult;
+import com.spectrayan.spector.synapse.agent.approval.service.AgentApprovalService;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -35,11 +35,8 @@ import java.util.Objects;
  * TOOLS node — executes registered agent tools and appends results to state.
  *
  * <p>Reads pending tool calls from the {@code tool_calls} channel,
- * checks write-tool approval through {@link ApprovalGate}, executes approved tools via the
+ * enforces write-tool approval through {@link AgentApprovalService}, executes approved tools via the
  * {@link ToolRegistry}, and writes results to {@code tool_results} and {@code context} (appender channels).</p>
- *
- * <p>Uses the OSS {@link ToolRegistry} (Spring component with auto-discovery)
- * instead of the enterprise's raw Map-based registry.</p>
  */
 public final class ToolExecutionNode implements NodeAction<CognitiveState> {
 
@@ -47,15 +44,15 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final ToolRegistry toolRegistry;
-    private final ApprovalGate approvalGate;
+    private final AgentApprovalService approvalService;
 
     public ToolExecutionNode(ToolRegistry toolRegistry) {
         this(toolRegistry, null);
     }
 
-    public ToolExecutionNode(ToolRegistry toolRegistry, ApprovalGate approvalGate) {
+    public ToolExecutionNode(ToolRegistry toolRegistry, AgentApprovalService approvalService) {
         this.toolRegistry = Objects.requireNonNull(toolRegistry, "toolRegistry");
-        this.approvalGate = approvalGate;
+        this.approvalService = approvalService;
     }
 
     @Override
@@ -91,8 +88,8 @@ public final class ToolExecutionNode implements NodeAction<CognitiveState> {
                 }
 
                 String result;
-                if (approvalGate != null && approvalGate.requiresApproval(tool)) {
-                    ApprovalExecutionResult gateResult = approvalGate.evaluateAndExecute(
+                if (approvalService != null && approvalService.isApprovalRequired(tool)) {
+                    ApprovalExecutionResult gateResult = approvalService.evaluateAndExecute(
                             tool,
                             args,
                             null,

@@ -10,10 +10,10 @@
  * Change Date: July 6, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.synapse.agent.approval;
+package com.spectrayan.spector.synapse.agent.approval.model;
 
 /**
- * Human operator decision action on a pending approval request.
+ * Human operator decision action on a pending agent action approval.
  */
 public enum ApprovalDecision {
     /** Approve tool execution with original arguments. */
@@ -23,5 +23,8 @@ public enum ApprovalDecision {
     REJECT,
 
     /** Approve tool execution with modified arguments. */
-    MODIFY
+    MODIFY,
+
+    /** Cancel pending tool execution. */
+    CANCEL
 }

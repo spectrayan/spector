@@ -10,24 +10,27 @@
  * Change Date: July 6, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.synapse.agent.approval;
+package com.spectrayan.spector.synapse.agent.approval.model;
 
 /**
- * Status lifecycle of a human-in-the-loop approval request.
+ * Lifecycle status of an agent action approval request.
  */
 public enum ApprovalStatus {
     /** Awaiting decision by a human operator. */
     PENDING,
 
-    /** Approved with original arguments. */
+    /** Approved by human operator with original arguments. */
     APPROVED,
 
-    /** Rejected by a human operator. */
+    /** Rejected by human operator. */
     REJECTED,
 
-    /** Approved with modified arguments. */
+    /** Approved by human operator with modified arguments. */
     MODIFIED,
 
-    /** Timed out waiting for a human response. */
-    TIMEOUT
+    /** Explicitly cancelled by human operator or system. */
+    CANCELLED,
+
+    /** Timed out waiting for human operator response. */
+    TIMED_OUT
 }

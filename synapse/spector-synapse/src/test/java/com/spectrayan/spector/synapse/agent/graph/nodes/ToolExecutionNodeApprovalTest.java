@@ -15,9 +15,9 @@ package com.spectrayan.spector.synapse.agent.graph.nodes;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.runtime.SpectorRuntime;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
-import com.spectrayan.spector.synapse.agent.approval.ApprovalDecision;
-import com.spectrayan.spector.synapse.agent.approval.ApprovalGate;
-import com.spectrayan.spector.synapse.agent.approval.ApprovalStore;
+import com.spectrayan.spector.synapse.agent.approval.repository.AgentApprovalRepository;
+import com.spectrayan.spector.synapse.agent.approval.repository.InMemoryAgentApprovalRepository;
+import com.spectrayan.spector.synapse.agent.approval.service.DefaultAgentApprovalService;
 import com.spectrayan.spector.synapse.agent.graph.CognitiveState;
 import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 
@@ -38,16 +38,16 @@ import static org.mockito.Mockito.mock;
 class ToolExecutionNodeApprovalTest {
 
     private ToolRegistry toolRegistry;
-    private ApprovalStore store;
-    private ApprovalGate gate;
+    private AgentApprovalRepository repository;
+    private DefaultAgentApprovalService approvalService;
     private ToolExecutionNode node;
 
     @BeforeEach
     void setUp() {
-        store = new ApprovalStore();
+        repository = new InMemoryAgentApprovalRepository();
         EventPublisher eventPublisher = mock(EventPublisher.class);
-        gate = new ApprovalGate(store, eventPublisher);
-        gate.setTimeoutSeconds(5);
+        approvalService = new DefaultAgentApprovalService(repository, eventPublisher);
+        approvalService.setTimeoutSeconds(5);
 
         McpToolHandler readTool = new McpToolHandler() {
             @Override public String name() { return "calc"; }
@@ -72,7 +72,7 @@ class ToolExecutionNodeApprovalTest {
         };
 
         toolRegistry = new ToolRegistry(List.of(readTool, writeTool));
-        node = new ToolExecutionNode(toolRegistry, gate);
+        node = new ToolExecutionNode(toolRegistry, approvalService);
     }
 
     @Test
@@ -95,9 +95,9 @@ class ToolExecutionNodeApprovalTest {
     void testWriteToolApprovedExecution() {
         var executor = Executors.newSingleThreadScheduledExecutor();
         executor.schedule(() -> {
-            var pending = store.listPending();
+            var pending = repository.findPending();
             if (!pending.isEmpty()) {
-                gate.resolveApproval(pending.getFirst().id(), ApprovalDecision.APPROVE, null, null);
+                approvalService.approve(pending.getFirst().id());
             }
         }, 100, TimeUnit.MILLISECONDS);
 
@@ -119,9 +119,9 @@ class ToolExecutionNodeApprovalTest {
     void testWriteToolRejectedExecution() {
         var executor = Executors.newSingleThreadScheduledExecutor();
         executor.schedule(() -> {
-            var pending = store.listPending();
+            var pending = repository.findPending();
             if (!pending.isEmpty()) {
-                gate.resolveApproval(pending.getFirst().id(), ApprovalDecision.REJECT, null, "File is protected");
+                approvalService.reject(pending.getFirst().id(), "File is protected");
             }
         }, 100, TimeUnit.MILLISECONDS);
 

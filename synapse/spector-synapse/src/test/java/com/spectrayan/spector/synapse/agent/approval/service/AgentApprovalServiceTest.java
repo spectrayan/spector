@@ -10,11 +10,15 @@
  * Change Date: July 6, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.synapse.agent.approval;
+package com.spectrayan.spector.synapse.agent.approval.service;
 
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.runtime.SpectorRuntime;
-import com.spectrayan.spector.synapse.agent.approval.ApprovalGate.ApprovalExecutionResult;
+import com.spectrayan.spector.synapse.agent.approval.model.AgentActionApproval;
+import com.spectrayan.spector.synapse.agent.approval.model.ApprovalExecutionResult;
+import com.spectrayan.spector.synapse.agent.approval.model.ApprovalStatus;
+import com.spectrayan.spector.synapse.agent.approval.repository.AgentApprovalRepository;
+import com.spectrayan.spector.synapse.agent.approval.repository.InMemoryAgentApprovalRepository;
 import com.spectrayan.spector.synapse.platform.events.EventPublisher;
 import com.spectrayan.spector.synapse.platform.events.SseEventConstants;
 
@@ -22,7 +26,6 @@ import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -30,22 +33,24 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@DisplayName("ApprovalGate Tests")
-class ApprovalGateTest {
+@DisplayName("AgentApprovalService Tests")
+class AgentApprovalServiceTest {
 
-    private ApprovalStore store;
+    private AgentApprovalRepository repository;
     private EventPublisher eventPublisher;
-    private ApprovalGate gate;
+    private DefaultAgentApprovalService service;
 
     @BeforeEach
     void setUp() {
-        store = new ApprovalStore();
+        repository = new InMemoryAgentApprovalRepository();
         eventPublisher = mock(EventPublisher.class);
-        gate = new ApprovalGate(store, eventPublisher);
-        gate.setTimeoutSeconds(5);
+        service = new DefaultAgentApprovalService(repository, eventPublisher);
+        service.setTimeoutSeconds(5);
     }
 
     private McpToolHandler createMockTool(String name, boolean isWrite) {
@@ -68,7 +73,7 @@ class ApprovalGateTest {
         McpToolHandler readTool = createMockTool("calc", false);
         AtomicBoolean executed = new AtomicBoolean(false);
 
-        ApprovalExecutionResult result = gate.evaluateAndExecute(
+        ApprovalExecutionResult result = service.evaluateAndExecute(
                 readTool,
                 Map.of("expr", "2+2"),
                 "sess-1",
@@ -82,7 +87,7 @@ class ApprovalGateTest {
         assertThat(executed).isTrue();
         assertThat(result).isInstanceOf(ApprovalExecutionResult.Success.class);
         assertThat(((ApprovalExecutionResult.Success) result).output()).isEqualTo("4");
-        assertThat(store.listPending()).isEmpty();
+        assertThat(repository.findPending()).isEmpty();
         verifyNoInteractions(eventPublisher);
     }
 
@@ -91,16 +96,15 @@ class ApprovalGateTest {
     void testWriteToolApproved() {
         McpToolHandler writeTool = createMockTool("file_write", true);
 
-        // Run in background thread to simulate asynchronous approval by operator
         var executor = Executors.newSingleThreadScheduledExecutor();
         executor.schedule(() -> {
-            var pending = store.listPending();
+            var pending = repository.findPending();
             if (!pending.isEmpty()) {
-                gate.resolveApproval(pending.getFirst().id(), ApprovalDecision.APPROVE, null, null);
+                service.approve(pending.getFirst().id());
             }
         }, 100, TimeUnit.MILLISECONDS);
 
-        ApprovalExecutionResult result = gate.evaluateAndExecute(
+        ApprovalExecutionResult result = service.evaluateAndExecute(
                 writeTool,
                 Map.of("path", "foo.txt", "content", "hello"),
                 "sess-1",
@@ -113,9 +117,8 @@ class ApprovalGateTest {
         assertThat(result).isInstanceOf(ApprovalExecutionResult.Success.class);
         assertThat(((ApprovalExecutionResult.Success) result).output()).isEqualTo("wrote:hello");
 
-        // Verify SSE emissions
-        verify(eventPublisher).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_REQUIRED), any(ApprovalRequest.class));
-        verify(eventPublisher).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_RESOLVED), any(ApprovalRequest.class));
+        verify(eventPublisher).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_REQUIRED), any(AgentActionApproval.class));
+        verify(eventPublisher).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_RESOLVED), any(AgentActionApproval.class));
     }
 
     @Test
@@ -125,18 +128,17 @@ class ApprovalGateTest {
 
         var executor = Executors.newSingleThreadScheduledExecutor();
         executor.schedule(() -> {
-            var pending = store.listPending();
+            var pending = repository.findPending();
             if (!pending.isEmpty()) {
-                gate.resolveApproval(
+                service.modify(
                         pending.getFirst().id(),
-                        ApprovalDecision.MODIFY,
                         Map.of("cmd", "echo safe"),
                         "Sanitized command"
                 );
             }
         }, 100, TimeUnit.MILLISECONDS);
 
-        ApprovalExecutionResult result = gate.evaluateAndExecute(
+        ApprovalExecutionResult result = service.evaluateAndExecute(
                 writeTool,
                 Map.of("cmd", "rm -rf /"),
                 "sess-1",
@@ -157,13 +159,13 @@ class ApprovalGateTest {
 
         var executor = Executors.newSingleThreadScheduledExecutor();
         executor.schedule(() -> {
-            var pending = store.listPending();
+            var pending = repository.findPending();
             if (!pending.isEmpty()) {
-                gate.resolveApproval(pending.getFirst().id(), ApprovalDecision.REJECT, null, "Untrusted destination");
+                service.reject(pending.getFirst().id(), "Untrusted destination");
             }
         }, 100, TimeUnit.MILLISECONDS);
 
-        ApprovalExecutionResult result = gate.evaluateAndExecute(
+        ApprovalExecutionResult result = service.evaluateAndExecute(
                 writeTool,
                 Map.of("path", "/etc/passwd"),
                 "sess-1",
@@ -178,12 +180,39 @@ class ApprovalGateTest {
     }
 
     @Test
+    @DisplayName("Write tool should return Denied when cancelled")
+    void testWriteToolCancelled() {
+        McpToolHandler writeTool = createMockTool("file_write", true);
+
+        var executor = Executors.newSingleThreadScheduledExecutor();
+        executor.schedule(() -> {
+            var pending = repository.findPending();
+            if (!pending.isEmpty()) {
+                service.cancel(pending.getFirst().id(), "Operator cancelled run");
+            }
+        }, 100, TimeUnit.MILLISECONDS);
+
+        ApprovalExecutionResult result = service.evaluateAndExecute(
+                writeTool,
+                Map.of("path", "/tmp/file"),
+                "sess-1",
+                "agent-1",
+                args -> "should-not-run"
+        );
+
+        executor.shutdown();
+
+        assertThat(result).isInstanceOf(ApprovalExecutionResult.Denied.class);
+        assertThat(((ApprovalExecutionResult.Denied) result).reason()).contains("Operator cancelled run");
+    }
+
+    @Test
     @DisplayName("Write tool should return Denied when approval times out")
     void testWriteToolTimeout() {
-        gate.setTimeoutSeconds(1); // 1 second timeout for test speed
+        service.setTimeoutSeconds(1);
         McpToolHandler writeTool = createMockTool("shell_exec", true);
 
-        ApprovalExecutionResult result = gate.evaluateAndExecute(
+        ApprovalExecutionResult result = service.evaluateAndExecute(
                 writeTool,
                 Map.of("cmd", "ls"),
                 "sess-1",
@@ -193,6 +222,20 @@ class ApprovalGateTest {
 
         assertThat(result).isInstanceOf(ApprovalExecutionResult.Denied.class);
         assertThat(((ApprovalExecutionResult.Denied) result).reason()).contains("timed out");
-        verify(eventPublisher).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_TIMEOUT), any(ApprovalRequest.class));
+        verify(eventPublisher).agentEvent(eq(SseEventConstants.EVENT_AGENT_APPROVAL_TIMEOUT), any(AgentActionApproval.class));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when resolving non-existent or already resolved approval")
+    void testInvalidResolutionTransitions() {
+        assertThatThrownBy(() -> service.approve("non-existent"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        AgentActionApproval appr = AgentActionApproval.pending("appr-1", "tool", Map.of(), "CAT", null, null);
+        repository.save(appr, new java.util.concurrent.CompletableFuture<>());
+        service.approve("appr-1");
+
+        assertThatThrownBy(() -> service.approve("appr-1"))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

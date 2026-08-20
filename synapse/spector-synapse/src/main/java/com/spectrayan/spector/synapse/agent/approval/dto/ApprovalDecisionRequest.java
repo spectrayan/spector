@@ -10,23 +10,25 @@
  * Change Date: July 6, 2030
  * Change License: Apache License, Version 2.0
  */
-package com.spectrayan.spector.synapse.agent.approval;
+package com.spectrayan.spector.synapse.agent.approval.dto;
+
+import com.spectrayan.spector.synapse.agent.approval.model.ApprovalDecision;
 
 import java.util.Map;
 
 /**
- * Data transfer object for REST API approval decisions submitted by human operators.
+ * Data transfer object representing a human decision submitted via REST API.
  *
- * @param decision          the decision (APPROVE, REJECT, or MODIFY)
+ * @param decision          the decision type (APPROVE, REJECT, MODIFY, CANCEL)
  * @param modifiedArguments updated tool arguments when decision is MODIFY (optional)
  * @param reason            optional reason or explanation for the decision
  */
-public record ApprovalResponseDto(
+public record ApprovalDecisionRequest(
         ApprovalDecision decision,
         Map<String, Object> modifiedArguments,
         String reason
 ) {
-    public ApprovalResponseDto {
+    public ApprovalDecisionRequest {
         if (decision == null) {
             decision = ApprovalDecision.APPROVE;
         }
