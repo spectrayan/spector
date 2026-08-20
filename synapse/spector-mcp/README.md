@@ -50,6 +50,7 @@ spector-mcp/src/main/java/com/spectrayan/spector/mcp/
 │   ├── EngineStatusTool.java
 │   ├── MemoryRememberTool.java
 │   ├── MemoryRecallTool.java
+│   ├── MemoryGraphRecallTool.java  ← Multi-hop GraphRAG relationship traversal
 │   ├── MemoryStatusTool.java
 │   ├── MemoryReinforceTool.java
 │   ├── MemoryForgetTool.java
@@ -82,6 +83,7 @@ spector-mcp/src/main/java/com/spectrayan/spector/mcp/
 |:---|:---|
 | `memory_remember` | Store a semantic memory with tags and source |
 | `memory_recall` | Cognitive recall with fused scoring across tiers |
+| `memory_graph_recall` | Multi-hop knowledge graph relationship traversal (GraphRAG) |
 | `memory_status` | Memory tier counts and persistence info |
 | `memory_reinforce` | Report positive/negative outcome for a memory |
 | `memory_forget` | Tombstone a memory by ID |

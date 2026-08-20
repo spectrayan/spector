@@ -37,6 +37,7 @@ import com.spectrayan.spector.mcp.tools.memory.MemoryComputeImportanceTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryInspectTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryExportTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryBrowseTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryGraphRecallTool;
 import com.spectrayan.spector.mcp.tools.memory.MemorySalienceTool;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -74,6 +75,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryRememberTool(memory));
             handlers.add(new MemoryScratchpadTool(memory));
             handlers.add(new MemoryRecallTool(memory));
+            handlers.add(new MemoryGraphRecallTool(memory));
             handlers.add(new MemoryReinforceTool(memory));
             handlers.add(new MemoryForgetTool(memory));
             handlers.add(new MemoryStatusTool(memory));
@@ -108,6 +110,7 @@ public final class SpectorToolRegistry {
         handlers.add(new MemoryRememberTool(memoryResolver));
         handlers.add(new MemoryScratchpadTool(memoryResolver));
         handlers.add(new MemoryRecallTool(memoryResolver));
+        handlers.add(new MemoryGraphRecallTool(memoryResolver));
         handlers.add(new MemoryReinforceTool(memoryResolver));
         handlers.add(new MemoryForgetTool(memoryResolver));
         handlers.add(new MemoryStatusTool(memoryResolver));
@@ -142,6 +145,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryRememberTool(memory));
             handlers.add(new MemoryScratchpadTool(memory));
             handlers.add(new MemoryRecallTool(memory));
+            handlers.add(new MemoryGraphRecallTool(memory));
             handlers.add(new MemoryReinforceTool(memory));
             handlers.add(new MemoryForgetTool(memory));
             handlers.add(new MemoryStatusTool(memory));
@@ -179,6 +183,7 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryRememberTool(memoryResolver));
             handlers.add(new MemoryScratchpadTool(memoryResolver));
             handlers.add(new MemoryRecallTool(memoryResolver));
+            handlers.add(new MemoryGraphRecallTool(memoryResolver));
             handlers.add(new MemoryReinforceTool(memoryResolver));
             handlers.add(new MemoryForgetTool(memoryResolver));
             handlers.add(new MemoryStatusTool(memoryResolver));
