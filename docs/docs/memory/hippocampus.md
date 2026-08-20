@@ -123,22 +123,56 @@ stateDiagram-v2
 
 ---
 
+## ReflectPathway — 9-Relay Sleep Pipeline
+
+Spector 1.3.0 consolidates all sleep reflection operations into a single composable `ReflectPathway` pipeline with 9 specialized relays:
+
+```mermaid
+graph LR
+    subgraph "NREM Deep Sleep"
+        R1["1. SynapticPruningRelay<br/><i>Downscaling & compaction</i>"]
+    end
+    subgraph "REM Dream Sleep"
+        R2["2. EpisodicLogConsolidationRelay<br/><i>Session turn gist extraction</i>"]
+        R3["3. SoulDriftRefusionRelay<br/><i>#503 Soul drift re-fusion</i>"]
+        R4["4. ProactiveInterferenceRelay<br/><i>Near-duplicate decay</i>"]
+    end
+    subgraph "Synaptic Homeostasis & Maintenance"
+        R5["5. HebbianHomeostasisRelay<br/><i>Edge decay</i>"]
+        R6["6. TemporalPruningRelay<br/><i>Retention decay</i>"]
+        R7["7. CrossLayerPromotionRelay<br/><i>Hebbian → Entity promotion</i>"]
+        R8["8. EntityMaintenanceRelay<br/><i>Entity merge & graph decay</i>"]
+    end
+    subgraph "Durability"
+        R9["9. WalJournalRelay<br/><i>WAL REFLECT checkpoint</i>"]
+    end
+
+    R1 --> R2 --> R3 --> R4 --> R5 --> R6 --> R7 --> R8 --> R9
+```
+
+### Soul-Drift Re-Fusion (#503)
+When an agent's cognitive soul or personality configuration evolves, older memories retained with stale soul version stamps undergo re-fusion during REM sleep. The `SoulDriftRefusionRelay` identifies candidates with `header.soulVersion() < currentSoulVersion`, prioritizes candidates via a max-heap of encoding surprise z-scores, re-scores importance using current ICNU/salience parameters, and stamps updated headers in-place.
+
+---
+
 ## Consolidation Report
 
-Each consolidation cycle produces a report summarizing what happened:
+Each consolidation cycle produces a structured `ReflectReport` summarizing the sleep cycle:
 
 | Metric | Description |
 |---|---|
-| **partitionsProcessed** | Number of sealed partitions scanned |
-| **memoriesConsolidated** | Episodic records that matched a cluster |
-| **semanticMemoriesCreated** | New semantic records written |
-| **hebbianEdgesDecayed** | Hebbian edges weakened |
-| **entitiesMerged** | Near-duplicate entities merged |
-| **crossPromotions** | Hebbian → Entity promotions |
-| **temporalNodesPruned** | Stale temporal chain nodes removed |
-| **durationMs** | Total cycle time |
+| **consolidatedCount** | Number of episodic records / facts promoted to Semantic tier |
+| **tombstonedCount** | Number of memories tombstoned during Deep Sleep pruning |
+| **compactedPartitions** | Partitions rebuilt after exceeding the tombstone ratio |
+| **temporalPrunedCount** | Stale temporal chain nodes pruned |
+| **soulDriftedCount** | Count of memories detected with outdated soul version stamps |
+| **soulRefusedCount** | Count of soul-drifted memories re-fused with updated importance |
+| **averageImportanceDelta** | Average absolute importance delta after soul re-fusion |
+| **logTurnsConsolidated** | Episodic log conversation turns distilled into semantic memories |
+| **duration** | Total reflection cycle time |
+| **graphHealth** | Graph health metrics snapshot |
 
-This can be logged, monitored, or exposed via the introspection API for observability.
+This report is logged, monitored, and exposed via the introspection API and Micrometer metrics.
 
 ---
 

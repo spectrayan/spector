@@ -105,8 +105,9 @@ import java.util.stream.Collectors;
  *   <li>When {@code LlmProvider} is available:
  *       sends cluster texts to LLM for factual summarization</li>
  *   <li>When no LLM: falls back to highest-importance selection</li>
- * </ul>
+ * @deprecated As of 1.3.0, replaced by {@link com.spectrayan.spector.memory.ReflectPathway} and its composable relays.
  */
+@Deprecated(since = "1.3.0", forRemoval = true)
 public final class ReflectDaemon {
 
     private static final Logger log = LoggerFactory.getLogger(ReflectDaemon.class);

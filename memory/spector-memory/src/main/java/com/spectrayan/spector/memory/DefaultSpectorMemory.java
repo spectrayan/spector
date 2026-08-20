@@ -178,6 +178,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final EmbeddingProvider embeddingProvider;
     private final RecallPipeline recallPipeline;
     private final RecallPathway recallPathway;       // #561 relay-based engine (nullable)
+    private final ReflectPathway reflectPathway;     // #503 relay-based sleep reflection engine
     private final boolean usePathwayEngine;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
@@ -189,6 +190,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final ReinforcementHandler reinforcementHandler;
     private final BatchConsolidator batchConsolidator;
     private final com.spectrayan.spector.memory.consolidation.EagerConsolidator eagerConsolidator;
+    private final java.util.concurrent.ScheduledExecutorService circadianScheduler;
 
 
     //  Biological Subsystems 
@@ -270,6 +272,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         var bundle = SpectorMemoryFactory.assemble(builder);
         this.cognitiveTarget = bundle.cognitiveTarget();
         this.rememberPathway = bundle.rememberPathway();
+        this.reflectPathway = bundle.reflectPathway();
         this.embeddingProvider = bundle.embeddingProvider();
         this.recallPipeline = bundle.recallPipeline();
         this.recallPathway = bundle.recallPathway();
@@ -334,6 +337,26 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.runtimeBundle = bundle.runtimeBundle();
         this.insularCortex = bundle.insularCortex();
         this.hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
+
+        //  Circadian Time Trigger (Automatic Background Sleep Consolidation)
+        if (circadianPolicy != null && circadianPolicy.timeTrigger() != null
+                && !circadianPolicy.timeTrigger().isZero() && !circadianPolicy.timeTrigger().isNegative()) {
+            this.circadianScheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+                    Thread.ofVirtual().name("circadian-scheduler-", 0).factory());
+            long delayMs = circadianPolicy.timeTrigger().toMillis();
+            this.circadianScheduler.scheduleWithFixedDelay(() -> {
+                try {
+                    if (!closed.get()) {
+                        log.info("Circadian time trigger: auto-running sleep consolidation");
+                        reflect();
+                    }
+                } catch (Throwable t) {
+                    log.warn("Circadian background reflection failed: {}", t.getMessage());
+                }
+            }, delayMs, delayMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } else {
+            this.circadianScheduler = null;
+        }
 
         //  JVM Shutdown Hook  (DISK mode only)
         if (persistenceMode == MemoryPersistenceMode.DISK && bundle.basePath() != null) {
@@ -968,6 +991,9 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     public ReflectReport reflect() {
         acquireLease();
         try {
+            if (reflectPathway != null) {
+                return reflectPathway.reflect(partitionManager, index, rememberPathway, cognitiveTarget, salienceProfile());
+            }
             return reflectionOrchestrator.reflect(partitionManager, index, cognitiveTarget);
         } finally {
             releaseLease();
@@ -1604,6 +1630,15 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             daemonSupervisor.close();
         }
 
+        // Stop circadian scheduler
+        if (circadianScheduler != null) {
+            try {
+                circadianScheduler.shutdown();
+            } catch (Exception e) {
+                log.warn("Failed to shutdown circadianScheduler on close", e);
+            }
+        }
+
         // Close consolidators
         if (batchConsolidator != null) {
             try {
@@ -1633,6 +1668,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 rememberPathway.close();
             } catch (Exception e) {
                 log.warn("Failed to close RememberPathway on close", e);
+            }
+        }
+        if (reflectPathway != null) {
+            try {
+                reflectPathway.close();
+            } catch (Exception e) {
+                log.warn("Failed to close ReflectPathway on close", e);
             }
         }
 

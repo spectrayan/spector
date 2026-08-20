@@ -367,6 +367,26 @@ public class MemoryService {
         }
     }
 
+    /**
+     * Runs biological sleep reflection across all cached per-user instances (or the shared instance if none).
+     */
+    public void reflectAll() {
+        if (userMemoryRegistry == null) {
+            reflect();
+            return;
+        }
+        List<SpectorMemory> instances = userMemoryRegistry.cachedInstances();
+        for (SpectorMemory memory : instances) {
+            if (mao.isAvailable(memory)) {
+                try {
+                    mao.reflect(memory);
+                } catch (Exception e) {
+                    log.error("[MemoryService] Sleep reflection failed for cached instance: {}", e.getMessage(), e);
+                }
+            }
+        }
+    }
+
 
     // ══════════════════════════════════════════════════════════════
     // RECALL / SEARCH

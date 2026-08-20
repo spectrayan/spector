@@ -312,9 +312,19 @@ public record CognitiveRecordLayout(int quantizedVecBytes, HeaderLayout headerLa
         return headerLayout.readSoulVersion(segment, offset);
     }
 
+    /** Writes the soul version counter. */
+    public void writeSoulVersion(MemorySegment segment, long offset, short version) {
+        headerLayout.writeSoulVersion(segment, offset, version);
+    }
+
     /** Reads the surprise z-score at encoding time. */
     public float readEncodingSurprise(MemorySegment segment, long offset) {
         return headerLayout.readEncodingSurprise(segment, offset);
+    }
+
+    /** Writes the surprise z-score at encoding time. */
+    public void writeEncodingSurprise(MemorySegment segment, long offset, float surprise) {
+        headerLayout.writeEncodingSurprise(segment, offset, surprise);
     }
 
     /**

@@ -335,6 +335,9 @@ public final class SpectorPropertyConstants {
     public static final float DEFAULT_MEMORY_GRAPH_EXPANSION_THRESHOLD = 0.40f;
 
     // Circadian & Reflection
+    public static final String MEMORY_CIRCADIAN_ENABLED = "spector.memory.circadian.enabled";
+    public static final boolean DEFAULT_MEMORY_CIRCADIAN_ENABLED = true;
+
     public static final String MEMORY_CIRCADIAN_VOLUME_TRIGGER = "spector.memory.circadian.volume-trigger";
     public static final int DEFAULT_MEMORY_CIRCADIAN_VOLUME_TRIGGER = 100;
 
@@ -346,6 +349,12 @@ public final class SpectorPropertyConstants {
 
     public static final String MEMORY_CIRCADIAN_DECAY_PRUNE_THRESHOLD = "spector.memory.circadian.decay-prune-threshold";
     public static final float DEFAULT_MEMORY_CIRCADIAN_DECAY_PRUNE_THRESHOLD = 0.05f;
+
+    public static final String CONSOLIDATION_SOUL_DRIFT_REFUSION_ENABLED = "spector.consolidation.soul-drift-refusion.enabled";
+    public static final boolean DEFAULT_CONSOLIDATION_SOUL_DRIFT_REFUSION_ENABLED = true;
+
+    public static final String CONSOLIDATION_SOUL_DRIFT_REFUSION_BATCH_SIZE = "spector.consolidation.soul-drift-refusion.batch-size";
+    public static final int DEFAULT_CONSOLIDATION_SOUL_DRIFT_REFUSION_BATCH_SIZE = 100;
 
     public static final String MEMORY_REFLECT_MIN_CLUSTER_SIZE = "spector.memory.reflect.min-cluster-size";
     public static final int DEFAULT_MEMORY_REFLECT_MIN_CLUSTER_SIZE = 5;

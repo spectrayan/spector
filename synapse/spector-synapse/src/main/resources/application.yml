@@ -81,6 +81,9 @@ spector:
     decay:
       min-threshold: ${SPECTOR_DECAY_MIN_THRESHOLD:1000}
       baseline-half-life-days: ${SPECTOR_DECAY_HALF_LIFE_DAYS:180}
+    circadian:
+      enabled: ${SPECTOR_CIRCADIAN_ENABLED:true}
+      interval: ${SPECTOR_CIRCADIAN_INTERVAL:3600000}
   provider:
     embedding:
       type: ollama

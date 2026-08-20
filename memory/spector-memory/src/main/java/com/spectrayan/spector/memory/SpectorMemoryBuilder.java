@@ -206,6 +206,7 @@ public final class SpectorMemoryBuilder {
     /** If true, Working memory is also persisted to disk in DISK mode (default: false). */
     public SpectorMemoryBuilder persistWorkingMemory(boolean persist) { this.persistWorkingMemory = persist; return this; }
     public SpectorMemoryBuilder reflectPolicy(CircadianPolicy p) { this.circadianPolicy = p; return this; }
+    public SpectorMemoryBuilder circadianPolicy(CircadianPolicy p) { this.circadianPolicy = p; return this; }
 
     public SpectorMemoryBuilder coactivationPairCapacity(int c) { this.coactivationPairCapacity = c; return this; }
     public SpectorMemoryBuilder coactivationEdgeCapacity(int c) { this.coactivationEdgeCapacity = c; return this; }

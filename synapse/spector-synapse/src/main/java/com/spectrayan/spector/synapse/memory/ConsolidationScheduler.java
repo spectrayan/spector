@@ -45,4 +45,19 @@ public class ConsolidationScheduler {
             log.error("ConsolidationScheduler: periodic memory consolidation failed", e);
         }
     }
+
+    /**
+     * Periodically triggers circadian sleep reflection across all cached memory instances.
+     * Uses fixedDelayString configured via {@code spector.memory.circadian.interval}
+     * with a fallback default of 1 hour (3600000 ms).
+     */
+    @Scheduled(fixedDelayString = "${spector.memory.circadian.interval:3600000}", initialDelay = 120000)
+    public void scheduleCircadianReflection() {
+        log.info("ConsolidationScheduler: Starting periodic background circadian reflection task...");
+        try {
+            memoryService.reflectAll();
+        } catch (Exception e) {
+            log.error("ConsolidationScheduler: periodic circadian reflection failed", e);
+        }
+    }
 }

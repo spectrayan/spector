@@ -64,7 +64,7 @@ graph TB
 | [**Habituation**](habituation.md) | Sensory cortex | Response decrement to repetition | Exponential penalty on repeated recall | Thompson & Spencer, 1966[^7] |
 | [**Inhibition**](inhibition.md) | Prefrontal cortex | Inhibition of return | SuppressionSet with TTL-based suppression windows | Klein, 2000[^8] |
 | [**Interference**](interference.md) | Hippocampus | Proactive/retroactive interference | Similarity-based deduplication during ingestion | Underwood, 1957[^9] |
-| [**Hippocampus**](hippocampus.md) | Hippocampus | Sleep consolidation & replay | ReflectDaemon: decay, compaction, episodic→semantic promotion | Rasch & Born, 2013[^10] |
+| [**Hippocampus**](hippocampus.md) | Hippocampus | Sleep consolidation & replay | ReflectPathway: 9-relay sleep cycle, soul-drift re-fusion, episodic log consolidation | Rasch & Born, 2013[^10] |
 | [**Prospective**](prospective.md) | Prefrontal cortex | Prospective memory | Scheduled future intent reminders | Einstein & McDaniel, 1990[^11] |
 | [**Metamemory**](metamemory.md) | Prefrontal cortex | Metacognitive monitoring | Confidence calibration, recall quality estimation | Nelson & Narens, 1990[^12] |
 | [**Sync**](sync.md) | — (engineering) | Persistence & replication | WAL + mmap-backed partitions | — |

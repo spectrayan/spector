@@ -49,4 +49,15 @@ public final class RelayNames {
     public static final String POST_INGEST_SYNC      = "post_ingest_sync";
     public static final String GRAPH_LINKING         = "graph_linking";
     public static final String KG_ENRICHMENT         = "kg_enrichment";
+
+    // Reflect Pathway Relays
+    public static final String SYNAPTIC_PRUNING        = "synaptic_pruning";
+    public static final String EPISODIC_CONSOLIDATION  = "episodic_consolidation";
+    public static final String SOUL_DRIFT_REFUSION     = "soul_drift_refusion";
+    public static final String PROACTIVE_INTERFERENCE  = "proactive_interference";
+    public static final String HEBBIAN_HOMEOSTASIS     = "hebbian_homeostasis";
+    public static final String TEMPORAL_PRUNING        = "temporal_pruning";
+    public static final String CROSS_LAYER_PROMOTION   = "cross_layer_promotion";
+    public static final String ENTITY_MAINTENANCE      = "entity_maintenance";
+    public static final String WAL_JOURNAL             = "wal_journal";
 }
