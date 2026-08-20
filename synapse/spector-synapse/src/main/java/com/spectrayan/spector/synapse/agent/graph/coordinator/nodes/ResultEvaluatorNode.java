@@ -13,6 +13,7 @@
 package com.spectrayan.spector.synapse.agent.graph.coordinator.nodes;
 
 import com.spectrayan.spector.synapse.agent.graph.coordinator.CoordinatorState;
+import com.spectrayan.spector.synapse.agent.graph.coordinator.model.PlanStep;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 
 import org.bsc.langgraph4j.action.NodeAction;
@@ -22,14 +23,19 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
- * EVALUATOR node — determines whether the task is complete or needs another iteration.
- *
- * <p>Sets the {@code decision} to either DONE (task complete) or CONTINUE
- * (needs another planning/execution cycle).</p>
+ * EVALUATOR node — evaluates per-step execution quality and determines routing:
+ * <ul>
+ *   <li><b>NEXT_STEP</b>: Current step succeeded, advance to next step.</li>
+ *   <li><b>REPLAN</b>: Step failed or output insufficient; adapt remaining plan.</li>
+ *   <li><b>SYNTHESIZE</b>: All steps completed or goal reached; consolidate final answer.</li>
+ * </ul>
  */
 public final class ResultEvaluatorNode implements NodeAction<CoordinatorState> {
 
@@ -44,56 +50,108 @@ public final class ResultEvaluatorNode implements NodeAction<CoordinatorState> {
     @Override
     public Map<String, Object> apply(CoordinatorState state) {
         String task = state.task().isEmpty() ? state.query() : state.task();
-        String executionResult = state.executionResult().orElse("(no result)");
+        String stepResult = state.stepResult().isEmpty()
+                ? state.executionResult().orElse("(no result)")
+                : state.stepResult();
+
         int iteration = state.iteration();
         int maxIterations = state.maxIterations();
+        int currentStepIdx = state.currentStepIndex();
+        List<PlanStep> planSteps = state.planSteps();
+        int totalSteps = planSteps.isEmpty() ? 1 : planSteps.size();
+        Optional<PlanStep> currentStepOpt = state.currentStep();
+        String stepDesc = currentStepOpt.map(PlanStep::description).orElse(task);
+        String toolAgent = currentStepOpt.map(ps ->
+                (ps.tool() != null ? "Tool: " + ps.tool() + " " : "")
+                + (ps.assignedAgent() != null ? "Agent: " + ps.assignedAgent() : "")).orElse("Default");
 
-        log.info("[ResultEvaluatorNode] Evaluating result (iteration {}/{})", iteration, maxIterations);
+        log.info("[ResultEvaluatorNode] Evaluating step {}/{} (iteration {}/{})",
+                currentStepIdx + 1, totalSteps, iteration, maxIterations);
 
-        // Force completion if max iterations reached
+        Map<String, Object> updates = new LinkedHashMap<>();
+
+        // 1. Force completion if max iterations reached
         if (iteration >= maxIterations) {
-            log.warn("[ResultEvaluatorNode] Max iterations reached, forcing DONE");
-            return Map.of(
-                    "decision", "DONE",
-                    "answer", executionResult,
-                    "status", "DONE"
-            );
+            log.warn("[ResultEvaluatorNode] Max iterations ({}) reached, routing to SYNTHESIZE", maxIterations);
+            updates.put("decision", "DONE");
+            updates.put("plan_decision", "SYNTHESIZE");
+            updates.put("status", "SYNTHESIZING");
+            return updates;
         }
 
-        // Check for errors — retry
-        if (executionResult.startsWith("ERROR:")) {
-            log.info("[ResultEvaluatorNode] Execution failed, CONTINUE for retry");
-            return Map.of(
-                    "decision", "CONTINUE",
-                    "status", "PLANNING"
-            );
+        // 2. Check for errors — trigger adaptive replan
+        if (stepResult.startsWith("ERROR:") || (currentStepOpt.isPresent() && currentStepOpt.get().isFailed())) {
+            log.info("[ResultEvaluatorNode] Step {} failed, routing to REPLAN", currentStepIdx + 1);
+            updates.put("decision", "REPLAN");
+            updates.put("plan_decision", "REPLAN");
+            updates.put("critique", "Step execution resulted in error: " + stepResult);
+            updates.put("status", "REPLANNING");
+            return updates;
         }
 
-        String promptTemplate = loadPromptTemplate("coordinator-evaluator-system");
+        // 3. Prompt LLM for step assessment
+        String promptTemplate = loadPromptTemplate("coordinator-step-evaluator");
+        if (promptTemplate == null || promptTemplate.isBlank()) {
+            promptTemplate = loadPromptTemplate("coordinator-evaluator-system");
+        }
+
+        StringBuilder completedStepsSummary = new StringBuilder();
+        for (PlanStep cs : state.completedSteps()) {
+            completedStepsSummary.append(String.format("- Step %d: %s -> %s\n",
+                    cs.step(), cs.description(),
+                    cs.result().length() > 100 ? cs.result().substring(0, 100) + "..." : cs.result()));
+        }
+
         String prompt = promptTemplate
                 .replace("{{task}}", task)
-                .replace("{{result}}", executionResult)
+                .replace("{{step_number}}", String.valueOf(currentStepIdx + 1))
+                .replace("{{total_steps}}", String.valueOf(totalSteps))
+                .replace("{{step_description}}", stepDesc)
+                .replace("{{tool_agent}}", toolAgent)
+                .replace("{{step_result}}", stepResult)
+                .replace("{{completed_steps}}", completedStepsSummary.toString())
+                .replace("{{result}}", stepResult)
                 .replace("{{iteration}}", String.valueOf(iteration));
 
         String response = llmBridge.generate(prompt);
         log.debug("[ResultEvaluatorNode] LLM response: {}", response);
 
-        // Parse decision from LLM
         String upper = response.toUpperCase();
-        if (upper.contains("DONE") || upper.contains("COMPLETE") || upper.contains("SUFFICIENT")) {
-            log.info("[ResultEvaluatorNode] DONE");
-            return Map.of(
-                    "decision", "DONE",
-                    "answer", executionResult,
-                    "status", "DONE"
-            );
+
+        // 4. Parse decision
+        if (upper.contains("REPLAN") || upper.contains("FAILED") || upper.contains("INSUFFICIENT")) {
+            log.info("[ResultEvaluatorNode] Decision: REPLAN");
+            updates.put("decision", "REPLAN");
+            updates.put("plan_decision", "REPLAN");
+            updates.put("critique", extractCritique(response));
+            updates.put("status", "REPLANNING");
+            return updates;
         }
 
-        log.info("[ResultEvaluatorNode] CONTINUE");
-        return Map.of(
-                "decision", "CONTINUE",
-                "status", "PLANNING"
-        );
+        boolean hasMoreSteps = (currentStepIdx + 1) < totalSteps;
+
+        if (hasMoreSteps && !upper.contains("SYNTHESIZE") && !upper.contains("DONE")) {
+            log.info("[ResultEvaluatorNode] Step {} succeeded, advancing to next step", currentStepIdx + 1);
+            updates.put("decision", "NEXT_STEP");
+            updates.put("plan_decision", "NEXT_STEP");
+            updates.put("current_step_index", currentStepIdx + 1);
+            updates.put("status", "EXECUTING_STEP");
+        } else {
+            log.info("[ResultEvaluatorNode] All steps completed or task satisfied, routing to SYNTHESIZE");
+            updates.put("decision", "DONE");
+            updates.put("plan_decision", "SYNTHESIZE");
+            updates.put("status", "SYNTHESIZING");
+        }
+
+        return updates;
+    }
+
+    private static String extractCritique(String response) {
+        int idx = response.indexOf("CRITIQUE:");
+        if (idx >= 0) {
+            return response.substring(idx + 9).strip();
+        }
+        return response.strip();
     }
 
     private String loadPromptTemplate(String name) {
@@ -105,15 +163,6 @@ public final class ResultEvaluatorNode implements NodeAction<CoordinatorState> {
         } catch (IOException e) {
             log.warn("[ResultEvaluatorNode] Failed to load prompt: {}", name);
         }
-        return """
-                Evaluate whether the task has been completed satisfactorily.
-                
-                TASK: {{task}}
-                RESULT: {{result}}
-                ITERATION: {{iteration}}
-                
-                Respond with DONE if the result adequately addresses the task,
-                or CONTINUE if another iteration is needed.
-                """;
+        return "";
     }
 }

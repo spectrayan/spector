@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.synapse.agent.graph.coordinator;
 
+import com.spectrayan.spector.synapse.agent.graph.coordinator.model.PlanStep;
 import org.bsc.langgraph4j.state.AgentState;
 import org.bsc.langgraph4j.state.Channel;
 import org.bsc.langgraph4j.state.Channels;
@@ -25,24 +26,30 @@ import java.util.Optional;
  * State for the coordinator meta-graph.
  *
  * <p>Extends the basic cognitive state with coordinator-specific channels:
- * task description, generated flow spec, execution results, iteration tracking.</p>
+ * task description, plan steps, step tracking, intermediate results, and adaptive replanning.</p>
  */
 public class CoordinatorState extends AgentState {
 
     public static final Map<String, Channel<?>> SCHEMA = Map.ofEntries(
-            Map.entry("task",              Channels.base(() -> "")),
-            Map.entry("query",             Channels.base(() -> "")),
-            Map.entry("original_query",    Channels.base(() -> "")),
-            Map.entry("context",           Channels.appender(ArrayList::new)),
-            Map.entry("decision",          Channels.base(() -> "")),
-            Map.entry("answer",            Channels.base(() -> "")),
-            Map.entry("attempt",           Channels.base(() -> 0)),
-            Map.entry("flow_spec_json",    Channels.base(() -> "")),
-            Map.entry("execution_result",  Channels.base(() -> "")),
-            Map.entry("iteration",         Channels.base(() -> 0)),
-            Map.entry("max_iterations",    Channels.base(() -> 5)),
-            Map.entry("status",            Channels.base(() -> "PLANNING")),
-            Map.entry("child_results",     Channels.appender(ArrayList::new))
+            Map.entry("task",               Channels.base(() -> "")),
+            Map.entry("query",              Channels.base(() -> "")),
+            Map.entry("original_query",     Channels.base(() -> "")),
+            Map.entry("context",            Channels.appender(ArrayList::new)),
+            Map.entry("decision",           Channels.base(() -> "")),
+            Map.entry("answer",             Channels.base(() -> "")),
+            Map.entry("attempt",            Channels.base(() -> 0)),
+            Map.entry("flow_spec_json",     Channels.base(() -> "")),
+            Map.entry("execution_result",   Channels.base(() -> "")),
+            Map.entry("iteration",          Channels.base(() -> 0)),
+            Map.entry("max_iterations",     Channels.base(() -> 5)),
+            Map.entry("status",             Channels.base(() -> "PLANNING")),
+            Map.entry("child_results",      Channels.appender(ArrayList::new)),
+            Map.entry("plan_steps",         Channels.base(ArrayList::new)),
+            Map.entry("current_step_index", Channels.base(() -> 0)),
+            Map.entry("completed_steps",    Channels.appender(ArrayList::new)),
+            Map.entry("step_result",        Channels.base(() -> "")),
+            Map.entry("plan_decision",      Channels.base(() -> "")),
+            Map.entry("critique",           Channels.base(() -> ""))
     );
 
     public CoordinatorState(Map<String, Object> initData) {
@@ -99,5 +106,66 @@ public class CoordinatorState extends AgentState {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> childResults() {
         return this.<List<Map<String, Object>>>value("child_results").orElse(List.of());
+    }
+
+    // ── Plan-and-Execute accessors ───────────────────────────
+
+    @SuppressWarnings("unchecked")
+    public List<PlanStep> planSteps() {
+        Object raw = this.value("plan_steps").orElse(null);
+        if (raw instanceof List<?> list) {
+            List<PlanStep> steps = new ArrayList<>();
+            for (Object item : list) {
+                if (item instanceof PlanStep ps) {
+                    steps.add(ps);
+                } else if (item instanceof Map<?, ?> m) {
+                    steps.add(PlanStep.fromMap((Map<String, Object>) m));
+                }
+            }
+            return steps;
+        }
+        return List.of();
+    }
+
+    public int currentStepIndex() {
+        return this.<Integer>value("current_step_index").orElse(0);
+    }
+
+    public Optional<PlanStep> currentStep() {
+        List<PlanStep> steps = planSteps();
+        int idx = currentStepIndex();
+        if (idx >= 0 && idx < steps.size()) {
+            return Optional.of(steps.get(idx));
+        }
+        return Optional.empty();
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<PlanStep> completedSteps() {
+        Object raw = this.value("completed_steps").orElse(null);
+        if (raw instanceof List<?> list) {
+            List<PlanStep> steps = new ArrayList<>();
+            for (Object item : list) {
+                if (item instanceof PlanStep ps) {
+                    steps.add(ps);
+                } else if (item instanceof Map<?, ?> m) {
+                    steps.add(PlanStep.fromMap((Map<String, Object>) m));
+                }
+            }
+            return steps;
+        }
+        return List.of();
+    }
+
+    public String stepResult() {
+        return this.<String>value("step_result").orElse("");
+    }
+
+    public String planDecision() {
+        return this.<String>value("plan_decision").orElse("");
+    }
+
+    public String critique() {
+        return this.<String>value("critique").orElse("");
     }
 }
