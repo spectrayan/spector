@@ -203,7 +203,7 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
 
     @Override
     public ReflectReport reflect() {
-        return withObservation(SpectorObservationDocumentation.MEMORY_CONSOLIDATE,
+        return withObservation(SpectorObservationDocumentation.MEMORY_REFLECT,
                 createTags(null, null, null),
                 delegate::reflect);
     }

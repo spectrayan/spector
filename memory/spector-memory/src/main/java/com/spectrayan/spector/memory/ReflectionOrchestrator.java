@@ -54,7 +54,10 @@ import java.util.Map;
  *
  * <p>Thread-safe: individual subsystem operations are thread-safe; the orchestrator
  * itself does not maintain mutable state.</p>
+ *
+ * @deprecated As of 1.3.0, replaced by {@link ReflectPathway} and its composable relays.
  */
+@Deprecated(since = "1.3.0", forRemoval = true)
 final class ReflectionOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(ReflectionOrchestrator.class);

@@ -83,6 +83,7 @@ public final class SpectorMemoryFactory {
             EmbeddingProvider embeddingProvider,
             RecallPipeline recallPipeline,
             RecallPathway recallPathway,
+            ReflectPathway reflectPathway,
             MemoryIndex index,
             ScalarQuantizer quantizer,
             PartitionManager partitionManager,
@@ -277,7 +278,31 @@ public final class SpectorMemoryFactory {
             log.info("Cognitive Pathway Engine enabled — recall and remember use relay-based pathways");
         }
 
-        //  Extracted Components 
+        //  Reflect Pathway (#503 / ADR-0007)
+        ReflectPathway reflectPathway = ReflectPathway.builder()
+                .embeddingProvider(embeddingProvider)
+                .textGenerator(builder.LlmProvider)
+                .importanceProvider(importanceProvider)
+                .policy(builder.circadianPolicy)
+                .centroidRouter(builder.dimensions > 0 ? new com.spectrayan.spector.memory.cortex.CentroidRouter(builder.dimensions) : null)
+                .hebbianGraph(graphs.hebbianGraph())
+                .temporalChain(graphs.temporalChain())
+                .entityDirectory(graphs.entityDirectory())
+                .hyperEntityGraph(graphs.hyperEntityGraph())
+                .wal(wal)
+                .typeNormalizer(typeNormalizer)
+                .minClusterSize(5)
+                .pinSourceEpisodes(builder.pinSourceEpisodes)
+                .pinnedQuota(builder.pinnedQuota)
+                .soulDriftRefusionEnabled(true)
+                .soulDriftRefusionBatchSize(100)
+                .temporalRetentionDays(builder.temporalRetentionDays)
+                .entityResolutionEnabled(builder.entityResolutionEnabled)
+                .entityShadowMode(builder.entityShadowMode)
+                .entityCosineThreshold(builder.entityCosineThreshold)
+                .build();
+
+        //  Extracted Components (Deprecated, retained for backward compatibility)
         ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
                 bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
                 graphs.hyperEntityGraph(), wal, builder.temporalRetentionDays,
@@ -312,7 +337,7 @@ public final class SpectorMemoryFactory {
         }
 
         return new SubsystemBundle(
-                cognitiveTarget, rememberPathway, embeddingProvider, recallPipeline, recallPathway, index, cortex.quantizer(),
+                cognitiveTarget, rememberPathway, embeddingProvider, recallPipeline, recallPathway, reflectPathway, index, cortex.quantizer(),
                 partitionManager, importanceProvider, reflectionOrchestrator,
                 reinforcementHandler, bio.valenceTracker(), bio.coActivationTracker(),
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),

@@ -21,6 +21,7 @@ import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
+import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.config.ObservabilityConfig;
 import com.spectrayan.spector.metrics.observation.MicrometerMemoryObservationHook;
 import io.micrometer.observation.tck.TestObservationRegistry;
@@ -112,6 +113,25 @@ class ObservedSpectorMemoryTest {
                 .that()
                 .hasLowCardinalityKeyValue("spector.status", "SUCCESS")
                 .hasHighCardinalityKeyValue("spector.memory_id", "mem-del");
+    }
+
+    @Test
+    @DisplayName("reflect() creates observation and returns ReflectReport")
+    void testReflectObservation() {
+        ReflectReport mockReport = new ReflectReport(5, 2, 1, 0, java.time.Duration.ofMillis(100), null, 3, 3, 0.45f, 5);
+        when(delegate.reflect()).thenReturn(mockReport);
+
+        ReflectReport report = memory.reflect();
+
+        assertThat(report).isNotNull();
+        assertThat(report.consolidatedCount()).isEqualTo(5);
+        verify(delegate).reflect();
+
+        TestObservationRegistryAssert.assertThat(registry)
+                .hasObservationWithNameEqualTo("spector.memory.reflect")
+                .that()
+                .hasLowCardinalityKeyValue("spector.operation", "spector.memory.reflect")
+                .hasLowCardinalityKeyValue("spector.status", "SUCCESS");
     }
 
     @Test
