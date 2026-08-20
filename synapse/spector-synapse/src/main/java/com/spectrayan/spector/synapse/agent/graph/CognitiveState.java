@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Map.entry;
+
 /**
  * Cognitive agent state that flows through the LangGraph4j graph.
  *
@@ -29,11 +31,15 @@ import java.util.Optional;
  *   <li>{@code query} — current search query (overwrite semantics)</li>
  *   <li>{@code original_query} — original user query (overwrite)</li>
  *   <li>{@code context} — retrieved cognitive results as text (appender — accumulates)</li>
- *   <li>{@code decision} — LLM routing decision: GENERATE, REQUERY (overwrite)</li>
+ *   <li>{@code decision} — LLM routing decision: GENERATE, REQUERY, USE_TOOLS (overwrite)</li>
  *   <li>{@code answer} — final generated answer (overwrite)</li>
  *   <li>{@code attempt} — retrieval attempt counter (overwrite)</li>
  *   <li>{@code tool_calls} — pending tool call requests (appender)</li>
  *   <li>{@code tool_results} — tool execution results (appender)</li>
+ *   <li>{@code child_results} — aggregated subtask results (appender)</li>
+ *   <li>{@code reflection_decision} — post-generation quality decision: ACCEPT, RETRY_GENERATE, RETRY_RETRIEVE (overwrite)</li>
+ *   <li>{@code critique} — accumulated reflection feedback critiques across retries (appender)</li>
+ *   <li>{@code retry_count} — counter for self-correction retry attempts (overwrite)</li>
  * </ul>
  *
  * <h3>Thread Safety</h3>
@@ -43,16 +49,19 @@ import java.util.Optional;
 public class CognitiveState extends AgentState {
 
     /** State schema — defines channels with their merge semantics. */
-    public static final Map<String, Channel<?>> SCHEMA = Map.of(
-            "query",          Channels.base(() -> ""),
-            "original_query", Channels.base(() -> ""),
-            "context",        Channels.appender(ArrayList::new),
-            "decision",       Channels.base(() -> ""),
-            "answer",         Channels.base(() -> ""),
-            "attempt",        Channels.base(() -> 0),
-            "tool_calls",     Channels.appender(ArrayList::new),
-            "tool_results",   Channels.appender(ArrayList::new),
-            "child_results",  Channels.appender(ArrayList::new)
+    public static final Map<String, Channel<?>> SCHEMA = Map.ofEntries(
+            entry("query",               Channels.base(() -> "")),
+            entry("original_query",      Channels.base(() -> "")),
+            entry("context",             Channels.appender(ArrayList::new)),
+            entry("decision",            Channels.base(() -> "")),
+            entry("answer",              Channels.base(() -> "")),
+            entry("attempt",             Channels.base(() -> 0)),
+            entry("tool_calls",          Channels.appender(ArrayList::new)),
+            entry("tool_results",        Channels.appender(ArrayList::new)),
+            entry("child_results",       Channels.appender(ArrayList::new)),
+            entry("reflection_decision", Channels.base(() -> "ACCEPT")),
+            entry("critique",            Channels.appender(ArrayList::new)),
+            entry("retry_count",         Channels.base(() -> 0))
     );
 
     public CognitiveState(Map<String, Object> initData) {
@@ -99,5 +108,18 @@ public class CognitiveState extends AgentState {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> childResults() {
         return this.<List<Map<String, Object>>>value("child_results").orElse(List.of());
+    }
+
+    public String reflectionDecision() {
+        return this.<String>value("reflection_decision").orElse("ACCEPT");
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<String> critiques() {
+        return this.<List<String>>value("critique").orElse(List.of());
+    }
+
+    public int retryCount() {
+        return this.<Integer>value("retry_count").orElse(0);
     }
 }

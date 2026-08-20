@@ -29,7 +29,8 @@ import java.util.Objects;
 /**
  * GENERATE node — produces the final answer from accumulated context.
  *
- * <p>Reads context from the state's {@code context} channel, constructs a
+ * <p>Reads context from the state's {@code context} channel, incorporates any
+ * previous self-reflection critiques from {@code critique}, constructs a
  * generation prompt, and writes the LLM's response to the {@code answer} channel.</p>
  *
  * <p>Uses the {@link LlmBridge} (Spring AI / LangChain4j) for LLM calls.</p>
@@ -51,12 +52,19 @@ public final class GenerateNode implements NodeAction<CognitiveState> {
                 ? "(No relevant context found)"
                 : String.join("\n", contextEntries);
 
-        log.info("[GenerateNode] Generating answer from {} context entries", contextEntries.size());
+        List<String> critiques = state.critiques();
+        log.info("[GenerateNode] Generating answer from {} context entries (critiques={})",
+                contextEntries.size(), critiques.size());
 
         String promptTemplate = loadPromptTemplate("cognitive-generate-system");
         String prompt = promptTemplate
                 .replace("{{context}}", contextText)
                 .replace("{{query}}", state.originalQuery());
+
+        if (!critiques.isEmpty()) {
+            prompt = prompt + "\n\nCRITIQUE FROM PREVIOUS ATTEMPTS (Please address these points in your revised answer):\n"
+                    + String.join("\n", critiques) + "\n";
+        }
 
         String answer = llmBridge.generate(prompt);
         log.info("[GenerateNode] Generated answer ({} chars)", answer.length());
