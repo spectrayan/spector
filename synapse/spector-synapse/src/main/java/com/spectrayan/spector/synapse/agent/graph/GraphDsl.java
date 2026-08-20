@@ -41,7 +41,7 @@ public record GraphDsl(
     /** A node definition in the graph. */
     public record NodeDef(
             String name,
-            String type,           // "retrieve", "generate", "evaluate", "tool"
+            String type,           // "retrieve", "generate", "evaluate", "reflection", "tool"
             Map<String, String> config
     ) {
         public NodeDef {
@@ -58,7 +58,7 @@ public record GraphDsl(
     /** A conditional edge with routing function. */
     public record ConditionalEdgeDef(
             String from,
-            String routerType,     // "quality_check", "tool_needed", "custom"
+            String routerType,     // "quality_check", "reflection_check", "tool_needed", "custom"
             Map<String, String> routes  // condition -> target node
     ) {
         public ConditionalEdgeDef {

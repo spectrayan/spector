@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * Specification for a single node in the graph.
  *
- * @param type          node type: AGENT, TOOL, FUNCTION, SUBGRAPH, END
+ * @param type          node type: AGENT, TOOL, FUNCTION, SUBGRAPH, REFLECTION, END
  * @param description   human-readable description
  * @param agent         agent ID reference (for AGENT type)
  * @param toolName      tool name from registry (for TOOL type)
@@ -46,7 +46,7 @@ public record NodeSpec(
     }
 
     public enum NodeType {
-        AGENT, TOOL, FUNCTION, SUBGRAPH, END
+        AGENT, TOOL, FUNCTION, SUBGRAPH, REFLECTION, END
     }
 
     /**

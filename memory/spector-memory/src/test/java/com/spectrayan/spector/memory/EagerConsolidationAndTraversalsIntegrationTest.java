@@ -147,11 +147,16 @@ class EagerConsolidationAndTraversalsIntegrationTest {
         Thread.sleep(20);
         memory.remember("loc-2", textB, MemoryType.SEMANTIC, MemorySource.OBSERVED, "location");
 
-        // Await async eager consolidation or trigger consolidation
+        // Await async eager consolidation and temporal fact retraction
         long deadline = System.currentTimeMillis() + 3000;
+        boolean retracted = false;
         while (System.currentTimeMillis() < deadline) {
             CognitiveRecord r1 = memory.inspect("loc-1");
-            if (r1 != null && r1.isContradicted()) {
+            List<TemporalFact> facts = memory.temporalKnowledgeGraph().factsAbout(aliceId)
+                    .excludeRetracted()
+                    .resolve();
+            if (r1 != null && r1.isContradicted() && facts.stream().noneMatch(f -> f.factId() == factId)) {
+                retracted = true;
                 break;
             }
             Thread.sleep(50);
@@ -159,7 +164,7 @@ class EagerConsolidationAndTraversalsIntegrationTest {
 
         // Run batch consolidation fallback if not already resolved by eager consolidator
         CognitiveRecord record1 = memory.inspect("loc-1");
-        if (record1 == null || !record1.isContradicted()) {
+        if (record1 == null || !record1.isContradicted() || !retracted) {
             memory.consolidate();
             record1 = memory.inspect("loc-1");
         }

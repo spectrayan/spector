@@ -20,6 +20,7 @@ import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.mcp.tools.McpToolHandler;
 import com.spectrayan.spector.synapse.agent.ToolRegistry;
+import com.spectrayan.spector.synapse.agent.graph.nodes.ReflectionNode;
 import com.spectrayan.spector.synapse.agent.graph.spec.AgentSpec;
 import com.spectrayan.spector.synapse.agent.graph.spec.ConditionalEdgeSpec;
 import com.spectrayan.spector.synapse.agent.graph.spec.EdgeSpec;
@@ -59,7 +60,9 @@ import java.util.concurrent.TimeoutException;
  * <ul>
  *   <li>{@code AGENT} — creates an LLM call node using the referenced AgentSpec</li>
  *   <li>{@code TOOL} — looks up an {@link AgentTool} from the {@link ToolRegistry}</li>
+ *   <li>{@code FUNCTION} — executes custom function logic</li>
  *   <li>{@code SUBGRAPH} — recursively compiles another FlowSpec as a subgraph</li>
+ *   <li>{@code REFLECTION} — creates a {@link ReflectionNode} for quality evaluation and self-correction</li>
  *   <li>{@code END} — terminal node (routes to LangGraph4j END)</li>
  * </ul>
  *
@@ -165,6 +168,7 @@ public final class DynamicGraphBuilder {
             case TOOL -> createToolNode(nodeName, nodeSpec);
             case FUNCTION -> createFunctionNode(nodeName, nodeSpec);
             case SUBGRAPH -> createSubgraphNode(nodeName, nodeSpec);
+            case REFLECTION -> createReflectionNode(nodeName, nodeSpec);
             case END -> throw new IllegalStateException("END nodes should not be resolved");
         };
 
@@ -318,6 +322,14 @@ public final class DynamicGraphBuilder {
         };
     }
 
+    private NodeAction<CognitiveState> createReflectionNode(String nodeName, NodeSpec nodeSpec) {
+        int maxRetries = 3;
+        if (nodeSpec.retryPolicy() != null && nodeSpec.retryPolicy().maxRetries() > 0) {
+            maxRetries = nodeSpec.retryPolicy().maxRetries();
+        }
+        return new ReflectionNode(llmBridge, maxRetries, true);
+    }
+
     // ── Conditional edges ─────────────────────────────────────
 
     private void addConditionalEdge(StateGraph<CognitiveState> graph,
@@ -329,8 +341,11 @@ public final class DynamicGraphBuilder {
         graph.addConditionalEdges(condEdge.from(),
                 edge_async(state -> {
                     String fieldValue = state.<String>value(field).orElse("");
-                    String target = mapping.getOrDefault(fieldValue.toUpperCase(), defaultTarget);
-                    return "END".equalsIgnoreCase(target) ? END : target;
+                    String upper = fieldValue.toUpperCase();
+                    if (mapping.containsKey(upper)) {
+                        return upper;
+                    }
+                    return "_DEFAULT_";
                 }),
                 resolveEdgeMappings(mapping, defaultTarget)
         );
@@ -341,10 +356,10 @@ public final class DynamicGraphBuilder {
         var resolved = new LinkedHashMap<String, String>();
         for (var entry : condMapping.entrySet()) {
             String target = "END".equalsIgnoreCase(entry.getValue()) ? END : entry.getValue();
-            resolved.put(entry.getKey(), target);
+            resolved.put(entry.getKey().toUpperCase(), target);
         }
         String defTarget = "END".equalsIgnoreCase(defaultTarget) ? END : defaultTarget;
-        resolved.put(defaultTarget, defTarget);
+        resolved.put("_DEFAULT_", defTarget);
         return resolved;
     }
 

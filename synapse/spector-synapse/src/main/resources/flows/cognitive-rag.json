@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "id": "cognitive-rag",
-  "name": "Cognitive RAG Pipeline",
+  "name": "Cognitive RAG Pipeline with Self-Correction",
   "entry_point": "retrieve",
   "nodes": {
     "retrieve": {
@@ -18,11 +18,18 @@
       "type": "AGENT",
       "description": "Generate the final answer from context",
       "agent": "generator"
+    },
+    "reflection": {
+      "type": "REFLECTION",
+      "description": "Assess response quality across 4 dimensions and trigger self-correction",
+      "retry_policy": {
+        "max_retries": 3
+      }
     }
   },
   "edges": [
     { "from": "retrieve", "to": "evaluate", "condition": "always" },
-    { "from": "generate", "to": "END", "condition": "always" }
+    { "from": "generate", "to": "reflection", "condition": "always" }
   ],
   "conditional_edges": [
     {
@@ -33,6 +40,16 @@
         "REQUERY": "retrieve"
       },
       "default_target": "generate"
+    },
+    {
+      "from": "reflection",
+      "condition_field": "reflection_decision",
+      "condition_mapping": {
+        "ACCEPT": "END",
+        "RETRY_GENERATE": "generate",
+        "RETRY_RETRIEVE": "retrieve"
+      },
+      "default_target": "END"
     }
   ],
   "agents": [
