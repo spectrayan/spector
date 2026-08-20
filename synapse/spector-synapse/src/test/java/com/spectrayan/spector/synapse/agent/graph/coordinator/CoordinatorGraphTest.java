@@ -129,4 +129,102 @@ class CoordinatorGraphTest {
         assertThat(success.answer()).contains("Java 25");
         assertThat(success.iterations()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("execute — executes multi-step plan sequentially and synthesizes final answer")
+    void execute_multiStepPlan_executesSequentiallyAndSynthesizes() throws Exception {
+        CoordinatorGraph graph = CoordinatorGraph.create(llmBridge, dynamicGraphBuilder, List.of("web_search"), soulService, 5);
+
+        String planJson = """
+                ```json
+                [
+                  { "step": 1, "description": "Gather market facts" },
+                  { "step": 2, "description": "Synthesize market projection" }
+                ]
+                ```
+                """;
+
+        when(soulService.listAllAgents()).thenReturn(List.of());
+        when(llmBridge.generate(any(String.class))).thenAnswer(invocation -> {
+            String prompt = invocation.getArgument(0);
+            if (prompt.contains("task planner")) {
+                return planJson;
+            }
+            if (prompt.contains("Perform the following step")) {
+                if (prompt.contains("Gather market facts")) return "Fact: Market grew by 20%.";
+                if (prompt.contains("Synthesize market projection")) return "Projection: Next year will grow by 25%.";
+            }
+            if (prompt.contains("quality gate evaluator") || prompt.contains("Evaluate whether")) {
+                if (prompt.contains("Step 1 of 2")) return "DECISION: NEXT_STEP";
+                if (prompt.contains("Step 2 of 2")) return "DECISION: SYNTHESIZE";
+            }
+            if (prompt.contains("final synthesis engine") || prompt.contains("Synthesize a comprehensive")) {
+                return "Consolidated Analysis: Market grew 20% and is projected to grow 25%.";
+            }
+            return "Default answer";
+        });
+
+        var result = graph.execute("Analyze market growth");
+        assertThat(result).isInstanceOf(CoordinatorGraph.CoordinatorResult.Success.class);
+        var success = (CoordinatorGraph.CoordinatorResult.Success) result;
+        assertThat(success.answer()).contains("Consolidated Analysis");
+    }
+
+    @Test
+    @DisplayName("execute — triggers adaptive replanning on step failure and completes task")
+    void execute_adaptiveReplanning_onStepFailure() throws Exception {
+        CoordinatorGraph graph = CoordinatorGraph.create(llmBridge, dynamicGraphBuilder, List.of("web_search"), soulService, 5);
+
+        String initialPlan = """
+                ```json
+                [
+                  { "step": 1, "description": "Query external API" }
+                ]
+                ```
+                """;
+
+        String adaptedPlan = """
+                ```json
+                [
+                  { "step": 1, "description": "Query local cache fallback" }
+                ]
+                ```
+                """;
+
+        when(soulService.listAllAgents()).thenReturn(List.of());
+        final boolean[] failedOnce = {false};
+
+        when(llmBridge.generate(any(String.class))).thenAnswer(invocation -> {
+            String prompt = invocation.getArgument(0);
+            if (prompt.contains("task planner")) {
+                return initialPlan;
+            }
+            if (prompt.contains("adaptive replanner")) {
+                return adaptedPlan;
+            }
+            if (prompt.contains("Perform the following step")) {
+                if (prompt.contains("Query external API")) {
+                    failedOnce[0] = true;
+                    return "ERROR: Network timeout on external API";
+                }
+                if (prompt.contains("Query local cache fallback")) {
+                    return "Cache retrieved: System health 99.9%";
+                }
+            }
+            if (prompt.contains("quality gate evaluator")) {
+                if (prompt.contains("Cache retrieved")) return "DECISION: SYNTHESIZE";
+                return "DECISION: REPLAN\nCRITIQUE: Network timeout";
+            }
+            if (prompt.contains("final synthesis engine")) {
+                return "System health is 99.9% (retrieved from local cache).";
+            }
+            return "Default";
+        });
+
+        var result = graph.execute("Check system health");
+        assertThat(result).isInstanceOf(CoordinatorGraph.CoordinatorResult.Success.class);
+        var success = (CoordinatorGraph.CoordinatorResult.Success) result;
+        assertThat(success.answer()).contains("System health is 99.9%");
+        assertThat(failedOnce[0]).isTrue();
+    }
 }

@@ -17,10 +17,14 @@ import static org.bsc.langgraph4j.StateGraph.START;
 import static org.bsc.langgraph4j.action.AsyncEdgeAction.edge_async;
 import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 
+import com.spectrayan.spector.synapse.agent.graph.AgenticChatGraph;
 import com.spectrayan.spector.synapse.agent.graph.DynamicGraphBuilder;
+import com.spectrayan.spector.synapse.agent.graph.coordinator.nodes.PlanAdapterNode;
 import com.spectrayan.spector.synapse.agent.graph.coordinator.nodes.PlannerNode;
 import com.spectrayan.spector.synapse.agent.graph.coordinator.nodes.ResultEvaluatorNode;
-import com.spectrayan.spector.synapse.agent.graph.coordinator.nodes.SubgraphExecutorNode;
+import com.spectrayan.spector.synapse.agent.graph.coordinator.nodes.StepExecutorNode;
+import com.spectrayan.spector.synapse.agent.graph.coordinator.nodes.SynthesizeNode;
+import com.spectrayan.spector.synapse.agent.service.CognitiveSoulService;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 
 import org.bsc.langgraph4j.CompiledGraph;
@@ -34,30 +38,31 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The coordinator meta-graph — orchestrates dynamic workflow generation and execution.
+ * The coordinator meta-graph — orchestrates dynamic Plan-and-Execute workflow generation and execution.
  *
  * <h3>Graph Structure</h3>
  * <pre>
- * START → planner → executor → evaluator →(DONE)→ END
- *            ↑                               │
- *            └────── CONTINUE ───────────────┘
+ * START → planner → step_executor → evaluator
+ *             │           ▲            │
+ *             │           │--NEXT_STEP-┤
+ *             │           │--REPLAN---► plan_adapter ──► step_executor
+ *             │           │
+ *             └───────────┴--SYNTHESIZE/DONE ─────────► synthesizer ──► END
  * </pre>
  *
- * <p>The planner asks the LLM to generate a FlowSpec JSON. The executor compiles
- * and runs it as a subgraph. The evaluator decides if the task is complete or
- * needs another planning/execution cycle.</p>
- *
- * <h3>Spring AI Integration</h3>
- * <p>Uses {@link LlmBridge} for all LLM calls. The model can be changed
- * dynamically by the user during chat sessions.</p>
+ * <p>The planner decomposes goals into sequenced PlanSteps. The step executor executes each step
+ * sequentially via dynamic subgraphs or agent delegation. The evaluator assesses intermediate outputs,
+ * triggering adaptive replanning on failure or routing to the synthesizer on completion.</p>
  */
 public final class CoordinatorGraph {
 
     private static final Logger log = LoggerFactory.getLogger(CoordinatorGraph.class);
 
-    private static final String NODE_PLANNER   = "planner";
-    private static final String NODE_EXECUTOR  = "executor";
-    private static final String NODE_EVALUATOR = "evaluator";
+    private static final String NODE_PLANNER       = "planner";
+    private static final String NODE_STEP_EXECUTOR = "step_executor";
+    private static final String NODE_EVALUATOR     = "evaluator";
+    private static final String NODE_PLAN_ADAPTER  = "plan_adapter";
+    private static final String NODE_SYNTHESIZER   = "synthesizer";
 
     private final CompiledGraph<CoordinatorState> graph;
 
@@ -67,34 +72,34 @@ public final class CoordinatorGraph {
 
     /**
      * Builds and compiles the coordinator graph.
-     *
-     * @param llmBridge      LLM bridge for planner and evaluator calls
-     * @param dynamicBuilder dynamic graph builder for subgraph compilation
-     * @param availableTools list of available tool names
-     * @return a new coordinator graph instance
      */
     public static CoordinatorGraph create(LlmBridge llmBridge,
-                                           DynamicGraphBuilder dynamicBuilder,
-                                           List<String> availableTools,
-                                           com.spectrayan.spector.synapse.agent.service.CognitiveSoulService soulService) throws Exception {
-        return create(llmBridge, dynamicBuilder, availableTools, soulService, 5);
+                                          DynamicGraphBuilder dynamicBuilder,
+                                          List<String> availableTools,
+                                          CognitiveSoulService soulService) throws Exception {
+        return create(llmBridge, dynamicBuilder, availableTools, soulService, null, 5);
     }
 
     /**
      * Builds and compiles the coordinator graph with configurable iteration limit.
-     *
-     * @param llmBridge      LLM bridge for planner and evaluator calls
-     * @param dynamicBuilder dynamic graph builder for subgraph compilation
-     * @param availableTools list of available tool names
-     * @param soulService    cognitive soul service for retrieving agent identities
-     * @param maxIterations  maximum planning-execution cycles before forced termination
-     * @return a new coordinator graph instance
      */
     public static CoordinatorGraph create(LlmBridge llmBridge,
-                                           DynamicGraphBuilder dynamicBuilder,
-                                           List<String> availableTools,
-                                           com.spectrayan.spector.synapse.agent.service.CognitiveSoulService soulService,
-                                           int maxIterations) throws Exception {
+                                          DynamicGraphBuilder dynamicBuilder,
+                                          List<String> availableTools,
+                                          CognitiveSoulService soulService,
+                                          int maxIterations) throws Exception {
+        return create(llmBridge, dynamicBuilder, availableTools, soulService, null, maxIterations);
+    }
+
+    /**
+     * Builds and compiles the coordinator graph with agent delegation and iteration limits.
+     */
+    public static CoordinatorGraph create(LlmBridge llmBridge,
+                                          DynamicGraphBuilder dynamicBuilder,
+                                          List<String> availableTools,
+                                          CognitiveSoulService soulService,
+                                          AgenticChatGraph agenticChatGraph,
+                                          int maxIterations) throws Exception {
         Objects.requireNonNull(llmBridge, "llmBridge");
         Objects.requireNonNull(dynamicBuilder, "dynamicBuilder");
         Objects.requireNonNull(soulService, "soulService");
@@ -102,38 +107,50 @@ public final class CoordinatorGraph {
         final int maxIter = maxIterations > 0 ? maxIterations : 5;
 
         var planner = new PlannerNode(llmBridge, availableTools, soulService);
-        var executor = new SubgraphExecutorNode(dynamicBuilder);
+        var stepExecutor = new StepExecutorNode(dynamicBuilder, llmBridge, soulService, agenticChatGraph);
         var evaluator = new ResultEvaluatorNode(llmBridge);
+        var planAdapter = new PlanAdapterNode(llmBridge, availableTools, soulService);
+        var synthesizer = new SynthesizeNode(llmBridge);
 
-        var graph = new StateGraph<>(CoordinatorState.SCHEMA, CoordinatorState::new)
+        var stateGraph = new StateGraph<>(CoordinatorState.SCHEMA, CoordinatorState::new)
                 .addNode(NODE_PLANNER, node_async(planner))
-                .addNode(NODE_EXECUTOR, node_async(executor))
+                .addNode(NODE_STEP_EXECUTOR, node_async(stepExecutor))
                 .addNode(NODE_EVALUATOR, node_async(evaluator))
+                .addNode(NODE_PLAN_ADAPTER, node_async(planAdapter))
+                .addNode(NODE_SYNTHESIZER, node_async(synthesizer))
                 .addEdge(START, NODE_PLANNER)
-                .addEdge(NODE_PLANNER, NODE_EXECUTOR)
-                .addEdge(NODE_EXECUTOR, NODE_EVALUATOR)
+                .addEdge(NODE_PLANNER, NODE_STEP_EXECUTOR)
+                .addEdge(NODE_STEP_EXECUTOR, NODE_EVALUATOR)
+                .addEdge(NODE_PLAN_ADAPTER, NODE_STEP_EXECUTOR)
+                .addEdge(NODE_SYNTHESIZER, END)
                 .addConditionalEdges(NODE_EVALUATOR,
                         edge_async(state -> {
                             int iteration = state.iteration();
 
-                            // Iteration guard — prevent infinite loops
+                            // Guardrail against runaway loops
                             if (iteration >= maxIter) {
-                                log.warn("[CoordinatorGraph] Max iterations ({}) reached, forcing DONE", maxIter);
-                                return "done";
+                                log.warn("[CoordinatorGraph] Max iterations ({}) reached, routing to SYNTHESIZE", maxIter);
+                                return "synthesize";
                             }
 
                             String decision = state.decision();
-                            if ("DONE".equalsIgnoreCase(decision)) return "done";
-                            return "continue";
+                            if ("REPLAN".equalsIgnoreCase(decision)) {
+                                return "replan";
+                            }
+                            if ("NEXT_STEP".equalsIgnoreCase(decision)) {
+                                return "next_step";
+                            }
+                            return "synthesize";
                         }),
                         Map.of(
-                                "done", END,
-                                "continue", NODE_PLANNER
+                                "next_step", NODE_STEP_EXECUTOR,
+                                "replan", NODE_PLAN_ADAPTER,
+                                "synthesize", NODE_SYNTHESIZER
                         )
                 );
 
-        var compiled = graph.compile();
-        log.info("[CoordinatorGraph] Compiled successfully (maxIterations={})", maxIter);
+        var compiled = stateGraph.compile();
+        log.info("[CoordinatorGraph] Compiled Plan-and-Execute graph successfully (maxIterations={})", maxIter);
         return new CoordinatorGraph(compiled);
     }
 
@@ -181,14 +198,6 @@ public final class CoordinatorGraph {
 
     /**
      * Structured result of a coordinator graph execution.
-     *
-     * <p>Callers can pattern-match on success/failure:</p>
-     * <pre>{@code
-     * switch (result) {
-     *     case CoordinatorResult.Success s -> handleAnswer(s.answer());
-     *     case CoordinatorResult.Failure f -> handleError(f.message());
-     * }
-     * }</pre>
      */
     public sealed interface CoordinatorResult
             permits CoordinatorResult.Success, CoordinatorResult.Failure {

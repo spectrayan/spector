@@ -12,7 +12,10 @@
  */
 package com.spectrayan.spector.synapse.agent.graph.coordinator.nodes;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spectrayan.spector.synapse.agent.graph.coordinator.CoordinatorState;
+import com.spectrayan.spector.synapse.agent.graph.coordinator.model.PlanStep;
 import com.spectrayan.spector.synapse.bridge.LlmBridge;
 
 import org.bsc.langgraph4j.action.NodeAction;
@@ -22,20 +25,20 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 /**
- * PLANNER node — asks the LLM to generate a FlowSpec JSON for the current task.
- *
- * <p>The LLM receives the task description, available tools, and context,
- * then outputs a valid FlowSpec JSON that the SubgraphExecutorNode will compile
- * and execute.</p>
+ * PLANNER node — decomposes complex tasks into an ordered sequence of PlanSteps
+ * or generates dynamic FlowSpec graphs for multi-agent workflows.
  */
 public final class PlannerNode implements NodeAction<CoordinatorState> {
 
     private static final Logger log = LoggerFactory.getLogger(PlannerNode.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final LlmBridge llmBridge;
     private final List<String> availableTools;
@@ -54,7 +57,7 @@ public final class PlannerNode implements NodeAction<CoordinatorState> {
         String task = state.task().isEmpty() ? state.query() : state.task();
         int iteration = state.iteration();
 
-        log.info("[PlannerNode] Planning iteration {} for task: '{}'", iteration, task);
+        log.info("[PlannerNode] Planning decomposition (iteration {}) for task: '{}'", iteration, task);
 
         String context = state.context().isEmpty()
                 ? "(no previous context)"
@@ -73,7 +76,11 @@ public final class PlannerNode implements NodeAction<CoordinatorState> {
             }
         }
 
-        String promptTemplate = loadPromptTemplate("coordinator-planner-system");
+        String promptTemplate = loadPromptTemplate("coordinator-planner-decompose");
+        if (promptTemplate == null || promptTemplate.isBlank()) {
+            promptTemplate = loadPromptTemplate("coordinator-planner-system");
+        }
+
         String prompt = promptTemplate
                 .replace("{{task}}", task)
                 .replace("{{available_tools}}", String.join(", ", availableTools))
@@ -85,55 +92,126 @@ public final class PlannerNode implements NodeAction<CoordinatorState> {
         String response = llmBridge.generate(prompt);
         log.debug("[PlannerNode] LLM response length: {}", response.length());
 
-        // Extract JSON from response
-        String flowJson = extractJson(response);
-        if (flowJson == null) {
-            log.warn("[PlannerNode] Failed to extract FlowSpec JSON, using raw response");
-            flowJson = response;
-        }
+        List<Map<String, Object>> planStepMaps = new ArrayList<>();
+        String flowJson = null;
 
-        return Map.of(
-                "flow_spec_json", flowJson,
-                "iteration", iteration + 1,
-                "status", "EXECUTING"
-        );
-    }
-
-    /** Extract JSON object from LLM response (handles ```json blocks, thinking tags). */
-    private static String extractJson(String response) {
-        if (response == null) return null;
-
-        // Strip thinking tags
-        String cleaned = response.replaceAll("(?s)<think>.*?</think>", "").strip();
-
-        // Try to find JSON in markdown code block
-        int fenceStart = cleaned.indexOf("```json");
-        if (fenceStart >= 0) {
-            int jsonStart = cleaned.indexOf('\n', fenceStart) + 1;
-            int fenceEnd = cleaned.indexOf("```", jsonStart);
-            if (fenceEnd > jsonStart) {
-                return cleaned.substring(jsonStart, fenceEnd).strip();
+        // 1. Try to extract JSON array of PlanSteps
+        String jsonArray = extractJsonArray(response);
+        if (jsonArray != null) {
+            try {
+                List<Map<String, Object>> parsed = MAPPER.readValue(jsonArray, new TypeReference<>() {});
+                if (parsed != null && !parsed.isEmpty()) {
+                    for (int i = 0; i < parsed.size(); i++) {
+                        var stepMap = new LinkedHashMap<>(parsed.get(i));
+                        if (!stepMap.containsKey("step")) {
+                            stepMap.put("step", i + 1);
+                        }
+                        if (!stepMap.containsKey("status")) {
+                            stepMap.put("status", PlanStep.STATUS_PENDING);
+                        }
+                        planStepMaps.add(stepMap);
+                    }
+                    log.info("[PlannerNode] Decomposed task into {} plan steps", planStepMaps.size());
+                }
+            } catch (Exception e) {
+                log.warn("[PlannerNode] Failed to parse plan steps array: {}", e.getMessage());
             }
         }
 
-        // Try plain ``` block
-        fenceStart = cleaned.indexOf("```");
+        // 2. Try to extract FlowSpec JSON object (backward compatibility / dynamic workflows)
+        if (planStepMaps.isEmpty()) {
+            flowJson = extractJsonObject(response);
+            if (flowJson != null) {
+                PlanStep singleStep = PlanStep.of(1, task).withFlowSpec(flowJson);
+                planStepMaps.add(singleStep.toMap());
+                log.info("[PlannerNode] Created 1-step plan from FlowSpec JSON");
+            }
+        }
+
+        // 3. Fallback: single direct execution step
+        if (planStepMaps.isEmpty()) {
+            PlanStep fallbackStep = PlanStep.of(1, task);
+            planStepMaps.add(fallbackStep.toMap());
+            log.info("[PlannerNode] Created 1-step fallback plan");
+        }
+
+        Map<String, Object> updates = new LinkedHashMap<>();
+        updates.put("plan_steps", planStepMaps);
+        updates.put("current_step_index", 0);
+        updates.put("iteration", iteration + 1);
+        updates.put("status", "EXECUTING_STEP");
+        if (flowJson != null) {
+            updates.put("flow_spec_json", flowJson);
+        }
+
+        return updates;
+    }
+
+    /** Extracts JSON array [...] from LLM response. */
+    static String extractJsonArray(String response) {
+        if (response == null) return null;
+        String cleaned = response.replaceAll("(?s)<think>.*?</think>", "").strip();
+
+        // 1. Markdown code block ```json ... ```
+        int fenceStart = cleaned.indexOf("```json");
+        if (fenceStart < 0) {
+            fenceStart = cleaned.indexOf("```");
+        }
         if (fenceStart >= 0) {
             int jsonStart = cleaned.indexOf('\n', fenceStart) + 1;
             int fenceEnd = cleaned.indexOf("```", jsonStart);
             if (fenceEnd > jsonStart) {
                 String candidate = cleaned.substring(jsonStart, fenceEnd).strip();
-                if (candidate.startsWith("{")) return candidate;
+                if (candidate.startsWith("[") && candidate.endsWith("]")) {
+                    return candidate;
+                }
             }
         }
 
-        // Try to find raw JSON object
-        int braceStart = cleaned.indexOf('{');
-        int braceEnd = cleaned.lastIndexOf('}');
-        if (braceStart >= 0 && braceEnd > braceStart) {
-            return cleaned.substring(braceStart, braceEnd + 1);
+        // 2. Direct top-level array
+        int start = cleaned.indexOf('[');
+        int end = cleaned.lastIndexOf(']');
+        if (start >= 0 && end > start) {
+            // Ensure no leading '{' before '[' (which would mean '[' is inside an object)
+            int braceStart = cleaned.indexOf('{');
+            if (braceStart < 0 || braceStart > start) {
+                return cleaned.substring(start, end + 1).strip();
+            }
+        }
+        return null;
+    }
+
+    /** Extracts JSON object {...} from LLM response. */
+    static String extractJsonObject(String response) {
+        if (response == null) return null;
+        String cleaned = response.replaceAll("(?s)<think>.*?</think>", "").strip();
+
+        // 1. Markdown code block ```json ... ```
+        int fenceStart = cleaned.indexOf("```json");
+        if (fenceStart < 0) {
+            fenceStart = cleaned.indexOf("```");
+        }
+        if (fenceStart >= 0) {
+            int jsonStart = cleaned.indexOf('\n', fenceStart) + 1;
+            int fenceEnd = cleaned.indexOf("```", jsonStart);
+            if (fenceEnd > jsonStart) {
+                String candidate = cleaned.substring(jsonStart, fenceEnd).strip();
+                if (candidate.startsWith("{") && candidate.endsWith("}")) {
+                    return candidate;
+                }
+            }
         }
 
+        // 2. Direct top-level object
+        int start = cleaned.indexOf('{');
+        int end = cleaned.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            // Ensure no leading '[' before '{' (which would mean '{' is inside an array)
+            int bracketStart = cleaned.indexOf('[');
+            if (bracketStart < 0 || bracketStart > start) {
+                return cleaned.substring(start, end + 1).strip();
+            }
+        }
         return null;
     }
 
@@ -146,16 +224,6 @@ public final class PlannerNode implements NodeAction<CoordinatorState> {
         } catch (IOException e) {
             log.warn("[PlannerNode] Failed to load prompt: {}", name);
         }
-        return """
-                You are a task planner. Generate a FlowSpec JSON to accomplish the following task.
-                
-                TASK: {{task}}
-                AVAILABLE TOOLS: {{available_tools}}
-                PREVIOUS CONTEXT: {{context}}
-                PREVIOUS RESULT: {{previous_result}}
-                ITERATION: {{iteration}}
-                
-                Generate a valid FlowSpec JSON with nodes, edges, and agents.
-                """;
+        return "";
     }
 }
