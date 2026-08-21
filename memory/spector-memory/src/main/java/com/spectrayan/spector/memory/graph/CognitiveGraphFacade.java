@@ -922,8 +922,15 @@ public final class CognitiveGraphFacade {
                     }
                     if (validSubjectMems.isEmpty()) continue;
 
+                    Set<Integer> retractedIds = temporalKnowledgeGraph.retractedFactIds();
+                    long nowMs = System.currentTimeMillis();
+
                     for (var fact : facts) {
                         if (fact.isRetraction()) continue;
+                        // Filter retracted facts (superseded by newer assertions)
+                        if (retractedIds.contains(fact.factId())) continue;
+                        // Filter expired validity windows
+                        if (fact.validTo() != Long.MAX_VALUE && fact.validTo() <= nowMs) continue;
                         int objectId = fact.objectEntityId();
                         if (!validEntityIds.contains(objectId)) continue;
 
