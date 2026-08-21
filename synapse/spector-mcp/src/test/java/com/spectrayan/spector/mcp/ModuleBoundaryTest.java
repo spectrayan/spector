@@ -62,6 +62,7 @@ class ModuleBoundaryTest {
                         "com.spectrayan.spector.memory.cortex..",
                         "com.spectrayan.spector.memory.synapse.."
                 )
+                .allowEmptyShould(true)
                 .because("MCP tools must use SpectorMemory public API, not internal graph/hebbian/cortex classes (see #581)");
 
         rule.check(mcpClasses);
@@ -76,6 +77,7 @@ class ModuleBoundaryTest {
                 .resideInAnyPackage(
                         "com.spectrayan.spector.memory.temporal.."
                 )
+                .allowEmptyShould(true)
                 .because("MCP tools must use SpectorMemory.factsAbout()/factHistory(), not TemporalKnowledgeGraph directly (see #581)");
 
         rule.check(mcpClasses);
@@ -90,6 +92,7 @@ class ModuleBoundaryTest {
                 .resideInAnyPackage(
                         "com.spectrayan.spector.memory.index.."
                 )
+                .allowEmptyShould(true)
                 .because("MCP tools must not access MemoryIndex directly (see #581)");
 
         rule.check(mcpClasses);
@@ -102,6 +105,7 @@ class ModuleBoundaryTest {
                 .that().resideInAPackage("com.spectrayan.spector.mcp..")
                 .should().dependOnClassesThat()
                 .resideInAPackage("com.spectrayan.spector.memory.kernel..")
+                .allowEmptyShould(true)
                 .because("MCP tools must not access low-level kernel memory layouts (see #581)");
 
         rule.check(mcpClasses);

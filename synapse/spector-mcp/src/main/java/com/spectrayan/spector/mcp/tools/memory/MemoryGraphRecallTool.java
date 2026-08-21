@@ -165,10 +165,13 @@ public final class MemoryGraphRecallTool extends MemoryToolHandler {
                 for (int i = 0; i < path.nodes().size(); i++) {
                     var node = path.nodes().get(i);
                     sb.append("`").append(node.entityName()).append("` (").append(node.entityType()).append(")");
-                    if (node.relation() != null) {
-                        sb.append(" ──[").append(node.relation()).append("]──> ");
-                    } else if (i < path.nodes().size() - 1) {
-                        sb.append(" ──> ");
+                    if (i < path.nodes().size() - 1) {
+                        var nextNode = path.nodes().get(i + 1);
+                        if (nextNode.relation() != null && !nextNode.relation().isBlank()) {
+                            sb.append(" ──[").append(nextNode.relation()).append("]──> ");
+                        } else {
+                            sb.append(" ──> ");
+                        }
                     }
                 }
                 sb.append("\n");

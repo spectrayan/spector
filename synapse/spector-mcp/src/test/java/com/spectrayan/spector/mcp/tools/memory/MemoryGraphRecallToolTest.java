@@ -16,66 +16,42 @@
 package com.spectrayan.spector.mcp.tools.memory;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
-import com.spectrayan.spector.memory.SpectorMemory;
-import com.spectrayan.spector.memory.SpectorMemoryAdmin;
-import com.spectrayan.spector.memory.graph.EntityDirectory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdge;
-import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory.HyperEdgeVertex;
-import com.spectrayan.spector.memory.graph.TypeRegistryMemory;
-import com.spectrayan.spector.memory.index.MemoryIndex;
 import com.spectrayan.spector.mcp.tools.McpToolHandler.McpToolCategory;
-import com.spectrayan.spector.memory.model.CognitiveRecord;
-import com.spectrayan.spector.memory.model.MemoryType;
-import com.spectrayan.spector.memory.temporal.TemporalFact;
-import com.spectrayan.spector.memory.temporal.TemporalKnowledgeGraph;
+import com.spectrayan.spector.memory.SpectorMemory;
+import com.spectrayan.spector.memory.model.GraphRecallOptions;
+import com.spectrayan.spector.memory.model.GraphTraversalResult;
+import com.spectrayan.spector.memory.model.GraphTraversalResult.DiscoveredEntity;
+import com.spectrayan.spector.memory.model.GraphTraversalResult.GroundingMemory;
+import com.spectrayan.spector.memory.model.GraphTraversalResult.PathNode;
+import com.spectrayan.spector.memory.model.GraphTraversalResult.RelationalPath;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
- * Unit tests for {@link MemoryGraphRecallTool} (#223).
+ * Unit tests for {@link MemoryGraphRecallTool} (#223, #581).
  */
 class MemoryGraphRecallToolTest {
 
     private SpectorMemory memory;
-    private SpectorMemoryAdmin admin;
-    private EntityDirectory entityDirectory;
-    private HyperEntityGraphMemory hyperEntityGraph;
-    private TemporalKnowledgeGraph temporalKnowledgeGraph;
-    private MemoryIndex memoryIndex;
-    private TypeRegistryMemory predicateRegistry;
-
     private MemoryGraphRecallTool tool;
 
     @BeforeEach
     void setUp() {
         memory = mock(SpectorMemory.class);
-        admin = mock(SpectorMemoryAdmin.class);
-        entityDirectory = mock(EntityDirectory.class);
-        hyperEntityGraph = mock(HyperEntityGraphMemory.class);
-        temporalKnowledgeGraph = mock(TemporalKnowledgeGraph.class);
-        memoryIndex = mock(MemoryIndex.class);
-        predicateRegistry = mock(TypeRegistryMemory.class);
-
-        when(memory.admin()).thenReturn(admin);
-        when(admin.entityDirectory()).thenReturn(entityDirectory);
-        when(admin.hyperEntityGraph()).thenReturn(hyperEntityGraph);
-        when(admin.temporalKnowledgeGraph()).thenReturn(temporalKnowledgeGraph);
-        when(admin.index()).thenReturn(memoryIndex);
-        when(temporalKnowledgeGraph.predicateRegistry()).thenReturn(predicateRegistry);
-        when(temporalKnowledgeGraph.retractedFactIds()).thenReturn(Set.of());
-
         tool = new MemoryGraphRecallTool(memory);
     }
 
@@ -91,164 +67,102 @@ class MemoryGraphRecallToolTest {
         assertThat(schema).containsKey("properties");
         @SuppressWarnings("unchecked")
         Map<String, Object> props = (Map<String, Object>) schema.get("properties");
-        assertThat(props).containsKeys("start_entity", "query", "target_entity", "max_hops", "entity_types", "relation_types", "include_memories", "top_paths");
+        assertThat(props).containsKeys(
+                "start_entity", "query", "target_entity", "max_hops",
+                "entity_types", "relation_types", "include_memories", "top_paths",
+                "as_of", "include_superseded"
+        );
     }
 
     @Test
-    void execute_returnsError_whenAdminOrDirectoryMissing() throws Exception {
-        when(memory.admin()).thenReturn(null);
-        McpSchema.CallToolResult res = tool.execute(null, Map.of("start_entity", "Alice"));
-        assertThat(res.isError()).isTrue();
+    void execute_delegatesToMemoryGraphRecall_andFormatsOutput() throws Exception {
+        // Arrange
+        Set<DiscoveredEntity> entities = Set.of(
+                new DiscoveredEntity("Alice", "PERSON", 2),
+                new DiscoveredEntity("Bob", "PERSON", 1),
+                new DiscoveredEntity("Project Apollo", "PROJECT", 1)
+        );
 
-        when(memory.admin()).thenReturn(admin);
-        when(admin.entityDirectory()).thenReturn(null);
-        McpSchema.CallToolResult res2 = tool.execute(null, Map.of("start_entity", "Alice"));
-        assertThat(res2.isError()).isTrue();
-    }
+        List<RelationalPath> paths = List.of(
+                new RelationalPath(List.of(
+                        new PathNode("Alice", "PERSON", null, null),
+                        new PathNode("Bob", "PERSON", "works_with", "FACT"),
+                        new PathNode("Project Apollo", "PROJECT", "leads", "FACT")
+                ), 2)
+        );
 
-    @Test
-    void execute_returnsDiagnostics_whenEntityNotFound() throws Exception {
-        when(entityDirectory.nameIndex()).thenReturn(Map.of("Bob", 1, "Project Apollo", 2));
-        when(entityDirectory.entityType(1)).thenReturn("PERSON");
-        when(entityDirectory.entityType(2)).thenReturn("PROJECT");
+        List<GroundingMemory> memories = List.of(
+                new GroundingMemory("mem-10", "SEMANTIC", "Alice and Bob collaborate on system architecture.")
+        );
 
-        McpSchema.CallToolResult res = tool.execute(null, Map.of("start_entity", "Alice"));
-        assertThat(res.isError()).isFalse();
-        String text = ((McpSchema.TextContent) res.content().get(0)).text();
-        assertThat(text).contains("Could not resolve starting entity");
-        assertThat(text).contains("Available Sample Entities");
-        assertThat(text).contains("Bob");
-    }
+        GraphTraversalResult expectedResult = GraphTraversalResult.success(
+                "Alice", "PERSON",
+                "Project Apollo", "PROJECT",
+                3,
+                entities,
+                paths,
+                memories,
+                42L
+        );
 
-    @Test
-    void execute_multiHopTraversal_viaTemporalKnowledgeGraphTriples() throws Exception {
-        // Entity setup: 0 = Alice (PERSON), 1 = Bob (PERSON), 2 = Project Apollo (PROJECT)
-        when(entityDirectory.nameIndex()).thenReturn(Map.of("Alice", 0, "Bob", 1, "Project Apollo", 2));
-        when(entityDirectory.entityName(0)).thenReturn("Alice");
-        when(entityDirectory.entityType(0)).thenReturn("PERSON");
-        when(entityDirectory.memoriesForEntity(0)).thenReturn(new int[]{10});
+        when(memory.graphRecall(any(GraphRecallOptions.class))).thenReturn(expectedResult);
 
-        when(entityDirectory.entityName(1)).thenReturn("Bob");
-        when(entityDirectory.entityType(1)).thenReturn("PERSON");
-        when(entityDirectory.memoriesForEntity(1)).thenReturn(new int[]{11});
-
-        when(entityDirectory.entityName(2)).thenReturn("Project Apollo");
-        when(entityDirectory.entityType(2)).thenReturn("PROJECT");
-        when(entityDirectory.memoriesForEntity(2)).thenReturn(new int[]{12});
-
-        // Predicate setup
-        when(predicateRegistry.nameOf(100)).thenReturn("works_with");
-        when(predicateRegistry.nameOf(101)).thenReturn("leads");
-
-        // Facts:
-        // Alice (0) --works_with(100)--> Bob (1)
-        TemporalFact fact1 = new TemporalFact(1, 0, 100, 1, -1, (short) 0, 1000L, Long.MAX_VALUE, 2000L, 0.9f, -1, (byte) 0);
-        // Bob (1) --leads(101)--> Project Apollo (2)
-        TemporalFact fact2 = new TemporalFact(2, 1, 101, 2, -1, (short) 0, 1000L, Long.MAX_VALUE, 2000L, 0.95f, -1, (byte) 0);
-
-        when(temporalKnowledgeGraph.readFactsForEntity(0)).thenReturn(List.of(fact1));
-        when(temporalKnowledgeGraph.readFactsForEntity(1)).thenReturn(List.of(fact2));
-        when(temporalKnowledgeGraph.readFactsForEntity(2)).thenReturn(List.of());
-
-        // Memory index slot resolution
-        CognitiveRecord r1 = mock(CognitiveRecord.class);
-        when(r1.text()).thenReturn("Alice and Bob collaborate on system architecture.");
-        when(r1.memoryType()).thenReturn(MemoryType.SEMANTIC);
-        when(memory.inspect("mem-10")).thenReturn(r1);
-
-        McpSchema.CallToolResult res = tool.execute(null, Map.of(
-                "start_entity", "Alice",
-                "max_hops", 3
-        ));
-
-        assertThat(res.isError()).isFalse();
-        String text = ((McpSchema.TextContent) res.content().get(0)).text();
-        assertThat(text).contains("Knowledge Graph Traversal Results");
-        assertThat(text).contains("**Alice** [PERSON]");
-        assertThat(text).contains("**Bob** [PERSON]");
-        assertThat(text).contains("**Project Apollo** [PROJECT]");
-        assertThat(text).contains("`Alice` (PERSON)");
-        assertThat(text).contains("`Bob` (PERSON)");
-        assertThat(text).contains("`Project Apollo` (PROJECT)");
-    }
-
-    @Test
-    void execute_targetEntityPathfinding_andTypeFiltering() throws Exception {
-        when(entityDirectory.nameIndex()).thenReturn(Map.of("Alice", 0, "Bob", 1, "Charlie", 2, "Project Apollo", 3));
-        when(entityDirectory.entityName(0)).thenReturn("Alice");
-        when(entityDirectory.entityType(0)).thenReturn("PERSON");
-        when(entityDirectory.memoriesForEntity(0)).thenReturn(new int[]{});
-
-        when(entityDirectory.entityName(1)).thenReturn("Bob");
-        when(entityDirectory.entityType(1)).thenReturn("PERSON");
-        when(entityDirectory.memoriesForEntity(1)).thenReturn(new int[]{});
-
-        when(entityDirectory.entityName(2)).thenReturn("Charlie");
-        when(entityDirectory.entityType(2)).thenReturn("BOT");
-        when(entityDirectory.memoriesForEntity(2)).thenReturn(new int[]{});
-
-        when(entityDirectory.entityName(3)).thenReturn("Project Apollo");
-        when(entityDirectory.entityType(3)).thenReturn("PROJECT");
-        when(entityDirectory.memoriesForEntity(3)).thenReturn(new int[]{});
-
-        when(predicateRegistry.nameOf(anyInt())).thenReturn("connects_to");
-
-        TemporalFact f1 = new TemporalFact(1, 0, 50, 1, -1, (short) 0, 1000L, Long.MAX_VALUE, 2000L, 0.9f, -1, (byte) 0);
-        TemporalFact f2 = new TemporalFact(2, 0, 50, 2, -1, (short) 0, 1000L, Long.MAX_VALUE, 2000L, 0.9f, -1, (byte) 0);
-        TemporalFact f3 = new TemporalFact(3, 1, 50, 3, -1, (short) 0, 1000L, Long.MAX_VALUE, 2000L, 0.9f, -1, (byte) 0);
-
-        when(temporalKnowledgeGraph.readFactsForEntity(0)).thenReturn(List.of(f1, f2));
-        when(temporalKnowledgeGraph.readFactsForEntity(1)).thenReturn(List.of(f3));
-        when(temporalKnowledgeGraph.readFactsForEntity(2)).thenReturn(List.of());
-        when(temporalKnowledgeGraph.readFactsForEntity(3)).thenReturn(List.of());
-
-        // Point to point from Alice to Project Apollo, filtering out BOT entities
+        // Act
         McpSchema.CallToolResult res = tool.execute(null, Map.of(
                 "start_entity", "Alice",
                 "target_entity", "Project Apollo",
+                "max_hops", 3,
+                "top_paths", 5,
                 "entity_types", "PERSON,PROJECT",
-                "max_hops", 3
+                "relation_types", "works_with,leads",
+                "as_of", "2025-06-15T00:00:00Z",
+                "include_superseded", true,
+                "include_memories", true
         ));
 
+        // Assert
         assertThat(res.isError()).isFalse();
         String text = ((McpSchema.TextContent) res.content().get(0)).text();
-        assertThat(text).contains("**Target Entity:** `Project Apollo`");
-        assertThat(text).contains("`Alice` (PERSON)");
-        assertThat(text).contains("`Bob` (PERSON)");
-        assertThat(text).contains("`Project Apollo` (PROJECT)");
-        assertThat(text).doesNotContain("Charlie");
+
+        assertThat(text).contains("Knowledge Graph Traversal Results");
+        assertThat(text).contains("42ms");
+        assertThat(text).contains("**Start Entity:** `Alice` [PERSON]");
+        assertThat(text).contains("**Target Entity:** `Project Apollo` [PROJECT]");
+        assertThat(text).contains("**Max Traversal Depth:** 3 hops");
+        assertThat(text).contains("**Discovered Entities:** 3");
+        assertThat(text).contains("**Discovered Paths:** 1");
+        assertThat(text).contains("**Alice** [PERSON] (2 memory references)");
+        assertThat(text).contains("**Bob** [PERSON] (1 memory reference)");
+        assertThat(text).contains("**Project Apollo** [PROJECT] (1 memory reference)");
+        assertThat(text).contains("`Alice` (PERSON) ──[works_with]──> `Bob` (PERSON) ──[leads]──> `Project Apollo` (PROJECT)");
+        assertThat(text).contains("**[mem-10]** (SEMANTIC):");
+        assertThat(text).contains("Alice and Bob collaborate on system architecture.");
+
+        // Verify GraphRecallOptions constructed properly
+        ArgumentCaptor<GraphRecallOptions> captor = ArgumentCaptor.forClass(GraphRecallOptions.class);
+        verify(memory).graphRecall(captor.capture());
+        GraphRecallOptions captured = captor.getValue();
+
+        assertThat(captured.startEntity()).isEqualTo("Alice");
+        assertThat(captured.targetEntity()).isEqualTo("Project Apollo");
+        assertThat(captured.maxHops()).isEqualTo(3);
+        assertThat(captured.topPaths()).isEqualTo(5);
+        assertThat(captured.entityTypeFilters()).containsExactlyInAnyOrder("person", "project");
+        assertThat(captured.relationTypeFilters()).containsExactlyInAnyOrder("works_with", "leads");
+        assertThat(captured.asOf()).isEqualTo(Instant.parse("2025-06-15T00:00:00Z"));
+        assertThat(captured.includeSuperseded()).isTrue();
+        assertThat(captured.includeMemories()).isTrue();
     }
 
     @Test
-    void execute_cooccurrenceTraversal_viaHyperEntityGraph() throws Exception {
-        when(entityDirectory.nameIndex()).thenReturn(Map.of("Sarah Chen", 0, "David", 1));
-        when(entityDirectory.entityName(0)).thenReturn("Sarah Chen");
-        when(entityDirectory.entityType(0)).thenReturn("PERSON");
-        when(entityDirectory.memoriesForEntity(0)).thenReturn(new int[]{5});
+    void execute_returnsFormattedError_whenGraphRecallFails() throws Exception {
+        when(memory.graphRecall(any(GraphRecallOptions.class)))
+                .thenReturn(GraphTraversalResult.empty("Could not resolve starting entity for graph traversal."));
 
-        when(entityDirectory.entityName(1)).thenReturn("David");
-        when(entityDirectory.entityType(1)).thenReturn("PERSON");
-        when(entityDirectory.memoriesForEntity(1)).thenReturn(new int[]{5});
-
-        HyperEdge hedge = new HyperEdge(1, 0, 1.0f, 5, 2000L, List.of(
-                new HyperEdgeVertex(0, 1),
-                new HyperEdgeVertex(1, 2)
-        ));
-
-        when(hyperEntityGraph.findHyperedgesForEntity(0)).thenReturn(List.of(hedge));
-        when(hyperEntityGraph.findHyperedgesForEntity(1)).thenReturn(List.of());
-
-        McpSchema.CallToolResult res = tool.execute(null, Map.of(
-                "query", "What can you find about Sarah Chen and her connections?",
-                "max_hops", 2
-        ));
-
+        McpSchema.CallToolResult res = tool.execute(null, Map.of("start_entity", "NonExistent"));
         assertThat(res.isError()).isFalse();
+
         String text = ((McpSchema.TextContent) res.content().get(0)).text();
-        assertThat(text).contains("**Sarah Chen** [PERSON]");
-        assertThat(text).contains("**David** [PERSON]");
-        assertThat(text).contains("`Sarah Chen` (PERSON)");
-        assertThat(text).contains("`David` (PERSON)");
-        assertThat(text).contains("SHARED_MEMORY");
+        assertThat(text).contains("❌ Graph traversal failed: Could not resolve starting entity for graph traversal.");
     }
 }
