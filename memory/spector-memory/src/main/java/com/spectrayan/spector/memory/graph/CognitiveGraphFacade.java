@@ -12,6 +12,15 @@
  */
 package com.spectrayan.spector.memory.graph;
 
+import com.spectrayan.spector.memory.model.GraphRecallOptions;
+import com.spectrayan.spector.memory.model.GraphTraversalResult;
+import com.spectrayan.spector.memory.model.GraphTraversalResult.DiscoveredEntity;
+import com.spectrayan.spector.memory.model.GraphTraversalResult.RelationalPath;
+import com.spectrayan.spector.memory.model.GraphTraversalResult.PathNode;
+import com.spectrayan.spector.memory.model.GraphTraversalResult.GroundingMemory;
+import com.spectrayan.spector.memory.temporal.TemporalFact;
+import java.time.Instant;
+
 import com.spectrayan.spector.commons.cache.SpectorCache;
 import com.spectrayan.spector.commons.cache.SpectorCacheManager;
 import com.spectrayan.spector.commons.cache.TtlConcurrentMapCacheManager;
@@ -476,6 +485,349 @@ public final class CognitiveGraphFacade {
     public CausalChain traceEffects(String entityName) {
         return traceEffects(entityName, 5, null);
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // GRAPH RECALL (GRAPHRAG)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Traverses Spector's knowledge graph across multi-hop entity relationships (GraphRAG).
+     */
+    public GraphTraversalResult graphRecall(GraphRecallOptions options,
+                                            Function<String, CognitiveRecord> inspector) {
+        long startTime = System.currentTimeMillis();
+        try {
+            if (entityDirectory == null) {
+                return GraphTraversalResult.empty("Entity graph directory is not configured.");
+            }
+
+            // 1. Resolve Start Entity
+            Integer startEntityId = null;
+            String startEntityName = options.startEntity() != null ? options.startEntity().strip() : "";
+            if (!startEntityName.isBlank()) {
+                startEntityId = resolveEntityId(startEntityName);
+            }
+            if (startEntityId == null && options.query() != null && !options.query().isBlank()) {
+                startEntityId = inferEntityIdFromQuery(options.query().strip());
+            }
+            if (startEntityId == null && options.query() != null && !options.query().isBlank()) {
+                // Try scanning memories using index.orderedIds() if still not found
+                List<String> allIds = index.orderedIds();
+                for (String id : allIds) {
+                    CognitiveRecord rec = inspector.apply(id);
+                    if (rec != null && rec.text() != null && rec.text().toLowerCase(java.util.Locale.ROOT).contains(options.query().toLowerCase(java.util.Locale.ROOT))) {
+                        // Rely on inferEntityIdFromQuery as requested, scan is a fallback mock here
+                        break; 
+                    }
+                }
+            }
+
+            if (startEntityId == null) {
+                return GraphTraversalResult.empty("Could not resolve starting entity for graph traversal.");
+            }
+
+            // 2. Resolve Target Entity
+            Integer targetEntityId = null;
+            String targetEntityName = options.targetEntity() != null ? options.targetEntity().strip() : "";
+            if (!targetEntityName.isBlank()) {
+                targetEntityId = resolveEntityId(targetEntityName);
+                if (targetEntityId == null) {
+                    return GraphTraversalResult.empty("Target entity '" + targetEntityName + "' was not found.");
+                }
+            }
+
+            // 3. Multi-Hop BFS Traversal
+            Set<Integer> discoveredEntityIds = new java.util.LinkedHashSet<>();
+            discoveredEntityIds.add(startEntityId);
+
+            record TraversalStep(int fromEntityId, int toEntityId, String relation, String source) {}
+            record TraversalPath(List<Integer> entityIds, List<TraversalStep> steps, Set<Integer> memorySlots) {
+                int length() { return steps.size(); }
+                int lastEntityId() { return entityIds.get(entityIds.size() - 1); }
+                boolean containsEntity(int entityId) { return entityIds.contains(entityId); }
+            }
+
+            List<TraversalPath> completedPaths = new ArrayList<>();
+            java.util.Queue<TraversalPath> queue = new java.util.ArrayDeque<>();
+
+            Set<Integer> initialMems = new HashSet<>();
+            for (int m : identityMemoriesForEntity(startEntityId)) {
+                if (m >= 0) initialMems.add(m);
+            }
+            queue.add(new TraversalPath(List.of(startEntityId), List.of(), initialMems));
+
+            Set<Integer> retractedFactIds = (temporalKnowledgeGraph != null)
+                    ? temporalKnowledgeGraph.retractedFactIds()
+                    : Set.of();
+
+            int maxExploredPaths = 100;
+
+            while (!queue.isEmpty() && completedPaths.size() < maxExploredPaths) {
+                TraversalPath currentPath = queue.poll();
+                int currentEntityId = currentPath.lastEntityId();
+
+                if (currentPath.length() >= options.maxHops()) {
+                    continue;
+                }
+
+                // Layer 1: TemporalKnowledgeGraph Triples (Explicit Facts)
+                if (temporalKnowledgeGraph != null) {
+                    List<TemporalFact> facts = temporalKnowledgeGraph.readFactsForEntity(currentEntityId);
+                    if (facts != null) {
+                        var predRegistry = temporalKnowledgeGraph.predicateRegistry();
+                        for (TemporalFact fact : facts) {
+                            if (fact.isRetraction() || (!options.includeSuperseded() && retractedFactIds.contains(fact.factId()))) {
+                                continue;
+                            }
+                            if (options.asOf() != null && !fact.validAtInstant(options.asOf())) {
+                                continue;
+                            }
+
+                            int subjectId = fact.subjectEntityId();
+                            int objectId = fact.objectEntityId();
+
+                            int neighborId;
+                            String relName;
+                            if (currentEntityId == subjectId) {
+                                neighborId = objectId;
+                                relName = predRegistry != null ? predRegistry.nameOf((int) fact.predicateId()) : "RELATED_TO";
+                            } else if (currentEntityId == objectId) {
+                                neighborId = subjectId;
+                                String basePred = predRegistry != null ? predRegistry.nameOf((int) fact.predicateId()) : "RELATED_TO";
+                                relName = "INVERSE_" + basePred;
+                            } else {
+                                continue;
+                            }
+
+                            if (relName == null || relName.isBlank()) relName = "RELATED_TO";
+
+                            if (options.relationTypeFilters() != null && !options.relationTypeFilters().contains(relName.toLowerCase(java.util.Locale.ROOT))) {
+                                continue;
+                            }
+
+                            if (currentPath.containsEntity(neighborId)) continue;
+
+                            String neighborType = safeEntityType(neighborId);
+                            if (options.entityTypeFilters() != null && !options.entityTypeFilters().contains(neighborType.toLowerCase(java.util.Locale.ROOT))) {
+                                continue;
+                            }
+
+                            List<Integer> nextEntities = new ArrayList<>(currentPath.entityIds());
+                            nextEntities.add(neighborId);
+
+                            List<TraversalStep> nextSteps = new ArrayList<>(currentPath.steps());
+                            nextSteps.add(new TraversalStep(currentEntityId, neighborId, relName, "FACT"));
+
+                            Set<Integer> nextMems = new HashSet<>(currentPath.memorySlots());
+                            for (int m : identityMemoriesForEntity(neighborId)) {
+                                if (m >= 0) nextMems.add(m);
+                            }
+
+                            TraversalPath extended = new TraversalPath(nextEntities, nextSteps, nextMems);
+                            discoveredEntityIds.add(neighborId);
+                            completedPaths.add(extended);
+
+                            if (targetEntityId != null && neighborId == targetEntityId) {
+                                continue;
+                            }
+                            queue.add(extended);
+                        }
+                    }
+                }
+
+                // Layer 2: HyperEntityGraph Co-occurrences
+                if (hyperEntityGraph != null) {
+                    var hyperedges = hyperEntityGraph.findHyperedgesForEntity(currentEntityId);
+                    if (hyperedges != null) {
+                        for (var he : hyperedges) {
+                            int memIdx = he.memoryIdx();
+                            var vertices = he.vertices();
+                            if (vertices == null) continue;
+
+                            for (var v : vertices) {
+                                int neighborId = v.entityId();
+                                if (neighborId == currentEntityId || currentPath.containsEntity(neighborId)) {
+                                    continue;
+                                }
+
+                                String relName = "SHARED_MEMORY";
+                                if (options.relationTypeFilters() != null && !options.relationTypeFilters().contains(relName.toLowerCase(java.util.Locale.ROOT))) {
+                                    continue;
+                                }
+
+                                String neighborType = safeEntityType(neighborId);
+                                if (options.entityTypeFilters() != null && !options.entityTypeFilters().contains(neighborType.toLowerCase(java.util.Locale.ROOT))) {
+                                    continue;
+                                }
+
+                                List<Integer> nextEntities = new ArrayList<>(currentPath.entityIds());
+                                nextEntities.add(neighborId);
+
+                                List<TraversalStep> nextSteps = new ArrayList<>(currentPath.steps());
+                                nextSteps.add(new TraversalStep(currentEntityId, neighborId, relName, "HYPEREDGE"));
+
+                                Set<Integer> nextMems = new HashSet<>(currentPath.memorySlots());
+                                if (memIdx >= 0) nextMems.add(memIdx);
+                                for (int m : identityMemoriesForEntity(neighborId)) {
+                                    if (m >= 0) nextMems.add(m);
+                                }
+
+                                TraversalPath extended = new TraversalPath(nextEntities, nextSteps, nextMems);
+                                discoveredEntityIds.add(neighborId);
+                                completedPaths.add(extended);
+
+                                if (targetEntityId != null && neighborId == targetEntityId) {
+                                    continue;
+                                }
+
+                                queue.add(extended);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Rank Paths
+            List<TraversalPath> filteredPaths = completedPaths;
+            if (targetEntityId != null) {
+                final int finalTargetId = targetEntityId;
+                filteredPaths = completedPaths.stream()
+                        .filter(p -> p.lastEntityId() == finalTargetId)
+                        .collect(java.util.stream.Collectors.toList());
+            }
+
+            filteredPaths.sort(java.util.Comparator.comparingInt(TraversalPath::length)
+                    .thenComparing((TraversalPath p) -> -p.memorySlots().size()));
+
+            if (filteredPaths.size() > options.topPaths()) {
+                filteredPaths = filteredPaths.subList(0, options.topPaths());
+            }
+
+            // 5. Build Result Structures
+            Set<DiscoveredEntity> discoveredEntities = new java.util.LinkedHashSet<>();
+            for (int eId : discoveredEntityIds) {
+                String eName = entityDirectory.entityName(eId);
+                String eType = safeEntityType(eId);
+                int memCount = identityMemoriesForEntity(eId).length;
+                discoveredEntities.add(new DiscoveredEntity(eName, eType, memCount));
+            }
+
+            List<RelationalPath> relationalPaths = new ArrayList<>();
+            for (TraversalPath p : filteredPaths) {
+                List<PathNode> nodes = new ArrayList<>();
+                for (int i = 0; i < p.entityIds().size(); i++) {
+                    int eId = p.entityIds().get(i);
+                    String eName = entityDirectory.entityName(eId);
+                    String eType = safeEntityType(eId);
+                    String rel = null;
+                    String source = null;
+                    if (i > 0) {
+                        TraversalStep step = p.steps().get(i - 1);
+                        rel = step.relation();
+                        source = step.source();
+                    }
+                    nodes.add(new PathNode(eName, eType, rel, source));
+                }
+                relationalPaths.add(new RelationalPath(nodes, p.length()));
+            }
+
+            // 6. Grounding Memories
+            List<GroundingMemory> groundingMemories = new ArrayList<>();
+            if (options.includeMemories() && inspector != null) {
+                Set<Integer> allMemorySlots = new HashSet<>();
+                for (TraversalPath p : filteredPaths) {
+                    allMemorySlots.addAll(p.memorySlots());
+                }
+
+                Map<Integer, String> slotToId = new LinkedHashMap<>();
+                Map<String, Integer> idToSlot = new LinkedHashMap<>();
+                if (index != null) {
+                    index.buildGraphSlotMappings(slotToId, idToSlot);
+                }
+
+                int displayed = 0;
+                for (int slot : allMemorySlots) {
+                    if (displayed >= 20) break; // Arbitrary cap
+                    String memId = slotToId.get(slot);
+                    if (memId != null) {
+                        CognitiveRecord rec = inspector.apply(memId);
+                        if (rec != null && rec.text() != null && !rec.text().isBlank()) {
+                            groundingMemories.add(new GroundingMemory(
+                                    memId,
+                                    rec.memoryType() != null ? rec.memoryType().name() : "SEMANTIC",
+                                    truncate(rec.text(), 200)
+                            ));
+                            displayed++;
+                        }
+                    }
+                }
+            }
+
+            long elapsedMs = System.currentTimeMillis() - startTime;
+
+            return GraphTraversalResult.success(
+                    entityDirectory.entityName(startEntityId),
+                    safeEntityType(startEntityId),
+                    targetEntityId != null ? entityDirectory.entityName(targetEntityId) : null,
+                    targetEntityId != null ? safeEntityType(targetEntityId) : null,
+                    options.maxHops(),
+                    discoveredEntities,
+                    relationalPaths,
+                    groundingMemories,
+                    elapsedMs
+            );
+
+        } catch (Exception e) {
+            log.error("Graph recall traversal failed", e);
+            return GraphTraversalResult.empty("Graph traversal failed: " + e.getMessage());
+        }
+    }
+
+    private Integer resolveEntityId(String entityName) {
+        if (entityName == null || entityName.isBlank()) return null;
+        var nameIndex = identityNameIndex();
+        if (nameIndex == null) return null;
+
+        Integer id = nameIndex.get(entityName);
+        if (id != null) return id;
+
+        for (var entry : nameIndex.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(entityName)) {
+                return entry.getValue();
+            }
+        }
+
+        String lower = entityName.toLowerCase(java.util.Locale.ROOT);
+        for (var entry : nameIndex.entrySet()) {
+            if (entry.getKey().toLowerCase(java.util.Locale.ROOT).contains(lower)
+                    || lower.contains(entry.getKey().toLowerCase(java.util.Locale.ROOT))) {
+                return entry.getValue();
+            }
+        }
+
+        return null;
+    }
+
+    private Integer inferEntityIdFromQuery(String query) {
+        if (query == null || query.isBlank()) return null;
+        var nameIndex = identityNameIndex();
+        if (nameIndex == null) return null;
+
+        String lowerQuery = query.toLowerCase(java.util.Locale.ROOT);
+        Integer bestId = null;
+        int maxLen = 0;
+
+        for (var entry : nameIndex.entrySet()) {
+            String nameLower = entry.getKey().toLowerCase(java.util.Locale.ROOT);
+            if (lowerQuery.contains(nameLower) && nameLower.length() > maxLen) {
+                bestId = entry.getValue();
+                maxLen = nameLower.length();
+            }
+        }
+
+        return bestId;
+    }
+
 
     // ══════════════════════════════════════════════════════════════
     // INTERNAL HELPERS
