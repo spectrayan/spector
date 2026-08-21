@@ -398,7 +398,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             existing = nameIndex.get(normalized);
             if (existing != null) return existing;
             if (entityCount >= entityCapacity) {
-                log.warn("EntityDirectory full ({} entities), rejecting '{}'", entityCapacity, name);
+                log.warn("EntityDirectory full ({} entities), rejecting intern request", entityCapacity);
                 return -1;
             }
             int entityId = entityCount;
@@ -410,7 +410,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
             entityCount++;
             persistCount();
             nameIndex.put(normalized, entityId);
-            log.trace("Directory entity interned: id={}, name='{}', type={}", entityId, name, type);
+            log.trace("Directory entity interned: id={}, type={}", entityId, type);
             return entityId;
         } finally {
             lock.unlockWrite(stamp);
@@ -1112,7 +1112,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                         String nameB = entries.get(j).getKey();
                         
                         if (shadowMode) {
-                            log.info("[EntityResolution:Shadow] Proposed merge: '{}' and '{}' (sim={})", nameA, nameB, sim);
+                            log.info("[EntityResolution:Shadow] Proposed merge: entityIdA={}, entityIdB={}, typeA={}, typeB={}, sim={}", idA, idB, typeA, typeB, sim);
                             continue;
                         }
                         
@@ -1132,9 +1132,7 @@ public final class EntityDirectory extends AbstractGraphMemory<EntityDirectoryLa
                             
                             merged.add(duplicate);
                             mergeCount++;
-                            log.info("Entity resolution merged '{}' into '{}'", 
-                                    canonical == idA ? nameB : nameA, 
-                                    canonical == idA ? nameA : nameB);
+                            log.info("Entity resolution merged duplicate entity ID {} into canonical entity ID {}", duplicate, canonical);
                         }
                     }
                 }
