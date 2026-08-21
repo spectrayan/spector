@@ -27,27 +27,15 @@ public final class RecallPathwayFactory {
 
     /**
      * Creates the recall cognitive pathway.
-     *
-     * @param transductionRelay      the transduction relay
-     * @param prospectiveRelay       the prospective relay
-     * @param vectorSearchRelay      the vector search relay
-     * @param scoringRelay           the scoring relay
-     * @param graphExpansionRelay    the graph expansion relay
-     * @param bm25SearchRelay        the bm25 search relay
-     * @param rrfRescoreRelay        the rrf rescore relay
-     * @param sortAndTruncateRelay   the sort and truncate relay
-     * @param cognitiveRerankRelay   the cognitive rerank relay
-     * @param mmrDiversityRelay      the mmr diversity relay
-     * @param temperatureSoftmaxRelay the temperature softmax relay
-     * @param consolidationRelay     the consolidation relay
-     * @return the constructed recall pathway
      */
     public static CognitivePathway<RecallSignal> create(
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,
+            final SynapticRelay<RecallSignal> governedReleaseGateRelay,
             final SynapticRelay<RecallSignal> vectorSearchRelay,
             final SynapticRelay<RecallSignal> scoringRelay,
             final SynapticRelay<RecallSignal> graphExpansionRelay,
+            final SynapticRelay<RecallSignal> evidenceFusionRelay,
             final SynapticRelay<RecallSignal> bm25SearchRelay,
             final RrfRescoreRelay rrfRescoreRelay,
             final SortAndTruncateRelay sortAndTruncateRelay,
@@ -55,36 +43,24 @@ public final class RecallPathwayFactory {
             final MmrDiversityRelay mmrDiversityRelay,
             final TemperatureSoftmaxRelay temperatureSoftmaxRelay,
             final ConsolidationRelay<RecallSignal> consolidationRelay) {
-        return create(null, transductionRelay, prospectiveRelay, vectorSearchRelay, scoringRelay,
-                graphExpansionRelay, bm25SearchRelay, rrfRescoreRelay, sortAndTruncateRelay,
+        return create(null, transductionRelay, prospectiveRelay, governedReleaseGateRelay,
+                vectorSearchRelay, scoringRelay, graphExpansionRelay, evidenceFusionRelay,
+                bm25SearchRelay, rrfRescoreRelay, sortAndTruncateRelay,
                 cognitiveRerankRelay, mmrDiversityRelay, temperatureSoftmaxRelay, consolidationRelay);
     }
 
     /**
      * Creates the recall cognitive pathway with an interceptor/decorator.
-     *
-     * @param interceptor            optional interceptor/decorator function
-     * @param transductionRelay      the transduction relay
-     * @param prospectiveRelay       the prospective relay
-     * @param vectorSearchRelay      the vector search relay
-     * @param scoringRelay           the scoring relay
-     * @param graphExpansionRelay    the graph expansion relay
-     * @param bm25SearchRelay        the bm25 search relay
-     * @param rrfRescoreRelay        the rrf rescore relay
-     * @param sortAndTruncateRelay   the sort and truncate relay
-     * @param cognitiveRerankRelay   the cognitive rerank relay
-     * @param mmrDiversityRelay      the mmr diversity relay
-     * @param temperatureSoftmaxRelay the temperature softmax relay
-     * @param consolidationRelay     the consolidation relay
-     * @return the constructed recall pathway
      */
     public static CognitivePathway<RecallSignal> create(
             final java.util.function.Function<SynapticRelay<RecallSignal>, SynapticRelay<RecallSignal>> interceptor,
             final SynapticRelay<RecallSignal> transductionRelay,
             final SynapticRelay<RecallSignal> prospectiveRelay,
+            final SynapticRelay<RecallSignal> governedReleaseGateRelay,
             final SynapticRelay<RecallSignal> vectorSearchRelay,
             final SynapticRelay<RecallSignal> scoringRelay,
             final SynapticRelay<RecallSignal> graphExpansionRelay,
+            final SynapticRelay<RecallSignal> evidenceFusionRelay,
             final SynapticRelay<RecallSignal> bm25SearchRelay,
             final RrfRescoreRelay rrfRescoreRelay,
             final SortAndTruncateRelay sortAndTruncateRelay,
@@ -100,9 +76,11 @@ public final class RecallPathwayFactory {
         return builder
                 .relay(RelayNames.TRANSDUCTION, transductionRelay)
                 .relay(RelayNames.PROSPECTIVE, prospectiveRelay)
+                .relay(RelayNames.GOVERNED_RELEASE_GATE, governedReleaseGateRelay)
                 .relay(RelayNames.VECTOR_SEARCH, vectorSearchRelay)
                 .relay(RelayNames.SCORING, scoringRelay)
                 .relay(RelayNames.GRAPH_EXPANSION, graphExpansionRelay)
+                .relay(RelayNames.EVIDENCE_FUSION, evidenceFusionRelay)
                 .gated(RelayNames.BM25_SEARCH, RecallGates.TEXT_SEARCH_ENABLED, bm25SearchRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .gated(RelayNames.RRF_RESCORE, RecallGates.RRF_FUSED, rrfRescoreRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.SORT_TRUNCATE, sortAndTruncateRelay)

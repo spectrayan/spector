@@ -33,13 +33,14 @@ public final class ReflectPathwayFactory {
             final SynapticPruningRelay pruningRelay,
             final EpisodicLogConsolidationRelay logConsolidationRelay,
             final SoulDriftRefusionRelay soulDriftRelay,
+            final ProceduralCrystallizationRelay proceduralRelay,
             final ProactiveInterferenceRelay interferenceRelay,
             final HebbianHomeostasisRelay hebbianRelay,
             final TemporalPruningRelay temporalRelay,
             final CrossLayerPromotionRelay promotionRelay,
             final EntityMaintenanceRelay entityRelay,
             final WalJournalRelay walRelay) {
-        return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay,
+        return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
                 interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, walRelay);
     }
 
@@ -51,6 +52,7 @@ public final class ReflectPathwayFactory {
             final SynapticPruningRelay pruningRelay,
             final EpisodicLogConsolidationRelay logConsolidationRelay,
             final SoulDriftRefusionRelay soulDriftRelay,
+            final ProceduralCrystallizationRelay proceduralRelay,
             final ProactiveInterferenceRelay interferenceRelay,
             final HebbianHomeostasisRelay hebbianRelay,
             final TemporalPruningRelay temporalRelay,
@@ -66,6 +68,7 @@ public final class ReflectPathwayFactory {
                 .relay(RelayNames.SYNAPTIC_PRUNING, pruningRelay, ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.EPISODIC_CONSOLIDATION, logConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.SOUL_DRIFT_REFUSION, soulDriftRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
+                .relay(RelayNames.PROCEDURAL_CRYSTALLIZATION, proceduralRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.PROACTIVE_INTERFERENCE, interferenceRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.HEBBIAN_HOMEOSTASIS, hebbianRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.TEMPORAL_PRUNING, temporalRelay, ErrorPolicy.DEGRADE_GRACEFULLY)

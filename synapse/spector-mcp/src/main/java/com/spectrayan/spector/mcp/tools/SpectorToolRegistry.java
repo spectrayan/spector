@@ -37,7 +37,10 @@ import com.spectrayan.spector.mcp.tools.memory.MemoryComputeImportanceTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryInspectTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryExportTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryBrowseTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryContextPackTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryFactHistoryTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryGraphRecallTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryMultiEvidenceRecallTool;
 import com.spectrayan.spector.mcp.tools.memory.MemorySalienceTool;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -89,6 +92,9 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryExportTool(memory));
             handlers.add(new MemoryBrowseTool(memory));
             handlers.add(new MemorySalienceTool(memory));
+            handlers.add(new MemoryContextPackTool(memory));
+            handlers.add(new MemoryFactHistoryTool(memory));
+            handlers.add(new MemoryMultiEvidenceRecallTool(memory));
         }
 
         return List.copyOf(handlers);
@@ -124,6 +130,9 @@ public final class SpectorToolRegistry {
         handlers.add(new MemoryExportTool(memoryResolver));
         handlers.add(new MemoryBrowseTool(memoryResolver));
         handlers.add(new MemorySalienceTool(memoryResolver));
+        handlers.add(new MemoryContextPackTool(memoryResolver));
+        handlers.add(new MemoryFactHistoryTool(memoryResolver));
+        handlers.add(new MemoryMultiEvidenceRecallTool(memoryResolver));
 
         return List.copyOf(handlers);
     }
@@ -159,6 +168,9 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryExportTool(memory));
             handlers.add(new MemoryBrowseTool(memory));
             handlers.add(new MemorySalienceTool(memory));
+            handlers.add(new MemoryContextPackTool(memory));
+            handlers.add(new MemoryFactHistoryTool(memory));
+            handlers.add(new MemoryMultiEvidenceRecallTool(memory));
         }
 
         return handlers.stream()
@@ -197,6 +209,9 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryExportTool(memoryResolver));
             handlers.add(new MemoryBrowseTool(memoryResolver));
             handlers.add(new MemorySalienceTool(memoryResolver));
+            handlers.add(new MemoryContextPackTool(memoryResolver));
+            handlers.add(new MemoryFactHistoryTool(memoryResolver));
+            handlers.add(new MemoryMultiEvidenceRecallTool(memoryResolver));
         }
 
         return handlers.stream()

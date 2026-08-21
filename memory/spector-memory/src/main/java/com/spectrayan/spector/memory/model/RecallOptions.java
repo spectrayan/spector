@@ -120,7 +120,11 @@ public record RecallOptions(
         float baseTemperature,
         float temperatureSurpriseCoefficient,
         float minTemperature,
-        float maxTemperature
+        float maxTemperature,
+        //  Governance & Multi-Evidence (TANGLE & GPM)
+        ConflictMode conflictMode,
+        float minTrustScore,
+        String personaId
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -293,6 +297,11 @@ public record RecallOptions(
         // ─── Recall Mode ───
         private RecallMode recallMode = RecallMode.valueOf(
                 com.spectrayan.spector.config.SpectorPropertyConstants.DEFAULT_RECALL_MODE);
+
+        // ─── Governance & Multi-Evidence (TANGLE & GPM) ───
+        private ConflictMode conflictMode = ConflictMode.MULTI_EVIDENCE;
+        private float minTrustScore = 0.0f;
+        private String personaId = "";
 
         /**
          * Applies a {@link CognitiveProfile} preset to this builder.
@@ -805,6 +814,31 @@ public record RecallOptions(
             return this;
         }
 
+        /**
+         * Sets the conflict handling mode (default: {@link ConflictMode#MULTI_EVIDENCE}).
+         */
+        public Builder conflictMode(ConflictMode mode) {
+            this.conflictMode = mode != null ? mode : ConflictMode.MULTI_EVIDENCE;
+            return this;
+        }
+
+        /**
+         * Sets the minimum epistemic trust score for retrieved memories (default: 0.0).
+         * Memories marked unverified with confidence below this threshold are filtered out.
+         */
+        public Builder minTrustScore(float minTrust) {
+            this.minTrustScore = minTrust;
+            return this;
+        }
+
+        /**
+         * Sets the persona or agent ID requesting recall for sovereignty isolation.
+         */
+        public Builder personaId(String personaId) {
+            this.personaId = personaId != null ? personaId : "";
+            return this;
+        }
+
         public RecallOptions build() {
             int effectiveLateralMax = lateralMaxResults >= 0
                     ? lateralMaxResults
@@ -831,7 +865,10 @@ public record RecallOptions(
                     baseTemperature,
                     temperatureSurpriseCoefficient,
                     minTemperature,
-                    maxTemperature);
+                    maxTemperature,
+                    conflictMode,
+                    minTrustScore,
+                    personaId);
             return options;
         }
     }

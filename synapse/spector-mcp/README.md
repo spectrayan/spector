@@ -84,6 +84,9 @@ spector-mcp/src/main/java/com/spectrayan/spector/mcp/
 | `memory_remember` | Store a semantic memory with tags and source |
 | `memory_recall` | Cognitive recall with fused scoring across tiers |
 | `memory_graph_recall` | Multi-hop knowledge graph relationship traversal (GraphRAG) |
+| `memory_context_pack` | Hierarchical memory context pack formatted for LLM system prompts (Tiers 1-4) |
+| `memory_fact_history` | Chronological bitemporal evolution, supersession chain, and validity intervals |
+| `memory_multi_evidence_recall` | Surfaces competing hypothesis clusters, epistemic confidence spread, and action policies |
 | `memory_status` | Memory tier counts and persistence info |
 | `memory_reinforce` | Report positive/negative outcome for a memory |
 | `memory_forget` | Tombstone a memory by ID |

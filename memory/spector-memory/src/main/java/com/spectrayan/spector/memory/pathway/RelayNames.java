@@ -20,18 +20,20 @@ public final class RelayNames {
     private RelayNames() {}
 
     // Recall Pathway Relays
-    public static final String TRANSDUCTION      = "transduction";
-    public static final String PROSPECTIVE       = "prospective";
-    public static final String VECTOR_SEARCH     = "vector_search";
-    public static final String SCORING           = "scoring";
-    public static final String GRAPH_EXPANSION   = "graph_expansion";
-    public static final String BM25_SEARCH       = "bm25_search";
-    public static final String RRF_RESCORE       = "rrf_rescore";
-    public static final String SORT_TRUNCATE     = "sort_truncate";
-    public static final String COLBERT_RERANK    = "colbert_rerank";
-    public static final String MMR_RERANK        = "mmr_rerank";
-    public static final String TEMPERATURE       = "temperature";
-    public static final String CONSOLIDATION     = "consolidation";
+    public static final String TRANSDUCTION          = "transduction";
+    public static final String PROSPECTIVE           = "prospective";
+    public static final String GOVERNED_RELEASE_GATE = "governed_release_gate";
+    public static final String VECTOR_SEARCH         = "vector_search";
+    public static final String SCORING               = "scoring";
+    public static final String GRAPH_EXPANSION       = "graph_expansion";
+    public static final String EVIDENCE_FUSION       = "evidence_fusion";
+    public static final String BM25_SEARCH           = "bm25_search";
+    public static final String RRF_RESCORE           = "rrf_rescore";
+    public static final String SORT_TRUNCATE         = "sort_truncate";
+    public static final String COLBERT_RERANK        = "colbert_rerank";
+    public static final String MMR_RERANK            = "mmr_rerank";
+    public static final String TEMPERATURE           = "temperature";
+    public static final String CONSOLIDATION         = "consolidation";
 
     // Divergent Branch Relays (Tier Scans)
     public static final String TIER_HOT          = "hot";
@@ -51,13 +53,14 @@ public final class RelayNames {
     public static final String KG_ENRICHMENT         = "kg_enrichment";
 
     // Reflect Pathway Relays
-    public static final String SYNAPTIC_PRUNING        = "synaptic_pruning";
-    public static final String EPISODIC_CONSOLIDATION  = "episodic_consolidation";
-    public static final String SOUL_DRIFT_REFUSION     = "soul_drift_refusion";
-    public static final String PROACTIVE_INTERFERENCE  = "proactive_interference";
-    public static final String HEBBIAN_HOMEOSTASIS     = "hebbian_homeostasis";
-    public static final String TEMPORAL_PRUNING        = "temporal_pruning";
-    public static final String CROSS_LAYER_PROMOTION   = "cross_layer_promotion";
-    public static final String ENTITY_MAINTENANCE      = "entity_maintenance";
-    public static final String WAL_JOURNAL             = "wal_journal";
+    public static final String SYNAPTIC_PRUNING          = "synaptic_pruning";
+    public static final String EPISODIC_CONSOLIDATION    = "episodic_consolidation";
+    public static final String SOUL_DRIFT_REFUSION       = "soul_drift_refusion";
+    public static final String PROCEDURAL_CRYSTALLIZATION = "procedural_crystallization";
+    public static final String PROACTIVE_INTERFERENCE    = "proactive_interference";
+    public static final String HEBBIAN_HOMEOSTASIS       = "hebbian_homeostasis";
+    public static final String TEMPORAL_PRUNING          = "temporal_pruning";
+    public static final String CROSS_LAYER_PROMOTION     = "cross_layer_promotion";
+    public static final String ENTITY_MAINTENANCE        = "entity_maintenance";
+    public static final String WAL_JOURNAL               = "wal_journal";
 }

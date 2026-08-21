@@ -58,13 +58,29 @@ public record CognitiveResult(
         ScoreBreakdown breakdown,
         RecallTrace trace,
         SourceModality sourceModality,
-        Map<String, String> metadata
+        Map<String, String> metadata,
+        byte consolidationFlags
 ) {
 
     /** Compact constructor — defaults null modality/metadata. */
     public CognitiveResult {
         if (sourceModality == null) sourceModality = SourceModality.TEXT;
         if (metadata == null) metadata = Map.of();
+    }
+
+    /**
+     * Backward-compatible 17-argument constructor.
+     */
+    public CognitiveResult(String id, String text, float score, float importance,
+                           float ageDays, int agentRecallCount, byte valence,
+                           MemoryType memoryType, MemorySource source,
+                           String[] synapticTags, float decayFactor,
+                           float ltpAdjustedDecay, RetrievalMode retrievalMode,
+                           ScoreBreakdown breakdown, RecallTrace trace,
+                           SourceModality sourceModality, Map<String, String> metadata) {
+        this(id, text, score, importance, ageDays, agentRecallCount, valence,
+                memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
+                retrievalMode, breakdown, trace, sourceModality, metadata, (byte) 0);
     }
 
     /**
@@ -98,7 +114,7 @@ public record CognitiveResult(
                             float ltpAdjustedDecay) {
         this(id, text, score, importance, ageDays, agentRecallCount, valence,
                 memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                RetrievalMode.STANDARD, null, null, null, null);
+                RetrievalMode.STANDARD, null, null, null, null, (byte) 0);
     }
 
     /**
@@ -111,7 +127,7 @@ public record CognitiveResult(
                             float ltpAdjustedDecay, RetrievalMode retrievalMode) {
         this(id, text, score, importance, ageDays, agentRecallCount, valence,
                 memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, null, null, null, null);
+                retrievalMode, null, null, null, null, (byte) 0);
     }
 
     /**
@@ -125,7 +141,7 @@ public record CognitiveResult(
                             ScoreBreakdown breakdown) {
         this(id, text, score, importance, ageDays, agentRecallCount, valence,
                 memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, null, null, null);
+                retrievalMode, breakdown, null, null, null, (byte) 0);
     }
 
     /**
@@ -155,7 +171,7 @@ public record CognitiveResult(
     public CognitiveResult withTrace(RecallTrace trace) {
         return new CognitiveResult(id, text, score, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, trace, sourceModality, metadata);
+                retrievalMode, breakdown, trace, sourceModality, metadata, consolidationFlags);
     }
 
     /**
@@ -164,7 +180,16 @@ public record CognitiveResult(
     public CognitiveResult withModality(SourceModality modality, Map<String, String> metadata) {
         return new CognitiveResult(id, text, score, importance, ageDays, agentRecallCount,
                 valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
-                retrievalMode, breakdown, trace, modality, metadata);
+                retrievalMode, breakdown, trace, modality, metadata, consolidationFlags);
+    }
+
+    /**
+     * Returns a copy of this result with updated consolidation flags.
+     */
+    public CognitiveResult withConsolidationFlags(byte flags) {
+        return new CognitiveResult(id, text, score, importance, ageDays, agentRecallCount,
+                valence, memoryType, source, synapticTags, decayFactor, ltpAdjustedDecay,
+                retrievalMode, breakdown, trace, sourceModality, metadata, flags);
     }
 
     /**

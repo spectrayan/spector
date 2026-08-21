@@ -1031,6 +1031,8 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
      */
     public record HyperEdgeVertex(int entityId, int roleId) {}
 
+    /** Standard semantic or procedural relationship hyperedge type. */
+    public static final int TYPE_RELATIONSHIP = 0;
     /** Hyperedge type for contradiction relationships (#507, #528). */
     public static final int TYPE_CONTRADICTS = 1;
 
@@ -1050,6 +1052,8 @@ public final class HyperEntityGraphMemory extends AbstractGraphMemory<HyperEntit
     public static final int ROLE_CORRECTOR = 5;
     /** Entity belongs to the corrected (loser) memory in a CONTRADICTS edge (CADP #507). */
     public static final int ROLE_CORRECTED = 6;
+    /** Entity belongs to a source episodic trace from which a procedural skill was crystallized (MSCE ADR-0008). */
+    public static final int ROLE_DERIVED_FROM = 7;
     /** Unspecified role. */
     public static final int ROLE_UNSPECIFIED = 0;
 
