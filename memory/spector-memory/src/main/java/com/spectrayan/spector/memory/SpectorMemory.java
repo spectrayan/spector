@@ -31,6 +31,10 @@ import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
+import com.spectrayan.spector.memory.model.FactHistory;
+import com.spectrayan.spector.memory.model.GraphRecallOptions;
+import com.spectrayan.spector.memory.model.GraphTraversalResult;
+import com.spectrayan.spector.memory.graph.CognitiveGraphFacade;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.pipeline.RecallPipeline;
@@ -581,6 +585,32 @@ public interface SpectorMemory extends AutoCloseable {
                    long validFrom, long validTo, float confidence);
 
     /**
+     * Assert a temporal fact with automatic supersession.
+     *
+     * <p>When {@code allowCoexisting} is {@code false} (the recommended default),
+     * any existing active fact with the same (subject, predicate) pair is automatically
+     * retracted and linked via {@code retractsFactId}. This creates a supersession chain
+     * preserving the full history of how facts evolved.</p>
+     *
+     * <p>When {@code allowCoexisting} is {@code true}, the new fact is appended
+     * alongside existing facts — useful for multi-valued predicates like
+     * {@code speaks_language} or {@code has_skill}.</p>
+     *
+     * @param subject         the subject entity name
+     * @param predicate       the relationship type
+     * @param object          the object entity name
+     * @param validFrom       epoch seconds when fact becomes valid
+     * @param validTo         epoch seconds when fact expires (Long.MAX_VALUE for open-ended)
+     * @param confidence      confidence score [0.0, 1.0]
+     * @param allowCoexisting if true, skip auto-retraction (multi-valued predicates)
+     * @return monotonic fact ID
+     * @since 1.2.0
+     */
+    int assertFact(String subject, String predicate, String object,
+                   long validFrom, long validTo, float confidence,
+                   boolean allowCoexisting);
+
+    /**
      * Retract a previously asserted fact.
      * @param factId the fact ID to retract
      * @return the retraction record's fact ID
@@ -594,6 +624,39 @@ public interface SpectorMemory extends AutoCloseable {
      * @return list of valid temporal facts
      */
     List<TemporalFact> factsAbout(String entityName, Instant asOf);
+
+    /**
+     * Returns the full supersession chain for a (subject, predicate) pair.
+     *
+     * <p>Includes the currently active fact plus all historical versions,
+     * ordered newest-first by transaction time. Use this to understand how
+     * a fact evolved over time or to surface conflicting evidence.</p>
+     *
+     * @param subject   the entity name
+     * @param predicate the relationship type
+     * @return fact history with active and superseded snapshots
+     * @since 1.2.0
+     */
+    FactHistory factHistory(String subject, String predicate);
+
+    /**
+     * Multi-hop graph traversal across temporal facts and entity hyperedges.
+     *
+     * <p>Discovers relational paths between entities with grounding memory
+     * context. Supports temporal point-in-time filtering via
+     * {@link GraphRecallOptions#asOf()} and superseded fact inclusion.</p>
+     *
+     * <p>Default implementation delegates to
+     * {@link CognitiveGraphFacade#graphRecall(GraphRecallOptions, java.util.function.Function)}
+     * via the admin interface.</p>
+     *
+     * @param options graph traversal configuration
+     * @return structured traversal result
+     * @since 1.2.0
+     */
+    default GraphTraversalResult graphRecall(GraphRecallOptions options) {
+        return admin().graph().graphRecall(options, this::inspect);
+    }
 
     /** Closes the memory system and persists data. */
     @Override

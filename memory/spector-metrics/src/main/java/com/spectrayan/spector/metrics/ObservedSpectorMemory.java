@@ -27,6 +27,7 @@ import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveRecord;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.ConversationRole;
+import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.model.ImportanceResult;
 import com.spectrayan.spector.memory.model.IngestionContext;
 import com.spectrayan.spector.memory.model.MemoryType;
@@ -385,6 +386,13 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     }
 
     @Override
+    public int assertFact(String subject, String predicate, String object,
+                          long validFrom, long validTo, float confidence,
+                          boolean allowCoexisting) {
+        return delegate.assertFact(subject, predicate, object, validFrom, validTo, confidence, allowCoexisting);
+    }
+
+    @Override
     public int retractFact(int factId) {
         return delegate.retractFact(factId);
     }
@@ -392,6 +400,11 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     @Override
     public List<TemporalFact> factsAbout(String entityName, Instant asOf) {
         return delegate.factsAbout(entityName, asOf);
+    }
+
+    @Override
+    public FactHistory factHistory(String subject, String predicate) {
+        return delegate.factHistory(subject, predicate);
     }
 
     @Override

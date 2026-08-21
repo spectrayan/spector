@@ -86,6 +86,7 @@ import com.spectrayan.spector.memory.model.RecallMode;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
 import com.spectrayan.spector.memory.model.WhyNotExplanation;
+import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.neurodivergent.IcnuWeights;
 import com.spectrayan.spector.memory.neurodivergent.LateralEvaluator;
 import com.spectrayan.spector.memory.pipeline.HebbianCoActivationListener;
@@ -1563,13 +1564,21 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     @Override
     public int assertFact(String subject, String predicate, String object,
                           long validFrom, long validTo, float confidence) {
+        // Default: auto-supersession enabled
+        return assertFact(subject, predicate, object, validFrom, validTo, confidence, false);
+    }
+
+    @Override
+    public int assertFact(String subject, String predicate, String object,
+                          long validFrom, long validTo, float confidence,
+                          boolean allowCoexisting) {
         acquireLease();
         try {
             int subjectId = entityDirectory.intern(subject, "UNKNOWN");
             int objectId = entityDirectory.intern(object, "UNKNOWN");
-            return temporalKnowledgeGraph.assertFact(
+            return temporalKnowledgeGraph.assertFactWithSupersession(
                     subjectId, predicate, objectId, -1L, (short) 0,
-                    validFrom, validTo, confidence, false);
+                    validFrom, validTo, confidence, false, allowCoexisting);
         } finally {
             releaseLease();
         }
@@ -1595,6 +1604,73 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                     .resolve();
         } finally {
             releaseLease();
+        }
+    }
+
+    @Override
+    public FactHistory factHistory(String subject, String predicate) {
+        acquireLease();
+        try {
+            int subjectId = entityDirectory.intern(subject, "UNKNOWN");
+            int predicateId = temporalKnowledgeGraph.predicateRegistry().getOrRegister(predicate);
+            java.util.Set<Integer> retracted = temporalKnowledgeGraph.retractedFactIds();
+            List<TemporalFact> allVersions = temporalKnowledgeGraph.factHistory(subjectId, predicateId);
+
+            if (allVersions.isEmpty()) {
+                return FactHistory.empty(subject, predicate);
+            }
+
+            // Separate active from superseded
+            FactHistory.FactSnapshot activeFact = null;
+            List<FactHistory.FactSnapshot> superseded = new java.util.ArrayList<>();
+
+            for (TemporalFact fact : allVersions) {
+                boolean isRetracted = retracted.contains(fact.factId());
+                String objectName = resolveEntityName(fact.objectEntityId());
+
+                FactHistory.FactSnapshot snapshot = new FactHistory.FactSnapshot(
+                        fact.factId(), objectName,
+                        fact.validFrom(), fact.validTo(),
+                        fact.txTime(), fact.confidence(),
+                        isRetracted ? findSupersedingFactId(allVersions, fact, retracted) : -1);
+
+                if (!isRetracted && activeFact == null) {
+                    activeFact = snapshot;  // newest non-retracted = active
+                } else {
+                    superseded.add(snapshot);
+                }
+            }
+
+            return new FactHistory(subject, predicate, activeFact, superseded, allVersions.size());
+        } finally {
+            releaseLease();
+        }
+    }
+
+    /**
+     * Finds the fact ID that superseded (retracted) the given fact.
+     */
+    private int findSupersedingFactId(List<TemporalFact> allVersions, TemporalFact retractedFact,
+                                       java.util.Set<Integer> retractedIds) {
+        // The superseding fact is the next non-retracted fact in time order (allVersions is newest-first)
+        for (int i = allVersions.indexOf(retractedFact) - 1; i >= 0; i--) {
+            TemporalFact candidate = allVersions.get(i);
+            if (!retractedIds.contains(candidate.factId())) {
+                return candidate.factId();
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Resolves an entity ID to its name.
+     */
+    private String resolveEntityName(int entityId) {
+        if (entityId < 0) return null;
+        try {
+            return entityDirectory.entityName(entityId);
+        } catch (Exception e) {
+            return "entity:" + entityId;
         }
     }
 

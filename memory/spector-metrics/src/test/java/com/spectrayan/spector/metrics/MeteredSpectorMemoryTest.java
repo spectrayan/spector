@@ -18,6 +18,7 @@ package com.spectrayan.spector.metrics;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.*;
 import com.spectrayan.spector.memory.model.*;
+import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.cortex.MemorySource;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
 import com.spectrayan.spector.memory.habituation.HabituationPenalty;
@@ -136,6 +137,9 @@ class MeteredSpectorMemoryTest {
         metered.exportJson();
         metered.estimateImportance("text", null);
 
+        metered.assertFact("s", "p", "o", 0, 100, 1.0f, false);
+        metered.factHistory("s", "p");
+
         metered.admin();
         metered.close();
     }
@@ -182,8 +186,18 @@ class MeteredSpectorMemoryTest {
         @Override public float computeTopicBoost(String text) { return 1.0f; }
         @Override public float computeSelfRelevanceBoost(String text) { return 1.0f; }
         @Override public int assertFact(String subject, String predicate, String object, long validFrom, long validTo, float confidence) { return 0; }
+        @Override
+        public int assertFact(String subject, String predicate, String object,
+                              long validFrom, long validTo, float confidence,
+                              boolean allowCoexisting) {
+            return 0;
+        }
         @Override public int retractFact(int factId) { return 0; }
         @Override public java.util.List<com.spectrayan.spector.memory.temporal.TemporalFact> factsAbout(String entityName, java.time.Instant asOf) { return java.util.List.of(); }
+        @Override
+        public FactHistory factHistory(String subject, String predicate) {
+            return FactHistory.empty(subject, predicate);
+        }
         @Override public void close() {}
     }
 }

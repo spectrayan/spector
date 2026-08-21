@@ -21,6 +21,7 @@ import com.spectrayan.spector.events.ReflectCycleTelemetry;
 import com.spectrayan.spector.events.TelemetryScope;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.FactHistory;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.model.ReflectReport;
@@ -432,6 +433,13 @@ public class MeteredSpectorMemory implements SpectorMemory {
     }
 
     @Override
+    public int assertFact(String subject, String predicate, String object,
+                          long validFrom, long validTo, float confidence,
+                          boolean allowCoexisting) {
+        return delegate.assertFact(subject, predicate, object, validFrom, validTo, confidence, allowCoexisting);
+    }
+
+    @Override
     public int retractFact(int factId) {
         return delegate.retractFact(factId);
     }
@@ -439,6 +447,11 @@ public class MeteredSpectorMemory implements SpectorMemory {
     @Override
     public List<com.spectrayan.spector.memory.temporal.TemporalFact> factsAbout(String entityName, Instant asOf) {
         return delegate.factsAbout(entityName, asOf);
+    }
+
+    @Override
+    public FactHistory factHistory(String subject, String predicate) {
+        return delegate.factHistory(subject, predicate);
     }
 
     // ── Lifecycle ──
