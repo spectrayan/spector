@@ -227,25 +227,9 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
                            float confidence, boolean inferred) {
         writeLock.lock();
         try {
-            int predicateId = predicateRegistry.getOrRegister(predicateName);
-            int factId = nextFactId++;
-            long txTime = System.currentTimeMillis();
-
-            byte flags = inferred ? TemporalFactLayout.FLAG_INFERRED : 0;
-
-            MemorySegment segment = writeFactSegment(
-                    factId, subjectEntityId, predicateId, objectEntityId,
-                    objectTextOffset, objectTextLength, flags,
-                    validFrom, validTo, txTime, confidence,
-                    TemporalFact.SENTINEL_FACT);
-
-            long offset = factLog.append(segment);
-            subjectIndex.add(subjectEntityId, offset);
-            validTimeIndex.add(validFrom, offset);
-
-            log.debug("TKG: asserted factId={} subject={} pred={} offset={}",
-                    factId, subjectEntityId, predicateName, offset);
-            return factId;
+            return assertFactInternal(subjectEntityId, predicateName, objectEntityId,
+                    objectTextOffset, objectTextLength, validFrom, validTo,
+                    confidence, inferred);
         } finally {
             writeLock.unlock();
         }
@@ -264,23 +248,150 @@ public final class TemporalKnowledgeGraph implements AutoCloseable {
     public int retractFact(int factIdToRetract) {
         writeLock.lock();
         try {
-            int factId = nextFactId++;
-            long txTime = System.currentTimeMillis();
-
-            MemorySegment segment = writeFactSegment(
-                    factId, 0, 0, TemporalFact.SENTINEL_ENTITY,
-                    -1L, (short) 0, (byte) 0,
-                    0L, 0L, txTime, 0f,
-                    factIdToRetract);
-
-            factLog.append(segment);
-            retractedCache.add(factIdToRetract);
-
-            log.debug("TKG: retracted factId={} (retraction={})", factIdToRetract, factId);
-            return factId;
+            return retractFactInternal(factIdToRetract);
         } finally {
             writeLock.unlock();
         }
+    }
+
+    // ── Internal mutation methods (caller MUST hold writeLock) ──
+
+    /**
+     * Core fact assertion — caller MUST hold {@code writeLock}.
+     */
+    private int assertFactInternal(int subjectEntityId, String predicateName,
+                                    int objectEntityId, long objectTextOffset,
+                                    short objectTextLength,
+                                    long validFrom, long validTo,
+                                    float confidence, boolean inferred) {
+        int predicateId = predicateRegistry.getOrRegister(predicateName);
+        int factId = nextFactId++;
+        long txTime = System.currentTimeMillis();
+
+        byte flags = inferred ? TemporalFactLayout.FLAG_INFERRED : 0;
+
+        MemorySegment segment = writeFactSegment(
+                factId, subjectEntityId, predicateId, objectEntityId,
+                objectTextOffset, objectTextLength, flags,
+                validFrom, validTo, txTime, confidence,
+                TemporalFact.SENTINEL_FACT);
+
+        long offset = factLog.append(segment);
+        subjectIndex.add(subjectEntityId, offset);
+        validTimeIndex.add(validFrom, offset);
+
+        log.debug("TKG: asserted factId={} subject={} pred={} offset={}",
+                factId, subjectEntityId, predicateName, offset);
+        return factId;
+    }
+
+    /**
+     * Core fact retraction — caller MUST hold {@code writeLock}.
+     */
+    private int retractFactInternal(int factIdToRetract) {
+        int factId = nextFactId++;
+        long txTime = System.currentTimeMillis();
+
+        MemorySegment segment = writeFactSegment(
+                factId, 0, 0, TemporalFact.SENTINEL_ENTITY,
+                -1L, (short) 0, (byte) 0,
+                0L, 0L, txTime, 0f,
+                factIdToRetract);
+
+        factLog.append(segment);
+        retractedCache.add(factIdToRetract);
+
+        log.debug("TKG: retracted factId={} (retraction={})", factIdToRetract, factId);
+        return factId;
+    }
+
+    /**
+     * Asserts a new fact with automatic supersession of prior active facts.
+     *
+     * <p>When {@code allowCoexisting} is {@code false} (the recommended default),
+     * any existing active (non-retracted) fact with the same ({@code subjectEntityId},
+     * {@code predicateName}) pair is automatically retracted before the new fact
+     * is appended. This creates a linked supersession chain where each retraction
+     * record's {@code retractsFactId} points to the superseded fact.</p>
+     *
+     * <p>When {@code allowCoexisting} is {@code true}, the new fact is appended
+     * without retracting prior facts — useful for multi-valued predicates like
+     * {@code speaks_language} or {@code has_skill} where multiple values are
+     * simultaneously valid.</p>
+     *
+     * <h3>Example — Auto-Supersession</h3>
+     * <pre>{@code
+     *   // First assertion: Alice works at Meta
+     *   tkg.assertFactWithSupersession(aliceId, "works_at", metaId,
+     *       -1L, (short) 0, validFrom, Long.MAX_VALUE, 0.9f, false, false);
+     *
+     *   // Second assertion: Alice now works at Google — Meta fact auto-retracted
+     *   tkg.assertFactWithSupersession(aliceId, "works_at", googleId,
+     *       -1L, (short) 0, validFrom2, Long.MAX_VALUE, 0.95f, false, false);
+     *
+     *   // History preserved: factHistory(aliceId, "works_at") returns both versions
+     * }</pre>
+     *
+     * @param subjectEntityId  entity ID of the subject
+     * @param predicateName    predicate name (interned via TypeRegistryMemory)
+     * @param objectEntityId   entity ID of the object, or -1 for literal values
+     * @param objectTextOffset text offset in TextDataStore, or -1 for entity objects
+     * @param objectTextLength text length, or 0 for entity objects
+     * @param validFrom        epoch millis when the fact becomes valid (inclusive)
+     * @param validTo          epoch millis when the fact stops being valid (exclusive)
+     * @param confidence       confidence score [0.0, 1.0]
+     * @param inferred         true if this fact was LLM-inferred
+     * @param allowCoexisting  if true, skip auto-retraction (multi-valued predicates)
+     * @return the assigned fact ID
+     */
+    public int assertFactWithSupersession(int subjectEntityId, String predicateName,
+                                           int objectEntityId, long objectTextOffset,
+                                           short objectTextLength,
+                                           long validFrom, long validTo,
+                                           float confidence, boolean inferred,
+                                           boolean allowCoexisting) {
+        writeLock.lock();
+        try {
+            if (!allowCoexisting) {
+                int predicateId = predicateRegistry.getOrRegister(predicateName);
+                Set<Integer> retracted = retractedFactIds();
+                List<TemporalFact> existing = readFactsForEntity(subjectEntityId).stream()
+                        .filter(f -> f.predicateId() == predicateId
+                                && !f.isRetraction()
+                                && !retracted.contains(f.factId()))
+                        .toList();
+
+                for (TemporalFact prior : existing) {
+                    log.debug("TKG: auto-superseding factId={} (subject={}, pred={})",
+                            prior.factId(), subjectEntityId, predicateName);
+                    retractFactInternal(prior.factId());
+                }
+            }
+
+            return assertFactInternal(subjectEntityId, predicateName, objectEntityId,
+                    objectTextOffset, objectTextLength, validFrom, validTo,
+                    confidence, inferred);
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Returns the complete supersession chain for a (subject, predicate) pair.
+     *
+     * <p>Returns all fact versions — active, retracted, and retraction records —
+     * ordered by transaction time (newest first). Callers can reconstruct the
+     * full history of how a fact evolved over time.</p>
+     *
+     * @param subjectEntityId the subject entity ID
+     * @param predicateId     the predicate ID (from {@link TypeRegistryMemory})
+     * @return all facts matching the (subject, predicate) pair, newest-first
+     */
+    public List<TemporalFact> factHistory(int subjectEntityId, int predicateId) {
+        return readFactsForEntity(subjectEntityId).stream()
+                .filter(f -> f.predicateId() == predicateId && !f.isRetraction())
+                .sorted(java.util.Comparator.comparingLong(TemporalFact::txTime).reversed())
+                .toList();
     }
 
     // ═══════════════════════════════════════════════════════════════
