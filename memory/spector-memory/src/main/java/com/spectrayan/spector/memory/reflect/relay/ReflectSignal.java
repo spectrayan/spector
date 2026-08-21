@@ -86,6 +86,7 @@ public final class ReflectSignal {
     private final AtomicInteger soulDriftedCount = new AtomicInteger(0);
     private final AtomicInteger soulRefusedCount = new AtomicInteger(0);
     private final AtomicInteger logTurnsConsolidated = new AtomicInteger(0);
+    private final AtomicInteger proceduralCrystallizedCount = new AtomicInteger(0);
     private double sumImportanceDelta = 0.0;
     private int pinnedCount = 0;
 
@@ -183,6 +184,9 @@ public final class ReflectSignal {
 
     public int logTurnsConsolidated() { return logTurnsConsolidated.get(); }
     public void addLogTurnsConsolidated(int count) { logTurnsConsolidated.addAndGet(count); }
+
+    public int proceduralCrystallizedCount() { return proceduralCrystallizedCount.get(); }
+    public void addProceduralCrystallized(int count) { proceduralCrystallizedCount.addAndGet(count); }
 
     public synchronized void recordImportanceDelta(double delta) {
         this.sumImportanceDelta += Math.abs(delta);
