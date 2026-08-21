@@ -51,6 +51,8 @@ import com.spectrayan.spector.memory.pipeline.scorer.SalienceAndHabituationScore
 import com.spectrayan.spector.memory.recall.relay.AssociativeGraphRelay;
 import com.spectrayan.spector.memory.recall.relay.CognitiveRerankRelay;
 import com.spectrayan.spector.memory.recall.relay.CorticalTierScanRelay;
+import com.spectrayan.spector.memory.recall.relay.EvidenceFusionRelay;
+import com.spectrayan.spector.memory.recall.relay.GovernedReleaseGateRelay;
 import com.spectrayan.spector.memory.recall.relay.LexicalFusionRelay;
 import com.spectrayan.spector.memory.recall.relay.MmrDiversityRelay;
 import com.spectrayan.spector.memory.recall.relay.NeuromodulatoryScoringRelay;
@@ -136,6 +138,8 @@ public final class RecallPathway {
         final ProspectiveReminderRelay prospectiveRelay = new ProspectiveReminderRelay(
                 salienceScorer, builder.bio.prospectiveScheduler());
 
+        final GovernedReleaseGateRelay governedReleaseGateRelay = new GovernedReleaseGateRelay();
+
         final CorticalTierScanRelay vectorSearchRelay = new CorticalTierScanRelay(
                 builder.partitionManager, PartitionPruner.defaultPruner(),
                 semanticStrategy, this::scoreStoreToList);
@@ -155,6 +159,8 @@ public final class RecallPathway {
 
         final AssociativeGraphRelay graphExpansionRelay = new AssociativeGraphRelay(
                 graphExpansionStage, temporalFactWeavingStage);
+
+        final EvidenceFusionRelay evidenceFusionRelay = new EvidenceFusionRelay();
 
         final RecallCandidateGatherer candidateGatherer = new RecallCandidateGatherer(
                 builder.index, builder.retrieval.bm25Index());
@@ -183,8 +189,10 @@ public final class RecallPathway {
 
         this.pathway = RecallPathwayFactory.create(
                 builder.interceptor,
-                transductionRelay, prospectiveRelay, vectorSearchRelay, scoringRelay,
-                graphExpansionRelay, bm25SearchRelay, rrfRescoreRelay, sortAndTruncateRelay,
+                transductionRelay, prospectiveRelay, governedReleaseGateRelay,
+                vectorSearchRelay, scoringRelay,
+                graphExpansionRelay, evidenceFusionRelay, bm25SearchRelay,
+                rrfRescoreRelay, sortAndTruncateRelay,
                 cognitiveRerankRelay, mmrDiversityRelay, temperatureSoftmaxRelay, consolidationRelay);
     }
 

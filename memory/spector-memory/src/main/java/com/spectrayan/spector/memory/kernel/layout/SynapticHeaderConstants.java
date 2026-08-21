@@ -177,10 +177,18 @@ public final class SynapticHeaderConstants {
     /** Number of bits to shift to read/write source modality from flags. */
     public static final int  FLAG_MODALITY_SHIFT = 6;
 
-    // ── Consolidation Flags bitmasks (offset 34) ──
+    // ── Consolidation & Governance Flags bitmasks (offset 34) ──
 
     /** Bit 0: Memory has a conflicting near-duplicate in the tier. */
     public static final byte FLAG_CONTRADICTED = 0x01;
+    /** Bit 1: Memory has been explicitly or legally retracted (fail-closed release). */
+    public static final byte FLAG_RETRACTED    = 0x02;
+    /** Bit 2: Memory was ingested from an unverified or low-trust source. */
+    public static final byte FLAG_UNVERIFIED   = 0x04;
+    /** Bit 3: Memory access is restricted by sovereign policy or RBAC. */
+    public static final byte FLAG_RESTRICTED   = 0x08;
+    /** Bit 4: Memory represents a crystallized procedural skill synthesized from episodic traces. */
+    public static final byte FLAG_CRYSTALLIZED = 0x10;
 
     // ── Encoding Profile bitmasks (offset 35) ──
 
@@ -262,6 +270,62 @@ public final class SynapticHeaderConstants {
      */
     public static boolean isContradicted(byte consolidationFlags) {
         return (consolidationFlags & FLAG_CONTRADICTED) != 0;
+    }
+
+    /**
+     * Checks if the retracted flag is set in the consolidation & governance flags byte.
+     */
+    public static boolean isRetracted(byte consolidationFlags) {
+        return (consolidationFlags & FLAG_RETRACTED) != 0;
+    }
+
+    /**
+     * Checks if the unverified flag is set in the consolidation & governance flags byte.
+     */
+    public static boolean isUnverified(byte consolidationFlags) {
+        return (consolidationFlags & FLAG_UNVERIFIED) != 0;
+    }
+
+    /**
+     * Checks if the restricted flag is set in the consolidation & governance flags byte.
+     */
+    public static boolean isRestricted(byte consolidationFlags) {
+        return (consolidationFlags & FLAG_RESTRICTED) != 0;
+    }
+
+    /**
+     * Checks if the crystallized skill flag is set in the consolidation & governance flags byte.
+     */
+    public static boolean isCrystallized(byte consolidationFlags) {
+        return (consolidationFlags & FLAG_CRYSTALLIZED) != 0;
+    }
+
+    /**
+     * Sets or clears the retracted flag on the given consolidation & governance flags byte.
+     */
+    public static byte withRetracted(byte flags, boolean retracted) {
+        return (byte) (retracted ? (flags | FLAG_RETRACTED) : (flags & ~FLAG_RETRACTED));
+    }
+
+    /**
+     * Sets or clears the unverified flag on the given consolidation & governance flags byte.
+     */
+    public static byte withUnverified(byte flags, boolean unverified) {
+        return (byte) (unverified ? (flags | FLAG_UNVERIFIED) : (flags & ~FLAG_UNVERIFIED));
+    }
+
+    /**
+     * Sets or clears the restricted flag on the given consolidation & governance flags byte.
+     */
+    public static byte withRestricted(byte flags, boolean restricted) {
+        return (byte) (restricted ? (flags | FLAG_RESTRICTED) : (flags & ~FLAG_RESTRICTED));
+    }
+
+    /**
+     * Sets or clears the crystallized flag on the given consolidation & governance flags byte.
+     */
+    public static byte withCrystallized(byte flags, boolean crystallized) {
+        return (byte) (crystallized ? (flags | FLAG_CRYSTALLIZED) : (flags & ~FLAG_CRYSTALLIZED));
     }
 
     /**
