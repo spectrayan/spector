@@ -125,9 +125,33 @@ public final class AismeRelayMatrixRunner {
 
                         RecallOptions.Builder optBuilder = RecallOptions.builder()
                                 .topK(topK)
-                                .recallMode(RecallMode.OBSERVE)
-                                .profile(CognitiveProfile.BALANCED);
+                                .recallMode(RecallMode.OBSERVE);
 
+                        if (query.cognitiveProfile() != null) {
+                            optBuilder.profile(query.cognitiveProfile());
+                        } else {
+                            optBuilder.profile(CognitiveProfile.BALANCED);
+                        }
+
+                        if (query.synapticFilterTags() != null && !query.synapticFilterTags().isEmpty()) {
+                            optBuilder.synapticFilter(query.synapticFilterTags().toArray(String[]::new));
+                        }
+                        if (query.minValence() != null) {
+                            optBuilder.minValence(query.minValence());
+                        }
+                        if (query.maxValence() != null) {
+                            optBuilder.maxValence(query.maxValence());
+                        }
+                        if (query.entityHints() != null && !query.entityHints().isEmpty()) {
+                            optBuilder.entityHints(query.entityHints());
+                        }
+                        if (query.textSearchMode() != null) {
+                            optBuilder.textSearchMode(query.textSearchMode());
+                        }
+
+                        if (cond.config() != null) {
+                            optBuilder.aismeConfig(cond.config());
+                        }
                         if (cond.conflictMode() != null) {
                             optBuilder.conflictMode(cond.conflictMode());
                         }
