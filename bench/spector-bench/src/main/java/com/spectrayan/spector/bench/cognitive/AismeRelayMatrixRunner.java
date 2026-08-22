@@ -351,9 +351,10 @@ public final class AismeRelayMatrixRunner {
         Path reportFile = outputDir.resolve("aisme_relay_benchmark_report.md");
         Path jsonFile = outputDir.resolve("aisme_matrix.json");
 
+        String datasetName = datasetDir.getParent() != null ? datasetDir.getParent().getFileName().toString() : datasetDir.getFileName().toString();
         StringBuilder md = new StringBuilder();
         md.append("# 🧬 AISME Phase 1–7 Sub-Relay Differential Benchmark Report\n\n");
-        md.append("**Dataset:** `balanced-baseline` (11,367 records, 19 queries, 365-day narrative timeline)\n");
+        md.append(String.format("**Dataset:** `%s` (%d records, %d queries)\n", datasetName, dataset.corpus().size(), dataset.queries().size()));
         md.append("**Generated:** ").append(java.time.Instant.now()).append("\n");
         md.append("**Architecture:** Java 25 Panama Direct Off-Heap • AVX-512 Fused SIMD • Cognitive Pathways\n\n");
 
