@@ -187,6 +187,31 @@ public final class SpectorConfigFactory {
         Duration interval = props.getDuration(MEMORY_CONSOLIDATION_INTERVAL, DEFAULT_MEMORY_CONSOLIDATION_INTERVAL);
         consolidation.setInterval(interval.toMillis());
 
+        var aisme = aismeProperties(props);
+        properties.setAisme(aisme);
+
+        return properties;
+    }
+
+    // ─────────────── AISME Properties ───────────────
+
+    /**
+     * Loads Active Inference Self-Model Engine (AISME) properties from configuration.
+     */
+    public static AismeProperties aismeProperties(SpectorProperties props) {
+        AismeProperties properties = new AismeProperties();
+        properties.setEnabled(props.getBoolean(MEMORY_AISME_ENABLED, DEFAULT_MEMORY_AISME_ENABLED));
+        properties.setEnableHomeostasis(props.getBoolean(MEMORY_AISME_HOMEOSTASIS_ENABLED, DEFAULT_MEMORY_AISME_HOMEOSTASIS_ENABLED));
+        properties.setEnableFreeEnergy(props.getBoolean(MEMORY_AISME_FREE_ENERGY_ENABLED, DEFAULT_MEMORY_AISME_FREE_ENERGY_ENABLED));
+        properties.setEnableHopfield(props.getBoolean(MEMORY_AISME_HOPFIELD_ENABLED, DEFAULT_MEMORY_AISME_HOPFIELD_ENABLED));
+        properties.setEnableManifold(props.getBoolean(MEMORY_AISME_MANIFOLD_ENABLED, DEFAULT_MEMORY_AISME_MANIFOLD_ENABLED));
+        properties.setEnablePredictiveCoding(props.getBoolean(MEMORY_AISME_PREDICTIVE_CODING_ENABLED, DEFAULT_MEMORY_AISME_PREDICTIVE_CODING_ENABLED));
+        properties.setEnableConsciousnessContinuity(props.getBoolean(MEMORY_AISME_CONSCIOUSNESS_CONTINUITY_ENABLED, DEFAULT_MEMORY_AISME_CONSCIOUSNESS_CONTINUITY_ENABLED));
+        properties.setEnableGlobalWorkspace(props.getBoolean(MEMORY_AISME_GLOBAL_WORKSPACE_ENABLED, DEFAULT_MEMORY_AISME_GLOBAL_WORKSPACE_ENABLED));
+        properties.setGlobalWorkspaceCapacity(props.getInt(MEMORY_AISME_GLOBAL_WORKSPACE_CAPACITY, DEFAULT_MEMORY_AISME_GLOBAL_WORKSPACE_CAPACITY));
+        properties.setHopfieldTemperature(props.getFloat(MEMORY_AISME_HOPFIELD_TEMPERATURE, DEFAULT_MEMORY_AISME_HOPFIELD_TEMPERATURE));
+        properties.setManifoldSigma(props.getFloat(MEMORY_AISME_MANIFOLD_SIGMA, DEFAULT_MEMORY_AISME_MANIFOLD_SIGMA));
+        properties.setPhiCohesionThreshold(props.getFloat(MEMORY_AISME_PHI_COHESION_THRESHOLD, DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD));
         return properties;
     }
 

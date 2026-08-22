@@ -25,6 +25,7 @@ import com.spectrayan.spector.memory.aisme.phi.ConsciousnessContinuityEvaluator;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousAccessRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousnessContinuityRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConstructiveSimulationRelay;
+import com.spectrayan.spector.memory.aisme.relay.EpistemicLearningRelay;
 import com.spectrayan.spector.memory.aisme.relay.FreeEnergyGuidedRelay;
 import com.spectrayan.spector.memory.aisme.relay.HomeostaticBiasRelay;
 import com.spectrayan.spector.memory.aisme.relay.HopfieldAssociativeRelay;
@@ -56,5 +57,6 @@ public record AismeBundle(
         ConstructiveSimulationRelay constructiveSimulationRelay,
         ConsciousnessContinuityRelay consciousnessContinuityRelay,
         ConsciousAccessRelay consciousAccessRelay,
-        ManifoldConsolidationRelay manifoldConsolidationRelay
+        ManifoldConsolidationRelay manifoldConsolidationRelay,
+        EpistemicLearningRelay epistemicLearningRelay
 ) {}

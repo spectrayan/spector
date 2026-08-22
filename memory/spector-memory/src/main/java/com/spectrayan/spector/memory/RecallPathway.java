@@ -194,6 +194,7 @@ public final class RecallPathway {
         final var constructiveSimulationRelay = builder.aismeBundle != null ? builder.aismeBundle.constructiveSimulationRelay() : null;
         final var consciousnessContinuityRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousnessContinuityRelay() : null;
         final var consciousAccessRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousAccessRelay() : null;
+        final var epistemicLearningRelay = builder.aismeBundle != null ? builder.aismeBundle.epistemicLearningRelay() : null;
 
         this.pathway = RecallPathwayFactory.create(
                 builder.interceptor,
@@ -215,6 +216,7 @@ public final class RecallPathway {
                 mmrDiversityRelay,
                 temperatureSoftmaxRelay,
                 consciousAccessRelay,
+                epistemicLearningRelay,
                 consolidationRelay);
     }
 

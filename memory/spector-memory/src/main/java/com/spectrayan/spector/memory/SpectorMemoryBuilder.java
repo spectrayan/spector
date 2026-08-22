@@ -532,11 +532,40 @@ public final class SpectorMemoryBuilder {
      * @param capacity maximum tasks in queue (must be >= 16)
      * @return this builder
      */
-    public SpectorMemoryBuilder entityExtractionQueueCapacity(int capacity) {
-        this.entityExtractionQueueCapacity = Math.max(16, capacity);
+    /**
+     * Applies configuration properties from a {@link com.spectrayan.spector.config.properties.MemoryProperties} instance (#605).
+     *
+     * @param properties memory configuration properties
+     * @return this builder
+     */
+    public SpectorMemoryBuilder fromProperties(com.spectrayan.spector.config.properties.MemoryProperties properties) {
+        if (properties == null) {
+            return this;
+        }
+        if (properties.getDimensions() > 0) {
+            this.dimensions = properties.getDimensions();
+        }
+        if (properties.getCapacity() > 0) {
+            this.semanticCapacity = properties.getCapacity();
+            this.hebbianGraphCapacity = properties.getCapacity();
+            this.temporalChainCapacity = properties.getCapacity();
+            this.entityGraphCapacity = properties.getCapacity();
+        }
+        if (properties.getNodesPerPartition() > 0) {
+            this.nodesPerPartition = properties.getNodesPerPartition();
+        }
+        this.useBundleMode = properties.isBundleMode();
+        if (properties.getPersistencePath() != null && !properties.getPersistencePath().isBlank()) {
+            this.persistencePath = java.nio.file.Path.of(properties.getPersistencePath());
+        }
+        if (properties.getPersistenceMode() != null) {
+            this.persistenceMode = MemoryPersistenceMode.valueOf(properties.getPersistenceMode().name());
+        }
+        if (properties.getAisme() != null) {
+            this.aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(properties.getAisme());
+        }
         return this;
     }
-
 
     // ==============================================================
     // BUILD
