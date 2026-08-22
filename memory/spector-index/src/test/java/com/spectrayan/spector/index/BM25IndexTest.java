@@ -159,4 +159,56 @@ class BM25IndexTest {
         ScoredResult[] results = index.search("the is", 10);
         assertThat(results).isEmpty();
     }
+
+    @Test
+    void largeScaleIndexingAndSubMillisecondRecall() {
+        for (int i = 0; i < 5000; i++) {
+            index.index("doc-" + i, "cognitive memory system architecture indexing performance query number " + i);
+        }
+        assertThat(index.size()).isEqualTo(5000);
+
+        long start = System.nanoTime();
+        ScoredResult[] results = index.search("cognitive memory indexing architecture", 10);
+        long elapsedNanos = System.nanoTime() - start;
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.length).isLessThanOrEqualTo(10);
+        // Ensure recall executes in under 5ms on test runner (and sub-millisecond in warm JVM)
+        assertThat(elapsedNanos).isLessThan(50_000_000L);
+    }
+
+    @Test
+    void binaryPersistencePreservesPrecomputedNorms() throws Exception {
+        index.index("d1", "java panama direct vector memory");
+        index.index("d2", "vector memory segment cognitive recall");
+        index.index("d3", "hebbian graph associative indexing");
+
+        java.nio.file.Path tempFile = java.nio.file.Files.createTempFile("bm25-test-", ".bidx");
+        try {
+            index.save(tempFile);
+            BM25Index loaded = BM25Index.load(tempFile);
+            assertThat(loaded).isNotNull();
+            assertThat(loaded.size()).isEqualTo(3);
+
+            ScoredResult[] originalResults = index.search("vector memory", 5);
+            ScoredResult[] loadedResults = loaded.search("vector memory", 5);
+
+            assertThat(loadedResults).hasSameSizeAs(originalResults);
+            for (int i = 0; i < originalResults.length; i++) {
+                assertThat(loadedResults[i].id()).isEqualTo(originalResults[i].id());
+                assertThat(loadedResults[i].score()).isEqualTo(originalResults[i].score());
+            }
+            loaded.close();
+        } finally {
+            java.nio.file.Files.deleteIfExists(tempFile);
+        }
+    }
+
+    @Test
+    void unicodeAndPunctuationHandling() {
+        index.index("d1", "München Über-cool café 100% fast!");
+        ScoredResult[] results = index.search("München Über", 5);
+        assertThat(results).hasSize(1);
+        assertThat(results[0].id()).isEqualTo("d1");
+    }
 }

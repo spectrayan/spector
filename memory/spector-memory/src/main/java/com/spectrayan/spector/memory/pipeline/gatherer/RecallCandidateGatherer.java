@@ -73,46 +73,31 @@ public class RecallCandidateGatherer {
         final int RRF_K = 60;
         final long nowMs = System.currentTimeMillis();
 
-        Map<String, Integer> vectorRanks = new LinkedHashMap<>();
+        Map<String, CognitiveResult> existingById = new LinkedHashMap<>(vectorResults.size());
+        Map<String, Float> rrfScores = new LinkedHashMap<>(vectorResults.size() + bm25Hits.size());
+
         for (int i = 0; i < vectorResults.size(); i++) {
-            String id = vectorResults.get(i).id();
-            if (id != null && !vectorRanks.containsKey(id)) {
-                vectorRanks.put(id, i + 1);
+            CognitiveResult r = vectorResults.get(i);
+            String id = r.id();
+            if (id != null && !existingById.containsKey(id)) {
+                existingById.put(id, r);
+                rrfScores.put(id, 1.0f / (RRF_K + (i + 1)));
             }
         }
 
-        Map<String, Integer> bm25Ranks = new LinkedHashMap<>();
+        Set<String> bm25Seen = new java.util.HashSet<>(bm25Hits.size());
         for (int i = 0; i < bm25Hits.size(); i++) {
             String id = bm25Hits.get(i).id();
-            if (id != null && !bm25Ranks.containsKey(id)) {
-                bm25Ranks.put(id, i + 1);
-            }
-        }
-
-        Set<String> allIds = new LinkedHashSet<>();
-        allIds.addAll(vectorRanks.keySet());
-        allIds.addAll(bm25Ranks.keySet());
-
-        Map<String, Float> rrfScores = new HashMap<>();
-        for (String id : allIds) {
-            float score = 0f;
-            Integer vr = vectorRanks.get(id);
-            Integer br = bm25Ranks.get(id);
-            if (vr != null) score += 1.0f / (RRF_K + vr);
-            if (br != null) score += 1.0f / (RRF_K + br);
-            rrfScores.put(id, score);
-        }
-
-        Map<String, CognitiveResult> existingById = new LinkedHashMap<>();
-        for (CognitiveResult r : vectorResults) {
-            if (r.id() != null && !existingById.containsKey(r.id())) {
-                existingById.put(r.id(), r);
+            if (id != null && bm25Seen.add(id)) {
+                float rrfContribution = 1.0f / (RRF_K + (i + 1));
+                rrfScores.merge(id, rrfContribution, Float::sum);
             }
         }
 
         vectorResults.clear();
-        for (String id : allIds) {
-            float rrfScore = rrfScores.get(id);
+        for (Map.Entry<String, Float> entry : rrfScores.entrySet()) {
+            String id = entry.getKey();
+            float rrfScore = entry.getValue();
             CognitiveResult existing = existingById.get(id);
 
             if (existing != null) {
@@ -192,6 +177,6 @@ public class RecallCandidateGatherer {
         vectorResults.sort(Comparator.comparing(CognitiveResult::score).reversed());
 
         log.debug("RRF fused {} vector + {} BM25 candidates -> {} unique results",
-                vectorRanks.size(), bm25Ranks.size(), vectorResults.size());
+                existingById.size(), bm25Hits.size(), vectorResults.size());
     }
 }

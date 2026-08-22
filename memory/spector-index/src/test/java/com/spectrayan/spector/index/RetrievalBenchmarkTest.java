@@ -226,6 +226,51 @@ class RetrievalBenchmarkTest {
         assertThat(results).hasSize(10);
     }
 
+    // ==============================================================
+    // BM25 Index Benchmark
+    // ==============================================================
+
+    @Test
+    @Order(7)
+    @DisplayName("BM25Index  --  10K docs, multi-term query under 500us")
+    void bm25_10K_search_under_500us() {
+        BM25Index index = new BM25Index();
+        Random rng = new Random(42);
+        String[] words = {
+                "java", "panama", "vector", "memory", "segment", "cognitive",
+                "recall", "graph", "hebbian", "synapse", "cortex", "embedding",
+                "splade", "dense", "sparse", "index", "quantum", "neural"
+        };
+
+        for (int d = 0; d < 10_000; d++) {
+            StringBuilder sb = new StringBuilder();
+            int docLen = 15 + rng.nextInt(35);
+            for (int w = 0; w < docLen; w++) {
+                sb.append(words[rng.nextInt(words.length)]).append(" ");
+            }
+            index.index("doc-" + d, sb.toString());
+        }
+
+        // Warm up JIT
+        for (int i = 0; i < 500; i++) {
+            index.search("cognitive vector memory recall", 10);
+        }
+
+        long start = System.nanoTime();
+        int iterations = 100;
+        for (int i = 0; i < iterations; i++) {
+            ScoredResult[] results = index.search("cognitive vector memory recall", 10);
+            assertThat(results).isNotEmpty();
+        }
+        long elapsedNanos = System.nanoTime() - start;
+        long avgMicros = (elapsedNanos / iterations) / 1000;
+
+        System.out.printf("BM25Index 10K multi-term search: %,d us per query%n", avgMicros);
+        assertThat(avgMicros).as("10K BM25 search < 500us").isLessThan(500);
+
+        index.close();
+    }
+
     //  Benchmark token provider 
 
     /**
