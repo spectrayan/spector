@@ -107,10 +107,12 @@ public final class BalancedBaseline50kExpander {
 
             // 3. Generate 3-Year Multi-Domain Continuous Memories up to 50,000
             int needed = TARGET_CORPUS_SIZE - corpus.size();
-            log.info("Generating {} multi-domain high-fidelity narrative memories across 1,000 simulated days...", needed);
-            List<BenchmarkCorpusRecord> syntheticMemories = generateMultiDomainMemories(corpus.size() + 1, needed);
-            corpus.addAll(syntheticMemories);
-            log.info("Corpus generation complete: {} total records", corpus.size());
+            if (needed > 0) {
+                log.info("Generating {} multi-domain high-fidelity narrative memories across 1,000 simulated days...", needed);
+                List<BenchmarkCorpusRecord> syntheticMemories = generateMultiDomainMemories(corpus.size() + 1, needed);
+                corpus.addAll(syntheticMemories);
+            }
+            log.info("Corpus total records: {}", corpus.size());
 
             // 4. Build Graph Structures (Entities, Temporal Chains, Hebbian Edges)
             log.info("Weaving graphs...");
@@ -126,7 +128,7 @@ public final class BalancedBaseline50kExpander {
             log.info("Generating {} benchmark queries across 11 cognitive categories...", TARGET_QUERY_COUNT);
             QueryExpansionResult queryResult = generateQueries(corpus);
 
-            // 6. Write Dataset Files
+            // 6. Write Dataset Files & Daily Partitions
             log.info("Writing updated dataset files to {}...", datasetDir);
             writeJsonl(datasetDir.resolve("corpus.jsonl"), corpus);
             writeJsonl(datasetDir.resolve("entities.jsonl"), entityRelations);
@@ -134,6 +136,7 @@ public final class BalancedBaseline50kExpander {
             writeJsonl(datasetDir.resolve("hebbian_edges.jsonl"), hebbianEdges);
             writeJsonl(datasetDir.resolve("queries.jsonl"), queryResult.queries());
             writeQrels(datasetDir.resolve("qrels.tsv"), queryResult.judgments());
+            partitionDailyFiles(corpus);
 
             // 7. Precache Real Dense Embeddings via Ollama
             log.info("Precaching dense vector embeddings via Ollama ({}) into embeddings.bin...", embeddingModel);
@@ -143,7 +146,7 @@ public final class BalancedBaseline50kExpander {
 
         } catch (Exception e) {
             log.error("Dataset expansion failed", e);
-            System.exit(1);
+            throw new RuntimeException("Dataset expansion failed", e);
         }
     }
 
@@ -461,9 +464,54 @@ public final class BalancedBaseline50kExpander {
     private void writeQrels(Path path, List<RelevanceJudgment> judgments) throws IOException {
         try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
             for (RelevanceJudgment j : judgments) {
-                writer.write(j.queryId() + "\t0\t" + j.corpusId() + "\t" + j.grade());
+                writer.write(j.queryId() + "\t" + j.corpusId() + "\t" + j.grade());
                 writer.newLine();
             }
         }
+    }
+
+    private void partitionDailyFiles(List<BenchmarkCorpusRecord> corpus) throws IOException {
+        Path dailyDir = datasetDir.resolve("daily");
+        Files.createDirectories(dailyDir);
+
+        // Delete old daily partition files safely
+        List<Path> oldFiles;
+        try (var stream = Files.list(dailyDir)) {
+            oldFiles = stream.toList();
+        }
+        for (Path f : oldFiles) {
+            try {
+                Files.deleteIfExists(f);
+            } catch (IOException ignored) {}
+        }
+
+        Map<String, List<BenchmarkCorpusRecord>> dayGroups = new LinkedHashMap<>();
+        List<BenchmarkCorpusRecord> bioRecords = new ArrayList<>();
+
+        for (BenchmarkCorpusRecord rec : corpus) {
+            if ("session_kinship".equals(rec.sessionId()) || (rec.synapticTags() != null && rec.synapticTags().contains("kinship"))) {
+                bioRecords.add(rec);
+                continue;
+            }
+            if (rec.timestampMs() > 0) {
+                LocalDate date = java.time.Instant.ofEpochMilli(rec.timestampMs()).atZone(ZoneOffset.UTC).toLocalDate();
+                String dayKey = date.toString();
+                dayGroups.computeIfAbsent(dayKey, k -> new ArrayList<>()).add(rec);
+            } else {
+                bioRecords.add(rec);
+            }
+        }
+
+        // Write biographical records
+        writeJsonl(datasetDir.resolve("corpus-biographical.jsonl"), bioRecords);
+        log.info("Wrote {} records to corpus-biographical.jsonl", bioRecords.size());
+
+        // Write daily partition files
+        int dayNum = 1;
+        for (var entry : dayGroups.entrySet()) {
+            Path dayFile = dailyDir.resolve(String.format("corpus-day-%04d.jsonl", dayNum++));
+            writeJsonl(dayFile, entry.getValue());
+        }
+        log.info("Wrote {} daily partition files into {}/", dayGroups.size(), dailyDir.getFileName());
     }
 }
