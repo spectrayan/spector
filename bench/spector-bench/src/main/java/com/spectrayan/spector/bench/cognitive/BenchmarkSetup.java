@@ -77,12 +77,19 @@ public final class BenchmarkSetup implements AutoCloseable {
      */
     public SpectorMemory createMemoryInstance(DatasetLoader.LoadedDataset dataset,
                                               EmbeddingProvider embedder) {
-        return createMemoryInstance(dataset, embedder, null);
+        return createMemoryInstance(dataset, embedder, null, null);
     }
 
     public SpectorMemory createMemoryInstance(DatasetLoader.LoadedDataset dataset,
                                               EmbeddingProvider embedder,
                                               Path datasetDir) {
+        return createMemoryInstance(dataset, embedder, datasetDir, null);
+    }
+
+    public SpectorMemory createMemoryInstance(DatasetLoader.LoadedDataset dataset,
+                                              EmbeddingProvider embedder,
+                                              Path datasetDir,
+                                              com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig) {
         List<BenchmarkCorpusRecord> corpus = dataset.corpus();
         int corpusSize = corpus.size();
 
@@ -196,6 +203,15 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .entityGraphCapacity(Math.max(50_000, corpusSize * 50))
                 .entityExtractionMode(EntityExtractionMode.CUSTOM)
                 .entityExtractor(customExtractor);
+
+        if (aismeConfig != null) {
+            builder.aismeConfig(aismeConfig);
+        } else {
+            boolean aismeEnabled = Boolean.parseBoolean(System.getProperty("spector.memory.aisme.enabled", "false"));
+            if (aismeEnabled) {
+                builder.enableAisme(true);
+            }
+        }
 
 
         float threshold = 0.40f;
