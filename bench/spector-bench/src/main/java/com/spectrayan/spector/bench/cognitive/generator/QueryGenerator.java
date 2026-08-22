@@ -53,7 +53,8 @@ public final class QueryGenerator {
     /** Expected subsystem types for which queries must be generated. */
     private static final List<String> SUBSYSTEM_TYPES = List.of(
             "VECTOR_SIMILARITY", "TAG_GATING", "VALENCE_FILTER",
-            "IMPORTANCE_DECAY", "HEBBIAN_GRAPH", "TEMPORAL_CHAIN", "ENTITY_GRAPH"
+            "IMPORTANCE_DECAY", "HEBBIAN_GRAPH", "TEMPORAL_CHAIN", "ENTITY_GRAPH",
+            "KINSHIP_MULTIHOP", "BITEMPORAL_EVOLUTION", "GLOBAL_WORKSPACE", "AFFECTIVE_HOMEOSTATIC"
     );
 
     private static final String SYSTEM_PROMPT = """
@@ -186,6 +187,18 @@ public final class QueryGenerator {
             case "HEBBIAN_GRAPH" -> corpus.stream()
                     .filter(r -> r.synapticTags() != null && r.synapticTags().size() >= 3)
                     .limit(50).toList();
+            case "KINSHIP_MULTIHOP" -> corpus.stream()
+                    .filter(r -> r.synapticTags() != null && r.synapticTags().contains("kinship"))
+                    .limit(50).toList();
+            case "BITEMPORAL_EVOLUTION" -> corpus.stream()
+                    .filter(r -> r.text() != null && (r.text().contains("updated") || r.text().contains("refinanced") || r.text().contains("promoted") || r.text().contains("surgery") || r.text().contains("changed")))
+                    .limit(50).toList();
+            case "GLOBAL_WORKSPACE" -> corpus.stream()
+                    .filter(r -> r.importance() > 4.0f)
+                    .limit(50).toList();
+            case "AFFECTIVE_HOMEOSTATIC" -> corpus.stream()
+                    .filter(r -> Math.abs(r.valence()) >= 50)
+                    .limit(50).toList();
             default -> corpus.stream().limit(50).toList();
         };
     }
@@ -223,6 +236,14 @@ public final class QueryGenerator {
                     + "Set temporalHint to RECENT or OLD as appropriate.");
             case "ENTITY_GRAPH" -> sb.append("Queries should ask about relationships between people, "
                     + "software, or organizations mentioned in memories.");
+            case "KINSHIP_MULTIHOP" -> sb.append("Queries should ask about multi-generational family relationships "
+                    + "(e.g., great-grandparents, in-laws, cousins, aunts, uncles) across multiple hops.");
+            case "BITEMPORAL_EVOLUTION" -> sb.append("Queries should ask about facts or preferences that changed over time "
+                    + "(e.g., mortgage interest rates before/after refinance, promotions, school grades).");
+            case "GLOBAL_WORKSPACE" -> sb.append("Queries should require focused conscious recall of high-salience memories "
+                    + "without being distracted by background noise.");
+            case "AFFECTIVE_HOMEOSTATIC" -> sb.append("Queries should match high-valence emotional or stressful events "
+                    + "aligned with the user's affective state.");
             case "VECTOR_SIMILARITY" -> sb.append("Queries should be semantically similar to target memories "
                     + "but without using exact tag/valence/entity filters.");
             default -> sb.append("General queries.");

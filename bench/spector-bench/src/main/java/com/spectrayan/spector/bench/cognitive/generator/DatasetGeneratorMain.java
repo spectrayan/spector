@@ -188,8 +188,15 @@ public final class DatasetGeneratorMain {
                         day + 1, config.numDays(), dayRecords.size(), dayFile.getFileName(), generatedCorpus.size());
             }
 
-            // Step 5: Generate biographical memories
-            log.info("--- Phase 2: Generating biographical memories ---");
+            // Step 5: Generate kinship memories
+            log.info("--- Phase 2: Generating kinship memories ---");
+            KinshipGraphGenerator kinshipGen = new KinshipGraphGenerator(config.kinshipPath(), generatedCorpus.size() + 1);
+            KinshipGraphGenerator.KinshipOutput kinshipOutput = kinshipGen.generate();
+            generatedCorpus.addAll(kinshipOutput.memories());
+            log.info("Phase 2 complete: {} kinship memories generated", kinshipOutput.memories().size());
+
+            // Step 6: Generate biographical memories
+            log.info("--- Phase 3: Generating biographical memories ---");
             BiographicalGenerator bioGen = new BiographicalGenerator(generationClient, persona, config);
             bioGen.setNextMemoryId(generatedCorpus.size() + 1);
             List<BenchmarkCorpusRecord> bioRecords = bioGen.generateBiographical(generatedCorpus);
@@ -198,10 +205,10 @@ public final class DatasetGeneratorMain {
             // Write biographical records to separate file
             Path bioFile = config.outputDir().resolve("corpus-biographical.jsonl");
             writeJsonl(bioFile, bioRecords);
-            log.info("Phase 2 complete: {} biographical records written to {}", bioRecords.size(), bioFile.getFileName());
+            log.info("Phase 3 complete: {} biographical records written to {}", bioRecords.size(), bioFile.getFileName());
 
-            // Step 6: Annotate cognitive metadata (using annotation model)
-            log.info("--- Phase 3: Annotating cognitive metadata ---");
+            // Step 7: Annotate cognitive metadata (using annotation model)
+            log.info("--- Phase 4: Annotating cognitive metadata ---");
             CognitiveAnnotator annotator = new CognitiveAnnotator(annotationClient, persona);
             List<BenchmarkCorpusRecord> toAnnotate = generatedCorpus.subList(
                     existingCorpus.size(), generatedCorpus.size());
@@ -214,23 +221,24 @@ public final class DatasetGeneratorMain {
             // Write merged corpus.jsonl with all annotated data
             Path corpusFile = config.outputDir().resolve("corpus.jsonl");
             writeJsonl(corpusFile, finalCorpus);
-            log.info("Phase 3 complete: corpus.jsonl written with annotations ({} records)", finalCorpus.size());
+            log.info("Phase 4 complete: corpus.jsonl written with annotations ({} records)", finalCorpus.size());
 
-            // Step 7: Build graphs — write each immediately
-            log.info("--- Phase 4: Building graphs ---");
+            // Step 8: Build graphs — write each immediately
+            log.info("--- Phase 5: Building graphs ---");
             GraphBuilder graphBuilder = new GraphBuilder();
 
-            List<EntityRelation> entityRelations = graphBuilder.buildEntityGraph(finalCorpus);
+            List<EntityRelation> entityRelations = new ArrayList<>(kinshipOutput.relations());
+            entityRelations.addAll(graphBuilder.buildEntityGraph(finalCorpus));
             writeJsonl(config.outputDir().resolve("entities.jsonl"), entityRelations);
-            log.info("Phase 4: entities.jsonl written ({} relations)", entityRelations.size());
+            log.info("Phase 5: entities.jsonl written ({} relations)", entityRelations.size());
 
             List<TemporalChainDef> temporalChains = graphBuilder.buildTemporalChains(finalCorpus);
             writeJsonl(config.outputDir().resolve("temporal_chains.jsonl"), temporalChains);
-            log.info("Phase 4: temporal_chains.jsonl written ({} chains)", temporalChains.size());
+            log.info("Phase 5: temporal_chains.jsonl written ({} chains)", temporalChains.size());
 
             List<HebbianEdgeDef> hebbianEdges = graphBuilder.buildHebbianEdges(finalCorpus);
             writeJsonl(config.outputDir().resolve("hebbian_edges.jsonl"), hebbianEdges);
-            log.info("Phase 4: hebbian_edges.jsonl written ({} edges)", hebbianEdges.size());
+            log.info("Phase 5: hebbian_edges.jsonl written ({} edges)", hebbianEdges.size());
 
             // Step 8: Generate queries — write immediately
             log.info("--- Phase 5: Generating queries ---");

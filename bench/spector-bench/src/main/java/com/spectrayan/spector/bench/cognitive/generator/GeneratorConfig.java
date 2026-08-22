@@ -33,6 +33,7 @@ import java.nio.file.Path;
  * @param annotationModelName    LLM model to use for annotation (default: same as modelName)
  * @param maxRetries             maximum retry attempts for failed LLM calls (default: 3)
  * @param personaPath            path to persona.json file (required)
+ * @param kinshipPath            path to kinship_tree.json file (nullable — defaults to sibling if exists)
  * @param seedPath               path to seed corpus directory (nullable — omit for fresh generation)
  * @param approvedPath           path to approved corpus for incremental generation (nullable)
  * @param outputDir              directory where generated dataset files are written
@@ -47,6 +48,7 @@ public record GeneratorConfig(
         String annotationModelName,
         int maxRetries,
         Path personaPath,
+        Path kinshipPath,
         Path seedPath,
         Path approvedPath,
         Path outputDir,
@@ -105,6 +107,7 @@ public record GeneratorConfig(
         String annotationModelName = null; // defaults to modelName
         int maxRetries = DEFAULT_MAX_RETRIES;
         Path personaPath = null;
+        Path kinshipPath = null;
         Path seedPath = null;
         Path approvedPath = null;
         Path outputDir = null;
@@ -130,6 +133,7 @@ public record GeneratorConfig(
                 case "annotation-model" -> annotationModelName = value;
                 case "max-retries" -> maxRetries = parsePositiveInt(key, value);
                 case "persona" -> personaPath = Path.of(value);
+                case "kinship" -> kinshipPath = value.isEmpty() ? null : Path.of(value);
                 case "seed" -> seedPath = value.isEmpty() ? null : Path.of(value);
                 case "approved" -> approvedPath = value.isEmpty() ? null : Path.of(value);
                 case "output" -> outputDir = Path.of(value);
@@ -148,6 +152,13 @@ public record GeneratorConfig(
             throw new IllegalArgumentException("Required argument --output is missing");
         }
 
+        if (kinshipPath == null && personaPath.getParent() != null) {
+            Path defaultKinship = personaPath.getParent().resolve("kinship_tree.json");
+            if (java.nio.file.Files.exists(defaultKinship)) {
+                kinshipPath = defaultKinship;
+            }
+        }
+
         // Default annotation model to generation model
         if (annotationModelName == null) {
             annotationModelName = modelName;
@@ -155,7 +166,7 @@ public record GeneratorConfig(
 
         return new GeneratorConfig(
                 ollamaUrl, modelName, annotationModelName, maxRetries,
-                personaPath, seedPath, approvedPath, outputDir,
+                personaPath, kinshipPath, seedPath, approvedPath, outputDir,
                 totalCorpusSize, numDays, conversationsPerDay, biographicalDepthYears
         );
     }
