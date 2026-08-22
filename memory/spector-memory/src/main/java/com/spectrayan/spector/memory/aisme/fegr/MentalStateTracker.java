@@ -33,7 +33,7 @@ public final class MentalStateTracker {
     private static final Logger log = LoggerFactory.getLogger(MentalStateTracker.class);
 
     private final ReentrantLock lock = new ReentrantLock();
-    private final GenerativeSelfModel selfModel;
+    private volatile GenerativeSelfModel selfModel;
     private MentalStatePosterior currentPosterior;
 
     /**
@@ -147,6 +147,27 @@ public final class MentalStateTracker {
      */
     public GenerativeSelfModel selfModel() {
         return selfModel;
+    }
+
+    /**
+     * Adapts the generative prior mean vector towards an experiential centroid (e.g. during sleep reflection).
+     *
+     * @param targetCentroid target experiential centroid vector
+     * @param learningRate plasticity learning rate \eta
+     */
+    public void adaptPriorMean(float[] targetCentroid, float learningRate) {
+        if (targetCentroid == null || targetCentroid.length != selfModel.dimensions()) {
+            return;
+        }
+        lock.lock();
+        try {
+            this.selfModel = this.selfModel.withAdaptedPriorMean(targetCentroid, learningRate);
+            if (log.isDebugEnabled()) {
+                log.debug("Adapted generative prior mean with learning rate {}", learningRate);
+            }
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**

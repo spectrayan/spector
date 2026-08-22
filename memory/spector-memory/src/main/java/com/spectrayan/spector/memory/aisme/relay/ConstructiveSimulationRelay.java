@@ -112,6 +112,46 @@ public final class ConstructiveSimulationRelay implements SynapticRelay<RecallSi
             }
         }
 
+        // 2. Synthesize Counterfactual Episodic Recombination (Schacter & Addis 2007)
+        if (candidates.size() >= 2) {
+            CognitiveResult r1 = candidates.get(0);
+            CognitiveResult r2 = candidates.get(1);
+            float[] v1 = embeddingLookup.apply(r1.id());
+            float[] v2 = embeddingLookup.apply(r2.id());
+
+            if (v1 != null && v2 != null && v1.length == narrativeEngine.dimensions() && v2.length == narrativeEngine.dimensions()) {
+                float[] simVec = new float[narrativeEngine.dimensions()];
+                for (int d = 0; d < simVec.length; d++) {
+                    simVec[d] = 0.5f * (v1[d] + v2[d]);
+                }
+
+                float alignSim = narrativeEngine.evaluateAlignment(simVec, narrativePrior);
+                if (alignSim > 0.3f) {
+                    float simScore = (r1.score() + r2.score()) * 0.5f * (1.0f + narrativeWeight * alignSim);
+                    CognitiveResult simResult = new CognitiveResult(
+                            "sim-" + r1.id() + "-" + r2.id(),
+                            "[Constructive Simulation] " + r1.text() + " | " + r2.text(),
+                            simScore,
+                            Math.max(r1.importance(), r2.importance()),
+                            0.0f,
+                            0,
+                            (byte) ((r1.valence() + r2.valence()) / 2),
+                            com.spectrayan.spector.memory.model.MemoryType.EPISODIC,
+                            com.spectrayan.spector.memory.cortex.MemorySource.REFLECTED,
+                            new String[]{"simulated", "counterfactual", "constructive"},
+                            1.0f,
+                            1.0f,
+                            com.spectrayan.spector.memory.model.CognitiveResult.RetrievalMode.STANDARD,
+                            null,
+                            null,
+                            null,
+                            java.util.Map.of("simulation", "counterfactual_recombination")
+                    );
+                    candidates.add(simResult);
+                }
+            }
+        }
+
         if (log.isTraceEnabled()) {
             log.trace("ConstructiveSimulationRelay evaluated {} candidates with narrative weight {}",
                     candidates.size(), narrativeWeight);

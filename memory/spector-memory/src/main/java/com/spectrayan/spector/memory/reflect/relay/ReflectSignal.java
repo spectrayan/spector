@@ -75,6 +75,7 @@ public final class ReflectSignal {
     private final boolean entityResolutionEnabled;
     private final boolean entityShadowMode;
     private final float entityCosineThreshold;
+    private final com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
 
     // ── Runtime Execution Metrics ──────────────────────────────────
     private final Instant startTime;
@@ -120,6 +121,7 @@ public final class ReflectSignal {
         this.entityResolutionEnabled = builder.entityResolutionEnabled;
         this.entityShadowMode = builder.entityShadowMode;
         this.entityCosineThreshold = builder.entityCosineThreshold;
+        this.mentalStateTracker = builder.mentalStateTracker;
 
         this.startTime = Instant.now();
         this.graphMetrics = builder.graphMetrics != null ? builder.graphMetrics : new GraphHealthMetrics();
@@ -131,6 +133,7 @@ public final class ReflectSignal {
 
     // ── Getters & Accessors ────────────────────────────────────────
 
+    public com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker() { return mentalStateTracker; }
     public PartitionManager partitionManager() { return partitionManager; }
     public MemoryIndex index() { return index; }
     public ScalarQuantizer quantizer() { return quantizer; }
@@ -258,6 +261,7 @@ public final class ReflectSignal {
         private boolean entityShadowMode = true;
         private float entityCosineThreshold = 0.85f;
         private GraphHealthMetrics graphMetrics;
+        private com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
 
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder index(MemoryIndex idx) { this.index = idx; return this; }
@@ -289,6 +293,7 @@ public final class ReflectSignal {
         public Builder entityShadowMode(boolean shadow) { this.entityShadowMode = shadow; return this; }
         public Builder entityCosineThreshold(float threshold) { this.entityCosineThreshold = threshold; return this; }
         public Builder graphMetrics(GraphHealthMetrics metrics) { this.graphMetrics = metrics; return this; }
+        public Builder mentalStateTracker(com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mst) { this.mentalStateTracker = mst; return this; }
 
         public ReflectSignal build() {
             return new ReflectSignal(this);

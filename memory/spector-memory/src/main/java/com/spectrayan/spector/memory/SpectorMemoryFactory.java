@@ -322,6 +322,7 @@ public final class SpectorMemoryFactory {
                 .entityCosineThreshold(builder.entityCosineThreshold)
                 .cognitiveManifold(aismeBundle != null ? aismeBundle.cognitiveManifold() : null)
                 .manifoldConsolidationRelay(aismeBundle != null ? aismeBundle.manifoldConsolidationRelay() : null)
+                .mentalStateTracker(aismeBundle != null ? aismeBundle.mentalStateTracker() : null)
                 .build();
 
         //  Extracted Components (Deprecated, retained for backward compatibility)

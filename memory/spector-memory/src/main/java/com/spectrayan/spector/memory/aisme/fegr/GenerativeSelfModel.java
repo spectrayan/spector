@@ -115,6 +115,28 @@ public record GenerativeSelfModel(
         return new GenerativeSelfModel(mean, priorPrec, obsPrec, soul, profile);
     }
 
+    /**
+     * Returns a new GenerativeSelfModel with the prior mean adapted toward a target experiential centroid.
+     *
+     * <p>Biological Analog: Long-term experiential synaptic plasticity of the autobiographical generative prior
+     * during biological sleep consolidation: \mu_0 \leftarrow (1 - \eta)\mu_0 + \eta c.</p>
+     *
+     * @param targetCentroid target experiential centroid (e.g. autobiographical memory mean)
+     * @param learningRate plasticity learning rate \eta in [0, 1]
+     * @return updated GenerativeSelfModel
+     */
+    public GenerativeSelfModel withAdaptedPriorMean(float[] targetCentroid, float learningRate) {
+        if (targetCentroid == null || targetCentroid.length != dimensions()) {
+            return this;
+        }
+        float eta = Math.max(0.0f, Math.min(1.0f, learningRate));
+        float[] newMean = new float[dimensions()];
+        for (int i = 0; i < dimensions(); i++) {
+            newMean[i] = (1.0f - eta) * priorMean[i] + eta * targetCentroid[i];
+        }
+        return new GenerativeSelfModel(newMean, priorPrecision, observationPrecision, soul, profile);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

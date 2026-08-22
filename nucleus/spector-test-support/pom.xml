@@ -21,7 +21,6 @@
         <jacoco.minimum.coverage>0</jacoco.minimum.coverage>
         <!-- Test infrastructure — not published as a consumable artifact -->
         <maven.deploy.skip>true</maven.deploy.skip>
-        <maven.install.skip>true</maven.install.skip>
     </properties>
 
     <dependencies>
