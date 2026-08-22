@@ -35,15 +35,15 @@ try {
     exit 1
 }
 
-# 2. Build classpath
-Write-Host "[INFO] Building maven test-compile..." -ForegroundColor Yellow
+# 2. Execute runner via Surefire
+Write-Host "[INFO] Launching OllamaDatasetSynthesizerRunner via Maven..." -ForegroundColor Green
 Set-Location "d:\git\spector"
-mvn test-compile -pl bench/spector-bench -q
+mvn test -pl bench/spector-bench `
+    -Dtest=OllamaDatasetSynthesizerRunnerTest `
+    -DskipBenchTests=false `
+    "-DdatasetDir=$DatasetDir" `
+    "-DchatModel=$ChatModel" `
+    "-DembedModel=$EmbedModel" `
+    "-DtargetRecords=$TargetRecords"
 
-# 3. Execute runner
-Write-Host "[INFO] Launching OllamaDatasetSynthesizerRunner..." -ForegroundColor Green
-mvn exec:exec -pl bench/spector-bench `
-    "-Dexec.mainClass=com.spectrayan.spector.bench.cognitive.generator.OllamaDatasetSynthesizerRunner" `
-    "-Dexec.args=--dataset-dir=$DatasetDir --chat-model=$ChatModel --embed-model=$EmbedModel --target-records=$TargetRecords"
-
-Write-Host "[DONE] Ollama dataset synthesis run finished." -ForegroundColor Cyan
+Write-Host "[DONE] Ollama dataset synthesis finished." -ForegroundColor Cyan
