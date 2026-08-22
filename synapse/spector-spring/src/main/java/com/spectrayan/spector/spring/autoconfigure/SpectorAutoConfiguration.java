@@ -168,6 +168,10 @@ public class SpectorAutoConfiguration {
             builder.persistence(Path.of(memoryProps.getPersistencePath()));
         }
 
+        if (memoryProps.getAisme() != null) {
+            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memoryProps.getAisme()));
+        }
+
         //  Entity extraction (LLM if LlmProvider is present)
         LlmProvider textGen = textGenProvider.getIfAvailable();
         if (textGen != null) {

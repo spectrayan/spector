@@ -102,6 +102,41 @@ public final class RecallPathwayFactory {
             final TemperatureSoftmaxRelay temperatureSoftmaxRelay,
             final SynapticRelay<RecallSignal> consciousAccessRelay,
             final ConsolidationRelay<RecallSignal> consolidationRelay) {
+        return create(interceptor, transductionRelay, prospectiveRelay, governedReleaseGateRelay,
+                homeostaticBiasRelay, vectorSearchRelay, freeEnergyGuidedRelay, scoringRelay,
+                graphExpansionRelay, hopfieldAssociativeRelay, evidenceFusionRelay, bm25SearchRelay,
+                rrfRescoreRelay, manifoldRerankRelay, constructiveSimulationRelay,
+                consciousnessContinuityRelay, sortAndTruncateRelay, cognitiveRerankRelay,
+                mmrDiversityRelay, temperatureSoftmaxRelay, consciousAccessRelay, null, consolidationRelay);
+    }
+
+    /**
+     * Creates the full cognitive recall pathway with all AISME active inference and epistemic learning relays.
+     */
+    public static CognitivePathway<RecallSignal> create(
+            final Function<SynapticRelay<RecallSignal>, SynapticRelay<RecallSignal>> interceptor,
+            final SynapticRelay<RecallSignal> transductionRelay,
+            final SynapticRelay<RecallSignal> prospectiveRelay,
+            final SynapticRelay<RecallSignal> governedReleaseGateRelay,
+            final SynapticRelay<RecallSignal> homeostaticBiasRelay,
+            final SynapticRelay<RecallSignal> vectorSearchRelay,
+            final SynapticRelay<RecallSignal> freeEnergyGuidedRelay,
+            final SynapticRelay<RecallSignal> scoringRelay,
+            final SynapticRelay<RecallSignal> graphExpansionRelay,
+            final SynapticRelay<RecallSignal> hopfieldAssociativeRelay,
+            final SynapticRelay<RecallSignal> evidenceFusionRelay,
+            final SynapticRelay<RecallSignal> bm25SearchRelay,
+            final RrfRescoreRelay rrfRescoreRelay,
+            final SynapticRelay<RecallSignal> manifoldRerankRelay,
+            final SynapticRelay<RecallSignal> constructiveSimulationRelay,
+            final SynapticRelay<RecallSignal> consciousnessContinuityRelay,
+            final SortAndTruncateRelay sortAndTruncateRelay,
+            final CognitiveRerankRelay cognitiveRerankRelay,
+            final MmrDiversityRelay mmrDiversityRelay,
+            final TemperatureSoftmaxRelay temperatureSoftmaxRelay,
+            final SynapticRelay<RecallSignal> consciousAccessRelay,
+            final SynapticRelay<RecallSignal> epistemicLearningRelay,
+            final ConsolidationRelay<RecallSignal> consolidationRelay) {
 
         final var builder = CognitivePathway.<RecallSignal>pathway("recall");
         if (interceptor != null) {
@@ -166,6 +201,10 @@ public final class RecallPathwayFactory {
 
         if (consciousAccessRelay != null) {
             builder.gated(RelayNames.CONSCIOUS_ACCESS, RecallGates.CONSCIOUS_ACCESS_ENABLED, consciousAccessRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+        }
+
+        if (epistemicLearningRelay != null) {
+            builder.gated(RelayNames.EPISTEMIC_LEARNING, RecallGates.EPISTEMIC_LEARNING_ENABLED, epistemicLearningRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         if (consolidationRelay != null) {

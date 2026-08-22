@@ -86,4 +86,31 @@ class AismeConfigTest {
         assertThatThrownBy(() -> AismeConfig.builder().phiCohesionThreshold(-0.5f).build())
                 .isInstanceOf(SpectorValidationException.class);
     }
+
+    @Test
+    void fromProperties_mapsAllFields() {
+        com.spectrayan.spector.config.properties.AismeProperties props = new com.spectrayan.spector.config.properties.AismeProperties();
+        props.setEnabled(true);
+        props.setEnableHomeostasis(true);
+        props.setEnableFreeEnergy(false);
+        props.setGlobalWorkspaceCapacity(9);
+        props.setHopfieldTemperature(5.5f);
+        props.setManifoldSigma(1.8f);
+        props.setPhiCohesionThreshold(0.08f);
+
+        AismeConfig config = AismeConfig.fromProperties(props);
+
+        assertThat(config.enabled()).isTrue();
+        assertThat(config.enableHomeostasis()).isTrue();
+        assertThat(config.enableFreeEnergy()).isFalse();
+        assertThat(config.globalWorkspaceCapacity()).isEqualTo(9);
+        assertThat(config.hopfieldTemperature()).isEqualTo(5.5f);
+        assertThat(config.manifoldSigma()).isEqualTo(1.8f);
+        assertThat(config.phiCohesionThreshold()).isEqualTo(0.08f);
+
+        // Disabled or null props returns disabled config
+        props.setEnabled(false);
+        assertThat(AismeConfig.fromProperties(props).enabled()).isFalse();
+        assertThat(AismeConfig.fromProperties(null).enabled()).isFalse();
+    }
 }

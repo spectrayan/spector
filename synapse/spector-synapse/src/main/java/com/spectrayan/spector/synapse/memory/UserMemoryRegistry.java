@@ -310,6 +310,10 @@ public final class UserMemoryRegistry implements AutoCloseable {
                 .bundleMode(memory.isBundleMode())
                 .insulaSize(memory.getInsulaSize());
 
+        if (memory.getAisme() != null) {
+            builder.aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig.fromProperties(memory.getAisme()));
+        }
+
         // Entity extraction (LLM if a LlmProvider is present) — mirrors SpectorAutoConfiguration.
         LlmProvider textGen = textGenProvider.getIfAvailable();
         if (textGen != null) {

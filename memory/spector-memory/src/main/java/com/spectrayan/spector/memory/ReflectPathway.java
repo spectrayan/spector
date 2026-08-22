@@ -113,7 +113,8 @@ public final class ReflectPathway implements AutoCloseable {
         final var manifoldRelay = builder.manifoldConsolidationRelay != null
                 ? builder.manifoldConsolidationRelay
                 : (builder.cognitiveManifold != null
-                        ? new com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay(builder.cognitiveManifold, null)
+                        ? new com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay(
+                                builder.cognitiveManifold, null, builder.coActivationSupplier)
                         : null);
 
         this.pathway = ReflectPathwayFactory.create(
@@ -264,6 +265,13 @@ public final class ReflectPathway implements AutoCloseable {
 
         public Builder manifoldConsolidationRelay(com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay mcr) {
             this.manifoldConsolidationRelay = mcr;
+            return this;
+        }
+
+        private java.util.function.Supplier<java.util.List<float[]>> coActivationSupplier;
+
+        public Builder coActivationSupplier(java.util.function.Supplier<java.util.List<float[]>> supplier) {
+            this.coActivationSupplier = supplier;
             return this;
         }
 

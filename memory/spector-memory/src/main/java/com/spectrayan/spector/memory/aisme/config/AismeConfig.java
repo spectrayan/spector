@@ -95,6 +95,32 @@ public record AismeConfig(
         );
     }
 
+    /**
+     * Creates an AismeConfig record from a system-level {@link com.spectrayan.spector.config.properties.AismeProperties} POJO.
+     *
+     * @param props the AismeProperties instance (nullable)
+     * @return configured AismeConfig (or disabled if null or disabled)
+     */
+    public static AismeConfig fromProperties(com.spectrayan.spector.config.properties.AismeProperties props) {
+        if (props == null || !props.isEnabled()) {
+            return disabled();
+        }
+        return new AismeConfig(
+                props.isEnabled(),
+                props.isEnableHomeostasis(),
+                props.isEnableFreeEnergy(),
+                props.isEnableHopfield(),
+                props.isEnableManifold(),
+                props.isEnablePredictiveCoding(),
+                props.isEnableConsciousnessContinuity(),
+                props.isEnableGlobalWorkspace(),
+                props.getGlobalWorkspaceCapacity(),
+                props.getHopfieldTemperature(),
+                props.getManifoldSigma(),
+                props.getPhiCohesionThreshold()
+        );
+    }
+
     public static Builder builder() {
         return new Builder();
     }

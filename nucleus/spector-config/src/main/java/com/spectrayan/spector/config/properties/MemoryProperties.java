@@ -63,6 +63,7 @@ public class MemoryProperties implements Serializable {
     private DecayProperties decay = new DecayProperties();
     private ConsolidationProperties consolidation = new ConsolidationProperties();
     private LlmProperties llm = new LlmProperties();
+    private AismeProperties aisme = new AismeProperties();
 
     private TaskQueueProperties taskQueue = new TaskQueueProperties();
     private TaskQueueProperties entityExtractionTaskQueue = new TaskQueueProperties();
@@ -278,4 +279,10 @@ public class MemoryProperties implements Serializable {
     public int getEntityExtractionQueueCapacity() { return entityExtractionTaskQueue.getCapacity(); }
     public void setEntityExtractionQueueCapacity(int entityExtractionQueueCapacity) { this.entityExtractionTaskQueue.setCapacity(entityExtractionQueueCapacity); }
     public int entityExtractionQueueCapacity() { return getEntityExtractionQueueCapacity(); }
+
+    public AismeProperties getAisme() { return aisme; }
+    public void setAisme(AismeProperties aisme) {
+        if (aisme != null) this.aisme = aisme;
+    }
+    public AismeProperties aisme() { return getAisme(); }
 }

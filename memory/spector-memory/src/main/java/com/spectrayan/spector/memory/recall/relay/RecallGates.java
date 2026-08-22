@@ -102,4 +102,11 @@ public final class RecallGates {
     public static final Specification<RecallSignal> CONSCIOUS_ACCESS_ENABLED =
         Specification.of("conscious access gateway not enabled in AISME options",
             s -> s.options().enableAisme() && s.options().aismeConfig().enableGlobalWorkspace());
+
+    /**
+     * Gate evaluating whether Epistemic Learning (belief and homeostatic update) is enabled.
+     */
+    public static final Specification<RecallSignal> EPISTEMIC_LEARNING_ENABLED =
+        Specification.of("epistemic learning not enabled in AISME options",
+            s -> s.options().enableAisme() && (s.options().aismeConfig().enableFreeEnergy() || s.options().aismeConfig().enableHomeostasis()));
 }

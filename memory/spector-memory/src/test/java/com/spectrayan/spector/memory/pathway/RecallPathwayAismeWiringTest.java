@@ -86,6 +86,7 @@ class RecallPathwayAismeWiringTest {
                 null,
                 null,
                 bundle.consciousAccessRelay(),
+                bundle.epistemicLearningRelay(),
                 new ConsolidationRelay<>("consolidation", s -> {})
         );
     }
@@ -112,15 +113,23 @@ class RecallPathwayAismeWiringTest {
                 .build();
 
         RecallSignal signal = RecallSignal.forTextQuery("query", options);
+        signal.setQueryVector(new float[]{1.0f, 0.0f, 0.0f, 0.0f});
 
         signal.candidates().add(createResult("m1", 0.5f));
         signal.candidates().add(createResult("m2", 0.6f));
         signal.candidates().add(createResult("m3", 0.7f));
 
+        var initialPosterior = bundle.mentalStateTracker().currentPosterior();
+        assertThat(initialPosterior.version()).isEqualTo(0);
+
         pathway.conduct(signal);
 
         // Conscious access gate runs and restricts output to capacity=2
         assertThat(signal.candidates()).hasSize(2);
+
+        // Epistemic learning relay ran and updated posterior
+        var updatedPosterior = bundle.mentalStateTracker().currentPosterior();
+        assertThat(updatedPosterior.version()).isEqualTo(1);
     }
 
     private static CognitiveResult createResult(String id, float score) {
