@@ -81,8 +81,14 @@ public final class AismeRelayMatrixRunner {
     }
 
     public static void main(String[] args) {
-        String dataDir = args.length >= 1 ? args[0] : System.getProperty("datasetDir", "d:/git/spector-datasets/balanced-baseline/data");
-        String outDir = args.length >= 2 ? args[1] : System.getProperty("outputDir", "d:/git/spector-datasets/balanced-baseline/results");
+        String dataDir = args.length >= 1 ? args[0] : System.getProperty(
+                "datasetDir",
+                System.getProperty("spector.bench.dataset.dir",
+                        System.getenv().getOrDefault("DATASET_DIR", "../spector-datasets/balanced-baseline/data")));
+        String outDir = args.length >= 2 ? args[1] : System.getProperty(
+                "outputDir",
+                System.getProperty("spector.bench.output.dir",
+                        System.getenv().getOrDefault("OUTPUT_DIR", "../spector-datasets/balanced-baseline/results")));
         int topK = args.length >= 3 ? Integer.parseInt(args[2]) : Integer.parseInt(System.getProperty("topK", "10"));
         new AismeRelayMatrixRunner(Path.of(dataDir), Path.of(outDir), topK).run();
     }

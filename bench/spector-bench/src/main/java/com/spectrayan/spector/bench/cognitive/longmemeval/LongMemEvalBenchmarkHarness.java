@@ -56,8 +56,12 @@ public final class LongMemEvalBenchmarkHarness {
     }
 
     public static void main(String[] args) {
-        Path datasetDir = Paths.get("D:/git/spector-datasets/longmemeval/data");
-        Path outputDir = Paths.get("target/benchmark-results/longmemeval");
+        String defaultDataDir = System.getProperty(
+                "datasetDir",
+                System.getProperty("spector.bench.dataset.dir",
+                        System.getenv().getOrDefault("DATASET_DIR", "../spector-datasets/longmemeval/data")));
+        Path datasetDir = Paths.get(defaultDataDir);
+        Path outputDir = Paths.get(System.getProperty("outputDir", "target/benchmark-results/longmemeval"));
         int topK = 10;
 
         if (args.length >= 1) datasetDir = Paths.get(args[0]);
