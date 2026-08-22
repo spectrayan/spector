@@ -182,6 +182,10 @@ public final class SpectorMemoryBuilder {
     // Cognitive Pathway Engine (#561) — opt-in relay-based recall pathway
     boolean usePathwayEngine = false;
 
+    // Active Inference Self-Model Engine (AISME) (#597)
+    com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.disabled();
+    com.spectrayan.spector.memory.model.AgentSoul agentSoul;
+
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // FACTORY
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
@@ -219,6 +223,24 @@ public final class SpectorMemoryBuilder {
     public SpectorMemoryBuilder eagerConsolidationQueueCapacity(int c) { this.eagerConsolidationQueueCapacity = c; return this; }
     /** Enable the relay-based Cognitive Pathway Engine for recall (#561). */
     public SpectorMemoryBuilder usePathwayEngine(boolean enable) { this.usePathwayEngine = enable; return this; }
+
+    /** Sets the Active Inference Self-Model Engine (AISME) configuration (#597). */
+    public SpectorMemoryBuilder aismeConfig(com.spectrayan.spector.memory.aisme.config.AismeConfig config) {
+        this.aismeConfig = config != null ? config : com.spectrayan.spector.memory.aisme.config.AismeConfig.disabled();
+        return this;
+    }
+
+    /** Enables or disables AISME with default configuration (#597). */
+    public SpectorMemoryBuilder enableAisme(boolean enable) {
+        this.aismeConfig = enable ? com.spectrayan.spector.memory.aisme.config.AismeConfig.defaultConfig() : com.spectrayan.spector.memory.aisme.config.AismeConfig.disabled();
+        return this;
+    }
+
+    /** Sets the AgentSoul defining identity, purpose, and values for conscious self-modeling (#597). */
+    public SpectorMemoryBuilder agentSoul(com.spectrayan.spector.memory.model.AgentSoul soul) {
+        this.agentSoul = soul;
+        return this;
+    }
 
 
 

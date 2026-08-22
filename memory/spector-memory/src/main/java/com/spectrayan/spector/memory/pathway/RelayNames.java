@@ -62,5 +62,15 @@ public final class RelayNames {
     public static final String TEMPORAL_PRUNING          = "temporal_pruning";
     public static final String CROSS_LAYER_PROMOTION     = "cross_layer_promotion";
     public static final String ENTITY_MAINTENANCE        = "entity_maintenance";
+    public static final String MANIFOLD_CONSOLIDATION    = "manifold_consolidation";
     public static final String WAL_JOURNAL               = "wal_journal";
+
+    // Active Inference Self-Model Engine (AISME) Relays
+    public static final String HOMEOSTATIC_BIAS          = "homeostatic_bias";
+    public static final String FREE_ENERGY_GUIDED        = "free_energy_guided";
+    public static final String HOPFIELD_ASSOCIATIVE      = "hopfield_associative";
+    public static final String MANIFOLD_RERANK           = "manifold_rerank";
+    public static final String CONSTRUCTIVE_SIMULATION   = "constructive_simulation";
+    public static final String CONSCIOUSNESS_CONTINUITY  = "consciousness_continuity";
+    public static final String CONSCIOUS_ACCESS          = "conscious_access";
 }

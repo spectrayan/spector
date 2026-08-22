@@ -53,4 +53,53 @@ public final class RecallGates {
     public static final Specification<RecallSignal> RRF_FUSED =
         Specification.of("no RRF fusion occurred in this recall",
             RecallSignal::isRrfFused);
+
+    /**
+     * Gate evaluating whether Homeostatic Affective Core bias is enabled.
+     */
+    public static final Specification<RecallSignal> HOMEOSTASIS_ENABLED =
+        Specification.of("homeostasis not enabled in AISME options",
+            s -> s.options().enableAisme() && s.options().aismeConfig().enableHomeostasis());
+
+    /**
+     * Gate evaluating whether Free-Energy Guided active inference is enabled.
+     */
+    public static final Specification<RecallSignal> FREE_ENERGY_ENABLED =
+        Specification.of("free energy guided recall not enabled in AISME options",
+            s -> s.options().enableAisme() && s.options().aismeConfig().enableFreeEnergy());
+
+    /**
+     * Gate evaluating whether Modern Hopfield Associative Memory network is enabled.
+     */
+    public static final Specification<RecallSignal> HOPFIELD_ENABLED =
+        Specification.of("Hopfield associative recall not enabled in AISME options",
+            s -> s.options().enableAisme() && s.options().aismeConfig().enableHopfield());
+
+    /**
+     * Gate evaluating whether Neural Manifold Distance reranking is enabled.
+     */
+    public static final Specification<RecallSignal> MANIFOLD_ENABLED =
+        Specification.of("manifold reranking not enabled in AISME options",
+            s -> s.options().enableAisme() && s.options().aismeConfig().enableManifold());
+
+    /**
+     * Gate evaluating whether Constructive Simulation (Predictive Coding / Narrative Self) is enabled.
+     */
+    public static final Specification<RecallSignal> CONSTRUCTIVE_SIMULATION_ENABLED =
+        Specification.of("constructive simulation not enabled in AISME options",
+            s -> s.options().enableAisme() && s.options().aismeConfig().enablePredictiveCoding());
+
+    /**
+     * Gate evaluating whether Consciousness Continuity (Phi_CC) scoring is enabled.
+     */
+    public static final Specification<RecallSignal> CONSCIOUSNESS_CONTINUITY_ENABLED =
+        Specification.of("consciousness continuity metric not enabled in AISME options",
+            s -> s.options().enableAisme() && s.options().aismeConfig().enableConsciousnessContinuity());
+
+    /**
+     * Gate evaluating whether Global Workspace conscious access broadcast is enabled.
+     */
+    public static final Specification<RecallSignal> CONSCIOUS_ACCESS_ENABLED =
+        Specification.of("conscious access gateway not enabled in AISME options",
+            s -> s.options().enableAisme() && s.options().aismeConfig().enableGlobalWorkspace());
 }

@@ -110,6 +110,12 @@ public final class ReflectPathway implements AutoCloseable {
         this.entityShadowMode = builder.entityShadowMode;
         this.entityCosineThreshold = builder.entityCosineThreshold;
 
+        final var manifoldRelay = builder.manifoldConsolidationRelay != null
+                ? builder.manifoldConsolidationRelay
+                : (builder.cognitiveManifold != null
+                        ? new com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay(builder.cognitiveManifold, null)
+                        : null);
+
         this.pathway = ReflectPathwayFactory.create(
                 builder.interceptor,
                 new SynapticPruningRelay(),
@@ -121,6 +127,7 @@ public final class ReflectPathway implements AutoCloseable {
                 new TemporalPruningRelay(),
                 new CrossLayerPromotionRelay(),
                 new EntityMaintenanceRelay(),
+                manifoldRelay,
                 new WalJournalRelay()
         );
     }
@@ -247,6 +254,19 @@ public final class ReflectPathway implements AutoCloseable {
         public Builder entityResolutionEnabled(boolean enabled) { this.entityResolutionEnabled = enabled; return this; }
         public Builder entityShadowMode(boolean shadow) { this.entityShadowMode = shadow; return this; }
         public Builder entityCosineThreshold(float threshold) { this.entityCosineThreshold = threshold; return this; }
+        private com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cognitiveManifold;
+        private com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay manifoldConsolidationRelay;
+
+        public Builder cognitiveManifold(com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cm) {
+            this.cognitiveManifold = cm;
+            return this;
+        }
+
+        public Builder manifoldConsolidationRelay(com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay mcr) {
+            this.manifoldConsolidationRelay = mcr;
+            return this;
+        }
+
         private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>> interceptor;
 
         public Builder interceptor(

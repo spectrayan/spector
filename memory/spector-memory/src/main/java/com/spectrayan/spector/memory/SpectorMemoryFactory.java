@@ -228,10 +228,29 @@ public final class SpectorMemoryFactory {
         RecallPipeline recallPipeline = RecallPipelineBuilder.build(
                 builder, embeddingProvider, cortex, bio, graphs, retrieval, index, partitionManager, wal);
 
-        //  Recall Pathway (#561 — relay-based engine, opt-in via usePathwayEngine) 
+        // Active Inference Self-Model Engine (AISME) (#597)
+        com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle = null;
+        if (builder.aismeConfig != null && builder.aismeConfig.enabled()) {
+            aismeBundle = com.spectrayan.spector.memory.aisme.AismeBuilder.build(
+                    builder.aismeConfig,
+                    builder.agentSoul,
+                    builder.dimensions,
+                    id -> {
+                        var loc = index.locate(id);
+                        if (loc == null) return null;
+                        var router = partitionManager.routerFor(loc.colocatedPartition());
+                        if (router == null) return null;
+                        var seg = router.segmentFor(loc.type());
+                        if (seg == null) return null;
+                        return null;
+                    }
+            );
+        }
+
+        //  Recall Pathway (#561 — relay-based engine, opt-in via usePathwayEngine or AISME) 
         RecallPathway recallPathway = null;
         RememberPathway rememberPathway = null;
-        if (builder.usePathwayEngine) {
+        if (builder.usePathwayEngine || (aismeBundle != null)) {
             recallPathway = new RecallPathway.Builder()
                     .embeddingProvider(embeddingProvider)
                     .cortex(cortex)
@@ -245,6 +264,7 @@ public final class SpectorMemoryFactory {
                     .sparseEmbeddingProvider(builder.SparseEmbeddingProvider)
                     .hook(builder.hook)
                     .semanticIndex(builder.semanticIndex)
+                    .aismeBundle(aismeBundle)
                     .build();
 
             rememberPathway = new RememberPathway.Builder()
@@ -300,6 +320,8 @@ public final class SpectorMemoryFactory {
                 .entityResolutionEnabled(builder.entityResolutionEnabled)
                 .entityShadowMode(builder.entityShadowMode)
                 .entityCosineThreshold(builder.entityCosineThreshold)
+                .cognitiveManifold(aismeBundle != null ? aismeBundle.cognitiveManifold() : null)
+                .manifoldConsolidationRelay(aismeBundle != null ? aismeBundle.manifoldConsolidationRelay() : null)
                 .build();
 
         //  Extracted Components (Deprecated, retained for backward compatibility)

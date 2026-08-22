@@ -187,13 +187,35 @@ public final class RecallPathway {
         final ConsolidationRelay<RecallSignal> consolidationRelay = new ConsolidationRelay<>(
                 RelayNames.CONSOLIDATION, s -> {});
 
+        final var homeostaticBiasRelay = builder.aismeBundle != null ? builder.aismeBundle.homeostaticBiasRelay() : null;
+        final var freeEnergyGuidedRelay = builder.aismeBundle != null ? builder.aismeBundle.freeEnergyGuidedRelay() : null;
+        final var hopfieldAssociativeRelay = builder.aismeBundle != null ? builder.aismeBundle.hopfieldAssociativeRelay() : null;
+        final var manifoldRerankRelay = builder.aismeBundle != null ? builder.aismeBundle.manifoldRerankRelay() : null;
+        final var constructiveSimulationRelay = builder.aismeBundle != null ? builder.aismeBundle.constructiveSimulationRelay() : null;
+        final var consciousnessContinuityRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousnessContinuityRelay() : null;
+        final var consciousAccessRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousAccessRelay() : null;
+
         this.pathway = RecallPathwayFactory.create(
                 builder.interceptor,
                 transductionRelay, prospectiveRelay, governedReleaseGateRelay,
-                vectorSearchRelay, scoringRelay,
-                graphExpansionRelay, evidenceFusionRelay, bm25SearchRelay,
-                rrfRescoreRelay, sortAndTruncateRelay,
-                cognitiveRerankRelay, mmrDiversityRelay, temperatureSoftmaxRelay, consolidationRelay);
+                homeostaticBiasRelay,
+                vectorSearchRelay,
+                freeEnergyGuidedRelay,
+                scoringRelay,
+                graphExpansionRelay,
+                hopfieldAssociativeRelay,
+                evidenceFusionRelay,
+                bm25SearchRelay,
+                rrfRescoreRelay,
+                manifoldRerankRelay,
+                constructiveSimulationRelay,
+                consciousnessContinuityRelay,
+                sortAndTruncateRelay,
+                cognitiveRerankRelay,
+                mmrDiversityRelay,
+                temperatureSoftmaxRelay,
+                consciousAccessRelay,
+                consolidationRelay);
     }
 
     /**
@@ -616,9 +638,15 @@ public final class RecallPathway {
         private SparseEmbeddingProvider sparseEmbeddingProvider;
         private MemoryObservationHook hook;
         private com.spectrayan.spector.index.VectorIndex semanticIndex;
+        private com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle;
         private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>> interceptor;
 
         public Builder() {}
+
+        public Builder aismeBundle(final com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle) {
+            this.aismeBundle = aismeBundle;
+            return this;
+        }
 
         public Builder interceptor(
                 final java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<RecallSignal>> interceptor) {
