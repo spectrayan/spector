@@ -371,6 +371,43 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_ENTITY_PRUNE_THRESHOLD = "spector.memory.entity.prune-threshold";
     public static final float DEFAULT_MEMORY_ENTITY_PRUNE_THRESHOLD = 0.5f;
 
+    // Active Inference Self-Model Engine (AISME)
+    public static final String MEMORY_AISME_ENABLED = "spector.memory.aisme.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_ENABLED = false;
+
+    public static final String MEMORY_AISME_HOMEOSTASIS_ENABLED = "spector.memory.aisme.homeostasis.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_HOMEOSTASIS_ENABLED = true;
+
+    public static final String MEMORY_AISME_FREE_ENERGY_ENABLED = "spector.memory.aisme.free-energy.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_FREE_ENERGY_ENABLED = true;
+
+    public static final String MEMORY_AISME_HOPFIELD_ENABLED = "spector.memory.aisme.hopfield.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_HOPFIELD_ENABLED = true;
+
+    public static final String MEMORY_AISME_MANIFOLD_ENABLED = "spector.memory.aisme.manifold.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_MANIFOLD_ENABLED = true;
+
+    public static final String MEMORY_AISME_PREDICTIVE_CODING_ENABLED = "spector.memory.aisme.predictive-coding.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_PREDICTIVE_CODING_ENABLED = true;
+
+    public static final String MEMORY_AISME_CONSCIOUSNESS_CONTINUITY_ENABLED = "spector.memory.aisme.consciousness-continuity.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_CONSCIOUSNESS_CONTINUITY_ENABLED = true;
+
+    public static final String MEMORY_AISME_GLOBAL_WORKSPACE_ENABLED = "spector.memory.aisme.global-workspace.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_GLOBAL_WORKSPACE_ENABLED = true;
+
+    public static final String MEMORY_AISME_GLOBAL_WORKSPACE_CAPACITY = "spector.memory.aisme.global-workspace.capacity";
+    public static final int DEFAULT_MEMORY_AISME_GLOBAL_WORKSPACE_CAPACITY = 7;
+
+    public static final String MEMORY_AISME_HOPFIELD_TEMPERATURE = "spector.memory.aisme.hopfield.temperature";
+    public static final float DEFAULT_MEMORY_AISME_HOPFIELD_TEMPERATURE = 4.0f;
+
+    public static final String MEMORY_AISME_MANIFOLD_SIGMA = "spector.memory.aisme.manifold.sigma";
+    public static final float DEFAULT_MEMORY_AISME_MANIFOLD_SIGMA = 1.0f;
+
+    public static final String MEMORY_AISME_PHI_COHESION_THRESHOLD = "spector.memory.aisme.phi.cohesion-threshold";
+    public static final float DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD = 0.05f;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;
