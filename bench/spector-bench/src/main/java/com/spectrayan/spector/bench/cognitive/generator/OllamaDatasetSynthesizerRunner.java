@@ -420,7 +420,7 @@ public final class OllamaDatasetSynthesizerRunner {
         EmbeddingProvider raw = OllamaEmbeddingProvider.create(embeddingModel);
         try (CachedEmbeddingProvider cached = new CachedEmbeddingProvider(raw, cacheFile)) {
             List<String> list = new ArrayList<>(uniqueTexts);
-            int batchSize = 32;
+            int batchSize = 128;
             int total = list.size();
             long start = System.currentTimeMillis();
 
@@ -437,10 +437,15 @@ public final class OllamaDatasetSynthesizerRunner {
                         if (attempt == maxAttempts) {
                             log.warn("Failed embedding batch {}-{} after {} attempts: {}", i, end, maxAttempts, ex.getMessage());
                         } else {
-                            try { Thread.sleep(2000L * attempt); } catch (InterruptedException ignored) {}
+                            try { Thread.sleep(3000L * attempt); } catch (InterruptedException ignored) {}
                         }
                     }
                 }
+
+                // Small 50ms pause between batches to prevent Windows ephemeral socket exhaustion
+                try {
+                    Thread.sleep(50L);
+                } catch (InterruptedException ignored) {}
 
                 if ((i + batchSize) % 640 == 0 || end == total) {
                     double elapsedSec = (System.currentTimeMillis() - start) / 1000.0;
