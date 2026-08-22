@@ -209,7 +209,7 @@ public final class AismeRelayMatrixRunner {
         }
 
         try {
-            generateReport(results);
+            generateReport(results, dataset);
         } catch (IOException e) {
             log.error("Failed to generate AISME differential report", e);
         }
@@ -220,19 +220,28 @@ public final class AismeRelayMatrixRunner {
     private List<BenchmarkCondition> defineConditions() {
         List<BenchmarkCondition> list = new ArrayList<>();
 
-        // 0. Baseline (No AISME)
+        // 1. Baseline (No AISME)
         list.add(new BenchmarkCondition(
                 "CONFIG_0", "Baseline (No AISME)",
                 "Standard Cognitive Pathway without active inference self-modeling",
                 AismeConfig.disabled(), null, 0.0f));
 
-        // 1. Full AISME (All 7 Phases)
+        // 2. Full AISME (All 7 Phases)
         list.add(new BenchmarkCondition(
                 "CONFIG_1", "Full AISME (All 7 Phases)",
                 "Full generative self-model with homeostatic, free-energy, Hopfield, manifold, predictive coding, continuity, and workspace relays",
-                AismeConfig.defaultConfig(), null, 0.0f));
+                AismeConfig.builder()
+                        .enabled(true)
+                        .enableHomeostasis(true)
+                        .enableFreeEnergy(true)
+                        .enableHopfield(true)
+                        .enableManifold(true)
+                        .enablePredictiveCoding(true)
+                        .enableConsciousnessContinuity(true)
+                        .enableGlobalWorkspace(true)
+                        .build(), null, 0.0f));
 
-        // 2. Phase 1 Only (Homeostasis)
+        // 3. Phase 1 Only (Homeostatic Affective Core)
         list.add(new BenchmarkCondition(
                 "CONFIG_2", "Phase 1 Only: Homeostatic Bias",
                 "Homeostatic Core & Affective Resonance Bias Relay",
@@ -247,7 +256,7 @@ public final class AismeRelayMatrixRunner {
                         .enableGlobalWorkspace(false)
                         .build(), null, 0.0f));
 
-        // 3. Phase 2 Only (Free Energy Minimization)
+        // 4. Phase 2 Only (Free Energy Minimization)
         list.add(new BenchmarkCondition(
                 "CONFIG_3", "Phase 2 Only: Free Energy Guided",
                 "Variational Free Energy Minimization (G = epistemic + pragmatic)",
@@ -262,7 +271,7 @@ public final class AismeRelayMatrixRunner {
                         .enableGlobalWorkspace(false)
                         .build(), null, 0.0f));
 
-        // 4. Phase 3 Only (Modern Hopfield Attractors)
+        // 5. Phase 3 Only (Modern Hopfield Attractors)
         list.add(new BenchmarkCondition(
                 "CONFIG_4", "Phase 3 Only: Hopfield Attractors",
                 "Dense Associative Hopfield Energy Dynamic & Memory Basins",
@@ -277,7 +286,7 @@ public final class AismeRelayMatrixRunner {
                         .enableGlobalWorkspace(false)
                         .build(), null, 0.0f));
 
-        // 5. Phase 4 Only (Riemannian Manifold Geodesic)
+        // 6. Phase 4 Only (Riemannian Neural Manifold)
         list.add(new BenchmarkCondition(
                 "CONFIG_5", "Phase 4 Only: Riemannian Manifold",
                 "Cognitive Manifold Geodesic Distance Rerank Relay",
@@ -292,7 +301,7 @@ public final class AismeRelayMatrixRunner {
                         .enableGlobalWorkspace(false)
                         .build(), null, 0.0f));
 
-        // 6. Phase 5 Only (Predictive Coding & Simulation)
+        // 7. Phase 5 Only (Predictive Coding / Constructive Simulation)
         list.add(new BenchmarkCondition(
                 "CONFIG_6", "Phase 5 Only: Predictive Coding",
                 "Hierarchical Predictive Coding & Constructive Simulation Relay",
@@ -307,7 +316,7 @@ public final class AismeRelayMatrixRunner {
                         .enableGlobalWorkspace(false)
                         .build(), null, 0.0f));
 
-        // 7. Phase 6 Only (Consciousness Continuity / Phi)
+        // 8. Phase 6 Only (Consciousness Continuity / Phi)
         list.add(new BenchmarkCondition(
                 "CONFIG_7", "Phase 6 Only: Consciousness Continuity",
                 "Temporal Consciousness Continuity Metric & Phi Evaluation",
@@ -322,7 +331,7 @@ public final class AismeRelayMatrixRunner {
                         .enableGlobalWorkspace(false)
                         .build(), null, 0.0f));
 
-        // 8. Phase 7 Only (Global Workspace Conscious Access)
+        // 9. Phase 7 Only (Global Workspace Conscious Access)
         list.add(new BenchmarkCondition(
                 "CONFIG_8", "Phase 7 Only: Global Workspace",
                 "Limited-Capacity Global Neuronal Workspace Conscious Access Gateway",
@@ -337,7 +346,7 @@ public final class AismeRelayMatrixRunner {
                         .enableGlobalWorkspace(true)
                         .build(), null, 0.0f));
 
-        // 9. TANGLE + GPM Fail-Closed Release Gate
+        // 10. TANGLE + GPM Gate
         list.add(new BenchmarkCondition(
                 "CONFIG_9", "TANGLE + GPM Gate",
                 "Multi-Evidence Conflict Resolution + Fail-Closed Governed Release Gate",
@@ -346,7 +355,7 @@ public final class AismeRelayMatrixRunner {
         return list;
     }
 
-    private void generateReport(List<ConditionResult> results) throws IOException {
+    private void generateReport(List<ConditionResult> results, LoadedDataset dataset) throws IOException {
         Files.createDirectories(outputDir);
         Path reportFile = outputDir.resolve("aisme_relay_benchmark_report.md");
         Path jsonFile = outputDir.resolve("aisme_matrix.json");
