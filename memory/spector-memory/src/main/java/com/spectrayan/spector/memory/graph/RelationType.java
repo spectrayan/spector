@@ -89,6 +89,24 @@ public enum RelationType {
     /** A is located at B (entity → location). */
     LOCATED_AT,
 
+    // ── Kinship & Family ──
+    /** A is the great-grandparent of B. */
+    GREAT_GRANDPARENT_OF,
+    /** A is the grandparent of B. */
+    GRANDPARENT_OF,
+    /** A is the parent of B. */
+    PARENT_OF,
+    /** A is the child of B. */
+    CHILD_OF,
+    /** A is the spouse of B. */
+    SPOUSE_OF,
+    /** A is the sibling of B. */
+    SIBLING_OF,
+    /** A is the cousin of B. */
+    COUSIN_OF,
+    /** A is a relative of B. */
+    RELATIVE_OF,
+
     // ── General ──
     /** A is related to B (generic association). */
     RELATED_TO,
@@ -102,6 +120,8 @@ public enum RelationType {
         "PART_OF", "CONTAINS", "DEPENDS_ON", "USES",
         "CAUSES", "BLOCKS", "SUPERSEDES", "PRECEDES", "FOLLOWS",
         "LOCATED_AT",
+        "GREAT_GRANDPARENT_OF", "GRANDPARENT_OF", "PARENT_OF", "CHILD_OF",
+        "SPOUSE_OF", "SIBLING_OF", "COUSIN_OF", "RELATIVE_OF",
         "RELATED_TO", "OTHER"
     };
 

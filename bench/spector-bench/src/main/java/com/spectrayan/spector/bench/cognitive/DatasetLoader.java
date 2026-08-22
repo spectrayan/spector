@@ -548,13 +548,9 @@ public final class DatasetLoader {
                 toNode.get("type").asText()
         );
 
-        String relationTypeStr = node.get("relationType").asText();
-        try {
-            RelationType.valueOf(relationTypeStr);
-        } catch (IllegalArgumentException e) {
-            log.warn("Entity line {} in {}: unknown relationType '{}', defaulting to OTHER",
-                    lineNumber, file, relationTypeStr);
-            relationTypeStr = RelationType.OTHER.name();
+        String relationTypeStr = node.hasNonNull("relationType") ? node.get("relationType").asText().trim() : "RELATED_TO";
+        if (relationTypeStr.isBlank()) {
+            relationTypeStr = "RELATED_TO";
         }
 
         List<String> sourceMemoryIds = new ArrayList<>();
