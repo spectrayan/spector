@@ -417,10 +417,40 @@ public final class OllamaDatasetSynthesizerRunner {
                 uniqueTexts.add(r.text());
             }
         }
-        log.info("Pre-caching {} unique text strings into embeddings.bin via Ollama ({})", uniqueTexts.size(), embeddingModel);
         EmbeddingProvider raw = OllamaEmbeddingProvider.create(embeddingModel);
         try (CachedEmbeddingProvider cached = new CachedEmbeddingProvider(raw, cacheFile)) {
-            cached.embedBatch(new ArrayList<>(uniqueTexts));
+            List<String> list = new ArrayList<>(uniqueTexts);
+            int batchSize = 32;
+            int total = list.size();
+            long start = System.currentTimeMillis();
+
+            for (int i = 0; i < total; i += batchSize) {
+                int end = Math.min(i + batchSize, total);
+                List<String> batch = list.subList(i, end);
+
+                int maxAttempts = 5;
+                for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                    try {
+                        cached.embedBatch(batch);
+                        break;
+                    } catch (Exception ex) {
+                        if (attempt == maxAttempts) {
+                            log.warn("Failed embedding batch {}-{} after {} attempts: {}", i, end, maxAttempts, ex.getMessage());
+                        } else {
+                            try { Thread.sleep(2000L * attempt); } catch (InterruptedException ignored) {}
+                        }
+                    }
+                }
+
+                if ((i + batchSize) % 640 == 0 || end == total) {
+                    double elapsedSec = (System.currentTimeMillis() - start) / 1000.0;
+                    double rate = end / Math.max(0.1, elapsedSec);
+                    double pct = (end * 100.0 / total);
+                    log.info("Precached embeddings {}/{} items ({}%) -- rate: {} items/sec",
+                            end, total, String.format(Locale.ROOT, "%.1f", pct),
+                            String.format(Locale.ROOT, "%.1f", rate));
+                }
+            }
             log.info("Vector pre-caching finished successfully!");
         } catch (Exception e) {
             log.error("Embedding precaching error", e);
