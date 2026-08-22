@@ -82,6 +82,38 @@ public class BM25Index implements KeywordIndex {
     private int totalDocs;
 
     /**
+     * Reusable thread-local sparse score accumulator.
+     * Eliminates float[] heap allocations and zero-fill loops on every search query.
+     * Reset cost is O(hits) rather than O(N).
+     */
+    static final class ScoreAccumulator {
+        float[] scores = new float[1024];
+        int[] touchedIndices = new int[1024];
+        int touchedCount = 0;
+
+        void ensureCapacity(int minCapacity) {
+            if (scores.length < minCapacity) {
+                int newCap = Math.max(scores.length * 2, minCapacity);
+                scores = new float[newCap];
+                touchedIndices = new int[newCap];
+            }
+        }
+
+        void reset() {
+            final int count = touchedCount;
+            final int[] touched = touchedIndices;
+            final float[] s = scores;
+            for (int i = 0; i < count; i++) {
+                s[touched[i]] = 0f;
+            }
+            touchedCount = 0;
+        }
+    }
+
+    private static final ThreadLocal<ScoreAccumulator> ACCUMULATOR =
+            ThreadLocal.withInitial(ScoreAccumulator::new);
+
+    /**
      * Struct-of-arrays posting list for cache-friendly access.
      *
      * <p>Replaces {@code List<Posting>} with parallel primitive arrays.
@@ -186,10 +218,14 @@ public class BM25Index implements KeywordIndex {
             docLengthsCapacity = Math.max(docLengthsCapacity * 2, docIndex + 1);
             docLengthsArray = Arrays.copyOf(docLengthsArray, docLengthsCapacity);
         }
-        docLengthsArray[docIndex] = terms.size();
+        int docLen = terms.size();
+        docLengthsArray[docIndex] = docLen;
 
         totalDocs++;
-        totalDocLength += terms.size();
+        totalDocLength += docLen;
+
+        // Update average doc length — O(1) incremental
+        avgDocLength = totalDocs > 0 ? (double) totalDocLength / totalDocs : 0;
 
         // Count term frequencies
         Map<String, Integer> termFreqs = new HashMap<>();
@@ -203,9 +239,6 @@ public class BM25Index implements KeywordIndex {
                     .computeIfAbsent(entry.getKey(), k -> new PostingList())
                     .add(docIndex, entry.getValue());
         }
-
-        // Update average doc length — O(1) incremental
-        avgDocLength = totalDocs > 0 ? (double) totalDocLength / totalDocs : 0;
     }
 
     @Override
@@ -224,148 +257,86 @@ public class BM25Index implements KeywordIndex {
             return new ScoredResult[0];
         }
 
-        // ── Snapshot immutable state for thread-safe parallel scoring ──
+        // ── Snapshot immutable state for thread-safe scoring ──
         final int n = docIds.size();
         final int nDocs = totalDocs;
-        final double avgDL = avgDocLength;
-        final int[] docLens = docLengthsArray; // safe: only grows, never shrinks
+        final int[] docLens = docLengthsArray;
+        final float avgDLf = (float) avgDocLength;
+        final float k1PlusOne = k1 + 1f;
+        final float c1 = k1 * (1f - b);
+        final float c2 = (avgDLf > 0f) ? (k1 * b / avgDLf) : 0f;
 
-        // ── Estimate total postings to decide parallel vs sequential ──
-        int totalPostings = 0;
-        List<String> validTerms = new ArrayList<>(queryTerms.size());
+        // ── Collect valid terms that exist in inverted index ──
+        List<PostingList> validPostings = new ArrayList<>(queryTerms.size());
         for (String term : queryTerms) {
             PostingList postings = invertedIndex.get(term);
-            if (postings != null) {
-                totalPostings += postings.size;
-                validTerms.add(term);
+            if (postings != null && postings.size > 0) {
+                validPostings.add(postings);
             }
         }
-        if (validTerms.isEmpty()) {
+        if (validPostings.isEmpty()) {
             return new ScoredResult[0];
         }
 
-        // ── Score using float[] array (zero-copy, no boxing) ──
-        float[] scores;
-
-        if (validTerms.size() > 1 && totalPostings >= PARALLEL_POSTING_THRESHOLD) {
-            scores = scoreTermsParallel(validTerms, n, nDocs, avgDL, docLens);
-        } else {
-            scores = scoreTermsSequential(validTerms, n, nDocs, avgDL, docLens);
+        // ── Sort posting lists ascending by size (rarest / highest-IDF terms first) ──
+        if (validPostings.size() > 1) {
+            validPostings.sort(java.util.Comparator.comparingInt(p -> p.size));
         }
 
-        // ── Extract top-K using bounded min-heap: O(N log K) ──
+        // ── Zero-allocation sparse scoring via ThreadLocal ScoreAccumulator ──
+        ScoreAccumulator acc = ACCUMULATOR.get();
+        acc.ensureCapacity(n);
+        acc.reset();
+
+        final float[] scores = acc.scores;
+        final int[] touched = acc.touchedIndices;
+        int touchedCount = 0;
+
+        for (PostingList postings : validPostings) {
+            float idf = computeIdf(postings.size, nDocs);
+            final int sz = postings.size;
+            final int[] docIdx = postings.docIndices;
+            final int[] tfs = postings.termFrequencies;
+
+            for (int i = 0; i < sz; i++) {
+                int docIndex = docIdx[i];
+                int tf = tfs[i];
+                int docLen = docLens[docIndex];
+
+                float tfNorm = (tf * k1PlusOne) / (tf + c1 + c2 * docLen);
+                float termScore = idf * tfNorm;
+
+                if (scores[docIndex] == 0f) {
+                    touched[touchedCount++] = docIndex;
+                }
+                scores[docIndex] += termScore;
+            }
+        }
+        acc.touchedCount = touchedCount;
+
+        // ── Extract top-K from ONLY touched document indices: O(hits log K) ──
         var heap = new NeighborQueue(Math.min(k, 64), k, true); // min-heap: smallest on top
-        for (int i = 0; i < n; i++) {
-            if (scores[i] > 0f) {
-                heap.add(i, scores[i]);
+        for (int i = 0; i < touchedCount; i++) {
+            int docIndex = touched[i];
+            float score = scores[docIndex];
+            if (score > 0f) {
+                heap.add(docIndex, score);
             }
         }
 
         // ── Build result array directly ──
         int resultCount = heap.size();
         ScoredResult[] results = new ScoredResult[resultCount];
-        // Poll from min-heap gives ascending order; fill array back-to-front for descending
         for (int i = resultCount - 1; i >= 0; i--) {
             float score = heap.topScore();
             int idx = heap.poll();
             results[i] = new ScoredResult(docIds.get(idx), idx, score);
         }
 
+        // Clean accumulator for next query in O(touchedCount) time
+        acc.reset();
+
         return results;
-    }
-
-    /**
-     * Scores all terms sequentially into a single float[] array.
-     */
-    private float[] scoreTermsSequential(List<String> terms, int n,
-                                          int nDocs, double avgDL, int[] docLens) {
-        float[] scores = new float[n];
-
-        for (String term : terms) {
-            PostingList postings = invertedIndex.get(term);
-            if (postings == null) continue;
-            float idf = computeIdf(postings.size, nDocs);
-            accumulatePostings(postings, idf, scores, docLens, avgDL);
-        }
-
-        return scores;
-    }
-
-    /**
-     * Scores each term in parallel using virtual threads, then merges.
-     *
-     * <p>Each term's postings are scored into a separate float[] array on its own
-     * virtual thread. The arrays are then merged with SIMD-friendly sequential addition.
-     * This avoids contention on a shared scores array.</p>
-     */
-    private float[] scoreTermsParallel(List<String> terms, int n,
-                                        int nDocs, double avgDL, int[] docLens) {
-        // Build tasks — one per term
-        List<Callable<float[]>> tasks = new ArrayList<>(terms.size());
-        for (String term : terms) {
-            tasks.add(() -> {
-                PostingList postings = invertedIndex.get(term);
-                if (postings == null) return null;
-                float idf = computeIdf(postings.size, nDocs);
-                float[] termScores = new float[n];
-                accumulatePostings(postings, idf, termScores, docLens, avgDL);
-                return termScores;
-            });
-        }
-
-        float[] mergedScores = new float[n];
-
-        try {
-            List<float[]> results = ConcurrentTasks.forkJoinAll(tasks);
-
-            // SIMD-accelerated merge: vectorized dst[i] += src[i]
-            for (float[] termScores : results) {
-                if (termScores != null) {
-                    SIMDScoreAccumulator.addArrays(mergedScores, termScores, n);
-                }
-            }
-        } catch (ConcurrentExecutionException e) {
-            log.error("Parallel BM25 scoring failed, falling back to sequential", e.getCause());
-            return scoreTermsSequential(terms, n, nDocs, avgDL, docLens);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("Parallel BM25 scoring interrupted", e);
-        }
-
-        return mergedScores;
-    }
-
-    /**
-     * Inner scoring loop — accumulates BM25 term scores into the scores array.
-     * Kept as a tight loop for maximum throughput.
-     */
-    /**
-     * Inner scoring loop — accumulates BM25 term scores into the scores array.
-     *
-     * <p>Uses struct-of-arrays PostingList for sequential memory access.
-     * The docIndices[] and termFrequencies[] arrays are laid out contiguously,
-     * enabling hardware prefetching and better cache line utilization compared
-     * to the old List<Posting> approach (which required pointer chasing per element).</p>
-     */
-    private void accumulatePostings(PostingList postings, float idf,
-                                     float[] scores, int[] docLens, double avgDL) {
-        final float avgDLf = (float) avgDL;
-        final float k1PlusOne = k1 + 1f;
-        final float oneMinusB = 1f - b;
-        final int sz = postings.size;
-        final int[] docIdx = postings.docIndices;
-        final int[] tfs = postings.termFrequencies;
-
-        for (int i = 0; i < sz; i++) {
-            int docIndex = docIdx[i];
-            int tf = tfs[i];
-            int docLen = docLens[docIndex];
-
-            float tfNorm = (tf * k1PlusOne)
-                    / (tf + k1 * (oneMinusB + b * docLen / avgDLf));
-
-            scores[docIndex] += idf * tfNorm;
-        }
     }
 
     @Override
@@ -446,6 +417,7 @@ public class BM25Index implements KeywordIndex {
             for (var postings : invertedIndex.values()) {
                 postings.removeByDocIndex(idx);
             }
+            recalcAvgDocLength();
         }
     }
 

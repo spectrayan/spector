@@ -28,7 +28,6 @@ import java.util.regex.Pattern;
  */
 public class StandardAnalyzer implements Analyzer {
 
-    private static final Pattern TOKEN_PATTERN = Pattern.compile("[\\p{L}\\p{N}]+");
     private static final int MIN_TOKEN_LENGTH = 2;
 
     /** Common English stop words. */
@@ -46,15 +45,82 @@ public class StandardAnalyzer implements Analyzer {
         }
 
         List<String> tokens = new ArrayList<>();
-        var matcher = TOKEN_PATTERN.matcher(text.toLowerCase());
+        tokenize(text, tokens);
+        return tokens;
+    }
 
-        while (matcher.find()) {
-            String token = matcher.group();
-            if (token.length() >= MIN_TOKEN_LENGTH && !STOP_WORDS.contains(token)) {
-                tokens.add(token);
+    /**
+     * High-throughput single-pass tokenizer: scans alphanumeric tokens, lowercases in-place,
+     * filters stop words, and discards tokens shorter than {@value #MIN_TOKEN_LENGTH} chars.
+     * Zero regex compilation, zero lowercased full-string allocations.
+     *
+     * @param text   input string
+     * @param tokens destination list for extracted tokens
+     */
+    public static void tokenize(String text, List<String> tokens) {
+        final int len = text.length();
+        int tokenStart = -1;
+
+        for (int i = 0; i < len; i++) {
+            char c = text.charAt(i);
+            if (isAlphaNumeric(c)) {
+                if (tokenStart == -1) {
+                    tokenStart = i;
+                }
+            } else if (tokenStart != -1) {
+                emitToken(text, tokenStart, i, tokens);
+                tokenStart = -1;
             }
         }
 
-        return tokens;
+        if (tokenStart != -1) {
+            emitToken(text, tokenStart, len, tokens);
+        }
+    }
+
+    private static void emitToken(String text, int start, int end, List<String> tokens) {
+        final int tokenLen = end - start;
+        if (tokenLen < MIN_TOKEN_LENGTH) {
+            return;
+        }
+
+        // Fast scan to check if any uppercase characters exist
+        boolean hasUpper = false;
+        for (int i = start; i < end; i++) {
+            char c = text.charAt(i);
+            if ((c >= 'A' && c <= 'Z') || (c > 127 && Character.isUpperCase(c))) {
+                hasUpper = true;
+                break;
+            }
+        }
+
+        String token;
+        if (!hasUpper) {
+            token = text.substring(start, end);
+        } else {
+            char[] chars = new char[tokenLen];
+            for (int i = 0; i < tokenLen; i++) {
+                char c = text.charAt(start + i);
+                if (c >= 'A' && c <= 'Z') {
+                    chars[i] = (char) (c + 32);
+                } else if (c > 127) {
+                    chars[i] = Character.toLowerCase(c);
+                } else {
+                    chars[i] = c;
+                }
+            }
+            token = new String(chars);
+        }
+
+        if (!STOP_WORDS.contains(token)) {
+            tokens.add(token);
+        }
+    }
+
+    private static boolean isAlphaNumeric(char c) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+            return true;
+        }
+        return c > 127 && Character.isLetterOrDigit(c);
     }
 }

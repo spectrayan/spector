@@ -140,15 +140,10 @@ public final class MemoryBM25Index implements AutoCloseable {
             return List.of();
         }
 
-        // Execute in parallel if multiple partitions, sequential if single
+        // Execute in sequential fast-path if <= 4 partitions to eliminate virtual thread overhead
         List<BM25Candidate> merged;
-        if (tasks.size() == 1) {
-            try {
-                merged = tasks.getFirst().call();
-            } catch (Exception e) {
-                log.error("BM25 single-partition search failed", e);
-                return List.of();
-            }
+        if (tasks.size() <= 4) {
+            merged = searchSequential(snapshot, query, topK);
         } else {
             merged = new ArrayList<>();
             try {
