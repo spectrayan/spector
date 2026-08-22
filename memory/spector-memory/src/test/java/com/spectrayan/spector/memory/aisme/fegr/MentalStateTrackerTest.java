@@ -78,4 +78,13 @@ class MentalStateTrackerTest {
         assertThat(reset.version()).isEqualTo(0);
         assertThat(reset.mean()).containsExactly(selfModel.priorMean());
     }
+
+    @Test
+    void adaptPriorMean_shiftsPriorMeanTowardsExperientialCentroid() {
+        float[] centroid = {4.0f, 6.0f};
+        tracker.adaptPriorMean(centroid, 0.1f);
+
+        assertThat(tracker.selfModel().priorMean()[0]).isCloseTo(0.4f, within(0.01f));
+        assertThat(tracker.selfModel().priorMean()[1]).isCloseTo(0.6f, within(0.01f));
+    }
 }

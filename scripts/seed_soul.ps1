@@ -1,15 +1,21 @@
 # Seed Spectrayan Company Soul
 param(
-    [string]$SoulPath = "C:\Users\bhara\.gemini\antigravity\brain\6b7f3f04-e0f5-4635-a487-4fb96dfbf5a5\scratch\spectrayan_soul.json",
-    [string]$BaseUrl = "http://localhost:7070",
-    [string]$ApiKey = "spector-dev-key"
+    [string]$SoulPath = $(if ($env:SPECTOR_SOUL_PATH) { $env:SPECTOR_SOUL_PATH } else { "" }),
+    [string]$BaseUrl = $(if ($env:SPECTOR_BASE_URL) { $env:SPECTOR_BASE_URL } else { "http://localhost:7070" }),
+    [string]$ApiKey = $(if ($env:SPECTOR_API_KEY) { $env:SPECTOR_API_KEY } else { "spector-dev-key" })
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path $SoulPath)) {
-    Write-Error "Soul file not found: $SoulPath"
-    exit 1
+if (-not $SoulPath -or -not (Test-Path $SoulPath)) {
+    if (Test-Path "$PSScriptRoot/../config/soul.json") {
+        $SoulPath = "$PSScriptRoot/../config/soul.json"
+    } elseif (Test-Path "soul.json") {
+        $SoulPath = "soul.json"
+    } else {
+        Write-Error "Soul file not found. Provide -SoulPath <path> or set SPECTOR_SOUL_PATH environment variable."
+        exit 1
+    }
 }
 
 $rawBytes = [System.IO.File]::ReadAllBytes($SoulPath)

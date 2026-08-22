@@ -65,36 +65,92 @@ public final class SoulDriftRefusionRelay implements SynapticRelay<ReflectSignal
             currentSoulVersion = signal.ingestionTarget().currentSoulVersion();
         }
 
-        if (currentSoulVersion <= 0) {
-            return true; // No active soul version configured
+        if (currentSoulVersion > 0) {
+            int maxBatchSize = signal.soulDriftRefusionBatchSize();
+            PriorityQueue<DriftCandidate> heap = new PriorityQueue<>();
+
+            var handles = signal.partitionManager().snapshot();
+            for (var handle : handles) {
+                if (handle.router() == null) continue;
+                scanStore(handle.router().semantic(), currentSoulVersion, heap, signal);
+                scanStore(handle.router().working(), currentSoulVersion, heap, signal);
+                if (!handle.router().isEpisodicLogMode()) {
+                    scanStore(handle.router().episodic(), currentSoulVersion, heap, signal);
+                }
+            }
+
+            int reFused = 0;
+            while (!heap.isEmpty() && reFused < maxBatchSize) {
+                DriftCandidate candidate = heap.poll();
+                refuseMemory(candidate, currentSoulVersion, signal);
+                reFused++;
+            }
+
+            if (reFused > 0) {
+                log.info("Soul-Drift Re-Fusion: re-fused {} / {} detected memories (avg delta={})",
+                        reFused, signal.soulDriftedCount(), String.format("%.3f", signal.averageImportanceDelta()));
+            }
         }
 
-        int maxBatchSize = signal.soulDriftRefusionBatchSize();
-        PriorityQueue<DriftCandidate> heap = new PriorityQueue<>();
+        // 2. Generative Prior Plasticity: Adapt Generative Prior Mean toward Autobiographical Centroid
+        if (signal.mentalStateTracker() != null) {
+            float[] centroid = computeAutobiographicalCentroid(signal);
+            if (centroid != null) {
+                signal.mentalStateTracker().adaptPriorMean(centroid, 0.005f);
+                log.info("Generative prior adapted toward autobiographical centroid (dim={})", centroid.length);
+            }
+        }
+
+        return true;
+    }
+
+    private float[] computeAutobiographicalCentroid(ReflectSignal signal) {
+        if (signal.partitionManager() == null) return null;
+        ScalarQuantizer quantizer = signal.quantizer();
+        if (quantizer == null && signal.ingestionTarget() != null) {
+            quantizer = signal.ingestionTarget().quantizer();
+        }
+        if (quantizer == null) return null;
+
+        float[] accumulator = null;
+        int count = 0;
 
         var handles = signal.partitionManager().snapshot();
         for (var handle : handles) {
             if (handle.router() == null) continue;
-            scanStore(handle.router().semantic(), currentSoulVersion, heap, signal);
-            scanStore(handle.router().working(), currentSoulVersion, heap, signal);
-            if (!handle.router().isEpisodicLogMode()) {
-                scanStore(handle.router().episodic(), currentSoulVersion, heap, signal);
+            CognitiveRecordMemory semantic = handle.router().semantic();
+            if (semantic != null && semantic.segment() != null) {
+                CognitiveRecordLayout layout = semantic.cognitiveLayout();
+                MemorySegment segment = semantic.segment();
+                int size = semantic.size();
+                int vecBytes = layout.quantizedVecBytes();
+                byte[] qBytes = new byte[vecBytes];
+
+                for (int i = 0; i < size && count < 200; i++) {
+                    long offset = semantic.recordOffset(i);
+                    byte flags = layout.readFlags(segment, offset);
+                    if (SynapticHeaderConstants.isTombstoned(flags)) continue;
+
+                    MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
+                    float[] vec = quantizer.decode(qBytes);
+                    if (accumulator == null) {
+                        accumulator = new float[vec.length];
+                    }
+                    for (int d = 0; d < vec.length; d++) {
+                        accumulator[d] += vec[d];
+                    }
+                    count++;
+                }
             }
         }
 
-        int reFused = 0;
-        while (!heap.isEmpty() && reFused < maxBatchSize) {
-            DriftCandidate candidate = heap.poll();
-            refuseMemory(candidate, currentSoulVersion, signal);
-            reFused++;
+        if (accumulator != null && count > 0) {
+            for (int d = 0; d < accumulator.length; d++) {
+                accumulator[d] /= count;
+            }
+            return accumulator;
         }
-
-        if (reFused > 0) {
-            log.info("Soul-Drift Re-Fusion: re-fused {} / {} detected memories (avg delta={})",
-                    reFused, signal.soulDriftedCount(), String.format("%.3f", signal.averageImportanceDelta()));
-        }
-
-        return true;
+        return null;
     }
 
     private void scanStore(CognitiveRecordMemory store, short currentSoulVersion,

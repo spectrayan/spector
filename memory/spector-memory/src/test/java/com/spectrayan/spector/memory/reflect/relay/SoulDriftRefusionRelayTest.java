@@ -96,4 +96,51 @@ class SoulDriftRefusionRelayTest {
         semanticMemory.close();
         workingMemory.close();
     }
+
+    @Test
+    @DisplayName("SoulDriftRefusionRelay adapts generative prior mean toward autobiographical centroid")
+    void testGenerativePriorPlasticityAdaptation() {
+        ScalarQuantizer quantizer = Mockito.mock(ScalarQuantizer.class);
+        float[] memoryVec = new float[DIMS];
+        java.util.Arrays.fill(memoryVec, 1.0f);
+        when(quantizer.decode(Mockito.any(byte[].class))).thenReturn(memoryVec);
+
+        CognitiveRecordLayout layout = new CognitiveRecordLayout(DIMS);
+        SemanticRecordMemory semanticMemory = new SemanticRecordMemory(DIMS, 100);
+        CognitiveMemoryRouter router = new CognitiveMemoryRouter(null, null, semanticMemory, null);
+        PartitionManager partitionManager = Mockito.mock(PartitionManager.class);
+        PartitionHandle handle = new PartitionHandle(0, null, router, null, false);
+        when(partitionManager.snapshot()).thenReturn(List.of(handle));
+
+        CognitiveHeader header = new CognitiveHeader(
+                System.currentTimeMillis(), 0L, 1.0f, 0.4f, 0, (short) 0,
+                (byte) 10, (byte) 0, (byte) 5, 1.0f, (byte) 0, (byte) 0, (byte) 0, (short) 2, 1.0f
+        );
+        byte[] quantized = new byte[layout.quantizedVecBytes()];
+        semanticMemory.write(header, quantized);
+
+        com.spectrayan.spector.memory.aisme.fegr.GenerativeSelfModel selfModel =
+                com.spectrayan.spector.memory.aisme.fegr.GenerativeSelfModel.fromSoulAndProfile(
+                        null, com.spectrayan.spector.memory.model.CognitiveProfile.BALANCED, DIMS);
+        com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker tracker =
+                new com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker(selfModel);
+
+        assertThat(tracker.selfModel().priorMean()[0]).isEqualTo(0.0f);
+
+        ReflectSignal signal = ReflectSignal.builder()
+                .partitionManager(partitionManager)
+                .quantizer(quantizer)
+                .mentalStateTracker(tracker)
+                .soulDriftRefusionEnabled(true)
+                .build();
+
+        SoulDriftRefusionRelay relay = new SoulDriftRefusionRelay();
+        boolean success = relay.transmit(signal);
+
+        assertThat(success).isTrue();
+        // Prior mean should have adapted from 0.0 towards 1.0 by eta=0.005
+        assertThat(tracker.selfModel().priorMean()[0]).isGreaterThan(0.0f);
+
+        semanticMemory.close();
+    }
 }

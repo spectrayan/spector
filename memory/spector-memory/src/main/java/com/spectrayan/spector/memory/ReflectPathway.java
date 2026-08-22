@@ -83,6 +83,7 @@ public final class ReflectPathway implements AutoCloseable {
     private final boolean entityResolutionEnabled;
     private final boolean entityShadowMode;
     private final float entityCosineThreshold;
+    private final com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
 
     private ReflectPathway(final Builder builder) {
         this.quantizer = builder.quantizer;
@@ -109,6 +110,7 @@ public final class ReflectPathway implements AutoCloseable {
         this.entityResolutionEnabled = builder.entityResolutionEnabled;
         this.entityShadowMode = builder.entityShadowMode;
         this.entityCosineThreshold = builder.entityCosineThreshold;
+        this.mentalStateTracker = builder.mentalStateTracker;
 
         final var manifoldRelay = builder.manifoldConsolidationRelay != null
                 ? builder.manifoldConsolidationRelay
@@ -195,6 +197,7 @@ public final class ReflectPathway implements AutoCloseable {
                 .entityResolutionEnabled(entityResolutionEnabled)
                 .entityShadowMode(entityShadowMode)
                 .entityCosineThreshold(entityCosineThreshold)
+                .mentalStateTracker(mentalStateTracker)
                 .build();
 
         return conduct(signal);
@@ -265,6 +268,13 @@ public final class ReflectPathway implements AutoCloseable {
 
         public Builder manifoldConsolidationRelay(com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay mcr) {
             this.manifoldConsolidationRelay = mcr;
+            return this;
+        }
+
+        private com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
+
+        public Builder mentalStateTracker(com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mst) {
+            this.mentalStateTracker = mst;
             return this;
         }
 

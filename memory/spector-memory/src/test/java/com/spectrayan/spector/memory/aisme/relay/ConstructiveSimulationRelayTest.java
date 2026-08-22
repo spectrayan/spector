@@ -77,6 +77,35 @@ class ConstructiveSimulationRelayTest {
         assertThat(score1).isGreaterThan(score2);
     }
 
+    @Test
+    void configured_synthesizesCounterfactualEpisode_whenComplementaryCandidatesAlignWithNarrative() {
+        NarrativeSelfEngine engine = new NarrativeSelfEngine(null, 2);
+        Map<String, float[]> vectors = new HashMap<>();
+        vectors.put("m1", new float[]{1.0f, 0.2f});
+        vectors.put("m2", new float[]{0.8f, 0.1f});
+
+        ConstructiveSimulationRelay relay = new ConstructiveSimulationRelay(engine, null, vectors::get, 0.5f);
+
+        float[] query = {1.0f, 0.0f};
+        RecallSignal signal = RecallSignal.forVectorQuery(query, RecallOptions.builder().build());
+        signal.setQueryVector(query);
+
+        signal.candidates().add(createResult("m1", 0.8f));
+        signal.candidates().add(createResult("m2", 0.7f));
+
+        boolean ok = relay.transmit(signal);
+        assertThat(ok).isTrue();
+
+        // Should synthesize a 3rd candidate representing the recombined counterfactual episode
+        assertThat(signal.candidates()).hasSize(3);
+        CognitiveResult simulated = signal.candidates().get(2);
+        assertThat(simulated.id()).isEqualTo("sim-m1-m2");
+        assertThat(simulated.text()).contains("[Constructive Simulation]");
+        assertThat(simulated.synapticTags()).contains("simulated", "counterfactual", "constructive");
+        assertThat(simulated.memoryType()).isEqualTo(MemoryType.EPISODIC);
+        assertThat(simulated.source()).isEqualTo(MemorySource.REFLECTED);
+    }
+
     private static CognitiveResult createResult(String id, float score) {
         return new CognitiveResult(
                 id,
