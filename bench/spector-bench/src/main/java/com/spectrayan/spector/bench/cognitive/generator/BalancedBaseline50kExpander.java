@@ -67,8 +67,16 @@ public final class BalancedBaseline50kExpander {
     private static final int TARGET_QUERY_COUNT = 520;
 
     public static void main(String[] args) {
-        Path datasetDir = args.length > 0 ? Paths.get(args[0]) : Paths.get("d:\\git\\spector-datasets\\balanced-baseline\\data");
-        String embeddingModel = args.length > 1 ? args[1] : "nomic-embed-text";
+        String defaultDir = System.getProperty(
+                "datasetDir",
+                System.getProperty("spector.bench.dataset.dir",
+                        System.getenv().getOrDefault("DATASET_DIR", "../spector-datasets/balanced-baseline/data")));
+        String defaultModel = System.getProperty(
+                "embeddingModel",
+                System.getProperty("spector.embed.model",
+                        System.getenv().getOrDefault("EMBED_MODEL", "nomic-embed-text")));
+        Path datasetDir = args.length > 0 ? Paths.get(args[0]) : Paths.get(defaultDir);
+        String embeddingModel = args.length > 1 ? args[1] : defaultModel;
 
         log.info("=== Starting Balanced Baseline 50k Dataset Expansion ===");
         log.info("Dataset Directory: {}", datasetDir);

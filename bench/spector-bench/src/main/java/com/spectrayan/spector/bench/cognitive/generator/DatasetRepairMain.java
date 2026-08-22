@@ -53,10 +53,14 @@ public final class DatasetRepairMain {
         log.info("=== Starting Dataset Repair Main ===");
 
         // Default configurations
-        Path outputDir = Path.of("d:\\git\\spector-datasets\\entity-dense-baseline\\data");
+        String defaultDir = System.getProperty(
+                "datasetDir",
+                System.getProperty("spector.bench.dataset.dir",
+                        System.getenv().getOrDefault("DATASET_DIR", "../spector-datasets/entity-dense-baseline/data")));
+        Path outputDir = Path.of(defaultDir);
         Path personaPath = outputDir.resolve("persona.json");
-        String modelName = "qwen3:1.7b";
-        String ollamaUrl = "http://localhost:11434";
+        String modelName = System.getProperty("modelName", System.getenv().getOrDefault("MODEL_NAME", "qwen3:1.7b"));
+        String ollamaUrl = System.getProperty("ollamaUrl", System.getenv().getOrDefault("OLLAMA_URL", "http://localhost:11434"));
 
         // Parse optional arguments
         for (String arg : args) {

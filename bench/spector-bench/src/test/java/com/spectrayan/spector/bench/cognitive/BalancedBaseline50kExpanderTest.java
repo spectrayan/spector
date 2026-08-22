@@ -15,22 +15,36 @@
  */
 package com.spectrayan.spector.bench.cognitive;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import com.spectrayan.spector.bench.cognitive.generator.BalancedBaseline50kExpander;
 
+@Tag("integration")
 @Tag("expansion")
+@EnabledIfEnvironmentVariable(named = "OLLAMA_LIVE", matches = "true")
 class BalancedBaseline50kExpanderTest {
 
     @Test
     void run50kDatasetExpansion() {
-        String datasetDirStr = System.getProperty("datasetDir", "d:\\git\\spector-datasets\\balanced-baseline\\data");
-        String model = System.getProperty("embeddingModel", "nomic-embed-text");
+        String datasetDirStr = System.getProperty(
+                "datasetDir",
+                System.getProperty("spector.bench.dataset.dir",
+                        System.getenv().getOrDefault("DATASET_DIR", "../spector-datasets/balanced-baseline/data")));
+        String model = System.getProperty(
+                "embeddingModel",
+                System.getProperty("spector.embed.model",
+                        System.getenv().getOrDefault("EMBED_MODEL", "nomic-embed-text")));
         Path datasetDir = Paths.get(datasetDirStr);
+
+        Assumptions.assumeTrue(Files.exists(datasetDir.resolve("corpus.jsonl")),
+                "Dataset corpus.jsonl not found at " + datasetDir);
 
         BalancedBaseline50kExpander expander = new BalancedBaseline50kExpander(datasetDir, model);
         expander.execute();

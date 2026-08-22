@@ -75,12 +75,17 @@ public final class OllamaDatasetSynthesizerRunner {
     private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
     public static void main(String[] args) {
-        Path datasetDir = Paths.get("d:\\git\\spector-datasets\\balanced-baseline\\data");
-        String chatModel = "llama3.1:latest";
-        String embeddingModel = "nomic-embed-text:latest";
-        String ollamaUrl = "http://localhost:11434";
-        int targetRecords = 50000;
-        int totalDays = 1050;
+        String defaultDir = System.getProperty(
+                "datasetDir",
+                System.getProperty("spector.bench.dataset.dir",
+                        System.getenv().getOrDefault("DATASET_DIR", "../spector-datasets/balanced-baseline/data")));
+        Path datasetDir = Paths.get(defaultDir);
+        String chatModel = System.getProperty("chatModel", System.getenv().getOrDefault("CHAT_MODEL", "llama3.1:latest"));
+        String embeddingModel = System.getProperty("embedModel",
+                System.getProperty("spector.embed.model", System.getenv().getOrDefault("EMBED_MODEL", "nomic-embed-text:latest")));
+        String ollamaUrl = System.getProperty("ollamaUrl", System.getenv().getOrDefault("OLLAMA_URL", "http://localhost:11434"));
+        int targetRecords = Integer.parseInt(System.getProperty("targetRecords", System.getenv().getOrDefault("TARGET_RECORDS", "50000")));
+        int totalDays = Integer.parseInt(System.getProperty("totalDays", System.getenv().getOrDefault("TOTAL_DAYS", "1050")));
 
         for (String arg : args) {
             if (arg.startsWith("--dataset-dir=")) datasetDir = Paths.get(arg.substring(arg.indexOf('=') + 1));
