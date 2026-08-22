@@ -12,6 +12,7 @@
  */
 package com.spectrayan.spector.memory.model;
 
+import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 import com.spectrayan.spector.config.model.TextSearchMode;
 import com.spectrayan.spector.memory.graph.ExtractedEntity;
 import com.spectrayan.spector.memory.synapse.SynapticTagEncoder;
@@ -124,7 +125,9 @@ public record RecallOptions(
         //  Governance & Multi-Evidence (TANGLE & GPM)
         ConflictMode conflictMode,
         float minTrustScore,
-        String personaId
+        String personaId,
+        //  Active Inference Self-Model Engine (AISME)
+        AismeConfig aismeConfig
 ) {
 
     /** Default options: top 10, no filters, balanced scoring. */
@@ -145,6 +148,16 @@ public record RecallOptions(
     public TemperatureOptions temperature() {
         return new TemperatureOptions(adaptiveTemperature, baseTemperature,
                 temperatureSurpriseCoefficient, minTemperature, maxTemperature);
+    }
+
+    /** Returns the effective AISME configuration, or disabled if null. */
+    public AismeConfig aismeConfig() {
+        return aismeConfig != null ? aismeConfig : AismeConfig.disabled();
+    }
+
+    /** Returns whether the Active Inference Self-Model Engine is enabled. */
+    public boolean enableAisme() {
+        return aismeConfig != null && aismeConfig.enabled();
     }
 
     /**
@@ -839,6 +852,24 @@ public record RecallOptions(
             return this;
         }
 
+        private AismeConfig aismeConfig;
+
+        /**
+         * Sets the Active Inference Self-Model Engine (AISME) configuration.
+         */
+        public Builder aismeConfig(AismeConfig config) {
+            this.aismeConfig = config;
+            return this;
+        }
+
+        /**
+         * Enables or disables AISME with default configuration.
+         */
+        public Builder enableAisme(boolean enable) {
+            this.aismeConfig = enable ? AismeConfig.defaultConfig() : AismeConfig.disabled();
+            return this;
+        }
+
         public RecallOptions build() {
             int effectiveLateralMax = lateralMaxResults >= 0
                     ? lateralMaxResults
@@ -868,7 +899,8 @@ public record RecallOptions(
                     maxTemperature,
                     conflictMode,
                     minTrustScore,
-                    personaId);
+                    personaId,
+                    aismeConfig != null ? aismeConfig : AismeConfig.disabled());
             return options;
         }
     }

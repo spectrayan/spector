@@ -42,6 +42,18 @@ public final class HomeostaticCore {
     private InteroceptiveState currentState;
 
     /**
+     * Constructs a default HomeostaticCore with standard stable regulation dynamics.
+     */
+    public HomeostaticCore() {
+        this(
+                new float[][]{{-0.5f, 0.0f, 0.0f}, {0.0f, -0.5f, 0.0f}, {0.0f, 0.0f, -0.5f}},
+                new float[][]{{0.2f, 0.0f, 0.0f}, {0.0f, 0.2f, 0.0f}, {0.0f, 0.0f, 0.2f}},
+                new float[][]{{0.1f, 0.0f, 0.0f}, {0.0f, 0.1f, 0.0f}, {0.0f, 0.0f, 0.1f}},
+                new float[]{0.05f, 0.05f, 0.05f}
+        );
+    }
+
+    /**
      * Constructs a new HomeostaticCore.
      *
      * @param aPerson Regulation dynamics matrix (A)
