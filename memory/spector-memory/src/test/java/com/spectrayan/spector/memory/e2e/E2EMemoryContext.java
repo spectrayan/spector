@@ -152,9 +152,12 @@ public final class E2EMemoryContext {
         var sparseProvider = new DenseDerivedSparseProvider(embeddingProvider);
         var tokenProvider = new DenseDerivedTokenProvider(embeddingProvider);
 
+        boolean pathwayEnabled = Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "true")));
+        boolean aismeEnabled = Boolean.parseBoolean(System.getProperty("spector.memory.aisme.enabled", "true"));
+
         // Build the memory system with all subsystems enabled
-        memory = DefaultSpectorMemory.builder()
-                .usePathwayEngine(Boolean.parseBoolean(System.getProperty("spector.pathway.enabled", System.getProperty("usePathwayEngine", "false"))))
+        var memBuilder = DefaultSpectorMemory.builder()
+                .usePathwayEngine(pathwayEnabled)
                 .dimensions(dims)
                 .embeddingProvider(embeddingProvider)
                 .SparseEmbeddingProvider(sparseProvider)
@@ -170,10 +173,16 @@ public final class E2EMemoryContext {
                 .hebbianGraphCapacity(500)
                 .temporalChainCapacity(500)
                 .surpriseWarmup(10)
-                .flashbulbThreshold(2.5)
-                .build();
+                .flashbulbThreshold(2.5);
 
-        log.info("SpectorMemory initialized (IN_MEMORY mode, all subsystems enabled)");
+        if (aismeEnabled) {
+            memBuilder.enableAisme(true);
+        }
+
+        memory = memBuilder.build();
+
+        log.info("SpectorMemory initialized (IN_MEMORY mode, pathwayEnabled={}, aismeEnabled={})",
+                pathwayEnabled, aismeEnabled);
 
         // Initialize LLM judge if enabled
         LlmJudgeConfig judgeConfig = LlmJudgeConfig.fromEnvironment();
