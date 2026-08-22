@@ -27,7 +27,7 @@ public final class ReflectPathwayFactory {
     private ReflectPathwayFactory() {}
 
     /**
-     * Creates the standard reflect cognitive pathway.
+     * Legacy factory without manifold consolidation.
      */
     public static CognitivePathway<ReflectSignal> create(
             final SynapticPruningRelay pruningRelay,
@@ -41,7 +41,26 @@ public final class ReflectPathwayFactory {
             final EntityMaintenanceRelay entityRelay,
             final WalJournalRelay walRelay) {
         return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
-                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, walRelay);
+                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, null, walRelay);
+    }
+
+    /**
+     * Creates the standard reflect cognitive pathway with optional manifold consolidation.
+     */
+    public static CognitivePathway<ReflectSignal> create(
+            final SynapticPruningRelay pruningRelay,
+            final EpisodicLogConsolidationRelay logConsolidationRelay,
+            final SoulDriftRefusionRelay soulDriftRelay,
+            final ProceduralCrystallizationRelay proceduralRelay,
+            final ProactiveInterferenceRelay interferenceRelay,
+            final HebbianHomeostasisRelay hebbianRelay,
+            final TemporalPruningRelay temporalRelay,
+            final CrossLayerPromotionRelay promotionRelay,
+            final EntityMaintenanceRelay entityRelay,
+            final SynapticRelay<ReflectSignal> manifoldConsolidationRelay,
+            final WalJournalRelay walRelay) {
+        return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
+                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, manifoldConsolidationRelay, walRelay);
     }
 
     /**
@@ -58,14 +77,14 @@ public final class ReflectPathwayFactory {
             final TemporalPruningRelay temporalRelay,
             final CrossLayerPromotionRelay promotionRelay,
             final EntityMaintenanceRelay entityRelay,
+            final SynapticRelay<ReflectSignal> manifoldConsolidationRelay,
             final WalJournalRelay walRelay) {
 
         final var builder = CognitivePathway.<ReflectSignal>pathway("reflect");
         if (interceptor != null) {
             builder.withInterceptor(interceptor);
         }
-        return builder
-                .relay(RelayNames.SYNAPTIC_PRUNING, pruningRelay, ErrorPolicy.FAIL_FAST)
+        builder.relay(RelayNames.SYNAPTIC_PRUNING, pruningRelay, ErrorPolicy.FAIL_FAST)
                 .relay(RelayNames.EPISODIC_CONSOLIDATION, logConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.SOUL_DRIFT_REFUSION, soulDriftRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.PROCEDURAL_CRYSTALLIZATION, proceduralRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
@@ -73,8 +92,13 @@ public final class ReflectPathwayFactory {
                 .relay(RelayNames.HEBBIAN_HOMEOSTASIS, hebbianRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.TEMPORAL_PRUNING, temporalRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.CROSS_LAYER_PROMOTION, promotionRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.ENTITY_MAINTENANCE, entityRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
-                .relay(RelayNames.WAL_JOURNAL, walRelay, ErrorPolicy.FAIL_FAST)
-                .build();
+                .relay(RelayNames.ENTITY_MAINTENANCE, entityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+
+        if (manifoldConsolidationRelay != null) {
+            builder.relay(RelayNames.MANIFOLD_CONSOLIDATION, manifoldConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+        }
+
+        builder.relay(RelayNames.WAL_JOURNAL, walRelay, ErrorPolicy.FAIL_FAST);
+        return builder.build();
     }
 }
