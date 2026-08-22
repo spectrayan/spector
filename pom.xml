@@ -136,7 +136,7 @@
         <micrometer-tracing.version>1.5.0</micrometer-tracing.version>
         <context-propagation.version>1.1.2</context-propagation.version>
         <armeria.version>1.39.1</armeria.version>
-        <langchain4j.version>1.18.0</langchain4j.version>
+        <langchain4j.version>1.18.1</langchain4j.version>
         <spring-boot.version>4.1.0</spring-boot.version>
         <flyway.version>12.4.0</flyway.version>
         <spring-ai.version>2.0.0</spring-ai.version>
