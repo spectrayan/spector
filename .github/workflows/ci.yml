@@ -206,8 +206,14 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - name: Checkout Spector
+        uses: actions/checkout@v4
+
+      - name: Checkout Spector Datasets
+        uses: actions/checkout@v4
+        with:
+          repository: 'spectrayan/spector-datasets'
+          path: 'spector-datasets'
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -216,23 +222,26 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: 'maven'
 
-      - name: Build project
+      - name: Build and install project
         run: |
-          mvn -B clean package -DskipTests \
+          mvn -B clean install -DskipTests \
             --no-transfer-progress
 
-      - name: Run Cognitive Benchmark (Full Dataset)
+      - name: Run Cognitive Benchmark (Balanced Baseline Dataset)
         run: |
           mvn -B exec:exec -pl bench/spector-bench \
             --no-transfer-progress \
+            -DdatasetDir="spector-datasets/balanced-baseline/data" \
+            -DoutputDir="spector-datasets/balanced-baseline/results" \
+            -Dspector.pathway.enabled=true \
             -Dexec.mainClass="com.spectrayan.spector.bench.cognitive.CognitiveBenchmarkHarness" \
             -Dexec.executable="java" \
-            -Dexec.args="--enable-preview --add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED --add-opens java.base/java.lang.foreign=ALL-UNNAMED -Xmx28g -Dlogback.configurationFile=logback-bench.xml -classpath %classpath com.spectrayan.spector.bench.cognitive.CognitiveBenchmarkHarness"
+            -Dexec.args="--enable-preview --add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED --add-opens java.base/java.lang.foreign=ALL-UNNAMED -Xmx8g -Dlogback.configurationFile=logback-bench.xml -classpath %classpath com.spectrayan.spector.bench.cognitive.CognitiveBenchmarkHarness spector-datasets/balanced-baseline/data spector-datasets/balanced-baseline/results 0.15 10"
 
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
-          path: '**/target/benchmark-results/**'
+          path: 'spector-datasets/**/results/**'
           retention-days: 30
