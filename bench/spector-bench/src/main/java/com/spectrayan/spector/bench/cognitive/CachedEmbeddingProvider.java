@@ -73,17 +73,10 @@ public final class CachedEmbeddingProvider implements EmbeddingProvider {
             return cached;
         }
 
-        try {
-            EmbeddingResult fresh = delegate.embed(text);
-            cache.put(key, fresh);
-            dirty = true;
-            return fresh;
-        } catch (Exception e) {
-            log.warn("Delegate embed failed (offline environment): {}. Using deterministic fallback vector.", e.getMessage());
-            EmbeddingResult fallback = generateFallback(text);
-            cache.put(key, fallback);
-            return fallback;
-        }
+        EmbeddingResult fresh = delegate.embed(text);
+        cache.put(key, fresh);
+        dirty = true;
+        return fresh;
     }
 
     @Override
@@ -115,57 +108,18 @@ public final class CachedEmbeddingProvider implements EmbeddingProvider {
         }
 
         if (!missTexts.isEmpty()) {
-            try {
-                List<EmbeddingResult> freshResults = delegate.embedBatch(missTexts);
-                for (int i = 0; i < missTexts.size(); i++) {
-                    String text = missTexts.get(i);
-                    EmbeddingResult fresh = freshResults.get(i);
-                    String key = makeKey(text);
-                    cache.put(key, fresh);
-                    results.set(missIndices.get(i), fresh);
-                }
-                dirty = true;
-            } catch (Exception e) {
-                log.warn("Delegate embedBatch failed (offline environment): {}. Using deterministic fallback vectors.", e.getMessage());
-                for (int i = 0; i < missTexts.size(); i++) {
-                    String text = missTexts.get(i);
-                    EmbeddingResult fallback = generateFallback(text);
-                    String key = makeKey(text);
-                    cache.put(key, fallback);
-                    results.set(missIndices.get(i), fallback);
-                }
+            List<EmbeddingResult> freshResults = delegate.embedBatch(missTexts);
+            for (int i = 0; i < missTexts.size(); i++) {
+                String text = missTexts.get(i);
+                EmbeddingResult fresh = freshResults.get(i);
+                String key = makeKey(text);
+                cache.put(key, fresh);
+                results.set(missIndices.get(i), fresh);
             }
+            dirty = true;
         }
 
         return results;
-    }
-
-    private EmbeddingResult generateFallback(String text) {
-        int dims = 1024;
-        if (!cache.isEmpty()) {
-            dims = cache.values().iterator().next().vector().length;
-        } else {
-            try {
-                dims = delegate.dimensions();
-            } catch (Exception ignored) {
-                // use default 1024
-            }
-        }
-        float[] v = new float[dims];
-        long hash = text.hashCode();
-        java.util.Random rnd = new java.util.Random(hash);
-        double norm = 0.0;
-        for (int i = 0; i < dims; i++) {
-            v[i] = (float) rnd.nextGaussian();
-            norm += v[i] * v[i];
-        }
-        norm = Math.sqrt(norm);
-        if (norm > 1e-9) {
-            for (int i = 0; i < dims; i++) {
-                v[i] = (float) (v[i] / norm);
-            }
-        }
-        return new EmbeddingResult(v, Math.max(1, text.length() / 4), modelName());
     }
 
     @Override
