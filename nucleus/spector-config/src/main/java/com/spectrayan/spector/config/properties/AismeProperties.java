@@ -59,6 +59,12 @@ public class AismeProperties implements Serializable {
     private float efeSoulWeightTenant = DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT;
     private float efeSoulWeightOrgUnit = DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT;
 
+    private boolean constructivePersistenceEnabled = DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_ENABLED;
+    private float constructivePersistenceThreshold = DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_THRESHOLD;
+    private boolean backgroundDecayEnabled = DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_ENABLED;
+    private float backgroundDecayFactor = DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR;
+    private int backgroundDecayIntervalSeconds = DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS;
+
     public AismeProperties() {}
 
     public boolean isEnabled() {
@@ -279,6 +285,52 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isConstructivePersistenceEnabled() {
+        return constructivePersistenceEnabled;
+    }
+
+    public void setConstructivePersistenceEnabled(boolean constructivePersistenceEnabled) {
+        this.constructivePersistenceEnabled = constructivePersistenceEnabled;
+    }
+
+    public float getConstructivePersistenceThreshold() {
+        return constructivePersistenceThreshold;
+    }
+
+    public void setConstructivePersistenceThreshold(float constructivePersistenceThreshold) {
+        if (!Float.isNaN(constructivePersistenceThreshold) && constructivePersistenceThreshold >= 0.0f) {
+            this.constructivePersistenceThreshold = constructivePersistenceThreshold;
+        }
+    }
+
+    public boolean isBackgroundDecayEnabled() {
+        return backgroundDecayEnabled;
+    }
+
+    public void setBackgroundDecayEnabled(boolean backgroundDecayEnabled) {
+        this.backgroundDecayEnabled = backgroundDecayEnabled;
+    }
+
+    public float getBackgroundDecayFactor() {
+        return backgroundDecayFactor;
+    }
+
+    public void setBackgroundDecayFactor(float backgroundDecayFactor) {
+        if (!Float.isNaN(backgroundDecayFactor) && backgroundDecayFactor >= 0.0f) {
+            this.backgroundDecayFactor = backgroundDecayFactor;
+        }
+    }
+
+    public int getBackgroundDecayIntervalSeconds() {
+        return backgroundDecayIntervalSeconds;
+    }
+
+    public void setBackgroundDecayIntervalSeconds(int backgroundDecayIntervalSeconds) {
+        if (backgroundDecayIntervalSeconds > 0) {
+            this.backgroundDecayIntervalSeconds = backgroundDecayIntervalSeconds;
+        }
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -305,4 +357,9 @@ public class AismeProperties implements Serializable {
     public float efeSoulWeightUser() { return getEfeSoulWeightUser(); }
     public float efeSoulWeightTenant() { return getEfeSoulWeightTenant(); }
     public float efeSoulWeightOrgUnit() { return getEfeSoulWeightOrgUnit(); }
+    public boolean constructivePersistenceEnabled() { return isConstructivePersistenceEnabled(); }
+    public float constructivePersistenceThreshold() { return getConstructivePersistenceThreshold(); }
+    public boolean backgroundDecayEnabled() { return isBackgroundDecayEnabled(); }
+    public float backgroundDecayFactor() { return getBackgroundDecayFactor(); }
+    public int backgroundDecayIntervalSeconds() { return getBackgroundDecayIntervalSeconds(); }
 }

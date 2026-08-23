@@ -368,6 +368,20 @@ public final class SpectorMemoryFactory {
         DaemonSupervisorBuilder.DaemonBundle daemons = DaemonSupervisorBuilder.build(
                 builder, cortex, bio, graphs, index, wal, wanderPathway, partitionManager);
 
+        //  Homeostatic Decay Daemon (#613 / AISME Phase 12 — Continuous Self-Dynamics)
+        if (daemons.daemonSupervisor() != null && aismeBundle != null
+                && builder.aismeConfig != null && builder.aismeConfig.backgroundDecayEnabled()) {
+            var decayDaemon = new com.spectrayan.spector.memory.aisme.dmn.HomeostaticDecayDaemon(
+                    aismeBundle.mentalStateTracker(),
+                    aismeBundle.homeostaticCore(),
+                    builder.aismeConfig.backgroundDecayFactor());
+            daemons.daemonSupervisor().schedule(
+                    "homeostatic-decay",
+                    decayDaemon,
+                    java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig.backgroundDecayIntervalSeconds())),
+                    com.spectrayan.spector.commons.concurrent.DaemonPolicy.DEFAULT);
+        }
+
         // Wire the graph facade into the enrichment daemon for cache invalidation
         if (daemons.graphEnrichmentDaemon() != null && graphs.graphFacade() != null) {
             daemons.graphEnrichmentDaemon().setGraphFacade(graphs.graphFacade());

@@ -61,6 +61,7 @@ public final class WanderSignal {
     private final int minSampleCount;
     private final float synergyThreshold;
     private final float hopfieldTemperature;
+    private final float[] soulPriorPreference;
 
     private final Instant startTime;
     private final List<float[]> sampledVectors = new ArrayList<>();
@@ -88,6 +89,7 @@ public final class WanderSignal {
         this.minSampleCount = builder.minSampleCount > 0 ? builder.minSampleCount : 5;
         this.synergyThreshold = builder.synergyThreshold > 0.0f ? builder.synergyThreshold : 0.10f;
         this.hopfieldTemperature = builder.hopfieldTemperature > 0.0f ? builder.hopfieldTemperature : 1.0f;
+        this.soulPriorPreference = builder.soulPriorPreference;
 
         this.startTime = Instant.now();
     }
@@ -114,6 +116,7 @@ public final class WanderSignal {
     public int minSampleCount() { return minSampleCount; }
     public float synergyThreshold() { return synergyThreshold; }
     public float hopfieldTemperature() { return hopfieldTemperature; }
+    public float[] soulPriorPreference() { return soulPriorPreference; }
     public Instant startTime() { return startTime; }
 
     public List<float[]> sampledVectors() { return sampledVectors; }
@@ -169,6 +172,7 @@ public final class WanderSignal {
         private int minSampleCount = 5;
         private float synergyThreshold = 0.10f;
         private float hopfieldTemperature = 1.0f;
+        private float[] soulPriorPreference = null;
 
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder quantizer(ScalarQuantizer q) { this.quantizer = q; return this; }
@@ -186,6 +190,7 @@ public final class WanderSignal {
         public Builder minSampleCount(int count) { this.minSampleCount = count; return this; }
         public Builder synergyThreshold(float th) { this.synergyThreshold = th; return this; }
         public Builder hopfieldTemperature(float temp) { this.hopfieldTemperature = temp; return this; }
+        public Builder soulPriorPreference(float[] prior) { this.soulPriorPreference = prior; return this; }
 
         public WanderSignal build() {
             return new WanderSignal(this);
