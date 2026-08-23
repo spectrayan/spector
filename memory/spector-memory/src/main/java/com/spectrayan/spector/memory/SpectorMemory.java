@@ -244,6 +244,34 @@ public interface SpectorMemory extends AutoCloseable {
     /** Triggers a synchronous reflection (sleep consolidation) cycle. */
     ReflectReport reflect();
 
+    /**
+     * Triggers a Default Mode Network (DMN) spontaneous mind-wandering and continuity snapshot cycle.
+     *
+     * @return resulting wander report
+     */
+    default com.spectrayan.spector.memory.wander.relay.WanderReport wander() {
+        return com.spectrayan.spector.memory.wander.relay.WanderReport.empty();
+    }
+
+    /**
+     * Retrieves the longitudinal identity and consciousness continuity trajectory history.
+     *
+     * @param limit maximum number of snapshots to return (newest first)
+     * @return list of snapshots
+     */
+    default java.util.List<com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot> continuityHistory(int limit) {
+        return java.util.List.of();
+    }
+
+    /**
+     * Computes the cumulative generative prior drift across recorded history.
+     *
+     * @return maximum recorded drift from baseline
+     */
+    default float calculateLongitudinalDrift() {
+        return 0.0f;
+    }
+
     /** Triggers a manual memory consolidation process. */
     void consolidate();
 

@@ -280,6 +280,15 @@ public final class BundleMigrationCli {
                             false
                     ),
                     new RegionSizeSpec(
+                            RegionId.CONTINUITY,
+                            com.spectrayan.spector.memory.kernel.layout.ContinuityLayout.DATA_START + (long) 1000 * com.spectrayan.spector.memory.kernel.layout.ContinuityLayout.RECORD_STRIDE,
+                            1000,
+                            com.spectrayan.spector.memory.kernel.layout.ContinuityLayout.RECORD_STRIDE,
+                            com.spectrayan.spector.memory.kernel.layout.ContinuityLayout.LAYOUT_ID,
+                            com.spectrayan.spector.memory.kernel.layout.ContinuityLayout.SCHEMA_VERSION,
+                            false
+                    ),
+                    new RegionSizeSpec(
                             RegionId.CHECKPOINT,
                             128L * 1024,
                             1,

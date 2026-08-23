@@ -45,6 +45,10 @@ public class AismeProperties implements Serializable {
     private float hopfieldTemperature = DEFAULT_MEMORY_AISME_HOPFIELD_TEMPERATURE;
     private float manifoldSigma = DEFAULT_MEMORY_AISME_MANIFOLD_SIGMA;
     private float phiCohesionThreshold = DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD;
+    private boolean enableDmnSpontaneous = DEFAULT_MEMORY_AISME_DMN_ENABLED;
+    private int dmnIdleIntervalSeconds = DEFAULT_MEMORY_AISME_DMN_IDLE_SECONDS;
+    private boolean enableLongitudinalContinuity = DEFAULT_MEMORY_AISME_LONGITUDINAL_CONTINUITY_ENABLED;
+    private int longitudinalSnapshotIntervalMinutes = DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES;
 
     public AismeProperties() {}
 
@@ -152,6 +156,42 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isEnableDmnSpontaneous() {
+        return enableDmnSpontaneous;
+    }
+
+    public void setEnableDmnSpontaneous(boolean enableDmnSpontaneous) {
+        this.enableDmnSpontaneous = enableDmnSpontaneous;
+    }
+
+    public int getDmnIdleIntervalSeconds() {
+        return dmnIdleIntervalSeconds;
+    }
+
+    public void setDmnIdleIntervalSeconds(int dmnIdleIntervalSeconds) {
+        if (dmnIdleIntervalSeconds > 0) {
+            this.dmnIdleIntervalSeconds = dmnIdleIntervalSeconds;
+        }
+    }
+
+    public boolean isEnableLongitudinalContinuity() {
+        return enableLongitudinalContinuity;
+    }
+
+    public void setEnableLongitudinalContinuity(boolean enableLongitudinalContinuity) {
+        this.enableLongitudinalContinuity = enableLongitudinalContinuity;
+    }
+
+    public int getLongitudinalSnapshotIntervalMinutes() {
+        return longitudinalSnapshotIntervalMinutes;
+    }
+
+    public void setLongitudinalSnapshotIntervalMinutes(int longitudinalSnapshotIntervalMinutes) {
+        if (longitudinalSnapshotIntervalMinutes > 0) {
+            this.longitudinalSnapshotIntervalMinutes = longitudinalSnapshotIntervalMinutes;
+        }
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -166,4 +206,8 @@ public class AismeProperties implements Serializable {
     public float hopfieldTemperature() { return getHopfieldTemperature(); }
     public float manifoldSigma() { return getManifoldSigma(); }
     public float phiCohesionThreshold() { return getPhiCohesionThreshold(); }
+    public boolean enableDmnSpontaneous() { return isEnableDmnSpontaneous(); }
+    public int dmnIdleIntervalSeconds() { return getDmnIdleIntervalSeconds(); }
+    public boolean enableLongitudinalContinuity() { return isEnableLongitudinalContinuity(); }
+    public int longitudinalSnapshotIntervalMinutes() { return getLongitudinalSnapshotIntervalMinutes(); }
 }

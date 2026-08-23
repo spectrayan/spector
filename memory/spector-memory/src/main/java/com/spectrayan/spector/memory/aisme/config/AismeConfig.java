@@ -37,7 +37,11 @@ public record AismeConfig(
         int globalWorkspaceCapacity,
         float hopfieldTemperature,
         float manifoldSigma,
-        float phiCohesionThreshold
+        float phiCohesionThreshold,
+        boolean enableDmnSpontaneous,
+        int dmnIdleIntervalSeconds,
+        boolean enableLongitudinalContinuity,
+        int longitudinalSnapshotIntervalMinutes
 ) {
 
     /**
@@ -56,6 +60,12 @@ public record AismeConfig(
         if (Float.isNaN(phiCohesionThreshold) || phiCohesionThreshold < 0.0f) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "phiCohesionThreshold must be non-negative");
         }
+        if (dmnIdleIntervalSeconds < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "dmnIdleIntervalSeconds must be at least 1");
+        }
+        if (longitudinalSnapshotIntervalMinutes < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "longitudinalSnapshotIntervalMinutes must be at least 1");
+        }
     }
 
     /**
@@ -69,7 +79,11 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_GLOBAL_WORKSPACE_CAPACITY,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_HOPFIELD_TEMPERATURE,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_MANIFOLD_SIGMA,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_IDLE_SECONDS,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES
         );
     }
 
@@ -91,7 +105,11 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_GLOBAL_WORKSPACE_CAPACITY,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_HOPFIELD_TEMPERATURE,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_MANIFOLD_SIGMA,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_IDLE_SECONDS,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_CONTINUITY_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES
         );
     }
 
@@ -117,7 +135,11 @@ public record AismeConfig(
                 props.getGlobalWorkspaceCapacity(),
                 props.getHopfieldTemperature(),
                 props.getManifoldSigma(),
-                props.getPhiCohesionThreshold()
+                props.getPhiCohesionThreshold(),
+                props.isEnableDmnSpontaneous(),
+                props.getDmnIdleIntervalSeconds(),
+                props.isEnableLongitudinalContinuity(),
+                props.getLongitudinalSnapshotIntervalMinutes()
         );
     }
 
@@ -141,6 +163,10 @@ public record AismeConfig(
         private float hopfieldTemperature = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_HOPFIELD_TEMPERATURE;
         private float manifoldSigma = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_MANIFOLD_SIGMA;
         private float phiCohesionThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD;
+        private boolean enableDmnSpontaneous = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_ENABLED;
+        private int dmnIdleIntervalSeconds = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_IDLE_SECONDS;
+        private boolean enableLongitudinalContinuity = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_CONTINUITY_ENABLED;
+        private int longitudinalSnapshotIntervalMinutes = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -154,13 +180,19 @@ public record AismeConfig(
         public Builder hopfieldTemperature(float temp) { this.hopfieldTemperature = temp; return this; }
         public Builder manifoldSigma(float sigma) { this.manifoldSigma = sigma; return this; }
         public Builder phiCohesionThreshold(float threshold) { this.phiCohesionThreshold = threshold; return this; }
+        public Builder enableDmnSpontaneous(boolean enable) { this.enableDmnSpontaneous = enable; return this; }
+        public Builder dmnIdleIntervalSeconds(int sec) { this.dmnIdleIntervalSeconds = sec; return this; }
+        public Builder enableLongitudinalContinuity(boolean enable) { this.enableLongitudinalContinuity = enable; return this; }
+        public Builder longitudinalSnapshotIntervalMinutes(int min) { this.longitudinalSnapshotIntervalMinutes = min; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
                     enabled, enableHomeostasis, enableFreeEnergy, enableHopfield,
                     enableManifold, enablePredictiveCoding, enableConsciousnessContinuity,
                     enableGlobalWorkspace, globalWorkspaceCapacity, hopfieldTemperature,
-                    manifoldSigma, phiCohesionThreshold
+                    manifoldSigma, phiCohesionThreshold, enableDmnSpontaneous,
+                    dmnIdleIntervalSeconds, enableLongitudinalContinuity,
+                    longitudinalSnapshotIntervalMinutes
             );
         }
     }

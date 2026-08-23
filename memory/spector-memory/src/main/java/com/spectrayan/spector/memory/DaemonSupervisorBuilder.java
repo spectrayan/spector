@@ -47,7 +47,9 @@ final class DaemonSupervisorBuilder {
             BiologicalSubsystemsBuilder.BiologicalSubsystems bio,
             CognitiveGraphBuilder.CognitiveGraphs graphs,
             MemoryIndex index,
-            MemoryWal wal) {
+            MemoryWal wal,
+            WanderPathway wanderPathway,
+            PartitionManager partitionManager) {
 
         boolean isDisk = cortex.isDisk();
         Path basePath = cortex.basePath();
@@ -103,6 +105,20 @@ final class DaemonSupervisorBuilder {
                         "graph-enricher",
                         graphEnrichmentDaemon::enrichPending,
                         java.time.Duration.ofSeconds(30),
+                        DaemonPolicy.DEFAULT);
+            }
+
+            if (wanderPathway != null && builder.aismeConfig != null && builder.aismeConfig.enabled() && builder.aismeConfig.enableDmnSpontaneous()) {
+                com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon dmnDaemon =
+                        new com.spectrayan.spector.memory.aisme.dmn.DmnSpontaneousDaemon(
+                                wanderPathway,
+                                partitionManager,
+                                System::currentTimeMillis
+                        );
+                daemonSupervisor.schedule(
+                        "dmn-wandering",
+                        dmnDaemon,
+                        java.time.Duration.ofSeconds(Math.max(10, builder.aismeConfig.dmnIdleIntervalSeconds())),
                         DaemonPolicy.DEFAULT);
             }
         } else {

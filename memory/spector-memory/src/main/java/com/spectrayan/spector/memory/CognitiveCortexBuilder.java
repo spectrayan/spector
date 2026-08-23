@@ -16,6 +16,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.cortex.CognitiveMemoryRouter;
+import com.spectrayan.spector.memory.cortex.ContinuityRecordMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicLogMemory;
 import com.spectrayan.spector.memory.cortex.EpisodicRecordMemory;
 import com.spectrayan.spector.memory.cortex.ProceduralRecordMemory;
@@ -31,6 +32,7 @@ import com.spectrayan.spector.memory.kernel.bundle.RegionSizeSpec;
 import com.spectrayan.spector.memory.insula.InsularCortex;
 import com.spectrayan.spector.memory.insula.InsularLayout;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
+import com.spectrayan.spector.memory.kernel.layout.ContinuityLayout;
 import com.spectrayan.spector.memory.kernel.layout.TextBlobLayout;
 import com.spectrayan.spector.memory.model.MemoryPersistenceMode;
 import com.spectrayan.spector.memory.namespace.SpectorNamespaceManager;
@@ -82,6 +84,7 @@ final class CognitiveCortexBuilder {
             TextAppendMemory textStore,
             RuntimeBundle runtimeBundle,
             InsularCortex insularCortex,
+            ContinuityRecordMemory continuityMemory,
             EpisodicLogMemory episodicLogStore
     ) {}
 
@@ -161,6 +164,7 @@ final class CognitiveCortexBuilder {
         TextAppendMemory textStore = null;
         RuntimeBundle runtimeBundle = null;
         InsularCortex insularCortex = null;
+        ContinuityRecordMemory continuityMemory = null;
         if (isDisk && builder.persistWorkingMemory && basePath != null) {
             workingStore = new WorkingRecordMemory(quantizedVecBytes, builder.workingCapacity,
                      StorageLayout.workingMem(basePath));
@@ -221,6 +225,11 @@ final class CognitiveCortexBuilder {
 
             MemorySegment insulaSlice = runtimeBundle.regionSegment(RegionId.INSULA);
             insularCortex = InsularCortex.fromBundle(runtimeBundle.arena(), insulaSlice, isNewRuntime);
+
+            MemorySegment continuitySlice = runtimeBundle.regionSegment(RegionId.CONTINUITY);
+            if (continuitySlice != null) {
+                continuityMemory = ContinuityRecordMemory.fromBundle(runtimeBundle.arena(), continuitySlice, isNewRuntime);
+            }
 
             // ── V4 Partition Bundle ──
             Path bundleFile = StorageLayout.partitionBundleFile(resolvedPartitionDir);
@@ -305,13 +314,17 @@ final class CognitiveCortexBuilder {
             insularCortex = InsularCortex.heap();
         }
 
+        if (continuityMemory == null) {
+            continuityMemory = ContinuityRecordMemory.heap(1000);
+        }
+
         EpisodicLogMemory episodicLogStore = cognitiveRouter.episodicLog();
 
         return new CortexFoundation(
                 isDisk, useBundleMode, basePath, quantizer, namespaceManager, quantizedVecBytes,
                 resolvedPartitionDir, frozenPartitionDirs, initialPartitionSeq,
                 cognitiveRouter, workingStore, partitionBundle, textStore,
-                runtimeBundle, insularCortex, episodicLogStore);
+                runtimeBundle, insularCortex, continuityMemory, episodicLogStore);
     }
 
     private static List<RegionSizeSpec> getRuntimeBundleSpecs(SpectorMemoryBuilder builder, int quantizedVecBytes) {
@@ -454,6 +467,15 @@ final class CognitiveCortexBuilder {
                         0,
                         InsularLayout.LAYOUT_ID,
                         InsularLayout.SCHEMA_VERSION,
+                        false
+                ),
+                new RegionSizeSpec(
+                        RegionId.CONTINUITY,
+                        ContinuityLayout.DATA_START + (long) 1000 * ContinuityLayout.RECORD_STRIDE,
+                        1000,
+                        ContinuityLayout.RECORD_STRIDE,
+                        ContinuityLayout.LAYOUT_ID,
+                        ContinuityLayout.SCHEMA_VERSION,
                         false
                 ),
                 new RegionSizeSpec(
