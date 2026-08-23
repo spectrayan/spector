@@ -108,23 +108,22 @@ public final class AismeRelayMatrixRunner {
         List<ConditionResult> results = new ArrayList<>();
 
         Path cacheFile = datasetDir.resolve("embeddings.bin");
-        EmbeddingProvider rawEmbedder = OllamaEmbeddingProvider.create("qwen3-embedding:0.6b");
+        EmbeddingProvider rawEmbedder = OllamaEmbeddingProvider.createDefault();
 
-        try (CachedEmbeddingProvider embedder = new CachedEmbeddingProvider(rawEmbedder, cacheFile)) {
+        try (CachedEmbeddingProvider embedder = new CachedEmbeddingProvider(rawEmbedder, cacheFile);
+             BenchmarkSetup setup = new BenchmarkSetup()) {
+            SpectorMemory memory = setup.createMemoryInstance(dataset, embedder, datasetDir);
             ConditionResult baselineResult = null;
 
             for (int i = 0; i < conditions.size(); i++) {
                 BenchmarkCondition cond = conditions.get(i);
                 log.info("\n▶ Running Condition {}/{}: [{}] {}", i + 1, conditions.size(), cond.id(), cond.name());
 
-                try (BenchmarkSetup setup = new BenchmarkSetup()) {
-                    SpectorMemory memory = setup.createMemoryInstance(dataset, embedder, datasetDir, cond.config());
-
-                    List<Double> ndcgList = new ArrayList<>();
-                    List<Double> mrrList = new ArrayList<>();
-                    List<Double> recallList = new ArrayList<>();
-                    List<Double> latencies = new ArrayList<>();
-                    Map<String, Double> perQueryNdcg = new LinkedHashMap<>();
+                List<Double> ndcgList = new ArrayList<>();
+                List<Double> mrrList = new ArrayList<>();
+                List<Double> recallList = new ArrayList<>();
+                List<Double> latencies = new ArrayList<>();
+                Map<String, Double> perQueryNdcg = new LinkedHashMap<>();
 
                     for (BenchmarkQuery query : dataset.queries()) {
                         long qStart = System.nanoTime();
@@ -210,7 +209,6 @@ public final class AismeRelayMatrixRunner {
 
                     log.info("  ✓ nDCG@{}: {:.4f} | MRR: {:.4f} | Recall: {:.4f} | Cohen's d: {:+.3f} | Latency: {:.2f}ms",
                             topK, meanNdcg, meanMrr, meanRec, cohensD, avgLatency);
-                }
             }
         }
 

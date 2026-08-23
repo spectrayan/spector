@@ -46,7 +46,7 @@ public final class DatasetEmbeddingPrecacheRunner {
     public static void main(String[] args) {
         if (args.length < 1) {
             System.err.println("Usage: java DatasetEmbeddingPrecacheRunner <dataset-dir> [model-name] [build-ingested-memory]");
-            System.err.println("Example: java DatasetEmbeddingPrecacheRunner d:\\git\\spector-datasets\\adhd-diversified\\data nomic-embed-text true");
+            System.err.println("Example: java DatasetEmbeddingPrecacheRunner ../spector-datasets/adhd-diversified/data nomic-embed-text true");
             System.exit(1);
         }
 
