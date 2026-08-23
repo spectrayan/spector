@@ -88,6 +88,8 @@ class AismeEndToEndIntegrationTest {
                 null,
                 null,
                 aismeBundle.consciousAccessRelay(),
+                null, // constructiveMemoryPersistenceRelay
+                null, // epistemicLearningRelay
                 new ConsolidationRelay<>("consolidation", s -> {})
         );
 

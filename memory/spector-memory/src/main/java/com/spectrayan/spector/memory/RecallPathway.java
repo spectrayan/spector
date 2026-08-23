@@ -192,6 +192,7 @@ public final class RecallPathway {
         final var hopfieldAssociativeRelay = builder.aismeBundle != null ? builder.aismeBundle.hopfieldAssociativeRelay() : null;
         final var manifoldRerankRelay = builder.aismeBundle != null ? builder.aismeBundle.manifoldRerankRelay() : null;
         final var constructiveSimulationRelay = builder.aismeBundle != null ? builder.aismeBundle.constructiveSimulationRelay() : null;
+        final var constructiveMemoryPersistenceRelay = builder.aismeBundle != null ? builder.aismeBundle.constructiveMemoryPersistenceRelay() : null;
         final var consciousnessContinuityRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousnessContinuityRelay() : null;
         final var consciousAccessRelay = builder.aismeBundle != null ? builder.aismeBundle.consciousAccessRelay() : null;
         final var epistemicLearningRelay = builder.aismeBundle != null ? builder.aismeBundle.epistemicLearningRelay() : null;
@@ -216,6 +217,7 @@ public final class RecallPathway {
                 mmrDiversityRelay,
                 temperatureSoftmaxRelay,
                 consciousAccessRelay,
+                constructiveMemoryPersistenceRelay,
                 epistemicLearningRelay,
                 consolidationRelay);
     }

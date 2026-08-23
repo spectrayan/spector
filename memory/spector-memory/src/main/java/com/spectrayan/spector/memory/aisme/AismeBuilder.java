@@ -27,6 +27,7 @@ import com.spectrayan.spector.memory.aisme.policy.ExpectedFreeEnergyCalculator;
 import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousAccessRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousnessContinuityRelay;
+import com.spectrayan.spector.memory.aisme.relay.ConstructiveMemoryPersistenceRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConstructiveSimulationRelay;
 import com.spectrayan.spector.memory.aisme.relay.EpistemicLearningRelay;
 import com.spectrayan.spector.memory.aisme.relay.FreeEnergyGuidedRelay;
@@ -131,6 +132,12 @@ public final class AismeBuilder {
                 ? new PolicyInferenceEngine(efeCalculator, homeostaticCore, mentalStateTracker, cfg.efePolicyPrecision())
                 : null;
 
+        // Constructive Memory Persistence (#613 / AISME Phase 12)
+        final ConstructiveMemoryPersistenceRelay constructiveMemoryPersistenceRelay =
+                cfg.constructivePersistenceEnabled()
+                        ? new ConstructiveMemoryPersistenceRelay(null, vectorLookup, cfg.constructivePersistenceThreshold())
+                        : null;
+
         return new AismeBundle(
                 cfg,
                 soul,
@@ -149,6 +156,7 @@ public final class AismeBuilder {
                 hopfieldAssociativeRelay,
                 manifoldRerankRelay,
                 constructiveSimulationRelay,
+                constructiveMemoryPersistenceRelay,
                 consciousnessContinuityRelay,
                 consciousAccessRelay,
                 manifoldConsolidationRelay,

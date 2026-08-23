@@ -104,6 +104,13 @@ public final class RecallGates {
             s -> s.options().enableAisme() && s.options().aismeConfig().enableGlobalWorkspace());
 
     /**
+     * Gate evaluating whether Constructive Memory Persistence (durable simulation storage) is enabled.
+     */
+    public static final Specification<RecallSignal> CONSTRUCTIVE_PERSISTENCE_ENABLED =
+        Specification.of("constructive memory persistence not enabled in AISME options",
+            s -> s.options().enableAisme() && s.options().aismeConfig().constructivePersistenceEnabled());
+
+    /**
      * Gate evaluating whether Epistemic Learning (belief and homeostatic update) is enabled.
      */
     public static final Specification<RecallSignal> EPISTEMIC_LEARNING_ENABLED =

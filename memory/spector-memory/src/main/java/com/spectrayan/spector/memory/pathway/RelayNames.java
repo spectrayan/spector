@@ -73,5 +73,6 @@ public final class RelayNames {
     public static final String CONSTRUCTIVE_SIMULATION   = "constructive_simulation";
     public static final String CONSCIOUSNESS_CONTINUITY  = "consciousness_continuity";
     public static final String CONSCIOUS_ACCESS          = "conscious_access";
+    public static final String CONSTRUCTIVE_PERSISTENCE  = "constructive_persistence";
     public static final String EPISTEMIC_LEARNING         = "epistemic_learning";
 }
