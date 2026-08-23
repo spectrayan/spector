@@ -117,7 +117,9 @@ public final class SpectorMemoryFactory {
             SpectorNamespaceManager namespaceManager,
             ProfileAdaptor profileAdaptor,
             RuntimeBundle runtimeBundle,
-            InsularCortex insularCortex
+            InsularCortex insularCortex,
+            WanderPathway wanderPathway,
+            com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -341,9 +343,22 @@ public final class SpectorMemoryFactory {
                 ? builder.idGenerator
                 : builder.idStrategy.createGenerator();
 
+        //  Wander Pathway (#609 / AISME Phase 10 — DMN & Longitudinal Continuity)
+        WanderPathway wanderPathway = WanderPathway.builder()
+                .quantizer(cortex.quantizer())
+                .embeddingProvider(embeddingProvider)
+                .mentalStateTracker(aismeBundle != null ? aismeBundle.mentalStateTracker() : null)
+                .cognitiveManifold(aismeBundle != null ? aismeBundle.cognitiveManifold() : null)
+                .hopfieldNetwork(aismeBundle != null ? aismeBundle.hopfieldNetwork() : null)
+                .hebbianGraph(graphs.hebbianGraph())
+                .homeostaticCore(aismeBundle != null ? aismeBundle.homeostaticCore() : null)
+                .continuityMemory(cortex.continuityMemory())
+                .aismeConfig(builder.aismeConfig)
+                .build();
+
         //  Daemon Supervisor + Checkpoint Daemon  (DISK mode only)
         DaemonSupervisorBuilder.DaemonBundle daemons = DaemonSupervisorBuilder.build(
-                builder, cortex, bio, graphs, index, wal);
+                builder, cortex, bio, graphs, index, wal, wanderPathway, partitionManager);
 
         // Wire the graph facade into the enrichment daemon for cache invalidation
         if (daemons.graphEnrichmentDaemon() != null && graphs.graphFacade() != null) {
@@ -369,7 +384,8 @@ public final class SpectorMemoryFactory {
                 graphs.entityDirectory(), graphs.hyperEntityGraph(), graphs.graphFacade(), idGenerator,
                 daemons.checkpointDaemon(), daemons.graphEnrichmentDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
-                cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex()
+                cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex(),
+                wanderPathway, cortex.continuityMemory()
         );
     }
 }

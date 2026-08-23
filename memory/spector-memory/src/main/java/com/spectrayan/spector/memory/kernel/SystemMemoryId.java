@@ -34,7 +34,8 @@ public enum SystemMemoryId {
     INDEX("kernel", "index"),
     INDEX_IDPOOL("index", "idpool"),
     INDEX_SLOT("index", "slot"),
-    INSULA("insula", "self-model");
+    INSULA("insula", "self-model"),
+    CONTINUITY("cortex", "continuity");
 
     private final String namespace;
     private final String memoryName;

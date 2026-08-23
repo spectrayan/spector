@@ -260,6 +260,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     // Runtime Bundle & Insular Cortex
     private final RuntimeBundle runtimeBundle;
     private final com.spectrayan.spector.memory.insula.InsularCortex insularCortex;
+    private final WanderPathway wanderPathway;
+    private final com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory;
 
     private final ConcurrentHashMap<String, SessionWriteBuffer> sessionBuffers = new ConcurrentHashMap<>();
 
@@ -337,6 +339,8 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.semanticIndex = builder.semanticIndex;
         this.runtimeBundle = bundle.runtimeBundle();
         this.insularCortex = bundle.insularCortex();
+        this.wanderPathway = bundle.wanderPathway();
+        this.continuityMemory = bundle.continuityMemory();
         this.hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
 
         //  Circadian Time Trigger (Automatic Background Sleep Consolidation)
@@ -999,6 +1003,35 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         } finally {
             releaseLease();
         }
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.wander.relay.WanderReport wander() {
+        acquireLease();
+        try {
+            if (wanderPathway != null) {
+                return wanderPathway.wander(partitionManager, 0L);
+            }
+            return com.spectrayan.spector.memory.wander.relay.WanderReport.empty();
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public List<com.spectrayan.spector.memory.aisme.continuity.IdentityTrajectorySnapshot> continuityHistory(int limit) {
+        if (continuityMemory != null) {
+            return continuityMemory.readHistory(limit);
+        }
+        return List.of();
+    }
+
+    @Override
+    public float calculateLongitudinalDrift() {
+        if (continuityMemory != null) {
+            return continuityMemory.calculateLongitudinalDrift();
+        }
+        return 0.0f;
     }
 
     @Override
@@ -1751,6 +1784,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 reflectPathway.close();
             } catch (Exception e) {
                 log.warn("Failed to close ReflectPathway on close", e);
+            }
+        }
+        if (wanderPathway != null) {
+            try {
+                wanderPathway.close();
+            } catch (Exception e) {
+                log.warn("Failed to close WanderPathway on close", e);
             }
         }
 

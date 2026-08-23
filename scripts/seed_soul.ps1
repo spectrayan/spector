@@ -2,7 +2,8 @@
 param(
     [string]$SoulPath = $(if ($env:SPECTOR_SOUL_PATH) { $env:SPECTOR_SOUL_PATH } else { "" }),
     [string]$BaseUrl = $(if ($env:SPECTOR_BASE_URL) { $env:SPECTOR_BASE_URL } else { "http://localhost:7070" }),
-    [string]$ApiKey = $(if ($env:SPECTOR_API_KEY) { $env:SPECTOR_API_KEY } else { "spector-dev-key" })
+    [string]$ApiKey = $(if ($env:SPECTOR_API_KEY) { $env:SPECTOR_API_KEY } else { "spector-dev-key" }),
+    [string]$User = $(if ($env:SPECTOR_USER) { $env:SPECTOR_USER } else { "default" })
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,6 +11,8 @@ $ErrorActionPreference = "Stop"
 if (-not $SoulPath -or -not (Test-Path $SoulPath)) {
     if (Test-Path "$PSScriptRoot/../config/soul.json") {
         $SoulPath = "$PSScriptRoot/../config/soul.json"
+    } elseif (Test-Path "$PSScriptRoot/soul.json") {
+        $SoulPath = "$PSScriptRoot/soul.json"
     } elseif (Test-Path "soul.json") {
         $SoulPath = "soul.json"
     } else {
@@ -24,9 +27,9 @@ $headers = @{
     "Authorization" = "Bearer $ApiKey"
 }
 
-Write-Host "Seeding Spectrayan Company Soul profile to $BaseUrl/api/v1/salience/user/default..." -ForegroundColor Cyan
+Write-Host "Seeding Spectrayan Company Soul profile to $BaseUrl/api/v1/salience/user/$User..." -ForegroundColor Cyan
 
-$resp = Invoke-RestMethod -Uri "$BaseUrl/api/v1/salience/user/default" `
+$resp = Invoke-RestMethod -Uri "$BaseUrl/api/v1/salience/user/$User" `
     -Headers $headers `
     -ContentType "application/json; charset=utf-8" `
     -Method Put `

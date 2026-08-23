@@ -408,6 +408,18 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_PHI_COHESION_THRESHOLD = "spector.memory.aisme.phi.cohesion-threshold";
     public static final float DEFAULT_MEMORY_AISME_PHI_COHESION_THRESHOLD = 0.05f;
 
+    public static final String MEMORY_AISME_DMN_ENABLED = "spector.memory.aisme.dmn.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_DMN_ENABLED = true;
+
+    public static final String MEMORY_AISME_DMN_IDLE_SECONDS = "spector.memory.aisme.dmn.idle-seconds";
+    public static final int DEFAULT_MEMORY_AISME_DMN_IDLE_SECONDS = 60;
+
+    public static final String MEMORY_AISME_LONGITUDINAL_CONTINUITY_ENABLED = "spector.memory.aisme.longitudinal-continuity.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_LONGITUDINAL_CONTINUITY_ENABLED = true;
+
+    public static final String MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES = "spector.memory.aisme.longitudinal-snapshot.interval-minutes";
+    public static final int DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES = 60;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;
