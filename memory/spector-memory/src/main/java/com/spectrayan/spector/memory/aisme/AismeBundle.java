@@ -22,6 +22,8 @@ import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
 import com.spectrayan.spector.memory.aisme.narrative.NarrativeSelfEngine;
 import com.spectrayan.spector.memory.aisme.pcmn.PredictiveCodingNetwork;
 import com.spectrayan.spector.memory.aisme.phi.ConsciousnessContinuityEvaluator;
+import com.spectrayan.spector.memory.aisme.policy.ExpectedFreeEnergyCalculator;
+import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousAccessRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousnessContinuityRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConstructiveSimulationRelay;
@@ -58,5 +60,7 @@ public record AismeBundle(
         ConsciousnessContinuityRelay consciousnessContinuityRelay,
         ConsciousAccessRelay consciousAccessRelay,
         ManifoldConsolidationRelay manifoldConsolidationRelay,
-        EpistemicLearningRelay epistemicLearningRelay
+        EpistemicLearningRelay epistemicLearningRelay,
+        ExpectedFreeEnergyCalculator expectedFreeEnergyCalculator,
+        PolicyInferenceEngine policyInferenceEngine
 ) {}

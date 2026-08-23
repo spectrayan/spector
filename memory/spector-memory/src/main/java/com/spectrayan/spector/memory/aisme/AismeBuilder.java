@@ -23,6 +23,8 @@ import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
 import com.spectrayan.spector.memory.aisme.narrative.NarrativeSelfEngine;
 import com.spectrayan.spector.memory.aisme.pcmn.PredictiveCodingNetwork;
 import com.spectrayan.spector.memory.aisme.phi.ConsciousnessContinuityEvaluator;
+import com.spectrayan.spector.memory.aisme.policy.ExpectedFreeEnergyCalculator;
+import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousAccessRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousnessContinuityRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConstructiveSimulationRelay;
@@ -35,7 +37,9 @@ import com.spectrayan.spector.memory.aisme.relay.ManifoldRerankRelay;
 import com.spectrayan.spector.memory.aisme.workspace.GlobalWorkspace;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
 
+import java.util.List;
 import java.util.function.Function;
 
 /**
@@ -59,6 +63,26 @@ public final class AismeBuilder {
             final AgentSoul soul,
             final int dimensions,
             final Function<String, float[]> vectorLookup
+    ) {
+        return build(config, soul, dimensions, vectorLookup, soul != null ? List.of(soul) : List.of());
+    }
+
+    /**
+     * Builds an {@link AismeBundle} initialized with the provided configuration, multi-soul context, and vector lookup.
+     *
+     * @param config the AISME configuration (or disabled if null)
+     * @param soul optional AgentSoul identity definition
+     * @param dimensions vector embedding dimensionality
+     * @param vectorLookup function mapping memory IDs to vector representations
+     * @param soulContexts list of all active soul contexts for multi-soul EFE evaluation
+     * @return the constructed AismeBundle, or null if disabled
+     */
+    public static AismeBundle build(
+            final AismeConfig config,
+            final AgentSoul soul,
+            final int dimensions,
+            final Function<String, float[]> vectorLookup,
+            final List<SoulContext> soulContexts
     ) {
         final AismeConfig cfg = config != null ? config : AismeConfig.disabled();
         if (!cfg.enabled() || dimensions <= 0) {
@@ -94,6 +118,19 @@ public final class AismeBuilder {
         final EpistemicLearningRelay epistemicLearningRelay = new EpistemicLearningRelay(
                 mentalStateTracker, homeostaticCore, vectorLookup);
 
+        // Expected Free Energy (G) Policy Engine
+        final List<SoulContext> activeSouls = soulContexts != null ? soulContexts : List.of();
+        final ExpectedFreeEnergyCalculator efeCalculator = cfg.enableExpectedFreeEnergy()
+                ? new ExpectedFreeEnergyCalculator(
+                        activeSouls,
+                        cfg.efeSoulWeightAgent(), cfg.efeSoulWeightUser(),
+                        cfg.efeSoulWeightTenant(), cfg.efeSoulWeightOrgUnit(),
+                        cfg.efeEpistemicWeight(), cfg.efePragmaticWeight())
+                : null;
+        final PolicyInferenceEngine policyInferenceEngine = efeCalculator != null
+                ? new PolicyInferenceEngine(efeCalculator, homeostaticCore, mentalStateTracker, cfg.efePolicyPrecision())
+                : null;
+
         return new AismeBundle(
                 cfg,
                 soul,
@@ -115,7 +152,10 @@ public final class AismeBuilder {
                 consciousnessContinuityRelay,
                 consciousAccessRelay,
                 manifoldConsolidationRelay,
-                epistemicLearningRelay
+                epistemicLearningRelay,
+                efeCalculator,
+                policyInferenceEngine
         );
     }
 }
+

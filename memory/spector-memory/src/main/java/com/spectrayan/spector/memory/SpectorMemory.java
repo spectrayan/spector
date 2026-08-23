@@ -254,6 +254,23 @@ public interface SpectorMemory extends AutoCloseable {
     }
 
     /**
+     * Evaluates candidate cognitive policies by minimizing Expected Free Energy G(π) across
+     * the active multi-soul context hierarchy (AgentSoul, UserSoul, TenantSoul, OrgUnitSoul).
+     *
+     * <h3>Biological Analog: Prefrontal Decision Circuit (dlPFC + ACC)</h3>
+     * <p>Selects the optimal cognitive policy balancing epistemic exploration (uncertainty reduction)
+     * versus pragmatic exploitation (goal-directed action) using Boltzmann softmax selection
+     * with precision γ modulated by homeostatic arousal and dominance.</p>
+     *
+     * @param signal the decide signal carrying candidate policies and soul context
+     * @return the resulting decision report with selected policy and ranked alternatives
+     */
+    default com.spectrayan.spector.memory.decide.relay.DecideReport decide(
+            com.spectrayan.spector.memory.decide.relay.DecideSignal signal) {
+        return com.spectrayan.spector.memory.decide.relay.DecideReport.empty();
+    }
+
+    /**
      * Retrieves the longitudinal identity and consciousness continuity trajectory history.
      *
      * @param limit maximum number of snapshots to return (newest first)
