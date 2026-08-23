@@ -20,7 +20,7 @@ import com.spectrayan.spector.memory.kernel.MemoryId;
 import com.spectrayan.spector.memory.kernel.MemoryShape;
 import com.spectrayan.spector.memory.kernel.SystemMemoryId;
 import com.spectrayan.spector.memory.kernel.layout.CoActivationLayout;
-import com.spectrayan.spector.memory.kernel.shape.AbstractRecordMemory;
+import com.spectrayan.spector.memory.kernel.shape.AbstractHashTableMemory;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
@@ -43,13 +43,25 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Off-heap synaptic tag co-occurrence and STDP tracking for Hebbian learning, extending
- * the Spector Memory Kernel {@link AbstractRecordMemory}.
+ * Off-heap synaptic tag co-occurrence, STDP tracking, and Cross-Capture Graph
+ * traversal for Hebbian learning.
+ *
+ * <p>Extends {@link AbstractHashTableMemory} with
+ * {@link com.spectrayan.spector.memory.kernel.MemoryShape#HASHTABLE} shape,
+ * hosting two compound open-addressing hash tables ({@link OffHeapPairTable}
+ * for undirected co-occurrence and {@link OffHeapEdgeTable} for directed STDP)
+ * plus a tag → memory inverted index for Cross-Capture Graph traversal.</p>
+ *
+ * <h3>Cross-Capture Graph (ADR-0009)</h3>
+ * <p>Enables tag co-occurrence traversal during recall: given query tags,
+ * finds strongly co-occurring tags via the pair table, then discovers
+ * memories carrying those related tags via the inverted index.
+ * Biologically models STC cross-tagging (Sajikumar &amp; Frey, 2004).</p>
  *
  * @see OffHeapPairTable
  * @see OffHeapEdgeTable
  */
-public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActivationLayout> {
+public final class CoActivationRecordMemory extends AbstractHashTableMemory<CoActivationLayout> {
 
     private static final Logger log = LoggerFactory.getLogger(CoActivationRecordMemory.class);
 
@@ -76,6 +88,10 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
             new ConcurrentHashMap<>();
     private final ReentrantLock saveLock = new ReentrantLock();
     private volatile MemorySegment checkpointRegion;   // nullable — V4 bundle CHECKPOINT region for metadata
+
+    // ── Cross-Capture Graph: Tag → Memory Inverted Index (ADR-0009) ──
+    private final ConcurrentHashMap<Long, java.util.concurrent.CopyOnWriteArrayList<Integer>> tagToMemoryIndex =
+            new ConcurrentHashMap<>();
 
     public record DirectedEdge(String sourceTag, String targetTag) {
         @Override
@@ -151,9 +167,9 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
             segment.set(ValueLayout.JAVA_INT, dataOffset, pairCap);
             segment.set(ValueLayout.JAVA_INT, dataOffset + 4, edgeCap);
 
-            MemorySegment singleByte = MemorySegment.ofArray(new byte[1]);
-            singleByte.set(ValueLayout.JAVA_BYTE, 0, (byte) 0);
-            write(totalBytes - 1, singleByte);
+            // Zero-fill the data region (replaces the old write(totalBytes-1) hack
+            // that abused AbstractRecordMemory.write() for file-sizing)
+            segment.asSlice(dataOffset + 8, totalBytes - 8).fill((byte) 0);
         }
 
         this.pairTable = new OffHeapPairTable(pairCap, segment.asSlice(dataOffset + 8, 32L * pairCap), 0);
@@ -199,7 +215,7 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
             segment.asSlice(dataOffset + 8, totalBytes - 8).fill((byte) 0);
 
             long now = System.currentTimeMillis();
-            MemoryHeader.write(segment, 0L, layout().schemaVersion(), MemoryShape.RECORD, 1,
+            MemoryHeader.write(segment, 0L, layout().schemaVersion(), MemoryShape.HASHTABLE, 1,
                     (int) totalBytes, 0, 0, layout().layoutId(), now, now);
         } else {
             if (!MemoryHeader.isValid(segment, 0L)) {
@@ -488,6 +504,181 @@ public final class CoActivationRecordMemory extends AbstractRecordMemory<CoActiv
 
     private void registerTag(String tag, long hash) {
         hashToTag.putIfAbsent(hash, tag);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // CROSS-CAPTURE GRAPH: Tag → Memory Inverted Index (ADR-0009)
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * A tag neighbor discovered via co-occurrence traversal.
+     *
+     * @param tagHash          hash of the neighbor tag
+     * @param tagName          human-readable tag name (from hashToTag dictionary)
+     * @param coOccurrenceCount number of times this tag co-occurred with the query tag
+     */
+    public record TagNeighbor(long tagHash, String tagName, int coOccurrenceCount) {}
+
+    /**
+     * A memory candidate discovered via Cross-Capture Graph traversal.
+     *
+     * @param memorySlotIndex the slot index of the discovered memory
+     * @param viaTag          the related tag through which this memory was found
+     * @param score           composite score incorporating co-occurrence and fan-factor
+     */
+    public record CrossCaptureCandidate(int memorySlotIndex, String viaTag, float score) {}
+
+    /**
+     * Records that the memory at {@code slotIndex} carries the given tag.
+     * Called during ingestion (RememberPathway) after synaptic tag extraction.
+     *
+     * @param tagHash   FNV-1a hash of the tag string
+     * @param slotIndex memory slot index
+     */
+    public void indexMemoryTag(long tagHash, int slotIndex) {
+        tagToMemoryIndex
+                .computeIfAbsent(tagHash, _ -> new java.util.concurrent.CopyOnWriteArrayList<>())
+                .addIfAbsent(slotIndex);
+    }
+
+    /**
+     * Records that the memory at {@code slotIndex} carries the given tag.
+     * Convenience overload accepting the tag string directly.
+     *
+     * @param tag       tag string
+     * @param slotIndex memory slot index
+     */
+    public void indexMemoryTag(String tag, int slotIndex) {
+        indexMemoryTag(hashTag(tag), slotIndex);
+    }
+
+    /**
+     * Removes a memory from the inverted index (e.g., when tombstoned/pruned).
+     *
+     * @param slotIndex memory slot index to deindex
+     */
+    public void deindexMemory(int slotIndex) {
+        Integer boxed = slotIndex;
+        tagToMemoryIndex.values().forEach(list -> list.remove(boxed));
+    }
+
+    /**
+     * Finds the top-N tags co-occurring with the given tag, ranked by co-occurrence count.
+     *
+     * @param tagHash       FNV-1a hash of the query tag
+     * @param maxNeighbors  maximum number of neighbor tags to return
+     * @return ordered list of tag neighbors, highest co-occurrence first
+     */
+    public List<TagNeighbor> traverseRelatedTags(long tagHash, int maxNeighbors) {
+        return pairTable.findAssociations(tagHash).stream()
+                .map(arr -> {
+                    String name = hashToTag.get(arr[0]);
+                    return name != null ? new TagNeighbor(arr[0], name, (int) arr[1]) : null;
+                })
+                .filter(tn -> tn != null)
+                .sorted((a, b) -> Integer.compare(b.coOccurrenceCount(), a.coOccurrenceCount()))
+                .limit(maxNeighbors)
+                .toList();
+    }
+
+    /**
+     * Finds memory slot indices carrying the given tag.
+     *
+     * @param tagHash FNV-1a hash of the tag
+     * @param limit   maximum number of memory indices to return
+     * @return array of memory slot indices
+     */
+    public int[] findMemoriesByTag(long tagHash, int limit) {
+        var list = tagToMemoryIndex.get(tagHash);
+        if (list == null || list.isEmpty()) return new int[0];
+        return list.stream().limit(limit).mapToInt(Integer::intValue).toArray();
+    }
+
+    /**
+     * Cross-Capture Graph traversal: from query tags, find related tags via
+     * co-occurrence, then discover memories carrying those related tags.
+     *
+     * <p>This implements the biological STC cross-capture mechanism where
+     * tagged synapses that co-occur share Plasticity-Related Proteins,
+     * creating associative links between conceptually related memory traces.</p>
+     *
+     * <p>Uses ACT-R spreading activation dilution: each tag's contribution
+     * is attenuated by {@code 1/√(degree)} to prevent high-degree supernodes
+     * from dominating the result set.</p>
+     *
+     * @param queryTags          tags extracted from the recall query
+     * @param maxTagNeighbors    max co-occurring tags to explore per query tag
+     * @param maxMemoriesPerTag  max memories to retrieve per related tag
+     * @return list of candidate memories with scores
+     */
+    public List<CrossCaptureCandidate> crossCaptureTraversal(
+            java.util.Collection<String> queryTags, int maxTagNeighbors, int maxMemoriesPerTag) {
+
+        if (queryTags == null || queryTags.isEmpty()) return List.of();
+
+        List<CrossCaptureCandidate> candidates = new java.util.ArrayList<>();
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+
+        for (String queryTag : queryTags) {
+            long qHash = hashTag(queryTag);
+
+            // Find top co-occurring tags
+            List<TagNeighbor> neighbors = traverseRelatedTags(qHash, maxTagNeighbors);
+
+            for (TagNeighbor neighbor : neighbors) {
+                // ACT-R fan-factor attenuation: 1/√(degree)
+                var neighborList = tagToMemoryIndex.get(neighbor.tagHash());
+                int degree = neighborList != null ? neighborList.size() : 0;
+                if (degree == 0) continue;
+
+                float fanFactor = 1.0f / (float) Math.sqrt(degree);
+                float baseScore = (float) neighbor.coOccurrenceCount() * fanFactor;
+
+                int[] memorySlots = findMemoriesByTag(neighbor.tagHash(), maxMemoriesPerTag);
+                for (int slot : memorySlots) {
+                    if (seen.add(slot)) {
+                        candidates.add(new CrossCaptureCandidate(slot, neighbor.tagName(), baseScore));
+                    }
+                }
+            }
+        }
+
+        // Sort by score descending
+        candidates.sort((a, b) -> Float.compare(b.score(), a.score()));
+        return candidates;
+    }
+
+    /**
+     * Rebuilds the tag → memory inverted index from scratch.
+     * Called on startup or during ReflectPathway consolidation cycles.
+     *
+     * @param tagSets mapping from memory slot index to the set of tag strings for that memory
+     */
+    public void rebuildInvertedIndex(Map<Integer, java.util.Collection<String>> tagSets) {
+        tagToMemoryIndex.clear();
+        for (Map.Entry<Integer, java.util.Collection<String>> entry : tagSets.entrySet()) {
+            int slotIndex = entry.getKey();
+            for (String tag : entry.getValue()) {
+                indexMemoryTag(tag, slotIndex);
+            }
+        }
+        log.info("Cross-Capture inverted index rebuilt: {} tags → {} total entries",
+                tagToMemoryIndex.size(),
+                tagToMemoryIndex.values().stream().mapToInt(java.util.List::size).sum());
+    }
+
+    /**
+     * Returns the number of tags in the inverted index.
+     */
+    public int invertedIndexTagCount() {
+        return tagToMemoryIndex.size();
+    }
+
+    /**
+     * Returns the total number of tag→memory entries in the inverted index.
+     */
+    public int invertedIndexEntryCount() {
+        return tagToMemoryIndex.values().stream().mapToInt(java.util.List::size).sum();
     }
 
     // ══════════════════════════════════════════════════════════════

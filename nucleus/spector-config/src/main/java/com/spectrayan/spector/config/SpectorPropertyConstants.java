@@ -294,6 +294,20 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_STDP_TAU_MINUS = "spector.memory.stdp.tau-minus";
     public static final float DEFAULT_MEMORY_STDP_TAU_MINUS = 30_000f;
 
+    // ── Cross-Capture Graph (ADR-0009) ──
+
+    /** Attenuation factor applied to Cross-Capture Graph candidates during recall expansion. */
+    public static final String MEMORY_CROSS_CAPTURE_ATTENUATION = "spector.memory.cross-capture.attenuation";
+    public static final float DEFAULT_MEMORY_CROSS_CAPTURE_ATTENUATION = 0.25f;
+
+    /** Maximum number of co-occurring tags to explore per query tag during traversal. */
+    public static final String MEMORY_CROSS_CAPTURE_MAX_TAG_NEIGHBORS = "spector.memory.cross-capture.max-tag-neighbors";
+    public static final int DEFAULT_MEMORY_CROSS_CAPTURE_MAX_TAG_NEIGHBORS = 5;
+
+    /** Maximum number of memories to retrieve per related tag during traversal. */
+    public static final String MEMORY_CROSS_CAPTURE_MAX_MEMORIES_PER_TAG = "spector.memory.cross-capture.max-memories-per-tag";
+    public static final int DEFAULT_MEMORY_CROSS_CAPTURE_MAX_MEMORIES_PER_TAG = 10;
+
     public static final String MEMORY_BRIDGE_SAMPLE_COUNT = "spector.memory.bridge.sample-count";
     public static final int DEFAULT_MEMORY_BRIDGE_SAMPLE_COUNT = 15;
 

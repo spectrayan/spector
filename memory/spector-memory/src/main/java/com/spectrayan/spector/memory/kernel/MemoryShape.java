@@ -83,5 +83,23 @@ public enum MemoryShape {
      *
      * @see com.spectrayan.spector.memory.insula.InsularCortex
      */
-    INSULAR
+    INSULAR,
+
+    /**
+     * Backs a compound structure of one or more open-addressing hash tables.
+     * Unlike {@link #RECORD}, which stores a uniform array of fixed-stride records,
+     * a hashtable memory hosts heterogeneous sub-tables (e.g., pair table + edge table)
+     * with independent slot sizes behind a sub-header.
+     *
+     * <p>Biological analog: the synaptic co-activation tracker stores
+     * tag co-occurrence counts and STDP (Spike-Timing Dependent Plasticity)
+     * directed edges in two independent hash tables within a single memory region.</p>
+     *
+     * <p>Introduced as part of ADR-0009 (Cross-Capture Graph &amp; CoActivation Kernel
+     * Integration) to give {@code CoActivationRecordMemory} an honest shape instead
+     * of the {@code stride=1} hack that abused {@link #RECORD}.</p>
+     *
+     * @see com.spectrayan.spector.memory.kernel.shape.AbstractHashTableMemory
+     */
+    HASHTABLE
 }
