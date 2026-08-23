@@ -42,6 +42,8 @@ import com.spectrayan.spector.mcp.tools.memory.MemoryFactHistoryTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryGraphRecallTool;
 import com.spectrayan.spector.mcp.tools.memory.MemoryMultiEvidenceRecallTool;
 import com.spectrayan.spector.mcp.tools.memory.MemorySalienceTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryExpressTool;
+import com.spectrayan.spector.mcp.tools.memory.MemoryPersonaContextTool;
 
 import io.modelcontextprotocol.server.McpServerFeatures;
 
@@ -95,6 +97,8 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryContextPackTool(memory));
             handlers.add(new MemoryFactHistoryTool(memory));
             handlers.add(new MemoryMultiEvidenceRecallTool(memory));
+            handlers.add(new MemoryExpressTool(memory));
+            handlers.add(new MemoryPersonaContextTool(memory));
         }
 
         return List.copyOf(handlers);
@@ -133,6 +137,8 @@ public final class SpectorToolRegistry {
         handlers.add(new MemoryContextPackTool(memoryResolver));
         handlers.add(new MemoryFactHistoryTool(memoryResolver));
         handlers.add(new MemoryMultiEvidenceRecallTool(memoryResolver));
+        handlers.add(new MemoryExpressTool(memoryResolver));
+        handlers.add(new MemoryPersonaContextTool(memoryResolver));
 
         return List.copyOf(handlers);
     }
@@ -171,6 +177,8 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryContextPackTool(memory));
             handlers.add(new MemoryFactHistoryTool(memory));
             handlers.add(new MemoryMultiEvidenceRecallTool(memory));
+            handlers.add(new MemoryExpressTool(memory));
+            handlers.add(new MemoryPersonaContextTool(memory));
         }
 
         return handlers.stream()
@@ -212,6 +220,8 @@ public final class SpectorToolRegistry {
             handlers.add(new MemoryContextPackTool(memoryResolver));
             handlers.add(new MemoryFactHistoryTool(memoryResolver));
             handlers.add(new MemoryMultiEvidenceRecallTool(memoryResolver));
+            handlers.add(new MemoryExpressTool(memoryResolver));
+            handlers.add(new MemoryPersonaContextTool(memoryResolver));
         }
 
         return handlers.stream()

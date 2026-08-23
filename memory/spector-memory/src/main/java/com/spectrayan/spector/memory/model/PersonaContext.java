@@ -77,6 +77,9 @@ public record PersonaContext(
         // Linguistics & Prosody (Phase 1 & Phase 2)
         IdiolectProfile idiolect,
         VocalProsodyDNA vocalProsody,
+        
+        // Embodied Kinesics & Avatar Dynamics (Phase 3)
+        EmbodiedKinesicsDNA embodiedKinesics,
 
         // Derived scoring modifiers
         PersonalityModifiers modifiers,
@@ -111,6 +114,7 @@ public record PersonaContext(
         if (modifiers == null) modifiers = PersonalityModifiers.NEUTRAL;
         if (idiolect == null) idiolect = IdiolectProfile.NEUTRAL;
         if (vocalProsody == null) vocalProsody = VocalProsodyDNA.NEUTRAL;
+        if (embodiedKinesics == null) embodiedKinesics = EmbodiedKinesicsDNA.NEUTRAL;
 
         // Defensive copy of embeddings
         if (aboutEmbedding != null) {
@@ -156,7 +160,40 @@ public record PersonaContext(
     ) {
         this(about, occupation, education, nationality, languages, culturalIdentity,
                 bigFive, emotionalIntelligence, stressResponse, values, fears, aspirations,
-                communicationStyle, IdiolectProfile.NEUTRAL, VocalProsodyDNA.NEUTRAL,
+                communicationStyle, IdiolectProfile.NEUTRAL, VocalProsodyDNA.NEUTRAL, EmbodiedKinesicsDNA.NEUTRAL,
+                modifiers, aboutEmbedding, occupationEmbedding, educationEmbedding,
+                valuesEmbedding, aspirationsEmbedding);
+    }
+
+    /**
+     * Backward-compatible 21-argument constructor with idiolect and vocalProsody, but no embodiedKinesics.
+     */
+    public PersonaContext(
+            String about,
+            String occupation,
+            List<Education> education,
+            String nationality,
+            List<String> languages,
+            CulturalIdentity culturalIdentity,
+            BigFiveTraits bigFive,
+            EmotionalIntelligence emotionalIntelligence,
+            StressResponse stressResponse,
+            List<String> values,
+            List<String> fears,
+            List<String> aspirations,
+            CommunicationStyle communicationStyle,
+            IdiolectProfile idiolect,
+            VocalProsodyDNA vocalProsody,
+            PersonalityModifiers modifiers,
+            float[] aboutEmbedding,
+            float[] occupationEmbedding,
+            float[] educationEmbedding,
+            float[] valuesEmbedding,
+            float[] aspirationsEmbedding
+    ) {
+        this(about, occupation, education, nationality, languages, culturalIdentity,
+                bigFive, emotionalIntelligence, stressResponse, values, fears, aspirations,
+                communicationStyle, idiolect, vocalProsody, EmbodiedKinesicsDNA.NEUTRAL,
                 modifiers, aboutEmbedding, occupationEmbedding, educationEmbedding,
                 valuesEmbedding, aspirationsEmbedding);
     }
@@ -172,7 +209,7 @@ public record PersonaContext(
             StressResponse.ADAPTIVE,
             List.of(), List.of(), List.of(),
             null,
-            IdiolectProfile.NEUTRAL, VocalProsodyDNA.NEUTRAL,
+            IdiolectProfile.NEUTRAL, VocalProsodyDNA.NEUTRAL, EmbodiedKinesicsDNA.NEUTRAL,
             PersonalityModifiers.NEUTRAL,
             null, null, null, null, null);
 
@@ -192,7 +229,8 @@ public record PersonaContext(
                 || !values.isEmpty()
                 || !aspirations.isEmpty()
                 || idiolect.isPresent()
-                || vocalProsody.isPresent();
+                || vocalProsody.isPresent()
+                || embodiedKinesics != EmbodiedKinesicsDNA.NEUTRAL;
     }
 
     /**
@@ -234,6 +272,7 @@ public record PersonaContext(
         private CommunicationStyle communicationStyle;
         private IdiolectProfile idiolect = IdiolectProfile.NEUTRAL;
         private VocalProsodyDNA vocalProsody = VocalProsodyDNA.NEUTRAL;
+        private EmbodiedKinesicsDNA embodiedKinesics = EmbodiedKinesicsDNA.NEUTRAL;
         private PersonalityModifiers modifiers;
         private float[] aboutEmbedding;
         private float[] occupationEmbedding;
@@ -359,6 +398,17 @@ public record PersonaContext(
             this.vocalProsody = vocalProsody;
             return this;
         }
+        
+        /** Sets embodied kinesics DNA. */
+        public Builder embodiedKinesics(EmbodiedKinesicsDNA embodiedKinesics) {
+            this.embodiedKinesics = embodiedKinesics;
+            return this;
+        }
+        
+        /** Sets embodied kinesics DNA (alias). */
+        public Builder kinesics(EmbodiedKinesicsDNA kinesics) {
+            return embodiedKinesics(kinesics);
+        }
 
         /** Sets pre-computed scoring modifiers (bypasses derive). */
         public Builder modifiers(PersonalityModifiers modifiers) {
@@ -414,7 +464,7 @@ public record PersonaContext(
                     bigFive, emotionalIntelligence, stressResponse,
                     values, fears, aspirations,
                     communicationStyle,
-                    idiolect, vocalProsody,
+                    idiolect, vocalProsody, embodiedKinesics,
                     effectiveModifiers,
                     aboutEmbedding, occupationEmbedding, educationEmbedding,
                     valuesEmbedding, aspirationsEmbedding);
@@ -440,6 +490,7 @@ public record PersonaContext(
                 && communicationStyle == other.communicationStyle
                 && Objects.equals(idiolect, other.idiolect)
                 && Objects.equals(vocalProsody, other.vocalProsody)
+                && Objects.equals(embodiedKinesics, other.embodiedKinesics)
                 && Objects.equals(modifiers, other.modifiers)
                 && Arrays.equals(aboutEmbedding, other.aboutEmbedding)
                 && Arrays.equals(occupationEmbedding, other.occupationEmbedding)
@@ -452,7 +503,7 @@ public record PersonaContext(
     public int hashCode() {
         int result = Objects.hash(about, occupation, education, nationality, languages,
                 culturalIdentity, bigFive, emotionalIntelligence, stressResponse,
-                values, fears, aspirations, communicationStyle, idiolect, vocalProsody, modifiers);
+                values, fears, aspirations, communicationStyle, idiolect, vocalProsody, embodiedKinesics, modifiers);
         result = 31 * result + Arrays.hashCode(aboutEmbedding);
         result = 31 * result + Arrays.hashCode(occupationEmbedding);
         result = 31 * result + Arrays.hashCode(educationEmbedding);

@@ -1016,7 +1016,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
             if (expressPathway != null) {
                 return expressPathway.express(signal);
             }
-            return new com.spectrayan.spector.memory.express.relay.ExpressReport(null, null, "", "", java.time.Duration.ZERO, 0);
+            return com.spectrayan.spector.memory.express.relay.ExpressReport.empty();
         } finally {
             releaseLease();
         }

@@ -18,6 +18,8 @@ public final class ExpressGates {
     public static final Predicate<ExpressSignal> HAS_PERSONA = signal -> signal != null && signal.personaContext() != null;
     public static final Predicate<ExpressSignal> IDIOLECT_ENABLED = signal -> HAS_PERSONA.test(signal) && signal.personaContext().idiolect() != null;
     public static final Predicate<ExpressSignal> PROSODY_ENABLED = signal -> signal != null && signal.interoceptiveState() != null;
+    public static final Predicate<ExpressSignal> KINESICS_ENABLED = signal -> HAS_PERSONA.test(signal) && signal.personaContext().embodiedKinesics() != null;
+    public static final Predicate<ExpressSignal> PHENOMENOLOGICAL_ENABLED = signal -> true; // Or however you want to gate it, user just said add them
     
     private ExpressGates() {}
 }
