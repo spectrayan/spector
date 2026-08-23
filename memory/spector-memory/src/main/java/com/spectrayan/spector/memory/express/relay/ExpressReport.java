@@ -24,4 +24,7 @@ public record ExpressReport(
     Duration elapsed,
     int relaysExecuted
 ) {
+    public static ExpressReport empty() {
+        return new ExpressReport(null, null, "", "", Duration.ZERO, 0);
+    }
 }

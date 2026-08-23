@@ -131,6 +131,37 @@ public record PersonaContext(
     }
 
     /**
+     * Backward-compatible 19-argument constructor without idiolect and vocalProsody.
+     */
+    public PersonaContext(
+            String about,
+            String occupation,
+            List<Education> education,
+            String nationality,
+            List<String> languages,
+            CulturalIdentity culturalIdentity,
+            BigFiveTraits bigFive,
+            EmotionalIntelligence emotionalIntelligence,
+            StressResponse stressResponse,
+            List<String> values,
+            List<String> fears,
+            List<String> aspirations,
+            CommunicationStyle communicationStyle,
+            PersonalityModifiers modifiers,
+            float[] aboutEmbedding,
+            float[] occupationEmbedding,
+            float[] educationEmbedding,
+            float[] valuesEmbedding,
+            float[] aspirationsEmbedding
+    ) {
+        this(about, occupation, education, nationality, languages, culturalIdentity,
+                bigFive, emotionalIntelligence, stressResponse, values, fears, aspirations,
+                communicationStyle, IdiolectProfile.NEUTRAL, VocalProsodyDNA.NEUTRAL,
+                modifiers, aboutEmbedding, occupationEmbedding, educationEmbedding,
+                valuesEmbedding, aspirationsEmbedding);
+    }
+
+    /**
      * No persona set — produces no scoring effect (full backward compatibility).
      */
     public static final PersonaContext NONE = new PersonaContext(

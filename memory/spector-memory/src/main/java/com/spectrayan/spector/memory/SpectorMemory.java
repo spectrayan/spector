@@ -251,7 +251,10 @@ public interface SpectorMemory extends AutoCloseable {
      * @param signal the express signal carrying query text and cognitive candidates
      * @return the express report
      */
-    com.spectrayan.spector.memory.express.relay.ExpressReport express(com.spectrayan.spector.memory.express.relay.ExpressSignal signal);
+    default com.spectrayan.spector.memory.express.relay.ExpressReport express(
+            com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
+        return com.spectrayan.spector.memory.express.relay.ExpressReport.empty();
+    }
 
     /**
      * Triggers a Default Mode Network (DMN) spontaneous mind-wandering and continuity snapshot cycle.

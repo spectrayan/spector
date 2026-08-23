@@ -454,6 +454,12 @@ public class MeteredSpectorMemory implements SpectorMemory {
         return delegate.factHistory(subject, predicate);
     }
 
+    @Override
+    public com.spectrayan.spector.memory.express.relay.ExpressReport express(
+            com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
+        return delegate.express(signal);
+    }
+
     // ── Lifecycle ──
 
     @Override
