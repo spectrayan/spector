@@ -201,8 +201,7 @@ public final class BenchmarkSetup implements AutoCloseable {
                 .hebbianGraphCapacity(corpusSize + 100)
                 .temporalChainCapacity(corpusSize + 100)
                 .entityGraphCapacity(Math.max(50_000, corpusSize * 50))
-                .entityExtractionMode(EntityExtractionMode.CUSTOM)
-                .entityExtractor(customExtractor);
+                .entityExtractionMode(EntityExtractionMode.NONE);
 
         if (aismeConfig != null) {
             builder.aismeConfig(aismeConfig);
