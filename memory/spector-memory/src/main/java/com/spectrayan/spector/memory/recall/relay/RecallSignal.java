@@ -45,6 +45,8 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
     private float effectiveTemperature = 1.0f;
     private final List<RelayTrace> traces = Collections.synchronizedList(new ArrayList<>());
 
+    private final java.util.Map<String, Object> attributes = new java.util.concurrent.ConcurrentHashMap<>();
+
     // Output
     private List<CognitiveResult> finalizedResults = Collections.emptyList();
 
@@ -85,10 +87,18 @@ public final class RecallSignal implements DivergentCapable<RecallSignal>, Trace
         fork.textSearchExecuted = this.textSearchExecuted;
         fork.rrfFused = this.rrfFused;
         fork.effectiveTemperature = this.effectiveTemperature;
+        fork.attributes.putAll(this.attributes);
         synchronized (this.traces) {
             fork.traces.addAll(this.traces);
         }
         return fork;
+    }
+
+    /**
+     * Returns the mutable contextual attributes map for inter-relay parameter passing.
+     */
+    public java.util.Map<String, Object> attributes() {
+        return attributes;
     }
 
     @Override
