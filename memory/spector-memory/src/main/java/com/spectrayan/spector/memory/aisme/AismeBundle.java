@@ -26,6 +26,7 @@ import com.spectrayan.spector.memory.aisme.policy.ExpectedFreeEnergyCalculator;
 import com.spectrayan.spector.memory.aisme.policy.PolicyInferenceEngine;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousAccessRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConsciousnessContinuityRelay;
+import com.spectrayan.spector.memory.aisme.relay.ConstructiveMemoryPersistenceRelay;
 import com.spectrayan.spector.memory.aisme.relay.ConstructiveSimulationRelay;
 import com.spectrayan.spector.memory.aisme.relay.EpistemicLearningRelay;
 import com.spectrayan.spector.memory.aisme.relay.FreeEnergyGuidedRelay;
@@ -57,6 +58,7 @@ public record AismeBundle(
         HopfieldAssociativeRelay hopfieldAssociativeRelay,
         ManifoldRerankRelay manifoldRerankRelay,
         ConstructiveSimulationRelay constructiveSimulationRelay,
+        ConstructiveMemoryPersistenceRelay constructiveMemoryPersistenceRelay,
         ConsciousnessContinuityRelay consciousnessContinuityRelay,
         ConsciousAccessRelay consciousAccessRelay,
         ManifoldConsolidationRelay manifoldConsolidationRelay,

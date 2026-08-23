@@ -48,7 +48,7 @@ public final class RecallPathwayFactory {
         return create(null, transductionRelay, prospectiveRelay, governedReleaseGateRelay, null,
                 vectorSearchRelay, null, scoringRelay, graphExpansionRelay, null, evidenceFusionRelay,
                 bm25SearchRelay, rrfRescoreRelay, null, null, null, sortAndTruncateRelay,
-                cognitiveRerankRelay, mmrDiversityRelay, temperatureSoftmaxRelay, null, consolidationRelay);
+                cognitiveRerankRelay, mmrDiversityRelay, temperatureSoftmaxRelay, null, null, null, consolidationRelay);
     }
 
     /**
@@ -73,7 +73,7 @@ public final class RecallPathwayFactory {
         return create(interceptor, transductionRelay, prospectiveRelay, governedReleaseGateRelay, null,
                 vectorSearchRelay, null, scoringRelay, graphExpansionRelay, null, evidenceFusionRelay,
                 bm25SearchRelay, rrfRescoreRelay, null, null, null, sortAndTruncateRelay,
-                cognitiveRerankRelay, mmrDiversityRelay, temperatureSoftmaxRelay, null, consolidationRelay);
+                cognitiveRerankRelay, mmrDiversityRelay, temperatureSoftmaxRelay, null, null, null, consolidationRelay);
     }
 
     /**
@@ -107,7 +107,7 @@ public final class RecallPathwayFactory {
                 graphExpansionRelay, hopfieldAssociativeRelay, evidenceFusionRelay, bm25SearchRelay,
                 rrfRescoreRelay, manifoldRerankRelay, constructiveSimulationRelay,
                 consciousnessContinuityRelay, sortAndTruncateRelay, cognitiveRerankRelay,
-                mmrDiversityRelay, temperatureSoftmaxRelay, consciousAccessRelay, null, consolidationRelay);
+                mmrDiversityRelay, temperatureSoftmaxRelay, consciousAccessRelay, null, null, consolidationRelay);
     }
 
     /**
@@ -135,6 +135,7 @@ public final class RecallPathwayFactory {
             final MmrDiversityRelay mmrDiversityRelay,
             final TemperatureSoftmaxRelay temperatureSoftmaxRelay,
             final SynapticRelay<RecallSignal> consciousAccessRelay,
+            final SynapticRelay<RecallSignal> constructiveMemoryPersistenceRelay,
             final SynapticRelay<RecallSignal> epistemicLearningRelay,
             final ConsolidationRelay<RecallSignal> consolidationRelay) {
 
@@ -201,6 +202,10 @@ public final class RecallPathwayFactory {
 
         if (consciousAccessRelay != null) {
             builder.gated(RelayNames.CONSCIOUS_ACCESS, RecallGates.CONSCIOUS_ACCESS_ENABLED, consciousAccessRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+        }
+
+        if (constructiveMemoryPersistenceRelay != null) {
+            builder.gated(RelayNames.CONSTRUCTIVE_PERSISTENCE, RecallGates.CONSTRUCTIVE_PERSISTENCE_ENABLED, constructiveMemoryPersistenceRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         if (epistemicLearningRelay != null) {

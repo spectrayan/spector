@@ -86,6 +86,7 @@ class RecallPathwayAismeWiringTest {
                 null,
                 null,
                 bundle.consciousAccessRelay(),
+                null, // constructiveMemoryPersistenceRelay
                 bundle.epistemicLearningRelay(),
                 new ConsolidationRelay<>("consolidation", s -> {})
         );
