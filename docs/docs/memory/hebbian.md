@@ -1,11 +1,11 @@
 ---
-title: "3-Layer Cognitive Graph"
-description: "HebbianGraphMemory, TemporalChainMemory, and HyperEntityGraphMemory — three biologically-inspired graph structures that augment vector recall with associative, temporal, and hyperedge signals."
+title: "4-Layer Cognitive Graph"
+description: "HebbianGraphMemory, TemporalChainMemory, HyperEntityGraphMemory, and the Cross-Capture Graph — four biologically-inspired graph structures that augment vector recall with associative, temporal, hyperedge, and tag co-occurrence signals."
 ---
 
-# 🧠 3-Layer Cognitive Graph
+# 🧠 4-Layer Cognitive Graph
 
-> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), and **n-body event groupings** (multi-entity episodes). Spector Memory implements all three as graph structures that augment vector recall, supported by a central EntityDirectory.
+> **Biological Analog**: The brain doesn't retrieve memories by content similarity alone. It uses **associative networks** (neurons that fire together wire together), **temporal sequences** (what happened next?), **n-body event groupings** (multi-entity episodes), and **synaptic tag cross-capture** (conceptually linked contexts). Spector Memory implements all four as graph structures that augment vector recall, supported by a central EntityDirectory.
 
 ---
 
@@ -20,10 +20,12 @@ graph TB
     RP --> S5c["Step 5c: Hebbian<br/>Spreading Activation"]
     RP --> S5d["Step 5d: Temporal<br/>Chain Extension"]
     RP --> S5e["Step 5e: Entity<br/>Graph Traversal"]
+    RP --> S5f["Step 5f: Cross-Capture<br/>Tag Traversal"]
 
     S5c --> M["Merge & Dedup → Re-sort → Final Top-K"]
     S5d --> M
     S5e --> M
+    S5f --> M
 
     subgraph "Layer 1 — Hebbian Association"
         HG["HebbianGraphMemory<br/>CSR co-activation edges"]
@@ -39,17 +41,23 @@ graph TB
         ED["EntityDirectory<br/>Identity companion registry"]
     end
 
+    subgraph "Layer 4 — Cross-Capture Graph"
+        CCG["CoActivationRecordMemory<br/>Tag co-occurrence traversal<br/>+ inverted index"]
+    end
+
     S5c --> HG
     S5c --> CAT
     S5d --> TC
     S5e --> ED
     S5e --> HEG
+    S5f --> CCG
 
     style RP fill:#4a90d9,color:white
     style M fill:#00b894,color:white
     style HG fill:#e74c3c,color:white
     style TC fill:#f39c12,color:white
     style HEG fill:#e91e63,color:white
+    style CCG fill:#00b4d8,color:white
 ```
 
 !!! tip "Graceful Degradation"
@@ -102,6 +110,66 @@ Beyond memory-to-memory edges, the `CoActivationTracker` tracks **tag co-occurre
 
 !!! info "STDP — Spike-Timing Dependent Plasticity"
     This creates predictive associations: "when I think of A, I should also think of B." The listener runs after each recall on a Virtual Thread, updating STDP weights with zero impact on recall latency.
+
+---
+
+## Layer 4: Cross-Capture Graph
+
+> *Synaptic tags that co-occur share Plasticity-Related Proteins, creating associative bridges between conceptually related memory traces.* — Sajikumar & Frey, 2004
+
+### Neuroscience Basis
+
+In neuroscience, **Synaptic Tagging and Capture (STC)** theory shows that synaptic tags form associative networks via three mechanisms:
+
+1. **Cross-Tagging**: Tagged synapses on the same neuron share PRPs (Plasticity-Related Proteins) across pathways
+2. **Memory Co-allocation**: Temporally proximate events with shared tags get co-allocated to overlapping neuronal populations
+3. **Dendritic Clustering**: Co-tagged synapses spatially cluster on dendrites for efficient PRP sharing
+
+### How It Works
+
+The Cross-Capture Graph reuses the existing `CoActivationRecordMemory` tag co-occurrence data for graph traversal during recall. It adds a **tag → memory inverted index** that maps each synaptic tag to the set of memories carrying that tag.
+
+```
+Query: "How do we handle database connection pooling?"
+Query tags: {database, connection-pool}
+
+Cross-Capture Graph traversal:
+  database → [timeout (0.87), retry (0.72), postgres (0.68)]
+  connection-pool → [hikari (0.91), database (0.87), config (0.74)]
+
+Discovered memories via related tags:
+  → "HikariCP configuration best practices" (via hikari tag)
+  → "retry backoff strategy for DB connections" (via retry tag)
+  → "PostgreSQL timeout settings" (via postgres + timeout tags)
+```
+
+### Key Properties
+
+| Property | Value |
+|---|---|
+| Data source | `OffHeapPairTable` (existing co-occurrence counts) |
+| Inverted index | `ConcurrentHashMap<Long, CopyOnWriteArrayList<Integer>>` (tag hash → memory slots) |
+| Fan-factor attenuation | `1/√(degree)` — ACT-R spreading activation dilution |
+| Attenuation factor | 0.25× (configurable via `spector.memory.cross-capture.attenuation`) |
+| Max tag neighbors | 5 (configurable via `spector.memory.cross-capture.max-tag-neighbors`) |
+| Max memories per tag | 10 (configurable via `spector.memory.cross-capture.max-memories-per-tag`) |
+| Index lifecycle | Rebuilt on startup from memory headers; updated during ingestion |
+| Kernel shape | `MemoryShape.HASHTABLE` (ordinal 8) — honest shape per ADR-0009 |
+
+### How It's Used
+
+- **Ingestion**: Each extracted synaptic tag is indexed in the inverted index
+- **Recall**: Step 5f traverses the co-occurrence graph to find related tags, then looks up memories carrying those tags. Added to the result set with configurable attenuation
+- **Graceful degradation**: If the inverted index is empty or the cross-capture step throws, recall proceeds unchanged
+
+### What It Finds That Others Miss
+
+| Signal | Hebbian | Temporal | Entity | Cross-Capture |
+|---|---|---|---|---|
+| Different vocabulary, same concepts | ❌ | ❌ | ❌ | ✅ |
+| Never co-ingested | ❌ | ❌ | Maybe | ✅ |
+| Different sessions | ✅ | ❌ | ✅ | ✅ |
+| No explicit entities | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
@@ -256,10 +324,11 @@ All graph components persist alongside memory data in DISK mode:
 |---|---|---|---|
 | Hebbian CSR (L1) | 4B offset + 12B × avg degree (~2) | ~2.8 MB | ~28 MB |
 | CoActivation | ~1MB total | ~1 MB | ~1 MB |
+| Cross-Capture Inverted Index (L4) | 12B per tag×memory entry | ~2-5 MB | ~20-50 MB |
 | Entity Directory | 64B node + 8B × adj | ~7.2 MB | ~72 MB |
 | HyperEntity (L3) | 32B hyperedge + 8B × vertices + 4B incidence | ~5 MB | ~50 MB |
 | Temporal (L2) | 16B | 1.6 MB | 16 MB |
-| **Total** | | **~17.6 MB** | **~167 MB** |
+| **Total** | | **~20-23 MB** | **~187-217 MB** |
 
 !!! tip "CSR Memory Savings"
     The CSR (Compressed Sparse Row) Hebbian layout stores only actual edges rather than pre-allocating MAX_DEGREE slots per node. At observed average degree ~2.0, this reduces Hebbian memory by ~90% compared to the legacy fixed-width layout (292B/node → ~28B/node).
@@ -278,6 +347,7 @@ Traditional vector search treats each query independently. The 4-layer graph cre
     3. **Hebbian (Layer 1)** → that memory was co-ingested with "connection pool settings" → adds it to results
     4. **Temporal (Layer 2)** → follows the chain: connection pool → timeout config → retry backoff → adds all three
     5. **Hyperedge Event-Episode (Layer 3)** → looks up entity "DatabaseService" in the `EntityDirectory` and set-intersects its incidence list in the `HyperEntityGraph` → recalls a hyperedge connecting {Alice, Project Alpha, DatabaseService} representing Alice's recent DB migration event → adds it
+    6. **Cross-Capture (Layer 4)** → the tag "latency" co-occurs frequently with "prometheus" and "p99" in the co-occurrence graph → discovers a memory about "Prometheus alerting thresholds for p99 latency" that shares no entities, vocabulary, or session with the seed set → adds it
 
     The final result set contains memories that no single retrieval signal could have found alone.
 
