@@ -180,6 +180,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final RecallPipeline recallPipeline;
     private final RecallPathway recallPathway;       // #561 relay-based engine (nullable)
     private final ReflectPathway reflectPathway;     // #503 relay-based sleep reflection engine
+    private final ExpressPathway expressPathway;     // #602 relay-based express engine
     private final boolean usePathwayEngine;
     private final MemoryIndex index;
     private final ScalarQuantizer quantizer;
@@ -277,6 +278,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.cognitiveTarget = bundle.cognitiveTarget();
         this.rememberPathway = bundle.rememberPathway();
         this.reflectPathway = bundle.reflectPathway();
+        this.expressPathway = bundle.expressPathway();
         this.embeddingProvider = bundle.embeddingProvider();
         this.recallPipeline = bundle.recallPipeline();
         this.recallPathway = bundle.recallPathway();
@@ -1002,6 +1004,19 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 return reflectPathway.reflect(partitionManager, index, rememberPathway, cognitiveTarget, salienceProfile());
             }
             return reflectionOrchestrator.reflect(partitionManager, index, cognitiveTarget);
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.express.relay.ExpressReport express(com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
+        acquireLease();
+        try {
+            if (expressPathway != null) {
+                return expressPathway.express(signal);
+            }
+            return new com.spectrayan.spector.memory.express.relay.ExpressReport(null, null, "", "", java.time.Duration.ZERO, 0);
         } finally {
             releaseLease();
         }

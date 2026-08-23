@@ -408,6 +408,12 @@ public class ObservedSpectorMemory extends ObservableComponent implements Specto
     }
 
     @Override
+    public com.spectrayan.spector.memory.express.relay.ExpressReport express(
+            com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
+        return delegate.express(signal);
+    }
+
+    @Override
     public void close() {
         delegate.close();
     }

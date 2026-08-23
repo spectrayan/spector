@@ -41,7 +41,7 @@ public final class ReflectPathwayFactory {
             final EntityMaintenanceRelay entityRelay,
             final WalJournalRelay walRelay) {
         return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
-                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, null, walRelay);
+                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, null, walRelay, null);
     }
 
     /**
@@ -60,7 +60,7 @@ public final class ReflectPathwayFactory {
             final SynapticRelay<ReflectSignal> manifoldConsolidationRelay,
             final WalJournalRelay walRelay) {
         return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
-                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, manifoldConsolidationRelay, walRelay);
+                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, manifoldConsolidationRelay, walRelay, null);
     }
 
     /**
@@ -78,7 +78,8 @@ public final class ReflectPathwayFactory {
             final CrossLayerPromotionRelay promotionRelay,
             final EntityMaintenanceRelay entityRelay,
             final SynapticRelay<ReflectSignal> manifoldConsolidationRelay,
-            final WalJournalRelay walRelay) {
+            final WalJournalRelay walRelay,
+            final IdiolectLearningRelay idiolectRelay) {
 
         final var builder = CognitivePathway.<ReflectSignal>pathway("reflect");
         if (interceptor != null) {
@@ -96,6 +97,10 @@ public final class ReflectPathwayFactory {
 
         if (manifoldConsolidationRelay != null) {
             builder.relay(RelayNames.MANIFOLD_CONSOLIDATION, manifoldConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+        }
+
+        if (idiolectRelay != null) {
+            builder.relay("idiolectLearning", idiolectRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         builder.relay(RelayNames.WAL_JOURNAL, walRelay, ErrorPolicy.FAIL_FAST);

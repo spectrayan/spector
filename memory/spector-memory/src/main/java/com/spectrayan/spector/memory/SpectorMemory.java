@@ -245,6 +245,18 @@ public interface SpectorMemory extends AutoCloseable {
     ReflectReport reflect();
 
     /**
+     * Executes the Express (6th Canonical Cognitive Pathway) for persona-aligned synthesis,
+     * vocal prosody modulation, and stylometric validation.
+     *
+     * @param signal the express signal carrying query text and cognitive candidates
+     * @return the express report
+     */
+    default com.spectrayan.spector.memory.express.relay.ExpressReport express(
+            com.spectrayan.spector.memory.express.relay.ExpressSignal signal) {
+        return com.spectrayan.spector.memory.express.relay.ExpressReport.empty();
+    }
+
+    /**
      * Triggers a Default Mode Network (DMN) spontaneous mind-wandering and continuity snapshot cycle.
      *
      * @return resulting wander report

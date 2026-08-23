@@ -84,6 +84,7 @@ public final class SpectorMemoryFactory {
             RecallPipeline recallPipeline,
             RecallPathway recallPathway,
             ReflectPathway reflectPathway,
+            ExpressPathway expressPathway,
             MemoryIndex index,
             ScalarQuantizer quantizer,
             PartitionManager partitionManager,
@@ -328,6 +329,9 @@ public final class SpectorMemoryFactory {
                 .mentalStateTracker(aismeBundle != null ? aismeBundle.mentalStateTracker() : null)
                 .build();
 
+        // Express Pathway (#602)
+        ExpressPathway expressPathway = ExpressPathway.builder().build();
+
         //  Extracted Components (Deprecated, retained for backward compatibility)
         ReflectionOrchestrator reflectionOrchestrator = new ReflectionOrchestrator(
                 bio.reflectDaemon(), graphs.hebbianGraph(), graphs.temporalChain(), graphs.entityDirectory(),
@@ -397,7 +401,7 @@ public final class SpectorMemoryFactory {
         }
 
         return new SubsystemBundle(
-                cognitiveTarget, rememberPathway, embeddingProvider, recallPipeline, recallPathway, reflectPathway, index, cortex.quantizer(),
+                cognitiveTarget, rememberPathway, embeddingProvider, recallPipeline, recallPathway, reflectPathway, expressPathway, index, cortex.quantizer(),
                 partitionManager, importanceProvider, reflectionOrchestrator,
                 reinforcementHandler, bio.valenceTracker(), bio.coActivationTracker(),
                 bio.suppressionSet(), bio.habituationPenalty(), bio.prospectiveScheduler(),
