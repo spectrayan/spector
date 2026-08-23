@@ -317,6 +317,11 @@ public record PersonaContext(
             this.idiolect = idiolect;
             return this;
         }
+
+        /** Sets idiolect profile (alias). */
+        public Builder idiolectProfile(IdiolectProfile idiolect) {
+            return idiolect(idiolect);
+        }
         
         /** Sets vocal prosody DNA. */
         public Builder vocalProsody(VocalProsodyDNA vocalProsody) {

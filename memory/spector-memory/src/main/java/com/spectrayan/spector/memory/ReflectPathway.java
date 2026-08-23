@@ -131,7 +131,8 @@ public final class ReflectPathway implements AutoCloseable {
                 new CrossLayerPromotionRelay(),
                 new EntityMaintenanceRelay(),
                 manifoldRelay,
-                new WalJournalRelay()
+                new WalJournalRelay(),
+                new com.spectrayan.spector.memory.reflect.relay.IdiolectLearningRelay()
         );
     }
 
