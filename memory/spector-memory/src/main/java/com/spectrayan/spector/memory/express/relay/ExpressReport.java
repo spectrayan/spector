@@ -12,19 +12,24 @@
  */
 package com.spectrayan.spector.memory.express.relay;
 
-import com.spectrayan.spector.memory.model.ProsodyParameterVector;
+import com.spectrayan.spector.memory.model.BlendshapeVector;
+import com.spectrayan.spector.memory.model.PhenomenologicalContextPack;
 import com.spectrayan.spector.memory.model.IdiolectProfile;
+import com.spectrayan.spector.memory.model.ProsodyParameterVector;
 import java.time.Duration;
 
 public record ExpressReport(
     ProsodyParameterVector prosodyVector,
+    BlendshapeVector blendshapeVector,
     IdiolectProfile idiolectProfile,
+    PhenomenologicalContextPack contextPack,
     String promptDirectives,
+    String internalMonologue,
     String ssmlTags,
     Duration elapsed,
     int relaysExecuted
 ) {
     public static ExpressReport empty() {
-        return new ExpressReport(null, null, "", "", Duration.ZERO, 0);
+        return new ExpressReport(null, null, null, null, "", "", "", Duration.ZERO, 0);
     }
 }

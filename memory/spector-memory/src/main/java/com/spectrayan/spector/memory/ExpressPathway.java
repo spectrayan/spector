@@ -19,6 +19,10 @@ import com.spectrayan.spector.memory.express.relay.ExpressReport;
 import com.spectrayan.spector.memory.express.relay.ExpressSignal;
 import com.spectrayan.spector.memory.express.relay.IdiolectStylometryRelay;
 import com.spectrayan.spector.memory.express.relay.VocalProsodyRelay;
+import com.spectrayan.spector.memory.express.relay.EmbodiedKinesicsRelay;
+import com.spectrayan.spector.memory.express.relay.PhenomenologicalStreamRelay;
+import com.spectrayan.spector.memory.model.BlendshapeVector;
+import com.spectrayan.spector.memory.model.PhenomenologicalContextPack;
 import com.spectrayan.spector.memory.model.ProsodyParameterVector;
 import com.spectrayan.spector.memory.model.IdiolectProfile;
 import org.slf4j.Logger;
@@ -37,6 +41,8 @@ public final class ExpressPathway implements AutoCloseable {
                 .withInterceptor(builder.interceptor)
                 .gated("IdiolectStylometry", ExpressGates.IDIOLECT_ENABLED, new IdiolectStylometryRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
                 .gated("VocalProsody", ExpressGates.PROSODY_ENABLED, new VocalProsodyRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
+                .gated("EmbodiedKinesics", ExpressGates.KINESICS_ENABLED, new EmbodiedKinesicsRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
+                .gated("PhenomenologicalStream", ExpressGates.PHENOMENOLOGICAL_ENABLED, new PhenomenologicalStreamRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
                 .build();
     }
     
@@ -50,11 +56,19 @@ public final class ExpressPathway implements AutoCloseable {
         ProsodyParameterVector prosodyVector = (ProsodyParameterVector) signal.attributes().get("prosodyVector");
         IdiolectProfile idiolectProfile = (IdiolectProfile) signal.attributes().get("idiolectProfile");
         String promptDirectives = (String) signal.attributes().get("promptDirectives");
+        BlendshapeVector blendshapeVector = (BlendshapeVector) signal.attributes().get("blendshapeVector");
+        PhenomenologicalContextPack contextPack = (PhenomenologicalContextPack) signal.attributes().get("contextPack");
+        
+        String internalMonologue = contextPack != null ? contextPack.internalMonologue() : "";
+        if (promptDirectives == null && contextPack != null) {
+            promptDirectives = contextPack.systemPromptDirectives();
+        }
+
         String ssmlTags = ""; 
-        int relaysExecuted = 2; // simple static count
+        int relaysExecuted = 4; // updated count
         
         return new ExpressReport(
-            prosodyVector, idiolectProfile, promptDirectives, ssmlTags, elapsed, relaysExecuted
+            prosodyVector, blendshapeVector, idiolectProfile, contextPack, promptDirectives, internalMonologue, ssmlTags, elapsed, relaysExecuted
         );
     }
     

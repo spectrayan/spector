@@ -58,6 +58,8 @@ public class ExpressPathwayTest {
             assertNotNull(report.prosodyVector());
             assertNotNull(report.idiolectProfile());
             assertNotNull(report.promptDirectives());
+            assertNotNull(report.blendshapeVector());
+            assertNotNull(report.contextPack());
         }
     }
 }
