@@ -16,12 +16,14 @@ import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
+import com.spectrayan.spector.memory.model.SoulContext;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Encapsulates the generative prior distribution p(s|m) and observation precision model p(o|s)
- * derived from the agent's persistent identity and cognitive profile.
+ * derived from the entity's persistent soul context and cognitive profile.
  *
  * <h3>Biological Analog: Top-Down Generative Priors & Cortical Precision Allocations</h3>
  * <p>Represents the internal generative model of the world and self. Modulates baseline expectations
@@ -31,7 +33,7 @@ public record GenerativeSelfModel(
         float[] priorMean,
         float[] priorPrecision,
         float[] observationPrecision,
-        AgentSoul soul,
+        SoulContext soul,
         CognitiveProfile profile
 ) {
 
@@ -62,6 +64,15 @@ public record GenerativeSelfModel(
     }
 
     /**
+     * Backward-compatible accessor returning the soul as an {@link AgentSoul} if applicable.
+     *
+     * @return AgentSoul or null if the soul is not an AgentSoul
+     */
+    public AgentSoul agentSoul() {
+        return soul instanceof AgentSoul agent ? agent : null;
+    }
+
+    /**
      * Creates an initial default posterior q(s_0) matching the prior p(s|m).
      *
      * @param timestampMs creation timestamp
@@ -72,14 +83,14 @@ public record GenerativeSelfModel(
     }
 
     /**
-     * Constructs a GenerativeSelfModel from an AgentSoul and CognitiveProfile.
+     * Constructs a GenerativeSelfModel from a polymorphic SoulContext and CognitiveProfile.
      *
-     * @param soul the agent persistent identity (may be null)
+     * @param soul the persistent identity context (AgentSoul, UserSoul, TenantSoul, OrgUnitSoul)
      * @param profile the cognitive profile governing precision dynamics (may be null)
      * @param dimensions target embedding dimension
      * @return configured GenerativeSelfModel
      */
-    public static GenerativeSelfModel fromSoulAndProfile(AgentSoul soul, CognitiveProfile profile, int dimensions) {
+    public static GenerativeSelfModel fromSoulAndProfile(SoulContext soul, CognitiveProfile profile, int dimensions) {
         if (dimensions <= 0) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Dimensions must be positive");
         }
@@ -91,20 +102,7 @@ public record GenerativeSelfModel(
             System.arraycopy(idEmb, 0, mean, 0, copyLen);
         }
 
-        float basePrecision = 2.5f;
-        if (profile != null) {
-            switch (profile) {
-                case HYPERFOCUS -> basePrecision = 8.0f;
-                case SYSTEMATIZER -> basePrecision = 6.0f;
-                case BALANCED -> basePrecision = 3.0f;
-                case DIVERGENT -> basePrecision = 1.0f;
-                case EXPLORING -> basePrecision = 1.5f;
-                case EXECUTIVE_DYSFUNCTION -> basePrecision = 0.8f;
-                case PARANOID_SENTINEL -> basePrecision = 10.0f;
-                case DEFAULT_MODE_NETWORK -> basePrecision = 2.0f;
-                default -> basePrecision = 2.5f;
-            }
-        }
+        float basePrecision = precisionForProfile(profile);
 
         float[] priorPrec = new float[dimensions];
         Arrays.fill(priorPrec, basePrecision);
@@ -113,6 +111,70 @@ public record GenerativeSelfModel(
         Arrays.fill(obsPrec, 4.0f);
 
         return new GenerativeSelfModel(mean, priorPrec, obsPrec, soul, profile);
+    }
+
+    /**
+     * Constructs a composite GenerativeSelfModel blending multiple soul contexts into a unified generative prior.
+     *
+     * @param soulContexts list of active soul contexts in the identity stack
+     * @param profile the cognitive profile governing precision dynamics
+     * @param dimensions target embedding dimension
+     * @return configured GenerativeSelfModel with composite prior
+     */
+    public static GenerativeSelfModel fromSoulsAndProfile(List<SoulContext> soulContexts, CognitiveProfile profile, int dimensions) {
+        if (dimensions <= 0) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Dimensions must be positive");
+        }
+        if (soulContexts == null || soulContexts.isEmpty()) {
+            return fromSoulAndProfile((SoulContext) null, profile, dimensions);
+        }
+        if (soulContexts.size() == 1) {
+            return fromSoulAndProfile(soulContexts.get(0), profile, dimensions);
+        }
+
+        float[] blendedMean = new float[dimensions];
+        int count = 0;
+        for (SoulContext sc : soulContexts) {
+            if (sc != null && sc.identityEmbedding() != null) {
+                float[] emb = sc.identityEmbedding();
+                int copyLen = Math.min(dimensions, emb.length);
+                for (int i = 0; i < copyLen; i++) {
+                    blendedMean[i] += emb[i];
+                }
+                count++;
+            }
+        }
+        if (count > 1) {
+            for (int i = 0; i < dimensions; i++) {
+                blendedMean[i] /= count;
+            }
+        }
+
+        float basePrecision = precisionForProfile(profile);
+
+        float[] priorPrec = new float[dimensions];
+        Arrays.fill(priorPrec, basePrecision);
+
+        float[] obsPrec = new float[dimensions];
+        Arrays.fill(obsPrec, 4.0f);
+
+        SoulContext primary = soulContexts.get(0);
+        return new GenerativeSelfModel(blendedMean, priorPrec, obsPrec, primary, profile);
+    }
+
+    private static float precisionForProfile(CognitiveProfile profile) {
+        if (profile == null) return 2.5f;
+        return switch (profile) {
+            case HYPERFOCUS -> 8.0f;
+            case SYSTEMATIZER -> 6.0f;
+            case BALANCED -> 3.0f;
+            case DIVERGENT -> 1.0f;
+            case EXPLORING -> 1.5f;
+            case EXECUTIVE_DYSFUNCTION -> 0.8f;
+            case PARANOID_SENTINEL -> 10.0f;
+            case DEFAULT_MODE_NETWORK -> 2.0f;
+            default -> 2.5f;
+        };
     }
 
     /**

@@ -55,14 +55,14 @@ public final class AismeBuilder {
      * Builds an {@link AismeBundle} initialized with the provided configuration and vector lookup.
      *
      * @param config the AISME configuration (or disabled if null)
-     * @param soul optional AgentSoul identity definition
+     * @param soul optional polymorphic SoulContext identity definition
      * @param dimensions vector embedding dimensionality
      * @param vectorLookup function mapping memory IDs to vector representations
      * @return the constructed AismeBundle, or null if disabled
      */
     public static AismeBundle build(
             final AismeConfig config,
-            final AgentSoul soul,
+            final SoulContext soul,
             final int dimensions,
             final Function<String, float[]> vectorLookup
     ) {
@@ -73,7 +73,7 @@ public final class AismeBuilder {
      * Builds an {@link AismeBundle} initialized with the provided configuration, multi-soul context, and vector lookup.
      *
      * @param config the AISME configuration (or disabled if null)
-     * @param soul optional AgentSoul identity definition
+     * @param soul optional polymorphic SoulContext identity definition
      * @param dimensions vector embedding dimensionality
      * @param vectorLookup function mapping memory IDs to vector representations
      * @param soulContexts list of all active soul contexts for multi-soul EFE evaluation
@@ -81,7 +81,7 @@ public final class AismeBuilder {
      */
     public static AismeBundle build(
             final AismeConfig config,
-            final AgentSoul soul,
+            final SoulContext soul,
             final int dimensions,
             final Function<String, float[]> vectorLookup,
             final List<SoulContext> soulContexts
@@ -93,7 +93,7 @@ public final class AismeBuilder {
      * Builds an {@link AismeBundle} with full cognitive target wiring, multi-soul context, and vector lookup.
      *
      * @param config the AISME configuration (or disabled if null)
-     * @param soul optional AgentSoul identity definition
+     * @param soul optional polymorphic SoulContext identity definition
      * @param dimensions vector embedding dimensionality
      * @param ingestionTarget target for persisting high-alignment constructive simulations
      * @param vectorLookup function mapping memory IDs to vector representations
@@ -102,7 +102,7 @@ public final class AismeBuilder {
      */
     public static AismeBundle build(
             final AismeConfig config,
-            final AgentSoul soul,
+            final SoulContext soul,
             final int dimensions,
             final CognitiveIngestionTarget ingestionTarget,
             final Function<String, float[]> vectorLookup,
@@ -113,10 +113,20 @@ public final class AismeBuilder {
             return null;
         }
 
+        final List<SoulContext> activeSouls;
+        if (soulContexts != null && !soulContexts.isEmpty()) {
+            activeSouls = soulContexts;
+        } else if (soul != null) {
+            activeSouls = List.of(soul);
+        } else {
+            activeSouls = List.of();
+        }
+
         final HomeostaticCore homeostaticCore = new HomeostaticCore();
         final AffectiveResonanceScorer affectiveScorer = new AffectiveResonanceScorer();
-        final GenerativeSelfModel generativeSelfModel = GenerativeSelfModel.fromSoulAndProfile(
-                soul, CognitiveProfile.BALANCED, dimensions);
+        final GenerativeSelfModel generativeSelfModel = activeSouls.size() > 1
+                ? GenerativeSelfModel.fromSoulsAndProfile(activeSouls, CognitiveProfile.BALANCED, dimensions)
+                : GenerativeSelfModel.fromSoulAndProfile(soul, CognitiveProfile.BALANCED, dimensions);
         final MentalStateTracker mentalStateTracker = new MentalStateTracker(generativeSelfModel);
         final FreeEnergyCalculator freeEnergyCalculator = new FreeEnergyCalculator();
         final ContinuousHopfieldNetwork hopfieldNetwork = new ContinuousHopfieldNetwork();
@@ -143,7 +153,6 @@ public final class AismeBuilder {
                 mentalStateTracker, homeostaticCore, vectorLookup);
 
         // Expected Free Energy (G) Policy Engine
-        final List<SoulContext> activeSouls = soulContexts != null ? soulContexts : List.of();
         final ExpectedFreeEnergyCalculator efeCalculator = cfg.enableExpectedFreeEnergy()
                 ? new ExpectedFreeEnergyCalculator(
                         activeSouls,
@@ -164,6 +173,7 @@ public final class AismeBuilder {
         return new AismeBundle(
                 cfg,
                 soul,
+                activeSouls,
                 homeostaticCore,
                 affectiveScorer,
                 generativeSelfModel,
@@ -189,4 +199,3 @@ public final class AismeBuilder {
         );
     }
 }
-

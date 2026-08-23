@@ -185,6 +185,8 @@ public final class SpectorMemoryBuilder {
     // Active Inference Self-Model Engine (AISME) (#597)
     com.spectrayan.spector.memory.aisme.config.AismeConfig aismeConfig = com.spectrayan.spector.memory.aisme.config.AismeConfig.disabled();
     com.spectrayan.spector.memory.model.AgentSoul agentSoul;
+    com.spectrayan.spector.memory.model.SoulContext soul;
+    java.util.List<com.spectrayan.spector.memory.model.SoulContext> soulContexts;
 
     // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     // FACTORY
@@ -236,9 +238,25 @@ public final class SpectorMemoryBuilder {
         return this;
     }
 
+    /** Sets the primary SoulContext defining identity, purpose, and values for conscious self-modeling (#597, #623). */
+    public SpectorMemoryBuilder soul(com.spectrayan.spector.memory.model.SoulContext soul) {
+        this.soul = soul;
+        if (soul instanceof com.spectrayan.spector.memory.model.AgentSoul agent) {
+            this.agentSoul = agent;
+        }
+        return this;
+    }
+
+    /** Sets the multi-soul hierarchy contexts (AgentSoul, UserSoul, TenantSoul, OrgUnitSoul) for composite EFE and self-modeling (#623). */
+    public SpectorMemoryBuilder soulContexts(java.util.List<com.spectrayan.spector.memory.model.SoulContext> contexts) {
+        this.soulContexts = contexts != null ? java.util.List.copyOf(contexts) : null;
+        return this;
+    }
+
     /** Sets the AgentSoul defining identity, purpose, and values for conscious self-modeling (#597). */
     public SpectorMemoryBuilder agentSoul(com.spectrayan.spector.memory.model.AgentSoul soul) {
         this.agentSoul = soul;
+        this.soul = soul;
         return this;
     }
 

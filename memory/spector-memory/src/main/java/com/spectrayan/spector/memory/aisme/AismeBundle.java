@@ -36,13 +36,18 @@ import com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay;
 import com.spectrayan.spector.memory.aisme.relay.ManifoldRerankRelay;
 import com.spectrayan.spector.memory.aisme.workspace.GlobalWorkspace;
 import com.spectrayan.spector.memory.model.AgentSoul;
+import com.spectrayan.spector.memory.model.SoulContext;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Immutable bundle holding all initialized Active Inference Self-Model Engine (AISME) subsystems and relays.
  */
 public record AismeBundle(
         AismeConfig config,
-        AgentSoul agentSoul,
+        SoulContext primarySoul,
+        List<SoulContext> soulContexts,
         HomeostaticCore homeostaticCore,
         AffectiveResonanceScorer affectiveScorer,
         GenerativeSelfModel generativeSelfModel,
@@ -65,4 +70,57 @@ public record AismeBundle(
         EpistemicLearningRelay epistemicLearningRelay,
         ExpectedFreeEnergyCalculator expectedFreeEnergyCalculator,
         PolicyInferenceEngine policyInferenceEngine
-) {}
+) {
+
+    public AismeBundle {
+        soulContexts = soulContexts != null ? List.copyOf(soulContexts) : Collections.emptyList();
+    }
+
+    /**
+     * Backward-compatible 24-arg constructor for code passing single AgentSoul.
+     */
+    public AismeBundle(
+            AismeConfig config,
+            AgentSoul agentSoul,
+            HomeostaticCore homeostaticCore,
+            AffectiveResonanceScorer affectiveScorer,
+            GenerativeSelfModel generativeSelfModel,
+            MentalStateTracker mentalStateTracker,
+            ContinuousHopfieldNetwork hopfieldNetwork,
+            CognitiveManifold cognitiveManifold,
+            PredictiveCodingNetwork predictiveCodingNetwork,
+            NarrativeSelfEngine narrativeSelfEngine,
+            GlobalWorkspace globalWorkspace,
+            ConsciousnessContinuityEvaluator continuityEvaluator,
+            HomeostaticBiasRelay homeostaticBiasRelay,
+            FreeEnergyGuidedRelay freeEnergyGuidedRelay,
+            HopfieldAssociativeRelay hopfieldAssociativeRelay,
+            ManifoldRerankRelay manifoldRerankRelay,
+            ConstructiveSimulationRelay constructiveSimulationRelay,
+            ConstructiveMemoryPersistenceRelay constructiveMemoryPersistenceRelay,
+            ConsciousnessContinuityRelay consciousnessContinuityRelay,
+            ConsciousAccessRelay consciousAccessRelay,
+            ManifoldConsolidationRelay manifoldConsolidationRelay,
+            EpistemicLearningRelay epistemicLearningRelay,
+            ExpectedFreeEnergyCalculator expectedFreeEnergyCalculator,
+            PolicyInferenceEngine policyInferenceEngine
+    ) {
+        this(config, agentSoul, agentSoul != null ? List.of(agentSoul) : List.of(),
+                homeostaticCore, affectiveScorer, generativeSelfModel, mentalStateTracker,
+                hopfieldNetwork, cognitiveManifold, predictiveCodingNetwork, narrativeSelfEngine,
+                globalWorkspace, continuityEvaluator, homeostaticBiasRelay, freeEnergyGuidedRelay,
+                hopfieldAssociativeRelay, manifoldRerankRelay, constructiveSimulationRelay,
+                constructiveMemoryPersistenceRelay, consciousnessContinuityRelay,
+                consciousAccessRelay, manifoldConsolidationRelay, epistemicLearningRelay,
+                expectedFreeEnergyCalculator, policyInferenceEngine);
+    }
+
+    /**
+     * Backward-compatible accessor returning the primary soul as an {@link AgentSoul} if applicable.
+     *
+     * @return AgentSoul or null if the primary soul is not an AgentSoul
+     */
+    public AgentSoul agentSoul() {
+        return primarySoul instanceof AgentSoul agent ? agent : null;
+    }
+}
