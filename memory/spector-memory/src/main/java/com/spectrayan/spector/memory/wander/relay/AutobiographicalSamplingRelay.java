@@ -17,6 +17,7 @@ import com.spectrayan.spector.core.quantization.ScalarQuantizer;
 import com.spectrayan.spector.memory.PartitionManager;
 import com.spectrayan.spector.memory.cortex.CognitiveRecordMemory;
 import com.spectrayan.spector.memory.cortex.PartitionHandle;
+import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout;
 import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 
@@ -104,6 +105,16 @@ public final class AutobiographicalSamplingRelay implements SynapticRelay<Wander
 
             MemorySegment.copy(segment, layout.vectorOffset(offset), MemorySegment.ofArray(qBytes), 0, vecBytes);
             float[] vector = quantizer.decode(qBytes);
+
+            if (signal.soulPriorPreference() != null) {
+                float similarity = CosineSimilarity.compute(vector, signal.soulPriorPreference());
+                if (similarity < -0.2f) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Skipping memory {} due to low soul similarity: {}", prefix + "-" + i, similarity);
+                    }
+                    continue;
+                }
+            }
 
             signal.sampledVectors().add(vector);
             signal.sampledMemoryIds().add(prefix + "-" + i);

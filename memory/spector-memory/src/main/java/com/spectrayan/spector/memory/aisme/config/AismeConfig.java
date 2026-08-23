@@ -49,7 +49,12 @@ public record AismeConfig(
         float efeSoulWeightAgent,
         float efeSoulWeightUser,
         float efeSoulWeightTenant,
-        float efeSoulWeightOrgUnit
+        float efeSoulWeightOrgUnit,
+        boolean constructivePersistenceEnabled,
+        float constructivePersistenceThreshold,
+        boolean backgroundDecayEnabled,
+        float backgroundDecayFactor,
+        int backgroundDecayIntervalSeconds
 ) {
 
     /**
@@ -95,6 +100,15 @@ public record AismeConfig(
         if (Float.isNaN(efeSoulWeightOrgUnit) || efeSoulWeightOrgUnit < 0.0f) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "efeSoulWeightOrgUnit must be non-negative");
         }
+        if (Float.isNaN(constructivePersistenceThreshold) || constructivePersistenceThreshold < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "constructivePersistenceThreshold must be non-negative");
+        }
+        if (Float.isNaN(backgroundDecayFactor) || backgroundDecayFactor < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "backgroundDecayFactor must be non-negative");
+        }
+        if (backgroundDecayIntervalSeconds < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "backgroundDecayIntervalSeconds must be at least 1");
+        }
     }
 
     /**
@@ -120,7 +134,12 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_AGENT,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_USER,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_THRESHOLD,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS
         );
     }
 
@@ -154,7 +173,12 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_AGENT,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_USER,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS
         );
     }
 
@@ -192,7 +216,12 @@ public record AismeConfig(
                 props.efeSoulWeightAgent(),
                 props.efeSoulWeightUser(),
                 props.efeSoulWeightTenant(),
-                props.efeSoulWeightOrgUnit()
+                props.efeSoulWeightOrgUnit(),
+                props.constructivePersistenceEnabled(),
+                props.constructivePersistenceThreshold(),
+                props.backgroundDecayEnabled(),
+                props.backgroundDecayFactor(),
+                props.backgroundDecayIntervalSeconds()
         );
     }
 
@@ -228,6 +257,11 @@ public record AismeConfig(
         private float efeSoulWeightUser = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_USER;
         private float efeSoulWeightTenant = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT;
         private float efeSoulWeightOrgUnit = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT;
+        private boolean constructivePersistenceEnabled = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_ENABLED;
+        private float constructivePersistenceThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_THRESHOLD;
+        private boolean backgroundDecayEnabled = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_ENABLED;
+        private float backgroundDecayFactor = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR;
+        private int backgroundDecayIntervalSeconds = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -253,6 +287,11 @@ public record AismeConfig(
         public Builder efeSoulWeightUser(float weight) { this.efeSoulWeightUser = weight; return this; }
         public Builder efeSoulWeightTenant(float weight) { this.efeSoulWeightTenant = weight; return this; }
         public Builder efeSoulWeightOrgUnit(float weight) { this.efeSoulWeightOrgUnit = weight; return this; }
+        public Builder constructivePersistenceEnabled(boolean enable) { this.constructivePersistenceEnabled = enable; return this; }
+        public Builder constructivePersistenceThreshold(float threshold) { this.constructivePersistenceThreshold = threshold; return this; }
+        public Builder backgroundDecayEnabled(boolean enable) { this.backgroundDecayEnabled = enable; return this; }
+        public Builder backgroundDecayFactor(float factor) { this.backgroundDecayFactor = factor; return this; }
+        public Builder backgroundDecayIntervalSeconds(int sec) { this.backgroundDecayIntervalSeconds = sec; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
@@ -264,7 +303,9 @@ public record AismeConfig(
                     longitudinalSnapshotIntervalMinutes, enableExpectedFreeEnergy,
                     efePolicyPrecision, efeEpistemicWeight, efePragmaticWeight,
                     efeSoulWeightAgent, efeSoulWeightUser, efeSoulWeightTenant,
-                    efeSoulWeightOrgUnit
+                    efeSoulWeightOrgUnit, constructivePersistenceEnabled,
+                    constructivePersistenceThreshold, backgroundDecayEnabled,
+                    backgroundDecayFactor, backgroundDecayIntervalSeconds
             );
         }
     }

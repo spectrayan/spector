@@ -445,6 +445,23 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT = "spector.memory.aisme.efe.soul-weight.org-unit";
     public static final float DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT = 0.10f;
 
+    // AISME — Constructive Memory Persistence
+    public static final String MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_THRESHOLD = "spector.memory.aisme.constructive.persistence-threshold";
+    public static final float DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_THRESHOLD = 0.70f;
+
+    public static final String MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_ENABLED = "spector.memory.aisme.constructive.persistence-enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_ENABLED = true;
+
+    // AISME — Background Homeostatic Decay
+    public static final String MEMORY_AISME_BACKGROUND_DECAY_ENABLED = "spector.memory.aisme.background-decay.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_ENABLED = true;
+
+    public static final String MEMORY_AISME_BACKGROUND_DECAY_FACTOR = "spector.memory.aisme.background-decay.factor";
+    public static final float DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR = 0.02f;
+
+    public static final String MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS = "spector.memory.aisme.background-decay.interval-seconds";
+    public static final int DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS = 300;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;

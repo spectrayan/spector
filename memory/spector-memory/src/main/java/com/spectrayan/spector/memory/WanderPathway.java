@@ -65,6 +65,7 @@ public final class WanderPathway implements AutoCloseable {
     private final HomeostaticCore homeostaticCore;
     private final ContinuityRecordMemory continuityMemory;
     private final AismeConfig aismeConfig;
+    private final float[] soulPriorPreference;
 
     private WanderPathway(final Builder builder) {
         this.quantizer = builder.quantizer;
@@ -76,6 +77,7 @@ public final class WanderPathway implements AutoCloseable {
         this.homeostaticCore = builder.homeostaticCore;
         this.continuityMemory = builder.continuityMemory;
         this.aismeConfig = builder.aismeConfig;
+        this.soulPriorPreference = builder.soulPriorPreference;
 
         var pathwayBuilder = CognitivePathway.<WanderSignal>pathway("wander_pathway");
         if (builder.interceptor != null) {
@@ -147,6 +149,7 @@ public final class WanderPathway implements AutoCloseable {
                 .homeostaticCore(homeostaticCore)
                 .continuityMemory(continuityMemory)
                 .aismeConfig(aismeConfig)
+                .soulPriorPreference(soulPriorPreference)
                 .lastActivityTimestampMs(lastActivityTimestampMs)
                 .idleThresholdSeconds(aismeConfig != null ? aismeConfig.dmnIdleIntervalSeconds() : 60)
                 .build();
@@ -178,6 +181,7 @@ public final class WanderPathway implements AutoCloseable {
         private HomeostaticCore homeostaticCore;
         private ContinuityRecordMemory continuityMemory;
         private AismeConfig aismeConfig = AismeConfig.defaultConfig();
+        private float[] soulPriorPreference;
         private Function<SynapticRelay<WanderSignal>, SynapticRelay<WanderSignal>> interceptor;
 
         public Builder quantizer(ScalarQuantizer q) { this.quantizer = q; return this; }
@@ -189,6 +193,7 @@ public final class WanderPathway implements AutoCloseable {
         public Builder homeostaticCore(HomeostaticCore hc) { this.homeostaticCore = hc; return this; }
         public Builder continuityMemory(ContinuityRecordMemory crm) { this.continuityMemory = crm; return this; }
         public Builder aismeConfig(AismeConfig cfg) { this.aismeConfig = cfg; return this; }
+        public Builder soulPriorPreference(float[] prior) { this.soulPriorPreference = prior; return this; }
         public Builder interceptor(Function<SynapticRelay<WanderSignal>, SynapticRelay<WanderSignal>> inc) { this.interceptor = inc; return this; }
 
         public WanderPathway build() {
