@@ -15,13 +15,14 @@ package com.spectrayan.spector.memory.aisme.relay;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.model.RecallOptions;
@@ -49,7 +50,7 @@ class ConstructiveMemoryPersistenceRelayTest {
         ConstructiveMemoryPersistenceRelay relay = new ConstructiveMemoryPersistenceRelay(null, null, 0.70f);
         RecallSignal signal = RecallSignal.forTextQuery("test", RecallOptions.builder().build());
 
-        signal.candidates().add(createResult("sim-1-2", 0.85f));
+        signal.candidates().add(createResult("0123456789ABC", 0.85f, SynapticHeaderConstants.FLAG_SIMULATED));
         boolean ok = relay.transmit(signal);
 
         assertThat(ok).isTrue();
@@ -59,39 +60,41 @@ class ConstructiveMemoryPersistenceRelayTest {
     void highAlignmentSimulation_isPersisted() {
         CognitiveIngestionTarget target = mock(CognitiveIngestionTarget.class);
         Map<String, float[]> vectors = new HashMap<>();
-        vectors.put("sim-1-2", new float[]{1.0f, 0.0f});
+        vectors.put("0123456789ABC", new float[]{1.0f, 0.0f});
 
         ConstructiveMemoryPersistenceRelay relay = new ConstructiveMemoryPersistenceRelay(target, vectors::get, 0.70f);
         RecallSignal signal = RecallSignal.forTextQuery("test", RecallOptions.builder().build());
 
-        signal.candidates().add(createResult("sim-1-2", 0.85f));
-        signal.candidates().add(createResult("sim-low", 0.50f));
-        signal.candidates().add(createResult("mem-normal", 0.95f));
+        signal.candidates().add(createResult("0123456789ABC", 0.85f, SynapticHeaderConstants.FLAG_SIMULATED));
+        signal.candidates().add(createResult("0123456789LOW", 0.50f, SynapticHeaderConstants.FLAG_SIMULATED));
+        signal.candidates().add(createResult("0123456789NRM", 0.95f, (byte) 0)); // Not simulated
 
         boolean ok = relay.transmit(signal);
 
         assertThat(ok).isTrue();
-        verify(target, times(1)).ingest(startsWith("sim-durable-"), anyString(), any(float[].class));
+        verify(target, times(1)).ingestCognitiveWithHeader(
+                anyString(), anyString(), any(float[].class), eq(MemoryType.EPISODIC), any(), eq(MemorySource.INFERRED), any());
     }
 
     @Test
     void belowThresholdSimulation_isNotPersisted() {
         CognitiveIngestionTarget target = mock(CognitiveIngestionTarget.class);
         Map<String, float[]> vectors = new HashMap<>();
-        vectors.put("sim-1-2", new float[]{1.0f, 0.0f});
+        vectors.put("0123456789ABC", new float[]{1.0f, 0.0f});
 
         ConstructiveMemoryPersistenceRelay relay = new ConstructiveMemoryPersistenceRelay(target, vectors::get, 0.70f);
         RecallSignal signal = RecallSignal.forTextQuery("test", RecallOptions.builder().build());
 
-        signal.candidates().add(createResult("sim-1-2", 0.65f));
+        signal.candidates().add(createResult("0123456789ABC", 0.65f, SynapticHeaderConstants.FLAG_SIMULATED));
 
         boolean ok = relay.transmit(signal);
 
         assertThat(ok).isTrue();
-        verify(target, never()).ingest(anyString(), anyString(), any(float[].class));
+        verify(target, never()).ingestCognitiveWithHeader(
+                anyString(), anyString(), any(float[].class), any(), any(), any(), any());
     }
 
-    private static CognitiveResult createResult(String id, float score) {
+    private static CognitiveResult createResult(String id, float score, byte consolidationFlags) {
         return new CognitiveResult(
                 id,
                 "Simulated memory text " + id,
@@ -101,15 +104,16 @@ class ConstructiveMemoryPersistenceRelayTest {
                 0,
                 (byte) 0,
                 MemoryType.EPISODIC,
-                MemorySource.REFLECTED,
+                MemorySource.INFERRED,
                 new String[]{"simulated", "counterfactual"},
                 1.0f,
                 1.0f,
                 CognitiveResult.RetrievalMode.STANDARD,
                 null,
                 null,
-                null,
-                Map.of("simulation", "counterfactual_recombination")
+                com.spectrayan.spector.memory.model.SourceModality.TEXT,
+                Map.of("simulation", "counterfactual_recombination"),
+                consolidationFlags
         );
     }
 }

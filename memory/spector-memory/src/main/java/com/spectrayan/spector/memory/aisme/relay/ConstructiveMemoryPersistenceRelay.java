@@ -13,7 +13,13 @@
 package com.spectrayan.spector.memory.aisme.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
+import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.memory.cortex.MemorySource;
+import com.spectrayan.spector.memory.id.TsidGenerator;
+import com.spectrayan.spector.memory.kernel.layout.CognitiveRecordLayout.CognitiveHeader;
+import com.spectrayan.spector.memory.kernel.layout.SynapticHeaderConstants;
 import com.spectrayan.spector.memory.model.CognitiveResult;
+import com.spectrayan.spector.memory.model.MemoryType;
 import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 import com.spectrayan.spector.memory.recall.relay.RecallSignal;
 
@@ -24,7 +30,7 @@ import java.util.function.Function;
 
 /**
  * RecallPathway relay that persists high-alignment constructive simulations as durable
- * episodic memories with SIMULATED provenance in the consolidation flags.
+ * episodic memories with FLAG_SIMULATED provenance in the binary header flags.
  *
  * <h3>Biological Analog: Hippocampal Replay of Imagined Future Scenarios</h3>
  * <p>When the brain imagines future events or counterfactual alternatives with sufficient
@@ -35,6 +41,7 @@ import java.util.function.Function;
 public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<RecallSignal> {
 
     private static final Logger log = LoggerFactory.getLogger(ConstructiveMemoryPersistenceRelay.class);
+    private static final TsidGenerator TSID = new TsidGenerator();
 
     private final CognitiveIngestionTarget ingestionTarget;
     private final Function<String, float[]> embeddingLookup;
@@ -58,19 +65,19 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
 
     @Override
     public boolean transmit(RecallSignal signal) {
-        if (ingestionTarget == null || embeddingLookup == null || signal == null) {
+        if (ingestionTarget == null || signal == null) {
             return true;
         }
 
         var candidates = signal.candidates();
-        if (candidates == null) {
+        if (candidates == null || candidates.isEmpty()) {
             return true;
         }
 
         int persisted = 0;
         for (CognitiveResult result : candidates) {
-            // Only persist constructive simulations (ID starts with "sim-")
-            if (result.id() == null || !result.id().startsWith("sim-")) {
+            // Only persist constructive simulations flagged with FLAG_SIMULATED
+            if (!SynapticHeaderConstants.isSimulated(result.consolidationFlags())) {
                 continue;
             }
 
@@ -81,15 +88,28 @@ public final class ConstructiveMemoryPersistenceRelay implements SynapticRelay<R
 
             try {
                 String text = result.text();
-                float[] vector = embeddingLookup.apply(result.id());
+                float[] vector = (float[]) signal.attributes().get("simVec:" + result.id());
+                if (vector == null && embeddingLookup != null) {
+                    vector = embeddingLookup.apply(result.id());
+                }
                 if (text == null || vector == null) {
                     continue;
                 }
 
-                // Persist via CognitiveIngestionTarget.ingest(id, text, vector)
-                // The SIMULATED flag should be set post-ingestion via consolidation flags
-                String durableId = "sim-durable-" + System.nanoTime();
-                ingestionTarget.ingest(durableId, text, vector);
+                String durableId = TSID.generate();
+                byte procFlags = SynapticHeaderConstants.withMemoryType((byte) 0, MemoryType.EPISODIC.ordinal());
+                byte cFlags = SynapticHeaderConstants.FLAG_SIMULATED;
+                float norm = VectorOps.magnitude(vector);
+                CognitiveHeader header = new CognitiveHeader(
+                        System.currentTimeMillis(), 0L, norm, result.importance(), 1,
+                        (short) 0, result.valence(), procFlags, cFlags, 1.0f
+                );
+
+                ingestionTarget.ingestCognitiveWithHeader(
+                        durableId, text, vector, MemoryType.EPISODIC,
+                        result.synapticTags() != null ? result.synapticTags() : new String[]{"simulated", "constructive"},
+                        MemorySource.INFERRED, header
+                );
                 persisted++;
 
                 log.debug("Persisted constructive simulation as durable memory: sourceId={}, durableId={}, score={}",

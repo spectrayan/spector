@@ -235,19 +235,16 @@ public final class SpectorMemoryFactory {
         // Active Inference Self-Model Engine (AISME) (#597)
         com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle = null;
         if (builder.aismeConfig != null && builder.aismeConfig.enabled()) {
+            com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor vectorAccessor =
+                    new com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor(
+                            index, partitionManager, cortex.quantizer());
             aismeBundle = com.spectrayan.spector.memory.aisme.AismeBuilder.build(
                     builder.aismeConfig,
                     builder.agentSoul,
                     builder.dimensions,
-                    id -> {
-                        var loc = index.locate(id);
-                        if (loc == null) return null;
-                        var router = partitionManager.routerFor(loc.colocatedPartition());
-                        if (router == null) return null;
-                        var seg = router.segmentFor(loc.type());
-                        if (seg == null) return null;
-                        return null;
-                    }
+                    cognitiveTarget,
+                    vectorAccessor,
+                    builder.agentSoul != null ? java.util.List.of(builder.agentSoul) : java.util.List.of()
             );
         }
 

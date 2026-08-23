@@ -39,6 +39,7 @@ import com.spectrayan.spector.memory.aisme.workspace.GlobalWorkspace;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 import com.spectrayan.spector.memory.model.SoulContext;
+import com.spectrayan.spector.memory.pipeline.CognitiveIngestionTarget;
 
 import java.util.List;
 import java.util.function.Function;
@@ -65,7 +66,7 @@ public final class AismeBuilder {
             final int dimensions,
             final Function<String, float[]> vectorLookup
     ) {
-        return build(config, soul, dimensions, vectorLookup, soul != null ? List.of(soul) : List.of());
+        return build(config, soul, dimensions, null, vectorLookup, soul != null ? List.of(soul) : List.of());
     }
 
     /**
@@ -82,6 +83,28 @@ public final class AismeBuilder {
             final AismeConfig config,
             final AgentSoul soul,
             final int dimensions,
+            final Function<String, float[]> vectorLookup,
+            final List<SoulContext> soulContexts
+    ) {
+        return build(config, soul, dimensions, null, vectorLookup, soulContexts);
+    }
+
+    /**
+     * Builds an {@link AismeBundle} with full cognitive target wiring, multi-soul context, and vector lookup.
+     *
+     * @param config the AISME configuration (or disabled if null)
+     * @param soul optional AgentSoul identity definition
+     * @param dimensions vector embedding dimensionality
+     * @param ingestionTarget target for persisting high-alignment constructive simulations
+     * @param vectorLookup function mapping memory IDs to vector representations
+     * @param soulContexts list of all active soul contexts for multi-soul EFE evaluation
+     * @return the constructed AismeBundle, or null if disabled
+     */
+    public static AismeBundle build(
+            final AismeConfig config,
+            final AgentSoul soul,
+            final int dimensions,
+            final CognitiveIngestionTarget ingestionTarget,
             final Function<String, float[]> vectorLookup,
             final List<SoulContext> soulContexts
     ) {
@@ -135,7 +158,7 @@ public final class AismeBuilder {
         // Constructive Memory Persistence (#613 / AISME Phase 12)
         final ConstructiveMemoryPersistenceRelay constructiveMemoryPersistenceRelay =
                 cfg.constructivePersistenceEnabled()
-                        ? new ConstructiveMemoryPersistenceRelay(null, vectorLookup, cfg.constructivePersistenceThreshold())
+                        ? new ConstructiveMemoryPersistenceRelay(ingestionTarget, vectorLookup, cfg.constructivePersistenceThreshold())
                         : null;
 
         return new AismeBundle(

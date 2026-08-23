@@ -36,7 +36,10 @@ public final class ExpressPathway implements AutoCloseable {
     
     private final CognitivePathway<ExpressSignal> pathway;
     
+    private final java.util.function.Consumer<ExpressReport> somaticFeedbackConsumer;
+
     private ExpressPathway(Builder builder) {
+        this.somaticFeedbackConsumer = builder.somaticFeedbackConsumer;
         this.pathway = CognitivePathway.<ExpressSignal>pathway("ExpressPathway")
                 .withInterceptor(builder.interceptor)
                 .gated("IdiolectStylometry", ExpressGates.IDIOLECT_ENABLED, new IdiolectStylometryRelay(), ErrorPolicy.DEGRADE_GRACEFULLY)
@@ -67,9 +70,19 @@ public final class ExpressPathway implements AutoCloseable {
         String ssmlTags = ""; 
         int relaysExecuted = 4; // updated count
         
-        return new ExpressReport(
+        ExpressReport report = new ExpressReport(
             prosodyVector, blendshapeVector, idiolectProfile, contextPack, promptDirectives, internalMonologue, ssmlTags, elapsed, relaysExecuted
         );
+
+        if (somaticFeedbackConsumer != null) {
+            try {
+                somaticFeedbackConsumer.accept(report);
+            } catch (Exception e) {
+                log.trace("Somatic feedback hook execution degraded: {}", e.getMessage());
+            }
+        }
+
+        return report;
     }
     
     public static Builder builder() {
@@ -82,9 +95,15 @@ public final class ExpressPathway implements AutoCloseable {
     
     public static class Builder {
         private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<ExpressSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<ExpressSignal>> interceptor;
+        private java.util.function.Consumer<ExpressReport> somaticFeedbackConsumer;
         
         public Builder interceptor(java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<ExpressSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<ExpressSignal>> interceptor) {
             this.interceptor = interceptor;
+            return this;
+        }
+
+        public Builder onSomaticFeedback(java.util.function.Consumer<ExpressReport> consumer) {
+            this.somaticFeedbackConsumer = consumer;
             return this;
         }
         
