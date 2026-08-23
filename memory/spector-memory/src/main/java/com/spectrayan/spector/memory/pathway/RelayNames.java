@@ -62,6 +62,7 @@ public final class RelayNames {
     public static final String TEMPORAL_PRUNING          = "temporal_pruning";
     public static final String CROSS_LAYER_PROMOTION     = "cross_layer_promotion";
     public static final String ENTITY_MAINTENANCE        = "entity_maintenance";
+    public static final String SPECTRAL_SPARSIFICATION   = "spectral_sparsification";
     public static final String MANIFOLD_CONSOLIDATION    = "manifold_consolidation";
     public static final String WAL_JOURNAL               = "wal_journal";
 

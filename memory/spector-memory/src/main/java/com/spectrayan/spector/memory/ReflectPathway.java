@@ -35,6 +35,7 @@ import com.spectrayan.spector.memory.reflect.relay.ProceduralCrystallizationRela
 import com.spectrayan.spector.memory.reflect.relay.ReflectPathwayFactory;
 import com.spectrayan.spector.memory.reflect.relay.ReflectSignal;
 import com.spectrayan.spector.memory.reflect.relay.SoulDriftRefusionRelay;
+import com.spectrayan.spector.memory.reflect.relay.SpectralSparsificationRelay;
 import com.spectrayan.spector.memory.reflect.relay.SynapticPruningRelay;
 import com.spectrayan.spector.memory.reflect.relay.TemporalPruningRelay;
 import com.spectrayan.spector.memory.reflect.relay.WalJournalRelay;
@@ -130,6 +131,7 @@ public final class ReflectPathway implements AutoCloseable {
                 new TemporalPruningRelay(),
                 new CrossLayerPromotionRelay(),
                 new EntityMaintenanceRelay(),
+                new SpectralSparsificationRelay(),
                 manifoldRelay,
                 new WalJournalRelay(),
                 new com.spectrayan.spector.memory.reflect.relay.IdiolectLearningRelay()

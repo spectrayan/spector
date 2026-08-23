@@ -27,7 +27,7 @@ public final class ReflectPathwayFactory {
     private ReflectPathwayFactory() {}
 
     /**
-     * Legacy factory without manifold consolidation.
+     * Legacy factory without manifold consolidation or sparsification.
      */
     public static CognitivePathway<ReflectSignal> create(
             final SynapticPruningRelay pruningRelay,
@@ -41,7 +41,8 @@ public final class ReflectPathwayFactory {
             final EntityMaintenanceRelay entityRelay,
             final WalJournalRelay walRelay) {
         return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
-                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, null, walRelay, null);
+                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay,
+                null, null, walRelay, null);
     }
 
     /**
@@ -60,7 +61,8 @@ public final class ReflectPathwayFactory {
             final SynapticRelay<ReflectSignal> manifoldConsolidationRelay,
             final WalJournalRelay walRelay) {
         return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
-                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay, manifoldConsolidationRelay, walRelay, null);
+                interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay,
+                null, manifoldConsolidationRelay, walRelay, null);
     }
 
     /**
@@ -77,6 +79,7 @@ public final class ReflectPathwayFactory {
             final TemporalPruningRelay temporalRelay,
             final CrossLayerPromotionRelay promotionRelay,
             final EntityMaintenanceRelay entityRelay,
+            final SpectralSparsificationRelay sparsificationRelay,
             final SynapticRelay<ReflectSignal> manifoldConsolidationRelay,
             final WalJournalRelay walRelay,
             final IdiolectLearningRelay idiolectRelay) {
@@ -94,6 +97,10 @@ public final class ReflectPathwayFactory {
                 .relay(RelayNames.TEMPORAL_PRUNING, temporalRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.CROSS_LAYER_PROMOTION, promotionRelay, ErrorPolicy.DEGRADE_GRACEFULLY)
                 .relay(RelayNames.ENTITY_MAINTENANCE, entityRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+
+        if (sparsificationRelay != null) {
+            builder.relay(RelayNames.SPECTRAL_SPARSIFICATION, sparsificationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+        }
 
         if (manifoldConsolidationRelay != null) {
             builder.relay(RelayNames.MANIFOLD_CONSOLIDATION, manifoldConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
