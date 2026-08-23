@@ -308,6 +308,20 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_CROSS_CAPTURE_MAX_MEMORIES_PER_TAG = "spector.memory.cross-capture.max-memories-per-tag";
     public static final int DEFAULT_MEMORY_CROSS_CAPTURE_MAX_MEMORIES_PER_TAG = 10;
 
+    // ── Spectral Sparsification (#416) ──
+
+    /** Whether Tier 1 (actual pruning) is enabled. When false, operates in shadow mode (Tier 0). */
+    public static final String MEMORY_SPARSIFICATION_ENABLED = "spector.memory.sparsification.enabled";
+    public static final boolean DEFAULT_MEMORY_SPARSIFICATION_ENABLED = false;
+
+    /** Leverage keep floor: edges with leverage below this fraction are DROP candidates. */
+    public static final String MEMORY_SPARSIFICATION_KEEP_FLOOR = "spector.memory.sparsification.keep-floor";
+    public static final float DEFAULT_MEMORY_SPARSIFICATION_KEEP_FLOOR = 0.15f;
+
+    /** Bridge protection threshold [0,255]: edges at or above are never sparsified. */
+    public static final String MEMORY_SPARSIFICATION_BRIDGE_THRESHOLD = "spector.memory.sparsification.bridge-threshold";
+    public static final int DEFAULT_MEMORY_SPARSIFICATION_BRIDGE_THRESHOLD = 224;
+
     public static final String MEMORY_BRIDGE_SAMPLE_COUNT = "spector.memory.bridge.sample-count";
     public static final int DEFAULT_MEMORY_BRIDGE_SAMPLE_COUNT = 15;
 

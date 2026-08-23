@@ -128,6 +128,20 @@ public final class GraphHealthMetrics {
     /** Entity edges boosted by STC cross-capture from strong Hebbian edges. */
     private int crossCapturedEdges;
 
+    // ── Spectral Sparsification Metrics (#416) ──
+
+    /** Edges identified as drop candidates (low leverage, non-bridge). */
+    private int sparsificationCandidates;
+
+    /** Edges actually pruned by Tier 1 (0 in shadow mode). */
+    private int sparsifiedEdges;
+
+    /** Average leverage score of edges flagged for dropping. */
+    private float meanLeverageDropped;
+
+    /** Average leverage score of edges kept. */
+    private float meanLeverageKept;
+
     // ═══════════════════════════════════════════════════════════
     // Increment Methods (called during decay)
     // ═══════════════════════════════════════════════════════════
@@ -175,6 +189,15 @@ public final class GraphHealthMetrics {
     /** Records an entity edge boosted by STC cross-capture. */
     public void recordCrossCapture() { crossCapturedEdges++; }
 
+    /** Records spectral sparsification results for this cycle. */
+    public void recordSparsification(int candidates, int pruned,
+                                      float meanLevDropped, float meanLevKept) {
+        this.sparsificationCandidates = candidates;
+        this.sparsifiedEdges = pruned;
+        this.meanLeverageDropped = meanLevDropped;
+        this.meanLeverageKept = meanLevKept;
+    }
+
     // ═══════════════════════════════════════════════════════════
     // Query Methods (called after decay for reporting)
     // ═══════════════════════════════════════════════════════════
@@ -188,6 +211,11 @@ public final class GraphHealthMetrics {
     public int entityBridgeProtected()   { return entityBridgeProtected; }
     public int entityEdgesSurviving()    { return entityEdgesSurviving; }
     public int crossCapturedEdges()      { return crossCapturedEdges; }
+
+    public int sparsificationCandidates() { return sparsificationCandidates; }
+    public int sparsifiedEdges()          { return sparsifiedEdges; }
+    public float meanLeverageDropped()    { return meanLeverageDropped; }
+    public float meanLeverageKept()       { return meanLeverageKept; }
 
     /** Total edges decayed across both graphs. */
     public int totalEdgesDecayed()       { return hebbianEdgesDecayed + entityEdgesDecayed; }
@@ -290,6 +318,10 @@ public final class GraphHealthMetrics {
                 + ", avg=" + String.format("%.1f", averageEntityDepth())
                 + ", 1h=" + depthBucket1 + ", 2h=" + depthBucket2
                 + ", 3h=" + depthBucket3 + ", 4h+=" + depthBucket4Plus + "]"
+                + ", sparsification[candidates=" + sparsificationCandidates
+                + ", pruned=" + sparsifiedEdges
+                + ", meanLevDropped=" + String.format("%.2f", meanLeverageDropped)
+                + ", meanLevKept=" + String.format("%.2f", meanLeverageKept) + "]"
                 + '}';
     }
 }
