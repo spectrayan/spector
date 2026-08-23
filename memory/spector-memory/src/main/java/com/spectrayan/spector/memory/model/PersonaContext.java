@@ -15,6 +15,7 @@ package com.spectrayan.spector.memory.model;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Central persona context — aggregates identity, personality, cultural identity,
@@ -48,26 +49,6 @@ import java.util.List;
  * cultural identity). These embeddings are used at ingestion time for
  * self-relevance matching via cosine similarity in
  * {@link SalienceProfile#computeSelfRelevanceBoost}.</p>
- *
- * @param about               free-text self-reflection / bio ("Tell about yourself")
- * @param occupation          occupation text (e.g., "Software Engineer")
- * @param education           educational background entries
- * @param nationality         nationality (e.g., "American")
- * @param languages           languages spoken
- * @param culturalIdentity    self-described cultural/racial/spiritual identity
- * @param bigFive             Big Five personality traits (OCEAN)
- * @param emotionalIntelligence Goleman's five EQ dimensions
- * @param stressResponse      stress response archetype
- * @param values              core personal values (e.g., ["Honesty", "Family"])
- * @param fears               personal fears (e.g., ["Heights", "Public speaking"])
- * @param aspirations         goals and aspirations (e.g., ["Start a business"])
- * @param communicationStyle  communication style archetype
- * @param modifiers           derived scoring modifiers (computed at save time)
- * @param aboutEmbedding      pre-computed embedding of about/bio text
- * @param occupationEmbedding pre-computed embedding of occupation text
- * @param educationEmbedding  pre-computed embedding of education degrees (concatenated)
- * @param valuesEmbedding     pre-computed embedding of values (concatenated)
- * @param aspirationsEmbedding pre-computed embedding of aspirations (concatenated)
  */
 public record PersonaContext(
         // Self-reflection
@@ -92,6 +73,10 @@ public record PersonaContext(
 
         // Social
         CommunicationStyle communicationStyle,
+        
+        // Linguistics & Prosody (Phase 1 & Phase 2)
+        IdiolectProfile idiolect,
+        VocalProsodyDNA vocalProsody,
 
         // Derived scoring modifiers
         PersonalityModifiers modifiers,
@@ -124,6 +109,8 @@ public record PersonaContext(
         if (emotionalIntelligence == null) emotionalIntelligence = EmotionalIntelligence.NEUTRAL;
         if (stressResponse == null) stressResponse = StressResponse.ADAPTIVE;
         if (modifiers == null) modifiers = PersonalityModifiers.NEUTRAL;
+        if (idiolect == null) idiolect = IdiolectProfile.NEUTRAL;
+        if (vocalProsody == null) vocalProsody = VocalProsodyDNA.NEUTRAL;
 
         // Defensive copy of embeddings
         if (aboutEmbedding != null) {
@@ -154,6 +141,7 @@ public record PersonaContext(
             StressResponse.ADAPTIVE,
             List.of(), List.of(), List.of(),
             null,
+            IdiolectProfile.NEUTRAL, VocalProsodyDNA.NEUTRAL,
             PersonalityModifiers.NEUTRAL,
             null, null, null, null, null);
 
@@ -171,7 +159,9 @@ public record PersonaContext(
                 || !emotionalIntelligence.isNeutral()
                 || stressResponse != StressResponse.ADAPTIVE
                 || !values.isEmpty()
-                || !aspirations.isEmpty();
+                || !aspirations.isEmpty()
+                || idiolect.isPresent()
+                || vocalProsody.isPresent();
     }
 
     /**
@@ -211,6 +201,8 @@ public record PersonaContext(
         private java.util.List<String> fears = new java.util.ArrayList<>();
         private java.util.List<String> aspirations = new java.util.ArrayList<>();
         private CommunicationStyle communicationStyle;
+        private IdiolectProfile idiolect = IdiolectProfile.NEUTRAL;
+        private VocalProsodyDNA vocalProsody = VocalProsodyDNA.NEUTRAL;
         private PersonalityModifiers modifiers;
         private float[] aboutEmbedding;
         private float[] occupationEmbedding;
@@ -319,6 +311,18 @@ public record PersonaContext(
             this.communicationStyle = style;
             return this;
         }
+        
+        /** Sets idiolect profile. */
+        public Builder idiolect(IdiolectProfile idiolect) {
+            this.idiolect = idiolect;
+            return this;
+        }
+        
+        /** Sets vocal prosody DNA. */
+        public Builder vocalProsody(VocalProsodyDNA vocalProsody) {
+            this.vocalProsody = vocalProsody;
+            return this;
+        }
 
         /** Sets pre-computed scoring modifiers (bypasses derive). */
         public Builder modifiers(PersonalityModifiers modifiers) {
@@ -374,6 +378,7 @@ public record PersonaContext(
                     bigFive, emotionalIntelligence, stressResponse,
                     values, fears, aspirations,
                     communicationStyle,
+                    idiolect, vocalProsody,
                     effectiveModifiers,
                     aboutEmbedding, occupationEmbedding, educationEmbedding,
                     valuesEmbedding, aspirationsEmbedding);
@@ -384,20 +389,22 @@ public record PersonaContext(
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof PersonaContext other)) return false;
-        return java.util.Objects.equals(about, other.about)
-                && java.util.Objects.equals(occupation, other.occupation)
-                && java.util.Objects.equals(education, other.education)
-                && java.util.Objects.equals(nationality, other.nationality)
-                && java.util.Objects.equals(languages, other.languages)
-                && java.util.Objects.equals(culturalIdentity, other.culturalIdentity)
-                && java.util.Objects.equals(bigFive, other.bigFive)
-                && java.util.Objects.equals(emotionalIntelligence, other.emotionalIntelligence)
+        return Objects.equals(about, other.about)
+                && Objects.equals(occupation, other.occupation)
+                && Objects.equals(education, other.education)
+                && Objects.equals(nationality, other.nationality)
+                && Objects.equals(languages, other.languages)
+                && Objects.equals(culturalIdentity, other.culturalIdentity)
+                && Objects.equals(bigFive, other.bigFive)
+                && Objects.equals(emotionalIntelligence, other.emotionalIntelligence)
                 && stressResponse == other.stressResponse
-                && java.util.Objects.equals(values, other.values)
-                && java.util.Objects.equals(fears, other.fears)
-                && java.util.Objects.equals(aspirations, other.aspirations)
+                && Objects.equals(values, other.values)
+                && Objects.equals(fears, other.fears)
+                && Objects.equals(aspirations, other.aspirations)
                 && communicationStyle == other.communicationStyle
-                && java.util.Objects.equals(modifiers, other.modifiers)
+                && Objects.equals(idiolect, other.idiolect)
+                && Objects.equals(vocalProsody, other.vocalProsody)
+                && Objects.equals(modifiers, other.modifiers)
                 && Arrays.equals(aboutEmbedding, other.aboutEmbedding)
                 && Arrays.equals(occupationEmbedding, other.occupationEmbedding)
                 && Arrays.equals(educationEmbedding, other.educationEmbedding)
@@ -407,9 +414,9 @@ public record PersonaContext(
 
     @Override
     public int hashCode() {
-        int result = java.util.Objects.hash(about, occupation, education, nationality, languages,
+        int result = Objects.hash(about, occupation, education, nationality, languages,
                 culturalIdentity, bigFive, emotionalIntelligence, stressResponse,
-                values, fears, aspirations, communicationStyle, modifiers);
+                values, fears, aspirations, communicationStyle, idiolect, vocalProsody, modifiers);
         result = 31 * result + Arrays.hashCode(aboutEmbedding);
         result = 31 * result + Arrays.hashCode(occupationEmbedding);
         result = 31 * result + Arrays.hashCode(educationEmbedding);
@@ -427,6 +434,8 @@ public record PersonaContext(
                 + ", eq=" + (emotionalIntelligence.isNeutral() ? "NEUTRAL" : emotionalIntelligence)
                 + ", stress=" + stressResponse
                 + ", culture=" + (culturalIdentity.isPresent() ? culturalIdentity.primaryCulture() : "NONE")
+                + ", idiolect=" + (idiolect.isPresent() ? "PRESENT" : "NONE")
+                + ", vocalProsody=" + (vocalProsody.isPresent() ? "PRESENT" : "NONE")
                 + ", embeddings=" + hasEmbeddings()
                 + "]";
     }
