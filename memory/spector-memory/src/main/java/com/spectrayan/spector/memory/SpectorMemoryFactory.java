@@ -232,19 +232,29 @@ public final class SpectorMemoryFactory {
         RecallPipeline recallPipeline = RecallPipelineBuilder.build(
                 builder, embeddingProvider, cortex, bio, graphs, retrieval, index, partitionManager, wal);
 
-        // Active Inference Self-Model Engine (AISME) (#597)
+        // Active Inference Self-Model Engine (AISME) (#597, #623)
         com.spectrayan.spector.memory.aisme.AismeBundle aismeBundle = null;
         if (builder.aismeConfig != null && builder.aismeConfig.enabled()) {
             com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor vectorAccessor =
                     new com.spectrayan.spector.memory.cortex.CognitiveVectorAccessor(
                             index, partitionManager, cortex.quantizer());
+            com.spectrayan.spector.memory.model.SoulContext primarySoul =
+                    builder.soul != null ? builder.soul : builder.agentSoul;
+            java.util.List<com.spectrayan.spector.memory.model.SoulContext> activeSouls;
+            if (builder.soulContexts != null && !builder.soulContexts.isEmpty()) {
+                activeSouls = builder.soulContexts;
+            } else if (primarySoul != null) {
+                activeSouls = java.util.List.of(primarySoul);
+            } else {
+                activeSouls = java.util.List.of();
+            }
             aismeBundle = com.spectrayan.spector.memory.aisme.AismeBuilder.build(
                     builder.aismeConfig,
-                    builder.agentSoul,
+                    primarySoul,
                     builder.dimensions,
                     cognitiveTarget,
                     vectorAccessor,
-                    builder.agentSoul != null ? java.util.List.of(builder.agentSoul) : java.util.List.of()
+                    activeSouls
             );
         }
 

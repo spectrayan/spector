@@ -33,17 +33,17 @@ public final class NarrativeSelfEngine {
 
     private static final Logger log = LoggerFactory.getLogger(NarrativeSelfEngine.class);
 
-    private final AgentSoul soul;
+    private final com.spectrayan.spector.memory.model.SoulContext soul;
     private final int dimensions;
     private final float[] identityPrior;
 
     /**
-     * Constructs a NarrativeSelfEngine for an AgentSoul.
+     * Constructs a NarrativeSelfEngine for a polymorphic SoulContext.
      *
-     * @param soul the persistent agent soul (nullable)
+     * @param soul the persistent soul context (nullable)
      * @param dimensions embedding space dimensionality
      */
-    public NarrativeSelfEngine(AgentSoul soul, int dimensions) {
+    public NarrativeSelfEngine(com.spectrayan.spector.memory.model.SoulContext soul, int dimensions) {
         if (dimensions <= 0) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Dimensions must be positive");
         }
@@ -56,6 +56,20 @@ public final class NarrativeSelfEngine {
             int copyLen = Math.min(dimensions, idEmb.length);
             System.arraycopy(idEmb, 0, identityPrior, 0, copyLen);
         }
+    }
+
+    /**
+     * Backward-compatible accessor returning the soul as an {@link AgentSoul} if applicable.
+     */
+    public AgentSoul agentSoul() {
+        return soul instanceof AgentSoul agent ? agent : null;
+    }
+
+    /**
+     * Returns the persistent soul context.
+     */
+    public com.spectrayan.spector.memory.model.SoulContext soul() {
+        return soul;
     }
 
     /**
@@ -94,10 +108,6 @@ public final class NarrativeSelfEngine {
         float cosSim = CosineSimilarity.compute(memoryVector, narrativePrior);
         // Normalize cosine from [-1, 1] to [0, 1]
         return Math.max(0.0f, Math.min(1.0f, 0.5f * (cosSim + 1.0f)));
-    }
-
-    public AgentSoul soul() {
-        return soul;
     }
 
     public int dimensions() {

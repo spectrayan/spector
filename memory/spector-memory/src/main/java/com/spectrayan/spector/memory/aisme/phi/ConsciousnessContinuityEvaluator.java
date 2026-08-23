@@ -34,27 +34,27 @@ public final class ConsciousnessContinuityEvaluator {
     private static final Logger log = LoggerFactory.getLogger(ConsciousnessContinuityEvaluator.class);
 
     private final IntegratedInformationCalculator calculator;
-    private final AgentSoul soul;
+    private final com.spectrayan.spector.memory.model.SoulContext soul;
     private final float cohesionThreshold;
     private final float sigmaSoul;
 
     /**
      * Constructs an evaluator with default parameters (threshold=0.05, sigmaSoul=1.0).
      *
-     * @param soul the persistent agent soul (nullable)
+     * @param soul the persistent soul context (nullable)
      */
-    public ConsciousnessContinuityEvaluator(AgentSoul soul) {
+    public ConsciousnessContinuityEvaluator(com.spectrayan.spector.memory.model.SoulContext soul) {
         this(soul, 0.05f, 1.0f);
     }
 
     /**
      * Constructs an evaluator with custom parameters.
      *
-     * @param soul persistent agent soul
+     * @param soul persistent soul context
      * @param cohesionThreshold minimum Phi_CC required for cohesive conscious experience
      * @param sigmaSoul Gaussian bandwidth for soul identity alignment
      */
-    public ConsciousnessContinuityEvaluator(AgentSoul soul, float cohesionThreshold, float sigmaSoul) {
+    public ConsciousnessContinuityEvaluator(com.spectrayan.spector.memory.model.SoulContext soul, float cohesionThreshold, float sigmaSoul) {
         if (cohesionThreshold < 0.0f) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Cohesion threshold must be non-negative");
         }
@@ -65,6 +65,20 @@ public final class ConsciousnessContinuityEvaluator {
         this.soul = soul;
         this.cohesionThreshold = cohesionThreshold;
         this.sigmaSoul = sigmaSoul;
+    }
+
+    /**
+     * Backward-compatible accessor returning the soul as an {@link AgentSoul} if applicable.
+     */
+    public AgentSoul agentSoul() {
+        return soul instanceof AgentSoul agent ? agent : null;
+    }
+
+    /**
+     * Returns the persistent soul context.
+     */
+    public com.spectrayan.spector.memory.model.SoulContext soul() {
+        return soul;
     }
 
     /**
@@ -123,10 +137,6 @@ public final class ConsciousnessContinuityEvaluator {
             mean[d] /= count;
         }
         return mean;
-    }
-
-    public AgentSoul soul() {
-        return soul;
     }
 
     public float cohesionThreshold() {
