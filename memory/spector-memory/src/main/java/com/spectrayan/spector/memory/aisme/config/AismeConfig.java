@@ -41,7 +41,15 @@ public record AismeConfig(
         boolean enableDmnSpontaneous,
         int dmnIdleIntervalSeconds,
         boolean enableLongitudinalContinuity,
-        int longitudinalSnapshotIntervalMinutes
+        int longitudinalSnapshotIntervalMinutes,
+        boolean enableExpectedFreeEnergy,
+        float efePolicyPrecision,
+        float efeEpistemicWeight,
+        float efePragmaticWeight,
+        float efeSoulWeightAgent,
+        float efeSoulWeightUser,
+        float efeSoulWeightTenant,
+        float efeSoulWeightOrgUnit
 ) {
 
     /**
@@ -66,6 +74,27 @@ public record AismeConfig(
         if (longitudinalSnapshotIntervalMinutes < 1) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "longitudinalSnapshotIntervalMinutes must be at least 1");
         }
+        if (Float.isNaN(efePolicyPrecision) || efePolicyPrecision <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "efePolicyPrecision must be positive");
+        }
+        if (Float.isNaN(efeEpistemicWeight) || efeEpistemicWeight < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "efeEpistemicWeight must be non-negative");
+        }
+        if (Float.isNaN(efePragmaticWeight) || efePragmaticWeight < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "efePragmaticWeight must be non-negative");
+        }
+        if (Float.isNaN(efeSoulWeightAgent) || efeSoulWeightAgent < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "efeSoulWeightAgent must be non-negative");
+        }
+        if (Float.isNaN(efeSoulWeightUser) || efeSoulWeightUser < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "efeSoulWeightUser must be non-negative");
+        }
+        if (Float.isNaN(efeSoulWeightTenant) || efeSoulWeightTenant < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "efeSoulWeightTenant must be non-negative");
+        }
+        if (Float.isNaN(efeSoulWeightOrgUnit) || efeSoulWeightOrgUnit < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "efeSoulWeightOrgUnit must be non-negative");
+        }
     }
 
     /**
@@ -83,7 +112,15 @@ public record AismeConfig(
                 false,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_IDLE_SECONDS,
                 false,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_POLICY_PRECISION,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_EPISTEMIC_WEIGHT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_PRAGMATIC_WEIGHT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_AGENT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_USER,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT
         );
     }
 
@@ -109,7 +146,15 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_ENABLED,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_IDLE_SECONDS,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_CONTINUITY_ENABLED,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_POLICY_PRECISION,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_EPISTEMIC_WEIGHT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_PRAGMATIC_WEIGHT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_AGENT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_USER,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT
         );
     }
 
@@ -139,7 +184,15 @@ public record AismeConfig(
                 props.isEnableDmnSpontaneous(),
                 props.getDmnIdleIntervalSeconds(),
                 props.isEnableLongitudinalContinuity(),
-                props.getLongitudinalSnapshotIntervalMinutes()
+                props.getLongitudinalSnapshotIntervalMinutes(),
+                props.enableExpectedFreeEnergy(),
+                props.efePolicyPrecision(),
+                props.efeEpistemicWeight(),
+                props.efePragmaticWeight(),
+                props.efeSoulWeightAgent(),
+                props.efeSoulWeightUser(),
+                props.efeSoulWeightTenant(),
+                props.efeSoulWeightOrgUnit()
         );
     }
 
@@ -167,6 +220,14 @@ public record AismeConfig(
         private int dmnIdleIntervalSeconds = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_DMN_IDLE_SECONDS;
         private boolean enableLongitudinalContinuity = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_CONTINUITY_ENABLED;
         private int longitudinalSnapshotIntervalMinutes = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES;
+        private boolean enableExpectedFreeEnergy = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_ENABLED;
+        private float efePolicyPrecision = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_POLICY_PRECISION;
+        private float efeEpistemicWeight = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_EPISTEMIC_WEIGHT;
+        private float efePragmaticWeight = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_PRAGMATIC_WEIGHT;
+        private float efeSoulWeightAgent = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_AGENT;
+        private float efeSoulWeightUser = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_USER;
+        private float efeSoulWeightTenant = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT;
+        private float efeSoulWeightOrgUnit = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -184,6 +245,14 @@ public record AismeConfig(
         public Builder dmnIdleIntervalSeconds(int sec) { this.dmnIdleIntervalSeconds = sec; return this; }
         public Builder enableLongitudinalContinuity(boolean enable) { this.enableLongitudinalContinuity = enable; return this; }
         public Builder longitudinalSnapshotIntervalMinutes(int min) { this.longitudinalSnapshotIntervalMinutes = min; return this; }
+        public Builder enableExpectedFreeEnergy(boolean enable) { this.enableExpectedFreeEnergy = enable; return this; }
+        public Builder efePolicyPrecision(float precision) { this.efePolicyPrecision = precision; return this; }
+        public Builder efeEpistemicWeight(float weight) { this.efeEpistemicWeight = weight; return this; }
+        public Builder efePragmaticWeight(float weight) { this.efePragmaticWeight = weight; return this; }
+        public Builder efeSoulWeightAgent(float weight) { this.efeSoulWeightAgent = weight; return this; }
+        public Builder efeSoulWeightUser(float weight) { this.efeSoulWeightUser = weight; return this; }
+        public Builder efeSoulWeightTenant(float weight) { this.efeSoulWeightTenant = weight; return this; }
+        public Builder efeSoulWeightOrgUnit(float weight) { this.efeSoulWeightOrgUnit = weight; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
@@ -192,7 +261,10 @@ public record AismeConfig(
                     enableGlobalWorkspace, globalWorkspaceCapacity, hopfieldTemperature,
                     manifoldSigma, phiCohesionThreshold, enableDmnSpontaneous,
                     dmnIdleIntervalSeconds, enableLongitudinalContinuity,
-                    longitudinalSnapshotIntervalMinutes
+                    longitudinalSnapshotIntervalMinutes, enableExpectedFreeEnergy,
+                    efePolicyPrecision, efeEpistemicWeight, efePragmaticWeight,
+                    efeSoulWeightAgent, efeSoulWeightUser, efeSoulWeightTenant,
+                    efeSoulWeightOrgUnit
             );
         }
     }

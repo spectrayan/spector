@@ -420,6 +420,31 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES = "spector.memory.aisme.longitudinal-snapshot.interval-minutes";
     public static final int DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES = 60;
 
+    // AISME — Expected Free Energy (G) Policy Engine
+    public static final String MEMORY_AISME_EFE_ENABLED = "spector.memory.aisme.efe.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_EFE_ENABLED = true;
+
+    public static final String MEMORY_AISME_EFE_POLICY_PRECISION = "spector.memory.aisme.efe.policy-precision";
+    public static final float DEFAULT_MEMORY_AISME_EFE_POLICY_PRECISION = 1.0f;
+
+    public static final String MEMORY_AISME_EFE_EPISTEMIC_WEIGHT = "spector.memory.aisme.efe.epistemic-weight";
+    public static final float DEFAULT_MEMORY_AISME_EFE_EPISTEMIC_WEIGHT = 1.0f;
+
+    public static final String MEMORY_AISME_EFE_PRAGMATIC_WEIGHT = "spector.memory.aisme.efe.pragmatic-weight";
+    public static final float DEFAULT_MEMORY_AISME_EFE_PRAGMATIC_WEIGHT = 1.0f;
+
+    public static final String MEMORY_AISME_EFE_SOUL_WEIGHT_AGENT = "spector.memory.aisme.efe.soul-weight.agent";
+    public static final float DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_AGENT = 0.40f;
+
+    public static final String MEMORY_AISME_EFE_SOUL_WEIGHT_USER = "spector.memory.aisme.efe.soul-weight.user";
+    public static final float DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_USER = 0.35f;
+
+    public static final String MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT = "spector.memory.aisme.efe.soul-weight.tenant";
+    public static final float DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT = 0.15f;
+
+    public static final String MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT = "spector.memory.aisme.efe.soul-weight.org-unit";
+    public static final float DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT = 0.10f;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;

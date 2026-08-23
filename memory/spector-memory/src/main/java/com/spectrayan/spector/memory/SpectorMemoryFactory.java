@@ -119,7 +119,8 @@ public final class SpectorMemoryFactory {
             RuntimeBundle runtimeBundle,
             InsularCortex insularCortex,
             WanderPathway wanderPathway,
-            com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory
+            com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory,
+            DecidePathway decidePathway
     ) {}
 
     private SpectorMemoryFactory() {}
@@ -356,6 +357,13 @@ public final class SpectorMemoryFactory {
                 .aismeConfig(builder.aismeConfig)
                 .build();
 
+        //  Decide Pathway (#611 / AISME Phase 11 — Expected Free Energy G(π) Policy Engine)
+        DecidePathway decidePathway = (aismeBundle != null && aismeBundle.policyInferenceEngine() != null)
+                ? DecidePathway.builder()
+                        .policyInferenceEngine(aismeBundle.policyInferenceEngine())
+                        .build()
+                : null;
+
         //  Daemon Supervisor + Checkpoint Daemon  (DISK mode only)
         DaemonSupervisorBuilder.DaemonBundle daemons = DaemonSupervisorBuilder.build(
                 builder, cortex, bio, graphs, index, wal, wanderPathway, partitionManager);
@@ -385,7 +393,7 @@ public final class SpectorMemoryFactory {
                 daemons.checkpointDaemon(), daemons.graphEnrichmentDaemon(), daemons.daemonSupervisor(), retrieval.bm25Index(), attachmentProcessor,
                 parallelPipeline, embedConfig, cortex.resolvedPartitionDir(), cortex.basePath(),
                 cortex.namespaceManager(), profileAdaptor, cortex.runtimeBundle(), cortex.insularCortex(),
-                wanderPathway, cortex.continuityMemory()
+                wanderPathway, cortex.continuityMemory(), decidePathway
         );
     }
 }

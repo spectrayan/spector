@@ -262,6 +262,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
     private final com.spectrayan.spector.memory.insula.InsularCortex insularCortex;
     private final WanderPathway wanderPathway;
     private final com.spectrayan.spector.memory.cortex.ContinuityRecordMemory continuityMemory;
+    private final DecidePathway decidePathway;
 
     private final ConcurrentHashMap<String, SessionWriteBuffer> sessionBuffers = new ConcurrentHashMap<>();
 
@@ -341,6 +342,7 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
         this.insularCortex = bundle.insularCortex();
         this.wanderPathway = bundle.wanderPathway();
         this.continuityMemory = bundle.continuityMemory();
+        this.decidePathway = bundle.decidePathway();
         this.hook = builder.hook != null ? builder.hook : MemoryObservationHook.NOOP;
 
         //  Circadian Time Trigger (Automatic Background Sleep Consolidation)
@@ -1013,6 +1015,20 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 return wanderPathway.wander(partitionManager, 0L);
             }
             return com.spectrayan.spector.memory.wander.relay.WanderReport.empty();
+        } finally {
+            releaseLease();
+        }
+    }
+
+    @Override
+    public com.spectrayan.spector.memory.decide.relay.DecideReport decide(
+            com.spectrayan.spector.memory.decide.relay.DecideSignal signal) {
+        acquireLease();
+        try {
+            if (decidePathway != null) {
+                return decidePathway.decide(signal);
+            }
+            return com.spectrayan.spector.memory.decide.relay.DecideReport.empty();
         } finally {
             releaseLease();
         }
@@ -1791,6 +1807,13 @@ public final class DefaultSpectorMemory implements SpectorMemory, SpectorMemoryA
                 wanderPathway.close();
             } catch (Exception e) {
                 log.warn("Failed to close WanderPathway on close", e);
+            }
+        }
+        if (decidePathway != null) {
+            try {
+                decidePathway.close();
+            } catch (Exception e) {
+                log.warn("Failed to close DecidePathway on close", e);
             }
         }
 

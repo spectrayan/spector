@@ -50,6 +50,15 @@ public class AismeProperties implements Serializable {
     private boolean enableLongitudinalContinuity = DEFAULT_MEMORY_AISME_LONGITUDINAL_CONTINUITY_ENABLED;
     private int longitudinalSnapshotIntervalMinutes = DEFAULT_MEMORY_AISME_LONGITUDINAL_SNAPSHOT_INTERVAL_MINUTES;
 
+    private boolean enableExpectedFreeEnergy = DEFAULT_MEMORY_AISME_EFE_ENABLED;
+    private float efePolicyPrecision = DEFAULT_MEMORY_AISME_EFE_POLICY_PRECISION;
+    private float efeEpistemicWeight = DEFAULT_MEMORY_AISME_EFE_EPISTEMIC_WEIGHT;
+    private float efePragmaticWeight = DEFAULT_MEMORY_AISME_EFE_PRAGMATIC_WEIGHT;
+    private float efeSoulWeightAgent = DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_AGENT;
+    private float efeSoulWeightUser = DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_USER;
+    private float efeSoulWeightTenant = DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_TENANT;
+    private float efeSoulWeightOrgUnit = DEFAULT_MEMORY_AISME_EFE_SOUL_WEIGHT_ORG_UNIT;
+
     public AismeProperties() {}
 
     public boolean isEnabled() {
@@ -192,6 +201,84 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isEnableExpectedFreeEnergy() {
+        return enableExpectedFreeEnergy;
+    }
+
+    public void setEnableExpectedFreeEnergy(boolean enableExpectedFreeEnergy) {
+        this.enableExpectedFreeEnergy = enableExpectedFreeEnergy;
+    }
+
+    public float getEfePolicyPrecision() {
+        return efePolicyPrecision;
+    }
+
+    public void setEfePolicyPrecision(float efePolicyPrecision) {
+        if (!Float.isNaN(efePolicyPrecision) && efePolicyPrecision >= 0.0f) {
+            this.efePolicyPrecision = efePolicyPrecision;
+        }
+    }
+
+    public float getEfeEpistemicWeight() {
+        return efeEpistemicWeight;
+    }
+
+    public void setEfeEpistemicWeight(float efeEpistemicWeight) {
+        if (!Float.isNaN(efeEpistemicWeight) && efeEpistemicWeight >= 0.0f) {
+            this.efeEpistemicWeight = efeEpistemicWeight;
+        }
+    }
+
+    public float getEfePragmaticWeight() {
+        return efePragmaticWeight;
+    }
+
+    public void setEfePragmaticWeight(float efePragmaticWeight) {
+        if (!Float.isNaN(efePragmaticWeight) && efePragmaticWeight >= 0.0f) {
+            this.efePragmaticWeight = efePragmaticWeight;
+        }
+    }
+
+    public float getEfeSoulWeightAgent() {
+        return efeSoulWeightAgent;
+    }
+
+    public void setEfeSoulWeightAgent(float efeSoulWeightAgent) {
+        if (!Float.isNaN(efeSoulWeightAgent) && efeSoulWeightAgent >= 0.0f) {
+            this.efeSoulWeightAgent = efeSoulWeightAgent;
+        }
+    }
+
+    public float getEfeSoulWeightUser() {
+        return efeSoulWeightUser;
+    }
+
+    public void setEfeSoulWeightUser(float efeSoulWeightUser) {
+        if (!Float.isNaN(efeSoulWeightUser) && efeSoulWeightUser >= 0.0f) {
+            this.efeSoulWeightUser = efeSoulWeightUser;
+        }
+    }
+
+    public float getEfeSoulWeightTenant() {
+        return efeSoulWeightTenant;
+    }
+
+    public void setEfeSoulWeightTenant(float efeSoulWeightTenant) {
+        if (!Float.isNaN(efeSoulWeightTenant) && efeSoulWeightTenant >= 0.0f) {
+            this.efeSoulWeightTenant = efeSoulWeightTenant;
+        }
+    }
+
+    public float getEfeSoulWeightOrgUnit() {
+        return efeSoulWeightOrgUnit;
+    }
+
+    public void setEfeSoulWeightOrgUnit(float efeSoulWeightOrgUnit) {
+        if (!Float.isNaN(efeSoulWeightOrgUnit) && efeSoulWeightOrgUnit >= 0.0f) {
+            this.efeSoulWeightOrgUnit = efeSoulWeightOrgUnit;
+        }
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -210,4 +297,12 @@ public class AismeProperties implements Serializable {
     public int dmnIdleIntervalSeconds() { return getDmnIdleIntervalSeconds(); }
     public boolean enableLongitudinalContinuity() { return isEnableLongitudinalContinuity(); }
     public int longitudinalSnapshotIntervalMinutes() { return getLongitudinalSnapshotIntervalMinutes(); }
+    public boolean enableExpectedFreeEnergy() { return isEnableExpectedFreeEnergy(); }
+    public float efePolicyPrecision() { return getEfePolicyPrecision(); }
+    public float efeEpistemicWeight() { return getEfeEpistemicWeight(); }
+    public float efePragmaticWeight() { return getEfePragmaticWeight(); }
+    public float efeSoulWeightAgent() { return getEfeSoulWeightAgent(); }
+    public float efeSoulWeightUser() { return getEfeSoulWeightUser(); }
+    public float efeSoulWeightTenant() { return getEfeSoulWeightTenant(); }
+    public float efeSoulWeightOrgUnit() { return getEfeSoulWeightOrgUnit(); }
 }
