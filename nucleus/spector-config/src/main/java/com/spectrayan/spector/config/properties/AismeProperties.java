@@ -70,6 +70,14 @@ public class AismeProperties implements Serializable {
     private float identityLyapunovThreshold = DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD;
     private int identityCoreSnapshotEpochs = DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS;
 
+    private boolean enableEventDensity = DEFAULT_MEMORY_AISME_EVENT_DENSITY_ENABLED;
+    private float eventDensityThreshold = DEFAULT_MEMORY_AISME_EVENT_DENSITY_THRESHOLD;
+    private float eventDensityAlphaKl = DEFAULT_MEMORY_AISME_EVENT_DENSITY_ALPHA_KL;
+    private float eventDensityBetaGradient = DEFAULT_MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT;
+    private float eventDensityGammaSurprise = DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE;
+    private float eventDensitySamplingMinHz = DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ;
+    private float eventDensitySamplingMaxHz = DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ;
+
     public AismeProperties() {}
 
     public boolean isEnabled() {
@@ -374,6 +382,74 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isEnableEventDensity() {
+        return enableEventDensity;
+    }
+
+    public void setEnableEventDensity(boolean enableEventDensity) {
+        this.enableEventDensity = enableEventDensity;
+    }
+
+    public float getEventDensityThreshold() {
+        return eventDensityThreshold;
+    }
+
+    public void setEventDensityThreshold(float eventDensityThreshold) {
+        if (!Float.isNaN(eventDensityThreshold) && eventDensityThreshold >= 0.0f) {
+            this.eventDensityThreshold = eventDensityThreshold;
+        }
+    }
+
+    public float getEventDensityAlphaKl() {
+        return eventDensityAlphaKl;
+    }
+
+    public void setEventDensityAlphaKl(float eventDensityAlphaKl) {
+        if (!Float.isNaN(eventDensityAlphaKl) && eventDensityAlphaKl >= 0.0f) {
+            this.eventDensityAlphaKl = eventDensityAlphaKl;
+        }
+    }
+
+    public float getEventDensityBetaGradient() {
+        return eventDensityBetaGradient;
+    }
+
+    public void setEventDensityBetaGradient(float eventDensityBetaGradient) {
+        if (!Float.isNaN(eventDensityBetaGradient) && eventDensityBetaGradient >= 0.0f) {
+            this.eventDensityBetaGradient = eventDensityBetaGradient;
+        }
+    }
+
+    public float getEventDensityGammaSurprise() {
+        return eventDensityGammaSurprise;
+    }
+
+    public void setEventDensityGammaSurprise(float eventDensityGammaSurprise) {
+        if (!Float.isNaN(eventDensityGammaSurprise) && eventDensityGammaSurprise >= 0.0f) {
+            this.eventDensityGammaSurprise = eventDensityGammaSurprise;
+        }
+    }
+
+    public float getEventDensitySamplingMinHz() {
+        return eventDensitySamplingMinHz;
+    }
+
+    public void setEventDensitySamplingMinHz(float eventDensitySamplingMinHz) {
+        if (!Float.isNaN(eventDensitySamplingMinHz) && eventDensitySamplingMinHz > 0.0f) {
+            this.eventDensitySamplingMinHz = eventDensitySamplingMinHz;
+        }
+    }
+
+    public float getEventDensitySamplingMaxHz() {
+        return eventDensitySamplingMaxHz;
+    }
+
+    public void setEventDensitySamplingMaxHz(float eventDensitySamplingMaxHz) {
+        if (!Float.isNaN(eventDensitySamplingMaxHz) && eventDensitySamplingMaxHz >= this.eventDensitySamplingMinHz) {
+            this.eventDensitySamplingMaxHz = eventDensitySamplingMaxHz;
+        }
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -409,4 +485,11 @@ public class AismeProperties implements Serializable {
     public float identityAnchorEta() { return getIdentityAnchorEta(); }
     public float identityLyapunovThreshold() { return getIdentityLyapunovThreshold(); }
     public int identityCoreSnapshotEpochs() { return getIdentityCoreSnapshotEpochs(); }
+    public boolean enableEventDensity() { return isEnableEventDensity(); }
+    public float eventDensityThreshold() { return getEventDensityThreshold(); }
+    public float eventDensityAlphaKl() { return getEventDensityAlphaKl(); }
+    public float eventDensityBetaGradient() { return getEventDensityBetaGradient(); }
+    public float eventDensityGammaSurprise() { return getEventDensityGammaSurprise(); }
+    public float eventDensitySamplingMinHz() { return getEventDensitySamplingMinHz(); }
+    public float eventDensitySamplingMaxHz() { return getEventDensitySamplingMaxHz(); }
 }

@@ -216,6 +216,13 @@ public final class SpectorConfigFactory {
         properties.setIdentityAnchorEta(props.getFloat(MEMORY_AISME_IDENTITY_ANCHOR_ETA, DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA));
         properties.setIdentityLyapunovThreshold(props.getFloat(MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD, DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD));
         properties.setIdentityCoreSnapshotEpochs(props.getInt(MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS, DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS));
+        properties.setEnableEventDensity(props.getBoolean(MEMORY_AISME_EVENT_DENSITY_ENABLED, DEFAULT_MEMORY_AISME_EVENT_DENSITY_ENABLED));
+        properties.setEventDensityThreshold(props.getFloat(MEMORY_AISME_EVENT_DENSITY_THRESHOLD, DEFAULT_MEMORY_AISME_EVENT_DENSITY_THRESHOLD));
+        properties.setEventDensityAlphaKl(props.getFloat(MEMORY_AISME_EVENT_DENSITY_ALPHA_KL, DEFAULT_MEMORY_AISME_EVENT_DENSITY_ALPHA_KL));
+        properties.setEventDensityBetaGradient(props.getFloat(MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT, DEFAULT_MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT));
+        properties.setEventDensityGammaSurprise(props.getFloat(MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE, DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE));
+        properties.setEventDensitySamplingMinHz(props.getFloat(MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ, DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ));
+        properties.setEventDensitySamplingMaxHz(props.getFloat(MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ, DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ));
         return properties;
     }
 
