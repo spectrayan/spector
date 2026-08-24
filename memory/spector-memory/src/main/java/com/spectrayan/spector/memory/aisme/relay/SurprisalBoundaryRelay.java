@@ -101,18 +101,9 @@ public final class SurprisalBoundaryRelay implements SynapticRelay<RememberSigna
             peakSurprisal = Math.max(peakSurprisal, eval.surprisal());
 
             if (eval.isBoundary()) {
-                // Synthesize centroid vector for the completed episode
+                // Synthesize centroid vector for the completed episode using SIMD
                 int d = vector.length;
-                float[] centroid = new float[d];
-                for (float[] v : bufferedVectors) {
-                    for (int i = 0; i < d; i++) {
-                        centroid[i] += v[i];
-                    }
-                }
-                float invCount = 1.0f / bufferedVectors.size();
-                for (int i = 0; i < d; i++) {
-                    centroid[i] *= invCount;
-                }
+                float[] centroid = com.spectrayan.spector.core.similarity.VectorOps.centroid(bufferedVectors, d);
 
                 EpisodicSegment segment = new EpisodicSegment(
                         UUID.randomUUID().toString(),

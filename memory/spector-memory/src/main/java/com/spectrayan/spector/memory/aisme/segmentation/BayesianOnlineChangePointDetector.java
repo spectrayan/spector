@@ -154,9 +154,7 @@ public final class BayesianOnlineChangePointDetector {
             // newSumAcc[0] remains all zeros (0 observations for r=0)
 
             for (int r = 0; r < activeRuns && r + 1 <= maxRunLength; r++) {
-                for (int d = 0; d < dimensions; d++) {
-                    newSumAcc[r + 1][d] = sumAcc[r][d] + observation[d];
-                }
+                com.spectrayan.spector.core.similarity.VectorOps.add(sumAcc[r], 0, observation, 0, newSumAcc[r + 1], 0, dimensions);
             }
 
             this.rDist = newRDist;
@@ -170,24 +168,14 @@ public final class BayesianOnlineChangePointDetector {
     }
 
     private float computeLogGaussianLikelihood(float[] obs, int r) {
-        float logLik = 0.0f;
-
-        for (int d = 0; d < dimensions; d++) {
-            float priorPrec = priorPrecision[d];
-            float obsPrec = obsPrecision[d];
-
-            float postPrec = priorPrec + r * obsPrec;
-            float postMean = (priorPrec * priorMean[d] + obsPrec * sumAcc[r][d]) / postPrec;
-
-            // Predictive variance: 1 / postPrec + 1 / obsPrec
-            float predVar = (1.0f / postPrec) + (1.0f / obsPrec);
-            float predPrec = 1.0f / predVar;
-
-            float diff = obs[d] - postMean;
-            logLik += 0.5f * (float) Math.log(predPrec / (2.0 * Math.PI)) - 0.5f * predPrec * diff * diff;
-        }
-
-        return logLik;
+        return com.spectrayan.spector.core.similarity.BocpdKernel.evaluateLogLikelihoodForRun(
+                obs,
+                priorMean,
+                priorPrecision,
+                (r > 0) ? sumAcc[r] : null,
+                obsPrecision,
+                r
+        );
     }
 
     /**
