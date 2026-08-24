@@ -151,6 +151,41 @@ class VectorOpsTest {
         }
     }
 
+    // ─────────────── Accumulate ───────────────
+
+    @Test
+    void accumulateInPlace() {
+        float[] dst = {1f, 2f, 3f};
+        float[] src = {4f, 5f, 6f};
+        VectorOps.accumulate(dst, src);
+        assertThat(dst).containsExactly(5f, 7f, 9f);
+    }
+
+    // ─────────────── Centroid ───────────────
+
+    @Test
+    void centroidOfVectors() {
+        float[] v1 = {1f, 2f, 3f};
+        float[] v2 = {3f, 4f, 5f};
+        float[] v3 = {5f, 6f, 7f};
+        float[] c = VectorOps.centroid(java.util.List.of(v1, v2, v3), 3);
+        assertThat(c).containsExactly(3f, 4f, 5f);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 7, 8, 9, 15, 16, 17, 33, 64, 128, 384, 1536})
+    void centroidMatchesAnalyticalAverage(int dim) {
+        float[] a = randomVector(dim, 10);
+        float[] b = randomVector(dim, 20);
+        float[] c = randomVector(dim, 30);
+        float[] centroid = VectorOps.centroid(java.util.List.of(a, b, c), dim);
+
+        for (int i = 0; i < dim; i++) {
+            float expected = (a[i] + b[i] + c[i]) / 3.0f;
+            assertThat(centroid[i]).isCloseTo(expected, within(1e-5f));
+        }
+    }
+
     // ── Helpers ──
 
     private static float[] randomVector(int dim, long seed) {

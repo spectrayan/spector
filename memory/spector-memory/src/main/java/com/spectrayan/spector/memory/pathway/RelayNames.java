@@ -77,5 +77,6 @@ public final class RelayNames {
     public static final String CONSCIOUS_ACCESS          = "conscious_access";
     public static final String CONSTRUCTIVE_PERSISTENCE  = "constructive_persistence";
     public static final String EPISTEMIC_LEARNING         = "epistemic_learning";
-    public static final String EVENT_DENSITY_GATING       = "event_density_gating";
+    public static final String EVENT_DENSITY_GATING              = "event_density_gating";
+    public static final String SURPRISAL_BOUNDARY_SEGMENTATION  = "surprisal_boundary_segmentation";
 }

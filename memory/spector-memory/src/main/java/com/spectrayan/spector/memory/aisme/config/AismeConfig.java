@@ -23,7 +23,8 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  * <p>Controls the activation and hyperparameters of homeostatic affective regulation,
  * variational free-energy minimization, continuous Hopfield attractor dynamics,
  * Riemannian cognitive manifolds, predictive coding, consciousness continuity,
- * the Global Workspace conscious access gateway, Soft Identity Anchor, and Event Density Gating.</p>
+ * the Global Workspace conscious access gateway, Soft Identity Anchor, Event Density Gating,
+ * and Bayesian Online Change-Point & Surprisal Episode Boundary Segmentation.</p>
  */
 public record AismeConfig(
         boolean enabled,
@@ -65,7 +66,13 @@ public record AismeConfig(
         float eventDensityBetaGradient,
         float eventDensityGammaSurprise,
         float eventDensitySamplingMinHz,
-        float eventDensitySamplingMaxHz
+        float eventDensitySamplingMaxHz,
+        boolean enableBocpd,
+        float bocpdHazardLambda,
+        float bocpdChangePointThreshold,
+        float bocpdSurprisalCutThreshold,
+        int bocpdMaxEpisodeFrames,
+        int bocpdMaxRunLength
 ) {
 
     /**
@@ -147,6 +154,21 @@ public record AismeConfig(
         if (Float.isNaN(eventDensitySamplingMaxHz) || eventDensitySamplingMaxHz < eventDensitySamplingMinHz) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "eventDensitySamplingMaxHz must be >= eventDensitySamplingMinHz");
         }
+        if (Float.isNaN(bocpdHazardLambda) || bocpdHazardLambda <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "bocpdHazardLambda must be positive");
+        }
+        if (Float.isNaN(bocpdChangePointThreshold) || bocpdChangePointThreshold < 0.0f || bocpdChangePointThreshold > 1.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "bocpdChangePointThreshold must be in [0, 1]");
+        }
+        if (Float.isNaN(bocpdSurprisalCutThreshold) || bocpdSurprisalCutThreshold < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "bocpdSurprisalCutThreshold must be non-negative");
+        }
+        if (bocpdMaxEpisodeFrames < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "bocpdMaxEpisodeFrames must be at least 1");
+        }
+        if (bocpdMaxRunLength < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "bocpdMaxRunLength must be at least 1");
+        }
     }
 
     /**
@@ -188,7 +210,13 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_HAZARD_LAMBDA,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH
         );
     }
 
@@ -238,7 +266,13 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_HAZARD_LAMBDA,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH
         );
     }
 
@@ -292,7 +326,13 @@ public record AismeConfig(
                 props.getEventDensityBetaGradient(),
                 props.getEventDensityGammaSurprise(),
                 props.getEventDensitySamplingMinHz(),
-                props.getEventDensitySamplingMaxHz()
+                props.getEventDensitySamplingMaxHz(),
+                props.isEnableBocpd(),
+                props.getBocpdHazardLambda(),
+                props.getBocpdChangePointThreshold(),
+                props.getBocpdSurprisalCutThreshold(),
+                props.getBocpdMaxEpisodeFrames(),
+                props.getBocpdMaxRunLength()
         );
     }
 
@@ -344,6 +384,12 @@ public record AismeConfig(
         private float eventDensityGammaSurprise = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE;
         private float eventDensitySamplingMinHz = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ;
         private float eventDensitySamplingMaxHz = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ;
+        private boolean enableBocpd = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_ENABLED;
+        private float bocpdHazardLambda = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_HAZARD_LAMBDA;
+        private float bocpdChangePointThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD;
+        private float bocpdSurprisalCutThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD;
+        private int bocpdMaxEpisodeFrames = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES;
+        private int bocpdMaxRunLength = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -385,6 +431,12 @@ public record AismeConfig(
         public Builder eventDensityGammaSurprise(float gamma) { this.eventDensityGammaSurprise = gamma; return this; }
         public Builder eventDensitySamplingMinHz(float minHz) { this.eventDensitySamplingMinHz = minHz; return this; }
         public Builder eventDensitySamplingMaxHz(float maxHz) { this.eventDensitySamplingMaxHz = maxHz; return this; }
+        public Builder enableBocpd(boolean enable) { this.enableBocpd = enable; return this; }
+        public Builder bocpdHazardLambda(float lambda) { this.bocpdHazardLambda = lambda; return this; }
+        public Builder bocpdChangePointThreshold(float threshold) { this.bocpdChangePointThreshold = threshold; return this; }
+        public Builder bocpdSurprisalCutThreshold(float threshold) { this.bocpdSurprisalCutThreshold = threshold; return this; }
+        public Builder bocpdMaxEpisodeFrames(int frames) { this.bocpdMaxEpisodeFrames = frames; return this; }
+        public Builder bocpdMaxRunLength(int runLength) { this.bocpdMaxRunLength = runLength; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
@@ -402,7 +454,9 @@ public record AismeConfig(
                     enableSoftIdentityAnchor, identityAnchorEta, identityLyapunovThreshold,
                     identityCoreSnapshotEpochs, enableEventDensity, eventDensityThreshold,
                     eventDensityAlphaKl, eventDensityBetaGradient, eventDensityGammaSurprise,
-                    eventDensitySamplingMinHz, eventDensitySamplingMaxHz
+                    eventDensitySamplingMinHz, eventDensitySamplingMaxHz,
+                    enableBocpd, bocpdHazardLambda, bocpdChangePointThreshold,
+                    bocpdSurprisalCutThreshold, bocpdMaxEpisodeFrames, bocpdMaxRunLength
             );
         }
     }

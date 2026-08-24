@@ -53,6 +53,7 @@ public final class RememberSignal {
     private boolean successful = false;
     private com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics;
     private boolean gated = false;
+    private com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment;
 
     private RememberSignal(
             final String id,
@@ -173,4 +174,7 @@ public final class RememberSignal {
 
     public boolean isGated() { return gated; }
     public void gated(final boolean gated) { this.gated = gated; }
+
+    public com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment episodicSegment() { return episodicSegment; }
+    public void episodicSegment(final com.spectrayan.spector.memory.aisme.segmentation.EpisodicSegment segment) { this.episodicSegment = segment; }
 }

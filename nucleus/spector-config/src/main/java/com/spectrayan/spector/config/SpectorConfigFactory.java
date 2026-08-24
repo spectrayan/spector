@@ -223,6 +223,12 @@ public final class SpectorConfigFactory {
         properties.setEventDensityGammaSurprise(props.getFloat(MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE, DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE));
         properties.setEventDensitySamplingMinHz(props.getFloat(MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ, DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ));
         properties.setEventDensitySamplingMaxHz(props.getFloat(MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ, DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ));
+        properties.setEnableBocpd(props.getBoolean(MEMORY_AISME_BOCPD_ENABLED, DEFAULT_MEMORY_AISME_BOCPD_ENABLED));
+        properties.setBocpdHazardLambda(props.getFloat(MEMORY_AISME_BOCPD_HAZARD_LAMBDA, DEFAULT_MEMORY_AISME_BOCPD_HAZARD_LAMBDA));
+        properties.setBocpdChangePointThreshold(props.getFloat(MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD, DEFAULT_MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD));
+        properties.setBocpdSurprisalCutThreshold(props.getFloat(MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD, DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD));
+        properties.setBocpdMaxEpisodeFrames(props.getInt(MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES, DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES));
+        properties.setBocpdMaxRunLength(props.getInt(MEMORY_AISME_BOCPD_MAX_RUN_LENGTH, DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH));
         return properties;
     }
 

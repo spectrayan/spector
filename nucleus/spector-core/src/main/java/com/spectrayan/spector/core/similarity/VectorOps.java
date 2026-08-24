@@ -250,6 +250,75 @@ public final class VectorOps {
         }
     }
 
+    // ─────────────────────── Accumulate ───────────────────────
+
+    /**
+     * Accumulates the source vector into the destination vector in-place (dst[i] += src[i]).
+     *
+     * @param dst destination array (modified in-place)
+     * @param src source array to add
+     */
+    public static void accumulate(float[] dst, float[] src) {
+        if (dst == null || src == null || dst.length != src.length) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Arrays must not be null and must have identical lengths");
+        }
+        accumulate(dst, 0, src, 0, dst.length);
+    }
+
+    /**
+     * Accumulates a slice of source vector into destination slice in-place.
+     */
+    public static void accumulate(float[] dst, int dstOffset, float[] src, int srcOffset, int length) {
+        validateSlice(dst, dstOffset, length);
+        validateSlice(src, srcOffset, length);
+
+        int laneCount = SPECIES.length();
+        int i = 0;
+        int limit = SPECIES.loopBound(length);
+        for (; i < limit; i += laneCount) {
+            FloatVector vd = FloatVector.fromArray(SPECIES, dst, dstOffset + i);
+            FloatVector vs = FloatVector.fromArray(SPECIES, src, srcOffset + i);
+            vd.add(vs).intoArray(dst, dstOffset + i);
+        }
+
+        if (i < length) {
+            VectorMask<Float> mask = SPECIES.indexInRange(i, length);
+            FloatVector vd = FloatVector.fromArray(SPECIES, dst, dstOffset + i, mask);
+            FloatVector vs = FloatVector.fromArray(SPECIES, src, srcOffset + i, mask);
+            vd.add(vs, mask).intoArray(dst, dstOffset + i, mask);
+        }
+    }
+
+    // ─────────────────────── Centroid ───────────────────────
+
+    /**
+     * Computes the centroid (mean vector) across a collection of vectors using SIMD acceleration.
+     *
+     * @param vectors    list of vectors to average
+     * @param dimensions expected dimensionality
+     * @return new array containing the centroid vector
+     */
+    public static float[] centroid(java.util.List<float[]> vectors, int dimensions) {
+        if (vectors == null || vectors.isEmpty()) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "vectors list must not be null or empty");
+        }
+        if (dimensions <= 0) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "dimensions must be positive");
+        }
+
+        float[] result = new float[dimensions];
+        for (float[] v : vectors) {
+            if (v == null || v.length != dimensions) {
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Vector dimension mismatch in centroid computation");
+            }
+            accumulate(result, 0, v, 0, dimensions);
+        }
+
+        float invCount = 1.0f / vectors.size();
+        scale(result, 0, result, 0, dimensions, invCount);
+        return result;
+    }
+
     // ─────────────────────── Validation ───────────────────────
 
     private static void validateSlice(float[] arr, int offset, int length) {
