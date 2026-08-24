@@ -12,7 +12,6 @@
  */
 package com.spectrayan.spector.memory.pipeline.reranker;
 
-import com.spectrayan.spector.index.ColBERTReranker;
 
 /**
  * Handles late-stage multi-vector reranking using ColBERT SIMD acceleration.

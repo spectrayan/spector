@@ -36,15 +36,6 @@
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-commons</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-provider-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-providers</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
 </project>

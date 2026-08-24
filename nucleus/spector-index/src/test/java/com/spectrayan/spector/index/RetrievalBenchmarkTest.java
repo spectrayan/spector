@@ -17,10 +17,6 @@ package com.spectrayan.spector.index;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.spectrayan.spector.index.text.BM25Index;
-import com.spectrayan.spector.index.text.SIMDScoreAccumulator;
-import com.spectrayan.spector.index.text.SpladeIndex;
-
 import org.junit.jupiter.api.*;
 
 import java.util.*;

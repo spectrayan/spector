@@ -27,6 +27,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
+import com.spectrayan.spector.core.spi.HnswCandidateKernel;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.index.error.SpectorIndexFullException;
 import com.spectrayan.spector.commons.error.ErrorCode;
@@ -106,6 +108,11 @@ public abstract class AbstractHnswIndex implements VectorIndex {
     // Buffer size = max(maxLevel0Connections, m) * 2 covers the realistic worst case.
     private final ThreadLocal<int[]> unvisitedBufLocal;
 
+    // ── HAL Candidate Kernel & batch scratch buffers ──
+    protected final HnswCandidateKernel candidateKernel;
+    private final ThreadLocal<float[]> candidateVectorsBufLocal;
+    private final ThreadLocal<float[]> candidateScoresBufLocal;
+
     // ── Per-thread BitSet for searchLayer() — avoids per-call allocation ──
     //
     // searchLayer() needs a visited set. BitSet internally allocates a long[nodeCount/64].
@@ -143,6 +150,11 @@ public abstract class AbstractHnswIndex implements VectorIndex {
         // Per-thread unvisited buffer for searchLayer() — prevents per-search allocation
         final int unvisitedInitSize = Math.max(params.maxLevel0Connections(), params.m()) * 2;
         this.unvisitedBufLocal = ThreadLocal.withInitial(() -> new int[unvisitedInitSize]);
+
+        // Discovered HAL candidate kernel & batch buffers
+        this.candidateKernel = AcceleratorRegistry.getKernel(HnswCandidateKernel.class);
+        this.candidateVectorsBufLocal = ThreadLocal.withInitial(() -> new float[unvisitedInitSize * dimensions]);
+        this.candidateScoresBufLocal = ThreadLocal.withInitial(() -> new float[unvisitedInitSize]);
     }
 
     // ─────────────── Template methods (subclass hooks) ───────────────
@@ -461,7 +473,50 @@ public abstract class AbstractHnswIndex implements VectorIndex {
                 }
             }
 
-            // Compute distances for all unvisited neighbors in a tight loop
+            // Compute distances for all unvisited neighbors
+            if (candidateKernel != null && unvisitedCount > 1) {
+                float[] candidateVectorsFlat = candidateVectorsBufLocal.get();
+                if (candidateVectorsFlat.length < unvisitedCount * dimensions) {
+                    candidateVectorsFlat = new float[unvisitedCount * dimensions];
+                    candidateVectorsBufLocal.set(candidateVectorsFlat);
+                }
+                float[] candidateScores = candidateScoresBufLocal.get();
+                if (candidateScores.length < unvisitedCount) {
+                    candidateScores = new float[unvisitedCount];
+                    candidateScoresBufLocal.set(candidateScores);
+                }
+
+                boolean batchLoaded = true;
+                for (int i = 0; i < unvisitedCount; i++) {
+                    float[] vec = getNodeVector(unvisitedBuf[i]);
+                    if (vec == null) {
+                        batchLoaded = false;
+                        break;
+                    }
+                    System.arraycopy(vec, 0, candidateVectorsFlat, i * dimensions, dimensions);
+                }
+
+                if (batchLoaded) {
+                    candidateKernel.evaluateCandidates(
+                            query,
+                            candidateVectorsFlat,
+                            unvisitedCount,
+                            dimensions,
+                            similarityFunction,
+                            candidateScores
+                    );
+                    for (int i = 0; i < unvisitedCount; i++) {
+                        int neighbor = unvisitedBuf[i];
+                        float dist = candidateScores[i];
+                        if (candidates.size() < ef || isBetter(dist, candidates.topScore())) {
+                            candidates.add(neighbor, dist);
+                            workQueue.add(neighbor, dist);
+                        }
+                    }
+                    continue;
+                }
+            }
+
             for (int i = 0; i < unvisitedCount; i++) {
                 int neighbor = unvisitedBuf[i];
                 float dist = computeDistance(query, neighbor);

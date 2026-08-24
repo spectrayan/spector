@@ -13,9 +13,9 @@
 package com.spectrayan.spector.memory.recall.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.index.ColBERTReranker;
-import com.spectrayan.spector.index.ColBERTReranker.RerankCandidate;
-import com.spectrayan.spector.index.ColBERTReranker.RerankResult;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankCandidate;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankResult;
 import com.spectrayan.spector.memory.model.CognitiveResult;
 import com.spectrayan.spector.memory.model.RecallOptions;
 import com.spectrayan.spector.memory.pathway.RelayNames;
