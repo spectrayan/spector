@@ -72,7 +72,7 @@ public final class AffectiveDistance {
      * @return resonance score in (0, 1]
      */
     public static float compute(float[] stateA, int aOffset, float[] stateB, int bOffset, int length, float sigma) {
-        validateInputs(stateA, aOffset, stateB, bOffset, length);
+        VectorOps.validateSliceInputs(stateA, aOffset, stateB, bOffset, length);
 
         int laneCount = SPECIES.length();
         FloatVector sumSqDiff = FloatVector.zero(SPECIES);
@@ -119,15 +119,5 @@ public final class AffectiveDistance {
         return results;
     }
 
-    private static void validateInputs(float[] a, int aOffset, float[] b, int bOffset, int length) {
-        if (length < 0) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_NEGATIVE, "length", length);
-        }
-        if (aOffset < 0 || aOffset + length > a.length) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("a: offset=%d, length=%d, array.length=%d", aOffset, length, a.length));
-        }
-        if (bOffset < 0 || bOffset + length > b.length) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("b: offset=%d, length=%d, array.length=%d", bOffset, length, b.length));
-        }
-    }
+
 }

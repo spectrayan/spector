@@ -137,7 +137,7 @@ public final class SvasqFwht {
      * The padded dimensionality used internally (next power-of-two ≥ originalDim).
      *
      * <p>Encoded vectors are {@link #paddedDim()} bytes long (one signed INT8 per padded dim),
-     * plus a 4-byte float32 exact-norm header.</p>
+     * plus a 2-byte float16 exact-norm header.</p>
      *
      * @return padded dimension count
      */

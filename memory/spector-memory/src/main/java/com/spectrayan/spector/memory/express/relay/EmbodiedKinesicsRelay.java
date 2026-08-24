@@ -13,7 +13,7 @@
 package com.spectrayan.spector.memory.express.relay;
 
 import com.spectrayan.spector.commons.pathway.SynapticRelay;
-import com.spectrayan.spector.core.similarity.KinesicBlendshapeKernel;
+import com.spectrayan.spector.core.expression.KinesicBlendshapeKernel;
 import com.spectrayan.spector.memory.aisme.homeostasis.InteroceptiveState;
 import com.spectrayan.spector.memory.model.BlendshapeVector;
 import com.spectrayan.spector.memory.model.EmbodiedKinesicsDNA;

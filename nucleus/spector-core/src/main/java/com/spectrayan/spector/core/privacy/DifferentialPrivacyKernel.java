@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.core.similarity;
+package com.spectrayan.spector.core.privacy;
+
+import com.spectrayan.spector.core.similarity.VectorOps;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;

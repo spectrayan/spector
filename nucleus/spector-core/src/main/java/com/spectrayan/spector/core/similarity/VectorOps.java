@@ -112,7 +112,7 @@ public final class VectorOps {
 
         float mag = (float) Math.sqrt(magnitudeSquared(src, srcOffset, length));
         if (mag == 0.0f) {
-            System.arraycopy(new float[length], 0, dst, dstOffset, length);
+            java.util.Arrays.fill(dst, dstOffset, dstOffset + length, 0.0f);
             return;
         }
 
@@ -327,6 +327,98 @@ public final class VectorOps {
         }
         if (offset < 0 || offset + length > arr.length) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("offset=%d, length=%d, array.length=%d", offset, length, arr.length));
+        }
+    }
+
+    /**
+     * Validates two parallel float array slices for dual-operand operations
+     * (e.g., dot product, cosine similarity, Euclidean distance).
+     *
+     * <p>Checks that {@code length} is non-negative and that both
+     * {@code [aOffset, aOffset+length)} and {@code [bOffset, bOffset+length)}
+     * are within their respective array bounds.</p>
+     *
+     * @param a       first array
+     * @param aOffset offset into {@code a}
+     * @param b       second array
+     * @param bOffset offset into {@code b}
+     * @param length  number of elements to process
+     * @throws SpectorValidationException if any bounds check fails
+     */
+    public static void validateSliceInputs(float[] a, int aOffset, float[] b, int bOffset, int length) {
+        if (length < 0) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_NEGATIVE, "length", length);
+        }
+        if (aOffset < 0 || aOffset + length > a.length) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("a: offset=%d, length=%d, array.length=%d", aOffset, length, a.length));
+        }
+        if (bOffset < 0 || bOffset + length > b.length) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("b: offset=%d, length=%d, array.length=%d", bOffset, length, b.length));
+        }
+    }
+
+    // ─────────────────────── Linear Algebra ───────────────────────
+
+    /**
+     * SIMD-accelerated weighted linear combination of pattern vectors:
+     * {@code outState = Σ weights[p] × patterns[p]} for {@code p ∈ [0, N)}.
+     *
+     * <p>Extracted from HopfieldKernel and LsrHopfieldKernel where this operation
+     * was duplicated line-for-line. Uses masked SIMD tail handling for branchless
+     * execution across all vector dimensions.</p>
+     *
+     * <p>Sparsity optimization: patterns with zero weight are skipped entirely.</p>
+     *
+     * @param patterns    array of N pattern vectors in ℝ^D
+     * @param weights     normalized weights in ℝ^N
+     * @param outState    destination vector in ℝ^D (overwritten with the result)
+     * @throws SpectorValidationException if arguments are null, weights length
+     *         doesn't match number of patterns, or any pattern has wrong dimension
+     */
+    public static void matrixVectorProduct(float[][] patterns, float[] weights, float[] outState) {
+        if (patterns == null || weights == null || outState == null) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Arguments must not be null");
+        }
+        int numPatterns = patterns.length;
+        if (weights.length != numPatterns) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Weights length must match number of patterns");
+        }
+        if (numPatterns == 0) {
+            return;
+        }
+        int dim = outState.length;
+        java.util.Arrays.fill(outState, 0.0f);
+
+        int laneCount = SPECIES.length();
+        int limit = SPECIES.loopBound(dim);
+
+        for (int p = 0; p < numPatterns; p++) {
+            float w = weights[p];
+            if (w == 0.0f) {
+                continue;
+            }
+            float[] pattern = patterns[p];
+            if (pattern.length != dim) {
+                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Pattern dimension mismatch at index " + p);
+            }
+
+            FloatVector vW = FloatVector.broadcast(SPECIES, w);
+
+            int d = 0;
+            for (; d < limit; d += laneCount) {
+                FloatVector vAcc = FloatVector.fromArray(SPECIES, outState, d);
+                FloatVector vPat = FloatVector.fromArray(SPECIES, pattern, d);
+                vAcc = vAcc.add(vPat.mul(vW));
+                vAcc.intoArray(outState, d);
+            }
+
+            if (d < dim) {
+                VectorMask<Float> mask = SPECIES.indexInRange(d, dim);
+                FloatVector vAcc = FloatVector.fromArray(SPECIES, outState, d, mask);
+                FloatVector vPat = FloatVector.fromArray(SPECIES, pattern, d, mask);
+                vAcc = vAcc.add(vPat.mul(vW, mask), mask);
+                vAcc.intoArray(outState, d, mask);
+            }
         }
     }
 }

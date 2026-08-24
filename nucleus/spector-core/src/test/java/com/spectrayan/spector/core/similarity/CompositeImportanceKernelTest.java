@@ -15,6 +15,8 @@
  */
 package com.spectrayan.spector.core.similarity;
 
+import com.spectrayan.spector.core.cognitive.CompositeImportanceKernel;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;

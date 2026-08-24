@@ -72,7 +72,7 @@ public final class CosineSimilarity {
      * @return cosine similarity in range [-1, 1], or 0 if degenerate
      */
     public static float compute(float[] a, int aOffset, float[] b, int bOffset, int length) {
-        validateInputs(a, aOffset, b, bOffset, length);
+        VectorOps.validateSliceInputs(a, aOffset, b, bOffset, length);
 
         int laneCount = SPECIES.length();
         FloatVector sumDot = FloatVector.zero(SPECIES);
@@ -110,15 +110,5 @@ public final class CosineSimilarity {
         return denom == 0.0f ? 0.0f : dot / denom;
     }
 
-    private static void validateInputs(float[] a, int aOffset, float[] b, int bOffset, int length) {
-        if (length < 0) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_NEGATIVE, "length", length);
-        }
-        if (aOffset < 0 || aOffset + length > a.length) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("a: offset=%d, length=%d, array.length=%d", aOffset, length, a.length));
-        }
-        if (bOffset < 0 || bOffset + length > b.length) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("b: offset=%d, length=%d, array.length=%d", bOffset, length, b.length));
-        }
-    }
+
 }

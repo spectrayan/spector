@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme.continuity;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.core.similarity.NeuralManifoldDistance;
+import com.spectrayan.spector.core.cognitive.NeuralManifoldDistance;
 import com.spectrayan.spector.memory.aisme.fegr.GenerativeSelfModel;
 import com.spectrayan.spector.memory.aisme.manifold.PersonalMetricTensor;
 

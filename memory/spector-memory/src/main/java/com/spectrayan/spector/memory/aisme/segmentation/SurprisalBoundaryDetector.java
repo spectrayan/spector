@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme.segmentation;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.core.similarity.FreeEnergyKernel;
+import com.spectrayan.spector.core.cognitive.FreeEnergyKernel;
 import com.spectrayan.spector.memory.aisme.config.AismeConfig;
 
 /**

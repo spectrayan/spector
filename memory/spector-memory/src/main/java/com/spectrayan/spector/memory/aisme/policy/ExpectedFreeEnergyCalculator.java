@@ -12,7 +12,7 @@
  */
 package com.spectrayan.spector.memory.aisme.policy;
 
-import com.spectrayan.spector.core.similarity.ExpectedFreeEnergyKernel;
+import com.spectrayan.spector.core.cognitive.ExpectedFreeEnergyKernel;
 import com.spectrayan.spector.memory.model.AgentSoul;
 import com.spectrayan.spector.memory.model.OrgUnitSoul;
 import com.spectrayan.spector.memory.model.SoulContext;
