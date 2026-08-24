@@ -288,4 +288,29 @@ public final class MentalStateTracker {
             lock.unlock();
         }
     }
+
+    /**
+     * Resets the posterior belief state directly to the given initial sensory observation.
+     *
+     * @param observation observation vector
+     * @param timestampMs current epoch timestamp
+     */
+    public void resetToObservation(float[] observation, long timestampMs) {
+        if (observation == null || observation.length != selfModel.dimensions()) {
+            reset();
+            return;
+        }
+        lock.lock();
+        try {
+            currentPosterior = new MentalStatePosterior(
+                    observation.clone(),
+                    selfModel.observationPrecision().clone(),
+                    timestampMs,
+                    1
+            );
+            log.debug("Reset mental state posterior to new episode observation vector");
+        } finally {
+            lock.unlock();
+        }
+    }
 }
