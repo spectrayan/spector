@@ -15,7 +15,7 @@ package com.spectrayan.spector.memory.aisme.hopfield;
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
 import com.spectrayan.spector.core.similarity.HopfieldKernel;
-import com.spectrayan.spector.core.similarity.VectorOps;
+import com.spectrayan.spector.core.similarity.LsrHopfieldKernel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +24,7 @@ import java.util.Arrays;
 
 /**
  * Continuous Modern Hopfield Network for associative memory pattern retrieval and gestalt synthesis.
+ * Supports both Log-Sum-Exp (LSE) and Log-Sum-ReLU (LSR / Epanechnikov) kernels.
  *
  * <h3>Biological Analog: CA3 Autoassociative Attractor Settlement</h3>
  * <p>Iteratively relaxes a cognitive query vector into the lowest energy basin defined by the
@@ -33,29 +34,54 @@ public final class ContinuousHopfieldNetwork {
 
     private static final Logger log = LoggerFactory.getLogger(ContinuousHopfieldNetwork.class);
 
+    private final KernelType kernelType;
     private final int maxIterations;
     private final float convergenceTolerance;
 
     /**
-     * Constructs a ContinuousHopfieldNetwork with default parameters (maxIterations=5, tolerance=1e-4).
+     * Constructs a ContinuousHopfieldNetwork with default LSR kernel and default parameters (maxIterations=5, tolerance=1e-4).
      */
     public ContinuousHopfieldNetwork() {
-        this(5, 1e-4f);
+        this(KernelType.LSR, 5, 1e-4f);
     }
 
     /**
-     * Constructs a ContinuousHopfieldNetwork with custom convergence parameters.
+     * Constructs a ContinuousHopfieldNetwork with specific kernel type and default convergence parameters.
+     *
+     * @param kernelType associative energy kernel formulation
+     */
+    public ContinuousHopfieldNetwork(KernelType kernelType) {
+        this(kernelType, 5, 1e-4f);
+    }
+
+    /**
+     * Constructs a ContinuousHopfieldNetwork with default LSR kernel and custom convergence parameters.
      *
      * @param maxIterations maximum relaxation iterations (must be >= 1)
      * @param convergenceTolerance L2 distance threshold for early convergence
      */
     public ContinuousHopfieldNetwork(int maxIterations, float convergenceTolerance) {
+        this(KernelType.LSR, maxIterations, convergenceTolerance);
+    }
+
+    /**
+     * Constructs a ContinuousHopfieldNetwork with custom kernel type and convergence parameters.
+     *
+     * @param kernelType associative energy kernel formulation
+     * @param maxIterations maximum relaxation iterations (must be >= 1)
+     * @param convergenceTolerance L2 distance threshold for early convergence
+     */
+    public ContinuousHopfieldNetwork(KernelType kernelType, int maxIterations, float convergenceTolerance) {
+        if (kernelType == null) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "kernelType must not be null");
+        }
         if (maxIterations < 1) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "maxIterations must be at least 1");
         }
         if (convergenceTolerance < 0.0f) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "convergenceTolerance cannot be negative");
         }
+        this.kernelType = kernelType;
         this.maxIterations = maxIterations;
         this.convergenceTolerance = convergenceTolerance;
     }
@@ -84,32 +110,65 @@ public final class ContinuousHopfieldNetwork {
         float[] weights = new float[numPatterns];
 
         int iter = 0;
-        for (; iter < maxIterations; iter++) {
-            HopfieldKernel.update(current, patterns, beta, next, weights);
+        float energy = 0.0f;
 
-            // Check L2 convergence: ||next - current||
-            float diffNormSq = 0.0f;
-            for (int d = 0; d < dim; d++) {
-                float diff = next[d] - current[d];
-                diffNormSq += diff * diff;
+        if (kernelType == KernelType.LSR) {
+            // Log-Sum-ReLU Epanechnikov Kernel: Exact settlement loop
+            for (; iter < maxIterations; iter++) {
+                energy = LsrHopfieldKernel.update(current, patterns, beta, next, weights);
+
+                float maxWeight = 0.0f;
+                for (float w : weights) {
+                    if (w > maxWeight) {
+                        maxWeight = w;
+                    }
+                }
+
+                float diffNormSq = 0.0f;
+                for (int d = 0; d < dim; d++) {
+                    float diff = next[d] - current[d];
+                    diffNormSq += diff * diff;
+                }
+
+                System.arraycopy(next, 0, current, 0, dim);
+
+                if (maxWeight >= 0.999f || Math.sqrt(diffNormSq) < convergenceTolerance) {
+                    iter++;
+                    break;
+                }
             }
+        } else {
+            // Log-Sum-Exp Gaussian Kernel
+            for (; iter < maxIterations; iter++) {
+                HopfieldKernel.update(current, patterns, beta, next, weights);
 
-            System.arraycopy(next, 0, current, 0, dim);
+                float diffNormSq = 0.0f;
+                for (int d = 0; d < dim; d++) {
+                    float diff = next[d] - current[d];
+                    diffNormSq += diff * diff;
+                }
 
-            if (Math.sqrt(diffNormSq) < convergenceTolerance) {
-                iter++;
-                break;
+                System.arraycopy(next, 0, current, 0, dim);
+
+                if (Math.sqrt(diffNormSq) < convergenceTolerance) {
+                    iter++;
+                    break;
+                }
             }
+            energy = HopfieldKernel.continuousEnergy(current, patterns, beta);
         }
 
-        float energy = HopfieldKernel.continuousEnergy(current, patterns, beta);
         AttractorType type = AttractorType.classify(weights);
 
         if (log.isTraceEnabled()) {
-            log.trace("Hopfield attractor reached in {} iters: type={}, energy={}", iter, type, energy);
+            log.trace("Hopfield attractor reached ({}) in {} iters: type={}, energy={}", kernelType, iter, type, energy);
         }
 
         return new AttractorState(current, weights, type, energy, iter, System.currentTimeMillis());
+    }
+
+    public KernelType kernelType() {
+        return kernelType;
     }
 
     public int maxIterations() {
