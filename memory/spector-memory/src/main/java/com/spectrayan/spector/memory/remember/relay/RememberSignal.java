@@ -51,6 +51,8 @@ public final class RememberSignal {
     private int graphSlot = -1;
     private boolean duplicate = false;
     private boolean successful = false;
+    private com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics;
+    private boolean gated = false;
 
     private RememberSignal(
             final String id,
@@ -165,4 +167,10 @@ public final class RememberSignal {
 
     public boolean isSuccessful() { return successful; }
     public void successful(final boolean successful) { this.successful = successful; }
+
+    public com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics eventDensityMetrics() { return eventDensityMetrics; }
+    public void eventDensityMetrics(final com.spectrayan.spector.memory.aisme.fegr.EventDensityMetrics metrics) { this.eventDensityMetrics = metrics; }
+
+    public boolean isGated() { return gated; }
+    public void gated(final boolean gated) { this.gated = gated; }
 }
