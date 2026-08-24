@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.gpu;
+package com.spectrayan.spector.gpu.kernel;
 
 import com.spectrayan.spector.core.spi.SimilarityKernel;
 
 /**
  * CUDA GPU implementation of {@link SimilarityKernel}.
  *
- * <p>Dispatches batch similarity computations (cosine, dot product, Euclidean distance)
+ * <p>Dispatches similarity computations (cosine, dot product, Euclidean distance)
  * to CUDA GPU kernels via Panama FFM, with transparent automatic fallback to CPU SIMD.</p>
  */
 public final class CudaSimilarityKernel implements SimilarityKernel {
@@ -39,17 +39,17 @@ public final class CudaSimilarityKernel implements SimilarityKernel {
     }
 
     @Override
-    public float[] batchCosineSimilarity(float[] query, float[] database, int numVectors, int dimensions) {
+    public float[] cosineSimilarity(float[] query, float[] database, int numVectors, int dimensions) {
         return cosineKernel.compute(query, database, numVectors, dimensions);
     }
 
     @Override
-    public float[] batchDotProduct(float[] query, float[] database, int numVectors, int dimensions) {
+    public float[] dotProduct(float[] query, float[] database, int numVectors, int dimensions) {
         return dotKernel.compute(query, database, numVectors, dimensions);
     }
 
     @Override
-    public float[] batchEuclideanDistance(float[] query, float[] database, int numVectors, int dimensions) {
+    public float[] euclideanDistance(float[] query, float[] database, int numVectors, int dimensions) {
         float[] dists = hnswKernel.computeL2(query, database, numVectors, dimensions);
         for (int i = 0; i < dists.length; i++) {
             dists[i] = (float) Math.sqrt(Math.max(0.0f, dists[i]));

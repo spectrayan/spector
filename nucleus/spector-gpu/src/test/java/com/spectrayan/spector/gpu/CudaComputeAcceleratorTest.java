@@ -18,6 +18,7 @@ package com.spectrayan.spector.gpu;
 import com.spectrayan.spector.core.spi.AcceleratorRegistry;
 import com.spectrayan.spector.core.spi.ComputeAccelerator;
 import com.spectrayan.spector.core.spi.SimilarityKernel;
+import com.spectrayan.spector.gpu.kernel.CudaSimilarityKernel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,7 +53,7 @@ class CudaComputeAcceleratorTest {
     }
 
     @Test
-    @DisplayName("CudaSimilarityKernel computes valid cosine, dot, and euclidean batch results")
+    @DisplayName("CudaSimilarityKernel computes valid cosine, dot, and euclidean results")
     void testCudaSimilarityKernel() {
         CudaSimilarityKernel kernel = new CudaSimilarityKernel();
 
@@ -66,16 +67,16 @@ class CudaComputeAcceleratorTest {
         database[32] = 3.0f;
         database[33] = 4.0f;
 
-        float[] dots = kernel.batchDotProduct(query, database, 2, 32);
+        float[] dots = kernel.dotProduct(query, database, 2, 32);
         assertThat(dots).hasSize(2);
         assertThat(dots[0]).isCloseTo(5.0f, within(1e-4f));
         assertThat(dots[1]).isCloseTo(11.0f, within(1e-4f));
 
-        float[] cosines = kernel.batchCosineSimilarity(query, database, 2, 32);
+        float[] cosines = kernel.cosineSimilarity(query, database, 2, 32);
         assertThat(cosines).hasSize(2);
         assertThat(cosines[0]).isCloseTo(1.0f, within(1e-4f));
 
-        float[] dists = kernel.batchEuclideanDistance(query, database, 2, 32);
+        float[] dists = kernel.euclideanDistance(query, database, 2, 32);
         assertThat(dists).hasSize(2);
         assertThat(dists[0]).isCloseTo(0.0f, within(1e-4f));
     }

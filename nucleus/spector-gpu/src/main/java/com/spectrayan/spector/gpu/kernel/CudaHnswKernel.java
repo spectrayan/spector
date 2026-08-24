@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.gpu;
+package com.spectrayan.spector.gpu.kernel;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
@@ -24,6 +24,8 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.spectrayan.spector.gpu.GpuCapability;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

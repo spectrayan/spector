@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.gpu;
+package com.spectrayan.spector.gpu.search;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -21,6 +21,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.spectrayan.spector.gpu.GpuCapability;
+import com.spectrayan.spector.gpu.kernel.CudaCosineKernel;
+import com.spectrayan.spector.gpu.kernel.CudaDotProductKernel;
+import com.spectrayan.spector.gpu.kernel.SimilarityKernel;
+import com.spectrayan.spector.gpu.memory.GpuMemoryManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -25,7 +25,7 @@ package com.spectrayan.spector.core.spi;
 public interface SimilarityKernel extends ComputeKernel {
 
     /**
-     * Computes batch cosine similarities between a query and database vectors.
+     * Computes cosine similarities between a query and database vectors.
      *
      * @param query      query vector of length {@code dimensions}
      * @param database   database vectors as flat array (numVectors × dimensions)
@@ -33,10 +33,10 @@ public interface SimilarityKernel extends ComputeKernel {
      * @param dimensions vector dimensionality
      * @return array of {@code numVectors} cosine similarity scores
      */
-    float[] batchCosineSimilarity(float[] query, float[] database, int numVectors, int dimensions);
+    float[] cosineSimilarity(float[] query, float[] database, int numVectors, int dimensions);
 
     /**
-     * Computes batch dot products between a query and database vectors.
+     * Computes dot products between a query and database vectors.
      *
      * @param query      query vector of length {@code dimensions}
      * @param database   database vectors as flat array (numVectors × dimensions)
@@ -44,10 +44,10 @@ public interface SimilarityKernel extends ComputeKernel {
      * @param dimensions vector dimensionality
      * @return array of {@code numVectors} dot product scores
      */
-    float[] batchDotProduct(float[] query, float[] database, int numVectors, int dimensions);
+    float[] dotProduct(float[] query, float[] database, int numVectors, int dimensions);
 
     /**
-     * Computes batch Euclidean (L2) distances between a query and database vectors.
+     * Computes Euclidean (L2) distances between a query and database vectors.
      *
      * @param query      query vector of length {@code dimensions}
      * @param database   database vectors as flat array (numVectors × dimensions)
@@ -55,5 +55,5 @@ public interface SimilarityKernel extends ComputeKernel {
      * @param dimensions vector dimensionality
      * @return array of {@code numVectors} Euclidean distance scores
      */
-    float[] batchEuclideanDistance(float[] query, float[] database, int numVectors, int dimensions);
+    float[] euclideanDistance(float[] query, float[] database, int numVectors, int dimensions);
 }

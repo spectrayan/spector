@@ -51,7 +51,7 @@ class AcceleratorRegistryTest {
 
         float[] query = {1.0f, 2.0f};
         float[] db = {1.0f, 2.0f};
-        float[] dots = kernel.batchDotProduct(query, db, 1, 2);
+        float[] dots = kernel.dotProduct(query, db, 1, 2);
         assertThat(dots).containsExactly(5.0f);
     }
 

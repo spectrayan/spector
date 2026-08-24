@@ -234,45 +234,45 @@ public final class AcceleratorRegistry {
         }
 
         @Override
-        public float[] batchCosineSimilarity(float[] query, float[] database, int numVectors, int dimensions) {
+        public float[] cosineSimilarity(float[] query, float[] database, int numVectors, int dimensions) {
             if (shouldRouteToAccelerator(numVectors, dimensions)) {
                 try {
-                    return acceleratorKernel.batchCosineSimilarity(query, database, numVectors, dimensions);
+                    return acceleratorKernel.cosineSimilarity(query, database, numVectors, dimensions);
                 } catch (Throwable t) {
-                    log.warn("Accelerator '{}' failed on batchCosineSimilarity, falling back to CPU SIMD: {}",
+                    log.warn("Accelerator '{}' failed on cosineSimilarity, falling back to CPU SIMD: {}",
                             accelerator.name(), t.getMessage());
                     log.debug("Accelerator failure details", t);
                 }
             }
-            return cpuKernel.batchCosineSimilarity(query, database, numVectors, dimensions);
+            return cpuKernel.cosineSimilarity(query, database, numVectors, dimensions);
         }
 
         @Override
-        public float[] batchDotProduct(float[] query, float[] database, int numVectors, int dimensions) {
+        public float[] dotProduct(float[] query, float[] database, int numVectors, int dimensions) {
             if (shouldRouteToAccelerator(numVectors, dimensions)) {
                 try {
-                    return acceleratorKernel.batchDotProduct(query, database, numVectors, dimensions);
+                    return acceleratorKernel.dotProduct(query, database, numVectors, dimensions);
                 } catch (Throwable t) {
-                    log.warn("Accelerator '{}' failed on batchDotProduct, falling back to CPU SIMD: {}",
+                    log.warn("Accelerator '{}' failed on dotProduct, falling back to CPU SIMD: {}",
                             accelerator.name(), t.getMessage());
                     log.debug("Accelerator failure details", t);
                 }
             }
-            return cpuKernel.batchDotProduct(query, database, numVectors, dimensions);
+            return cpuKernel.dotProduct(query, database, numVectors, dimensions);
         }
 
         @Override
-        public float[] batchEuclideanDistance(float[] query, float[] database, int numVectors, int dimensions) {
+        public float[] euclideanDistance(float[] query, float[] database, int numVectors, int dimensions) {
             if (shouldRouteToAccelerator(numVectors, dimensions)) {
                 try {
-                    return acceleratorKernel.batchEuclideanDistance(query, database, numVectors, dimensions);
+                    return acceleratorKernel.euclideanDistance(query, database, numVectors, dimensions);
                 } catch (Throwable t) {
-                    log.warn("Accelerator '{}' failed on batchEuclideanDistance, falling back to CPU SIMD: {}",
+                    log.warn("Accelerator '{}' failed on euclideanDistance, falling back to CPU SIMD: {}",
                             accelerator.name(), t.getMessage());
                     log.debug("Accelerator failure details", t);
                 }
             }
-            return cpuKernel.batchEuclideanDistance(query, database, numVectors, dimensions);
+            return cpuKernel.euclideanDistance(query, database, numVectors, dimensions);
         }
     }
 }

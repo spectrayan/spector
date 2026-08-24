@@ -39,7 +39,7 @@ public final class CpuSimdSimilarityKernel implements SimilarityKernel {
     }
 
     @Override
-    public float[] batchCosineSimilarity(float[] query, float[] database, int numVectors, int dimensions) {
+    public float[] cosineSimilarity(float[] query, float[] database, int numVectors, int dimensions) {
         validateInputs(query, database, numVectors, dimensions);
         if (numVectors == 0) {
             return new float[0];
@@ -96,7 +96,7 @@ public final class CpuSimdSimilarityKernel implements SimilarityKernel {
     }
 
     @Override
-    public float[] batchDotProduct(float[] query, float[] database, int numVectors, int dimensions) {
+    public float[] dotProduct(float[] query, float[] database, int numVectors, int dimensions) {
         validateInputs(query, database, numVectors, dimensions);
         if (numVectors == 0) {
             return new float[0];
@@ -128,7 +128,7 @@ public final class CpuSimdSimilarityKernel implements SimilarityKernel {
     }
 
     @Override
-    public float[] batchEuclideanDistance(float[] query, float[] database, int numVectors, int dimensions) {
+    public float[] euclideanDistance(float[] query, float[] database, int numVectors, int dimensions) {
         validateInputs(query, database, numVectors, dimensions);
         if (numVectors == 0) {
             return new float[0];

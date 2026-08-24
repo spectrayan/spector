@@ -27,8 +27,8 @@ class CpuSimdSimilarityKernelTest {
     private final CpuSimdSimilarityKernel kernel = CpuSimdSimilarityKernel.INSTANCE;
 
     @Test
-    @DisplayName("batchDotProduct computes accurate inner products")
-    void testBatchDotProduct() {
+    @DisplayName("dotProduct computes accurate inner products")
+    void testDotProduct() {
         float[] query = {1.0f, 2.0f, 3.0f, 4.0f};
         float[] database = {
                 1.0f, 0.0f, 0.0f, 0.0f,  // dot = 1.0
@@ -36,7 +36,7 @@ class CpuSimdSimilarityKernelTest {
                 1.0f, 1.0f, 1.0f, 1.0f   // dot = 10.0
         };
 
-        float[] dots = kernel.batchDotProduct(query, database, 3, 4);
+        float[] dots = kernel.dotProduct(query, database, 3, 4);
 
         assertThat(dots).hasSize(3);
         assertThat(dots[0]).isCloseTo(1.0f, within(1e-5f));
@@ -45,8 +45,8 @@ class CpuSimdSimilarityKernelTest {
     }
 
     @Test
-    @DisplayName("batchCosineSimilarity computes normalized cosine scores")
-    void testBatchCosineSimilarity() {
+    @DisplayName("cosineSimilarity computes normalized cosine scores")
+    void testCosineSimilarity() {
         float[] query = {1.0f, 0.0f, 0.0f, 0.0f};
         float[] database = {
                 1.0f, 0.0f, 0.0f, 0.0f,   // identical -> 1.0
@@ -55,7 +55,7 @@ class CpuSimdSimilarityKernelTest {
                 2.0f, 0.0f, 0.0f, 0.0f    // collinear -> 1.0
         };
 
-        float[] cosines = kernel.batchCosineSimilarity(query, database, 4, 4);
+        float[] cosines = kernel.cosineSimilarity(query, database, 4, 4);
 
         assertThat(cosines).hasSize(4);
         assertThat(cosines[0]).isCloseTo(1.0f, within(1e-5f));
@@ -65,19 +65,19 @@ class CpuSimdSimilarityKernelTest {
     }
 
     @Test
-    @DisplayName("batchCosineSimilarity returns zeros for zero-magnitude query")
-    void testBatchCosineZeroQuery() {
+    @DisplayName("cosineSimilarity returns zeros for zero-magnitude query")
+    void testCosineZeroQuery() {
         float[] query = {0.0f, 0.0f, 0.0f, 0.0f};
         float[] database = {1.0f, 2.0f, 3.0f, 4.0f};
 
-        float[] cosines = kernel.batchCosineSimilarity(query, database, 1, 4);
+        float[] cosines = kernel.cosineSimilarity(query, database, 1, 4);
 
         assertThat(cosines).containsExactly(0.0f);
     }
 
     @Test
-    @DisplayName("batchEuclideanDistance computes accurate L2 distances")
-    void testBatchEuclideanDistance() {
+    @DisplayName("euclideanDistance computes accurate L2 distances")
+    void testEuclideanDistance() {
         float[] query = {1.0f, 2.0f, 3.0f, 4.0f};
         float[] database = {
                 1.0f, 2.0f, 3.0f, 4.0f,   // dist = 0.0
@@ -85,7 +85,7 @@ class CpuSimdSimilarityKernelTest {
                 4.0f, 6.0f, 3.0f, 4.0f    // diff = (3,4,0,0) -> dist = 5.0
         };
 
-        float[] dists = kernel.batchEuclideanDistance(query, database, 3, 4);
+        float[] dists = kernel.euclideanDistance(query, database, 3, 4);
 
         assertThat(dists).hasSize(3);
         assertThat(dists[0]).isCloseTo(0.0f, within(1e-5f));
@@ -94,33 +94,33 @@ class CpuSimdSimilarityKernelTest {
     }
 
     @Test
-    @DisplayName("batch methods handle zero vectors gracefully")
+    @DisplayName("methods handle zero vectors gracefully")
     void testZeroVectors() {
         float[] query = {1.0f, 2.0f};
         float[] database = new float[0];
 
-        assertThat(kernel.batchDotProduct(query, database, 0, 2)).isEmpty();
-        assertThat(kernel.batchCosineSimilarity(query, database, 0, 2)).isEmpty();
-        assertThat(kernel.batchEuclideanDistance(query, database, 0, 2)).isEmpty();
+        assertThat(kernel.dotProduct(query, database, 0, 2)).isEmpty();
+        assertThat(kernel.cosineSimilarity(query, database, 0, 2)).isEmpty();
+        assertThat(kernel.euclideanDistance(query, database, 0, 2)).isEmpty();
     }
 
     @Test
-    @DisplayName("batch methods validate input arguments")
+    @DisplayName("methods validate input arguments")
     void testInputValidation() {
         float[] query = {1.0f, 2.0f};
         float[] database = {1.0f, 2.0f, 3.0f, 4.0f};
 
-        assertThatThrownBy(() -> kernel.batchDotProduct(null, database, 2, 2))
+        assertThatThrownBy(() -> kernel.dotProduct(null, database, 2, 2))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> kernel.batchDotProduct(query, null, 2, 2))
+        assertThatThrownBy(() -> kernel.dotProduct(query, null, 2, 2))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> kernel.batchDotProduct(query, database, -1, 2))
+        assertThatThrownBy(() -> kernel.dotProduct(query, database, -1, 2))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> kernel.batchDotProduct(query, database, 2, 0))
+        assertThatThrownBy(() -> kernel.dotProduct(query, database, 2, 0))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> kernel.batchDotProduct(new float[]{1.0f}, database, 2, 2))
+        assertThatThrownBy(() -> kernel.dotProduct(new float[]{1.0f}, database, 2, 2))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> kernel.batchDotProduct(query, new float[]{1.0f}, 2, 2))
+        assertThatThrownBy(() -> kernel.dotProduct(query, new float[]{1.0f}, 2, 2))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

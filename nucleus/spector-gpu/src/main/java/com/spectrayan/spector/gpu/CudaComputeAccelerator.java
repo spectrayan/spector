@@ -18,6 +18,7 @@ package com.spectrayan.spector.gpu;
 import com.spectrayan.spector.core.spi.ComputeAccelerator;
 import com.spectrayan.spector.core.spi.ComputeKernel;
 import com.spectrayan.spector.core.spi.SimilarityKernel;
+import com.spectrayan.spector.gpu.kernel.CudaSimilarityKernel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

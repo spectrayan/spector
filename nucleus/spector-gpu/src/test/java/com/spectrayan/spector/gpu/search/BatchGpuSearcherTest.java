@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.gpu;
+package com.spectrayan.spector.gpu.search;
 
 import com.spectrayan.spector.commons.error.SpectorException;
-
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.gpu.kernel.CudaCosineKernel;
+import com.spectrayan.spector.gpu.kernel.CudaDotProductKernel;
+import com.spectrayan.spector.gpu.kernel.SimilarityKernel;
+import com.spectrayan.spector.gpu.memory.GpuMemoryManager;
 
 import java.time.Duration;
 import java.util.ArrayList;

@@ -197,9 +197,9 @@ public enum SimilarityFunction {
     public float[] computeBatch(float[] query, float[] database, int numVectors, int dimensions) {
         SimilarityKernel kernel = AcceleratorRegistry.getSimilarityKernel();
         return switch (this) {
-            case COSINE -> kernel.batchCosineSimilarity(query, database, numVectors, dimensions);
-            case DOT_PRODUCT -> kernel.batchDotProduct(query, database, numVectors, dimensions);
-            case EUCLIDEAN -> kernel.batchEuclideanDistance(query, database, numVectors, dimensions);
+            case COSINE -> kernel.cosineSimilarity(query, database, numVectors, dimensions);
+            case DOT_PRODUCT -> kernel.dotProduct(query, database, numVectors, dimensions);
+            case EUCLIDEAN -> kernel.euclideanDistance(query, database, numVectors, dimensions);
         };
     }
 

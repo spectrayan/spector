@@ -13,22 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.gpu;
-
-import java.lang.foreign.Arena;
-import java.time.Instant;
 
 /**
- * Represents a single GPU device memory allocation tracked by {@link GpuMemoryManager}.
+ * GPU-accelerated batch query search and VRAM-resident vector indexing.
  *
- * @param devicePointer the CUDA device pointer for this allocation
- * @param sizeBytes     size of the allocation in bytes
- * @param arena         the Arena scope that owns this allocation's lifetime
- * @param allocatedAt   timestamp when this allocation was made
+ * <p>Supports asynchronous query batching, resident GPU vector indices, and high-throughput
+ * candidate filtering across large vector databases.</p>
  */
-public record GpuAllocation(
-        long devicePointer,
-        long sizeBytes,
-        Arena arena,
-        Instant allocatedAt
-) {}
+package com.spectrayan.spector.gpu.search;
