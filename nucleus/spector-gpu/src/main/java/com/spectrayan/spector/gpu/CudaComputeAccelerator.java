@@ -17,8 +17,14 @@ package com.spectrayan.spector.gpu;
 
 import com.spectrayan.spector.core.spi.ComputeAccelerator;
 import com.spectrayan.spector.core.spi.ComputeKernel;
+import com.spectrayan.spector.core.spi.HnswCandidateKernel;
+import com.spectrayan.spector.core.spi.MaxSimKernel;
 import com.spectrayan.spector.core.spi.SimilarityKernel;
+import com.spectrayan.spector.core.spi.SvasqDistanceKernel;
+import com.spectrayan.spector.gpu.kernel.CudaHnswKernel;
+import com.spectrayan.spector.gpu.kernel.CudaMaxSimKernel;
 import com.spectrayan.spector.gpu.kernel.CudaSimilarityKernel;
+import com.spectrayan.spector.gpu.kernel.CudaSvasqKernel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +43,9 @@ public final class CudaComputeAccelerator implements ComputeAccelerator {
 
     private final ReentrantLock lock = new ReentrantLock();
     private volatile CudaSimilarityKernel similarityKernel;
+    private volatile CudaHnswKernel hnswKernel;
+    private volatile CudaSvasqKernel svasqKernel;
+    private volatile CudaMaxSimKernel maxSimKernel;
 
     @Override
     public String name() {
@@ -76,11 +85,71 @@ public final class CudaComputeAccelerator implements ComputeAccelerator {
             }
             return (T) similarityKernel;
         }
+        if (kernelType == HnswCandidateKernel.class) {
+            if (hnswKernel == null) {
+                lock.lock();
+                try {
+                    if (hnswKernel == null) {
+                        hnswKernel = new CudaHnswKernel();
+                    }
+                } finally {
+                    lock.unlock();
+                }
+            }
+            return (T) hnswKernel;
+        }
+        if (kernelType == SvasqDistanceKernel.class) {
+            if (svasqKernel == null) {
+                lock.lock();
+                try {
+                    if (svasqKernel == null) {
+                        svasqKernel = new CudaSvasqKernel();
+                    }
+                } finally {
+                    lock.unlock();
+                }
+            }
+            return (T) svasqKernel;
+        }
+        if (kernelType == MaxSimKernel.class) {
+            if (maxSimKernel == null) {
+                lock.lock();
+                try {
+                    if (maxSimKernel == null) {
+                        maxSimKernel = new CudaMaxSimKernel();
+                    }
+                } finally {
+                    lock.unlock();
+                }
+            }
+            return (T) maxSimKernel;
+        }
         return null;
     }
 
     @Override
     public void close() {
-        log.info("CudaComputeAccelerator closed");
+        lock.lock();
+        try {
+            if (similarityKernel != null) {
+                similarityKernel.close();
+                similarityKernel = null;
+            }
+            if (hnswKernel != null) {
+                hnswKernel.close();
+                hnswKernel = null;
+            }
+            if (svasqKernel != null) {
+                svasqKernel.close();
+                svasqKernel = null;
+            }
+            if (maxSimKernel != null) {
+                maxSimKernel.close();
+                maxSimKernel = null;
+            }
+            log.info("CudaComputeAccelerator closed");
+        } finally {
+            lock.unlock();
+        }
     }
 }

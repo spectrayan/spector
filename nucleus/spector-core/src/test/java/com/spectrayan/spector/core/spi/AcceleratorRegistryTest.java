@@ -33,14 +33,13 @@ class AcceleratorRegistryTest {
     }
 
     @Test
-    @DisplayName("discovers default CpuSimdAccelerator")
+    @DisplayName("active accelerator name and similarity kernel are always available")
     void testDefaultDiscovery() {
         String activeName = AcceleratorRegistry.getActiveAcceleratorName();
         assertThat(activeName).isNotEmpty();
 
-        ComputeAccelerator primary = AcceleratorRegistry.getPrimaryAccelerator();
-        assertThat(primary).isNotNull();
-        assertThat(primary.isAvailable()).isTrue();
+        SimilarityKernel kernel = AcceleratorRegistry.getSimilarityKernel();
+        assertThat(kernel).isNotNull();
     }
 
     @Test

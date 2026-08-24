@@ -106,9 +106,9 @@ import static com.spectrayan.spector.commons.observation.MemoryObservationHook.T
 
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingProvider;
 import com.spectrayan.spector.provider.embedding.SparseEmbeddingResult;
-import com.spectrayan.spector.index.ColBERTReranker;
-import com.spectrayan.spector.index.ColBERTReranker.RerankCandidate;
-import com.spectrayan.spector.index.ColBERTReranker.RerankResult;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankCandidate;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker.RerankResult;
 
 
 

@@ -38,6 +38,9 @@ import com.spectrayan.spector.commons.error.SpectorGpuException;
 import com.spectrayan.spector.storage.error.SpectorSegmentClosedException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
+import com.spectrayan.spector.core.similarity.SimilarityFunction;
+import com.spectrayan.spector.core.spi.HnswCandidateKernel;
+
 /**
  * CUDA-accelerated distance computation for HNSW candidate evaluation.
  *
@@ -58,7 +61,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  * @see SimilarityKernel
  * @see GpuCapability
  */
-public final class CudaHnswKernel implements SimilarityKernel, AutoCloseable {
+public final class CudaHnswKernel implements SimilarityKernel, HnswCandidateKernel, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(CudaHnswKernel.class);
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
@@ -176,6 +179,33 @@ public final class CudaHnswKernel implements SimilarityKernel, AutoCloseable {
             }
         }
         return computeL2Cpu(query, candidates, k, dimensions);
+    }
+
+    @Override
+    public void evaluateCandidates(
+            float[] query,
+            float[] candidateVectorsFlat,
+            int candidateCount,
+            int dimensions,
+            SimilarityFunction function,
+            float[] outScores
+    ) {
+        if (candidateCount == 0) {
+            return;
+        }
+        if (function == SimilarityFunction.COSINE) {
+            float[] res = computeCosine(query, candidateVectorsFlat, candidateCount, dimensions);
+            System.arraycopy(res, 0, outScores, 0, candidateCount);
+        } else if (function == SimilarityFunction.EUCLIDEAN) {
+            float[] res = computeL2(query, candidateVectorsFlat, candidateCount, dimensions);
+            for (int i = 0; i < candidateCount; i++) {
+                outScores[i] = (float) Math.sqrt(res[i]);
+            }
+        } else {
+            // DOT_PRODUCT or custom
+            float[] res = computeCosine(query, candidateVectorsFlat, candidateCount, dimensions);
+            System.arraycopy(res, 0, outScores, 0, candidateCount);
+        }
     }
 
     @Override

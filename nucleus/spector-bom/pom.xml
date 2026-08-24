@@ -34,6 +34,11 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
+                <artifactId>spector-cpu</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-hdc</artifactId>
                 <version>${project.version}</version>
             </dependency>

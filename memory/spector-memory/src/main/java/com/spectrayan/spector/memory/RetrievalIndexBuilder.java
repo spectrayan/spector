@@ -13,8 +13,8 @@
 package com.spectrayan.spector.memory;
 
 import com.spectrayan.spector.index.BM25Index;
-import com.spectrayan.spector.index.ColBERTReranker;
-import com.spectrayan.spector.index.ColBERTTokenCache;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTReranker;
+import com.spectrayan.spector.memory.pipeline.reranker.ColBERTTokenCache;
 import com.spectrayan.spector.memory.cortex.MemoryBM25Index;
 import com.spectrayan.spector.memory.cortex.MemorySpladeIndex;
 import com.spectrayan.spector.memory.cortex.TextAppendMemory;
