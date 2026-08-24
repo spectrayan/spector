@@ -76,6 +76,10 @@ public final class ReflectSignal {
     private final boolean entityShadowMode;
     private final float entityCosineThreshold;
     private final com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
+    private final com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cognitiveManifold;
+    private final boolean softIdentityAnchorEnabled;
+    private final float identityAnchorEta;
+    private final float identityLyapunovThreshold;
 
     // ── Runtime Execution Metrics ──────────────────────────────────
     private final Instant startTime;
@@ -90,6 +94,9 @@ public final class ReflectSignal {
     private final AtomicInteger proceduralCrystallizedCount = new AtomicInteger(0);
     private double sumImportanceDelta = 0.0;
     private int pinnedCount = 0;
+    private float identityAnchorDistance = 0.0f;
+    private boolean identityLyapunovStable = true;
+    private float identityContinuityScore = 1.0f;
 
     private ReflectSignal(final Builder builder) {
         this.partitionManager = builder.partitionManager;
@@ -122,6 +129,10 @@ public final class ReflectSignal {
         this.entityShadowMode = builder.entityShadowMode;
         this.entityCosineThreshold = builder.entityCosineThreshold;
         this.mentalStateTracker = builder.mentalStateTracker;
+        this.cognitiveManifold = builder.cognitiveManifold;
+        this.softIdentityAnchorEnabled = builder.softIdentityAnchorEnabled;
+        this.identityAnchorEta = builder.identityAnchorEta;
+        this.identityLyapunovThreshold = builder.identityLyapunovThreshold;
 
         this.startTime = Instant.now();
         this.graphMetrics = builder.graphMetrics != null ? builder.graphMetrics : new GraphHealthMetrics();
@@ -134,6 +145,20 @@ public final class ReflectSignal {
     // ── Getters & Accessors ────────────────────────────────────────
 
     public com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker() { return mentalStateTracker; }
+    public com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cognitiveManifold() { return cognitiveManifold; }
+    public boolean softIdentityAnchorEnabled() { return softIdentityAnchorEnabled; }
+    public float identityAnchorEta() { return identityAnchorEta; }
+    public float identityLyapunovThreshold() { return identityLyapunovThreshold; }
+
+    public float identityAnchorDistance() { return identityAnchorDistance; }
+    public void setIdentityAnchorDistance(float d) { this.identityAnchorDistance = d; }
+
+    public boolean identityLyapunovStable() { return identityLyapunovStable; }
+    public void setIdentityLyapunovStable(boolean s) { this.identityLyapunovStable = s; }
+
+    public float identityContinuityScore() { return identityContinuityScore; }
+    public void setIdentityContinuityScore(float c) { this.identityContinuityScore = c; }
+
     public PartitionManager partitionManager() { return partitionManager; }
     public MemoryIndex index() { return index; }
     public ScalarQuantizer quantizer() { return quantizer; }
@@ -262,6 +287,10 @@ public final class ReflectSignal {
         private float entityCosineThreshold = 0.85f;
         private GraphHealthMetrics graphMetrics;
         private com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
+        private com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cognitiveManifold;
+        private boolean softIdentityAnchorEnabled = true;
+        private float identityAnchorEta = 0.0001f;
+        private float identityLyapunovThreshold = 0.15f;
 
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder index(MemoryIndex idx) { this.index = idx; return this; }
@@ -294,6 +323,10 @@ public final class ReflectSignal {
         public Builder entityCosineThreshold(float threshold) { this.entityCosineThreshold = threshold; return this; }
         public Builder graphMetrics(GraphHealthMetrics metrics) { this.graphMetrics = metrics; return this; }
         public Builder mentalStateTracker(com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mst) { this.mentalStateTracker = mst; return this; }
+        public Builder cognitiveManifold(com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cm) { this.cognitiveManifold = cm; return this; }
+        public Builder softIdentityAnchorEnabled(boolean enabled) { this.softIdentityAnchorEnabled = enabled; return this; }
+        public Builder identityAnchorEta(float eta) { this.identityAnchorEta = eta; return this; }
+        public Builder identityLyapunovThreshold(float threshold) { this.identityLyapunovThreshold = threshold; return this; }
 
         public ReflectSignal build() {
             return new ReflectSignal(this);

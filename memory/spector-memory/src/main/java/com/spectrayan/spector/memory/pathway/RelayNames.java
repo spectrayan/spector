@@ -64,6 +64,7 @@ public final class RelayNames {
     public static final String ENTITY_MAINTENANCE        = "entity_maintenance";
     public static final String SPECTRAL_SPARSIFICATION   = "spectral_sparsification";
     public static final String MANIFOLD_CONSOLIDATION    = "manifold_consolidation";
+    public static final String SOFT_IDENTITY_ANCHOR      = "soft_identity_anchor";
     public static final String WAL_JOURNAL               = "wal_journal";
 
     // Active Inference Self-Model Engine (AISME) Relays

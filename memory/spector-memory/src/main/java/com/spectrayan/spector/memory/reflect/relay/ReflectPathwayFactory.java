@@ -42,7 +42,7 @@ public final class ReflectPathwayFactory {
             final WalJournalRelay walRelay) {
         return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
                 interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay,
-                null, null, walRelay, null);
+                null, null, null, walRelay, null);
     }
 
     /**
@@ -62,11 +62,11 @@ public final class ReflectPathwayFactory {
             final WalJournalRelay walRelay) {
         return create(null, pruningRelay, logConsolidationRelay, soulDriftRelay, proceduralRelay,
                 interferenceRelay, hebbianRelay, temporalRelay, promotionRelay, entityRelay,
-                null, manifoldConsolidationRelay, walRelay, null);
+                null, manifoldConsolidationRelay, null, walRelay, null);
     }
 
     /**
-     * Creates the reflect cognitive pathway with an optional stage interceptor/decorator.
+     * Creates the reflect cognitive pathway with an optional stage interceptor/decorator and soft identity anchor relay.
      */
     public static CognitivePathway<ReflectSignal> create(
             final Function<SynapticRelay<ReflectSignal>, SynapticRelay<ReflectSignal>> interceptor,
@@ -81,6 +81,7 @@ public final class ReflectPathwayFactory {
             final EntityMaintenanceRelay entityRelay,
             final SpectralSparsificationRelay sparsificationRelay,
             final SynapticRelay<ReflectSignal> manifoldConsolidationRelay,
+            final SynapticRelay<ReflectSignal> softIdentityAnchorRelay,
             final WalJournalRelay walRelay,
             final IdiolectLearningRelay idiolectRelay) {
 
@@ -104,6 +105,10 @@ public final class ReflectPathwayFactory {
 
         if (manifoldConsolidationRelay != null) {
             builder.relay(RelayNames.MANIFOLD_CONSOLIDATION, manifoldConsolidationRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
+        }
+
+        if (softIdentityAnchorRelay != null) {
+            builder.relay(RelayNames.SOFT_IDENTITY_ANCHOR, softIdentityAnchorRelay, ErrorPolicy.DEGRADE_GRACEFULLY);
         }
 
         if (idiolectRelay != null) {
