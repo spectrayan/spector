@@ -16,6 +16,8 @@ import com.spectrayan.spector.commons.pathway.CognitivePathway;
 import com.spectrayan.spector.commons.template.TemplateEngine;
 import com.spectrayan.spector.config.SpectorPropertyConstants;
 import com.spectrayan.spector.core.quantization.ScalarQuantizer;
+import com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold;
+import com.spectrayan.spector.memory.aisme.relay.SoftIdentityAnchorRelay;
 import com.spectrayan.spector.memory.cortex.CentroidRouter;
 import com.spectrayan.spector.memory.graph.EntityDirectory;
 import com.spectrayan.spector.memory.graph.HyperEntityGraphMemory;
@@ -53,7 +55,8 @@ import java.util.Objects;
  *
  * <p>Consolidates NREM deep sleep downscaling, REM replay gist extraction, identity soul-drift
  * re-fusion (#503), proactive interference, Hebbian synaptic homeostasis, temporal pruning,
- * STC cross-layer promotion, and entity maintenance into a unified, observable 9-relay pipeline.</p>
+ * STC cross-layer promotion, Riemannian cognitive manifold consolidation, Soft Identity Anchor Lyapunov
+ * restoring force, and entity maintenance into a unified, observable 14-relay pipeline.</p>
  */
 public final class ReflectPathway implements AutoCloseable {
 
@@ -85,6 +88,10 @@ public final class ReflectPathway implements AutoCloseable {
     private final boolean entityShadowMode;
     private final float entityCosineThreshold;
     private final com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
+    private final CognitiveManifold cognitiveManifold;
+    private final boolean softIdentityAnchorEnabled;
+    private final float identityAnchorEta;
+    private final float identityLyapunovThreshold;
 
     private ReflectPathway(final Builder builder) {
         this.quantizer = builder.quantizer;
@@ -112,6 +119,10 @@ public final class ReflectPathway implements AutoCloseable {
         this.entityShadowMode = builder.entityShadowMode;
         this.entityCosineThreshold = builder.entityCosineThreshold;
         this.mentalStateTracker = builder.mentalStateTracker;
+        this.cognitiveManifold = builder.cognitiveManifold;
+        this.softIdentityAnchorEnabled = builder.softIdentityAnchorEnabled;
+        this.identityAnchorEta = builder.identityAnchorEta;
+        this.identityLyapunovThreshold = builder.identityLyapunovThreshold;
 
         final var manifoldRelay = builder.manifoldConsolidationRelay != null
                 ? builder.manifoldConsolidationRelay
@@ -119,6 +130,10 @@ public final class ReflectPathway implements AutoCloseable {
                         ? new com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay(
                                 builder.cognitiveManifold, null, builder.coActivationSupplier)
                         : null);
+
+        final var anchorRelay = builder.softIdentityAnchorRelay != null
+                ? builder.softIdentityAnchorRelay
+                : new SoftIdentityAnchorRelay(builder.identityAnchorEta, builder.identityLyapunovThreshold);
 
         this.pathway = ReflectPathwayFactory.create(
                 builder.interceptor,
@@ -133,6 +148,7 @@ public final class ReflectPathway implements AutoCloseable {
                 new EntityMaintenanceRelay(),
                 new SpectralSparsificationRelay(),
                 manifoldRelay,
+                anchorRelay,
                 new WalJournalRelay(),
                 new com.spectrayan.spector.memory.reflect.relay.IdiolectLearningRelay()
         );
@@ -201,6 +217,10 @@ public final class ReflectPathway implements AutoCloseable {
                 .entityShadowMode(entityShadowMode)
                 .entityCosineThreshold(entityCosineThreshold)
                 .mentalStateTracker(mentalStateTracker)
+                .cognitiveManifold(cognitiveManifold)
+                .softIdentityAnchorEnabled(softIdentityAnchorEnabled)
+                .identityAnchorEta(identityAnchorEta)
+                .identityLyapunovThreshold(identityLyapunovThreshold)
                 .build();
 
         return conduct(signal);
@@ -237,6 +257,17 @@ public final class ReflectPathway implements AutoCloseable {
         private boolean entityShadowMode = true;
         private float entityCosineThreshold = 0.85f;
 
+        private CognitiveManifold cognitiveManifold;
+        private com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay manifoldConsolidationRelay;
+        private com.spectrayan.spector.memory.aisme.relay.SoftIdentityAnchorRelay softIdentityAnchorRelay;
+        private com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
+        private java.util.function.Supplier<java.util.List<float[]>> coActivationSupplier;
+        private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>> interceptor;
+
+        private boolean softIdentityAnchorEnabled = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED;
+        private float identityAnchorEta = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA;
+        private float identityLyapunovThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD;
+
         public Builder quantizer(ScalarQuantizer q) { this.quantizer = q; return this; }
         public Builder embeddingProvider(EmbeddingProvider ep) { this.embeddingProvider = ep; return this; }
         public Builder textGenerator(LlmProvider tg) { this.textGenerator = tg; return this; }
@@ -261,10 +292,8 @@ public final class ReflectPathway implements AutoCloseable {
         public Builder entityResolutionEnabled(boolean enabled) { this.entityResolutionEnabled = enabled; return this; }
         public Builder entityShadowMode(boolean shadow) { this.entityShadowMode = shadow; return this; }
         public Builder entityCosineThreshold(float threshold) { this.entityCosineThreshold = threshold; return this; }
-        private com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cognitiveManifold;
-        private com.spectrayan.spector.memory.aisme.relay.ManifoldConsolidationRelay manifoldConsolidationRelay;
 
-        public Builder cognitiveManifold(com.spectrayan.spector.memory.aisme.manifold.CognitiveManifold cm) {
+        public Builder cognitiveManifold(CognitiveManifold cm) {
             this.cognitiveManifold = cm;
             return this;
         }
@@ -274,25 +303,39 @@ public final class ReflectPathway implements AutoCloseable {
             return this;
         }
 
-        private com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mentalStateTracker;
+        public Builder softIdentityAnchorRelay(SoftIdentityAnchorRelay siar) {
+            this.softIdentityAnchorRelay = siar;
+            return this;
+        }
 
         public Builder mentalStateTracker(com.spectrayan.spector.memory.aisme.fegr.MentalStateTracker mst) {
             this.mentalStateTracker = mst;
             return this;
         }
 
-        private java.util.function.Supplier<java.util.List<float[]>> coActivationSupplier;
-
         public Builder coActivationSupplier(java.util.function.Supplier<java.util.List<float[]>> supplier) {
             this.coActivationSupplier = supplier;
             return this;
         }
 
-        private java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>> interceptor;
-
         public Builder interceptor(
                 final java.util.function.Function<com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>, com.spectrayan.spector.commons.pathway.SynapticRelay<ReflectSignal>> interceptor) {
             this.interceptor = interceptor;
+            return this;
+        }
+
+        public Builder softIdentityAnchorEnabled(boolean enabled) {
+            this.softIdentityAnchorEnabled = enabled;
+            return this;
+        }
+
+        public Builder identityAnchorEta(float eta) {
+            this.identityAnchorEta = eta;
+            return this;
+        }
+
+        public Builder identityLyapunovThreshold(float threshold) {
+            this.identityLyapunovThreshold = threshold;
             return this;
         }
 

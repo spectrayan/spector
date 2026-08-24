@@ -35,6 +35,7 @@ class AismeConfigTest {
         assertThat(config.enablePredictiveCoding()).isFalse();
         assertThat(config.enableConsciousnessContinuity()).isFalse();
         assertThat(config.enableGlobalWorkspace()).isFalse();
+        assertThat(config.enableSoftIdentityAnchor()).isFalse();
     }
 
     @Test
@@ -49,6 +50,10 @@ class AismeConfigTest {
         assertThat(config.enableConsciousnessContinuity()).isTrue();
         assertThat(config.enableGlobalWorkspace()).isTrue();
         assertThat(config.globalWorkspaceCapacity()).isEqualTo(7);
+        assertThat(config.enableSoftIdentityAnchor()).isTrue();
+        assertThat(config.identityAnchorEta()).isEqualTo(0.0001f);
+        assertThat(config.identityLyapunovThreshold()).isEqualTo(0.15f);
+        assertThat(config.identityCoreSnapshotEpochs()).isEqualTo(50);
     }
 
     @Test
@@ -61,6 +66,10 @@ class AismeConfigTest {
                 .hopfieldTemperature(3.5f)
                 .manifoldSigma(1.2f)
                 .phiCohesionThreshold(0.1f)
+                .enableSoftIdentityAnchor(true)
+                .identityAnchorEta(0.0002f)
+                .identityLyapunovThreshold(0.25f)
+                .identityCoreSnapshotEpochs(100)
                 .build();
 
         assertThat(config.enabled()).isTrue();
@@ -70,6 +79,10 @@ class AismeConfigTest {
         assertThat(config.hopfieldTemperature()).isEqualTo(3.5f);
         assertThat(config.manifoldSigma()).isEqualTo(1.2f);
         assertThat(config.phiCohesionThreshold()).isEqualTo(0.1f);
+        assertThat(config.enableSoftIdentityAnchor()).isTrue();
+        assertThat(config.identityAnchorEta()).isEqualTo(0.0002f);
+        assertThat(config.identityLyapunovThreshold()).isEqualTo(0.25f);
+        assertThat(config.identityCoreSnapshotEpochs()).isEqualTo(100);
     }
 
     @Test
@@ -85,6 +98,15 @@ class AismeConfigTest {
 
         assertThatThrownBy(() -> AismeConfig.builder().phiCohesionThreshold(-0.5f).build())
                 .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().identityAnchorEta(-0.01f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().identityLyapunovThreshold(-0.5f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().identityCoreSnapshotEpochs(0).build())
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
@@ -97,6 +119,10 @@ class AismeConfigTest {
         props.setHopfieldTemperature(5.5f);
         props.setManifoldSigma(1.8f);
         props.setPhiCohesionThreshold(0.08f);
+        props.setEnableSoftIdentityAnchor(true);
+        props.setIdentityAnchorEta(0.0003f);
+        props.setIdentityLyapunovThreshold(0.18f);
+        props.setIdentityCoreSnapshotEpochs(60);
 
         AismeConfig config = AismeConfig.fromProperties(props);
 
@@ -107,6 +133,10 @@ class AismeConfigTest {
         assertThat(config.hopfieldTemperature()).isEqualTo(5.5f);
         assertThat(config.manifoldSigma()).isEqualTo(1.8f);
         assertThat(config.phiCohesionThreshold()).isEqualTo(0.08f);
+        assertThat(config.enableSoftIdentityAnchor()).isTrue();
+        assertThat(config.identityAnchorEta()).isEqualTo(0.0003f);
+        assertThat(config.identityLyapunovThreshold()).isEqualTo(0.18f);
+        assertThat(config.identityCoreSnapshotEpochs()).isEqualTo(60);
 
         // Disabled or null props returns disabled config
         props.setEnabled(false);

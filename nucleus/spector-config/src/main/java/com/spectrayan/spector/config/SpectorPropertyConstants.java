@@ -490,6 +490,19 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS = "spector.memory.aisme.background-decay.interval-seconds";
     public static final int DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS = 300;
 
+    // AISME — Soft Identity Anchor & Lyapunov Stability
+    public static final String MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED = "spector.memory.aisme.soft-identity-anchor.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED = true;
+
+    public static final String MEMORY_AISME_IDENTITY_ANCHOR_ETA = "spector.memory.aisme.identity-anchor.eta";
+    public static final float DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA = 0.0001f;
+
+    public static final String MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD = "spector.memory.aisme.identity-lyapunov.threshold";
+    public static final float DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD = 0.15f;
+
+    public static final String MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS = "spector.memory.aisme.identity-core-snapshot.epochs";
+    public static final int DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS = 50;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;

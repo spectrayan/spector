@@ -65,6 +65,11 @@ public class AismeProperties implements Serializable {
     private float backgroundDecayFactor = DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR;
     private int backgroundDecayIntervalSeconds = DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS;
 
+    private boolean enableSoftIdentityAnchor = DEFAULT_MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED;
+    private float identityAnchorEta = DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA;
+    private float identityLyapunovThreshold = DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD;
+    private int identityCoreSnapshotEpochs = DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS;
+
     public AismeProperties() {}
 
     public boolean isEnabled() {
@@ -331,6 +336,44 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isEnableSoftIdentityAnchor() {
+        return enableSoftIdentityAnchor;
+    }
+
+    public void setEnableSoftIdentityAnchor(boolean enableSoftIdentityAnchor) {
+        this.enableSoftIdentityAnchor = enableSoftIdentityAnchor;
+    }
+
+    public float getIdentityAnchorEta() {
+        return identityAnchorEta;
+    }
+
+    public void setIdentityAnchorEta(float identityAnchorEta) {
+        if (!Float.isNaN(identityAnchorEta) && identityAnchorEta >= 0.0f) {
+            this.identityAnchorEta = identityAnchorEta;
+        }
+    }
+
+    public float getIdentityLyapunovThreshold() {
+        return identityLyapunovThreshold;
+    }
+
+    public void setIdentityLyapunovThreshold(float identityLyapunovThreshold) {
+        if (!Float.isNaN(identityLyapunovThreshold) && identityLyapunovThreshold >= 0.0f) {
+            this.identityLyapunovThreshold = identityLyapunovThreshold;
+        }
+    }
+
+    public int getIdentityCoreSnapshotEpochs() {
+        return identityCoreSnapshotEpochs;
+    }
+
+    public void setIdentityCoreSnapshotEpochs(int identityCoreSnapshotEpochs) {
+        if (identityCoreSnapshotEpochs > 0) {
+            this.identityCoreSnapshotEpochs = identityCoreSnapshotEpochs;
+        }
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -362,4 +405,8 @@ public class AismeProperties implements Serializable {
     public boolean backgroundDecayEnabled() { return isBackgroundDecayEnabled(); }
     public float backgroundDecayFactor() { return getBackgroundDecayFactor(); }
     public int backgroundDecayIntervalSeconds() { return getBackgroundDecayIntervalSeconds(); }
+    public boolean enableSoftIdentityAnchor() { return isEnableSoftIdentityAnchor(); }
+    public float identityAnchorEta() { return getIdentityAnchorEta(); }
+    public float identityLyapunovThreshold() { return getIdentityLyapunovThreshold(); }
+    public int identityCoreSnapshotEpochs() { return getIdentityCoreSnapshotEpochs(); }
 }

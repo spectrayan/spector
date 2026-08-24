@@ -44,6 +44,11 @@ class AismePropertiesTest {
         assertThat(props.getManifoldSigma()).isEqualTo(1.0f);
         assertThat(props.getPhiCohesionThreshold()).isEqualTo(0.05f);
 
+        assertThat(props.isEnableSoftIdentityAnchor()).isTrue();
+        assertThat(props.getIdentityAnchorEta()).isEqualTo(0.0001f);
+        assertThat(props.getIdentityLyapunovThreshold()).isEqualTo(0.15f);
+        assertThat(props.getIdentityCoreSnapshotEpochs()).isEqualTo(50);
+
         // Fluent accessors
         assertThat(props.enabled()).isFalse();
         assertThat(props.enableHomeostasis()).isTrue();
@@ -57,6 +62,10 @@ class AismePropertiesTest {
         assertThat(props.hopfieldTemperature()).isEqualTo(4.0f);
         assertThat(props.manifoldSigma()).isEqualTo(1.0f);
         assertThat(props.phiCohesionThreshold()).isEqualTo(0.05f);
+        assertThat(props.enableSoftIdentityAnchor()).isTrue();
+        assertThat(props.identityAnchorEta()).isEqualTo(0.0001f);
+        assertThat(props.identityLyapunovThreshold()).isEqualTo(0.15f);
+        assertThat(props.identityCoreSnapshotEpochs()).isEqualTo(50);
     }
 
     @Test
@@ -68,6 +77,10 @@ class AismePropertiesTest {
         props.setHopfieldTemperature(8.0f);
         props.setManifoldSigma(2.5f);
         props.setPhiCohesionThreshold(0.15f);
+        props.setEnableSoftIdentityAnchor(false);
+        props.setIdentityAnchorEta(0.0005f);
+        props.setIdentityLyapunovThreshold(0.20f);
+        props.setIdentityCoreSnapshotEpochs(100);
 
         assertThat(props.isEnabled()).isTrue();
         assertThat(props.isEnableHomeostasis()).isFalse();
@@ -75,17 +88,27 @@ class AismePropertiesTest {
         assertThat(props.getHopfieldTemperature()).isEqualTo(8.0f);
         assertThat(props.getManifoldSigma()).isEqualTo(2.5f);
         assertThat(props.getPhiCohesionThreshold()).isEqualTo(0.15f);
+        assertThat(props.isEnableSoftIdentityAnchor()).isFalse();
+        assertThat(props.getIdentityAnchorEta()).isEqualTo(0.0005f);
+        assertThat(props.getIdentityLyapunovThreshold()).isEqualTo(0.20f);
+        assertThat(props.getIdentityCoreSnapshotEpochs()).isEqualTo(100);
 
         // Invalid values should be ignored
         props.setGlobalWorkspaceCapacity(0);
         props.setHopfieldTemperature(-1.0f);
         props.setManifoldSigma(-0.5f);
         props.setPhiCohesionThreshold(-1.0f);
+        props.setIdentityAnchorEta(-0.01f);
+        props.setIdentityLyapunovThreshold(-0.5f);
+        props.setIdentityCoreSnapshotEpochs(0);
 
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
         assertThat(props.getHopfieldTemperature()).isEqualTo(8.0f);
         assertThat(props.getManifoldSigma()).isEqualTo(2.5f);
         assertThat(props.getPhiCohesionThreshold()).isEqualTo(0.15f);
+        assertThat(props.getIdentityAnchorEta()).isEqualTo(0.0005f);
+        assertThat(props.getIdentityLyapunovThreshold()).isEqualTo(0.20f);
+        assertThat(props.getIdentityCoreSnapshotEpochs()).isEqualTo(100);
     }
 
     @Test
@@ -97,6 +120,10 @@ class AismePropertiesTest {
                 .override("spector.memory.aisme.hopfield.temperature", "2.0")
                 .override("spector.memory.aisme.manifold.sigma", "0.8")
                 .override("spector.memory.aisme.phi.cohesion-threshold", "0.1")
+                .override("spector.memory.aisme.soft-identity-anchor.enabled", "false")
+                .override("spector.memory.aisme.identity-anchor.eta", "0.0002")
+                .override("spector.memory.aisme.identity-lyapunov.threshold", "0.25")
+                .override("spector.memory.aisme.identity-core-snapshot.epochs", "75")
                 .build();
 
         AismeProperties aisme = SpectorConfigFactory.aismeProperties(props);
@@ -108,6 +135,10 @@ class AismePropertiesTest {
         assertThat(aisme.getHopfieldTemperature()).isEqualTo(2.0f);
         assertThat(aisme.getManifoldSigma()).isEqualTo(0.8f);
         assertThat(aisme.getPhiCohesionThreshold()).isEqualTo(0.1f);
+        assertThat(aisme.isEnableSoftIdentityAnchor()).isFalse();
+        assertThat(aisme.getIdentityAnchorEta()).isEqualTo(0.0002f);
+        assertThat(aisme.getIdentityLyapunovThreshold()).isEqualTo(0.25f);
+        assertThat(aisme.getIdentityCoreSnapshotEpochs()).isEqualTo(75);
 
         var memory = SpectorConfigFactory.memoryProperties(props);
         assertThat(memory.getAisme().isEnabled()).isTrue();
