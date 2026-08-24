@@ -101,5 +101,19 @@ public enum MemoryShape {
      *
      * @see com.spectrayan.spector.memory.kernel.shape.AbstractHashTableMemory
      */
-    HASHTABLE
+    HASHTABLE,
+
+    /**
+     * Backs a fixed-size off-heap distributed holographic memory tensor.
+     * Stores an accumulator vector T in R^Y representing the linear superposition of Positive
+     * Random Features across all stored memories for constant-time O(Y) global associative resonance.
+     *
+     * <p>Biological analog: Pribram's holonomic brain model, where memories exist as distributed
+     * interference patterns across wide-field neural ensembles.</p>
+     *
+     * <p>Introduced as part of ADR-0020 (Log-Sum-ReLU &amp; Positive Random Feature Associative Memory).</p>
+     *
+     * @see com.spectrayan.spector.memory.kernel.shape.DistributedMemoryTensor
+     */
+    HOLOGRAPHIC
 }
