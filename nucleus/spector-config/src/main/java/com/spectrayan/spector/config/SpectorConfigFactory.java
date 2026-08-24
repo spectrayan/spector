@@ -229,6 +229,12 @@ public final class SpectorConfigFactory {
         properties.setBocpdSurprisalCutThreshold(props.getFloat(MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD, DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD));
         properties.setBocpdMaxEpisodeFrames(props.getInt(MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES, DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES));
         properties.setBocpdMaxRunLength(props.getInt(MEMORY_AISME_BOCPD_MAX_RUN_LENGTH, DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH));
+        properties.setEnablePrivacy(props.getBoolean(MEMORY_AISME_PRIVACY_ENABLED, DEFAULT_MEMORY_AISME_PRIVACY_ENABLED));
+        properties.setPrivacyEpsilon(props.getFloat(MEMORY_AISME_PRIVACY_EPSILON, DEFAULT_MEMORY_AISME_PRIVACY_EPSILON));
+        properties.setPrivacyDelta(props.getFloat(MEMORY_AISME_PRIVACY_DELTA, DEFAULT_MEMORY_AISME_PRIVACY_DELTA));
+        properties.setPrivacyClippingNorm(props.getFloat(MEMORY_AISME_PRIVACY_CLIPPING_NORM, DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM));
+        properties.setPrivacyAnonymizePii(props.getBoolean(MEMORY_AISME_PRIVACY_ANONYMIZE_PII, DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII));
+        properties.setPrivacyPseudonymizationSalt(props.getString(MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT, DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT));
         return properties;
     }
 

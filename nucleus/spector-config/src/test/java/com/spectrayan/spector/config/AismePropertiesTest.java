@@ -64,6 +64,13 @@ class AismePropertiesTest {
         assertThat(props.getBocpdMaxEpisodeFrames()).isEqualTo(200);
         assertThat(props.getBocpdMaxRunLength()).isEqualTo(150);
 
+        assertThat(props.isEnablePrivacy()).isFalse();
+        assertThat(props.getPrivacyEpsilon()).isEqualTo(2.0f);
+        assertThat(props.getPrivacyDelta()).isEqualTo(1e-5f);
+        assertThat(props.getPrivacyClippingNorm()).isEqualTo(1.0f);
+        assertThat(props.isPrivacyAnonymizePii()).isTrue();
+        assertThat(props.getPrivacyPseudonymizationSalt()).isEqualTo("spector-privacy-salt");
+
         // Fluent accessors
         assertThat(props.enabled()).isFalse();
         assertThat(props.enableHomeostasis()).isTrue();
@@ -96,6 +103,13 @@ class AismePropertiesTest {
         assertThat(props.bocpdSurprisalCutThreshold()).isEqualTo(1.50f);
         assertThat(props.bocpdMaxEpisodeFrames()).isEqualTo(200);
         assertThat(props.bocpdMaxRunLength()).isEqualTo(150);
+
+        assertThat(props.enablePrivacy()).isFalse();
+        assertThat(props.privacyEpsilon()).isEqualTo(2.0f);
+        assertThat(props.privacyDelta()).isEqualTo(1e-5f);
+        assertThat(props.privacyClippingNorm()).isEqualTo(1.0f);
+        assertThat(props.privacyAnonymizePii()).isTrue();
+        assertThat(props.privacyPseudonymizationSalt()).isEqualTo("spector-privacy-salt");
     }
 
     @Test
@@ -127,6 +141,13 @@ class AismePropertiesTest {
         props.setBocpdMaxEpisodeFrames(300);
         props.setBocpdMaxRunLength(200);
 
+        props.setEnablePrivacy(true);
+        props.setPrivacyEpsilon(1.5f);
+        props.setPrivacyDelta(1e-4f);
+        props.setPrivacyClippingNorm(2.0f);
+        props.setPrivacyAnonymizePii(false);
+        props.setPrivacyPseudonymizationSalt("custom-salt");
+
         assertThat(props.isEnabled()).isTrue();
         assertThat(props.isEnableHomeostasis()).isFalse();
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
@@ -153,6 +174,13 @@ class AismePropertiesTest {
         assertThat(props.getBocpdMaxEpisodeFrames()).isEqualTo(300);
         assertThat(props.getBocpdMaxRunLength()).isEqualTo(200);
 
+        assertThat(props.isEnablePrivacy()).isTrue();
+        assertThat(props.getPrivacyEpsilon()).isEqualTo(1.5f);
+        assertThat(props.getPrivacyDelta()).isEqualTo(1e-4f);
+        assertThat(props.getPrivacyClippingNorm()).isEqualTo(2.0f);
+        assertThat(props.isPrivacyAnonymizePii()).isFalse();
+        assertThat(props.getPrivacyPseudonymizationSalt()).isEqualTo("custom-salt");
+
         // Invalid values should be ignored
         props.setGlobalWorkspaceCapacity(0);
         props.setHopfieldTemperature(-1.0f);
@@ -166,6 +194,9 @@ class AismePropertiesTest {
         props.setBocpdHazardLambda(0.0f);
         props.setBocpdChangePointThreshold(1.5f);
         props.setBocpdMaxEpisodeFrames(0);
+        props.setPrivacyEpsilon(-1.0f);
+        props.setPrivacyDelta(1.5f);
+        props.setPrivacyClippingNorm(-0.5f);
 
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
         assertThat(props.getHopfieldTemperature()).isEqualTo(8.0f);
@@ -179,6 +210,9 @@ class AismePropertiesTest {
         assertThat(props.getBocpdHazardLambda()).isEqualTo(80.0f);
         assertThat(props.getBocpdChangePointThreshold()).isEqualTo(0.75f);
         assertThat(props.getBocpdMaxEpisodeFrames()).isEqualTo(300);
+        assertThat(props.getPrivacyEpsilon()).isEqualTo(1.5f);
+        assertThat(props.getPrivacyDelta()).isEqualTo(1e-4f);
+        assertThat(props.getPrivacyClippingNorm()).isEqualTo(2.0f);
     }
 
     @Test
@@ -207,6 +241,12 @@ class AismePropertiesTest {
                 .override("spector.memory.aisme.bocpd.surprisal-cut-threshold", "1.80")
                 .override("spector.memory.aisme.bocpd.max-episode-frames", "250")
                 .override("spector.memory.aisme.bocpd.max-run-length", "180")
+                .override("spector.memory.aisme.privacy.enabled", "true")
+                .override("spector.memory.aisme.privacy.epsilon", "3.0")
+                .override("spector.memory.aisme.privacy.delta", "0.00002")
+                .override("spector.memory.aisme.privacy.clipping-norm", "1.5")
+                .override("spector.memory.aisme.privacy.anonymize-pii", "false")
+                .override("spector.memory.aisme.privacy.pseudonymization-salt", "test-salt")
                 .build();
 
         AismeProperties aisme = SpectorConfigFactory.aismeProperties(props);
@@ -237,6 +277,13 @@ class AismePropertiesTest {
         assertThat(aisme.getBocpdSurprisalCutThreshold()).isEqualTo(1.80f);
         assertThat(aisme.getBocpdMaxEpisodeFrames()).isEqualTo(250);
         assertThat(aisme.getBocpdMaxRunLength()).isEqualTo(180);
+
+        assertThat(aisme.isEnablePrivacy()).isTrue();
+        assertThat(aisme.getPrivacyEpsilon()).isEqualTo(3.0f);
+        assertThat(aisme.getPrivacyDelta()).isEqualTo(0.00002f);
+        assertThat(aisme.getPrivacyClippingNorm()).isEqualTo(1.5f);
+        assertThat(aisme.isPrivacyAnonymizePii()).isFalse();
+        assertThat(aisme.getPrivacyPseudonymizationSalt()).isEqualTo("test-salt");
 
         var memory = SpectorConfigFactory.memoryProperties(props);
         assertThat(memory.getAisme().isEnabled()).isTrue();

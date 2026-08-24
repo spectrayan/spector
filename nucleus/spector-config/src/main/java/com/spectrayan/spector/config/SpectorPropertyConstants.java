@@ -543,6 +543,25 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_BOCPD_MAX_RUN_LENGTH = "spector.memory.aisme.bocpd.max-run-length";
     public static final int DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH = 150;
 
+    // Differential Privacy & Edge Local Anonymization
+    public static final String MEMORY_AISME_PRIVACY_ENABLED = "spector.memory.aisme.privacy.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_PRIVACY_ENABLED = false;
+
+    public static final String MEMORY_AISME_PRIVACY_EPSILON = "spector.memory.aisme.privacy.epsilon";
+    public static final float DEFAULT_MEMORY_AISME_PRIVACY_EPSILON = 2.0f;
+
+    public static final String MEMORY_AISME_PRIVACY_DELTA = "spector.memory.aisme.privacy.delta";
+    public static final float DEFAULT_MEMORY_AISME_PRIVACY_DELTA = 1e-5f;
+
+    public static final String MEMORY_AISME_PRIVACY_CLIPPING_NORM = "spector.memory.aisme.privacy.clipping-norm";
+    public static final float DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM = 1.0f;
+
+    public static final String MEMORY_AISME_PRIVACY_ANONYMIZE_PII = "spector.memory.aisme.privacy.anonymize-pii";
+    public static final boolean DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII = true;
+
+    public static final String MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT = "spector.memory.aisme.privacy.pseudonymization-salt";
+    public static final String DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT = "spector-privacy-salt";
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;
