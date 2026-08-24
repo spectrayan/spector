@@ -35,6 +35,8 @@ import com.spectrayan.spector.commons.error.SpectorGpuException;
 import com.spectrayan.spector.storage.error.SpectorSegmentClosedException;
 import com.spectrayan.spector.commons.error.ErrorCode;
 
+import com.spectrayan.spector.core.spi.SvasqDistanceKernel;
+
 /**
  * CUDA-accelerated SVASQ quantized distance computation via Panama FFM.
  *
@@ -62,7 +64,7 @@ import com.spectrayan.spector.commons.error.ErrorCode;
  *
  * @see com.spectrayan.spector.core.quantization.svasq.SvasqSimdKernel
  */
-public final class CudaSvasqKernel implements AutoCloseable {
+public final class CudaSvasqKernel implements SvasqDistanceKernel, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(CudaSvasqKernel.class);
 
@@ -169,6 +171,25 @@ public final class CudaSvasqKernel implements AutoCloseable {
             }
         }
         return computeDotCpu(qTilde, codes, dotOffset, n, dims);
+    }
+
+    @Override
+    public void computeDistances(
+            float[] rotatedQuery,
+            byte[] quantizedVectorsFlat,
+            float[] codebookScales,
+            int vectorCount,
+            int dimensions,
+            float[] outDistances
+    ) {
+        if (vectorCount == 0) {
+            return;
+        }
+        float[] dots = computeDot(rotatedQuery, quantizedVectorsFlat, 0.0f, vectorCount, dimensions);
+        for (int i = 0; i < vectorCount; i++) {
+            float scale = (codebookScales != null && codebookScales.length > i) ? codebookScales[i] : 1.0f;
+            outDistances[i] = dots[i] * scale;
+        }
     }
 
     /** Returns whether GPU is active for this kernel. */

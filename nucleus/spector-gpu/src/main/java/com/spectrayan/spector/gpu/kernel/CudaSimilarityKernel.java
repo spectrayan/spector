@@ -23,7 +23,7 @@ import com.spectrayan.spector.core.spi.SimilarityKernel;
  * <p>Dispatches similarity computations (cosine, dot product, Euclidean distance)
  * to CUDA GPU kernels via Panama FFM, with transparent automatic fallback to CPU SIMD.</p>
  */
-public final class CudaSimilarityKernel implements SimilarityKernel {
+public final class CudaSimilarityKernel implements SimilarityKernel, AutoCloseable {
 
     private final CudaCosineKernel cosineKernel;
     private final CudaDotProductKernel dotKernel;
@@ -55,5 +55,12 @@ public final class CudaSimilarityKernel implements SimilarityKernel {
             dists[i] = (float) Math.sqrt(Math.max(0.0f, dists[i]));
         }
         return dists;
+    }
+
+    @Override
+    public void close() {
+        cosineKernel.close();
+        dotKernel.close();
+        hnswKernel.close();
     }
 }
