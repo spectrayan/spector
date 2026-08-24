@@ -584,6 +584,28 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD = "spector.memory.aisme.importance.flashbulb-threshold";
     public static final float DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD = 0.85f;
 
+    // AISME — Lifespan-Adaptive Forgetting & Retention Threshold \tau(t)
+    public static final String MEMORY_AISME_LIFESPAN_ENABLED = "spector.memory.aisme.lifespan.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_LIFESPAN_ENABLED = true;
+
+    public static final String MEMORY_AISME_LIFESPAN_TAU_0 = "spector.memory.aisme.lifespan.tau-0";
+    public static final float DEFAULT_MEMORY_AISME_LIFESPAN_TAU_0 = 0.30f;
+
+    public static final String MEMORY_AISME_LIFESPAN_K = "spector.memory.aisme.lifespan.k";
+    public static final float DEFAULT_MEMORY_AISME_LIFESPAN_K = 0.15f;
+
+    public static final String MEMORY_AISME_LIFESPAN_T0_EPOCHS = "spector.memory.aisme.lifespan.t0-epochs";
+    public static final long DEFAULT_MEMORY_AISME_LIFESPAN_T0_EPOCHS = 365L;
+
+    public static final String MEMORY_AISME_LIFESPAN_V_TARGET = "spector.memory.aisme.lifespan.v-target";
+    public static final long DEFAULT_MEMORY_AISME_LIFESPAN_V_TARGET = 100000L;
+
+    public static final String MEMORY_AISME_LIFESPAN_GAMMA = "spector.memory.aisme.lifespan.gamma";
+    public static final float DEFAULT_MEMORY_AISME_LIFESPAN_GAMMA = 1.2f;
+
+    public static final String MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT = "spector.memory.aisme.lifespan.flashbulb-protect";
+    public static final boolean DEFAULT_MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT = true;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;

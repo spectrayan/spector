@@ -78,6 +78,13 @@ class AismePropertiesTest {
         assertThat(props.getImportanceWeightSocial()).isEqualTo(0.20f);
         assertThat(props.getImportanceWeightNovelty()).isEqualTo(0.20f);
         assertThat(props.getImportanceFlashbulbThreshold()).isEqualTo(0.85f);
+        assertThat(props.isEnableLifespan()).isTrue();
+        assertThat(props.getLifespanTau0()).isEqualTo(0.30f);
+        assertThat(props.getLifespanK()).isEqualTo(0.15f);
+        assertThat(props.getLifespanT0Epochs()).isEqualTo(365L);
+        assertThat(props.getLifespanVTarget()).isEqualTo(100000L);
+        assertThat(props.getLifespanGamma()).isEqualTo(1.2f);
+        assertThat(props.isLifespanFlashbulbProtect()).isTrue();
 
         // Fluent accessors
         assertThat(props.enabled()).isFalse();
@@ -126,6 +133,14 @@ class AismePropertiesTest {
         assertThat(props.importanceWeightSocial()).isEqualTo(0.20f);
         assertThat(props.importanceWeightNovelty()).isEqualTo(0.20f);
         assertThat(props.importanceFlashbulbThreshold()).isEqualTo(0.85f);
+
+        assertThat(props.enableLifespan()).isTrue();
+        assertThat(props.lifespanTau0()).isEqualTo(0.30f);
+        assertThat(props.lifespanK()).isEqualTo(0.15f);
+        assertThat(props.lifespanT0Epochs()).isEqualTo(365L);
+        assertThat(props.lifespanVTarget()).isEqualTo(100000L);
+        assertThat(props.lifespanGamma()).isEqualTo(1.2f);
+        assertThat(props.lifespanFlashbulbProtect()).isTrue();
     }
 
     @Test
@@ -213,6 +228,22 @@ class AismePropertiesTest {
         assertThat(props.getImportanceWeightNovelty()).isEqualTo(0.15f);
         assertThat(props.getImportanceFlashbulbThreshold()).isEqualTo(0.90f);
 
+        props.setEnableLifespan(false);
+        props.setLifespanTau0(0.40f);
+        props.setLifespanK(0.20f);
+        props.setLifespanT0Epochs(730L);
+        props.setLifespanVTarget(200000L);
+        props.setLifespanGamma(1.5f);
+        props.setLifespanFlashbulbProtect(false);
+
+        assertThat(props.isEnableLifespan()).isFalse();
+        assertThat(props.getLifespanTau0()).isEqualTo(0.40f);
+        assertThat(props.getLifespanK()).isEqualTo(0.20f);
+        assertThat(props.getLifespanT0Epochs()).isEqualTo(730L);
+        assertThat(props.getLifespanVTarget()).isEqualTo(200000L);
+        assertThat(props.getLifespanGamma()).isEqualTo(1.5f);
+        assertThat(props.isLifespanFlashbulbProtect()).isFalse();
+
         // Invalid values should be ignored
         props.setGlobalWorkspaceCapacity(0);
         props.setHopfieldTemperature(-1.0f);
@@ -231,6 +262,11 @@ class AismePropertiesTest {
         props.setPrivacyClippingNorm(-0.5f);
         props.setImportanceWeightSurprise(-0.1f);
         props.setImportanceFlashbulbThreshold(1.5f);
+        props.setLifespanTau0(-0.1f);
+        props.setLifespanK(-0.5f);
+        props.setLifespanT0Epochs(0L);
+        props.setLifespanVTarget(0L);
+        props.setLifespanGamma(-1.0f);
 
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
         assertThat(props.getHopfieldTemperature()).isEqualTo(8.0f);
@@ -249,6 +285,11 @@ class AismePropertiesTest {
         assertThat(props.getPrivacyClippingNorm()).isEqualTo(2.0f);
         assertThat(props.getImportanceWeightSurprise()).isEqualTo(0.35f);
         assertThat(props.getImportanceFlashbulbThreshold()).isEqualTo(0.90f);
+        assertThat(props.getLifespanTau0()).isEqualTo(0.40f);
+        assertThat(props.getLifespanK()).isEqualTo(0.20f);
+        assertThat(props.getLifespanT0Epochs()).isEqualTo(730L);
+        assertThat(props.getLifespanVTarget()).isEqualTo(200000L);
+        assertThat(props.getLifespanGamma()).isEqualTo(1.5f);
     }
 
     @Test
@@ -290,6 +331,13 @@ class AismePropertiesTest {
                 .override("spector.memory.aisme.importance.weight-social", "0.15")
                 .override("spector.memory.aisme.importance.weight-novelty", "0.15")
                 .override("spector.memory.aisme.importance.flashbulb-threshold", "0.92")
+                .override("spector.memory.aisme.lifespan.enabled", "false")
+                .override("spector.memory.aisme.lifespan.tau-0", "0.35")
+                .override("spector.memory.aisme.lifespan.k", "0.18")
+                .override("spector.memory.aisme.lifespan.t0-epochs", "500")
+                .override("spector.memory.aisme.lifespan.v-target", "150000")
+                .override("spector.memory.aisme.lifespan.gamma", "1.3")
+                .override("spector.memory.aisme.lifespan.flashbulb-protect", "false")
                 .build();
 
         AismeProperties aisme = SpectorConfigFactory.aismeProperties(props);
@@ -336,8 +384,17 @@ class AismePropertiesTest {
         assertThat(aisme.getImportanceWeightNovelty()).isEqualTo(0.15f);
         assertThat(aisme.getImportanceFlashbulbThreshold()).isEqualTo(0.92f);
 
+        assertThat(aisme.isEnableLifespan()).isFalse();
+        assertThat(aisme.getLifespanTau0()).isEqualTo(0.35f);
+        assertThat(aisme.getLifespanK()).isEqualTo(0.18f);
+        assertThat(aisme.getLifespanT0Epochs()).isEqualTo(500L);
+        assertThat(aisme.getLifespanVTarget()).isEqualTo(150000L);
+        assertThat(aisme.getLifespanGamma()).isEqualTo(1.3f);
+        assertThat(aisme.isLifespanFlashbulbProtect()).isFalse();
+
         var memory = SpectorConfigFactory.memoryProperties(props);
         assertThat(memory.getAisme().isEnabled()).isTrue();
+        assertThat(memory.getAisme().getGlobalWorkspaceCapacity()).isEqualTo(5);
         assertThat(memory.getAisme().getGlobalWorkspaceCapacity()).isEqualTo(5);
     }
 }
