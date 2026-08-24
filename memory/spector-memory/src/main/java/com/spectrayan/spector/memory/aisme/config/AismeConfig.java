@@ -23,7 +23,7 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  * <p>Controls the activation and hyperparameters of homeostatic affective regulation,
  * variational free-energy minimization, continuous Hopfield attractor dynamics,
  * Riemannian cognitive manifolds, predictive coding, consciousness continuity,
- * and the Global Workspace conscious access gateway.</p>
+ * the Global Workspace conscious access gateway, and the Soft Identity Anchor control law.</p>
  */
 public record AismeConfig(
         boolean enabled,
@@ -54,7 +54,11 @@ public record AismeConfig(
         float constructivePersistenceThreshold,
         boolean backgroundDecayEnabled,
         float backgroundDecayFactor,
-        int backgroundDecayIntervalSeconds
+        int backgroundDecayIntervalSeconds,
+        boolean enableSoftIdentityAnchor,
+        float identityAnchorEta,
+        float identityLyapunovThreshold,
+        int identityCoreSnapshotEpochs
 ) {
 
     /**
@@ -109,6 +113,15 @@ public record AismeConfig(
         if (backgroundDecayIntervalSeconds < 1) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "backgroundDecayIntervalSeconds must be at least 1");
         }
+        if (Float.isNaN(identityAnchorEta) || identityAnchorEta < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "identityAnchorEta must be non-negative");
+        }
+        if (Float.isNaN(identityLyapunovThreshold) || identityLyapunovThreshold <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "identityLyapunovThreshold must be positive");
+        }
+        if (identityCoreSnapshotEpochs < 1) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "identityCoreSnapshotEpochs must be at least 1");
+        }
     }
 
     /**
@@ -139,7 +152,11 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_THRESHOLD,
                 false,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS
         );
     }
 
@@ -178,7 +195,11 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_CONSTRUCTIVE_PERSISTENCE_THRESHOLD,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_ENABLED,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS
         );
     }
 
@@ -221,7 +242,11 @@ public record AismeConfig(
                 props.constructivePersistenceThreshold(),
                 props.backgroundDecayEnabled(),
                 props.backgroundDecayFactor(),
-                props.backgroundDecayIntervalSeconds()
+                props.backgroundDecayIntervalSeconds(),
+                props.isEnableSoftIdentityAnchor(),
+                props.getIdentityAnchorEta(),
+                props.getIdentityLyapunovThreshold(),
+                props.getIdentityCoreSnapshotEpochs()
         );
     }
 
@@ -262,6 +287,10 @@ public record AismeConfig(
         private boolean backgroundDecayEnabled = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_ENABLED;
         private float backgroundDecayFactor = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_FACTOR;
         private int backgroundDecayIntervalSeconds = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BACKGROUND_DECAY_INTERVAL_SECONDS;
+        private boolean enableSoftIdentityAnchor = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED;
+        private float identityAnchorEta = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA;
+        private float identityLyapunovThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD;
+        private int identityCoreSnapshotEpochs = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -292,6 +321,10 @@ public record AismeConfig(
         public Builder backgroundDecayEnabled(boolean enable) { this.backgroundDecayEnabled = enable; return this; }
         public Builder backgroundDecayFactor(float factor) { this.backgroundDecayFactor = factor; return this; }
         public Builder backgroundDecayIntervalSeconds(int sec) { this.backgroundDecayIntervalSeconds = sec; return this; }
+        public Builder enableSoftIdentityAnchor(boolean enable) { this.enableSoftIdentityAnchor = enable; return this; }
+        public Builder identityAnchorEta(float eta) { this.identityAnchorEta = eta; return this; }
+        public Builder identityLyapunovThreshold(float threshold) { this.identityLyapunovThreshold = threshold; return this; }
+        public Builder identityCoreSnapshotEpochs(int epochs) { this.identityCoreSnapshotEpochs = epochs; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
@@ -305,7 +338,9 @@ public record AismeConfig(
                     efeSoulWeightAgent, efeSoulWeightUser, efeSoulWeightTenant,
                     efeSoulWeightOrgUnit, constructivePersistenceEnabled,
                     constructivePersistenceThreshold, backgroundDecayEnabled,
-                    backgroundDecayFactor, backgroundDecayIntervalSeconds
+                    backgroundDecayFactor, backgroundDecayIntervalSeconds,
+                    enableSoftIdentityAnchor, identityAnchorEta, identityLyapunovThreshold,
+                    identityCoreSnapshotEpochs
             );
         }
     }

@@ -14,6 +14,8 @@ package com.spectrayan.spector.memory.aisme.fegr;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
+import com.spectrayan.spector.memory.aisme.continuity.CoreIdentityAnchor;
+import com.spectrayan.spector.memory.aisme.manifold.PersonalMetricTensor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,11 +24,12 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Thread-safe manager maintaining the continuous approximate posterior belief state q(s_t)
- * across conversational turns and environmental observations.
+ * across conversational turns and environmental observations, anchored by a foundational {@link CoreIdentityAnchor}.
  *
  * <h3>Biological Analog: Continuous Prefrontal & Insular Latent State Tracking</h3>
  * <p>Maintains the active internal state representation, updating expectations with incoming
- * observations via precision weighting and decaying unreinforced states back toward baseline priors.</p>
+ * observations via precision weighting, decaying unreinforced states back toward baseline priors,
+ * and applying the Soft Identity Anchor Lyapunov restoring pull during sleep consolidation.</p>
  */
 public final class MentalStateTracker {
 
@@ -34,6 +37,7 @@ public final class MentalStateTracker {
 
     private final ReentrantLock lock = new ReentrantLock();
     private volatile GenerativeSelfModel selfModel;
+    private volatile CoreIdentityAnchor coreAnchor;
     private MentalStatePosterior currentPosterior;
 
     /**
@@ -46,6 +50,7 @@ public final class MentalStateTracker {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "GenerativeSelfModel must not be null");
         }
         this.selfModel = selfModel;
+        this.coreAnchor = CoreIdentityAnchor.fromGenerativeModel(selfModel);
         this.currentPosterior = selfModel.createInitialPosterior(System.currentTimeMillis());
     }
 
@@ -56,6 +61,17 @@ public final class MentalStateTracker {
      * @param initialPosterior the initial posterior belief state
      */
     public MentalStateTracker(GenerativeSelfModel selfModel, MentalStatePosterior initialPosterior) {
+        this(selfModel, initialPosterior, null);
+    }
+
+    /**
+     * Constructs a MentalStateTracker with an explicit initial posterior state and core identity anchor.
+     *
+     * @param selfModel the generative self-model
+     * @param initialPosterior the initial posterior belief state
+     * @param coreAnchor the core identity anchor snapshot (nullable; derived from selfModel if null)
+     */
+    public MentalStateTracker(GenerativeSelfModel selfModel, MentalStatePosterior initialPosterior, CoreIdentityAnchor coreAnchor) {
         if (selfModel == null || initialPosterior == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Arguments must not be null");
         }
@@ -63,6 +79,7 @@ public final class MentalStateTracker {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "SelfModel and initial posterior dimension mismatch");
         }
         this.selfModel = selfModel;
+        this.coreAnchor = (coreAnchor != null) ? coreAnchor : CoreIdentityAnchor.fromGenerativeModel(selfModel);
         this.currentPosterior = initialPosterior;
     }
 
@@ -150,6 +167,26 @@ public final class MentalStateTracker {
     }
 
     /**
+     * @return the active foundational CoreIdentityAnchor
+     */
+    public CoreIdentityAnchor coreAnchor() {
+        return coreAnchor;
+    }
+
+    /**
+     * Updates or re-anchors the core identity state (e.g. upon major multi-year milestones).
+     *
+     * @param newAnchor the new core identity anchor
+     */
+    public void updateCoreAnchor(CoreIdentityAnchor newAnchor) {
+        if (newAnchor == null || newAnchor.dimensions() != selfModel.dimensions()) {
+            return;
+        }
+        this.coreAnchor = newAnchor;
+        log.info("Updated CoreIdentityAnchor to version {}", newAnchor.snapshotVersion());
+    }
+
+    /**
      * Adapts the generative prior mean vector towards an experiential centroid (e.g. during sleep reflection).
      *
      * @param targetCentroid target experiential centroid vector
@@ -168,6 +205,68 @@ public final class MentalStateTracker {
         } finally {
             lock.unlock();
         }
+    }
+
+    /**
+     * Applies the Soft Identity Anchor restoring force during biological sleep reflection:
+     * \(\boldsymbol{p}_{t+1} \leftarrow (1 - \eta)\boldsymbol{p}_t + \eta \boldsymbol{p}_{\text{core}}\).
+     *
+     * @param eta restorative learning rate \(\eta_{\text{anchor}} \in [0, 1]\)
+     */
+    public void applyIdentityAnchorRestoration(float eta) {
+        if (coreAnchor == null || eta <= 0.0f) {
+            return;
+        }
+        lock.lock();
+        try {
+            this.selfModel = this.selfModel.withAdaptedPriorMean(coreAnchor.corePriorMean(), eta);
+            if (log.isDebugEnabled()) {
+                log.debug("Applied Soft Identity Anchor restoring force with eta={}", eta);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Computes the Riemannian distance \(d_M(\boldsymbol{p}, \boldsymbol{p}_{\text{core}})\) between current prior and core anchor.
+     *
+     * @param tensor active personal metric tensor
+     * @return Riemannian distance to anchor
+     */
+    public float computeManifoldDistanceToAnchor(PersonalMetricTensor tensor) {
+        if (coreAnchor == null) {
+            return 0.0f;
+        }
+        return coreAnchor.computeManifoldDistance(selfModel.priorMean(), tensor);
+    }
+
+    /**
+     * Evaluates the Longitudinal Continuity metric \(C(t, t+\Delta)\) against the core anchor.
+     *
+     * @param tensor active metric tensor
+     * @param lambda decay sensitivity
+     * @return continuity metric in \([0, 1]\)
+     */
+    public float computeContinuityScore(PersonalMetricTensor tensor, float lambda) {
+        if (coreAnchor == null) {
+            return 1.0f;
+        }
+        return coreAnchor.computeContinuityScore(selfModel.priorMean(), tensor, lambda);
+    }
+
+    /**
+     * Checks if current generative prior is bounded within the Lyapunov attractor basin.
+     *
+     * @param tensor active metric tensor
+     * @param lyapunovThreshold maximum allowable distance
+     * @return true if bounded
+     */
+    public boolean isWithinLyapunovBasin(PersonalMetricTensor tensor, float lyapunovThreshold) {
+        if (coreAnchor == null) {
+            return true;
+        }
+        return coreAnchor.isWithinLyapunovBasin(selfModel.priorMean(), tensor, lyapunovThreshold);
     }
 
     /**
