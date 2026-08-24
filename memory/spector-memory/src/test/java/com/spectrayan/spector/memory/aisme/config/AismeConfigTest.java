@@ -38,6 +38,7 @@ class AismeConfigTest {
         assertThat(config.enableSoftIdentityAnchor()).isFalse();
         assertThat(config.enableEventDensity()).isFalse();
         assertThat(config.enableBocpd()).isFalse();
+        assertThat(config.enablePrivacy()).isFalse();
     }
 
     @Test
@@ -69,6 +70,12 @@ class AismeConfigTest {
         assertThat(config.bocpdSurprisalCutThreshold()).isEqualTo(1.50f);
         assertThat(config.bocpdMaxEpisodeFrames()).isEqualTo(200);
         assertThat(config.bocpdMaxRunLength()).isEqualTo(150);
+        assertThat(config.enablePrivacy()).isFalse();
+        assertThat(config.privacyEpsilon()).isEqualTo(2.0f);
+        assertThat(config.privacyDelta()).isEqualTo(1e-5f);
+        assertThat(config.privacyClippingNorm()).isEqualTo(1.0f);
+        assertThat(config.privacyAnonymizePii()).isTrue();
+        assertThat(config.privacyPseudonymizationSalt()).isEqualTo("spector-privacy-salt");
     }
 
     @Test
@@ -98,6 +105,12 @@ class AismeConfigTest {
                 .bocpdSurprisalCutThreshold(1.80f)
                 .bocpdMaxEpisodeFrames(180)
                 .bocpdMaxRunLength(120)
+                .enablePrivacy(true)
+                .privacyEpsilon(3.0f)
+                .privacyDelta(1e-4f)
+                .privacyClippingNorm(2.0f)
+                .privacyAnonymizePii(false)
+                .privacyPseudonymizationSalt("custom-salt")
                 .build();
 
         assertThat(config.enabled()).isTrue();
@@ -119,6 +132,12 @@ class AismeConfigTest {
         assertThat(config.bocpdSurprisalCutThreshold()).isEqualTo(1.80f);
         assertThat(config.bocpdMaxEpisodeFrames()).isEqualTo(180);
         assertThat(config.bocpdMaxRunLength()).isEqualTo(120);
+        assertThat(config.enablePrivacy()).isTrue();
+        assertThat(config.privacyEpsilon()).isEqualTo(3.0f);
+        assertThat(config.privacyDelta()).isEqualTo(1e-4f);
+        assertThat(config.privacyClippingNorm()).isEqualTo(2.0f);
+        assertThat(config.privacyAnonymizePii()).isFalse();
+        assertThat(config.privacyPseudonymizationSalt()).isEqualTo("custom-salt");
     }
 
     @Test
@@ -164,6 +183,18 @@ class AismeConfigTest {
 
         assertThatThrownBy(() -> AismeConfig.builder().bocpdMaxRunLength(0).build())
                 .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().privacyEpsilon(0.0f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().privacyDelta(0.0f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().privacyClippingNorm(0.0f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().privacyPseudonymizationSalt(null).build())
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
@@ -193,6 +224,12 @@ class AismeConfigTest {
         props.setBocpdSurprisalCutThreshold(1.65f);
         props.setBocpdMaxEpisodeFrames(220);
         props.setBocpdMaxRunLength(160);
+        props.setEnablePrivacy(true);
+        props.setPrivacyEpsilon(2.5f);
+        props.setPrivacyDelta(1e-4f);
+        props.setPrivacyClippingNorm(1.5f);
+        props.setPrivacyAnonymizePii(false);
+        props.setPrivacyPseudonymizationSalt("custom-salt");
 
         AismeConfig config = AismeConfig.fromProperties(props);
 
@@ -215,6 +252,12 @@ class AismeConfigTest {
         assertThat(config.bocpdSurprisalCutThreshold()).isEqualTo(1.65f);
         assertThat(config.bocpdMaxEpisodeFrames()).isEqualTo(220);
         assertThat(config.bocpdMaxRunLength()).isEqualTo(160);
+        assertThat(config.enablePrivacy()).isTrue();
+        assertThat(config.privacyEpsilon()).isEqualTo(2.5f);
+        assertThat(config.privacyDelta()).isEqualTo(1e-4f);
+        assertThat(config.privacyClippingNorm()).isEqualTo(1.5f);
+        assertThat(config.privacyAnonymizePii()).isFalse();
+        assertThat(config.privacyPseudonymizationSalt()).isEqualTo("custom-salt");
 
         // Disabled or null props returns disabled config
         props.setEnabled(false);
