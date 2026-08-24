@@ -503,6 +503,28 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS = "spector.memory.aisme.identity-core-snapshot.epochs";
     public static final int DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS = 50;
 
+    // AISME — Event Density Gating & Dynamic Epistemic Compression
+    public static final String MEMORY_AISME_EVENT_DENSITY_ENABLED = "spector.memory.aisme.event-density.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_EVENT_DENSITY_ENABLED = true;
+
+    public static final String MEMORY_AISME_EVENT_DENSITY_THRESHOLD = "spector.memory.aisme.event-density.threshold";
+    public static final float DEFAULT_MEMORY_AISME_EVENT_DENSITY_THRESHOLD = 0.50f;
+
+    public static final String MEMORY_AISME_EVENT_DENSITY_ALPHA_KL = "spector.memory.aisme.event-density.alpha-kl";
+    public static final float DEFAULT_MEMORY_AISME_EVENT_DENSITY_ALPHA_KL = 0.40f;
+
+    public static final String MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT = "spector.memory.aisme.event-density.beta-gradient";
+    public static final float DEFAULT_MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT = 0.30f;
+
+    public static final String MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE = "spector.memory.aisme.event-density.gamma-surprise";
+    public static final float DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE = 0.30f;
+
+    public static final String MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ = "spector.memory.aisme.event-density.sampling-min-hz";
+    public static final float DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ = 0.10f;
+
+    public static final String MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ = "spector.memory.aisme.event-density.sampling-max-hz";
+    public static final float DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ = 30.0f;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;

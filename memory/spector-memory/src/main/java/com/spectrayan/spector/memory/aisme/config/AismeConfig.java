@@ -23,7 +23,7 @@ import com.spectrayan.spector.config.SpectorPropertyConstants;
  * <p>Controls the activation and hyperparameters of homeostatic affective regulation,
  * variational free-energy minimization, continuous Hopfield attractor dynamics,
  * Riemannian cognitive manifolds, predictive coding, consciousness continuity,
- * the Global Workspace conscious access gateway, and the Soft Identity Anchor control law.</p>
+ * the Global Workspace conscious access gateway, Soft Identity Anchor, and Event Density Gating.</p>
  */
 public record AismeConfig(
         boolean enabled,
@@ -58,7 +58,14 @@ public record AismeConfig(
         boolean enableSoftIdentityAnchor,
         float identityAnchorEta,
         float identityLyapunovThreshold,
-        int identityCoreSnapshotEpochs
+        int identityCoreSnapshotEpochs,
+        boolean enableEventDensity,
+        float eventDensityThreshold,
+        float eventDensityAlphaKl,
+        float eventDensityBetaGradient,
+        float eventDensityGammaSurprise,
+        float eventDensitySamplingMinHz,
+        float eventDensitySamplingMaxHz
 ) {
 
     /**
@@ -122,6 +129,24 @@ public record AismeConfig(
         if (identityCoreSnapshotEpochs < 1) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "identityCoreSnapshotEpochs must be at least 1");
         }
+        if (Float.isNaN(eventDensityThreshold) || eventDensityThreshold < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "eventDensityThreshold must be non-negative");
+        }
+        if (Float.isNaN(eventDensityAlphaKl) || eventDensityAlphaKl < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "eventDensityAlphaKl must be non-negative");
+        }
+        if (Float.isNaN(eventDensityBetaGradient) || eventDensityBetaGradient < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "eventDensityBetaGradient must be non-negative");
+        }
+        if (Float.isNaN(eventDensityGammaSurprise) || eventDensityGammaSurprise < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "eventDensityGammaSurprise must be non-negative");
+        }
+        if (Float.isNaN(eventDensitySamplingMinHz) || eventDensitySamplingMinHz <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "eventDensitySamplingMinHz must be positive");
+        }
+        if (Float.isNaN(eventDensitySamplingMaxHz) || eventDensitySamplingMaxHz < eventDensitySamplingMinHz) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "eventDensitySamplingMaxHz must be >= eventDensitySamplingMinHz");
+        }
     }
 
     /**
@@ -156,7 +181,14 @@ public record AismeConfig(
                 false,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_ALPHA_KL,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ
         );
     }
 
@@ -199,7 +231,14 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_SOFT_IDENTITY_ANCHOR_ENABLED,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_ALPHA_KL,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ
         );
     }
 
@@ -246,7 +285,14 @@ public record AismeConfig(
                 props.isEnableSoftIdentityAnchor(),
                 props.getIdentityAnchorEta(),
                 props.getIdentityLyapunovThreshold(),
-                props.getIdentityCoreSnapshotEpochs()
+                props.getIdentityCoreSnapshotEpochs(),
+                props.isEnableEventDensity(),
+                props.getEventDensityThreshold(),
+                props.getEventDensityAlphaKl(),
+                props.getEventDensityBetaGradient(),
+                props.getEventDensityGammaSurprise(),
+                props.getEventDensitySamplingMinHz(),
+                props.getEventDensitySamplingMaxHz()
         );
     }
 
@@ -291,6 +337,13 @@ public record AismeConfig(
         private float identityAnchorEta = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_ANCHOR_ETA;
         private float identityLyapunovThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_LYAPUNOV_THRESHOLD;
         private int identityCoreSnapshotEpochs = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IDENTITY_CORE_SNAPSHOT_EPOCHS;
+        private boolean enableEventDensity = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_ENABLED;
+        private float eventDensityThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_THRESHOLD;
+        private float eventDensityAlphaKl = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_ALPHA_KL;
+        private float eventDensityBetaGradient = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_BETA_GRADIENT;
+        private float eventDensityGammaSurprise = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_GAMMA_SURPRISE;
+        private float eventDensitySamplingMinHz = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ;
+        private float eventDensitySamplingMaxHz = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -325,6 +378,13 @@ public record AismeConfig(
         public Builder identityAnchorEta(float eta) { this.identityAnchorEta = eta; return this; }
         public Builder identityLyapunovThreshold(float threshold) { this.identityLyapunovThreshold = threshold; return this; }
         public Builder identityCoreSnapshotEpochs(int epochs) { this.identityCoreSnapshotEpochs = epochs; return this; }
+        public Builder enableEventDensity(boolean enable) { this.enableEventDensity = enable; return this; }
+        public Builder eventDensityThreshold(float threshold) { this.eventDensityThreshold = threshold; return this; }
+        public Builder eventDensityAlphaKl(float alpha) { this.eventDensityAlphaKl = alpha; return this; }
+        public Builder eventDensityBetaGradient(float beta) { this.eventDensityBetaGradient = beta; return this; }
+        public Builder eventDensityGammaSurprise(float gamma) { this.eventDensityGammaSurprise = gamma; return this; }
+        public Builder eventDensitySamplingMinHz(float minHz) { this.eventDensitySamplingMinHz = minHz; return this; }
+        public Builder eventDensitySamplingMaxHz(float maxHz) { this.eventDensitySamplingMaxHz = maxHz; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
@@ -340,7 +400,9 @@ public record AismeConfig(
                     constructivePersistenceThreshold, backgroundDecayEnabled,
                     backgroundDecayFactor, backgroundDecayIntervalSeconds,
                     enableSoftIdentityAnchor, identityAnchorEta, identityLyapunovThreshold,
-                    identityCoreSnapshotEpochs
+                    identityCoreSnapshotEpochs, enableEventDensity, eventDensityThreshold,
+                    eventDensityAlphaKl, eventDensityBetaGradient, eventDensityGammaSurprise,
+                    eventDensitySamplingMinHz, eventDensitySamplingMaxHz
             );
         }
     }

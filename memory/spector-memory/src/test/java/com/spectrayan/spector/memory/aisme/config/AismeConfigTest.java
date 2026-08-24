@@ -36,6 +36,7 @@ class AismeConfigTest {
         assertThat(config.enableConsciousnessContinuity()).isFalse();
         assertThat(config.enableGlobalWorkspace()).isFalse();
         assertThat(config.enableSoftIdentityAnchor()).isFalse();
+        assertThat(config.enableEventDensity()).isFalse();
     }
 
     @Test
@@ -54,6 +55,13 @@ class AismeConfigTest {
         assertThat(config.identityAnchorEta()).isEqualTo(0.0001f);
         assertThat(config.identityLyapunovThreshold()).isEqualTo(0.15f);
         assertThat(config.identityCoreSnapshotEpochs()).isEqualTo(50);
+        assertThat(config.enableEventDensity()).isTrue();
+        assertThat(config.eventDensityThreshold()).isEqualTo(0.50f);
+        assertThat(config.eventDensityAlphaKl()).isEqualTo(0.40f);
+        assertThat(config.eventDensityBetaGradient()).isEqualTo(0.30f);
+        assertThat(config.eventDensityGammaSurprise()).isEqualTo(0.30f);
+        assertThat(config.eventDensitySamplingMinHz()).isEqualTo(0.10f);
+        assertThat(config.eventDensitySamplingMaxHz()).isEqualTo(30.0f);
     }
 
     @Test
@@ -70,6 +78,13 @@ class AismeConfigTest {
                 .identityAnchorEta(0.0002f)
                 .identityLyapunovThreshold(0.25f)
                 .identityCoreSnapshotEpochs(100)
+                .enableEventDensity(true)
+                .eventDensityThreshold(0.60f)
+                .eventDensityAlphaKl(0.50f)
+                .eventDensityBetaGradient(0.25f)
+                .eventDensityGammaSurprise(0.25f)
+                .eventDensitySamplingMinHz(0.5f)
+                .eventDensitySamplingMaxHz(20.0f)
                 .build();
 
         assertThat(config.enabled()).isTrue();
@@ -83,6 +98,13 @@ class AismeConfigTest {
         assertThat(config.identityAnchorEta()).isEqualTo(0.0002f);
         assertThat(config.identityLyapunovThreshold()).isEqualTo(0.25f);
         assertThat(config.identityCoreSnapshotEpochs()).isEqualTo(100);
+        assertThat(config.enableEventDensity()).isTrue();
+        assertThat(config.eventDensityThreshold()).isEqualTo(0.60f);
+        assertThat(config.eventDensityAlphaKl()).isEqualTo(0.50f);
+        assertThat(config.eventDensityBetaGradient()).isEqualTo(0.25f);
+        assertThat(config.eventDensityGammaSurprise()).isEqualTo(0.25f);
+        assertThat(config.eventDensitySamplingMinHz()).isEqualTo(0.5f);
+        assertThat(config.eventDensitySamplingMaxHz()).isEqualTo(20.0f);
     }
 
     @Test
@@ -107,6 +129,15 @@ class AismeConfigTest {
 
         assertThatThrownBy(() -> AismeConfig.builder().identityCoreSnapshotEpochs(0).build())
                 .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().eventDensityThreshold(-0.1f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().eventDensitySamplingMinHz(0.0f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().eventDensitySamplingMinHz(10.0f).eventDensitySamplingMaxHz(5.0f).build())
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
@@ -123,6 +154,13 @@ class AismeConfigTest {
         props.setIdentityAnchorEta(0.0003f);
         props.setIdentityLyapunovThreshold(0.18f);
         props.setIdentityCoreSnapshotEpochs(60);
+        props.setEnableEventDensity(true);
+        props.setEventDensityThreshold(0.55f);
+        props.setEventDensityAlphaKl(0.45f);
+        props.setEventDensityBetaGradient(0.35f);
+        props.setEventDensityGammaSurprise(0.20f);
+        props.setEventDensitySamplingMinHz(0.25f);
+        props.setEventDensitySamplingMaxHz(25.0f);
 
         AismeConfig config = AismeConfig.fromProperties(props);
 
@@ -137,6 +175,13 @@ class AismeConfigTest {
         assertThat(config.identityAnchorEta()).isEqualTo(0.0003f);
         assertThat(config.identityLyapunovThreshold()).isEqualTo(0.18f);
         assertThat(config.identityCoreSnapshotEpochs()).isEqualTo(60);
+        assertThat(config.enableEventDensity()).isTrue();
+        assertThat(config.eventDensityThreshold()).isEqualTo(0.55f);
+        assertThat(config.eventDensityAlphaKl()).isEqualTo(0.45f);
+        assertThat(config.eventDensityBetaGradient()).isEqualTo(0.35f);
+        assertThat(config.eventDensityGammaSurprise()).isEqualTo(0.20f);
+        assertThat(config.eventDensitySamplingMinHz()).isEqualTo(0.25f);
+        assertThat(config.eventDensitySamplingMaxHz()).isEqualTo(25.0f);
 
         // Disabled or null props returns disabled config
         props.setEnabled(false);

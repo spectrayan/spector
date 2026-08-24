@@ -49,6 +49,14 @@ class AismePropertiesTest {
         assertThat(props.getIdentityLyapunovThreshold()).isEqualTo(0.15f);
         assertThat(props.getIdentityCoreSnapshotEpochs()).isEqualTo(50);
 
+        assertThat(props.isEnableEventDensity()).isTrue();
+        assertThat(props.getEventDensityThreshold()).isEqualTo(0.50f);
+        assertThat(props.getEventDensityAlphaKl()).isEqualTo(0.40f);
+        assertThat(props.getEventDensityBetaGradient()).isEqualTo(0.30f);
+        assertThat(props.getEventDensityGammaSurprise()).isEqualTo(0.30f);
+        assertThat(props.getEventDensitySamplingMinHz()).isEqualTo(0.10f);
+        assertThat(props.getEventDensitySamplingMaxHz()).isEqualTo(30.0f);
+
         // Fluent accessors
         assertThat(props.enabled()).isFalse();
         assertThat(props.enableHomeostasis()).isTrue();
@@ -66,6 +74,14 @@ class AismePropertiesTest {
         assertThat(props.identityAnchorEta()).isEqualTo(0.0001f);
         assertThat(props.identityLyapunovThreshold()).isEqualTo(0.15f);
         assertThat(props.identityCoreSnapshotEpochs()).isEqualTo(50);
+
+        assertThat(props.enableEventDensity()).isTrue();
+        assertThat(props.eventDensityThreshold()).isEqualTo(0.50f);
+        assertThat(props.eventDensityAlphaKl()).isEqualTo(0.40f);
+        assertThat(props.eventDensityBetaGradient()).isEqualTo(0.30f);
+        assertThat(props.eventDensityGammaSurprise()).isEqualTo(0.30f);
+        assertThat(props.eventDensitySamplingMinHz()).isEqualTo(0.10f);
+        assertThat(props.eventDensitySamplingMaxHz()).isEqualTo(30.0f);
     }
 
     @Test
@@ -82,6 +98,14 @@ class AismePropertiesTest {
         props.setIdentityLyapunovThreshold(0.20f);
         props.setIdentityCoreSnapshotEpochs(100);
 
+        props.setEnableEventDensity(false);
+        props.setEventDensityThreshold(0.65f);
+        props.setEventDensityAlphaKl(0.50f);
+        props.setEventDensityBetaGradient(0.25f);
+        props.setEventDensityGammaSurprise(0.25f);
+        props.setEventDensitySamplingMinHz(0.5f);
+        props.setEventDensitySamplingMaxHz(60.0f);
+
         assertThat(props.isEnabled()).isTrue();
         assertThat(props.isEnableHomeostasis()).isFalse();
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
@@ -93,6 +117,14 @@ class AismePropertiesTest {
         assertThat(props.getIdentityLyapunovThreshold()).isEqualTo(0.20f);
         assertThat(props.getIdentityCoreSnapshotEpochs()).isEqualTo(100);
 
+        assertThat(props.isEnableEventDensity()).isFalse();
+        assertThat(props.getEventDensityThreshold()).isEqualTo(0.65f);
+        assertThat(props.getEventDensityAlphaKl()).isEqualTo(0.50f);
+        assertThat(props.getEventDensityBetaGradient()).isEqualTo(0.25f);
+        assertThat(props.getEventDensityGammaSurprise()).isEqualTo(0.25f);
+        assertThat(props.getEventDensitySamplingMinHz()).isEqualTo(0.5f);
+        assertThat(props.getEventDensitySamplingMaxHz()).isEqualTo(60.0f);
+
         // Invalid values should be ignored
         props.setGlobalWorkspaceCapacity(0);
         props.setHopfieldTemperature(-1.0f);
@@ -101,6 +133,8 @@ class AismePropertiesTest {
         props.setIdentityAnchorEta(-0.01f);
         props.setIdentityLyapunovThreshold(-0.5f);
         props.setIdentityCoreSnapshotEpochs(0);
+        props.setEventDensityThreshold(-0.1f);
+        props.setEventDensitySamplingMinHz(-1.0f);
 
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
         assertThat(props.getHopfieldTemperature()).isEqualTo(8.0f);
@@ -109,6 +143,8 @@ class AismePropertiesTest {
         assertThat(props.getIdentityAnchorEta()).isEqualTo(0.0005f);
         assertThat(props.getIdentityLyapunovThreshold()).isEqualTo(0.20f);
         assertThat(props.getIdentityCoreSnapshotEpochs()).isEqualTo(100);
+        assertThat(props.getEventDensityThreshold()).isEqualTo(0.65f);
+        assertThat(props.getEventDensitySamplingMinHz()).isEqualTo(0.5f);
     }
 
     @Test
@@ -124,6 +160,13 @@ class AismePropertiesTest {
                 .override("spector.memory.aisme.identity-anchor.eta", "0.0002")
                 .override("spector.memory.aisme.identity-lyapunov.threshold", "0.25")
                 .override("spector.memory.aisme.identity-core-snapshot.epochs", "75")
+                .override("spector.memory.aisme.event-density.enabled", "false")
+                .override("spector.memory.aisme.event-density.threshold", "0.70")
+                .override("spector.memory.aisme.event-density.alpha-kl", "0.35")
+                .override("spector.memory.aisme.event-density.beta-gradient", "0.35")
+                .override("spector.memory.aisme.event-density.gamma-surprise", "0.30")
+                .override("spector.memory.aisme.event-density.sampling-min-hz", "0.2")
+                .override("spector.memory.aisme.event-density.sampling-max-hz", "20.0")
                 .build();
 
         AismeProperties aisme = SpectorConfigFactory.aismeProperties(props);
@@ -139,6 +182,14 @@ class AismePropertiesTest {
         assertThat(aisme.getIdentityAnchorEta()).isEqualTo(0.0002f);
         assertThat(aisme.getIdentityLyapunovThreshold()).isEqualTo(0.25f);
         assertThat(aisme.getIdentityCoreSnapshotEpochs()).isEqualTo(75);
+
+        assertThat(aisme.isEnableEventDensity()).isFalse();
+        assertThat(aisme.getEventDensityThreshold()).isEqualTo(0.70f);
+        assertThat(aisme.getEventDensityAlphaKl()).isEqualTo(0.35f);
+        assertThat(aisme.getEventDensityBetaGradient()).isEqualTo(0.35f);
+        assertThat(aisme.getEventDensityGammaSurprise()).isEqualTo(0.30f);
+        assertThat(aisme.getEventDensitySamplingMinHz()).isEqualTo(0.2f);
+        assertThat(aisme.getEventDensitySamplingMaxHz()).isEqualTo(20.0f);
 
         var memory = SpectorConfigFactory.memoryProperties(props);
         assertThat(memory.getAisme().isEnabled()).isTrue();

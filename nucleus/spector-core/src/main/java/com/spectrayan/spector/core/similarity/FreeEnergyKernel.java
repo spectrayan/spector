@@ -223,6 +223,107 @@ public final class FreeEnergyKernel {
         }
     }
 
+    /**
+     * Computes the normalized magnitude of the precision-weighted sensory prediction error gradient:
+     * ||grad_o F|| = sqrt( (1 / D) * sum( pi_o_i^2 * (o_i - mu_q_i)^2 ) )
+     *
+     * @param meanQ mean vector of posterior q(s)
+     * @param observation sensory observation vector o
+     * @param obsPrecision precision vector of observation likelihood
+     * @return normalized gradient magnitude >= 0.0f
+     */
+    public static float freeEnergyGradientNorm(float[] meanQ, float[] observation, float[] obsPrecision) {
+        validateInputs(meanQ, observation, obsPrecision);
+        int length = meanQ.length;
+        int laneCount = SPECIES.length();
+        FloatVector sumVec = FloatVector.zero(SPECIES);
+
+        int i = 0;
+        int limit = SPECIES.loopBound(length);
+        for (; i < limit; i += laneCount) {
+            FloatVector vMq = FloatVector.fromArray(SPECIES, meanQ, i);
+            FloatVector vObs = FloatVector.fromArray(SPECIES, observation, i);
+            FloatVector vPo = FloatVector.fromArray(SPECIES, obsPrecision, i);
+
+            FloatVector diff = vObs.sub(vMq);
+            FloatVector grad = vPo.mul(diff);
+            FloatVector gradSq = grad.mul(grad);
+            sumVec = sumVec.add(gradSq);
+        }
+
+        float sumSq = sumVec.reduceLanes(VectorOperators.ADD);
+
+        if (i < length) {
+            VectorMask<Float> mask = SPECIES.indexInRange(i, length);
+            FloatVector vMq = FloatVector.fromArray(SPECIES, meanQ, i, mask);
+            FloatVector vObs = FloatVector.fromArray(SPECIES, observation, i, mask);
+            FloatVector vPo = FloatVector.fromArray(SPECIES, obsPrecision, i, mask);
+
+            FloatVector diff = vObs.sub(vMq);
+            FloatVector grad = vPo.mul(diff);
+            FloatVector gradSq = grad.mul(grad);
+            sumSq += gradSq.reduceLanes(VectorOperators.ADD, mask);
+        }
+
+        return (float) Math.sqrt(sumSq / length);
+    }
+
+    /**
+     * Computes the normalized sensory surprisal (quadratic prediction error per dimension):
+     * Surprise(o) = 0.5 * (1 / D) * sum( pi_o_i * (o_i - mu_q_i)^2 )
+     *
+     * @param meanQ mean vector of posterior q(s)
+     * @param observation sensory observation vector o
+     * @param obsPrecision precision vector of observation likelihood
+     * @return normalized surprisal >= 0.0f
+     */
+    public static float sensorySurprisal(float[] meanQ, float[] observation, float[] obsPrecision) {
+        validateInputs(meanQ, observation, obsPrecision);
+        int length = meanQ.length;
+        int laneCount = SPECIES.length();
+        FloatVector sumVec = FloatVector.zero(SPECIES);
+
+        int i = 0;
+        int limit = SPECIES.loopBound(length);
+        for (; i < limit; i += laneCount) {
+            FloatVector vMq = FloatVector.fromArray(SPECIES, meanQ, i);
+            FloatVector vObs = FloatVector.fromArray(SPECIES, observation, i);
+            FloatVector vPo = FloatVector.fromArray(SPECIES, obsPrecision, i);
+
+            FloatVector diff = vObs.sub(vMq);
+            FloatVector quad = vPo.mul(diff).mul(diff);
+            sumVec = sumVec.add(quad);
+        }
+
+        float sumQuad = sumVec.reduceLanes(VectorOperators.ADD);
+
+        if (i < length) {
+            VectorMask<Float> mask = SPECIES.indexInRange(i, length);
+            FloatVector vMq = FloatVector.fromArray(SPECIES, meanQ, i, mask);
+            FloatVector vObs = FloatVector.fromArray(SPECIES, observation, i, mask);
+            FloatVector vPo = FloatVector.fromArray(SPECIES, obsPrecision, i, mask);
+
+            FloatVector diff = vObs.sub(vMq);
+            FloatVector quad = vPo.mul(diff).mul(diff);
+            sumQuad += quad.reduceLanes(VectorOperators.ADD, mask);
+        }
+
+        return 0.5f * (sumQuad / length);
+    }
+
+    private static void validateInputs(float[] a, float[] b, float[] c) {
+        if (a == null || b == null || c == null) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Input arrays must not be null");
+        }
+        int len = a.length;
+        if (b.length != len || c.length != len) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "All input vectors must have identical dimensions");
+        }
+        if (len == 0) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Input vector length must be greater than zero");
+        }
+    }
+
     private static void validateInputs(float[] a, float[] b, float[] c, float[] d) {
         if (a == null || b == null || c == null || d == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Input arrays must not be null");

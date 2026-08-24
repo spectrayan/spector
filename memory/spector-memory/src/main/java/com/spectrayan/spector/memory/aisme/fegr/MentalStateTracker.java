@@ -160,6 +160,13 @@ public final class MentalStateTracker {
     }
 
     /**
+     * Alias for {@link #currentPosterior()}.
+     */
+    public MentalStatePosterior posterior() {
+        return currentPosterior();
+    }
+
+    /**
      * @return the underlying GenerativeSelfModel
      */
     public GenerativeSelfModel selfModel() {
