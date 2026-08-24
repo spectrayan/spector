@@ -53,11 +53,6 @@
         </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
-            <artifactId>spector-gpu</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.spectrayan</groupId>
             <artifactId>spector-commons</artifactId>
         </dependency>
         <dependency>

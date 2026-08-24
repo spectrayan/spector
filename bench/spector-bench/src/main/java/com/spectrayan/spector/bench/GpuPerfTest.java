@@ -19,8 +19,8 @@ import java.util.Random;
 
 import com.spectrayan.spector.core.similarity.CosineSimilarity;
 import com.spectrayan.spector.gpu.CudaKernelLauncher;
-import com.spectrayan.spector.gpu.GpuBatchSimilarity;
 import com.spectrayan.spector.gpu.GpuCapability;
+import com.spectrayan.spector.gpu.kernel.GpuBatchSimilarity;
 
 /**
  * Quick GPU vs CPU SIMD performance comparison.

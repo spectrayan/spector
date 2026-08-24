@@ -29,8 +29,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -67,6 +67,26 @@ class AgentApprovalServiceTest {
         };
     }
 
+    private void scheduleAction(Consumer<AgentActionApproval> action) {
+        var executor = Executors.newSingleThreadScheduledExecutor();
+        executor.submit(() -> {
+            for (int i = 0; i < 100; i++) {
+                var pending = repository.findPending();
+                if (!pending.isEmpty()) {
+                    action.accept(pending.getFirst());
+                    return;
+                }
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        });
+        executor.shutdown();
+    }
+
     @Test
     @DisplayName("Read-only tool should execute immediately without approval")
     void testReadOnlyToolExecutesImmediately() {
@@ -96,13 +116,7 @@ class AgentApprovalServiceTest {
     void testWriteToolApproved() {
         McpToolHandler writeTool = createMockTool("file_write", true);
 
-        var executor = Executors.newSingleThreadScheduledExecutor();
-        executor.schedule(() -> {
-            var pending = repository.findPending();
-            if (!pending.isEmpty()) {
-                service.approve(pending.getFirst().id());
-            }
-        }, 100, TimeUnit.MILLISECONDS);
+        scheduleAction(pending -> service.approve(pending.id()));
 
         ApprovalExecutionResult result = service.evaluateAndExecute(
                 writeTool,
@@ -111,8 +125,6 @@ class AgentApprovalServiceTest {
                 "agent-1",
                 args -> "wrote:" + args.get("content")
         );
-
-        executor.shutdown();
 
         assertThat(result).isInstanceOf(ApprovalExecutionResult.Success.class);
         assertThat(((ApprovalExecutionResult.Success) result).output()).isEqualTo("wrote:hello");
@@ -126,17 +138,11 @@ class AgentApprovalServiceTest {
     void testWriteToolModified() {
         McpToolHandler writeTool = createMockTool("shell_exec", true);
 
-        var executor = Executors.newSingleThreadScheduledExecutor();
-        executor.schedule(() -> {
-            var pending = repository.findPending();
-            if (!pending.isEmpty()) {
-                service.modify(
-                        pending.getFirst().id(),
-                        Map.of("cmd", "echo safe"),
-                        "Sanitized command"
-                );
-            }
-        }, 100, TimeUnit.MILLISECONDS);
+        scheduleAction(pending -> service.modify(
+                pending.id(),
+                Map.of("cmd", "echo safe"),
+                "Sanitized command"
+        ));
 
         ApprovalExecutionResult result = service.evaluateAndExecute(
                 writeTool,
@@ -145,8 +151,6 @@ class AgentApprovalServiceTest {
                 "agent-1",
                 args -> "ran:" + args.get("cmd")
         );
-
-        executor.shutdown();
 
         assertThat(result).isInstanceOf(ApprovalExecutionResult.Success.class);
         assertThat(((ApprovalExecutionResult.Success) result).output()).isEqualTo("ran:echo safe");
@@ -157,13 +161,7 @@ class AgentApprovalServiceTest {
     void testWriteToolRejected() {
         McpToolHandler writeTool = createMockTool("file_write", true);
 
-        var executor = Executors.newSingleThreadScheduledExecutor();
-        executor.schedule(() -> {
-            var pending = repository.findPending();
-            if (!pending.isEmpty()) {
-                service.reject(pending.getFirst().id(), "Untrusted destination");
-            }
-        }, 100, TimeUnit.MILLISECONDS);
+        scheduleAction(pending -> service.reject(pending.id(), "Untrusted destination"));
 
         ApprovalExecutionResult result = service.evaluateAndExecute(
                 writeTool,
@@ -172,8 +170,6 @@ class AgentApprovalServiceTest {
                 "agent-1",
                 args -> "should-not-run"
         );
-
-        executor.shutdown();
 
         assertThat(result).isInstanceOf(ApprovalExecutionResult.Denied.class);
         assertThat(((ApprovalExecutionResult.Denied) result).reason()).contains("Untrusted destination");
@@ -184,13 +180,7 @@ class AgentApprovalServiceTest {
     void testWriteToolCancelled() {
         McpToolHandler writeTool = createMockTool("file_write", true);
 
-        var executor = Executors.newSingleThreadScheduledExecutor();
-        executor.schedule(() -> {
-            var pending = repository.findPending();
-            if (!pending.isEmpty()) {
-                service.cancel(pending.getFirst().id(), "Operator cancelled run");
-            }
-        }, 100, TimeUnit.MILLISECONDS);
+        scheduleAction(pending -> service.cancel(pending.id(), "Operator cancelled run"));
 
         ApprovalExecutionResult result = service.evaluateAndExecute(
                 writeTool,
@@ -199,8 +189,6 @@ class AgentApprovalServiceTest {
                 "agent-1",
                 args -> "should-not-run"
         );
-
-        executor.shutdown();
 
         assertThat(result).isInstanceOf(ApprovalExecutionResult.Denied.class);
         assertThat(((ApprovalExecutionResult.Denied) result).reason()).contains("Operator cancelled run");

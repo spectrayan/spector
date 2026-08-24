@@ -74,6 +74,7 @@
         <module>nucleus/spector-config</module>
         <module>nucleus/spector-storage</module>
         <module>nucleus/spector-events</module>
+        <module>nucleus/spector-gpu</module>
         <module>nucleus/spector-test-support</module>
 
         <!-- ── Memory: Cognitive engine (flagship) ── -->
@@ -81,7 +82,6 @@
         <module>memory/spector-providers</module>
         <module>memory/spector-index</module>
         <module>memory/spector-query</module>
-        <module>memory/spector-gpu</module>
         <module>memory/spector-ingestion</module>
         <module>memory/spector-memory</module>
         <module>memory/spector-inspect</module>

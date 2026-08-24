@@ -33,9 +33,9 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
-import com.spectrayan.spector.gpu.CudaCosineKernel;
-import com.spectrayan.spector.gpu.CudaDotProductKernel;
 import com.spectrayan.spector.gpu.GpuCapability;
+import com.spectrayan.spector.gpu.kernel.CudaCosineKernel;
+import com.spectrayan.spector.gpu.kernel.CudaDotProductKernel;
 
 /**
  * JMH benchmarks for GPU similarity kernels.

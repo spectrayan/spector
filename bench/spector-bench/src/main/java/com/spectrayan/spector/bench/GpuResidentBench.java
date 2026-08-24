@@ -18,7 +18,7 @@ package com.spectrayan.spector.bench;
 import java.util.Random;
 
 import com.spectrayan.spector.gpu.GpuCapability;
-import com.spectrayan.spector.gpu.GpuVectorIndex;
+import com.spectrayan.spector.gpu.search.GpuVectorIndex;
 
 /**
  * Benchmark for GPU-resident vector search (persistent device memory model).
