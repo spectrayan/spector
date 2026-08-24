@@ -562,6 +562,28 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT = "spector.memory.aisme.privacy.pseudonymization-salt";
     public static final String DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT = "spector-privacy-salt";
 
+    // AISME — Multimodal Composite Importance Scoring I(o_t)
+    public static final String MEMORY_AISME_IMPORTANCE_ENABLED = "spector.memory.aisme.importance.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_IMPORTANCE_ENABLED = true;
+
+    public static final String MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE = "spector.memory.aisme.importance.weight-surprise";
+    public static final float DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE = 0.20f;
+
+    public static final String MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT = "spector.memory.aisme.importance.weight-affect";
+    public static final float DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT = 0.20f;
+
+    public static final String MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL = "spector.memory.aisme.importance.weight-goal";
+    public static final float DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL = 0.20f;
+
+    public static final String MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL = "spector.memory.aisme.importance.weight-social";
+    public static final float DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL = 0.20f;
+
+    public static final String MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY = "spector.memory.aisme.importance.weight-novelty";
+    public static final float DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY = 0.20f;
+
+    public static final String MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD = "spector.memory.aisme.importance.flashbulb-threshold";
+    public static final float DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD = 0.85f;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;

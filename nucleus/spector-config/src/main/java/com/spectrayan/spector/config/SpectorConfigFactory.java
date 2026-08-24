@@ -235,6 +235,13 @@ public final class SpectorConfigFactory {
         properties.setPrivacyClippingNorm(props.getFloat(MEMORY_AISME_PRIVACY_CLIPPING_NORM, DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM));
         properties.setPrivacyAnonymizePii(props.getBoolean(MEMORY_AISME_PRIVACY_ANONYMIZE_PII, DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII));
         properties.setPrivacyPseudonymizationSalt(props.getString(MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT, DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT));
+        properties.setEnableImportance(props.getBoolean(MEMORY_AISME_IMPORTANCE_ENABLED, DEFAULT_MEMORY_AISME_IMPORTANCE_ENABLED));
+        properties.setImportanceWeightSurprise(props.getFloat(MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE, DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE));
+        properties.setImportanceWeightAffect(props.getFloat(MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT, DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT));
+        properties.setImportanceWeightGoal(props.getFloat(MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL, DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL));
+        properties.setImportanceWeightSocial(props.getFloat(MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL, DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL));
+        properties.setImportanceWeightNovelty(props.getFloat(MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY, DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY));
+        properties.setImportanceFlashbulbThreshold(props.getFloat(MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD, DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD));
         return properties;
     }
 

@@ -71,6 +71,14 @@ class AismePropertiesTest {
         assertThat(props.isPrivacyAnonymizePii()).isTrue();
         assertThat(props.getPrivacyPseudonymizationSalt()).isEqualTo("spector-privacy-salt");
 
+        assertThat(props.isEnableImportance()).isTrue();
+        assertThat(props.getImportanceWeightSurprise()).isEqualTo(0.20f);
+        assertThat(props.getImportanceWeightAffect()).isEqualTo(0.20f);
+        assertThat(props.getImportanceWeightGoal()).isEqualTo(0.20f);
+        assertThat(props.getImportanceWeightSocial()).isEqualTo(0.20f);
+        assertThat(props.getImportanceWeightNovelty()).isEqualTo(0.20f);
+        assertThat(props.getImportanceFlashbulbThreshold()).isEqualTo(0.85f);
+
         // Fluent accessors
         assertThat(props.enabled()).isFalse();
         assertThat(props.enableHomeostasis()).isTrue();
@@ -110,6 +118,14 @@ class AismePropertiesTest {
         assertThat(props.privacyClippingNorm()).isEqualTo(1.0f);
         assertThat(props.privacyAnonymizePii()).isTrue();
         assertThat(props.privacyPseudonymizationSalt()).isEqualTo("spector-privacy-salt");
+
+        assertThat(props.enableImportance()).isTrue();
+        assertThat(props.importanceWeightSurprise()).isEqualTo(0.20f);
+        assertThat(props.importanceWeightAffect()).isEqualTo(0.20f);
+        assertThat(props.importanceWeightGoal()).isEqualTo(0.20f);
+        assertThat(props.importanceWeightSocial()).isEqualTo(0.20f);
+        assertThat(props.importanceWeightNovelty()).isEqualTo(0.20f);
+        assertThat(props.importanceFlashbulbThreshold()).isEqualTo(0.85f);
     }
 
     @Test
@@ -148,6 +164,14 @@ class AismePropertiesTest {
         props.setPrivacyAnonymizePii(false);
         props.setPrivacyPseudonymizationSalt("custom-salt");
 
+        props.setEnableImportance(false);
+        props.setImportanceWeightSurprise(0.35f);
+        props.setImportanceWeightAffect(0.05f);
+        props.setImportanceWeightGoal(0.35f);
+        props.setImportanceWeightSocial(0.10f);
+        props.setImportanceWeightNovelty(0.15f);
+        props.setImportanceFlashbulbThreshold(0.90f);
+
         assertThat(props.isEnabled()).isTrue();
         assertThat(props.isEnableHomeostasis()).isFalse();
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
@@ -181,6 +205,14 @@ class AismePropertiesTest {
         assertThat(props.isPrivacyAnonymizePii()).isFalse();
         assertThat(props.getPrivacyPseudonymizationSalt()).isEqualTo("custom-salt");
 
+        assertThat(props.isEnableImportance()).isFalse();
+        assertThat(props.getImportanceWeightSurprise()).isEqualTo(0.35f);
+        assertThat(props.getImportanceWeightAffect()).isEqualTo(0.05f);
+        assertThat(props.getImportanceWeightGoal()).isEqualTo(0.35f);
+        assertThat(props.getImportanceWeightSocial()).isEqualTo(0.10f);
+        assertThat(props.getImportanceWeightNovelty()).isEqualTo(0.15f);
+        assertThat(props.getImportanceFlashbulbThreshold()).isEqualTo(0.90f);
+
         // Invalid values should be ignored
         props.setGlobalWorkspaceCapacity(0);
         props.setHopfieldTemperature(-1.0f);
@@ -197,6 +229,8 @@ class AismePropertiesTest {
         props.setPrivacyEpsilon(-1.0f);
         props.setPrivacyDelta(1.5f);
         props.setPrivacyClippingNorm(-0.5f);
+        props.setImportanceWeightSurprise(-0.1f);
+        props.setImportanceFlashbulbThreshold(1.5f);
 
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
         assertThat(props.getHopfieldTemperature()).isEqualTo(8.0f);
@@ -213,6 +247,8 @@ class AismePropertiesTest {
         assertThat(props.getPrivacyEpsilon()).isEqualTo(1.5f);
         assertThat(props.getPrivacyDelta()).isEqualTo(1e-4f);
         assertThat(props.getPrivacyClippingNorm()).isEqualTo(2.0f);
+        assertThat(props.getImportanceWeightSurprise()).isEqualTo(0.35f);
+        assertThat(props.getImportanceFlashbulbThreshold()).isEqualTo(0.90f);
     }
 
     @Test
@@ -247,6 +283,13 @@ class AismePropertiesTest {
                 .override("spector.memory.aisme.privacy.clipping-norm", "1.5")
                 .override("spector.memory.aisme.privacy.anonymize-pii", "false")
                 .override("spector.memory.aisme.privacy.pseudonymization-salt", "test-salt")
+                .override("spector.memory.aisme.importance.enabled", "false")
+                .override("spector.memory.aisme.importance.weight-surprise", "0.30")
+                .override("spector.memory.aisme.importance.weight-affect", "0.10")
+                .override("spector.memory.aisme.importance.weight-goal", "0.30")
+                .override("spector.memory.aisme.importance.weight-social", "0.15")
+                .override("spector.memory.aisme.importance.weight-novelty", "0.15")
+                .override("spector.memory.aisme.importance.flashbulb-threshold", "0.92")
                 .build();
 
         AismeProperties aisme = SpectorConfigFactory.aismeProperties(props);
@@ -284,6 +327,14 @@ class AismePropertiesTest {
         assertThat(aisme.getPrivacyClippingNorm()).isEqualTo(1.5f);
         assertThat(aisme.isPrivacyAnonymizePii()).isFalse();
         assertThat(aisme.getPrivacyPseudonymizationSalt()).isEqualTo("test-salt");
+
+        assertThat(aisme.isEnableImportance()).isFalse();
+        assertThat(aisme.getImportanceWeightSurprise()).isEqualTo(0.30f);
+        assertThat(aisme.getImportanceWeightAffect()).isEqualTo(0.10f);
+        assertThat(aisme.getImportanceWeightGoal()).isEqualTo(0.30f);
+        assertThat(aisme.getImportanceWeightSocial()).isEqualTo(0.15f);
+        assertThat(aisme.getImportanceWeightNovelty()).isEqualTo(0.15f);
+        assertThat(aisme.getImportanceFlashbulbThreshold()).isEqualTo(0.92f);
 
         var memory = SpectorConfigFactory.memoryProperties(props);
         assertThat(memory.getAisme().isEnabled()).isTrue();

@@ -78,7 +78,14 @@ public record AismeConfig(
         float privacyDelta,
         float privacyClippingNorm,
         boolean privacyAnonymizePii,
-        String privacyPseudonymizationSalt
+        String privacyPseudonymizationSalt,
+        boolean enableImportance,
+        float importanceWeightSurprise,
+        float importanceWeightAffect,
+        float importanceWeightGoal,
+        float importanceWeightSocial,
+        float importanceWeightNovelty,
+        float importanceFlashbulbThreshold
 ) {
 
     /**
@@ -187,6 +194,19 @@ public record AismeConfig(
         if (privacyPseudonymizationSalt == null) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "privacyPseudonymizationSalt must not be null");
         }
+        if (Float.isNaN(importanceWeightSurprise) || importanceWeightSurprise < 0.0f
+                || Float.isNaN(importanceWeightAffect) || importanceWeightAffect < 0.0f
+                || Float.isNaN(importanceWeightGoal) || importanceWeightGoal < 0.0f
+                || Float.isNaN(importanceWeightSocial) || importanceWeightSocial < 0.0f
+                || Float.isNaN(importanceWeightNovelty) || importanceWeightNovelty < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "importance weights must be non-negative");
+        }
+        if (importanceWeightSurprise + importanceWeightAffect + importanceWeightGoal + importanceWeightSocial + importanceWeightNovelty <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "sum of importance weights must be positive");
+        }
+        if (Float.isNaN(importanceFlashbulbThreshold) || importanceFlashbulbThreshold < 0.0f || importanceFlashbulbThreshold > 1.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "importanceFlashbulbThreshold must be in [0, 1]");
+        }
     }
 
     /**
@@ -240,7 +260,14 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_DELTA,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD
         );
     }
 
@@ -302,7 +329,14 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_DELTA,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD
         );
     }
 
@@ -368,7 +402,14 @@ public record AismeConfig(
                 props.getPrivacyDelta(),
                 props.getPrivacyClippingNorm(),
                 props.isPrivacyAnonymizePii(),
-                props.getPrivacyPseudonymizationSalt()
+                props.getPrivacyPseudonymizationSalt(),
+                props.isEnableImportance(),
+                props.getImportanceWeightSurprise(),
+                props.getImportanceWeightAffect(),
+                props.getImportanceWeightGoal(),
+                props.getImportanceWeightSocial(),
+                props.getImportanceWeightNovelty(),
+                props.getImportanceFlashbulbThreshold()
         );
     }
 
@@ -432,6 +473,13 @@ public record AismeConfig(
         private float privacyClippingNorm = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM;
         private boolean privacyAnonymizePii = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII;
         private String privacyPseudonymizationSalt = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT;
+        private boolean enableImportance = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_ENABLED;
+        private float importanceWeightSurprise = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE;
+        private float importanceWeightAffect = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT;
+        private float importanceWeightGoal = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL;
+        private float importanceWeightSocial = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL;
+        private float importanceWeightNovelty = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY;
+        private float importanceFlashbulbThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -485,6 +533,13 @@ public record AismeConfig(
         public Builder privacyClippingNorm(float norm) { this.privacyClippingNorm = norm; return this; }
         public Builder privacyAnonymizePii(boolean anonymize) { this.privacyAnonymizePii = anonymize; return this; }
         public Builder privacyPseudonymizationSalt(String salt) { this.privacyPseudonymizationSalt = salt; return this; }
+        public Builder enableImportance(boolean enable) { this.enableImportance = enable; return this; }
+        public Builder importanceWeightSurprise(float w) { this.importanceWeightSurprise = w; return this; }
+        public Builder importanceWeightAffect(float w) { this.importanceWeightAffect = w; return this; }
+        public Builder importanceWeightGoal(float w) { this.importanceWeightGoal = w; return this; }
+        public Builder importanceWeightSocial(float w) { this.importanceWeightSocial = w; return this; }
+        public Builder importanceWeightNovelty(float w) { this.importanceWeightNovelty = w; return this; }
+        public Builder importanceFlashbulbThreshold(float t) { this.importanceFlashbulbThreshold = t; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
@@ -506,7 +561,10 @@ public record AismeConfig(
                     enableBocpd, bocpdHazardLambda, bocpdChangePointThreshold,
                     bocpdSurprisalCutThreshold, bocpdMaxEpisodeFrames, bocpdMaxRunLength,
                     enablePrivacy, privacyEpsilon, privacyDelta, privacyClippingNorm,
-                    privacyAnonymizePii, privacyPseudonymizationSalt
+                    privacyAnonymizePii, privacyPseudonymizationSalt,
+                    enableImportance, importanceWeightSurprise, importanceWeightAffect,
+                    importanceWeightGoal, importanceWeightSocial, importanceWeightNovelty,
+                    importanceFlashbulbThreshold
             );
         }
     }
