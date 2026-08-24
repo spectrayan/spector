@@ -47,11 +47,6 @@
                 <artifactId>spector-config</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-storage</artifactId>
-                <version>${project.version}</version>
-            </dependency>
 
             <!-- ── Provider/Embedding Layer ── -->
             <dependency>
@@ -75,11 +70,6 @@
             <dependency>
                 <groupId>com.spectrayan</groupId>
                 <artifactId>spector-index</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-query</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

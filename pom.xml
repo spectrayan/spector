@@ -73,7 +73,6 @@
         <module>nucleus/spector-cpu</module>
         <module>nucleus/spector-hdc</module>
         <module>nucleus/spector-config</module>
-        <module>nucleus/spector-storage</module>
         <module>nucleus/spector-events</module>
         <module>nucleus/spector-gpu</module>
         <module>nucleus/spector-index</module>
@@ -82,7 +81,6 @@
         <!-- ── Memory: Cognitive engine (flagship) ── -->
         <module>memory/spector-provider-api</module>
         <module>memory/spector-providers</module>
-        <module>memory/spector-query</module>
         <module>memory/spector-ingestion</module>
         <module>memory/spector-memory</module>
         <module>memory/spector-inspect</module>
@@ -213,17 +211,7 @@
             </dependency>
             <dependency>
                 <groupId>com.spectrayan</groupId>
-                <artifactId>spector-storage</artifactId>
-                <version>${revision}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
                 <artifactId>spector-index</artifactId>
-                <version>${revision}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.spectrayan</groupId>
-                <artifactId>spector-query</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

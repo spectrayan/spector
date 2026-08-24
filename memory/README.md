@@ -4,15 +4,12 @@ This directory houses the core algorithmic components of the Spector cognitive m
 
 ## Modules
 
-* **[`spector-embed-api`](/memory/spector-embed-api)**: Abstract interface for vectorizing text chunks.
-* **[`spector-embed-ollama`](/memory/spector-embed-ollama)**: Concrete local LLM embedding implementation using Ollama.
-* **[`spector-gpu`](/memory/spector-gpu)**: Optional CUDA-accelerated distance metrics for high-throughput batch vector comparison.
-* **[`spector-index`](/memory/spector-index)**: Core nearest-neighbor search indexes (HNSW, flat array brute force) and custom distance metrics.
-* **[`spector-ingestion`](/memory/spector-ingestion)**: Chunking strategies, semantic metadata extraction, and ingestion pipelines.
-* **[`spector-memory`](/memory/spector-memory)**: The biological cognitive memory engine. Implements the 4-tier memory architecture (episodic, semantic, procedural, Hebbian graph) off-heap via Project Panama.
-* **[`spector-metrics`](/memory/spector-metrics)**: Micrometer-based telemetry, Prometheus metrics, and distributed tracing decorators for the cognitive memory engine and ingestion pipelines.
-* **[`spector-query`](/memory/spector-query)**: Retrieval pipelines, hybrid search scoring, and importance/salience score fusions.
-* **[`spector-rag`](/memory/spector-rag)**: Retrieval-Augmented Generation workflows and LLM orchestration.
+* **[`spector-provider-api`](/memory/spector-provider-api)**: Abstract interfaces and SPIs for embeddings, LLM chat completions, and sparse representations.
+* **[`spector-providers`](/memory/spector-providers)**: Concrete provider implementations (Ollama, OpenAI, Local ONNX) with dynamic discovery.
+* **[`spector-ingestion`](/memory/spector-ingestion)**: Chunking strategies, sensory extractors (audio, video, PDFs, images), and metadata enrichment.
+* **[`spector-memory`](/memory/spector-memory)**: The biological cognitive memory engine. Implements the 4-tier memory architecture (episodic, semantic, procedural, Hebbian graph, bundle kernel) off-heap via Project Panama.
+* **[`spector-inspect`](/memory/spector-inspect)**: Binary inspection tool for partition and runtime bundle files.
+* **[`spector-metrics`](/memory/spector-metrics)**: Micrometer-based telemetry, Prometheus metrics, and distributed tracing decorators for cognitive memory.
 
 ## Dependency Rules
 

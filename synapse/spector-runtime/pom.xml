@@ -54,11 +54,6 @@
             <artifactId>spector-providers</artifactId>
         </dependency>
 
-        <!-- ── Query types for mode-aware routing ── -->
-        <dependency>
-            <groupId>com.spectrayan</groupId>
-            <artifactId>spector-query</artifactId>
-        </dependency>
         <dependency>
             <groupId>com.spectrayan</groupId>
             <artifactId>spector-index</artifactId>
