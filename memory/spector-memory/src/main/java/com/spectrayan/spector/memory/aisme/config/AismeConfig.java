@@ -85,7 +85,14 @@ public record AismeConfig(
         float importanceWeightGoal,
         float importanceWeightSocial,
         float importanceWeightNovelty,
-        float importanceFlashbulbThreshold
+        float importanceFlashbulbThreshold,
+        boolean enableLifespan,
+        float lifespanTau0,
+        float lifespanK,
+        long lifespanT0Epochs,
+        long lifespanVTarget,
+        float lifespanGamma,
+        boolean lifespanFlashbulbProtect
 ) {
 
     /**
@@ -207,6 +214,21 @@ public record AismeConfig(
         if (Float.isNaN(importanceFlashbulbThreshold) || importanceFlashbulbThreshold < 0.0f || importanceFlashbulbThreshold > 1.0f) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "importanceFlashbulbThreshold must be in [0, 1]");
         }
+        if (Float.isNaN(lifespanTau0) || lifespanTau0 < 0.0f || lifespanTau0 > 1.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "lifespanTau0 must be in [0, 1]");
+        }
+        if (Float.isNaN(lifespanK) || lifespanK < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "lifespanK must be non-negative");
+        }
+        if (lifespanT0Epochs <= 0L) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "lifespanT0Epochs must be positive");
+        }
+        if (lifespanVTarget <= 0L) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "lifespanVTarget must be positive");
+        }
+        if (Float.isNaN(lifespanGamma) || lifespanGamma < 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "lifespanGamma must be non-negative");
+        }
     }
 
     /**
@@ -267,7 +289,14 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_TAU_0,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_K,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_T0_EPOCHS,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_V_TARGET,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_GAMMA,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT
         );
     }
 
@@ -336,7 +365,14 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_TAU_0,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_K,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_T0_EPOCHS,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_V_TARGET,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_GAMMA,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT
         );
     }
 
@@ -409,7 +445,14 @@ public record AismeConfig(
                 props.getImportanceWeightGoal(),
                 props.getImportanceWeightSocial(),
                 props.getImportanceWeightNovelty(),
-                props.getImportanceFlashbulbThreshold()
+                props.getImportanceFlashbulbThreshold(),
+                props.isEnableLifespan(),
+                props.getLifespanTau0(),
+                props.getLifespanK(),
+                props.getLifespanT0Epochs(),
+                props.getLifespanVTarget(),
+                props.getLifespanGamma(),
+                props.isLifespanFlashbulbProtect()
         );
     }
 
@@ -480,6 +523,13 @@ public record AismeConfig(
         private float importanceWeightSocial = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL;
         private float importanceWeightNovelty = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY;
         private float importanceFlashbulbThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD;
+        private boolean enableLifespan = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_ENABLED;
+        private float lifespanTau0 = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_TAU_0;
+        private float lifespanK = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_K;
+        private long lifespanT0Epochs = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_T0_EPOCHS;
+        private long lifespanVTarget = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_V_TARGET;
+        private float lifespanGamma = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_GAMMA;
+        private boolean lifespanFlashbulbProtect = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -540,6 +590,13 @@ public record AismeConfig(
         public Builder importanceWeightSocial(float w) { this.importanceWeightSocial = w; return this; }
         public Builder importanceWeightNovelty(float w) { this.importanceWeightNovelty = w; return this; }
         public Builder importanceFlashbulbThreshold(float t) { this.importanceFlashbulbThreshold = t; return this; }
+        public Builder enableLifespan(boolean enable) { this.enableLifespan = enable; return this; }
+        public Builder lifespanTau0(float tau0) { this.lifespanTau0 = tau0; return this; }
+        public Builder lifespanK(float k) { this.lifespanK = k; return this; }
+        public Builder lifespanT0Epochs(long t0) { this.lifespanT0Epochs = t0; return this; }
+        public Builder lifespanVTarget(long v) { this.lifespanVTarget = v; return this; }
+        public Builder lifespanGamma(float gamma) { this.lifespanGamma = gamma; return this; }
+        public Builder lifespanFlashbulbProtect(boolean protect) { this.lifespanFlashbulbProtect = protect; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
@@ -564,7 +621,9 @@ public record AismeConfig(
                     privacyAnonymizePii, privacyPseudonymizationSalt,
                     enableImportance, importanceWeightSurprise, importanceWeightAffect,
                     importanceWeightGoal, importanceWeightSocial, importanceWeightNovelty,
-                    importanceFlashbulbThreshold
+                    importanceFlashbulbThreshold,
+                    enableLifespan, lifespanTau0, lifespanK, lifespanT0Epochs,
+                    lifespanVTarget, lifespanGamma, lifespanFlashbulbProtect
             );
         }
     }

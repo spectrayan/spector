@@ -80,6 +80,7 @@ public final class ReflectSignal {
     private final boolean softIdentityAnchorEnabled;
     private final float identityAnchorEta;
     private final float identityLyapunovThreshold;
+    private final com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
 
     // ── Runtime Execution Metrics ──────────────────────────────────
     private final Instant startTime;
@@ -92,11 +93,15 @@ public final class ReflectSignal {
     private final AtomicInteger soulRefusedCount = new AtomicInteger(0);
     private final AtomicInteger logTurnsConsolidated = new AtomicInteger(0);
     private final AtomicInteger proceduralCrystallizedCount = new AtomicInteger(0);
+    private final AtomicInteger corePreservedCount = new AtomicInteger(0);
+    private final AtomicInteger flavourConsolidatedCount = new AtomicInteger(0);
+    private final AtomicInteger ephemeralPrunedCount = new AtomicInteger(0);
     private double sumImportanceDelta = 0.0;
     private int pinnedCount = 0;
     private float identityAnchorDistance = 0.0f;
     private boolean identityLyapunovStable = true;
     private float identityContinuityScore = 1.0f;
+    private float effectiveLifespanTau = 0.0f;
 
     private ReflectSignal(final Builder builder) {
         this.partitionManager = builder.partitionManager;
@@ -133,6 +138,7 @@ public final class ReflectSignal {
         this.softIdentityAnchorEnabled = builder.softIdentityAnchorEnabled;
         this.identityAnchorEta = builder.identityAnchorEta;
         this.identityLyapunovThreshold = builder.identityLyapunovThreshold;
+        this.lifespanController = builder.lifespanController;
 
         this.startTime = Instant.now();
         this.graphMetrics = builder.graphMetrics != null ? builder.graphMetrics : new GraphHealthMetrics();
@@ -216,6 +222,19 @@ public final class ReflectSignal {
     public int proceduralCrystallizedCount() { return proceduralCrystallizedCount.get(); }
     public void addProceduralCrystallized(int count) { proceduralCrystallizedCount.addAndGet(count); }
 
+    public com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController() { return lifespanController; }
+    public float effectiveLifespanTau() { return effectiveLifespanTau; }
+    public void setEffectiveLifespanTau(float tau) { this.effectiveLifespanTau = tau; }
+
+    public int corePreservedCount() { return corePreservedCount.get(); }
+    public void addCorePreserved(int count) { corePreservedCount.addAndGet(count); }
+
+    public int flavourConsolidatedCount() { return flavourConsolidatedCount.get(); }
+    public void addFlavourConsolidated(int count) { flavourConsolidatedCount.addAndGet(count); }
+
+    public int ephemeralPrunedCount() { return ephemeralPrunedCount.get(); }
+    public void addEphemeralPruned(int count) { ephemeralPrunedCount.addAndGet(count); }
+
     public synchronized void recordImportanceDelta(double delta) {
         this.sumImportanceDelta += Math.abs(delta);
     }
@@ -291,6 +310,7 @@ public final class ReflectSignal {
         private boolean softIdentityAnchorEnabled = true;
         private float identityAnchorEta = 0.0001f;
         private float identityLyapunovThreshold = 0.15f;
+        private com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lifespanController;
 
         public Builder partitionManager(PartitionManager pm) { this.partitionManager = pm; return this; }
         public Builder index(MemoryIndex idx) { this.index = idx; return this; }
@@ -327,6 +347,7 @@ public final class ReflectSignal {
         public Builder softIdentityAnchorEnabled(boolean enabled) { this.softIdentityAnchorEnabled = enabled; return this; }
         public Builder identityAnchorEta(float eta) { this.identityAnchorEta = eta; return this; }
         public Builder identityLyapunovThreshold(float threshold) { this.identityLyapunovThreshold = threshold; return this; }
+        public Builder lifespanController(com.spectrayan.spector.memory.aisme.lifespan.LifespanRetentionController lc) { this.lifespanController = lc; return this; }
 
         public ReflectSignal build() {
             return new ReflectSignal(this);
