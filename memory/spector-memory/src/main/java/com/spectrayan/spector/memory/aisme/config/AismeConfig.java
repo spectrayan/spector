@@ -72,7 +72,13 @@ public record AismeConfig(
         float bocpdChangePointThreshold,
         float bocpdSurprisalCutThreshold,
         int bocpdMaxEpisodeFrames,
-        int bocpdMaxRunLength
+        int bocpdMaxRunLength,
+        boolean enablePrivacy,
+        float privacyEpsilon,
+        float privacyDelta,
+        float privacyClippingNorm,
+        boolean privacyAnonymizePii,
+        String privacyPseudonymizationSalt
 ) {
 
     /**
@@ -169,6 +175,18 @@ public record AismeConfig(
         if (bocpdMaxRunLength < 1) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "bocpdMaxRunLength must be at least 1");
         }
+        if (Float.isNaN(privacyEpsilon) || privacyEpsilon <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "privacyEpsilon must be positive");
+        }
+        if (Float.isNaN(privacyDelta) || privacyDelta <= 0.0f || privacyDelta >= 1.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "privacyDelta must be in (0, 1)");
+        }
+        if (Float.isNaN(privacyClippingNorm) || privacyClippingNorm <= 0.0f) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "privacyClippingNorm must be positive");
+        }
+        if (privacyPseudonymizationSalt == null) {
+            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "privacyPseudonymizationSalt must not be null");
+        }
     }
 
     /**
@@ -216,7 +234,13 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH,
+                false,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_EPSILON,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_DELTA,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT
         );
     }
 
@@ -272,7 +296,13 @@ public record AismeConfig(
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD,
                 SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES,
-                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_ENABLED,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_EPSILON,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_DELTA,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII,
+                SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT
         );
     }
 
@@ -332,7 +362,13 @@ public record AismeConfig(
                 props.getBocpdChangePointThreshold(),
                 props.getBocpdSurprisalCutThreshold(),
                 props.getBocpdMaxEpisodeFrames(),
-                props.getBocpdMaxRunLength()
+                props.getBocpdMaxRunLength(),
+                props.isEnablePrivacy(),
+                props.getPrivacyEpsilon(),
+                props.getPrivacyDelta(),
+                props.getPrivacyClippingNorm(),
+                props.isPrivacyAnonymizePii(),
+                props.getPrivacyPseudonymizationSalt()
         );
     }
 
@@ -390,6 +426,12 @@ public record AismeConfig(
         private float bocpdSurprisalCutThreshold = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD;
         private int bocpdMaxEpisodeFrames = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES;
         private int bocpdMaxRunLength = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH;
+        private boolean enablePrivacy = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_ENABLED;
+        private float privacyEpsilon = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_EPSILON;
+        private float privacyDelta = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_DELTA;
+        private float privacyClippingNorm = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM;
+        private boolean privacyAnonymizePii = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII;
+        private String privacyPseudonymizationSalt = SpectorPropertyConstants.DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT;
 
         public Builder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public Builder enableHomeostasis(boolean enable) { this.enableHomeostasis = enable; return this; }
@@ -437,6 +479,12 @@ public record AismeConfig(
         public Builder bocpdSurprisalCutThreshold(float threshold) { this.bocpdSurprisalCutThreshold = threshold; return this; }
         public Builder bocpdMaxEpisodeFrames(int frames) { this.bocpdMaxEpisodeFrames = frames; return this; }
         public Builder bocpdMaxRunLength(int runLength) { this.bocpdMaxRunLength = runLength; return this; }
+        public Builder enablePrivacy(boolean enable) { this.enablePrivacy = enable; return this; }
+        public Builder privacyEpsilon(float epsilon) { this.privacyEpsilon = epsilon; return this; }
+        public Builder privacyDelta(float delta) { this.privacyDelta = delta; return this; }
+        public Builder privacyClippingNorm(float norm) { this.privacyClippingNorm = norm; return this; }
+        public Builder privacyAnonymizePii(boolean anonymize) { this.privacyAnonymizePii = anonymize; return this; }
+        public Builder privacyPseudonymizationSalt(String salt) { this.privacyPseudonymizationSalt = salt; return this; }
 
         public AismeConfig build() {
             return new AismeConfig(
@@ -456,7 +504,9 @@ public record AismeConfig(
                     eventDensityAlphaKl, eventDensityBetaGradient, eventDensityGammaSurprise,
                     eventDensitySamplingMinHz, eventDensitySamplingMaxHz,
                     enableBocpd, bocpdHazardLambda, bocpdChangePointThreshold,
-                    bocpdSurprisalCutThreshold, bocpdMaxEpisodeFrames, bocpdMaxRunLength
+                    bocpdSurprisalCutThreshold, bocpdMaxEpisodeFrames, bocpdMaxRunLength,
+                    enablePrivacy, privacyEpsilon, privacyDelta, privacyClippingNorm,
+                    privacyAnonymizePii, privacyPseudonymizationSalt
             );
         }
     }

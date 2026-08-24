@@ -85,6 +85,13 @@ public class AismeProperties implements Serializable {
     private int bocpdMaxEpisodeFrames = DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES;
     private int bocpdMaxRunLength = DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH;
 
+    private boolean enablePrivacy = DEFAULT_MEMORY_AISME_PRIVACY_ENABLED;
+    private float privacyEpsilon = DEFAULT_MEMORY_AISME_PRIVACY_EPSILON;
+    private float privacyDelta = DEFAULT_MEMORY_AISME_PRIVACY_DELTA;
+    private float privacyClippingNorm = DEFAULT_MEMORY_AISME_PRIVACY_CLIPPING_NORM;
+    private boolean privacyAnonymizePii = DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII;
+    private String privacyPseudonymizationSalt = DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT;
+
     public AismeProperties() {}
 
     public boolean isEnabled() {
@@ -515,6 +522,62 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isEnablePrivacy() {
+        return enablePrivacy;
+    }
+
+    public void setEnablePrivacy(boolean enablePrivacy) {
+        this.enablePrivacy = enablePrivacy;
+    }
+
+    public float getPrivacyEpsilon() {
+        return privacyEpsilon;
+    }
+
+    public void setPrivacyEpsilon(float privacyEpsilon) {
+        if (!Float.isNaN(privacyEpsilon) && privacyEpsilon > 0.0f) {
+            this.privacyEpsilon = privacyEpsilon;
+        }
+    }
+
+    public float getPrivacyDelta() {
+        return privacyDelta;
+    }
+
+    public void setPrivacyDelta(float privacyDelta) {
+        if (!Float.isNaN(privacyDelta) && privacyDelta > 0.0f && privacyDelta < 1.0f) {
+            this.privacyDelta = privacyDelta;
+        }
+    }
+
+    public float getPrivacyClippingNorm() {
+        return privacyClippingNorm;
+    }
+
+    public void setPrivacyClippingNorm(float privacyClippingNorm) {
+        if (!Float.isNaN(privacyClippingNorm) && privacyClippingNorm > 0.0f) {
+            this.privacyClippingNorm = privacyClippingNorm;
+        }
+    }
+
+    public boolean isPrivacyAnonymizePii() {
+        return privacyAnonymizePii;
+    }
+
+    public void setPrivacyAnonymizePii(boolean privacyAnonymizePii) {
+        this.privacyAnonymizePii = privacyAnonymizePii;
+    }
+
+    public String getPrivacyPseudonymizationSalt() {
+        return privacyPseudonymizationSalt;
+    }
+
+    public void setPrivacyPseudonymizationSalt(String privacyPseudonymizationSalt) {
+        if (privacyPseudonymizationSalt != null) {
+            this.privacyPseudonymizationSalt = privacyPseudonymizationSalt;
+        }
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -563,4 +626,10 @@ public class AismeProperties implements Serializable {
     public float bocpdSurprisalCutThreshold() { return getBocpdSurprisalCutThreshold(); }
     public int bocpdMaxEpisodeFrames() { return getBocpdMaxEpisodeFrames(); }
     public int bocpdMaxRunLength() { return getBocpdMaxRunLength(); }
+    public boolean enablePrivacy() { return isEnablePrivacy(); }
+    public float privacyEpsilon() { return getPrivacyEpsilon(); }
+    public float privacyDelta() { return getPrivacyDelta(); }
+    public float privacyClippingNorm() { return getPrivacyClippingNorm(); }
+    public boolean privacyAnonymizePii() { return isPrivacyAnonymizePii(); }
+    public String privacyPseudonymizationSalt() { return getPrivacyPseudonymizationSalt(); }
 }
