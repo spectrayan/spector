@@ -1,4 +1,5 @@
 import { Pipe, PipeTransform } from '@angular/core';
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
 /**
@@ -28,16 +29,11 @@ export class MarkdownPipe implements PipeTransform {
   }
 
   /**
-   * Basic HTML sanitization — strips script, iframe, object, embed tags
-   * and on* event handlers. For production, consider DOMPurify.
+   * Sanitize rendered Markdown with the project's trusted HTML sanitizer.
+   * Regex-based removal is unsafe for multi-character tags and attributes
+   * because it can leave an exploitable remainder in the HTML.
    */
   private sanitize(html: string): string {
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<iframe\b[^>]*>.*?<\/iframe>/gi, '')
-      .replace(/<object\b[^>]*>.*?<\/object>/gi, '')
-      .replace(/<embed\b[^>]*\/?>/gi, '')
-      .replace(/\bon\w+\s*=\s*"[^"]*"/gi, '')
-      .replace(/\bon\w+\s*=\s*'[^']*'/gi, '');
+    return DOMPurify.sanitize(html);
   }
 }
