@@ -8,9 +8,10 @@
 
 ## 🏗️ Core Architecture & Roles
 
-1. **SIMD Similarity Kernels (`SimilarityKernel`):** Vectorized mathematical calculations for Euclidean ($L2^2$), Cosine, and Dot Product similarity functions. Fully optimized for 256-bit AVX2/AVX-512 lanes.
-2. **Fast Walsh-Hadamard Transform (`Fwht`):** Ultra-fast, in-place $O(D \log D)$ orthogonal rotation butterflies using only addition and subtraction instructions. This spreads dynamic range variance uniformly across all dimensions.
-3. **Asymmetric SIMD Quantization (`SvasqSimdKernel`):** Panama FFM-native distance calculators that evaluate off-heap INT8 codes directly against exact float32 query states, bypassing dequantization overhead.
+1. **SIMD Similarity Kernels (`SimilarityKernel`, `LsrHopfieldKernel`):** Vectorized mathematical calculations for Euclidean ($L2^2$), Cosine, Dot Product, and Log-Sum-ReLU (Epanechnikov) associative memory kernels. Fully optimized for 256-bit AVX2/AVX-512 lanes.
+2. **Positive Random Feature Projection (`RandomFeatureProjector`):** SIMD-accelerated randomized feature mapping for constant-time $\mathcal{O}(Y)$ whole-brain associative memory approximation.
+3. **Fast Walsh-Hadamard Transform (`Fwht`):** Ultra-fast, in-place $O(D \log D)$ orthogonal rotation butterflies using only addition and subtraction instructions. This spreads dynamic range variance uniformly across all dimensions.
+4. **Asymmetric SIMD Quantization (`SvasqSimdKernel`):** Panama FFM-native distance calculators that evaluate off-heap INT8 codes directly against exact float32 query states, bypassing dequantization overhead.
 
 ---
 
