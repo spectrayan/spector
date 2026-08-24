@@ -20,6 +20,8 @@ import com.spectrayan.spector.core.quantization.svasq.Svasq4QueryState;
 import com.spectrayan.spector.core.quantization.svasq.Svasq4SimdKernel;
 import com.spectrayan.spector.core.quantization.svasq.SvasqQueryState;
 import com.spectrayan.spector.core.quantization.svasq.SvasqSimdKernel;
+import com.spectrayan.spector.core.spi.AcceleratorRegistry;
+import com.spectrayan.spector.core.spi.SimilarityKernel;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -178,6 +180,28 @@ public enum SimilarityFunction {
             return false;
         }
     };
+
+    /**
+     * Computes batch similarity/distance between a query vector and a matrix of database vectors.
+     *
+     * <p><b>Hardware-transparent:</b> automatically dispatches to the highest-priority available
+     * hardware accelerator (e.g. CUDA GPU) when batch size thresholds are satisfied, with
+     * automatic, zero-exception fallback to CPU SIMD.</p>
+     *
+     * @param query      query vector of length {@code dimensions}
+     * @param database   database vectors as flat array (numVectors × dimensions)
+     * @param numVectors number of database vectors
+     * @param dimensions vector dimensionality
+     * @return array of {@code numVectors} similarity/distance scores
+     */
+    public float[] computeBatch(float[] query, float[] database, int numVectors, int dimensions) {
+        SimilarityKernel kernel = AcceleratorRegistry.getSimilarityKernel();
+        return switch (this) {
+            case COSINE -> kernel.batchCosineSimilarity(query, database, numVectors, dimensions);
+            case DOT_PRODUCT -> kernel.batchDotProduct(query, database, numVectors, dimensions);
+            case EUCLIDEAN -> kernel.batchEuclideanDistance(query, database, numVectors, dimensions);
+        };
+    }
 
     /**
      * Computes the similarity/distance between two float32 vectors.

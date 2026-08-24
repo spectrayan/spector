@@ -23,7 +23,9 @@ package com.spectrayan.spector.gpu;
  * similarity between a query vector and a batch of database vectors.</p>
  *
  * @see CudaDotProductKernel
+ * @deprecated Use {@link com.spectrayan.spector.core.spi.SimilarityKernel} instead.
  */
+@Deprecated
 public interface SimilarityKernel {
 
     /**
