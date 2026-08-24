@@ -160,6 +160,13 @@ class AismeConfigTest {
         assertThat(config.importanceWeightSocial()).isEqualTo(0.10f);
         assertThat(config.importanceWeightNovelty()).isEqualTo(0.15f);
         assertThat(config.importanceFlashbulbThreshold()).isEqualTo(0.90f);
+        assertThat(config.enableLifespan()).isTrue();
+        assertThat(config.lifespanTau0()).isEqualTo(0.30f);
+        assertThat(config.lifespanK()).isEqualTo(0.15f);
+        assertThat(config.lifespanT0Epochs()).isEqualTo(365L);
+        assertThat(config.lifespanVTarget()).isEqualTo(100000L);
+        assertThat(config.lifespanGamma()).isEqualTo(1.2f);
+        assertThat(config.lifespanFlashbulbProtect()).isTrue();
     }
 
     @Test
@@ -223,6 +230,21 @@ class AismeConfigTest {
 
         assertThatThrownBy(() -> AismeConfig.builder().importanceFlashbulbThreshold(1.5f).build())
                 .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().lifespanTau0(-0.1f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().lifespanK(-0.5f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().lifespanT0Epochs(0L).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().lifespanVTarget(0L).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().lifespanGamma(-1.0f).build())
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
@@ -265,6 +287,13 @@ class AismeConfigTest {
         props.setImportanceWeightSocial(0.15f);
         props.setImportanceWeightNovelty(0.15f);
         props.setImportanceFlashbulbThreshold(0.92f);
+        props.setEnableLifespan(false);
+        props.setLifespanTau0(0.35f);
+        props.setLifespanK(0.18f);
+        props.setLifespanT0Epochs(500L);
+        props.setLifespanVTarget(150000L);
+        props.setLifespanGamma(1.3f);
+        props.setLifespanFlashbulbProtect(false);
 
         AismeConfig config = AismeConfig.fromProperties(props);
 
@@ -300,6 +329,13 @@ class AismeConfigTest {
         assertThat(config.importanceWeightSocial()).isEqualTo(0.15f);
         assertThat(config.importanceWeightNovelty()).isEqualTo(0.15f);
         assertThat(config.importanceFlashbulbThreshold()).isEqualTo(0.92f);
+        assertThat(config.enableLifespan()).isFalse();
+        assertThat(config.lifespanTau0()).isEqualTo(0.35f);
+        assertThat(config.lifespanK()).isEqualTo(0.18f);
+        assertThat(config.lifespanT0Epochs()).isEqualTo(500L);
+        assertThat(config.lifespanVTarget()).isEqualTo(150000L);
+        assertThat(config.lifespanGamma()).isEqualTo(1.3f);
+        assertThat(config.lifespanFlashbulbProtect()).isFalse();
 
         // Disabled or null props returns disabled config
         props.setEnabled(false);

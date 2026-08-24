@@ -242,6 +242,13 @@ public final class SpectorConfigFactory {
         properties.setImportanceWeightSocial(props.getFloat(MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL, DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL));
         properties.setImportanceWeightNovelty(props.getFloat(MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY, DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY));
         properties.setImportanceFlashbulbThreshold(props.getFloat(MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD, DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD));
+        properties.setEnableLifespan(props.getBoolean(MEMORY_AISME_LIFESPAN_ENABLED, DEFAULT_MEMORY_AISME_LIFESPAN_ENABLED));
+        properties.setLifespanTau0(props.getFloat(MEMORY_AISME_LIFESPAN_TAU_0, DEFAULT_MEMORY_AISME_LIFESPAN_TAU_0));
+        properties.setLifespanK(props.getFloat(MEMORY_AISME_LIFESPAN_K, DEFAULT_MEMORY_AISME_LIFESPAN_K));
+        properties.setLifespanT0Epochs(props.getLong(MEMORY_AISME_LIFESPAN_T0_EPOCHS, DEFAULT_MEMORY_AISME_LIFESPAN_T0_EPOCHS));
+        properties.setLifespanVTarget(props.getLong(MEMORY_AISME_LIFESPAN_V_TARGET, DEFAULT_MEMORY_AISME_LIFESPAN_V_TARGET));
+        properties.setLifespanGamma(props.getFloat(MEMORY_AISME_LIFESPAN_GAMMA, DEFAULT_MEMORY_AISME_LIFESPAN_GAMMA));
+        properties.setLifespanFlashbulbProtect(props.getBoolean(MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT, DEFAULT_MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT));
         return properties;
     }
 

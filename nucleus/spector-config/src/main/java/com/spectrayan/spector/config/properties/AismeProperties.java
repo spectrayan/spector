@@ -100,6 +100,14 @@ public class AismeProperties implements Serializable {
     private float importanceWeightNovelty = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY;
     private float importanceFlashbulbThreshold = DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD;
 
+    private boolean enableLifespan = DEFAULT_MEMORY_AISME_LIFESPAN_ENABLED;
+    private float lifespanTau0 = DEFAULT_MEMORY_AISME_LIFESPAN_TAU_0;
+    private float lifespanK = DEFAULT_MEMORY_AISME_LIFESPAN_K;
+    private long lifespanT0Epochs = DEFAULT_MEMORY_AISME_LIFESPAN_T0_EPOCHS;
+    private long lifespanVTarget = DEFAULT_MEMORY_AISME_LIFESPAN_V_TARGET;
+    private float lifespanGamma = DEFAULT_MEMORY_AISME_LIFESPAN_GAMMA;
+    private boolean lifespanFlashbulbProtect = DEFAULT_MEMORY_AISME_LIFESPAN_FLASHBULB_PROTECT;
+
     public AismeProperties() {}
 
     public boolean isEnabled() {
@@ -654,6 +662,72 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isEnableLifespan() {
+        return enableLifespan;
+    }
+
+    public void setEnableLifespan(boolean enableLifespan) {
+        this.enableLifespan = enableLifespan;
+    }
+
+    public float getLifespanTau0() {
+        return lifespanTau0;
+    }
+
+    public void setLifespanTau0(float lifespanTau0) {
+        if (!Float.isNaN(lifespanTau0) && lifespanTau0 >= 0.0f && lifespanTau0 <= 1.0f) {
+            this.lifespanTau0 = lifespanTau0;
+        }
+    }
+
+    public float getLifespanK() {
+        return lifespanK;
+    }
+
+    public void setLifespanK(float lifespanK) {
+        if (!Float.isNaN(lifespanK) && lifespanK >= 0.0f) {
+            this.lifespanK = lifespanK;
+        }
+    }
+
+    public long getLifespanT0Epochs() {
+        return lifespanT0Epochs;
+    }
+
+    public void setLifespanT0Epochs(long lifespanT0Epochs) {
+        if (lifespanT0Epochs > 0L) {
+            this.lifespanT0Epochs = lifespanT0Epochs;
+        }
+    }
+
+    public long getLifespanVTarget() {
+        return lifespanVTarget;
+    }
+
+    public void setLifespanVTarget(long lifespanVTarget) {
+        if (lifespanVTarget > 0L) {
+            this.lifespanVTarget = lifespanVTarget;
+        }
+    }
+
+    public float getLifespanGamma() {
+        return lifespanGamma;
+    }
+
+    public void setLifespanGamma(float lifespanGamma) {
+        if (!Float.isNaN(lifespanGamma) && lifespanGamma >= 0.0f) {
+            this.lifespanGamma = lifespanGamma;
+        }
+    }
+
+    public boolean isLifespanFlashbulbProtect() {
+        return lifespanFlashbulbProtect;
+    }
+
+    public void setLifespanFlashbulbProtect(boolean lifespanFlashbulbProtect) {
+        this.lifespanFlashbulbProtect = lifespanFlashbulbProtect;
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -715,4 +789,11 @@ public class AismeProperties implements Serializable {
     public float importanceWeightSocial() { return getImportanceWeightSocial(); }
     public float importanceWeightNovelty() { return getImportanceWeightNovelty(); }
     public float importanceFlashbulbThreshold() { return getImportanceFlashbulbThreshold(); }
+    public boolean enableLifespan() { return isEnableLifespan(); }
+    public float lifespanTau0() { return getLifespanTau0(); }
+    public float lifespanK() { return getLifespanK(); }
+    public long lifespanT0Epochs() { return getLifespanT0Epochs(); }
+    public long lifespanVTarget() { return getLifespanVTarget(); }
+    public float lifespanGamma() { return getLifespanGamma(); }
+    public boolean lifespanFlashbulbProtect() { return isLifespanFlashbulbProtect(); }
 }

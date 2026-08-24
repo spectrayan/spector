@@ -82,4 +82,5 @@ public final class RelayNames {
     public static final String EDGE_ANONYMIZATION               = "edge_anonymization";
     public static final String DIFFERENTIAL_PRIVACY             = "differential_privacy";
     public static final String COMPOSITE_IMPORTANCE             = "composite_importance";
+    public static final String LIFESPAN_ADAPTIVE_PRUNING        = "lifespan_adaptive_pruning";
 }
