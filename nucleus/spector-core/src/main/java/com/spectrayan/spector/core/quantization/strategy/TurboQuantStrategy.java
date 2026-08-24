@@ -65,9 +65,7 @@ final class TurboQuantStrategy implements QuantizationStrategy {
         if (!(ctx instanceof DistanceContext.TurboContext tc)) {
             throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "context", "expected TurboContext but got " + ctx.getClass().getSimpleName());
         }
-        byte[] packed = new byte[bpv];
-        MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, offset, packed, 0, bpv);
-        return quantizer.distanceFromRotatedQuery(tc.rotatedQuery(), packed);
+        return quantizer.distanceFromRotatedQuery(tc.rotatedQuery(), segment, offset, bpv);
     }
 
     @Override

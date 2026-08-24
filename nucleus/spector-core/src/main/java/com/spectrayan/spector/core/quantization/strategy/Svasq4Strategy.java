@@ -132,7 +132,7 @@ public final class Svasq4Strategy implements QuantizationStrategy {
         return new DistanceContext.Svasq4Ctx(queryPrep.prepare(query), halfDim);
     }
 
-    /** Returns the bytes per SVASQ-4 encoded vector (4-byte header + paddedDim/2 nibble-packed codes). */
+    /** Returns the bytes per SVASQ-4 encoded vector (2-byte float16 header + paddedDim/2 nibble-packed codes). */
     @Override
     public int bytesPerVector() {
         return bpv;

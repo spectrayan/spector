@@ -14,8 +14,8 @@ package com.spectrayan.spector.memory.aisme.hopfield;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.core.similarity.HopfieldKernel;
-import com.spectrayan.spector.core.similarity.LsrHopfieldKernel;
+import com.spectrayan.spector.core.cognitive.HopfieldKernel;
+import com.spectrayan.spector.core.cognitive.LsrHopfieldKernel;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

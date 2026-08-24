@@ -18,6 +18,7 @@ import com.spectrayan.spector.commons.error.SpectorException;
 
 import com.spectrayan.spector.core.quantization.svasq.SvasqEncoder;
 import com.spectrayan.spector.core.quantization.svasq.SvasqParams;
+import com.spectrayan.spector.core.quantization.svasq.SvasqFwht;
 import com.spectrayan.spector.core.quantization.svasq.SvasqQueryPrep;
 import com.spectrayan.spector.core.similarity.SimilarityFunction;
 
@@ -31,7 +32,7 @@ import com.spectrayan.spector.commons.error.SpectorValidationException;
  *
  * <h3>Memory layout per vector</h3>
  * <pre>
- *   [float32 exactNormSq (4 bytes)] [INT8 × paddedDim signed codes]
+ *   [float16 exactNormSq (2 bytes)] [INT8 × paddedDim signed codes]
  * </pre>
  *
  * <h3>Distance computation</h3>
@@ -87,7 +88,7 @@ public final class SvasqStrategy implements QuantizationStrategy {
     /**
      * Encodes a float32 vector directly into the off-heap segment.
      *
-     * <p>Applies FWHT rotation, INT8 quantization, and writes the 4-byte norm
+     * <p>Applies FWHT rotation, INT8 quantization, and writes the 2-byte float16 norm
      * header + INT8 codes — zero heap allocation in the store path.</p>
      */
     @Override
@@ -98,7 +99,7 @@ public final class SvasqStrategy implements QuantizationStrategy {
     /**
      * Decodes an approximation of the original vector from the off-heap segment.
      *
-     * <p>Skips the 4-byte norm header; reads INT8 codes and reconstructs via
+     * <p>Skips the 2-byte float16 norm header; reads INT8 codes and reconstructs via
      * {@code x̂ᵢ ≈ zᵢ × scaleᵢ + μᵢ} for {@code i < originalDim}.</p>
      */
     @Override
@@ -106,10 +107,26 @@ public final class SvasqStrategy implements QuantizationStrategy {
         SvasqParams params = encoder.params();
         float[] scales = params.scales();
         float[] means  = params.means();
+        int paddedDim = params.paddedDim();
+        int storedDim = params.storedDim();
+
+        // 1. Dequantize INT8 codes from rotated space (2-byte float16 header, not 4-byte)
+        float[] rotated = new float[paddedDim];
+        for (int i = 0; i < storedDim; i++) {
+            int code = segment.get(ValueLayout.JAVA_BYTE, offset + 2L + i);
+            rotated[i] = code * scales[i] + means[i];
+        }
+
+        // 2. Inverse FWHT: the WHT is self-inverse up to a 1/N factor,
+        //    so applying applyFwht again + normalizing gives the inverse transform
+        SvasqFwht.applyFwht(rotated);
+        float norm = 1.0f / paddedDim;  // WHT self-inverse normalization
+
+        // 3. Undo sign flip and normalize, then slice to original dimensions
+        float[] signFlip = params.fwht().signFlip();
         float[] result = new float[dimensions];
         for (int i = 0; i < dimensions; i++) {
-            int code = segment.get(ValueLayout.JAVA_BYTE, offset + 4L + i);
-            result[i] = code * scales[i] + means[i];
+            result[i] = rotated[i] * norm * signFlip[i];
         }
         return result;
     }
@@ -141,7 +158,7 @@ public final class SvasqStrategy implements QuantizationStrategy {
         return new DistanceContext.SvasqCtx(queryPrep.prepare(query), paddedDim);
     }
 
-    /** Returns the number of bytes per SVASQ-encoded vector (4-byte header + paddedDim codes). */
+    /** Returns the number of bytes per SVASQ-encoded vector (2-byte float16 header + paddedDim codes). */
     @Override
     public int bytesPerVector() {
         return bpv;

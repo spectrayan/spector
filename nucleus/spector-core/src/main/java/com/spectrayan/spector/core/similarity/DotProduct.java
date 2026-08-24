@@ -72,7 +72,7 @@ public final class DotProduct {
      * @throws SpectorValidationException if length is negative or offsets are out of bounds
      */
     public static float compute(float[] a, int aOffset, float[] b, int bOffset, int length) {
-        validateInputs(a, aOffset, b, bOffset, length);
+        VectorOps.validateSliceInputs(a, aOffset, b, bOffset, length);
 
         int laneCount = SPECIES.length();
         FloatVector sum = FloatVector.zero(SPECIES);
@@ -97,15 +97,5 @@ public final class DotProduct {
         return sum.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
     }
 
-    private static void validateInputs(float[] a, int aOffset, float[] b, int bOffset, int length) {
-        if (length < 0) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_NEGATIVE, "length", length);
-        }
-        if (aOffset < 0 || aOffset + length > a.length) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("a: offset=%d, length=%d, array.length=%d", aOffset, length, a.length));
-        }
-        if (bOffset < 0 || bOffset + length > b.length) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, String.format("b: offset=%d, length=%d, array.length=%d", bOffset, length, b.length));
-        }
-    }
+
 }

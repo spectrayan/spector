@@ -168,7 +168,7 @@ public final class BayesianOnlineChangePointDetector {
     }
 
     private float computeLogGaussianLikelihood(float[] obs, int r) {
-        return com.spectrayan.spector.core.similarity.BocpdKernel.evaluateLogLikelihoodForRun(
+        return com.spectrayan.spector.core.cognitive.BocpdKernel.evaluateLogLikelihoodForRun(
                 obs,
                 priorMean,
                 priorPrecision,

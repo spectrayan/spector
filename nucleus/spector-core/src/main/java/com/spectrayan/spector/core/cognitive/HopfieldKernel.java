@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.core.similarity;
+package com.spectrayan.spector.core.cognitive;
+
+import com.spectrayan.spector.core.similarity.DotProduct;
+import com.spectrayan.spector.core.similarity.VectorOps;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -113,50 +116,7 @@ public final class HopfieldKernel {
      * @param outState destination vector in R^D
      */
     public static void matrixVectorProduct(float[][] patterns, float[] weights, float[] outState) {
-        if (patterns == null || weights == null || outState == null) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Arguments must not be null");
-        }
-        int numPatterns = patterns.length;
-        if (weights.length != numPatterns) {
-            throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Weights length must match number of patterns");
-        }
-        if (numPatterns == 0) {
-            return;
-        }
-        int dim = outState.length;
-        Arrays.fill(outState, 0.0f);
-
-        int laneCount = SPECIES.length();
-        int limit = SPECIES.loopBound(dim);
-
-        for (int p = 0; p < numPatterns; p++) {
-            float w = weights[p];
-            if (w == 0.0f) {
-                continue;
-            }
-            float[] pattern = patterns[p];
-            if (pattern.length != dim) {
-                throw new SpectorValidationException(ErrorCode.ARGUMENT_INVALID, "Pattern dimension mismatch at index " + p);
-            }
-
-            FloatVector vW = FloatVector.broadcast(SPECIES, w);
-
-            int d = 0;
-            for (; d < limit; d += laneCount) {
-                FloatVector vAcc = FloatVector.fromArray(SPECIES, outState, d);
-                FloatVector vPat = FloatVector.fromArray(SPECIES, pattern, d);
-                vAcc = vAcc.add(vPat.mul(vW));
-                vAcc.intoArray(outState, d);
-            }
-
-            if (d < dim) {
-                VectorMask<Float> mask = SPECIES.indexInRange(d, dim);
-                FloatVector vAcc = FloatVector.fromArray(SPECIES, outState, d, mask);
-                FloatVector vPat = FloatVector.fromArray(SPECIES, pattern, d, mask);
-                vAcc = vAcc.add(vPat.mul(vW, mask), mask);
-                vAcc.intoArray(outState, d, mask);
-            }
-        }
+        VectorOps.matrixVectorProduct(patterns, weights, outState);
     }
 
     /**

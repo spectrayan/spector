@@ -17,6 +17,8 @@ package com.spectrayan.spector.core.quantization;
 import com.spectrayan.spector.commons.error.SpectorException;
 
 import java.util.Arrays;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 
 import com.spectrayan.spector.core.simd.RandomRotation;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
@@ -352,6 +354,33 @@ public final class TurboQuantizer {
      * @return approximate squared L2 distance
      */
     public float distanceFromRotatedQuery(float[] rotatedQuery, byte[] packed) {
+        int[] quantized = unpack(packed);
+        float dist = 0;
+        for (int d = 0; d < dimensions; d++) {
+            float reconstructed = quantized[d] * scales[d] + mins[d];
+            float diff = rotatedQuery[d] - reconstructed;
+            dist += diff * diff;
+        }
+        return dist;
+    }
+
+    /**
+     * Computes squared L2 distance from a pre-rotated query to packed bytes
+     * stored in an off-heap {@link MemorySegment} — <b>zero-copy hot path</b>.
+     *
+     * <p>Reads packed bytes directly from the off-heap segment, avoiding the
+     * per-call {@code new byte[bpv]} allocation that occurs with the
+     * {@link #distanceFromRotatedQuery(float[], byte[])} overload.</p>
+     *
+     * @param rotatedQuery pre-rotated query (from {@link #rotateQuery})
+     * @param segment      off-heap segment containing the packed quantized bytes
+     * @param offset       byte offset of the packed data within the segment
+     * @param bpv          bytes per vector (number of packed bytes to read)
+     * @return approximate squared L2 distance
+     */
+    public float distanceFromRotatedQuery(float[] rotatedQuery, MemorySegment segment, long offset, int bpv) {
+        byte[] packed = new byte[bpv];
+        MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, offset, packed, 0, bpv);
         int[] quantized = unpack(packed);
         float dist = 0;
         for (int d = 0; d < dimensions; d++) {

@@ -14,7 +14,7 @@ package com.spectrayan.spector.memory.aisme.pcmn;
 
 import com.spectrayan.spector.commons.error.ErrorCode;
 import com.spectrayan.spector.commons.error.SpectorValidationException;
-import com.spectrayan.spector.core.similarity.PredictiveCodingKernel;
+import com.spectrayan.spector.core.cognitive.PredictiveCodingKernel;
 import com.spectrayan.spector.memory.model.CognitiveProfile;
 
 import org.slf4j.Logger;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.spectrayan.spector.core.similarity;
+package com.spectrayan.spector.core.expression;
 
 import com.spectrayan.spector.core.simd.SimdCapability;
 import jdk.incubator.vector.FloatVector;

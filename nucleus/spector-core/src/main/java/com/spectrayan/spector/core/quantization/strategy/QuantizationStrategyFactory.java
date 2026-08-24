@@ -95,7 +95,7 @@ public final class QuantizationStrategyFactory {
                     throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "NonUniformQuantizer for SCALAR_INT4");
                 }
                 validateLevels(nonUniformQuantizer, type);
-                yield new Int4Strategy(nonUniformQuantizer, similarityFunction,
+                yield PackedBitStrategy.int4(nonUniformQuantizer, similarityFunction,
                         computeGlobalCentroids(nonUniformQuantizer));
             }
             case SCALAR_INT2 -> {
@@ -103,7 +103,7 @@ public final class QuantizationStrategyFactory {
                     throw new SpectorValidationException(ErrorCode.ARGUMENT_NULL, "NonUniformQuantizer for SCALAR_INT2");
                 }
                 validateLevels(nonUniformQuantizer, type);
-                yield new Int2Strategy(nonUniformQuantizer, similarityFunction,
+                yield PackedBitStrategy.int2(nonUniformQuantizer, similarityFunction,
                         computeGlobalCentroids(nonUniformQuantizer));
             }
             case TURBO_QUANT -> {

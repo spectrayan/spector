@@ -153,11 +153,14 @@ public final class Svasq4Encoder {
     public float[] decode(MemorySegment segment, long offset, int dimensions) {
         float[] scales = params.scales();
         float[] means  = params.means();
-        float[] result = new float[dimensions];
+        int paddedDim = params.paddedDim();
 
+        // 1. Dequantize nibble-packed codes in rotated space
+        float[] rotated = new float[paddedDim];
         long codeOffset = offset + 2L;
 
-        for (int d = 0; d < dimensions; d++) {
+        int storedDim = params.storedDim();
+        for (int d = 0; d < storedDim; d++) {
             int k = d / 2;
             byte packed = segment.get(ValueLayout.JAVA_BYTE, codeOffset + k);
 
@@ -167,8 +170,19 @@ public final class Svasq4Encoder {
             // Reverse offset → signed value
             int z = u - OFFSET;
 
-            // Affine reconstruction
-            result[d] = z * scales[d] + means[d];
+            // Affine reconstruction in rotated space
+            rotated[d] = z * scales[d] + means[d];
+        }
+
+        // 2. Inverse FWHT: the WHT is self-inverse up to a 1/N factor
+        SvasqFwht.applyFwht(rotated);
+        float norm = 1.0f / paddedDim;
+
+        // 3. Undo sign flip and normalize, then slice to original dimensions
+        float[] signFlip = params.fwht().signFlip();
+        float[] result = new float[dimensions];
+        for (int i = 0; i < dimensions; i++) {
+            result[i] = rotated[i] * norm * signFlip[i];
         }
         return result;
     }
