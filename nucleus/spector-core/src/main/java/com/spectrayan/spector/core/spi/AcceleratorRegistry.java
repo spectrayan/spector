@@ -35,7 +35,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <h3>Automatic Fallback</h3>
  * <p>If a hardware accelerator encounters an unexpected runtime error during compute,
  * the registry catches the exception, logs a diagnostic warning, and transparently
- * falls back to {@link CpuSimdSimilarityKernel}. Higher-level modules (memory, index)
+ * falls back to CPU SIMD (or Scalar baseline). Higher-level modules (memory, index)
  * never receive hardware-specific exceptions.</p>
  *
  * <h3>Configuration</h3>
@@ -61,16 +61,16 @@ public final class AcceleratorRegistry {
     private static final class RegistryState {
         final List<ComputeAccelerator> availableAccelerators;
         final ComputeAccelerator primaryAccelerator;
-        final CpuSimdAccelerator fallbackAccelerator;
+        final ComputeAccelerator fallbackAccelerator;
         final SimilarityKernel smartSimilarityKernel;
 
         RegistryState(List<ComputeAccelerator> availableAccelerators,
                       ComputeAccelerator primaryAccelerator,
-                      CpuSimdAccelerator fallbackAccelerator) {
+                      ComputeAccelerator fallbackAccelerator) {
             this.availableAccelerators = availableAccelerators;
             this.primaryAccelerator = primaryAccelerator;
             this.fallbackAccelerator = fallbackAccelerator;
-            this.smartSimilarityKernel = new SmartSimilarityKernel(primaryAccelerator);
+            this.smartSimilarityKernel = new SmartSimilarityKernel(primaryAccelerator, fallbackAccelerator);
         }
     }
 
@@ -94,16 +94,16 @@ public final class AcceleratorRegistry {
 
     private static RegistryState initialize() {
         List<ComputeAccelerator> discovered = new ArrayList<>();
-        CpuSimdAccelerator cpuFallback = null;
+        ComputeAccelerator cpuSimdFallback = null;
 
         ServiceLoader<ComputeAccelerator> loader = ServiceLoader.load(ComputeAccelerator.class);
         for (ComputeAccelerator acc : loader) {
             try {
-                if (acc instanceof CpuSimdAccelerator simd) {
-                    cpuFallback = simd;
-                }
                 if (acc.isAvailable()) {
                     discovered.add(acc);
+                    if ("cpu-simd".equalsIgnoreCase(acc.name())) {
+                        cpuSimdFallback = acc;
+                    }
                     log.debug("Discovered available compute accelerator: {} (priority={})", acc.name(), acc.priority());
                 } else {
                     log.debug("Discovered compute accelerator {} but it is not available on this host", acc.name());
@@ -113,16 +113,13 @@ public final class AcceleratorRegistry {
             }
         }
 
-        if (cpuFallback == null) {
-            cpuFallback = new CpuSimdAccelerator();
-            discovered.add(cpuFallback);
-        }
-
         discovered.sort(Comparator.comparingInt(ComputeAccelerator::priority).reversed());
-        ComputeAccelerator primary = discovered.isEmpty() ? cpuFallback : discovered.get(0);
+        ComputeAccelerator primary = discovered.isEmpty() ? null : discovered.get(0);
+        ComputeAccelerator fallback = cpuSimdFallback != null ? cpuSimdFallback : primary;
 
-        log.info("AcceleratorRegistry initialized: primary='{}' (total available={})", primary.name(), discovered.size());
-        return new RegistryState(List.copyOf(discovered), primary, cpuFallback);
+        String primaryName = primary != null ? primary.name() : "scalar-baseline";
+        log.info("AcceleratorRegistry initialized: primary='{}' (total available={})", primaryName, discovered.size());
+        return new RegistryState(List.copyOf(discovered), primary, fallback);
     }
 
     /**
@@ -145,14 +142,15 @@ public final class AcceleratorRegistry {
     /**
      * Returns the name of the currently active primary compute accelerator.
      *
-     * @return primary accelerator name (e.g. "cuda", "cpu-simd")
+     * @return primary accelerator name (e.g. "cuda", "cpu-simd", "scalar-baseline")
      */
     public static String getActiveAcceleratorName() {
-        return getState().primaryAccelerator.name();
+        ComputeAccelerator primary = getState().primaryAccelerator;
+        return primary != null ? primary.name() : "scalar-baseline";
     }
 
     /**
-     * Returns the primary compute accelerator instance.
+     * Returns the primary compute accelerator instance, or null if only scalar fallback exists.
      *
      * @return primary accelerator
      */
@@ -163,7 +161,7 @@ public final class AcceleratorRegistry {
     /**
      * Returns a hardware-transparent {@link SimilarityKernel} that automatically routes
      * batch operations to the primary accelerator when batch thresholds are met,
-     * with automatic CPU SIMD fallback.
+     * with automatic CPU SIMD / scalar fallback.
      *
      * @return smart similarity kernel
      */
@@ -187,11 +185,16 @@ public final class AcceleratorRegistry {
         }
 
         RegistryState localState = getState();
-        T kernel = localState.primaryAccelerator.getKernel(kernelType);
-        if (kernel != null) {
-            return kernel;
+        if (localState.primaryAccelerator != null) {
+            T kernel = localState.primaryAccelerator.getKernel(kernelType);
+            if (kernel != null) {
+                return kernel;
+            }
         }
-        return localState.fallbackAccelerator.getKernel(kernelType);
+        if (localState.fallbackAccelerator != null) {
+            return localState.fallbackAccelerator.getKernel(kernelType);
+        }
+        return null;
     }
 
     /**
@@ -211,24 +214,26 @@ public final class AcceleratorRegistry {
      */
     private static final class SmartSimilarityKernel implements SimilarityKernel {
 
-        private final ComputeAccelerator accelerator;
-        private final SimilarityKernel acceleratorKernel;
-        private final SimilarityKernel cpuKernel = CpuSimdSimilarityKernel.INSTANCE;
+        private final ComputeAccelerator primaryAccelerator;
+        private final SimilarityKernel primaryKernel;
+        private final SimilarityKernel fallbackKernel;
 
-        SmartSimilarityKernel(ComputeAccelerator accelerator) {
-            this.accelerator = accelerator;
-            this.acceleratorKernel = (accelerator != null) ? accelerator.getKernel(SimilarityKernel.class) : null;
+        SmartSimilarityKernel(ComputeAccelerator primary, ComputeAccelerator fallback) {
+            this.primaryAccelerator = primary;
+            this.primaryKernel = (primary != null) ? primary.getKernel(SimilarityKernel.class) : null;
+            SimilarityKernel fb = (fallback != null) ? fallback.getKernel(SimilarityKernel.class) : null;
+            this.fallbackKernel = (fb != null) ? fb : ScalarSimilarityKernel.INSTANCE;
         }
 
         private boolean shouldRouteToAccelerator(int numVectors, int dimensions) {
-            if (acceleratorKernel == null || accelerator == null || !accelerator.isAvailable()) {
+            if (primaryKernel == null || primaryAccelerator == null || !primaryAccelerator.isAvailable()) {
                 return false;
             }
-            if (accelerator instanceof CpuSimdAccelerator) {
+            if ("cpu-simd".equalsIgnoreCase(primaryAccelerator.name())) {
                 return false;
             }
             int threshold = getBatchThreshold();
-            int acceleratorMin = accelerator.minimumBatchSize(dimensions);
+            int acceleratorMin = primaryAccelerator.minimumBatchSize(dimensions);
             int effectiveMin = Math.min(threshold, acceleratorMin);
             return numVectors >= effectiveMin;
         }
@@ -237,42 +242,42 @@ public final class AcceleratorRegistry {
         public float[] cosineSimilarity(float[] query, float[] database, int numVectors, int dimensions) {
             if (shouldRouteToAccelerator(numVectors, dimensions)) {
                 try {
-                    return acceleratorKernel.cosineSimilarity(query, database, numVectors, dimensions);
+                    return primaryKernel.cosineSimilarity(query, database, numVectors, dimensions);
                 } catch (Throwable t) {
-                    log.warn("Accelerator '{}' failed on cosineSimilarity, falling back to CPU SIMD: {}",
-                            accelerator.name(), t.getMessage());
+                    log.warn("Accelerator '{}' failed on cosineSimilarity, falling back: {}",
+                            primaryAccelerator.name(), t.getMessage());
                     log.debug("Accelerator failure details", t);
                 }
             }
-            return cpuKernel.cosineSimilarity(query, database, numVectors, dimensions);
+            return fallbackKernel.cosineSimilarity(query, database, numVectors, dimensions);
         }
 
         @Override
         public float[] dotProduct(float[] query, float[] database, int numVectors, int dimensions) {
             if (shouldRouteToAccelerator(numVectors, dimensions)) {
                 try {
-                    return acceleratorKernel.dotProduct(query, database, numVectors, dimensions);
+                    return primaryKernel.dotProduct(query, database, numVectors, dimensions);
                 } catch (Throwable t) {
-                    log.warn("Accelerator '{}' failed on dotProduct, falling back to CPU SIMD: {}",
-                            accelerator.name(), t.getMessage());
+                    log.warn("Accelerator '{}' failed on dotProduct, falling back: {}",
+                            primaryAccelerator.name(), t.getMessage());
                     log.debug("Accelerator failure details", t);
                 }
             }
-            return cpuKernel.dotProduct(query, database, numVectors, dimensions);
+            return fallbackKernel.dotProduct(query, database, numVectors, dimensions);
         }
 
         @Override
         public float[] euclideanDistance(float[] query, float[] database, int numVectors, int dimensions) {
             if (shouldRouteToAccelerator(numVectors, dimensions)) {
                 try {
-                    return acceleratorKernel.euclideanDistance(query, database, numVectors, dimensions);
+                    return primaryKernel.euclideanDistance(query, database, numVectors, dimensions);
                 } catch (Throwable t) {
-                    log.warn("Accelerator '{}' failed on euclideanDistance, falling back to CPU SIMD: {}",
-                            accelerator.name(), t.getMessage());
+                    log.warn("Accelerator '{}' failed on euclideanDistance, falling back: {}",
+                            primaryAccelerator.name(), t.getMessage());
                     log.debug("Accelerator failure details", t);
                 }
             }
-            return cpuKernel.euclideanDistance(query, database, numVectors, dimensions);
+            return fallbackKernel.euclideanDistance(query, database, numVectors, dimensions);
         }
     }
 }
