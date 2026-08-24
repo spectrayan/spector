@@ -37,6 +37,7 @@ class AismeConfigTest {
         assertThat(config.enableGlobalWorkspace()).isFalse();
         assertThat(config.enableSoftIdentityAnchor()).isFalse();
         assertThat(config.enableEventDensity()).isFalse();
+        assertThat(config.enableBocpd()).isFalse();
     }
 
     @Test
@@ -62,6 +63,12 @@ class AismeConfigTest {
         assertThat(config.eventDensityGammaSurprise()).isEqualTo(0.30f);
         assertThat(config.eventDensitySamplingMinHz()).isEqualTo(0.10f);
         assertThat(config.eventDensitySamplingMaxHz()).isEqualTo(30.0f);
+        assertThat(config.enableBocpd()).isTrue();
+        assertThat(config.bocpdHazardLambda()).isEqualTo(100.0f);
+        assertThat(config.bocpdChangePointThreshold()).isEqualTo(0.65f);
+        assertThat(config.bocpdSurprisalCutThreshold()).isEqualTo(1.50f);
+        assertThat(config.bocpdMaxEpisodeFrames()).isEqualTo(200);
+        assertThat(config.bocpdMaxRunLength()).isEqualTo(150);
     }
 
     @Test
@@ -85,6 +92,12 @@ class AismeConfigTest {
                 .eventDensityGammaSurprise(0.25f)
                 .eventDensitySamplingMinHz(0.5f)
                 .eventDensitySamplingMaxHz(20.0f)
+                .enableBocpd(true)
+                .bocpdHazardLambda(80.0f)
+                .bocpdChangePointThreshold(0.70f)
+                .bocpdSurprisalCutThreshold(1.80f)
+                .bocpdMaxEpisodeFrames(180)
+                .bocpdMaxRunLength(120)
                 .build();
 
         assertThat(config.enabled()).isTrue();
@@ -100,11 +113,12 @@ class AismeConfigTest {
         assertThat(config.identityCoreSnapshotEpochs()).isEqualTo(100);
         assertThat(config.enableEventDensity()).isTrue();
         assertThat(config.eventDensityThreshold()).isEqualTo(0.60f);
-        assertThat(config.eventDensityAlphaKl()).isEqualTo(0.50f);
-        assertThat(config.eventDensityBetaGradient()).isEqualTo(0.25f);
-        assertThat(config.eventDensityGammaSurprise()).isEqualTo(0.25f);
-        assertThat(config.eventDensitySamplingMinHz()).isEqualTo(0.5f);
-        assertThat(config.eventDensitySamplingMaxHz()).isEqualTo(20.0f);
+        assertThat(config.enableBocpd()).isTrue();
+        assertThat(config.bocpdHazardLambda()).isEqualTo(80.0f);
+        assertThat(config.bocpdChangePointThreshold()).isEqualTo(0.70f);
+        assertThat(config.bocpdSurprisalCutThreshold()).isEqualTo(1.80f);
+        assertThat(config.bocpdMaxEpisodeFrames()).isEqualTo(180);
+        assertThat(config.bocpdMaxRunLength()).isEqualTo(120);
     }
 
     @Test
@@ -136,7 +150,19 @@ class AismeConfigTest {
         assertThatThrownBy(() -> AismeConfig.builder().eventDensitySamplingMinHz(0.0f).build())
                 .isInstanceOf(SpectorValidationException.class);
 
-        assertThatThrownBy(() -> AismeConfig.builder().eventDensitySamplingMinHz(10.0f).eventDensitySamplingMaxHz(5.0f).build())
+        assertThatThrownBy(() -> AismeConfig.builder().bocpdHazardLambda(0.0f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().bocpdChangePointThreshold(1.5f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().bocpdSurprisalCutThreshold(-0.1f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().bocpdMaxEpisodeFrames(0).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().bocpdMaxRunLength(0).build())
                 .isInstanceOf(SpectorValidationException.class);
     }
 
@@ -161,6 +187,12 @@ class AismeConfigTest {
         props.setEventDensityGammaSurprise(0.20f);
         props.setEventDensitySamplingMinHz(0.25f);
         props.setEventDensitySamplingMaxHz(25.0f);
+        props.setEnableBocpd(true);
+        props.setBocpdHazardLambda(95.0f);
+        props.setBocpdChangePointThreshold(0.68f);
+        props.setBocpdSurprisalCutThreshold(1.65f);
+        props.setBocpdMaxEpisodeFrames(220);
+        props.setBocpdMaxRunLength(160);
 
         AismeConfig config = AismeConfig.fromProperties(props);
 
@@ -177,11 +209,12 @@ class AismeConfigTest {
         assertThat(config.identityCoreSnapshotEpochs()).isEqualTo(60);
         assertThat(config.enableEventDensity()).isTrue();
         assertThat(config.eventDensityThreshold()).isEqualTo(0.55f);
-        assertThat(config.eventDensityAlphaKl()).isEqualTo(0.45f);
-        assertThat(config.eventDensityBetaGradient()).isEqualTo(0.35f);
-        assertThat(config.eventDensityGammaSurprise()).isEqualTo(0.20f);
-        assertThat(config.eventDensitySamplingMinHz()).isEqualTo(0.25f);
-        assertThat(config.eventDensitySamplingMaxHz()).isEqualTo(25.0f);
+        assertThat(config.enableBocpd()).isTrue();
+        assertThat(config.bocpdHazardLambda()).isEqualTo(95.0f);
+        assertThat(config.bocpdChangePointThreshold()).isEqualTo(0.68f);
+        assertThat(config.bocpdSurprisalCutThreshold()).isEqualTo(1.65f);
+        assertThat(config.bocpdMaxEpisodeFrames()).isEqualTo(220);
+        assertThat(config.bocpdMaxRunLength()).isEqualTo(160);
 
         // Disabled or null props returns disabled config
         props.setEnabled(false);
