@@ -92,6 +92,14 @@ public class AismeProperties implements Serializable {
     private boolean privacyAnonymizePii = DEFAULT_MEMORY_AISME_PRIVACY_ANONYMIZE_PII;
     private String privacyPseudonymizationSalt = DEFAULT_MEMORY_AISME_PRIVACY_PSEUDONYMIZATION_SALT;
 
+    private boolean enableImportance = DEFAULT_MEMORY_AISME_IMPORTANCE_ENABLED;
+    private float importanceWeightSurprise = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SURPRISE;
+    private float importanceWeightAffect = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_AFFECT;
+    private float importanceWeightGoal = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_GOAL;
+    private float importanceWeightSocial = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_SOCIAL;
+    private float importanceWeightNovelty = DEFAULT_MEMORY_AISME_IMPORTANCE_WEIGHT_NOVELTY;
+    private float importanceFlashbulbThreshold = DEFAULT_MEMORY_AISME_IMPORTANCE_FLASHBULB_THRESHOLD;
+
     public AismeProperties() {}
 
     public boolean isEnabled() {
@@ -578,6 +586,74 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isEnableImportance() {
+        return enableImportance;
+    }
+
+    public void setEnableImportance(boolean enableImportance) {
+        this.enableImportance = enableImportance;
+    }
+
+    public float getImportanceWeightSurprise() {
+        return importanceWeightSurprise;
+    }
+
+    public void setImportanceWeightSurprise(float importanceWeightSurprise) {
+        if (!Float.isNaN(importanceWeightSurprise) && importanceWeightSurprise >= 0.0f) {
+            this.importanceWeightSurprise = importanceWeightSurprise;
+        }
+    }
+
+    public float getImportanceWeightAffect() {
+        return importanceWeightAffect;
+    }
+
+    public void setImportanceWeightAffect(float importanceWeightAffect) {
+        if (!Float.isNaN(importanceWeightAffect) && importanceWeightAffect >= 0.0f) {
+            this.importanceWeightAffect = importanceWeightAffect;
+        }
+    }
+
+    public float getImportanceWeightGoal() {
+        return importanceWeightGoal;
+    }
+
+    public void setImportanceWeightGoal(float importanceWeightGoal) {
+        if (!Float.isNaN(importanceWeightGoal) && importanceWeightGoal >= 0.0f) {
+            this.importanceWeightGoal = importanceWeightGoal;
+        }
+    }
+
+    public float getImportanceWeightSocial() {
+        return importanceWeightSocial;
+    }
+
+    public void setImportanceWeightSocial(float importanceWeightSocial) {
+        if (!Float.isNaN(importanceWeightSocial) && importanceWeightSocial >= 0.0f) {
+            this.importanceWeightSocial = importanceWeightSocial;
+        }
+    }
+
+    public float getImportanceWeightNovelty() {
+        return importanceWeightNovelty;
+    }
+
+    public void setImportanceWeightNovelty(float importanceWeightNovelty) {
+        if (!Float.isNaN(importanceWeightNovelty) && importanceWeightNovelty >= 0.0f) {
+            this.importanceWeightNovelty = importanceWeightNovelty;
+        }
+    }
+
+    public float getImportanceFlashbulbThreshold() {
+        return importanceFlashbulbThreshold;
+    }
+
+    public void setImportanceFlashbulbThreshold(float importanceFlashbulbThreshold) {
+        if (!Float.isNaN(importanceFlashbulbThreshold) && importanceFlashbulbThreshold >= 0.0f && importanceFlashbulbThreshold <= 1.0f) {
+            this.importanceFlashbulbThreshold = importanceFlashbulbThreshold;
+        }
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -632,4 +708,11 @@ public class AismeProperties implements Serializable {
     public float privacyClippingNorm() { return getPrivacyClippingNorm(); }
     public boolean privacyAnonymizePii() { return isPrivacyAnonymizePii(); }
     public String privacyPseudonymizationSalt() { return getPrivacyPseudonymizationSalt(); }
+    public boolean enableImportance() { return isEnableImportance(); }
+    public float importanceWeightSurprise() { return getImportanceWeightSurprise(); }
+    public float importanceWeightAffect() { return getImportanceWeightAffect(); }
+    public float importanceWeightGoal() { return getImportanceWeightGoal(); }
+    public float importanceWeightSocial() { return getImportanceWeightSocial(); }
+    public float importanceWeightNovelty() { return getImportanceWeightNovelty(); }
+    public float importanceFlashbulbThreshold() { return getImportanceFlashbulbThreshold(); }
 }
