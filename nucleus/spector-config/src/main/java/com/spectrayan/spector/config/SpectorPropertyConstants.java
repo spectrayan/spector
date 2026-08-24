@@ -525,6 +525,24 @@ public final class SpectorPropertyConstants {
     public static final String MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ = "spector.memory.aisme.event-density.sampling-max-hz";
     public static final float DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ = 30.0f;
 
+    public static final String MEMORY_AISME_BOCPD_ENABLED = "spector.memory.aisme.bocpd.enabled";
+    public static final boolean DEFAULT_MEMORY_AISME_BOCPD_ENABLED = true;
+
+    public static final String MEMORY_AISME_BOCPD_HAZARD_LAMBDA = "spector.memory.aisme.bocpd.hazard-lambda";
+    public static final float DEFAULT_MEMORY_AISME_BOCPD_HAZARD_LAMBDA = 100.0f;
+
+    public static final String MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD = "spector.memory.aisme.bocpd.change-point-threshold";
+    public static final float DEFAULT_MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD = 0.65f;
+
+    public static final String MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD = "spector.memory.aisme.bocpd.surprisal-cut-threshold";
+    public static final float DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD = 1.50f;
+
+    public static final String MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES = "spector.memory.aisme.bocpd.max-episode-frames";
+    public static final int DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES = 200;
+
+    public static final String MEMORY_AISME_BOCPD_MAX_RUN_LENGTH = "spector.memory.aisme.bocpd.max-run-length";
+    public static final int DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH = 150;
+
     // Session, Sync, WAL & Subsystems
     public static final String MEMORY_WAL_MAX_CHUNK_BYTES = "spector.memory.wal.max-chunk-bytes";
     public static final long DEFAULT_MEMORY_WAL_MAX_CHUNK_BYTES = 8L * 1024 * 1024;

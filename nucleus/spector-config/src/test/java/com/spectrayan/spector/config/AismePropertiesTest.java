@@ -57,6 +57,13 @@ class AismePropertiesTest {
         assertThat(props.getEventDensitySamplingMinHz()).isEqualTo(0.10f);
         assertThat(props.getEventDensitySamplingMaxHz()).isEqualTo(30.0f);
 
+        assertThat(props.isEnableBocpd()).isTrue();
+        assertThat(props.getBocpdHazardLambda()).isEqualTo(100.0f);
+        assertThat(props.getBocpdChangePointThreshold()).isEqualTo(0.65f);
+        assertThat(props.getBocpdSurprisalCutThreshold()).isEqualTo(1.50f);
+        assertThat(props.getBocpdMaxEpisodeFrames()).isEqualTo(200);
+        assertThat(props.getBocpdMaxRunLength()).isEqualTo(150);
+
         // Fluent accessors
         assertThat(props.enabled()).isFalse();
         assertThat(props.enableHomeostasis()).isTrue();
@@ -82,6 +89,13 @@ class AismePropertiesTest {
         assertThat(props.eventDensityGammaSurprise()).isEqualTo(0.30f);
         assertThat(props.eventDensitySamplingMinHz()).isEqualTo(0.10f);
         assertThat(props.eventDensitySamplingMaxHz()).isEqualTo(30.0f);
+
+        assertThat(props.enableBocpd()).isTrue();
+        assertThat(props.bocpdHazardLambda()).isEqualTo(100.0f);
+        assertThat(props.bocpdChangePointThreshold()).isEqualTo(0.65f);
+        assertThat(props.bocpdSurprisalCutThreshold()).isEqualTo(1.50f);
+        assertThat(props.bocpdMaxEpisodeFrames()).isEqualTo(200);
+        assertThat(props.bocpdMaxRunLength()).isEqualTo(150);
     }
 
     @Test
@@ -106,6 +120,13 @@ class AismePropertiesTest {
         props.setEventDensitySamplingMinHz(0.5f);
         props.setEventDensitySamplingMaxHz(60.0f);
 
+        props.setEnableBocpd(false);
+        props.setBocpdHazardLambda(80.0f);
+        props.setBocpdChangePointThreshold(0.75f);
+        props.setBocpdSurprisalCutThreshold(2.0f);
+        props.setBocpdMaxEpisodeFrames(300);
+        props.setBocpdMaxRunLength(200);
+
         assertThat(props.isEnabled()).isTrue();
         assertThat(props.isEnableHomeostasis()).isFalse();
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
@@ -125,6 +146,13 @@ class AismePropertiesTest {
         assertThat(props.getEventDensitySamplingMinHz()).isEqualTo(0.5f);
         assertThat(props.getEventDensitySamplingMaxHz()).isEqualTo(60.0f);
 
+        assertThat(props.isEnableBocpd()).isFalse();
+        assertThat(props.getBocpdHazardLambda()).isEqualTo(80.0f);
+        assertThat(props.getBocpdChangePointThreshold()).isEqualTo(0.75f);
+        assertThat(props.getBocpdSurprisalCutThreshold()).isEqualTo(2.0f);
+        assertThat(props.getBocpdMaxEpisodeFrames()).isEqualTo(300);
+        assertThat(props.getBocpdMaxRunLength()).isEqualTo(200);
+
         // Invalid values should be ignored
         props.setGlobalWorkspaceCapacity(0);
         props.setHopfieldTemperature(-1.0f);
@@ -135,6 +163,9 @@ class AismePropertiesTest {
         props.setIdentityCoreSnapshotEpochs(0);
         props.setEventDensityThreshold(-0.1f);
         props.setEventDensitySamplingMinHz(-1.0f);
+        props.setBocpdHazardLambda(0.0f);
+        props.setBocpdChangePointThreshold(1.5f);
+        props.setBocpdMaxEpisodeFrames(0);
 
         assertThat(props.getGlobalWorkspaceCapacity()).isEqualTo(12);
         assertThat(props.getHopfieldTemperature()).isEqualTo(8.0f);
@@ -145,6 +176,9 @@ class AismePropertiesTest {
         assertThat(props.getIdentityCoreSnapshotEpochs()).isEqualTo(100);
         assertThat(props.getEventDensityThreshold()).isEqualTo(0.65f);
         assertThat(props.getEventDensitySamplingMinHz()).isEqualTo(0.5f);
+        assertThat(props.getBocpdHazardLambda()).isEqualTo(80.0f);
+        assertThat(props.getBocpdChangePointThreshold()).isEqualTo(0.75f);
+        assertThat(props.getBocpdMaxEpisodeFrames()).isEqualTo(300);
     }
 
     @Test
@@ -167,6 +201,12 @@ class AismePropertiesTest {
                 .override("spector.memory.aisme.event-density.gamma-surprise", "0.30")
                 .override("spector.memory.aisme.event-density.sampling-min-hz", "0.2")
                 .override("spector.memory.aisme.event-density.sampling-max-hz", "20.0")
+                .override("spector.memory.aisme.bocpd.enabled", "false")
+                .override("spector.memory.aisme.bocpd.hazard-lambda", "120.0")
+                .override("spector.memory.aisme.bocpd.change-point-threshold", "0.70")
+                .override("spector.memory.aisme.bocpd.surprisal-cut-threshold", "1.80")
+                .override("spector.memory.aisme.bocpd.max-episode-frames", "250")
+                .override("spector.memory.aisme.bocpd.max-run-length", "180")
                 .build();
 
         AismeProperties aisme = SpectorConfigFactory.aismeProperties(props);
@@ -190,6 +230,13 @@ class AismePropertiesTest {
         assertThat(aisme.getEventDensityGammaSurprise()).isEqualTo(0.30f);
         assertThat(aisme.getEventDensitySamplingMinHz()).isEqualTo(0.2f);
         assertThat(aisme.getEventDensitySamplingMaxHz()).isEqualTo(20.0f);
+
+        assertThat(aisme.isEnableBocpd()).isFalse();
+        assertThat(aisme.getBocpdHazardLambda()).isEqualTo(120.0f);
+        assertThat(aisme.getBocpdChangePointThreshold()).isEqualTo(0.70f);
+        assertThat(aisme.getBocpdSurprisalCutThreshold()).isEqualTo(1.80f);
+        assertThat(aisme.getBocpdMaxEpisodeFrames()).isEqualTo(250);
+        assertThat(aisme.getBocpdMaxRunLength()).isEqualTo(180);
 
         var memory = SpectorConfigFactory.memoryProperties(props);
         assertThat(memory.getAisme().isEnabled()).isTrue();

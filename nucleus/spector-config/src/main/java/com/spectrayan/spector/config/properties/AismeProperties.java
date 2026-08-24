@@ -78,6 +78,13 @@ public class AismeProperties implements Serializable {
     private float eventDensitySamplingMinHz = DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MIN_HZ;
     private float eventDensitySamplingMaxHz = DEFAULT_MEMORY_AISME_EVENT_DENSITY_SAMPLING_MAX_HZ;
 
+    private boolean enableBocpd = DEFAULT_MEMORY_AISME_BOCPD_ENABLED;
+    private float bocpdHazardLambda = DEFAULT_MEMORY_AISME_BOCPD_HAZARD_LAMBDA;
+    private float bocpdChangePointThreshold = DEFAULT_MEMORY_AISME_BOCPD_CHANGE_POINT_THRESHOLD;
+    private float bocpdSurprisalCutThreshold = DEFAULT_MEMORY_AISME_BOCPD_SURPRISAL_CUT_THRESHOLD;
+    private int bocpdMaxEpisodeFrames = DEFAULT_MEMORY_AISME_BOCPD_MAX_EPISODE_FRAMES;
+    private int bocpdMaxRunLength = DEFAULT_MEMORY_AISME_BOCPD_MAX_RUN_LENGTH;
+
     public AismeProperties() {}
 
     public boolean isEnabled() {
@@ -450,6 +457,64 @@ public class AismeProperties implements Serializable {
         }
     }
 
+    public boolean isEnableBocpd() {
+        return enableBocpd;
+    }
+
+    public void setEnableBocpd(boolean enableBocpd) {
+        this.enableBocpd = enableBocpd;
+    }
+
+    public float getBocpdHazardLambda() {
+        return bocpdHazardLambda;
+    }
+
+    public void setBocpdHazardLambda(float bocpdHazardLambda) {
+        if (!Float.isNaN(bocpdHazardLambda) && bocpdHazardLambda > 0.0f) {
+            this.bocpdHazardLambda = bocpdHazardLambda;
+        }
+    }
+
+    public float getBocpdChangePointThreshold() {
+        return bocpdChangePointThreshold;
+    }
+
+    public void setBocpdChangePointThreshold(float bocpdChangePointThreshold) {
+        if (!Float.isNaN(bocpdChangePointThreshold) && bocpdChangePointThreshold >= 0.0f && bocpdChangePointThreshold <= 1.0f) {
+            this.bocpdChangePointThreshold = bocpdChangePointThreshold;
+        }
+    }
+
+    public float getBocpdSurprisalCutThreshold() {
+        return bocpdSurprisalCutThreshold;
+    }
+
+    public void setBocpdSurprisalCutThreshold(float bocpdSurprisalCutThreshold) {
+        if (!Float.isNaN(bocpdSurprisalCutThreshold) && bocpdSurprisalCutThreshold >= 0.0f) {
+            this.bocpdSurprisalCutThreshold = bocpdSurprisalCutThreshold;
+        }
+    }
+
+    public int getBocpdMaxEpisodeFrames() {
+        return bocpdMaxEpisodeFrames;
+    }
+
+    public void setBocpdMaxEpisodeFrames(int bocpdMaxEpisodeFrames) {
+        if (bocpdMaxEpisodeFrames > 0) {
+            this.bocpdMaxEpisodeFrames = bocpdMaxEpisodeFrames;
+        }
+    }
+
+    public int getBocpdMaxRunLength() {
+        return bocpdMaxRunLength;
+    }
+
+    public void setBocpdMaxRunLength(int bocpdMaxRunLength) {
+        if (bocpdMaxRunLength > 0) {
+            this.bocpdMaxRunLength = bocpdMaxRunLength;
+        }
+    }
+
     // ── Fluent Accessors ──
 
     public boolean enabled() { return isEnabled(); }
@@ -492,4 +557,10 @@ public class AismeProperties implements Serializable {
     public float eventDensityGammaSurprise() { return getEventDensityGammaSurprise(); }
     public float eventDensitySamplingMinHz() { return getEventDensitySamplingMinHz(); }
     public float eventDensitySamplingMaxHz() { return getEventDensitySamplingMaxHz(); }
+    public boolean enableBocpd() { return isEnableBocpd(); }
+    public float bocpdHazardLambda() { return getBocpdHazardLambda(); }
+    public float bocpdChangePointThreshold() { return getBocpdChangePointThreshold(); }
+    public float bocpdSurprisalCutThreshold() { return getBocpdSurprisalCutThreshold(); }
+    public int bocpdMaxEpisodeFrames() { return getBocpdMaxEpisodeFrames(); }
+    public int bocpdMaxRunLength() { return getBocpdMaxRunLength(); }
 }
