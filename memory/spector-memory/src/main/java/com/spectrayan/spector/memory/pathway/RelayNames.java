@@ -81,4 +81,5 @@ public final class RelayNames {
     public static final String SURPRISAL_BOUNDARY_SEGMENTATION  = "surprisal_boundary_segmentation";
     public static final String EDGE_ANONYMIZATION               = "edge_anonymization";
     public static final String DIFFERENTIAL_PRIVACY             = "differential_privacy";
+    public static final String COMPOSITE_IMPORTANCE             = "composite_importance";
 }

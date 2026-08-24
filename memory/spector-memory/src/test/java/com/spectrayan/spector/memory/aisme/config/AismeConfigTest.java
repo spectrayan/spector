@@ -39,6 +39,7 @@ class AismeConfigTest {
         assertThat(config.enableEventDensity()).isFalse();
         assertThat(config.enableBocpd()).isFalse();
         assertThat(config.enablePrivacy()).isFalse();
+        assertThat(config.enableImportance()).isFalse();
     }
 
     @Test
@@ -76,6 +77,13 @@ class AismeConfigTest {
         assertThat(config.privacyClippingNorm()).isEqualTo(1.0f);
         assertThat(config.privacyAnonymizePii()).isTrue();
         assertThat(config.privacyPseudonymizationSalt()).isEqualTo("spector-privacy-salt");
+        assertThat(config.enableImportance()).isTrue();
+        assertThat(config.importanceWeightSurprise()).isEqualTo(0.20f);
+        assertThat(config.importanceWeightAffect()).isEqualTo(0.20f);
+        assertThat(config.importanceWeightGoal()).isEqualTo(0.20f);
+        assertThat(config.importanceWeightSocial()).isEqualTo(0.20f);
+        assertThat(config.importanceWeightNovelty()).isEqualTo(0.20f);
+        assertThat(config.importanceFlashbulbThreshold()).isEqualTo(0.85f);
     }
 
     @Test
@@ -111,6 +119,13 @@ class AismeConfigTest {
                 .privacyClippingNorm(2.0f)
                 .privacyAnonymizePii(false)
                 .privacyPseudonymizationSalt("custom-salt")
+                .enableImportance(false)
+                .importanceWeightSurprise(0.35f)
+                .importanceWeightAffect(0.05f)
+                .importanceWeightGoal(0.35f)
+                .importanceWeightSocial(0.10f)
+                .importanceWeightNovelty(0.15f)
+                .importanceFlashbulbThreshold(0.90f)
                 .build();
 
         assertThat(config.enabled()).isTrue();
@@ -138,6 +153,13 @@ class AismeConfigTest {
         assertThat(config.privacyClippingNorm()).isEqualTo(2.0f);
         assertThat(config.privacyAnonymizePii()).isFalse();
         assertThat(config.privacyPseudonymizationSalt()).isEqualTo("custom-salt");
+        assertThat(config.enableImportance()).isFalse();
+        assertThat(config.importanceWeightSurprise()).isEqualTo(0.35f);
+        assertThat(config.importanceWeightAffect()).isEqualTo(0.05f);
+        assertThat(config.importanceWeightGoal()).isEqualTo(0.35f);
+        assertThat(config.importanceWeightSocial()).isEqualTo(0.10f);
+        assertThat(config.importanceWeightNovelty()).isEqualTo(0.15f);
+        assertThat(config.importanceFlashbulbThreshold()).isEqualTo(0.90f);
     }
 
     @Test
@@ -195,6 +217,12 @@ class AismeConfigTest {
 
         assertThatThrownBy(() -> AismeConfig.builder().privacyPseudonymizationSalt(null).build())
                 .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().importanceWeightSurprise(-1.0f).build())
+                .isInstanceOf(SpectorValidationException.class);
+
+        assertThatThrownBy(() -> AismeConfig.builder().importanceFlashbulbThreshold(1.5f).build())
+                .isInstanceOf(SpectorValidationException.class);
     }
 
     @Test
@@ -230,6 +258,13 @@ class AismeConfigTest {
         props.setPrivacyClippingNorm(1.5f);
         props.setPrivacyAnonymizePii(false);
         props.setPrivacyPseudonymizationSalt("custom-salt");
+        props.setEnableImportance(false);
+        props.setImportanceWeightSurprise(0.30f);
+        props.setImportanceWeightAffect(0.10f);
+        props.setImportanceWeightGoal(0.30f);
+        props.setImportanceWeightSocial(0.15f);
+        props.setImportanceWeightNovelty(0.15f);
+        props.setImportanceFlashbulbThreshold(0.92f);
 
         AismeConfig config = AismeConfig.fromProperties(props);
 
@@ -258,6 +293,13 @@ class AismeConfigTest {
         assertThat(config.privacyClippingNorm()).isEqualTo(1.5f);
         assertThat(config.privacyAnonymizePii()).isFalse();
         assertThat(config.privacyPseudonymizationSalt()).isEqualTo("custom-salt");
+        assertThat(config.enableImportance()).isFalse();
+        assertThat(config.importanceWeightSurprise()).isEqualTo(0.30f);
+        assertThat(config.importanceWeightAffect()).isEqualTo(0.10f);
+        assertThat(config.importanceWeightGoal()).isEqualTo(0.30f);
+        assertThat(config.importanceWeightSocial()).isEqualTo(0.15f);
+        assertThat(config.importanceWeightNovelty()).isEqualTo(0.15f);
+        assertThat(config.importanceFlashbulbThreshold()).isEqualTo(0.92f);
 
         // Disabled or null props returns disabled config
         props.setEnabled(false);
