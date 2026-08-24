@@ -14,29 +14,29 @@ package com.spectrayan.spector.memory.temporal.index;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * An in-memory index for temporal range queries using a NavigableMap.
+ * A thread-safe in-memory index for temporal range queries using a ConcurrentNavigableMap.
  * 
  * Biological analog: Functioning like episodic memory timelines in the prefrontal cortex,
  * this index temporally orders facts, allowing the agent to retrieve facts valid at a specific
  * moment in time or during a specific timeframe.
- * 
- * NOTE: This structure is NOT thread-safe. Callers must synchronize externally.
  */
 public class ValidTimeIndex {
 
-    private final NavigableMap<Long, List<Long>> index;
-    private int totalFactsIndexed;
+    private final ConcurrentNavigableMap<Long, List<Long>> index;
+    private final AtomicInteger totalFactsIndexed;
 
     /**
      * Creates an empty valid time index.
      */
     public ValidTimeIndex() {
-        this.index = new TreeMap<>();
-        this.totalFactsIndexed = 0;
+        this.index = new ConcurrentSkipListMap<>();
+        this.totalFactsIndexed = new AtomicInteger(0);
     }
 
     /**
@@ -46,8 +46,8 @@ public class ValidTimeIndex {
      * @param factOffset The byte offset of the fact in the append memory log
      */
     public void add(long validFromMs, long factOffset) {
-        index.computeIfAbsent(validFromMs, k -> new ArrayList<>()).add(factOffset);
-        totalFactsIndexed++;
+        index.computeIfAbsent(validFromMs, k -> new CopyOnWriteArrayList<>()).add(factOffset);
+        totalFactsIndexed.incrementAndGet();
     }
 
     /**
@@ -85,7 +85,7 @@ public class ValidTimeIndex {
      * @return Total indexed offsets
      */
     public int totalFacts() {
-        return totalFactsIndexed;
+        return totalFactsIndexed.get();
     }
 
     /**
@@ -93,6 +93,6 @@ public class ValidTimeIndex {
      */
     public void clear() {
         index.clear();
-        totalFactsIndexed = 0;
+        totalFactsIndexed.set(0);
     }
 }
